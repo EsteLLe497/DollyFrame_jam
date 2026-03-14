@@ -147,6 +147,11 @@ int SpriteRenderComponent::GetTextureId() const
     return m_textureId;
 }
 
+void SpriteRenderComponent::SetTextureId(int textureId)
+{
+    m_textureId = textureId;
+}
+
 void PlayerControllerComponent::Update(float deltaTime)
 {
     auto* transform = m_owner ? m_owner->GetComponent<TransformComponent>() : nullptr;
