@@ -1,0 +1,152 @@
+{
+  "prefabs": {
+    "player": {
+      "tag": "Player",
+      "texture": "player",
+      "transform": {
+        "x": 400.0,
+        "y": 220.0,
+        "width": 256.0,
+        "height": 256.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+      },
+      "rigidBody": {
+        "enabled": true,
+        "type": "dynamic",
+        "fixedRotation": true,
+        "gravityScale": 0.0
+      },
+      "collider": {
+        "enabled": true,
+        "density": 1.0,
+        "friction": 0.2,
+        "isSensor": false
+      },
+      "controller": {
+        "player": true
+      },
+      "health": {
+        "enabled": true,
+        "maxHp": 3
+      },
+      "damageCooldown": {
+        "enabled": true,
+        "seconds": 1.0
+      }
+    },
+    "goal": {
+      "tag": "Goal",
+      "texture": "target",
+      "transform": {
+        "x": 980.0,
+        "y": 360.0,
+        "width": 192.0,
+        "height": 192.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+      },
+      "rigidBody": {
+        "enabled": true,
+        "type": "kinematic",
+        "fixedRotation": true,
+        "gravityScale": 0.0
+      },
+      "collider": {
+        "enabled": true,
+        "density": 1.0,
+        "friction": 0.2,
+        "isSensor": false
+      },
+      "controller": {
+        "player": false
+      }
+    },
+    "hazard": {
+      "tag": "Hazard",
+      "texture": "hazard",
+      "transform": {
+        "x": 620.0,
+        "y": 500.0,
+        "width": 240.0,
+        "height": 48.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+      },
+      "rigidBody": {
+        "enabled": true,
+        "type": "static",
+        "fixedRotation": true,
+        "gravityScale": 0.0
+      },
+      "collider": {
+        "enabled": true,
+        "density": 1.0,
+        "friction": 0.2,
+        "isSensor": true
+      },
+      "controller": {
+        "player": false
+      }
+    },
+    "enemy": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 760.0,
+        "y": 180.0,
+        "width": 144.0,
+        "height": 144.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+      },
+      "rigidBody": {
+        "enabled": true,
+        "type": "kinematic",
+        "fixedRotation": true,
+        "gravityScale": 0.0
+      },
+      "collider": {
+        "enabled": true,
+        "density": 1.0,
+        "friction": 0.2,
+        "isSensor": true
+      },
+      "controller": {
+        "player": false
+      },
+      "enemyMover": {
+        "enabled": true,
+        "originX": 760.0,
+        "originY": 180.0,
+        "amplitudeX": 180.0,
+        "amplitudeY": 70.0,
+        "frequency": 1.6
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+[2026-03-15 01:16:13.553] [info] Logger initialized
+[2026-03-15 01:16:13.553] [info] Application initialization started
+[2026-03-15 01:16:13.820] [info] Asset manifest loaded from JSON
+[2026-03-15 01:16:13.837] [info] TitleScene entered
+[2026-03-15 01:16:13.838] [info] Application initialization completed
+[2026-03-15 01:16:14.619] [info] Changing scene to game
+[2026-03-15 01:16:14.620] [info] Asset manifest loaded from JSON
+[2026-03-15 01:16:14.622] [info] TileMap loaded from CSV: assets/maps/side_scroll_stage01.csv (32x10, tileSize=48)
+[2026-03-15 01:16:14.622] [info] GameScene entered as side-scroll sample
+[2026-03-15 01:16:23.975] [info] Changing scene to result
+[2026-03-15 01:16:23.977] [info] Asset manifest loaded from JSON
+[2026-03-15 01:16:23.977] [info] ResultScene entered
+[2026-03-15 01:16:24.418] [info] Changing scene to title
+[2026-03-15 01:16:24.419] [info] Asset manifest loaded from JSON
+[2026-03-15 01:16:24.419] [info] TitleScene entered
+[2026-03-15 01:16:24.912] [info] Changing scene to game
+[2026-03-15 01:16:24.914] [info] Asset manifest loaded from JSON
+[2026-03-15 01:16:24.915] [info] TileMap loaded from CSV: assets/maps/side_scroll_stage01.csv (32x10, tileSize=48)
+[2026-03-15 01:16:24.915] [info] GameScene entered as side-scroll sample
+[2026-03-15 01:16:33.736] [info] Logger shutdown

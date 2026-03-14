@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{8F8C2B89-7B81-45B7-A9AC-486D8A5331CA}</ProjectGuid>
+    <RootNamespace>DirectXFoundation</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)build\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)build\obj\$(Configuration)\</IntDir>
+    <TargetName>DirectXFoundation</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;TRACY_ENABLE;TRACY_NO_SYSTEM_TRACING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\imgui\backends;$(ProjectDir)third_party\tracy\public;$(ProjectDir)third_party\json\single_include;$(ProjectDir)third_party\spdlog\include;$(ProjectDir)third_party\sol2\include;$(ProjectDir)third_party\lua54;$(ProjectDir)third_party\box2d\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;TRACY_ENABLE;TRACY_NO_SYSTEM_TRACING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\imgui\backends;$(ProjectDir)third_party\tracy\public;$(ProjectDir)third_party\json\single_include;$(ProjectDir)third_party\spdlog\include;$(ProjectDir)third_party\sol2\include;$(ProjectDir)third_party\lua54;$(ProjectDir)third_party\box2d\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(ProjectDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="audio.cpp" />
+    <ClCompile Include="application.cpp" />
+    <ClCompile Include="asset_manifest.cpp" />
+    <ClCompile Include="collision.cpp" />
+    <ClCompile Include="component.cpp" />
+    <ClCompile Include="components.cpp" />
+    <ClCompile Include="demo_scene.cpp" />
+    <ClCompile Include="directX.cpp" />
+    <ClCompile Include="entity.cpp" />
+    <ClCompile Include="event_bus.cpp" />
+    <ClCompile Include="game_scene.cpp" />
+    <ClCompile Include="game_session.cpp" />
+    <ClCompile Include="imgui_layer.cpp" />
+    <ClCompile Include="input.cpp" />
+    <ClCompile Include="logger.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="prefab_factory.cpp" />
+    <ClCompile Include="physics_world.cpp">
+      <ObjectFileName>$(IntDir)foundation_physics_world.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="shader.cpp" />
+    <ClCompile Include="sprite.cpp" />
+    <ClCompile Include="resource_manager.cpp" />
+    <ClCompile Include="result_scene.cpp" />
+    <ClCompile Include="script_engine.cpp" />
+    <ClCompile Include="scene_manager.cpp" />
+    <ClCompile Include="scene_registry.cpp" />
+    <ClCompile Include="shader_showcase_scene.cpp" />
+    <ClCompile Include="tile_map.cpp" />
+    <ClCompile Include="texture.cpp" />
+    <ClCompile Include="title_scene.cpp" />
+    <ClCompile Include="third_party\imgui\imgui.cpp" />
+    <ClCompile Include="third_party\imgui\imgui_demo.cpp" />
+    <ClCompile Include="third_party\imgui\imgui_draw.cpp" />
+    <ClCompile Include="third_party\imgui\imgui_tables.cpp" />
+    <ClCompile Include="third_party\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_dx11.cpp" />
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_win32.cpp" />
+    <ClCompile Include="third_party\lua54\onelua.c" />
+    <ClCompile Include="third_party\box2d\src\*.c">
+      <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="third_party\tracy\public\TracyClient.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="audio.h" />
+    <ClInclude Include="application.h" />
+    <ClInclude Include="asset_manifest.h" />
+    <ClInclude Include="collision.h" />
+    <ClInclude Include="component.h" />
+    <ClInclude Include="components.h" />
+    <ClInclude Include="demo_scene.h" />
+    <ClInclude Include="directX.h" />
+    <ClInclude Include="DirectXTex.h" />
+    <ClInclude Include="entity.h" />
+    <ClInclude Include="event_bus.h" />
+    <ClInclude Include="game_scene.h" />
+    <ClInclude Include="game_session.h" />
+    <ClInclude Include="imgui_layer.h" />
+    <ClInclude Include="input.h" />
+    <ClInclude Include="logger.h" />
+    <ClInclude Include="prefab_factory.h" />
+    <ClInclude Include="physics_world.h" />
+    <ClInclude Include="resource_manager.h" />
+    <ClInclude Include="result_scene.h" />
+    <ClInclude Include="script_engine.h" />
+    <ClInclude Include="shader.h" />
+    <ClInclude Include="scene.h" />
+    <ClInclude Include="scene_manager.h" />
+    <ClInclude Include="scene_registry.h" />
+    <ClInclude Include="sprite.h" />
+    <ClInclude Include="shader_showcase_scene.h" />
+    <ClInclude Include="tile_map.h" />
+    <ClInclude Include="texture.h" />
+    <ClInclude Include="title_scene.h" />
+    <ClInclude Include="third_party\imgui\imgui.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaderPixel2D_ChromaticAberration.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_ChromaticAberration.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Distortion.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Distortion.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Dissolve.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Dissolve.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Flash.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Flash.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Glitch.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Glitch.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_GradientMap.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_GradientMap.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_HeatOverlay.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_HeatOverlay.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_MaskClip.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_MaskClip.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Grayscale.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Grayscale.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Normal.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Normal.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_NormalMapLighting.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_NormalMapLighting.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Outline.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Outline.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Parallax.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Parallax.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_PaletteSwap.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_PaletteSwap.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Pixelate.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Pixelate.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Posterize.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Posterize.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_RimLight.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_RimLight.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_NoiseReveal.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_NoiseReveal.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_UVScroll.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_UVScroll.cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaderPixel2D_Wave.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Wave.cso</ObjectFileOutput>
+    </FxCompile>
+    <None Include="shaderPixel2D.cso" />
+    <None Include="shaderPixel2D.hlsl" />
+    <None Include="shaderVertex2D.cso" />
+    <None Include="shaderVertex2D.hlsl" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

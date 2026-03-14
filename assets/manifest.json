@@ -1,0 +1,42 @@
+{
+  "textures": {
+    "white": {
+      "type": "solid",
+      "width": 1,
+      "height": 1,
+      "rgba": "FFFFFFFF"
+    },
+    "player": {
+      "type": "checkerboard",
+      "width": 256,
+      "height": 256,
+      "rgbaA": "FF4EC9B0",
+      "rgbaB": "FF1B3340",
+      "cellSize": 32
+    },
+    "target": {
+      "type": "checkerboard",
+      "width": 192,
+      "height": 192,
+      "rgbaA": "FFE08A2E",
+      "rgbaB": "FF5A2615",
+      "cellSize": 24
+    },
+    "hazard": {
+      "type": "checkerboard",
+      "width": 128,
+      "height": 128,
+      "rgbaA": "FFE33F33",
+      "rgbaB": "FF4E0A07",
+      "cellSize": 16
+    },
+    "enemy": {
+      "type": "checkerboard",
+      "width": 144,
+      "height": 144,
+      "rgbaA": "FF7E63E6",
+      "rgbaB": "FF1D143A",
+      "cellSize": 18
+    }
+  }
+}
