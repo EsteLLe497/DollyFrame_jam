@@ -80,6 +80,7 @@ public:
 
     void Draw() override;
     int GetTextureId() const;
+    void SetTextureId(int textureId);
 
 private:
     int m_textureId;

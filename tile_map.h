@@ -11,7 +11,7 @@ public:
     bool LoadFromCsv(const std::string& path, float tileSize);
     void Clear();
 
-    void Draw(int textureId, float originX, float originY) const;
+    void Draw(int textureId, float originX, float originY, float scale = 1.0f) const;
 
     int GetWidth() const;
     int GetHeight() const;

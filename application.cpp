@@ -294,23 +294,27 @@ HWND Application::CreateAppWindow(HINSTANCE instance, int nCmdShow)
     wcex.lpszClassName = WINDOW_CLASS;
     RegisterClassExA(&wcex);
 
-    RECT windowRect{ 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
-    AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
+    MONITORINFO monitorInfo{};
+    monitorInfo.cbSize = sizeof(monitorInfo);
+    GetMonitorInfoA(MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY), &monitorInfo);
+    const RECT& monitorRect = monitorInfo.rcMonitor;
+
+    const DWORD windowStyle = WS_POPUP | WS_VISIBLE;
 
     HWND hWnd = CreateWindowA(
         WINDOW_CLASS,
         WINDOW_TITLE,
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        windowRect.right - windowRect.left,
-        windowRect.bottom - windowRect.top,
+        windowStyle,
+        monitorRect.left,
+        monitorRect.top,
+        monitorRect.right - monitorRect.left,
+        monitorRect.bottom - monitorRect.top,
         nullptr,
         nullptr,
         instance,
         this);
 
-    ShowWindow(hWnd, nCmdShow);
+    ShowWindow(hWnd, nCmdShow == SW_SHOWMINIMIZED ? SW_SHOWMINIMIZED : SW_SHOWMAXIMIZED);
     return hWnd;
 }
 
