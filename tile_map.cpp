@@ -119,7 +119,7 @@ void TileMap::Clear()
     m_tileSize = 0.0f;
 }
 
-void TileMap::Draw(int textureId, float originX, float originY) const
+void TileMap::Draw(int textureId, float originX, float originY, float scale) const
 {
     if (textureId < 0 || m_tiles.empty() || m_width <= 0 || m_height <= 0)
     {
@@ -145,10 +145,10 @@ void TileMap::Draw(int textureId, float originX, float originY) const
             Shader_SetTint(r, g, b, a);
             SpriteDraw(
                 textureId,
-                originX + static_cast<float>(column) * m_tileSize,
-                originY + static_cast<float>(row) * m_tileSize,
-                m_tileSize,
-                m_tileSize,
+                originX + static_cast<float>(column) * m_tileSize * scale,
+                originY + static_cast<float>(row) * m_tileSize * scale,
+                m_tileSize * scale,
+                m_tileSize * scale,
                 0.0f,
                 0.0f,
                 1.0f,
