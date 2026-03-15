@@ -133,6 +133,8 @@ void ShaderShowcaseScene::DrawDebugUI()
     {
         ImGui::Text("Rim Light / Gradient Map / Noise Reveal / Heat Overlay / Parallax / Normal Map");
     }
+    ImGui::Separator();
+    ImGui::Text("Status legend: Supported / Approximate / Unsupported");
     ImGui::End();
 }
 
@@ -304,9 +306,56 @@ void ShaderShowcaseScene::DrawPanelLabel(float x, float y, float size, int label
     }
 }
 
+void ShaderShowcaseScene::DrawSupportBadge(float x, float y, float size, ShaderEffect2D effect) const
+{
+    const ShaderSupportLevel support = Shader_GetEffectSupport(effect);
+
+    float r = 0.24f;
+    float g = 0.84f;
+    float b = 0.42f;
+    if (support == ShaderSupportLevel::Approximate)
+    {
+        r = 0.95f;
+        g = 0.76f;
+        b = 0.20f;
+    }
+    else if (support == ShaderSupportLevel::Unsupported)
+    {
+        r = 0.96f;
+        g = 0.30f;
+        b = 0.28f;
+    }
+
+    const float badgeW = 38.0f;
+    const float badgeH = 14.0f;
+    const float badgeX = x + size - badgeW - 10.0f;
+    const float badgeY = y + 10.0f;
+
+    Shader_ResetStyle();
+    Shader_SetTint(0.05f, 0.08f, 0.12f, 0.90f);
+    SpriteDraw(m_whiteTexture, badgeX, badgeY, badgeW, badgeH, 0.0f, 0.0f, 1.0f, 1.0f);
+    Shader_SetTint(r, g, b, 1.0f);
+
+    if (support == ShaderSupportLevel::Supported)
+    {
+        SpriteDraw(m_whiteTexture, badgeX + 6.0f, badgeY + 4.0f, 8.0f, 4.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.75f);
+        SpriteDraw(m_whiteTexture, badgeX + 11.0f, badgeY + 2.0f, 16.0f, 4.0f, 0.0f, 0.0f, 1.0f, 1.0f, -0.78f);
+    }
+    else if (support == ShaderSupportLevel::Approximate)
+    {
+        SpriteDraw(m_whiteTexture, badgeX + 7.0f, badgeY + 5.0f, 24.0f, 4.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
+    else
+    {
+        SpriteDraw(m_whiteTexture, badgeX + 8.0f, badgeY + 5.0f, 20.0f, 4.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.75f);
+        SpriteDraw(m_whiteTexture, badgeX + 8.0f, badgeY + 5.0f, 20.0f, 4.0f, 0.0f, 0.0f, 1.0f, 1.0f, -0.75f);
+    }
+}
+
 void ShaderShowcaseScene::DrawNormalPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Normal);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_blockTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, m_time * 0.25f);
     DrawLabelBar(x, y, size, 0.95f, 0.50f, 0.22f);
@@ -316,6 +365,7 @@ void ShaderShowcaseScene::DrawNormalPanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawGrayscalePanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Grayscale);
     Shader_SetEffect(ShaderEffect2D::Grayscale);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_blockTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, -m_time * 0.3f);
@@ -326,6 +376,7 @@ void ShaderShowcaseScene::DrawGrayscalePanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawOutlinePanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Outline);
     Shader_SetTint(0.18f, 0.40f, 0.66f, 0.35f);
     SpriteDraw(m_burstTexture, x + 12.0f, y + 12.0f, size - 24.0f, size - 24.0f, 0.0f, 0.0f, 1.0f, 1.0f, -m_time * 0.3f);
     Shader_SetOutline(1.0f, 0.82f, 0.24f, 1.0f, 3.0f);
@@ -343,6 +394,7 @@ void ShaderShowcaseScene::DrawAdditivePanel(float x, float y, float size) const
     const float glowOffset = 26.0f - (glowSize - (size - 52.0f)) * 0.5f;
 
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Normal);
     Shader_SetTint(0.88f, 0.92f, 1.0f, 0.75f);
     SpriteDraw(m_blockTexture, x + 26.0f, y + 26.0f, size - 52.0f, size - 52.0f, 0.0f, 0.0f, 1.0f, 1.0f, m_time * 0.15f);
     Shader_SetBlendMode(ShaderBlendMode2D::Additive);
@@ -358,6 +410,7 @@ void ShaderShowcaseScene::DrawFlashPanel(float x, float y, float size) const
 {
     const float flash = 0.35f + 0.65f * std::fabs(std::sinf(m_time * 5.0f));
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Flash);
     Shader_SetFlash(1.0f, 0.92f, 0.72f, 1.0f, flash);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_blockTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, -m_time * 0.4f);
@@ -368,6 +421,7 @@ void ShaderShowcaseScene::DrawFlashPanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawUVScrollPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::UVScroll);
     Shader_SetUVScroll(m_time * 0.28f, -m_time * 0.16f);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_thunderTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 2.2f, 2.2f, 0.0f);
@@ -379,6 +433,7 @@ void ShaderShowcaseScene::DrawDissolvePanel(float x, float y, float size) const
 {
     const float threshold = 0.1f + 0.75f * (0.5f + 0.5f * std::sinf(m_time * 0.9f));
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Dissolve);
     Shader_SetDissolve(threshold, 0.16f, 1.0f, 0.45f, 0.12f, 1.0f);
     Shader_SetTint(0.95f, 0.95f, 1.0f, 1.0f);
     SpriteDraw(m_particleTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, m_time * 0.25f);
@@ -390,6 +445,7 @@ void ShaderShowcaseScene::DrawMaskClipPanel(float x, float y, float size) const
 {
     const float threshold = 0.15f + 0.65f * (0.5f + 0.5f * std::sinf(m_time * 1.1f));
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::MaskClip);
     Shader_SetMaskClip(threshold, 0.15f);
     Shader_SetTint(0.92f, 0.96f, 1.0f, 1.0f);
     SpriteDraw(m_cloudTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f);
@@ -400,6 +456,7 @@ void ShaderShowcaseScene::DrawMaskClipPanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawDistortionPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Distortion);
     Shader_SetDistortion(0.018f, 0.014f, m_time, 0.65f);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_windTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.4f, 1.4f, 0.0f);
@@ -410,6 +467,7 @@ void ShaderShowcaseScene::DrawDistortionPanel(float x, float y, float size) cons
 void ShaderShowcaseScene::DrawPaletteSwapPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::PaletteSwap);
     Shader_SetPaletteSwap(1.0f, 1.0f, 1.0f, 1.0f, 0.15f, 0.92f, 0.36f, 1.0f, 0.45f);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_ringTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, m_time * 0.4f);
@@ -420,6 +478,7 @@ void ShaderShowcaseScene::DrawPaletteSwapPanel(float x, float y, float size) con
 void ShaderShowcaseScene::DrawPosterizePanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Posterize);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 0.95f);
     SpriteDraw(m_burstTexture, x + 14.0f, y + 18.0f, (size - 34.0f) * 0.5f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, m_time * 0.18f);
     Shader_SetTint(0.18f, 0.22f, 0.30f, 1.0f);
@@ -438,6 +497,7 @@ void ShaderShowcaseScene::DrawPosterizePanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawChromaticAberrationPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::ChromaticAberration);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_titleTexture, x + 12.0f, y + 32.0f, (size - 30.0f) * 0.5f, 42.0f, 0.0f, 0.0f, 1.0f, 1.0f);
     SpriteDraw(m_blockTexture, x + 24.0f, y + 84.0f, (size - 54.0f) * 0.5f, 42.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.15f);
@@ -455,6 +515,7 @@ void ShaderShowcaseScene::DrawChromaticAberrationPanel(float x, float y, float s
 void ShaderShowcaseScene::DrawGlitchPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Glitch);
     Shader_SetGlitch(0.024f, m_time, 0.55f);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_blockTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f);
@@ -465,6 +526,7 @@ void ShaderShowcaseScene::DrawGlitchPanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawPixelatePanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Pixelate);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_titleTexture, x + 12.0f, y + 32.0f, (size - 30.0f) * 0.5f, 42.0f, 0.0f, 0.0f, 1.0f, 1.0f);
     SpriteDraw(m_blockTexture, x + 20.0f, y + 84.0f, (size - 46.0f) * 0.5f, 42.0f, 0.0f, 0.0f, 2.0f, 2.0f, 0.0f);
@@ -482,6 +544,7 @@ void ShaderShowcaseScene::DrawPixelatePanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawWavePanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Wave);
     Shader_SetWave(0.015f, 0.010f, 20.0f, m_time);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_laserTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.4f, 1.4f, 0.0f);
@@ -492,6 +555,7 @@ void ShaderShowcaseScene::DrawWavePanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawRimLightPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::RimLight);
     Shader_SetRimLight(1.0f, 0.86f, 0.24f, 1.0f, 2.5f);
     Shader_SetTint(0.94f, 0.96f, 1.0f, 1.0f);
     SpriteDraw(m_ringTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, m_time * 0.35f);
@@ -502,6 +566,7 @@ void ShaderShowcaseScene::DrawRimLightPanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawGradientMapPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::GradientMap);
     Shader_SetGradientMap(0.10f, 0.14f, 0.45f, 1.0f, 1.0f, 0.70f, 0.16f, 1.0f, 1.35f);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_blockTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, m_time * 0.25f);
@@ -513,6 +578,7 @@ void ShaderShowcaseScene::DrawNoiseRevealPanel(float x, float y, float size) con
 {
     const float threshold = 0.08f + 0.78f * (0.5f + 0.5f * std::sinf(m_time * 0.85f));
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::NoiseReveal);
     Shader_SetNoiseReveal(threshold, 0.18f, m_time * 12.0f, 0.22f, 1.0f, 0.68f, 1.0f);
     Shader_SetTint(0.92f, 0.98f, 1.0f, 1.0f);
     SpriteDraw(m_particleTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f);
@@ -523,6 +589,7 @@ void ShaderShowcaseScene::DrawNoiseRevealPanel(float x, float y, float size) con
 void ShaderShowcaseScene::DrawHeatOverlayPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::HeatOverlay);
     Shader_SetHeatOverlay(0.9f, m_time);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_blockTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f);
@@ -533,6 +600,7 @@ void ShaderShowcaseScene::DrawHeatOverlayPanel(float x, float y, float size) con
 void ShaderShowcaseScene::DrawParallaxPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::Parallax);
     Shader_SetParallax(0.10f, 0.32f, 0.56f, m_time);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     SpriteDraw(m_cloudTexture, x + 18.0f, y + 18.0f, size - 36.0f, size - 36.0f, 0.0f, 0.0f, 1.5f, 1.5f, 0.0f);
@@ -543,6 +611,7 @@ void ShaderShowcaseScene::DrawParallaxPanel(float x, float y, float size) const
 void ShaderShowcaseScene::DrawNormalMapLightingPanel(float x, float y, float size) const
 {
     DrawPanelFrame(x, y, size);
+    DrawSupportBadge(x, y, size, ShaderEffect2D::NormalMapLighting);
     Shader_SetAuxTexture(m_normalTexture);
     Shader_SetNormalMapLighting(-0.45f, -0.55f, 0.70f, 0.30f, 1.10f);
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);

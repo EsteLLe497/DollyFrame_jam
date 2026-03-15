@@ -68,10 +68,11 @@
 .vs/
 x64/
 x86/
-base/        # ← bade → base に修正
+base/
 Debug/
 Release/
 ipch/
+build/
 
 ############################################
 # Visual Studio intermediate files

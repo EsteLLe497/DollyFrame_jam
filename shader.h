@@ -1,8 +1,5 @@
 #pragma once
 
-#include <d3d11.h>
-#include <DirectXMath.h>
-
 enum class ShaderEffect2D
 {
     Normal,
@@ -33,9 +30,16 @@ enum class ShaderBlendMode2D
     Additive,
 };
 
-bool Shader_Initialize(ID3D11Device* pDevice, ID3D11DeviceContext* pContext);
+enum class ShaderSupportLevel
+{
+    Supported,
+    Approximate,
+    Unsupported,
+};
+
+bool Shader_Initialize(void* pDevice, void* pContext);
 void Shader_Finalize();
-void Shader_SetMatrix(const DirectX::XMMATRIX& matrix);
+void Shader_SetMatrix(const void* matrix);
 void Shader_Begin();
 void Shader_SetTint(float r, float g, float b, float a);
 void Shader_SetEffect(ShaderEffect2D effect);
@@ -68,3 +72,11 @@ void Shader_SetAuxTexture(int textureID);
 void Shader_BindSpriteTextures(int primaryTextureID);
 void Shader_SetTextureSize(float width, float height);
 void Shader_ResetStyle();
+ShaderEffect2D Shader_GetCurrentEffect();
+ShaderBlendMode2D Shader_GetCurrentBlendMode();
+void Shader_GetTintBytes(int& r, int& g, int& b, int& a);
+void Shader_GetUVScroll(float& scrollU, float& scrollV);
+void Shader_GetDistortion(float& strengthU, float& strengthV, float& time, float& tintStrength);
+void Shader_GetParallax(float& backSpeed, float& frontSpeed, float& mixRatio, float& time);
+ShaderSupportLevel Shader_GetEffectSupport(ShaderEffect2D effect);
+const char* Shader_GetEffectSupportText(ShaderEffect2D effect);

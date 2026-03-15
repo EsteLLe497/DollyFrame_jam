@@ -1,18 +1,46 @@
 #include "input.h"
 
-#include <Xinput.h>
-
-#pragma comment(lib, "xinput.lib")
+#include "DxLib.h"
 
 namespace
 {
-    XINPUT_STATE g_state{};
-    XINPUT_STATE g_prevState{};
-    SHORT g_keyState[256]{};
-    SHORT g_prevKeyState[256]{};
+    DxLib::XINPUT_STATE g_state{};
+    DxLib::XINPUT_STATE g_prevState{};
+    bool g_keyState[256]{};
+    bool g_prevKeyState[256]{};
+    int g_mouseButtons = 0;
+    int g_prevMouseButtons = 0;
     bool g_connected = false;
 
-    float NormalizeThumb(SHORT value, SHORT deadZone)
+    int ToDxKey(int virtualKey)
+    {
+        switch (virtualKey)
+        {
+        case 'A': return KEY_INPUT_A;
+        case 'D': return KEY_INPUT_D;
+        case 'E': return KEY_INPUT_E;
+        case 'Q': return KEY_INPUT_Q;
+        case 'R': return KEY_INPUT_R;
+        case 'S': return KEY_INPUT_S;
+        case 'T': return KEY_INPUT_T;
+        case 'W': return KEY_INPUT_W;
+        case 'X': return KEY_INPUT_X;
+        case 'Z': return KEY_INPUT_Z;
+        case VK_LEFT: return KEY_INPUT_LEFT;
+        case VK_RIGHT: return KEY_INPUT_RIGHT;
+        case VK_UP: return KEY_INPUT_UP;
+        case VK_DOWN: return KEY_INPUT_DOWN;
+        case VK_SPACE: return KEY_INPUT_SPACE;
+        case VK_RETURN: return KEY_INPUT_RETURN;
+        case VK_ESCAPE: return KEY_INPUT_ESCAPE;
+        default: return -1;
+        }
+    }
+
+    constexpr short kThumbDeadZone = 7849;
+    constexpr unsigned char kTriggerThreshold = 30;
+
+    float NormalizeThumb(short value, short deadZone)
     {
         if (value > deadZone)
         {
@@ -25,14 +53,14 @@ namespace
         return 0.0f;
     }
 
-    float NormalizeTrigger(BYTE value)
+    float NormalizeTrigger(unsigned char value)
     {
-        if (value <= XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
+        if (value <= kTriggerThreshold)
         {
             return 0.0f;
         }
-        return static_cast<float>(value - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) /
-            static_cast<float>(255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
+        return static_cast<float>(value - kTriggerThreshold) /
+            static_cast<float>(255 - kTriggerThreshold);
     }
 }
 
@@ -42,6 +70,8 @@ bool Input_Initialize()
     ZeroMemory(&g_prevState, sizeof(g_prevState));
     ZeroMemory(g_keyState, sizeof(g_keyState));
     ZeroMemory(g_prevKeyState, sizeof(g_prevKeyState));
+    g_mouseButtons = 0;
+    g_prevMouseButtons = 0;
     g_connected = false;
     return true;
 }
@@ -49,33 +79,59 @@ bool Input_Initialize()
 void Input_Update()
 {
     g_prevState = g_state;
-    CopyMemory(g_prevKeyState, g_keyState, sizeof(g_keyState));
     for (int key = 0; key < 256; ++key)
     {
-        g_keyState[key] = GetAsyncKeyState(key);
+        g_prevKeyState[key] = g_keyState[key];
+        const int dxKey = ToDxKey(key);
+        g_keyState[key] = dxKey >= 0 && CheckHitKey(dxKey) != 0;
     }
+
+    g_prevMouseButtons = g_mouseButtons;
+    g_mouseButtons = GetMouseInput();
+
     ZeroMemory(&g_state, sizeof(g_state));
-    g_connected = (XInputGetState(0, &g_state) == ERROR_SUCCESS);
+    g_connected = GetJoypadXInputState(DX_INPUT_PAD1, &g_state) == 0;
 }
 
 bool Input_IsKeyDown(int virtualKey)
 {
+    if (virtualKey == VK_LBUTTON)
+    {
+        return (g_mouseButtons & MOUSE_INPUT_LEFT) != 0;
+    }
+    if (virtualKey == VK_RBUTTON)
+    {
+        return (g_mouseButtons & MOUSE_INPUT_RIGHT) != 0;
+    }
+
     return virtualKey >= 0 &&
         virtualKey < 256 &&
-        (g_keyState[virtualKey] & 0x8000) != 0;
+        g_keyState[virtualKey];
 }
 
 bool Input_IsKeyPressed(int virtualKey)
 {
+    if (virtualKey == VK_LBUTTON)
+    {
+        return (g_mouseButtons & MOUSE_INPUT_LEFT) != 0 &&
+            (g_prevMouseButtons & MOUSE_INPUT_LEFT) == 0;
+    }
+    if (virtualKey == VK_RBUTTON)
+    {
+        return (g_mouseButtons & MOUSE_INPUT_RIGHT) != 0 &&
+            (g_prevMouseButtons & MOUSE_INPUT_RIGHT) == 0;
+    }
+
     return virtualKey >= 0 &&
         virtualKey < 256 &&
-        (g_keyState[virtualKey] & 0x8000) != 0 &&
-        (g_prevKeyState[virtualKey] & 0x8000) == 0;
+        g_keyState[virtualKey] &&
+        !g_prevKeyState[virtualKey];
 }
 
 bool Input_IsMouseLeftPressed()
 {
-    return Input_IsKeyPressed(VK_LBUTTON);
+    return (g_mouseButtons & MOUSE_INPUT_LEFT) != 0 &&
+        (g_prevMouseButtons & MOUSE_INPUT_LEFT) == 0;
 }
 
 bool Input_IsGamepadConnected()
@@ -85,12 +141,12 @@ bool Input_IsGamepadConnected()
 
 float Input_GetMoveX()
 {
-    return g_connected ? NormalizeThumb(g_state.Gamepad.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) : 0.0f;
+    return g_connected ? NormalizeThumb(g_state.ThumbLX, kThumbDeadZone) : 0.0f;
 }
 
 float Input_GetMoveY()
 {
-    return g_connected ? -NormalizeThumb(g_state.Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) : 0.0f;
+    return g_connected ? -NormalizeThumb(g_state.ThumbLY, kThumbDeadZone) : 0.0f;
 }
 
 float Input_GetRotateAxis()
@@ -99,7 +155,7 @@ float Input_GetRotateAxis()
     {
         return 0.0f;
     }
-    return NormalizeTrigger(g_state.Gamepad.bRightTrigger) - NormalizeTrigger(g_state.Gamepad.bLeftTrigger);
+    return NormalizeTrigger(g_state.RightTrigger) - NormalizeTrigger(g_state.LeftTrigger);
 }
 
 bool Input_IsSouthButtonPressed()
@@ -109,7 +165,21 @@ bool Input_IsSouthButtonPressed()
         return false;
     }
 
-    const WORD current = g_state.Gamepad.wButtons;
-    const WORD previous = g_prevState.Gamepad.wButtons;
-    return (current & XINPUT_GAMEPAD_A) != 0 && (previous & XINPUT_GAMEPAD_A) == 0;
+    return g_state.Buttons[XINPUT_BUTTON_A] != 0 && g_prevState.Buttons[XINPUT_BUTTON_A] == 0;
+}
+
+int Input_GetMouseX()
+{
+    int x = 0;
+    int y = 0;
+    GetMousePoint(&x, &y);
+    return x;
+}
+
+int Input_GetMouseY()
+{
+    int x = 0;
+    int y = 0;
+    GetMousePoint(&x, &y);
+    return y;
 }

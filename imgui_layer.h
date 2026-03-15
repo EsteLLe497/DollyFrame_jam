@@ -2,10 +2,7 @@
 
 #include <windows.h>
 
-struct ID3D11Device;
-struct ID3D11DeviceContext;
-
-bool ImGuiLayer_Initialize(HWND hWnd, ID3D11Device* device, ID3D11DeviceContext* context);
+bool ImGuiLayer_Initialize(HWND hWnd, void* device, void* context);
 void ImGuiLayer_Shutdown();
 void ImGuiLayer_BeginFrame();
 void ImGuiLayer_EndFrame();

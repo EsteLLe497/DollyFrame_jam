@@ -4,7 +4,7 @@
 
 ResourceManager::ResourceManager() = default;
 
-void ResourceManager::Initialize(ID3D11Device* device)
+void ResourceManager::Initialize(void* device)
 {
     TextureInitialize(device);
     m_textureCache.clear();

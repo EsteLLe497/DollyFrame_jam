@@ -1,14 +1,9 @@
 #ifndef DIRECTX_H
 #define DIRECTX_H
 
-#define NOMINMAX
 #include <windows.h>
-#include <d3d11.h>
-#include <DirectXMath.h>
-#include <dxgi.h>
 
-IDXGISwapChain* DirectXGetSwapChain(void);
-using namespace DirectX;
+void* DirectXGetSwapChain(void);
 
 enum class BlendMode2D
 {
@@ -16,14 +11,12 @@ enum class BlendMode2D
     Additive,
 };
 
-#define SAFE_RELEASE(o) if(o){(o)->Release(); o = NULL;}
-
 void DirectXInitialize(HWND hWnd);
 void DirectXFinalaize(void);
 void DirectXResize(int width, int height);
 
-ID3D11Device* DirectXGetDevice(void);
-ID3D11DeviceContext* DirectXGetDeviceContext(void);
+void* DirectXGetDevice(void);
+void* DirectXGetDeviceContext(void);
 
 void Clear(void);
 void Present(void);

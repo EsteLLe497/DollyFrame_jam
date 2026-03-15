@@ -1,15 +1,7 @@
 #pragma once
 
-#include <d3d11.h>
-#include <DirectXMath.h>
 #include <string>
 #include <unordered_map>
-
-struct SpriteVertex
-{
-    DirectX::XMFLOAT3 position;
-    DirectX::XMFLOAT2 texcoord;
-};
 
 void SpriteInitialize(void);
 void SpriteFinalize(void);

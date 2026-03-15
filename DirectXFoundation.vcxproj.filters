@@ -13,216 +13,264 @@
       <UniqueIdentifier>{2C75A4F6-8D6A-4FB7-9B22-7748A65BEEA0}</UniqueIdentifier>
       <Extensions>hlsl;cso</Extensions>
     </Filter>
+    <Filter Include="Source Files\App">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A001}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Scene System">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Scenes">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Gameplay">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A004}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Rendering">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A005}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Platform">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A006}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Third Party">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A007}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\App">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A008}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Scene System">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A009}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Scenes">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Gameplay">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Rendering">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Platform">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Third Party">
+      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00E}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="audio.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Platform</Filter>
     </ClCompile>
     <ClCompile Include="application.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="asset_manifest.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="collision.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="component.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="components.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="demo_scene.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scenes</Filter>
     </ClCompile>
     <ClCompile Include="directX.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="entity.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="event_bus.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="game_scene.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="game_scene_collision.cpp">
+      <Filter>Source Files\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="game_scene_gameplay.cpp">
+      <Filter>Source Files\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="game_scene_render.cpp">
+      <Filter>Source Files\Scenes</Filter>
     </ClCompile>
     <ClCompile Include="game_session.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="imgui_layer.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="input.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Platform</Filter>
     </ClCompile>
     <ClCompile Include="logger.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="physics_world.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="prefab_factory.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="resource_manager.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="result_scene.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scenes</Filter>
     </ClCompile>
     <ClCompile Include="scene_manager.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scene System</Filter>
     </ClCompile>
     <ClCompile Include="scene_registry.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scene System</Filter>
     </ClCompile>
     <ClCompile Include="shader_showcase_scene.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scenes</Filter>
     </ClCompile>
     <ClCompile Include="tile_map.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="script_engine.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="shader.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="sprite.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="texture.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="title_scene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="third_party\imgui\backends\imgui_impl_dx11.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="third_party\imgui\backends\imgui_impl_win32.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scenes</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Third Party</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui_demo.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Third Party</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui_draw.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Third Party</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui_tables.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Third Party</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui_widgets.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Third Party</Filter>
     </ClCompile>
     <ClCompile Include="third_party\lua54\onelua.c">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Third Party</Filter>
     </ClCompile>
     <ClCompile Include="third_party\tracy\public\TracyClient.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Third Party</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="audio.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Platform</Filter>
     </ClInclude>
     <ClInclude Include="application.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\App</Filter>
     </ClInclude>
     <ClInclude Include="asset_manifest.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="collision.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="component.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="components.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="demo_scene.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="directX.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="DirectXTex.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="entity.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="event_bus.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="game_scene.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="game_scene_internal.h">
+      <Filter>Header Files\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="game_session.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="imgui_layer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="input.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Platform</Filter>
     </ClInclude>
     <ClInclude Include="logger.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\App</Filter>
     </ClInclude>
     <ClInclude Include="physics_world.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="prefab_factory.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="resource_manager.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="result_scene.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="scene.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scene System</Filter>
     </ClInclude>
     <ClInclude Include="scene_manager.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scene System</Filter>
     </ClInclude>
     <ClInclude Include="scene_registry.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scene System</Filter>
     </ClInclude>
     <ClInclude Include="shader_showcase_scene.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="tile_map.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="script_engine.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="shader.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="sprite.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="texture.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="title_scene.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="third_party\imgui\imgui.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Third Party</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

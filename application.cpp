@@ -1,17 +1,16 @@
 #include "application.h"
 
-#include <mmsystem.h>
-
 #include <memory>
+#include <string>
 
 #include <tracy/Tracy.hpp>
 
+#include "DxLib.h"
 #include "audio.h"
 #include "demo_scene.h"
 #include "directX.h"
 #include "event_bus.h"
 #include "game_scene.h"
-#include "imgui_layer.h"
 #include "input.h"
 #include "logger.h"
 #include "resource_manager.h"
@@ -23,12 +22,8 @@
 #include "sprite.h"
 #include "title_scene.h"
 
-#pragma comment(lib, "winmm.lib")
-
 namespace
 {
-    constexpr char WINDOW_CLASS[] = "DirectXFoundationWindow";
-    constexpr char WINDOW_TITLE[] = "DirectX Game Foundation";
     constexpr int TARGET_FPS = 60;
 }
 
@@ -36,6 +31,7 @@ Application::Application()
     : m_hWnd(nullptr)
     , m_running(true)
     , m_initialized(false)
+    , m_exitConfirmationOpen(false)
     , m_currentFps(0.0f)
     , m_frameCount(0)
     , m_fpsTick(0)
@@ -58,33 +54,25 @@ int Application::Run(HINSTANCE instance, int nCmdShow)
         return 1;
     }
 
-    timeBeginPeriod(1);
-    const DWORD frameMs = 1000 / TARGET_FPS;
-    DWORD lastTick = timeGetTime();
-    m_fpsTick = lastTick;
+    const int frameMs = 1000 / TARGET_FPS;
+    int lastTick = GetNowCount();
+    m_fpsTick = static_cast<DWORD>(lastTick);
 
-    MSG msg{};
-    while (m_running)
+    while (m_running && ProcessMessage() == 0)
     {
         FrameMark;
-        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
 
-        const DWORD now = timeGetTime();
-        if ((now - m_fpsTick) >= 1000)
+        const int now = GetNowCount();
+        if ((now - static_cast<int>(m_fpsTick)) >= 1000)
         {
             m_currentFps = static_cast<float>(m_frameCount);
             m_frameCount = 0;
-            m_fpsTick = now;
-            UpdateWindowTitle();
+            m_fpsTick = static_cast<DWORD>(now);
         }
 
         if ((now - lastTick) < frameMs)
         {
-            Sleep(1);
+            WaitTimer(1);
             continue;
         }
 
@@ -96,28 +84,35 @@ int Application::Run(HINSTANCE instance, int nCmdShow)
         ++m_frameCount;
     }
 
-    timeEndPeriod(1);
-    return static_cast<int>(msg.wParam);
+    return 0;
 }
 
 bool Application::Initialize(HINSTANCE instance, int nCmdShow)
 {
+    static_cast<void>(instance);
+    static_cast<void>(nCmdShow);
+
     ZoneScoped;
     Logger::Initialize();
     Logger::Info("Application initialization started");
-    m_hWnd = CreateAppWindow(instance, nCmdShow);
-    if (!m_hWnd)
+
+    SetOutApplicationLogValidFlag(FALSE);
+    SetUseCharCodeFormat(DX_CHARCODEFORMAT_UTF8);
+    ChangeWindowMode(FALSE);
+    SetGraphMode(SCREEN_WIDTH, SCREEN_HEIGHT, 32, 60);
+    SetAlwaysRunFlag(TRUE);
+    if (DxLib_Init() == -1)
     {
         return false;
     }
 
-    DirectXInitialize(m_hWnd);
-    if (!Shader_Initialize(DirectXGetDevice(), DirectXGetDeviceContext()))
+    DirectXInitialize(nullptr);
+    if (!Shader_Initialize(nullptr, nullptr))
     {
         return false;
     }
 
-    m_resources->Initialize(DirectXGetDevice());
+    m_resources->Initialize(nullptr);
     SpriteInitialize();
     if (!InitializeMiddleware())
     {
@@ -146,8 +141,6 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
         });
 
     m_sceneManager->SetScene(m_sceneRegistry->Create("title"), *m_resources);
-    UpdateWindow(m_hWnd);
-    UpdateWindowTitle();
     m_initialized = true;
     Logger::Info("Application initialization completed");
     return true;
@@ -162,13 +155,12 @@ void Application::Shutdown()
     }
 
     m_sceneManager->Shutdown();
-
-    ImGuiLayer_Shutdown();
     Audio_Shutdown();
     SpriteFinalize();
     m_resources->Shutdown();
     Shader_Finalize();
     DirectXFinalaize();
+    DxLib_End();
     m_initialized = false;
     Logger::Shutdown();
 }
@@ -179,6 +171,25 @@ void Application::Update(float deltaTime)
     Input_Update();
     Audio_Update();
 
+    const bool escapePressed = Input_IsKeyPressed(VK_ESCAPE);
+    if (escapePressed)
+    {
+        m_exitConfirmationOpen = !m_exitConfirmationOpen;
+    }
+
+    if (m_exitConfirmationOpen)
+    {
+        if (Input_IsKeyPressed(VK_RETURN) || Input_IsKeyPressed('Y'))
+        {
+            m_running = false;
+        }
+        else if (Input_IsKeyPressed('N') || (!escapePressed && Input_IsKeyPressed(VK_ESCAPE)))
+        {
+            m_exitConfirmationOpen = false;
+        }
+        return;
+    }
+
     m_sceneManager->Update(deltaTime);
     ProcessSceneEvents();
 }
@@ -188,26 +199,40 @@ void Application::Draw()
     ZoneScoped;
     Clear();
     m_sceneManager->Draw();
-
-    ImGuiLayer_BeginFrame();
-    ImGuiLayer_DrawFoundationWindow(m_currentFps);
-    m_sceneManager->DrawDebugUI();
-    ImGuiLayer_EndFrame();
+    if (m_exitConfirmationOpen)
+    {
+        DrawExitConfirmation();
+    }
     Present();
+}
+
+void Application::DrawExitConfirmation() const
+{
+    const int centerX = SCREEN_WIDTH / 2;
+    const int centerY = SCREEN_HEIGHT / 2;
+    const int panelWidth = 520;
+    const int panelHeight = 180;
+    const int left = centerX - panelWidth / 2;
+    const int top = centerY - panelHeight / 2;
+    const int right = left + panelWidth;
+    const int bottom = top + panelHeight;
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 160);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+
+    DrawBox(left, top, right, bottom, GetColor(22, 26, 32), TRUE);
+    DrawBox(left, top, right, bottom, GetColor(220, 230, 255), FALSE);
+
+    DrawString(centerX - 96, top + 36, "Exit the game?", GetColor(255, 255, 255));
+    DrawString(centerX - 178, top + 82, "Press Enter or Y to quit", GetColor(255, 220, 220));
+    DrawString(centerX - 184, top + 112, "Press Escape or N to continue", GetColor(220, 255, 220));
 }
 
 bool Application::InitializeMiddleware()
 {
     Input_Initialize();
-    if (!Audio_Initialize())
-    {
-        return false;
-    }
-    if (!ImGuiLayer_Initialize(m_hWnd, DirectXGetDevice(), DirectXGetDeviceContext()))
-    {
-        return false;
-    }
-    return true;
+    return Audio_Initialize();
 }
 
 void Application::ProcessSceneEvents()
@@ -265,113 +290,21 @@ void Application::ProcessSceneEvents()
 
 void Application::UpdateWindowTitle()
 {
-    if (!m_hWnd)
-    {
-        return;
-    }
-
-    const char* sceneId = "none";
-    if (Scene* currentScene = m_sceneManager->GetCurrentScene())
-    {
-        sceneId = currentScene->GetSceneId();
-    }
-
-    char title[128]{};
-    wsprintfA(title, "%s | FPS:%d | Scene: %s", WINDOW_TITLE, static_cast<int>(m_currentFps), sceneId);
-    SetWindowTextA(m_hWnd, title);
 }
 
 HWND Application::CreateAppWindow(HINSTANCE instance, int nCmdShow)
 {
-    WNDCLASSEXA wcex{};
-    wcex.cbSize = sizeof(WNDCLASSEXA);
-    wcex.style = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc = StaticWndProc;
-    wcex.hInstance = instance;
-    wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wcex.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-    wcex.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
-    wcex.lpszClassName = WINDOW_CLASS;
-    RegisterClassExA(&wcex);
-
-    MONITORINFO monitorInfo{};
-    monitorInfo.cbSize = sizeof(monitorInfo);
-    GetMonitorInfoA(MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY), &monitorInfo);
-    const RECT& monitorRect = monitorInfo.rcMonitor;
-
-    const DWORD windowStyle = WS_POPUP | WS_VISIBLE;
-
-    HWND hWnd = CreateWindowA(
-        WINDOW_CLASS,
-        WINDOW_TITLE,
-        windowStyle,
-        monitorRect.left,
-        monitorRect.top,
-        monitorRect.right - monitorRect.left,
-        monitorRect.bottom - monitorRect.top,
-        nullptr,
-        nullptr,
-        instance,
-        this);
-
-    ShowWindow(hWnd, nCmdShow == SW_SHOWMINIMIZED ? SW_SHOWMINIMIZED : SW_SHOWMAXIMIZED);
-    return hWnd;
+    static_cast<void>(instance);
+    static_cast<void>(nCmdShow);
+    return nullptr;
 }
 
 LRESULT Application::HandleMessage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    if (ImGuiLayer_WndProcHandler(hWnd, message, wParam, lParam))
-    {
-        return 1;
-    }
-
-    switch (message)
-    {
-    case WM_NCCREATE:
-        return TRUE;
-
-    case WM_SIZE:
-        if (wParam != SIZE_MINIMIZED)
-        {
-            DirectXResize(LOWORD(lParam), HIWORD(lParam));
-        }
-        return 0;
-
-    case WM_KEYDOWN:
-        if (wParam == VK_ESCAPE)
-        {
-            DestroyWindow(hWnd);
-        }
-        return 0;
-
-    case WM_DESTROY:
-        m_running = false;
-        PostQuitMessage(0);
-        return 0;
-
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
-    }
+    return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
 LRESULT CALLBACK Application::StaticWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    Application* app = nullptr;
-    if (message == WM_NCCREATE)
-    {
-        CREATESTRUCTA* create = reinterpret_cast<CREATESTRUCTA*>(lParam);
-        app = static_cast<Application*>(create->lpCreateParams);
-        SetWindowLongPtrA(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app));
-    }
-    else
-    {
-        app = reinterpret_cast<Application*>(GetWindowLongPtrA(hWnd, GWLP_USERDATA));
-    }
-
-    if (app)
-    {
-        return app->HandleMessage(hWnd, message, wParam, lParam);
-    }
-
     return DefWindowProc(hWnd, message, wParam, lParam);
 }

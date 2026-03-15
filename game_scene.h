@@ -14,6 +14,23 @@
 
 class TransformComponent;
 
+struct CapturedPhotoItem
+{
+    int textureId = -1;
+    float relativeX = 0.0f;
+    float relativeY = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    float sourceX = 0.0f;
+    float sourceY = 0.0f;
+    float sourceWidth = 1.0f;
+    float sourceHeight = 1.0f;
+    float tintR = 1.0f;
+    float tintG = 1.0f;
+    float tintB = 1.0f;
+    float tintA = 1.0f;
+};
+
 class GameScene final : public Scene
 {
 public:
@@ -42,6 +59,7 @@ private:
     void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage);
     void QueueResult(GameEndReason reason);
     void DrawCaptureOverlay() const;
+    void DrawPhotoPlacementPreview() const;
     void DrawEntity(const Entity& entity) const;
     void DrawBackdrop() const;
     void GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const;
@@ -56,8 +74,9 @@ private:
     bool IntersectsGoalTile(const TransformComponent& transform) const;
     bool IntersectsEntity(const Entity& a, const Entity& b) const;
     bool GetEntityBoundsByTag(const char* tag, float& x, float& y, float& width, float& height) const;
-    bool GetPhotoBoxBounds(float& x, float& y, float& width, float& height) const;
+    void GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const;
     bool FindSpawnPosition(float desiredX, float objectWidth, float objectHeight, float& outX, float& outY) const;
+    bool IsPhotoPlacementValid(float x, float y, float width, float height) const;
     float GetMapPixelWidth() const;
     float GetMapPixelHeight() const;
 
@@ -87,12 +106,24 @@ private:
     bool m_photoBoxSpawned;
     int m_enemyCount;
     bool m_playerFacingRight;
+    std::vector<CapturedPhotoItem> m_capturedPhotoItems;
     int m_capturedTextureId;
     float m_capturedPhotoWidth;
     float m_capturedPhotoHeight;
+    float m_capturedSourceX;
+    float m_capturedSourceY;
+    float m_capturedSourceWidth;
+    float m_capturedSourceHeight;
     float m_capturedTintR;
     float m_capturedTintG;
     float m_capturedTintB;
     float m_capturedTintA;
     float m_shutterFlashRemaining;
+    bool m_showCollisionDebug;
+    bool m_photoPlacementActive;
+    bool m_photoPlacementValid;
+    float m_photoPlacementX;
+    float m_photoPlacementY;
+    float m_photoPlacementWidth;
+    float m_photoPlacementHeight;
 };
