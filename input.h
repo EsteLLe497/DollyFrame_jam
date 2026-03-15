@@ -12,3 +12,5 @@ float Input_GetMoveX();
 float Input_GetMoveY();
 float Input_GetRotateAxis();
 bool Input_IsSouthButtonPressed();
+int Input_GetMouseX();
+int Input_GetMouseY();

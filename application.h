@@ -1,6 +1,5 @@
 #pragma once
 
-#define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -24,6 +23,7 @@ private:
     void Shutdown();
     void Update(float deltaTime);
     void Draw();
+    void DrawExitConfirmation() const;
     void ProcessSceneEvents();
     void UpdateWindowTitle();
     HWND CreateAppWindow(HINSTANCE instance, int nCmdShow);
@@ -35,6 +35,7 @@ private:
     HWND m_hWnd;
     bool m_running;
     bool m_initialized;
+    bool m_exitConfirmationOpen;
     float m_currentFps;
     DWORD m_frameCount;
     DWORD m_fpsTick;

@@ -3,15 +3,13 @@
 #include <string>
 #include <unordered_map>
 
-struct ID3D11Device;
-
 class ResourceManager
 {
 public:
     ResourceManager();
     ~ResourceManager() = default;
 
-    void Initialize(ID3D11Device* device);
+    void Initialize(void* device);
     void Shutdown();
 
     int LoadTexture(const std::wstring& path);

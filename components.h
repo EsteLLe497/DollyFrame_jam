@@ -81,9 +81,18 @@ public:
     void Draw() override;
     int GetTextureId() const;
     void SetTextureId(int textureId);
+    void SetSourceRect(float tx, float ty, float tw, float th);
+    float GetSourceX() const;
+    float GetSourceY() const;
+    float GetSourceWidth() const;
+    float GetSourceHeight() const;
 
 private:
     int m_textureId;
+    float m_sourceX;
+    float m_sourceY;
+    float m_sourceWidth;
+    float m_sourceHeight;
 };
 
 class PlayerControllerComponent final : public Component

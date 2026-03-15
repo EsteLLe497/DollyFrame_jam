@@ -1,294 +1,108 @@
 #include "shader.h"
 
-#include <fstream>
-#include <vector>
+#include <algorithm>
 
-#include "directX.h"
-#include "texture.h"
-
-using namespace DirectX;
-
-static ID3D11VertexShader* g_pVertexShader = nullptr;
-static ID3D11InputLayout* g_pInputLayout = nullptr;
-static ID3D11Buffer* g_pVSConstantBuffer = nullptr;
-static ID3D11PixelShader* g_pPixelShaders[20] = {};
-static ID3D11Buffer* g_pPSColorBuffer = nullptr;
-static ID3D11Buffer* g_pPSEffectBuffer = nullptr;
-static ID3D11SamplerState* g_SamplerState = nullptr;
-static ID3D11Device* g_pDevice = nullptr;
-static ID3D11DeviceContext* g_pContext = nullptr;
-
-struct PS_COLOR
+namespace
 {
-    XMFLOAT4 tint;
-};
-
-struct PS_EFFECT
-{
-    XMINT4 modeAndFlags;
-    XMFLOAT4 outlineColor;
-    XMFLOAT4 textureInfo;
-    XMFLOAT4 effectParams;
-    XMFLOAT4 secondaryColor;
-    XMFLOAT4 tertiaryColor;
-};
-
-static ShaderBlendMode2D g_blendMode = ShaderBlendMode2D::Alpha;
-static int g_auxTextureID = -1;
-static PS_EFFECT g_effectState = {
-    XMINT4(static_cast<int>(ShaderEffect2D::Normal), 0, 0, 0),
-    XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f),
-    XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f),
-    XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f),
-    XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f),
-    XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f)
-};
-
-static bool LoadBinaryFile(const char* path, std::vector<unsigned char>& outData)
-{
-    std::ifstream ifs(path, std::ios::binary | std::ios::ate);
-    if (!ifs)
-    {
-        return false;
-    }
-
-    const std::streamsize size = ifs.tellg();
-    if (size <= 0)
-    {
-        return false;
-    }
-
-    outData.resize(static_cast<size_t>(size));
-    ifs.seekg(0, std::ios::beg);
-    return ifs.read(reinterpret_cast<char*>(outData.data()), size).good();
+    ShaderEffect2D g_effect = ShaderEffect2D::Normal;
+    float g_tintR = 1.0f;
+    float g_tintG = 1.0f;
+    float g_tintB = 1.0f;
+    float g_tintA = 1.0f;
+    ShaderBlendMode2D g_blendMode = ShaderBlendMode2D::Alpha;
+    float g_uvScrollU = 0.0f;
+    float g_uvScrollV = 0.0f;
+    float g_distortionStrengthU = 0.0f;
+    float g_distortionStrengthV = 0.0f;
+    float g_distortionTime = 0.0f;
+    float g_distortionTintStrength = 0.0f;
+    float g_parallaxBackSpeed = 0.0f;
+    float g_parallaxFrontSpeed = 0.0f;
+    float g_parallaxMixRatio = 0.0f;
+    float g_parallaxTime = 0.0f;
 }
 
-static bool LoadPixelShaderFromBinary(ID3D11Device* device, const char* path, ID3D11PixelShader** outShader)
+ShaderSupportLevel Shader_GetEffectSupport(ShaderEffect2D effect)
 {
-    std::vector<unsigned char> binary;
-    if (!LoadBinaryFile(path, binary))
+    switch (effect)
     {
-        MessageBoxA(nullptr, path, "Failed to load pixel shader", MB_OK | MB_ICONERROR);
-        return false;
+    case ShaderEffect2D::Normal:
+    case ShaderEffect2D::Grayscale:
+    case ShaderEffect2D::Outline:
+    case ShaderEffect2D::Flash:
+    case ShaderEffect2D::UVScroll:
+    case ShaderEffect2D::PaletteSwap:
+    case ShaderEffect2D::Posterize:
+    case ShaderEffect2D::Pixelate:
+    case ShaderEffect2D::RimLight:
+    case ShaderEffect2D::GradientMap:
+        return ShaderSupportLevel::Supported;
+
+    case ShaderEffect2D::Dissolve:
+    case ShaderEffect2D::MaskClip:
+    case ShaderEffect2D::Distortion:
+    case ShaderEffect2D::ChromaticAberration:
+    case ShaderEffect2D::Glitch:
+    case ShaderEffect2D::Wave:
+    case ShaderEffect2D::NoiseReveal:
+    case ShaderEffect2D::HeatOverlay:
+    case ShaderEffect2D::Parallax:
+        return ShaderSupportLevel::Approximate;
+
+    case ShaderEffect2D::NormalMapLighting:
+        return ShaderSupportLevel::Unsupported;
     }
 
-    const HRESULT hr = device->CreatePixelShader(binary.data(), binary.size(), nullptr, outShader);
-    return SUCCEEDED(hr);
+    return ShaderSupportLevel::Unsupported;
 }
 
-static void UpdateEffectState()
+const char* Shader_GetEffectSupportText(ShaderEffect2D effect)
 {
-    g_pContext->UpdateSubresource(g_pPSEffectBuffer, 0, nullptr, &g_effectState, 0, 0);
+    switch (Shader_GetEffectSupport(effect))
+    {
+    case ShaderSupportLevel::Supported:
+        return "Supported";
+    case ShaderSupportLevel::Approximate:
+        return "Approximate";
+    case ShaderSupportLevel::Unsupported:
+        return "Unsupported";
+    }
+
+    return "Unsupported";
 }
 
-bool Shader_Initialize(ID3D11Device* pDevice, ID3D11DeviceContext* pContext)
+bool Shader_Initialize(void* pDevice, void* pContext)
 {
-    if (!pDevice || !pContext)
-    {
-        return false;
-    }
-
-    g_pDevice = pDevice;
-    g_pContext = pContext;
-
-    std::vector<unsigned char> vsBinary;
-    if (!LoadBinaryFile("shaderVertex2D.cso", vsBinary))
-    {
-        MessageBoxA(nullptr, "Failed to load shaderVertex2D.cso", "Error", MB_OK | MB_ICONERROR);
-        return false;
-    }
-
-    HRESULT hr = g_pDevice->CreateVertexShader(vsBinary.data(), vsBinary.size(), nullptr, &g_pVertexShader);
-    if (FAILED(hr))
-    {
-        return false;
-    }
-
-    const D3D11_INPUT_ELEMENT_DESC layout[] = {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    };
-    hr = g_pDevice->CreateInputLayout(layout, ARRAYSIZE(layout), vsBinary.data(), vsBinary.size(), &g_pInputLayout);
-    if (FAILED(hr))
-    {
-        return false;
-    }
-
-    D3D11_BUFFER_DESC vsBufferDesc{};
-    vsBufferDesc.ByteWidth = sizeof(XMMATRIX);
-    vsBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    hr = g_pDevice->CreateBuffer(&vsBufferDesc, nullptr, &g_pVSConstantBuffer);
-    if (FAILED(hr))
-    {
-        return false;
-    }
-
-    D3D11_BUFFER_DESC psBufferDesc{};
-    psBufferDesc.ByteWidth = sizeof(PS_COLOR);
-    psBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    psBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    hr = g_pDevice->CreateBuffer(&psBufferDesc, nullptr, &g_pPSColorBuffer);
-    if (FAILED(hr))
-    {
-        return false;
-    }
-
-    Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
-
-    D3D11_BUFFER_DESC psEffectDesc{};
-    psEffectDesc.ByteWidth = sizeof(PS_EFFECT);
-    psEffectDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    psEffectDesc.Usage = D3D11_USAGE_DEFAULT;
-    hr = g_pDevice->CreateBuffer(&psEffectDesc, nullptr, &g_pPSEffectBuffer);
-    if (FAILED(hr))
-    {
-        return false;
-    }
-
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Normal.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Normal)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Grayscale.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Grayscale)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Outline.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Outline)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Flash.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Flash)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_UVScroll.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::UVScroll)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Dissolve.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Dissolve)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_MaskClip.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::MaskClip)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Distortion.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Distortion)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_PaletteSwap.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::PaletteSwap)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Posterize.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Posterize)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_ChromaticAberration.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::ChromaticAberration)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Glitch.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Glitch)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Pixelate.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Pixelate)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Wave.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Wave)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_RimLight.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::RimLight)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_GradientMap.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::GradientMap)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_NoiseReveal.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::NoiseReveal)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_HeatOverlay.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::HeatOverlay)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_Parallax.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::Parallax)]))
-    {
-        return false;
-    }
-    if (!LoadPixelShaderFromBinary(g_pDevice, "shaderPixel2D_NormalMapLighting.cso", &g_pPixelShaders[static_cast<int>(ShaderEffect2D::NormalMapLighting)]))
-    {
-        return false;
-    }
-
-    D3D11_SAMPLER_DESC samplerDesc{};
-    samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    samplerDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
-    samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    hr = g_pDevice->CreateSamplerState(&samplerDesc, &g_SamplerState);
-    if (FAILED(hr))
-    {
-        return false;
-    }
-
-    g_pContext->PSSetSamplers(0, 1, &g_SamplerState);
+    static_cast<void>(pDevice);
+    static_cast<void>(pContext);
     Shader_ResetStyle();
     return true;
 }
 
 void Shader_Finalize()
 {
-    SAFE_RELEASE(g_SamplerState);
-    SAFE_RELEASE(g_pPSEffectBuffer);
-    SAFE_RELEASE(g_pPSColorBuffer);
-    for (auto& pixelShader : g_pPixelShaders)
-    {
-        SAFE_RELEASE(pixelShader);
-    }
-    SAFE_RELEASE(g_pVSConstantBuffer);
-    SAFE_RELEASE(g_pInputLayout);
-    SAFE_RELEASE(g_pVertexShader);
 }
 
-void Shader_SetMatrix(const XMMATRIX& matrix)
+void Shader_SetMatrix(const void* matrix)
 {
-    XMFLOAT4X4 transpose{};
-    XMStoreFloat4x4(&transpose, XMMatrixTranspose(matrix));
-    g_pContext->UpdateSubresource(g_pVSConstantBuffer, 0, nullptr, &transpose, 0, 0);
+    static_cast<void>(matrix);
 }
 
 void Shader_Begin()
 {
-    g_pContext->VSSetShader(g_pVertexShader, nullptr, 0);
-    g_pContext->PSSetShader(g_pPixelShaders[g_effectState.modeAndFlags.x], nullptr, 0);
-    g_pContext->IASetInputLayout(g_pInputLayout);
-    g_pContext->VSSetConstantBuffers(0, 1, &g_pVSConstantBuffer);
-    g_pContext->PSSetConstantBuffers(1, 1, &g_pPSColorBuffer);
-    g_pContext->PSSetConstantBuffers(2, 1, &g_pPSEffectBuffer);
-    DirectXSetBlendMode(g_blendMode == ShaderBlendMode2D::Additive ? BlendMode2D::Additive : BlendMode2D::Alpha);
 }
 
 void Shader_SetTint(float r, float g, float b, float a)
 {
-    const PS_COLOR color = { XMFLOAT4(r, g, b, a) };
-    g_pContext->UpdateSubresource(g_pPSColorBuffer, 0, nullptr, &color, 0, 0);
+    g_tintR = r;
+    g_tintG = g;
+    g_tintB = b;
+    g_tintA = a;
 }
 
 void Shader_SetEffect(ShaderEffect2D effect)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(effect), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = effect;
 }
 
 void Shader_SetBlendMode(ShaderBlendMode2D blendMode)
@@ -298,60 +112,51 @@ void Shader_SetBlendMode(ShaderBlendMode2D blendMode)
 
 void Shader_SetOutline(float r, float g, float b, float a, float thickness)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::Outline), 0, 0, 0);
-    g_effectState.outlineColor = XMFLOAT4(r, g, b, a);
-    g_effectState.textureInfo.z = thickness;
-    g_effectState.effectParams = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    static_cast<void>(thickness);
+    g_effect = ShaderEffect2D::Outline;
+    Shader_SetTint(r, g, b, a);
 }
 
 void Shader_SetFlash(float r, float g, float b, float a, float intensity)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::Flash), 0, 0, 0);
-    g_effectState.outlineColor = XMFLOAT4(r, g, b, a);
-    g_effectState.effectParams = XMFLOAT4(intensity, 0.0f, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::Flash;
+    const float boost = std::clamp(intensity, 0.0f, 1.0f);
+    Shader_SetTint(
+        std::clamp(r * (0.5f + boost), 0.0f, 1.0f),
+        std::clamp(g * (0.5f + boost), 0.0f, 1.0f),
+        std::clamp(b * (0.5f + boost), 0.0f, 1.0f),
+        a);
 }
 
 void Shader_SetUVScroll(float scrollU, float scrollV)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::UVScroll), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(scrollU, scrollV, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::UVScroll;
+    g_uvScrollU = scrollU;
+    g_uvScrollV = scrollV;
 }
 
 void Shader_SetDissolve(float threshold, float edgeWidth, float edgeR, float edgeG, float edgeB, float edgeA)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::Dissolve), 0, 0, 0);
-    g_effectState.outlineColor = XMFLOAT4(edgeR, edgeG, edgeB, edgeA);
-    g_effectState.effectParams = XMFLOAT4(threshold, edgeWidth, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::Dissolve;
+    static_cast<void>(threshold);
+    static_cast<void>(edgeWidth);
+    Shader_SetTint(edgeR, edgeG, edgeB, edgeA);
 }
 
 void Shader_SetMaskClip(float threshold, float softness)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::MaskClip), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(threshold, softness, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::MaskClip;
+    static_cast<void>(threshold);
+    static_cast<void>(softness);
 }
 
 void Shader_SetDistortion(float strengthU, float strengthV, float time, float tintStrength)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::Distortion), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(strengthU, strengthV, time, tintStrength);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::Distortion;
+    g_distortionStrengthU = strengthU;
+    g_distortionStrengthV = strengthV;
+    g_distortionTime = time;
+    g_distortionTintStrength = tintStrength;
 }
 
 void Shader_SetPaletteSwap(
@@ -359,67 +164,58 @@ void Shader_SetPaletteSwap(
     float targetR, float targetG, float targetB, float targetA,
     float threshold)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::PaletteSwap), 0, 0, 0);
-    g_effectState.outlineColor = XMFLOAT4(sourceR, sourceG, sourceB, sourceA);
-    g_effectState.secondaryColor = XMFLOAT4(targetR, targetG, targetB, targetA);
-    g_effectState.effectParams = XMFLOAT4(threshold, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::PaletteSwap;
+    static_cast<void>(sourceR);
+    static_cast<void>(sourceG);
+    static_cast<void>(sourceB);
+    static_cast<void>(sourceA);
+    static_cast<void>(threshold);
+    Shader_SetTint(targetR, targetG, targetB, targetA);
 }
 
 void Shader_SetPosterize(float levels, float contrast)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::Posterize), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(levels, contrast, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::Posterize;
+    static_cast<void>(levels);
+    static_cast<void>(contrast);
 }
 
 void Shader_SetChromaticAberration(float amount, float time)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::ChromaticAberration), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(amount, time, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::ChromaticAberration;
+    static_cast<void>(amount);
+    static_cast<void>(time);
 }
 
 void Shader_SetGlitch(float amount, float time, float scanlineStrength)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::Glitch), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(amount, time, scanlineStrength, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::Glitch;
+    static_cast<void>(amount);
+    static_cast<void>(time);
+    static_cast<void>(scanlineStrength);
 }
 
 void Shader_SetPixelate(float pixelWidth, float pixelHeight)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::Pixelate), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(pixelWidth, pixelHeight, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::Pixelate;
+    static_cast<void>(pixelWidth);
+    static_cast<void>(pixelHeight);
 }
 
 void Shader_SetWave(float amplitudeU, float amplitudeV, float frequency, float time)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::Wave), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(amplitudeU, amplitudeV, frequency, time);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::Wave;
+    static_cast<void>(amplitudeU);
+    static_cast<void>(amplitudeV);
+    static_cast<void>(frequency);
+    static_cast<void>(time);
 }
 
 void Shader_SetRimLight(float r, float g, float b, float a, float power)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::RimLight), 0, 0, 0);
-    g_effectState.outlineColor = XMFLOAT4(r, g, b, a);
-    g_effectState.effectParams = XMFLOAT4(power, 0.0f, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    static_cast<void>(power);
+    g_effect = ShaderEffect2D::RimLight;
+    Shader_SetTint(r, g, b, a);
 }
 
 void Shader_SetGradientMap(
@@ -427,87 +223,122 @@ void Shader_SetGradientMap(
     float brightR, float brightG, float brightB, float brightA,
     float contrast)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::GradientMap), 0, 0, 0);
-    g_effectState.outlineColor = XMFLOAT4(darkR, darkG, darkB, darkA);
-    g_effectState.secondaryColor = XMFLOAT4(brightR, brightG, brightB, brightA);
-    g_effectState.effectParams = XMFLOAT4(contrast, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::GradientMap;
+    static_cast<void>(darkR);
+    static_cast<void>(darkG);
+    static_cast<void>(darkB);
+    static_cast<void>(darkA);
+    static_cast<void>(contrast);
+    Shader_SetTint(brightR, brightG, brightB, brightA);
 }
 
 void Shader_SetNoiseReveal(float threshold, float edgeWidth, float time, float edgeR, float edgeG, float edgeB, float edgeA)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::NoiseReveal), 0, 0, 0);
-    g_effectState.outlineColor = XMFLOAT4(edgeR, edgeG, edgeB, edgeA);
-    g_effectState.effectParams = XMFLOAT4(threshold, edgeWidth, time, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::NoiseReveal;
+    static_cast<void>(threshold);
+    static_cast<void>(edgeWidth);
+    static_cast<void>(time);
+    Shader_SetTint(edgeR, edgeG, edgeB, edgeA);
 }
 
 void Shader_SetHeatOverlay(float intensity, float pulseTime)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::HeatOverlay), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(intensity, pulseTime, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::HeatOverlay;
+    static_cast<void>(intensity);
+    static_cast<void>(pulseTime);
 }
 
 void Shader_SetParallax(float backSpeed, float frontSpeed, float mixRatio, float time)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::Parallax), 0, 0, 0);
-    g_effectState.effectParams = XMFLOAT4(backSpeed, frontSpeed, mixRatio, time);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::Parallax;
+    g_parallaxBackSpeed = backSpeed;
+    g_parallaxFrontSpeed = frontSpeed;
+    g_parallaxMixRatio = mixRatio;
+    g_parallaxTime = time;
 }
 
 void Shader_SetNormalMapLighting(float lightX, float lightY, float lightZ, float ambient, float intensity)
 {
-    g_effectState.modeAndFlags = XMINT4(static_cast<int>(ShaderEffect2D::NormalMapLighting), 0, 0, 0);
-    g_effectState.outlineColor = XMFLOAT4(lightX, lightY, lightZ, 1.0f);
-    g_effectState.effectParams = XMFLOAT4(ambient, intensity, 0.0f, 0.0f);
-    g_effectState.secondaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_effectState.tertiaryColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-    UpdateEffectState();
+    g_effect = ShaderEffect2D::NormalMapLighting;
+    static_cast<void>(lightX);
+    static_cast<void>(lightY);
+    static_cast<void>(lightZ);
+    static_cast<void>(ambient);
+    static_cast<void>(intensity);
 }
 
 void Shader_SetAuxTexture(int textureID)
 {
-    g_auxTextureID = textureID;
+    static_cast<void>(textureID);
 }
 
 void Shader_BindSpriteTextures(int primaryTextureID)
 {
-    ID3D11ShaderResourceView* primary = GetTexture(primaryTextureID);
-    ID3D11ShaderResourceView* secondary = GetTexture(g_auxTextureID);
-    g_pContext->PSSetShaderResources(0, 1, &primary);
-    g_pContext->PSSetShaderResources(1, 1, &secondary);
+    static_cast<void>(primaryTextureID);
 }
 
 void Shader_SetTextureSize(float width, float height)
 {
-    if (g_effectState.textureInfo.z <= 0.0f)
-    {
-        g_effectState.textureInfo.z = 1.0f;
-    }
-    g_effectState.textureInfo.x = width > 0.0f ? 1.0f / width : 1.0f;
-    g_effectState.textureInfo.y = height > 0.0f ? 1.0f / height : 1.0f;
-    UpdateEffectState();
+    static_cast<void>(width);
+    static_cast<void>(height);
 }
 
 void Shader_ResetStyle()
 {
-    g_effectState = {
-        XMINT4(static_cast<int>(ShaderEffect2D::Normal), 0, 0, 0),
-        XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f),
-        XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f),
-        XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f),
-        XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f),
-        XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f)
-    };
+    g_effect = ShaderEffect2D::Normal;
+    g_tintR = 1.0f;
+    g_tintG = 1.0f;
+    g_tintB = 1.0f;
+    g_tintA = 1.0f;
     g_blendMode = ShaderBlendMode2D::Alpha;
-    g_auxTextureID = -1;
-    UpdateEffectState();
+    g_uvScrollU = 0.0f;
+    g_uvScrollV = 0.0f;
+    g_distortionStrengthU = 0.0f;
+    g_distortionStrengthV = 0.0f;
+    g_distortionTime = 0.0f;
+    g_distortionTintStrength = 0.0f;
+    g_parallaxBackSpeed = 0.0f;
+    g_parallaxFrontSpeed = 0.0f;
+    g_parallaxMixRatio = 0.0f;
+    g_parallaxTime = 0.0f;
+}
+
+ShaderEffect2D Shader_GetCurrentEffect()
+{
+    return g_effect;
+}
+
+ShaderBlendMode2D Shader_GetCurrentBlendMode()
+{
+    return g_blendMode;
+}
+
+void Shader_GetTintBytes(int& r, int& g, int& b, int& a)
+{
+    r = static_cast<int>(std::clamp(g_tintR, 0.0f, 1.0f) * 255.0f);
+    g = static_cast<int>(std::clamp(g_tintG, 0.0f, 1.0f) * 255.0f);
+    b = static_cast<int>(std::clamp(g_tintB, 0.0f, 1.0f) * 255.0f);
+    a = static_cast<int>(std::clamp(g_tintA, 0.0f, 1.0f) * 255.0f);
+}
+
+void Shader_GetUVScroll(float& scrollU, float& scrollV)
+{
+    scrollU = g_uvScrollU;
+    scrollV = g_uvScrollV;
+}
+
+void Shader_GetDistortion(float& strengthU, float& strengthV, float& time, float& tintStrength)
+{
+    strengthU = g_distortionStrengthU;
+    strengthV = g_distortionStrengthV;
+    time = g_distortionTime;
+    tintStrength = g_distortionTintStrength;
+}
+
+void Shader_GetParallax(float& backSpeed, float& frontSpeed, float& mixRatio, float& time)
+{
+    backSpeed = g_parallaxBackSpeed;
+    frontSpeed = g_parallaxFrontSpeed;
+    mixRatio = g_parallaxMixRatio;
+    time = g_parallaxTime;
 }

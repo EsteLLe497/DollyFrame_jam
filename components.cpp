@@ -109,6 +109,10 @@ float DamageCooldownComponent::GetRemainingSeconds() const
 
 SpriteRenderComponent::SpriteRenderComponent(int textureId)
     : m_textureId(textureId)
+    , m_sourceX(0.0f)
+    , m_sourceY(0.0f)
+    , m_sourceWidth(1.0f)
+    , m_sourceHeight(1.0f)
 {
 }
 
@@ -135,10 +139,10 @@ void SpriteRenderComponent::Draw()
         transform->y,
         transform->width * transform->scale,
         transform->height * transform->scale,
-        0.0f,
-        0.0f,
-        1.0f,
-        1.0f,
+        m_sourceX,
+        m_sourceY,
+        m_sourceWidth,
+        m_sourceHeight,
         transform->rotation);
 }
 
@@ -150,6 +154,34 @@ int SpriteRenderComponent::GetTextureId() const
 void SpriteRenderComponent::SetTextureId(int textureId)
 {
     m_textureId = textureId;
+}
+
+void SpriteRenderComponent::SetSourceRect(float tx, float ty, float tw, float th)
+{
+    m_sourceX = tx;
+    m_sourceY = ty;
+    m_sourceWidth = tw;
+    m_sourceHeight = th;
+}
+
+float SpriteRenderComponent::GetSourceX() const
+{
+    return m_sourceX;
+}
+
+float SpriteRenderComponent::GetSourceY() const
+{
+    return m_sourceY;
+}
+
+float SpriteRenderComponent::GetSourceWidth() const
+{
+    return m_sourceWidth;
+}
+
+float SpriteRenderComponent::GetSourceHeight() const
+{
+    return m_sourceHeight;
 }
 
 void PlayerControllerComponent::Update(float deltaTime)

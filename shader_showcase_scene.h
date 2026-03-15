@@ -3,6 +3,7 @@
 #include "asset_manifest.h"
 #include "event_bus.h"
 #include "scene.h"
+#include "shader.h"
 
 class ShaderShowcaseScene final : public Scene
 {
@@ -23,6 +24,7 @@ private:
     void DrawPanelFrame(float x, float y, float size) const;
     void DrawLabelBar(float x, float y, float size, float r, float g, float b) const;
     void DrawPanelLabel(float x, float y, float size, int labelIndex) const;
+    void DrawSupportBadge(float x, float y, float size, ShaderEffect2D effect) const;
 
     void DrawNormalPanel(float x, float y, float size) const;
     void DrawGrayscalePanel(float x, float y, float size) const;
