@@ -2,6 +2,13 @@
 
 このドキュメントは、`DirectXFoundation` の実行構造と責務分離を説明します。
 
+## 関連ドキュメント
+
+- `docs/programming-guide.md`
+  現在の実装に合わせた読み方
+- `docs/team-programming-guide.md`
+  チーム制作向けの作業ガイド
+
 ## 全体像
 
 フレームの流れは概ね以下です。
@@ -38,6 +45,23 @@
 - `EventBus` を所有し、シーン内イベントを受け渡す
 
 `Scene` は抽象基底で、派生側が `GetSceneId()` を返します。
+
+現状で最もゲームロジックが大きいのは `GameScene` です。  
+`GameScene` はさらに次の単位へ分割されています。
+
+- `game_scene.cpp`
+- `game_scene_gameplay.cpp`
+- `game_scene_render.cpp`
+- `game_scene_collision.cpp`
+- `game_scene_internal.h`
+
+この構成を崩さず、
+
+- ルール
+- 描画
+- 当たり判定
+
+を分けて保つのが今の保守上かなり重要です。
 
 ### `SceneManager`
 
@@ -108,6 +132,31 @@
 
 - `Box2D` 形状所有
 - センサーと物理設定
+
+### `EnemyComponent`
+
+- 敵の有効状態
+- 撃破状態
+- 接触ダメージ
+
+### `EnemyMoverComponent`
+
+- 敵の簡易移動
+- 凍結
+- 時間巻き戻し
+
+### `GimmickComponent`
+
+- ギミック種別
+- 有効/無効
+- ワンショット消費
+
+### `PhotoFilterComponent`
+
+- フィルター種別
+- 出力ロール
+- 出力レイヤ
+- tint
 
 ## イベント駆動の流れ
 
@@ -186,3 +235,11 @@ Lua はエンジンの代替ではなく、ロジックや演出の実験レイ�
 - `JSON` と `Lua` は量産と反復調整のために使う
 
 この境界を崩すと、規模が大きくなったときに保守しづらくなります。
+
+特に今の `GameScene` では、写真フィルターが
+
+- 撮られた元オブジェクト
+- 配置されたコピー
+
+の両方へ作用します。  
+そのため、フィルター仕様を触るときは `render` と `gameplay` の両方を確認する前提で考えてください。

@@ -2,6 +2,11 @@
 
 このドキュメントは、プロジェクトを拡張するときの入口をまとめます。
 
+## 関連ドキュメント
+
+- `docs/programming-guide.md`
+- `docs/team-programming-guide.md`
+
 ## 新しいシーンを追加する
 
 ### 手順
@@ -62,6 +67,15 @@ public:
 
 それらは `Application` や専用マネージャへ置くべきです。
 
+### 今のプロジェクトでよく足されるもの
+
+- フィルター反応用の状態
+- 敵専用状態
+- ギミック専用状態
+- 写真コピー専用状態
+
+これらは `components.h` にまとまっているので、追加前に既存コンポーネントの責務と重複していないか見てください。
+
 ## 新しいイベントを追加する
 
 ### 手順
@@ -95,6 +109,53 @@ public:
 - `enemy_basic`
 - `pickup_coin`
 - `trigger_goal`
+
+### 注意
+
+今の `GameScene` は prefab と直書き配置が混在しています。  
+新しいオブジェクトを追加するときは、
+
+- `prefab` で増やすのか
+- `game_scene.cpp` へ直書きするのか
+
+を最初に決めた方が混乱しません。
+
+短期的な試作なら直書きでもよいですが、量産したいなら prefab 化を優先してください。
+
+## 新しいフィルターを追加する
+
+手順:
+
+1. `components.h` の `PhotoFilterTheme` に追加する
+2. `components.cpp` のテーマ名表示を更新する
+3. `game_scene.cpp` の入力切り替えを更新する
+4. `game_scene_gameplay.cpp` の
+   - `ApplyPhotoFilterTheme()`
+   - `ApplyPhotoThemeToCapturedTarget()`
+   を更新する
+5. `game_scene_render.cpp` の
+   - UI
+   - オーバーレイ
+   - プレビュー
+   - 描画エフェクト
+   を更新する
+
+注意:
+
+- フィルターはコピーだけでなく元オブジェクトにも作用します
+- 片方だけ更新すると仕様が半分壊れます
+
+## 新しい敵を追加する
+
+手順:
+
+1. `EnemyComponent` で足りるか確認する
+2. 足りなければ専用コンポーネントを追加する
+3. まず `game_scene.cpp` に 1 体だけ置く
+4. `Cold` / `Invert` / `Sepia` への反応を確認する
+
+今の敵はフィルターの影響をかなり受けるので、  
+「通常挙動だけ確認して終わり」にしない方が安全です。
 
 ## Lua API を増やす
 
@@ -138,3 +199,4 @@ Lua には高水準 API だけを公開してください。
 3. 量産対象は JSON か Lua へ逃がす
 4. `Application` にゲーム固有ロジックを入れない
 5. `third_party` は極力直接触らない
+6. 生成物や依存バイナリを安易にコミットしない

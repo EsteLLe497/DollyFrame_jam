@@ -2,6 +2,11 @@
 
 このドキュメントは、導入済みミドルウェアと接続先をまとめます。
 
+## 関連ドキュメント
+
+- `docs/programming-guide.md`
+- `docs/team-programming-guide.md`
+
 ## 一覧
 
 - `ImGui`
@@ -27,6 +32,12 @@
 - `imgui_layer.h` / `imgui_layer.cpp`
 - `application.cpp`
 - `demo_scene.cpp`
+- `game_scene.cpp`
+
+補足:
+
+現在は `GameScene` のデバッグ情報も `ImGui` へ出しています。  
+ただしプレイヤーが常時見る UI は `game_scene_render.cpp` 側のゲーム描画で出しています。
 
 ## `XInput`
 
@@ -38,6 +49,11 @@
 
 - `input.h` / `input.cpp`
 - `PlayerControllerComponent`
+
+補足:
+
+キーボードと同じく `input.cpp` 側の明示マップで管理しています。  
+使うキーを増やすときはここを更新してください。
 
 ## `XAudio2`
 
@@ -85,6 +101,8 @@
 
 - `asset_manifest.cpp`
 - `prefab_factory.cpp`
+- `game_scene.cpp`
+- `game_scene_gameplay.cpp`
 
 ## `spdlog`
 
@@ -136,6 +154,28 @@
 - ECS と `Box2D` の同期は `PhysicsWorld` が担当します
 - 接触は `ContactBegin` / `ContactEnd` として EventBus へ流します
 
+## `DxLib`
+
+役割:
+
+- ウィンドウと描画の実行基盤
+- 入力取得
+- 2D 描画
+- シェーダ適用
+
+接続先:
+
+- `application.cpp`
+- `input.cpp`
+- `shader.cpp`
+- `sprite.cpp`
+- `game_scene_render.cpp`
+
+補足:
+
+現在の実行は実質 `DxLib` 前提です。  
+README の古い説明にある `DirectX 11` 単体基盤として読むとズレるので注意してください。
+
 ## 導入方針
 
 このプロジェクトでは、ミドルウェアを直接ゲームロジックから呼ぶのではなく、薄いラッパとイベントを挟んで使う方針です。
@@ -153,3 +193,4 @@
 - 音源ファイルのストリーミング再生
 - Lua API の整理
 - Tracy の GPU 計測追加
+- 生成物と依存バイナリの Git 管理方針整理
