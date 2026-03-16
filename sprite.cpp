@@ -19,6 +19,7 @@ namespace
         float destY,
         float destWidth,
         float destHeight,
+        bool flipX,
         float rot)
     {
         if (srcWidth <= 0 || srcHeight <= 0 || destWidth <= 0.0f || destHeight <= 0.0f)
@@ -26,7 +27,9 @@ namespace
             return;
         }
 
-        const double scaleX = static_cast<double>(destWidth) / static_cast<double>(srcWidth);
+        const double scaleX =
+            (flipX ? -1.0 : 1.0) *
+            (static_cast<double>(destWidth) / static_cast<double>(srcWidth));
         const double scaleY = static_cast<double>(destHeight) / static_cast<double>(srcHeight);
 
         DrawRectRotaGraph3F(
@@ -72,7 +75,7 @@ void SpriteFinalize(void)
 {
 }
 
-void SpriteDraw(int textureID, float x, float y, float width, float height, float tx, float ty, float tw, float th, float rot)
+void SpriteDraw(int textureID, float x, float y, float width, float height, float tx, float ty, float tw, float th, bool flipX, float rot)
 {
     const int graphHandle = TextureGetGraphHandle(textureID);
     if (graphHandle < 0)
@@ -137,6 +140,7 @@ void SpriteDraw(int textureID, float x, float y, float width, float height, floa
                 y + stripHeight * static_cast<float>(i) + offsetY,
                 width,
                 i == kStripCount - 1 ? (height - stripHeight * static_cast<float>(i)) : stripHeight,
+                flipX,
                 0.0f);
         }
 
@@ -144,7 +148,7 @@ void SpriteDraw(int textureID, float x, float y, float width, float height, floa
         {
             const int overlayAlpha = std::clamp(static_cast<int>(tintStrength * 80.0f), 0, 255);
             SetDrawBlendMode(DX_BLENDMODE_ADD, overlayAlpha);
-            DrawSpriteChunk(graphHandle, srcX, srcY, srcWidth, srcHeight, x, y, width, height, 0.0f);
+            DrawSpriteChunk(graphHandle, srcX, srcY, srcWidth, srcHeight, x, y, width, height, flipX, 0.0f);
         }
     }
     else if (effect == ShaderEffect2D::Parallax && std::fabs(rot) < 0.001f)
@@ -174,14 +178,14 @@ void SpriteDraw(int textureID, float x, float y, float width, float height, floa
         BuildSourceRect(textureWidth, textureHeight, tx + frontOffset, ty, tw, th, frontSrcX, frontSrcY, frontSrcWidth, frontSrcHeight);
 
         SetDrawBlendMode(blendMode, backAlpha);
-        DrawSpriteChunk(graphHandle, backSrcX, backSrcY, backSrcWidth, backSrcHeight, x, y, width, height, 0.0f);
+        DrawSpriteChunk(graphHandle, backSrcX, backSrcY, backSrcWidth, backSrcHeight, x, y, width, height, flipX, 0.0f);
 
         SetDrawBlendMode(blendMode, frontAlpha);
-        DrawSpriteChunk(graphHandle, frontSrcX, frontSrcY, frontSrcWidth, frontSrcHeight, x + width * 0.02f, y, width, height, 0.0f);
+        DrawSpriteChunk(graphHandle, frontSrcX, frontSrcY, frontSrcWidth, frontSrcHeight, x + width * 0.02f, y, width, height, flipX, 0.0f);
     }
     else
     {
-        DrawSpriteChunk(graphHandle, srcX, srcY, srcWidth, srcHeight, x, y, width, height, rot);
+        DrawSpriteChunk(graphHandle, srcX, srcY, srcWidth, srcHeight, x, y, width, height, flipX, rot);
     }
 
     SetDrawBright(255, 255, 255);
@@ -199,7 +203,7 @@ void DrawTextFromSheet(int textureID, const std::wstring& text, float posX, floa
             const FontIndex idx = it->second;
             const float cellU = 1.0f / 16.0f;
             const float cellV = 1.0f / 16.0f;
-            SpriteDraw(textureID, x, posY, size, size, idx.x * cellU, idx.y * cellV, cellU, cellV, 0.0f);
+            SpriteDraw(textureID, x, posY, size, size, idx.x * cellU, idx.y * cellV, cellU, cellV, false, 0.0f);
         }
         x += size * 0.9f;
     }

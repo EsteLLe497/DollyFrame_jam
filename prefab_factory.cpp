@@ -73,6 +73,11 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
         entity->AddComponent<DamageCooldownComponent>(definition.damageCooldown);
     }
 
+    if (definition.hasEnemy)
+    {
+        entity->AddComponent<EnemyComponent>(definition.enemyArchetype, definition.enemyContactDamage);
+    }
+
     if (definition.hasEnemyMover)
     {
         entity->AddComponent<EnemyMoverComponent>(
@@ -81,6 +86,26 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
             definition.enemyAmplitudeX,
             definition.enemyAmplitudeY,
             definition.enemyFrequency);
+    }
+
+    if (definition.hasGimmick)
+    {
+        entity->AddComponent<GimmickComponent>(
+            definition.gimmickType,
+            definition.gimmickStartsEnabled,
+            definition.gimmickOneShot);
+    }
+
+    if (definition.hasPhotoFilter)
+    {
+        entity->AddComponent<PhotoFilterComponent>(
+            definition.filterTheme,
+            definition.filterOutputRole,
+            definition.filterOutputLayer,
+            definition.filterTintR,
+            definition.filterTintG,
+            definition.filterTintB,
+            definition.filterTintA);
     }
 
     entity->AddComponent<SpriteRenderComponent>(m_manifest.GetTexture(definition.textureKey));
@@ -166,6 +191,23 @@ void PrefabFactory::LoadDefinitions()
         definition.hasDamageCooldown = damageCooldown.value("enabled", false);
         definition.damageCooldown = damageCooldown.value("seconds", 0.0f);
 
+        const auto& enemy = data.contains("enemy") && data["enemy"].is_object() ? data["enemy"] : nlohmann::json::object();
+        definition.hasEnemy = enemy.value("enabled", false);
+        const std::string enemyArchetype = enemy.value("archetype", "floater");
+        if (enemyArchetype == "walker")
+        {
+            definition.enemyArchetype = EnemyArchetype::Walker;
+        }
+        else if (enemyArchetype == "turret")
+        {
+            definition.enemyArchetype = EnemyArchetype::Turret;
+        }
+        else
+        {
+            definition.enemyArchetype = EnemyArchetype::Floater;
+        }
+        definition.enemyContactDamage = enemy.value("contactDamage", 1);
+
         const auto& enemyMover = data.contains("enemyMover") && data["enemyMover"].is_object() ? data["enemyMover"] : nlohmann::json::object();
         definition.hasEnemyMover = enemyMover.value("enabled", false);
         definition.enemyOriginX = enemyMover.value("originX", definition.x);
@@ -173,6 +215,101 @@ void PrefabFactory::LoadDefinitions()
         definition.enemyAmplitudeX = enemyMover.value("amplitudeX", 0.0f);
         definition.enemyAmplitudeY = enemyMover.value("amplitudeY", 0.0f);
         definition.enemyFrequency = enemyMover.value("frequency", 1.0f);
+
+        const auto& gimmick = data.contains("gimmick") && data["gimmick"].is_object() ? data["gimmick"] : nlohmann::json::object();
+        definition.hasGimmick = gimmick.value("enabled", false);
+        const std::string gimmickType = gimmick.value("type", "hazard");
+        if (gimmickType == "goal")
+        {
+            definition.gimmickType = GimmickType::Goal;
+        }
+        else if (gimmickType == "pickup")
+        {
+            definition.gimmickType = GimmickType::Pickup;
+        }
+        else if (gimmickType == "photo_source")
+        {
+            definition.gimmickType = GimmickType::PhotoSource;
+        }
+        else if (gimmickType == "filter")
+        {
+            definition.gimmickType = GimmickType::Filter;
+        }
+        else if (gimmickType == "gate")
+        {
+            definition.gimmickType = GimmickType::Gate;
+        }
+        else if (gimmickType == "switch")
+        {
+            definition.gimmickType = GimmickType::Switch;
+        }
+        else
+        {
+            definition.gimmickType = GimmickType::Hazard;
+        }
+        definition.gimmickStartsEnabled = gimmick.value("startsEnabled", true);
+        definition.gimmickOneShot = gimmick.value("oneShot", false);
+
+        const auto& filter = data.contains("photoFilter") && data["photoFilter"].is_object() ? data["photoFilter"] : nlohmann::json::object();
+        definition.hasPhotoFilter = filter.value("enabled", false);
+        const std::string filterTheme = filter.value("theme", "none");
+        if (filterTheme == "hot")
+        {
+            definition.filterTheme = PhotoFilterTheme::Hot;
+        }
+        else if (filterTheme == "cold")
+        {
+            definition.filterTheme = PhotoFilterTheme::Cold;
+        }
+        else if (filterTheme == "invert")
+        {
+            definition.filterTheme = PhotoFilterTheme::Invert;
+        }
+        else
+        {
+            definition.filterTheme = PhotoFilterTheme::None;
+        }
+        const std::string outputRole = filter.value("outputRole", "solid");
+        if (outputRole == "hazard")
+        {
+            definition.filterOutputRole = PhotoCopyRole::Hazard;
+        }
+        else if (outputRole == "goal")
+        {
+            definition.filterOutputRole = PhotoCopyRole::GoalRelay;
+        }
+        else if (outputRole == "pickup")
+        {
+            definition.filterOutputRole = PhotoCopyRole::Pickup;
+        }
+        else if (outputRole == "ally")
+        {
+            definition.filterOutputRole = PhotoCopyRole::Ally;
+        }
+        else
+        {
+            definition.filterOutputRole = PhotoCopyRole::Solid;
+        }
+
+        const std::string outputLayer = filter.value("outputLayer", "foreground");
+        if (outputLayer == "background")
+        {
+            definition.filterOutputLayer = PhotoCopyLayer::Background;
+        }
+        else if (outputLayer == "shadow")
+        {
+            definition.filterOutputLayer = PhotoCopyLayer::Shadow;
+        }
+        else
+        {
+            definition.filterOutputLayer = PhotoCopyLayer::Foreground;
+        }
+
+        const auto& filterTint = filter.contains("tint") && filter["tint"].is_object() ? filter["tint"] : nlohmann::json::object();
+        definition.filterTintR = filterTint.value("r", 1.0f);
+        definition.filterTintG = filterTint.value("g", 1.0f);
+        definition.filterTintB = filterTint.value("b", 1.0f);
+        definition.filterTintA = filterTint.value("a", 1.0f);
 
         m_definitions.emplace(it.key(), std::move(definition));
     }
@@ -217,6 +354,8 @@ void PrefabFactory::LoadBuiltInDefaults()
     goal.hasCollider = true;
     goal.colliderDensity = 1.0f;
     goal.colliderFriction = 0.2f;
+    goal.hasGimmick = true;
+    goal.gimmickType = GimmickType::Goal;
     m_definitions.emplace("goal", std::move(goal));
 
     PrefabDefinition hazard;
@@ -234,7 +373,32 @@ void PrefabFactory::LoadBuiltInDefaults()
     hazard.colliderDensity = 1.0f;
     hazard.colliderFriction = 0.2f;
     hazard.colliderSensor = true;
+    hazard.hasGimmick = true;
+    hazard.gimmickType = GimmickType::Hazard;
     m_definitions.emplace("hazard", std::move(hazard));
+
+    PrefabDefinition filter;
+    filter.tag = "Filter";
+    filter.textureKey = "white";
+    filter.x = 1100.0f;
+    filter.y = 300.0f;
+    filter.width = 112.0f;
+    filter.height = 112.0f;
+    filter.tintR = 0.16f;
+    filter.tintG = 0.78f;
+    filter.tintB = 0.86f;
+    filter.tintA = 0.96f;
+    filter.hasGimmick = true;
+    filter.gimmickType = GimmickType::Filter;
+    filter.hasPhotoFilter = true;
+    filter.filterTheme = PhotoFilterTheme::Cold;
+    filter.filterOutputRole = PhotoCopyRole::Pickup;
+    filter.filterOutputLayer = PhotoCopyLayer::Foreground;
+    filter.filterTintR = 0.20f;
+    filter.filterTintG = 0.88f;
+    filter.filterTintB = 0.92f;
+    filter.filterTintA = 1.0f;
+    m_definitions.emplace("photo_filter_pickup", std::move(filter));
 
     PrefabDefinition enemy;
     enemy.tag = "Enemy";
@@ -251,6 +415,9 @@ void PrefabFactory::LoadBuiltInDefaults()
     enemy.colliderDensity = 1.0f;
     enemy.colliderFriction = 0.2f;
     enemy.colliderSensor = true;
+    enemy.hasEnemy = true;
+    enemy.enemyArchetype = EnemyArchetype::Floater;
+    enemy.enemyContactDamage = 1;
     enemy.hasEnemyMover = true;
     enemy.enemyOriginX = enemy.x;
     enemy.enemyOriginY = enemy.y;

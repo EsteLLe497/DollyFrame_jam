@@ -1,6 +1,152 @@
 #include "game_scene_internal.h"
 
+#include <fstream>
+
+#include <nlohmann/json.hpp>
+
 using namespace game_scene_detail;
+
+namespace
+{
+    struct TuningEntry
+    {
+        const char* label;
+        float* value;
+        float step;
+        float minValue;
+        float maxValue;
+    };
+
+    PhotoCopyLayer CyclePlacementLayer(PhotoCopyLayer current)
+    {
+        switch (current)
+        {
+        case PhotoCopyLayer::Foreground:
+            return PhotoCopyLayer::Background;
+        case PhotoCopyLayer::Background:
+            return PhotoCopyLayer::Shadow;
+        case PhotoCopyLayer::Shadow:
+        default:
+            return PhotoCopyLayer::Foreground;
+        }
+    }
+
+    void AddBridgeSegments(std::vector<CapturedPhotoItem>& items, int textureId, bool flipX, bool enabled, PhotoFilterTheme theme)
+    {
+        if (!enabled || items.size() < 2)
+        {
+            return;
+        }
+
+        const std::vector<CapturedPhotoItem> baseItems = items;
+        constexpr float kSegmentSize = 18.0f;
+        for (size_t index = 1; index < baseItems.size(); ++index)
+        {
+            const auto& a = baseItems[index - 1];
+            const auto& b = baseItems[index];
+            const float ax = a.relativeX + a.width * 0.5f;
+            const float ay = a.relativeY + a.height * 0.5f;
+            const float bx = b.relativeX + b.width * 0.5f;
+            const float by = b.relativeY + b.height * 0.5f;
+            const float length = std::max(std::fabs(bx - ax), std::fabs(by - ay));
+            const int steps = std::max(1, static_cast<int>(length / kSegmentSize));
+            for (int step = 1; step < steps; ++step)
+            {
+                const float t = static_cast<float>(step) / static_cast<float>(steps);
+                CapturedPhotoItem bridge;
+                bridge.textureId = textureId;
+                bridge.role = PhotoCopyRole::Solid;
+                bridge.layer = PhotoCopyLayer::Foreground;
+                bridge.appliedTheme = theme;
+                bridge.relativeX = std::lerp(ax, bx, t) - kSegmentSize * 0.5f;
+                bridge.relativeY = std::lerp(ay, by, t) - kSegmentSize * 0.5f;
+                bridge.width = kSegmentSize;
+                bridge.height = kSegmentSize;
+                bridge.sourceX = 0.0f;
+                bridge.sourceY = 0.0f;
+                bridge.sourceWidth = 1.0f;
+                bridge.sourceHeight = 1.0f;
+                bridge.tintR = 0.90f;
+                bridge.tintG = 0.96f;
+                bridge.tintB = 1.0f;
+                bridge.tintA = 0.92f;
+                bridge.flipX = flipX;
+                items.push_back(bridge);
+            }
+        }
+    }
+
+    constexpr int kMaxPhotoGroups = 3;
+
+}
+
+void GameScene::UpdateTuningPanel()
+{
+    if (!m_showTuningPanel)
+    {
+        return;
+    }
+
+    TuningEntry entries[] =
+    {
+        { "Camera Width", &gCameraViewWidth, 20.0f, 640.0f, 1920.0f },
+        { "Camera Height", &gCameraViewHeight, 20.0f, 360.0f, 1080.0f },
+        { "Move Speed", &gPlayerMoveSpeed, 10.0f, 80.0f, 960.0f },
+        { "Jump Speed", &gPlayerJumpSpeed, 20.0f, -1600.0f, -120.0f },
+        { "Gravity", &gPlayerGravity, 50.0f, 200.0f, 4000.0f },
+        { "Max Fall", &gPlayerMaxFallSpeed, 20.0f, 200.0f, 2400.0f },
+        { "Coyote", &gCoyoteTimeSeconds, 0.01f, 0.0f, 0.4f },
+        { "Ground Snap", &gGroundSnapDistance, 0.5f, 0.0f, 24.0f },
+        { "Capture Width", &gCaptureWidthScale, 0.05f, 0.5f, 3.0f },
+        { "Capture Height", &gCaptureHeightScale, 0.05f, 0.5f, 3.0f },
+        { "Pickup Bonus", &gPickupTimeBonus, 1.0f, 0.0f, 60.0f },
+    };
+    constexpr int kEntryCount = static_cast<int>(sizeof(entries) / sizeof(entries[0]));
+
+    if (Input_IsKeyPressed(VK_UP))
+    {
+        m_tuningSelection = (m_tuningSelection + kEntryCount - 1) % kEntryCount;
+    }
+    if (Input_IsKeyPressed(VK_DOWN))
+    {
+        m_tuningSelection = (m_tuningSelection + 1) % kEntryCount;
+    }
+
+    float delta = 0.0f;
+    if (Input_IsKeyDown(VK_LEFT))
+    {
+        delta -= entries[m_tuningSelection].step;
+    }
+    if (Input_IsKeyDown(VK_RIGHT))
+    {
+        delta += entries[m_tuningSelection].step;
+    }
+
+    if (delta != 0.0f)
+    {
+        *entries[m_tuningSelection].value = std::clamp(
+            *entries[m_tuningSelection].value + delta,
+            entries[m_tuningSelection].minValue,
+            entries[m_tuningSelection].maxValue);
+        nlohmann::json root;
+        root["camera_view_width"] = gCameraViewWidth;
+        root["camera_view_height"] = gCameraViewHeight;
+        root["move_speed"] = gPlayerMoveSpeed;
+        root["jump_speed"] = gPlayerJumpSpeed;
+        root["gravity"] = gPlayerGravity;
+        root["max_fall_speed"] = gPlayerMaxFallSpeed;
+        root["coyote_time"] = gCoyoteTimeSeconds;
+        root["ground_snap_distance"] = gGroundSnapDistance;
+        root["capture_width_scale"] = gCaptureWidthScale;
+        root["capture_height_scale"] = gCaptureHeightScale;
+        root["pickup_time_bonus"] = gPickupTimeBonus;
+        std::ofstream stream("assets/tuning.json", std::ios::binary | std::ios::trunc);
+        if (stream.is_open())
+        {
+            stream << root.dump(2);
+        }
+    }
+}
 
 void GameScene::UpdatePlayer(float deltaTime)
 {
@@ -26,7 +172,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         moveAxis = 0.0f;
     }
 
-    m_playerVelocityX = moveAxis * kPlayerMoveSpeed;
+    m_playerVelocityX = moveAxis * gPlayerMoveSpeed;
     if (moveAxis > 0.1f)
     {
         m_playerFacingRight = true;
@@ -48,7 +194,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     m_playerGrounded = wasGrounded;
     if (wasGrounded)
     {
-        m_coyoteTimeRemaining = kCoyoteTimeSeconds;
+        m_coyoteTimeRemaining = gCoyoteTimeSeconds;
     }
 
     if (wasGrounded && m_playerVelocityY > 0.0f)
@@ -64,7 +210,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     const bool canJumpNow = jumpPressed && m_coyoteTimeRemaining > 0.0f;
     if (canJumpNow)
     {
-        m_playerVelocityY = kPlayerJumpSpeed;
+        m_playerVelocityY = gPlayerJumpSpeed;
         m_playerGrounded = false;
         m_coyoteTimeRemaining = 0.0f;
         m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
@@ -76,7 +222,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     }
     else
     {
-        m_playerVelocityY = std::min(kPlayerMaxFallSpeed, m_playerVelocityY + kPlayerGravity * deltaTime);
+        m_playerVelocityY = std::min(gPlayerMaxFallSpeed, m_playerVelocityY + gPlayerGravity * deltaTime);
     }
 
     transform->x += m_playerVelocityX * deltaTime;
@@ -171,7 +317,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     m_playerGrounded = false;
     if (m_playerVelocityY == 0.0f && wasGrounded)
     {
-        m_playerGrounded = TrySnapToGround(*transform, kGroundSnapDistance);
+        m_playerGrounded = TrySnapToGround(*transform, gGroundSnapDistance);
     }
     else
     {
@@ -290,7 +436,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         }
         if (!m_playerGrounded && m_playerVelocityY >= 0.0f)
         {
-            if (TrySnapToGround(*transform, kGroundSnapDistance))
+            if (TrySnapToGround(*transform, gGroundSnapDistance))
             {
                 m_playerVelocityY = 0.0f;
                 m_playerGrounded = true;
@@ -306,9 +452,9 @@ void GameScene::UpdatePlayer(float deltaTime)
     }
 
     const float cameraTarget = std::clamp(
-        transform->x + playerWidth * 0.5f - kBaseViewWidth * 0.5f,
+        transform->x + playerWidth * 0.5f - gCameraViewWidth * 0.5f,
         0.0f,
-        std::max(0.0f, mapWidth - kBaseViewWidth));
+        std::max(0.0f, mapWidth - gCameraViewWidth));
     m_cameraX += (cameraTarget - m_cameraX) * std::min(1.0f, deltaTime * 8.0f);
     m_cameraX = std::round(m_cameraX);
 }
@@ -378,6 +524,10 @@ void GameScene::HandlePhotoCapture()
 
         CapturedPhotoItem item;
         item.textureId = sprite->GetTextureId();
+        item.role = GetEntityCopyRole(*entity);
+        item.layer = PhotoCopyLayer::Foreground;
+        item.origin = GetEntityCopyOrigin(*entity);
+        item.appliedTheme = m_selectedFilterTheme;
         item.relativeX = overlapLeft - frameX;
         item.relativeY = overlapTop - frameY;
         item.width = overlapWidth;
@@ -392,6 +542,8 @@ void GameScene::HandlePhotoCapture()
             item.tintG = tint->g;
             item.tintB = tint->b;
             item.tintA = tint->a;
+            item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
+            item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
             tint->r = 0.16f;
             tint->g = 0.34f;
             tint->b = 0.38f;
@@ -433,6 +585,10 @@ void GameScene::HandlePhotoCapture()
 
             CapturedPhotoItem item;
             item.textureId = m_tileTexture;
+            item.role = GetTileCopyRole(tileValue);
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = GetTileCopyOrigin(tileValue);
+            item.appliedTheme = m_selectedFilterTheme;
             item.relativeX = overlapLeft - frameX;
             item.relativeY = overlapTop - frameY;
             item.width = overlapWidth;
@@ -442,6 +598,8 @@ void GameScene::HandlePhotoCapture()
             item.sourceWidth = 1.0f;
             item.sourceHeight = 1.0f;
             GetTileCaptureTint(tileValue, item.tintR, item.tintG, item.tintB, item.tintA);
+            item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
+            item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
             m_capturedPhotoItems.push_back(item);
             capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
             capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
@@ -454,6 +612,9 @@ void GameScene::HandlePhotoCapture()
     }
 
     m_hasBoxPhoto = true;
+    m_capturedPhotoTheme = m_selectedFilterTheme;
+    m_photoPlacementLayer = PhotoCopyLayer::Foreground;
+    m_photoPlacementFlipX = false;
     m_capturedPhotoWidth = (std::max)(1.0f, capturedMaxRight);
     m_capturedPhotoHeight = (std::max)(1.0f, capturedMaxBottom);
     m_capturedTextureId = m_capturedPhotoItems.front().textureId;
@@ -467,8 +628,23 @@ void GameScene::HandlePhotoCapture()
     m_capturedTintA = m_capturedPhotoItems.front().tintA;
 
     m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "scene_change", 0.0f, 0.0f });
-    m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Captured framed objects", 0.0f, 0.0f });
-    m_shutterFlashRemaining = kShutterFlashSeconds;
+    switch (m_capturedPhotoTheme)
+    {
+    case PhotoFilterTheme::Hot:
+        m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Captured framed objects with Hot filter", 0.0f, 0.0f });
+        break;
+    case PhotoFilterTheme::Cold:
+        m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Captured framed objects with Cold filter", 0.0f, 0.0f });
+        break;
+    case PhotoFilterTheme::Invert:
+        m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Captured framed objects with Invert filter", 0.0f, 0.0f });
+        break;
+    case PhotoFilterTheme::None:
+    default:
+        m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Captured framed objects with no filter", 0.0f, 0.0f });
+        break;
+    }
+    m_shutterFlashRemaining = gShutterFlashSeconds;
 }
 
 void GameScene::HandlePhotoSpawn()
@@ -479,6 +655,19 @@ void GameScene::HandlePhotoSpawn()
     if (!m_hasBoxPhoto || !Input_IsKeyDown('E'))
     {
         return;
+    }
+
+    if (Input_IsKeyPressed('Q'))
+    {
+        m_photoPlacementLayer = CyclePlacementLayer(m_photoPlacementLayer);
+    }
+    if (Input_IsKeyPressed('F'))
+    {
+        m_photoPlacementFlipX = !m_photoPlacementFlipX;
+    }
+    if (Input_IsKeyPressed('B'))
+    {
+        m_photoPlacementBridgeEnabled = !m_photoPlacementBridgeEnabled;
     }
 
     Entity* player = FindEntityByTag("Player");
@@ -514,22 +703,51 @@ void GameScene::HandlePhotoSpawn()
         return;
     }
 
-    for (auto it = m_entities.begin(); it != m_entities.end();)
+    std::vector<CapturedPhotoItem> spawnedItems = m_capturedPhotoItems;
+    if (m_photoPlacementFlipX)
     {
-        if (*it && HasTag(*(*it), "PhotoBox"))
+        for (auto& item : spawnedItems)
         {
-            it = m_entities.erase(it);
-            continue;
+            item.relativeX = spawnWidth - item.relativeX - item.width;
+            item.flipX = !item.flipX;
         }
-        ++it;
+    }
+    AddBridgeSegments(spawnedItems, m_whiteTexture, m_photoPlacementFlipX, m_photoPlacementBridgeEnabled, m_capturedPhotoTheme);
+
+    if (m_activePhotoGroupCount >= kMaxPhotoGroups)
+    {
+        const int groupToRemove = m_nextPhotoGroupId - m_activePhotoGroupCount;
+        m_entities.erase(
+            std::remove_if(
+                m_entities.begin(),
+                m_entities.end(),
+                [&](const std::unique_ptr<Entity>& entity)
+                {
+                    if (!entity || !HasTag(*entity, "PhotoBox"))
+                    {
+                        return false;
+                    }
+
+                    const auto* group = entity->GetComponent<PhotoCopyGroupComponent>();
+                    return group && group->groupId == groupToRemove;
+                }),
+            m_entities.end());
+        m_activePhotoGroupCount = std::max(0, m_activePhotoGroupCount - 1);
     }
 
+    const int groupId = m_nextPhotoGroupId++;
     Entity* lastSpawnedBox = nullptr;
-    for (const auto& item : m_capturedPhotoItems)
+    for (const auto& item : spawnedItems)
     {
         auto entity = std::make_unique<Entity>();
         lastSpawnedBox = entity.get();
         lastSpawnedBox->AddComponent<TagComponent>("PhotoBox");
+        lastSpawnedBox->AddComponent<PhotoCopyGroupComponent>(groupId);
+        lastSpawnedBox->AddComponent<PhotoCopyRoleComponent>(item.role);
+        lastSpawnedBox->AddComponent<PhotoCopyOriginComponent>(item.origin);
+        lastSpawnedBox->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
+        lastSpawnedBox->AddComponent<PhotoCopyLayerComponent>(
+            item.layer == PhotoCopyLayer::Shadow ? PhotoCopyLayer::Shadow : m_photoPlacementLayer);
         lastSpawnedBox->AddComponent<TransformComponent>(
             spawnX + item.relativeX,
             spawnY + item.relativeY,
@@ -540,19 +758,106 @@ void GameScene::HandlePhotoSpawn()
         if (auto* sprite = lastSpawnedBox->GetComponent<SpriteRenderComponent>())
         {
             sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+            sprite->SetFlipX(item.flipX);
         }
+        ApplyPhotoFilterTheme(*lastSpawnedBox, item.appliedTheme);
         m_entities.push_back(std::move(entity));
     }
 
+    m_activePhotoGroupCount = std::min(kMaxPhotoGroups, m_activePhotoGroupCount + 1);
     m_photoBoxSpawned = true;
     m_eventBus.Publish({ EventType::PlaySoundRequest, player, lastSpawnedBox, "test_tone", 0.0f, 0.0f });
-    m_eventBus.Publish({ EventType::LogMessage, player, lastSpawnedBox, "Spawned reconstructed objects", 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::LogMessage, player, lastSpawnedBox, "Spawned filtered reconstruction", 0.0f, 0.0f });
 }
 
 void GameScene::UpdateEnemies()
 {
     m_enemyCount = 0;
-    m_goalUnlocked = m_hasBoxPhoto;
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (enemy && enemy->IsEnabled())
+        {
+            ++m_enemyCount;
+        }
+    }
+    m_goalUnlocked = m_photoBoxSpawned;
+}
+
+bool GameScene::ApplyPhotoFilterTheme(Entity& photoBox, PhotoFilterTheme theme)
+{
+    auto* role = photoBox.GetComponent<PhotoCopyRoleComponent>();
+    auto* layer = photoBox.GetComponent<PhotoCopyLayerComponent>();
+    auto* tint = photoBox.GetComponent<TintComponent>();
+    auto* effect = photoBox.GetComponent<PhotoCopyEffectComponent>();
+    const auto* origin = photoBox.GetComponent<PhotoCopyOriginComponent>();
+    if (!role || !layer || !tint || !effect)
+    {
+        return false;
+    }
+
+    PhotoCopyRole nextRole = role->role;
+    PhotoCopyLayer nextLayer = layer->layer;
+    float nextTintR = tint->r;
+    float nextTintG = tint->g;
+    float nextTintB = tint->b;
+    float nextTintA = tint->a;
+
+    switch (theme)
+    {
+    case PhotoFilterTheme::Hot:
+        nextRole = PhotoCopyRole::Hazard;
+        nextLayer = PhotoCopyLayer::Foreground;
+        nextTintR = 1.0f;
+        nextTintG = 0.34f;
+        nextTintB = 0.12f;
+        nextTintA = 1.0f;
+        break;
+    case PhotoFilterTheme::Cold:
+        nextRole = PhotoCopyRole::Solid;
+        nextLayer = PhotoCopyLayer::Foreground;
+        nextTintR = 0.76f;
+        nextTintG = 0.90f;
+        nextTintB = 1.0f;
+        nextTintA = 1.0f;
+        break;
+    case PhotoFilterTheme::Invert:
+        nextRole = origin && origin->origin == PhotoCopyOrigin::Enemy
+            ? PhotoCopyRole::Ally
+            : PhotoCopyRole::Solid;
+        nextLayer = PhotoCopyLayer::Foreground;
+        nextTintR = 0.62f;
+        nextTintG = 0.62f;
+        nextTintB = 0.64f;
+        nextTintA = 1.0f;
+        break;
+    case PhotoFilterTheme::None:
+    default:
+        break;
+    }
+
+    const bool changed =
+        role->role != nextRole ||
+        layer->layer != nextLayer ||
+        effect->GetTheme() != theme ||
+        std::fabs(tint->r - nextTintR) > 0.001f ||
+        std::fabs(tint->g - nextTintG) > 0.001f ||
+        std::fabs(tint->b - nextTintB) > 0.001f ||
+        std::fabs(tint->a - nextTintA) > 0.001f;
+
+    role->role = nextRole;
+    layer->layer = nextLayer;
+    effect->SetTheme(theme);
+    tint->r = nextTintR;
+    tint->g = nextTintG;
+    tint->b = nextTintB;
+    tint->a = nextTintA;
+    return changed;
 }
 
 void GameScene::HandleAttackHits()
@@ -615,23 +920,186 @@ void GameScene::HandleWorldInteractions()
         }
     }
 
-    if (Entity* goal = FindEntityByTag("Goal"))
+    std::vector<Entity*> consumedGimmicks;
+    for (const auto& entity : m_entities)
     {
-        if (m_goalUnlocked && IntersectsEntity(*player, *goal))
+        if (!entity || entity.get() == player || !IntersectsEntity(*player, *entity))
         {
-            m_playerTouchingTarget = true;
-            if (!m_resultQueued)
+            continue;
+        }
+
+        if (const auto* enemy = entity->GetComponent<EnemyComponent>())
+        {
+            if (enemy->IsEnabled())
             {
-                m_eventBus.Publish({ EventType::PlaySoundRequest, player, goal, "contact_tone", 0.0f, 0.0f });
-                QueueResult(GameEndReason::GoalReached);
+                m_playerTouchingHazard = true;
+                HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by enemy");
             }
         }
+
+        auto* gimmick = entity->GetComponent<GimmickComponent>();
+        if (!gimmick || !gimmick->IsEnabled())
+        {
+            continue;
+        }
+
+        switch (gimmick->GetType())
+        {
+        case GimmickType::Hazard:
+            m_playerTouchingHazard = true;
+            HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by gimmick hazard");
+            break;
+        case GimmickType::Goal:
+            if (m_goalUnlocked && !m_resultQueued)
+            {
+                m_playerTouchingTarget = true;
+                m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "contact_tone", 0.0f, 0.0f });
+                QueueResult(GameEndReason::GoalReached);
+            }
+            break;
+        case GimmickType::Pickup:
+            m_timeRemaining = std::min(m_timeLimit, m_timeRemaining + gPickupTimeBonus);
+            GameSession_SetTimeRemaining(m_timeRemaining);
+            m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "scene_change", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, player, entity.get(), "Recovered time from gimmick pickup", 0.0f, 0.0f });
+            gimmick->Consume();
+            if (gimmick->IsConsumed())
+            {
+                consumedGimmicks.push_back(entity.get());
+            }
+            break;
+        case GimmickType::PhotoSource:
+        case GimmickType::Gate:
+        case GimmickType::Switch:
+        default:
+            break;
+        }
+    }
+
+    std::vector<Entity*> consumedPickups;
+    std::vector<Entity*> defeatedEnemies;
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, "PhotoBox"))
+        {
+            continue;
+        }
+
+        const auto* photoRole = entity->GetComponent<PhotoCopyRoleComponent>();
+        const auto* photoLayer = entity->GetComponent<PhotoCopyLayerComponent>();
+        if (!photoRole || !IntersectsEntity(*player, *entity))
+        {
+            continue;
+        }
+        if (photoLayer && photoLayer->layer != PhotoCopyLayer::Foreground)
+        {
+            continue;
+        }
+
+        switch (photoRole->role)
+        {
+        case PhotoCopyRole::Hazard:
+            m_playerTouchingHazard = true;
+            HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by copied hazard");
+            break;
+        case PhotoCopyRole::Ally:
+            for (const auto& enemyEntity : m_entities)
+            {
+                if (!enemyEntity || enemyEntity.get() == entity.get())
+                {
+                    continue;
+                }
+
+                auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
+                if (!enemy || !enemy->IsEnabled() || !IntersectsEntity(*entity, *enemyEntity))
+                {
+                    continue;
+                }
+
+                enemy->MarkDefeated();
+                defeatedEnemies.push_back(enemyEntity.get());
+            }
+            break;
+        case PhotoCopyRole::GoalRelay:
+            if (m_goalUnlocked && !m_resultQueued)
+            {
+                m_playerTouchingTarget = true;
+                m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "contact_tone", 0.0f, 0.0f });
+                QueueResult(GameEndReason::GoalReached);
+            }
+            break;
+        case PhotoCopyRole::Pickup:
+            m_timeRemaining = std::min(m_timeLimit, m_timeRemaining + gPickupTimeBonus);
+            GameSession_SetTimeRemaining(m_timeRemaining);
+            m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "scene_change", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, player, entity.get(), "Recovered time from copied pickup", 0.0f, 0.0f });
+            consumedPickups.push_back(entity.get());
+            break;
+        case PhotoCopyRole::Solid:
+        default:
+            break;
+        }
+    }
+
+    if (!consumedGimmicks.empty() || !consumedPickups.empty())
+    {
+        m_entities.erase(
+            std::remove_if(
+                m_entities.begin(),
+                m_entities.end(),
+                [&](const std::unique_ptr<Entity>& entity)
+                {
+                    if (!entity)
+                    {
+                        return false;
+                    }
+
+                    return std::find(consumedGimmicks.begin(), consumedGimmicks.end(), entity.get()) != consumedGimmicks.end() ||
+                        std::find(consumedPickups.begin(), consumedPickups.end(), entity.get()) != consumedPickups.end();
+                }),
+            m_entities.end());
+    }
+
+    if (!defeatedEnemies.empty())
+    {
+        m_eventBus.Publish({ EventType::LogMessage, player, defeatedEnemies.front(), "Invert photo neutralized an enemy", 0.0f, 0.0f });
     }
 }
 
 void GameScene::RemoveDefeatedEnemies()
 {
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
+                return enemy && enemy->IsDefeated();
+            }),
+        m_entities.end());
+
     m_photoBoxSpawned = FindEntityByTag("PhotoBox") != nullptr;
+    int maxGroupId = 0;
+    std::vector<int> groups;
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, "PhotoBox"))
+        {
+            continue;
+        }
+
+        if (const auto* group = entity->GetComponent<PhotoCopyGroupComponent>())
+        {
+            maxGroupId = std::max(maxGroupId, group->groupId);
+            if (std::find(groups.begin(), groups.end(), group->groupId) == groups.end())
+            {
+                groups.push_back(group->groupId);
+            }
+        }
+    }
+    m_activePhotoGroupCount = static_cast<int>(groups.size());
+    m_nextPhotoGroupId = std::max(m_nextPhotoGroupId, maxGroupId + 1);
 }
 
 void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage)

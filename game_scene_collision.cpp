@@ -2,6 +2,18 @@
 
 using namespace game_scene_detail;
 
+namespace
+{
+    bool UsesSolidCollision(const Entity& entity)
+    {
+        if (const auto* layer = entity.GetComponent<PhotoCopyLayerComponent>())
+        {
+            return layer->layer == PhotoCopyLayer::Foreground;
+        }
+        return true;
+    }
+}
+
 bool GameScene::IsSolidTile(int column, int row) const
 {
     const int tile = m_tileMap.GetTile(column, row);
@@ -257,6 +269,10 @@ void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
         {
             continue;
         }
+        if (!UsesSolidCollision(*entity))
+        {
+            continue;
+        }
 
         const auto* transform = entity->GetComponent<TransformComponent>();
         if (!transform)
@@ -365,8 +381,28 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     }
 
     const float tileSize = m_tileMap.GetTileSize();
+    const bool usesWorldCollision = m_photoPlacementLayer == PhotoCopyLayer::Foreground;
     auto intersectsWorld = [&](const TransformComponent& candidate) -> bool
     {
+        if (!usesWorldCollision)
+        {
+            for (const auto& entity : m_entities)
+            {
+                if (!entity || !HasTag(*entity, "Player"))
+                {
+                    continue;
+                }
+
+                const auto* transform = entity->GetComponent<TransformComponent>();
+                if (transform && IntersectsRect(candidate, *transform))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         const int leftColumn = std::max(0, static_cast<int>(candidate.x / tileSize));
         const int rightColumn = std::min(
             m_tileMap.GetWidth() - 1,

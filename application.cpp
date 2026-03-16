@@ -1,5 +1,6 @@
 #include "application.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -25,6 +26,8 @@
 namespace
 {
     constexpr int TARGET_FPS = 60;
+    constexpr float SCENE_TRANSITION_DURATION = 0.48f;
+    constexpr float SCENE_TRANSITION_SWAP_TIME = 0.24f;
 }
 
 Application::Application()
@@ -32,9 +35,14 @@ Application::Application()
     , m_running(true)
     , m_initialized(false)
     , m_exitConfirmationOpen(false)
+    , m_sceneTransitionActive(false)
+    , m_sceneTransitionSwapped(false)
     , m_currentFps(0.0f)
+    , m_sceneTransitionTimer(0.0f)
+    , m_sceneTransitionDuration(SCENE_TRANSITION_DURATION)
     , m_frameCount(0)
     , m_fpsTick(0)
+    , m_pendingSceneId()
     , m_resources(std::make_unique<ResourceManager>())
     , m_sceneManager(std::make_unique<SceneManager>())
     , m_sceneRegistry(std::make_unique<SceneRegistry>())
@@ -190,6 +198,12 @@ void Application::Update(float deltaTime)
         return;
     }
 
+    if (m_sceneTransitionActive)
+    {
+        UpdateSceneTransition(deltaTime);
+        return;
+    }
+
     m_sceneManager->Update(deltaTime);
     ProcessSceneEvents();
 }
@@ -199,6 +213,10 @@ void Application::Draw()
     ZoneScoped;
     Clear();
     m_sceneManager->Draw();
+    if (m_sceneTransitionActive)
+    {
+        DrawSceneTransition();
+    }
     if (m_exitConfirmationOpen)
     {
         DrawExitConfirmation();
@@ -227,6 +245,36 @@ void Application::DrawExitConfirmation() const
     DrawString(centerX - 96, top + 36, "Exit the game?", GetColor(255, 255, 255));
     DrawString(centerX - 178, top + 82, "Press Enter or Y to quit", GetColor(255, 220, 220));
     DrawString(centerX - 184, top + 112, "Press Escape or N to continue", GetColor(220, 255, 220));
+}
+
+void Application::DrawSceneTransition() const
+{
+    const float halfDuration = m_sceneTransitionDuration * 0.5f;
+    const float clampedTimer = std::clamp(m_sceneTransitionTimer, 0.0f, m_sceneTransitionDuration);
+    float alpha = 0.0f;
+    if (clampedTimer <= halfDuration)
+    {
+        alpha = clampedTimer / std::max(0.001f, halfDuration);
+    }
+    else
+    {
+        alpha = 1.0f - ((clampedTimer - halfDuration) / std::max(0.001f, halfDuration));
+    }
+
+    const int drawAlpha = static_cast<int>(std::clamp(alpha, 0.0f, 1.0f) * 255.0f);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, drawAlpha);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(4, 8, 14), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+
+    const int centerX = SCREEN_WIDTH / 2;
+    const int centerY = SCREEN_HEIGHT / 2;
+    const int lineWidth = 220;
+    const int lineHeight = 6;
+    const int glowAlpha = static_cast<int>(std::clamp(alpha * 0.85f, 0.0f, 1.0f) * 255.0f);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, glowAlpha);
+    DrawBox(centerX - lineWidth / 2, centerY - 16, centerX + lineWidth / 2, centerY - 16 + lineHeight, GetColor(80, 180, 255), TRUE);
+    DrawBox(centerX - lineWidth / 3, centerY + 10, centerX + lineWidth / 3, centerY + 10 + lineHeight, GetColor(255, 150, 64), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
 }
 
 bool Application::InitializeMiddleware()
@@ -275,17 +323,56 @@ void Application::ProcessSceneEvents()
 
     if (!requestedSceneId.empty())
     {
-        std::unique_ptr<Scene> nextScene = m_sceneRegistry->Create(requestedSceneId);
+        RequestSceneChange(requestedSceneId);
+    }
+}
+
+void Application::UpdateSceneTransition(float deltaTime)
+{
+    m_sceneTransitionTimer += deltaTime;
+    if (!m_sceneTransitionSwapped && m_sceneTransitionTimer >= SCENE_TRANSITION_SWAP_TIME)
+    {
+        m_sceneTransitionSwapped = true;
+
+        std::unique_ptr<Scene> nextScene = m_sceneRegistry->Create(m_pendingSceneId);
         if (!nextScene)
         {
-            Logger::Warn("Unknown scene change request: " + requestedSceneId);
+            Logger::Warn("Unknown scene change request: " + m_pendingSceneId);
+            m_sceneTransitionActive = false;
+            m_pendingSceneId.clear();
             return;
         }
 
-        Logger::Info("Changing scene to " + requestedSceneId);
+        Logger::Info("Changing scene to " + m_pendingSceneId);
         Audio_PlayCue("scene_change");
         m_sceneManager->SetScene(std::move(nextScene), *m_resources);
     }
+
+    if (m_sceneTransitionTimer >= m_sceneTransitionDuration)
+    {
+        m_sceneTransitionActive = false;
+        m_sceneTransitionSwapped = false;
+        m_sceneTransitionTimer = 0.0f;
+        m_pendingSceneId.clear();
+    }
+}
+
+bool Application::RequestSceneChange(const std::string& sceneId)
+{
+    if (sceneId.empty())
+    {
+        return false;
+    }
+    if (m_sceneTransitionActive)
+    {
+        return false;
+    }
+
+    m_pendingSceneId = sceneId;
+    m_sceneTransitionActive = true;
+    m_sceneTransitionSwapped = false;
+    m_sceneTransitionTimer = 0.0f;
+    return true;
 }
 
 void Application::UpdateWindowTitle()

@@ -1,0 +1,11 @@
+{
+  "capture_height_scale": 1.15,
+  "capture_width_scale": 1.85,
+  "coyote_time": 0.1,
+  "gravity": 1900.0,
+  "ground_snap_distance": 8.0,
+  "jump_speed": -760.0,
+  "max_fall_speed": 980.0,
+  "move_speed": 320.0,
+  "pickup_time_bonus": 8.0
+}

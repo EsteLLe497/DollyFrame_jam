@@ -1,9 +1,11 @@
 #pragma once
 
 #include <memory>
+#include <filesystem>
 #include <vector>
 
 #include "asset_manifest.h"
+#include "components.h"
 #include "entity.h"
 #include "event_bus.h"
 #include "game_session.h"
@@ -17,6 +19,10 @@ class TransformComponent;
 struct CapturedPhotoItem
 {
     int textureId = -1;
+    PhotoCopyRole role = PhotoCopyRole::Solid;
+    PhotoCopyLayer layer = PhotoCopyLayer::Foreground;
+    PhotoCopyOrigin origin = PhotoCopyOrigin::Generic;
+    PhotoFilterTheme appliedTheme = PhotoFilterTheme::None;
     float relativeX = 0.0f;
     float relativeY = 0.0f;
     float width = 0.0f;
@@ -29,6 +35,7 @@ struct CapturedPhotoItem
     float tintG = 1.0f;
     float tintB = 1.0f;
     float tintA = 1.0f;
+    bool flipX = false;
 };
 
 class GameScene final : public Scene
@@ -55,11 +62,15 @@ private:
     void HandlePhotoSpawn();
     void UpdateGoalVisual(float deltaTime);
     void HandleWorldInteractions();
+    bool ApplyPhotoFilterTheme(Entity& photoBox, PhotoFilterTheme theme);
     void RemoveDefeatedEnemies();
     void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage);
     void QueueResult(GameEndReason reason);
+    void UpdateTuningPanel();
+    void DrawTuningPanel() const;
     void DrawCaptureOverlay() const;
     void DrawPhotoPlacementPreview() const;
+    void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
     void DrawEntity(const Entity& entity) const;
     void DrawBackdrop() const;
     void GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const;
@@ -106,6 +117,8 @@ private:
     bool m_photoBoxSpawned;
     int m_enemyCount;
     bool m_playerFacingRight;
+    PhotoFilterTheme m_selectedFilterTheme;
+    PhotoFilterTheme m_capturedPhotoTheme;
     std::vector<CapturedPhotoItem> m_capturedPhotoItems;
     int m_capturedTextureId;
     float m_capturedPhotoWidth;
@@ -126,4 +139,14 @@ private:
     float m_photoPlacementY;
     float m_photoPlacementWidth;
     float m_photoPlacementHeight;
+    PhotoCopyLayer m_photoPlacementLayer;
+    bool m_photoPlacementFlipX;
+    bool m_photoPlacementBridgeEnabled;
+    int m_nextPhotoGroupId;
+    int m_activePhotoGroupCount;
+    bool m_showTuningPanel;
+    int m_tuningSelection;
+    float m_tuningReloadTimer;
+    std::filesystem::file_time_type m_tuningFileWriteTime;
+    bool m_hasTuningFileWriteTime;
 };

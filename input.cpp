@@ -16,9 +16,22 @@ namespace
     {
         switch (virtualKey)
         {
+        case '0': return KEY_INPUT_0;
+        case '1': return KEY_INPUT_1;
+        case '2': return KEY_INPUT_2;
+        case '3': return KEY_INPUT_3;
+        case '4': return KEY_INPUT_4;
+        case '5': return KEY_INPUT_5;
+        case '6': return KEY_INPUT_6;
+        case '7': return KEY_INPUT_7;
+        case '8': return KEY_INPUT_8;
+        case '9': return KEY_INPUT_9;
         case 'A': return KEY_INPUT_A;
+        case 'B': return KEY_INPUT_B;
+        case 'C': return KEY_INPUT_C;
         case 'D': return KEY_INPUT_D;
         case 'E': return KEY_INPUT_E;
+        case 'F': return KEY_INPUT_F;
         case 'Q': return KEY_INPUT_Q;
         case 'R': return KEY_INPUT_R;
         case 'S': return KEY_INPUT_S;
@@ -33,6 +46,18 @@ namespace
         case VK_SPACE: return KEY_INPUT_SPACE;
         case VK_RETURN: return KEY_INPUT_RETURN;
         case VK_ESCAPE: return KEY_INPUT_ESCAPE;
+        case VK_F1: return KEY_INPUT_F1;
+        case VK_F2: return KEY_INPUT_F2;
+        case VK_F3: return KEY_INPUT_F3;
+        case VK_F4: return KEY_INPUT_F4;
+        case VK_F5: return KEY_INPUT_F5;
+        case VK_F6: return KEY_INPUT_F6;
+        case VK_F7: return KEY_INPUT_F7;
+        case VK_F8: return KEY_INPUT_F8;
+        case VK_F9: return KEY_INPUT_F9;
+        case VK_F10: return KEY_INPUT_F10;
+        case VK_F11: return KEY_INPUT_F11;
+        case VK_F12: return KEY_INPUT_F12;
         default: return -1;
         }
     }

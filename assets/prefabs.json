@@ -147,6 +147,114 @@
         "amplitudeY": 70.0,
         "frequency": 1.6
       }
+    },
+    "hot_gimmick": {
+      "tag": "HotGimmick",
+      "texture": "white",
+      "transform": {
+        "x": 1040.0,
+        "y": 284.0,
+        "width": 96.0,
+        "height": 96.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.94,
+        "g": 0.34,
+        "b": 0.16,
+        "a": 0.96
+      },
+      "gimmick": {
+        "enabled": true,
+        "type": "hazard",
+        "startsEnabled": true,
+        "oneShot": false
+      },
+      "photoFilter": {
+        "enabled": true,
+        "theme": "hot",
+        "outputRole": "hazard",
+        "outputLayer": "foreground",
+        "tint": {
+          "r": 1.0,
+          "g": 0.36,
+          "b": 0.18,
+          "a": 1.0
+        }
+      }
+    },
+    "cold_gimmick": {
+      "tag": "ColdGimmick",
+      "texture": "white",
+      "transform": {
+        "x": 1188.0,
+        "y": 316.0,
+        "width": 96.0,
+        "height": 96.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.18,
+        "g": 0.72,
+        "b": 0.96,
+        "a": 0.96
+      },
+      "gimmick": {
+        "enabled": true,
+        "type": "filter",
+        "startsEnabled": true,
+        "oneShot": false
+      },
+      "photoFilter": {
+        "enabled": true,
+        "theme": "cold",
+        "outputRole": "pickup",
+        "outputLayer": "foreground",
+        "tint": {
+          "r": 0.20,
+          "g": 0.88,
+          "b": 0.92,
+          "a": 1.0
+        }
+      }
+    },
+    "invert_gimmick": {
+      "tag": "InvertGimmick",
+      "texture": "white",
+      "transform": {
+        "x": 1336.0,
+        "y": 300.0,
+        "width": 108.0,
+        "height": 108.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.82,
+        "g": 0.84,
+        "b": 0.88,
+        "a": 0.96
+      },
+      "gimmick": {
+        "enabled": true,
+        "type": "filter",
+        "startsEnabled": true,
+        "oneShot": false
+      },
+      "photoFilter": {
+        "enabled": true,
+        "theme": "invert",
+        "outputRole": "ally",
+        "outputLayer": "foreground",
+        "tint": {
+          "r": 0.62,
+          "g": 0.62,
+          "b": 0.64,
+          "a": 1.0
+        }
+      }
     }
   }
 }
