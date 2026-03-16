@@ -2,6 +2,11 @@
 
 このドキュメントは、JSON と Lua の定義形式を説明します。
 
+## 先に読んでおくとよいもの
+
+- `docs/programming-guide.md`
+- `docs/team-programming-guide.md`
+
 ## `assets/manifest.json`
 
 役割:
@@ -157,6 +162,32 @@
 - `controller.player = true` を付けると `PlayerControllerComponent` が追加されます
 - `rigidBody.enabled = true` なのに `collider.enabled = false` でも生成自体はできます
 
+### 現状の運用注意
+
+このプロジェクトでは `prefabs.json` があっても、すべてのゲームオブジェクトが prefab から置かれているわけではありません。  
+特に `GameScene` の主要配置物は、まだ `game_scene.cpp` で直接生成しているものがあります。
+
+つまり、
+
+- JSON を変えれば自動で全部変わる
+
+という前提ではありません。  
+配置やルールに関わる変更では、`GameScene` 側のコード確認も必要です。
+
+### フィルターまわり
+
+現在のフィルター本体はコード側が主です。  
+今あるテーマは次です。
+
+- `None`
+- `Hot`
+- `Cold`
+- `Invert`
+- `Sepia`
+
+効果は主に `game_scene_gameplay.cpp` で処理しています。  
+そのため、`prefabs.json` だけでフィルター仕様を完結させる構造ではありません。
+
 ## `assets/demo_scene.lua`
 
 役割:
@@ -219,3 +250,12 @@ JSON が読めない場合の挙動は以下です。
   ビルトインの `player`、`target` プレハブを使う
 
 このため、最低限のサンプルは外部データが壊れても起動できます。
+
+## 補足
+
+もし「データだけで調整したい」ときは、先に次のどちらなのかを分けてください。
+
+- 見た目や数値の調整
+- ルールの変更
+
+前者は JSON で済むことがありますが、後者はほぼコード変更が必要です。

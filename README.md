@@ -235,6 +235,34 @@ Visual Studio の場合:
   新しいシーン、コンポーネント、プレハブ、イベントの追加手順
 - [docs/middleware.md](docs/middleware.md)
   導入済みミドルウェアの役割と接続先
+- [docs/programming-guide.md](docs/programming-guide.md)
+  現在の実装に合わせたプログラミング説明書
+- [docs/team-programming-guide.md](docs/team-programming-guide.md)
+  チーム制作メンバー向けのプログラム作業ガイド
+- [docs/git-and-artifacts-guide.md](docs/git-and-artifacts-guide.md)
+  Git 運用と生成物の扱い方
+- [docs/build-setup-guide.md](docs/build-setup-guide.md)
+  チーム向けビルド環境セットアップ手順
+- [docs/filter-spec.md](docs/filter-spec.md)
+  `Hot / Cold / Invert / Sepia` の仕様書
+- [docs/level-editing-guide.md](docs/level-editing-guide.md)
+  ステージ編集と配置作業のルール
+- [docs/task-recipes.md](docs/task-recipes.md)
+  敵追加、ギミック追加、フィルター追加の実装レシピ集
+- [docs/glossary.md](docs/glossary.md)
+  用語集
+- [docs/troubleshooting.md](docs/troubleshooting.md)
+  よくある詰まりどころと対処
+- [docs/coding-conventions.md](docs/coding-conventions.md)
+  このプロジェクト向けのコーディング規約メモ
+- [docs/scene-reference.md](docs/scene-reference.md)
+  シーン別の入口と担当範囲
+- [docs/shader-guide.md](docs/shader-guide.md)
+  シェーダ担当向けガイド
+- [docs/ui-guide.md](docs/ui-guide.md)
+  UI担当向けガイド
+- [docs/refactor-candidates.md](docs/refactor-candidates.md)
+  今後の改善候補一覧
 
 ## どこから触るべきか
 
