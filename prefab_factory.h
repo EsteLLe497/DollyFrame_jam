@@ -6,6 +6,8 @@
 
 #include <box2d/box2d.h>
 
+#include "components.h"
+
 class AssetManifest;
 class Entity;
 class EventBus;
@@ -38,12 +40,27 @@ struct PrefabDefinition
     int maxHealth = 3;
     bool hasDamageCooldown = false;
     float damageCooldown = 0.0f;
+    bool hasEnemy = false;
+    EnemyArchetype enemyArchetype = EnemyArchetype::Floater;
+    int enemyContactDamage = 1;
     bool hasEnemyMover = false;
     float enemyOriginX = 0.0f;
     float enemyOriginY = 0.0f;
     float enemyAmplitudeX = 0.0f;
     float enemyAmplitudeY = 0.0f;
     float enemyFrequency = 1.0f;
+    bool hasGimmick = false;
+    GimmickType gimmickType = GimmickType::Hazard;
+    bool gimmickStartsEnabled = true;
+    bool gimmickOneShot = false;
+    bool hasPhotoFilter = false;
+    PhotoFilterTheme filterTheme = PhotoFilterTheme::None;
+    PhotoCopyRole filterOutputRole = PhotoCopyRole::Solid;
+    PhotoCopyLayer filterOutputLayer = PhotoCopyLayer::Foreground;
+    float filterTintR = 1.0f;
+    float filterTintG = 1.0f;
+    float filterTintB = 1.0f;
+    float filterTintA = 1.0f;
 };
 
 class PrefabFactory

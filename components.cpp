@@ -43,6 +43,255 @@ TagComponent::TagComponent(const char* value)
 {
 }
 
+PhotoCopyRoleComponent::PhotoCopyRoleComponent(PhotoCopyRole roleValue)
+    : role(roleValue)
+{
+}
+
+PhotoCopyLayerComponent::PhotoCopyLayerComponent(PhotoCopyLayer layerValue)
+    : layer(layerValue)
+{
+}
+
+PhotoCopyGroupComponent::PhotoCopyGroupComponent(int groupIdValue)
+    : groupId(groupIdValue)
+{
+}
+
+PhotoCopyOriginComponent::PhotoCopyOriginComponent(PhotoCopyOrigin originValue)
+    : origin(originValue)
+{
+}
+
+namespace
+{
+    const char* ToPhotoFilterThemeLabel(PhotoFilterTheme theme)
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Hot:
+            return "Hot";
+        case PhotoFilterTheme::Cold:
+            return "Cold";
+        case PhotoFilterTheme::Invert:
+            return "Invert";
+        case PhotoFilterTheme::None:
+        default:
+            return "None";
+        }
+    }
+
+    const char* ToEnemyArchetypeLabel(EnemyArchetype archetype)
+    {
+        switch (archetype)
+        {
+        case EnemyArchetype::Walker:
+            return "Walker";
+        case EnemyArchetype::Turret:
+            return "Turret";
+        case EnemyArchetype::Floater:
+        default:
+            return "Floater";
+        }
+    }
+
+    const char* ToGimmickTypeLabel(GimmickType type)
+    {
+        switch (type)
+        {
+        case GimmickType::Goal:
+            return "Goal";
+        case GimmickType::Pickup:
+            return "Pickup";
+        case GimmickType::PhotoSource:
+            return "Photo Source";
+        case GimmickType::Filter:
+            return "Filter";
+        case GimmickType::Gate:
+            return "Gate";
+        case GimmickType::Switch:
+            return "Switch";
+        case GimmickType::Hazard:
+        default:
+            return "Hazard";
+        }
+    }
+}
+
+PhotoCopyEffectComponent::PhotoCopyEffectComponent(PhotoFilterTheme themeValue)
+    : m_theme(themeValue)
+{
+}
+
+void PhotoCopyEffectComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Photo Effect");
+    ImGui::Text("Theme: %s", ToPhotoFilterThemeLabel(m_theme));
+}
+
+PhotoFilterTheme PhotoCopyEffectComponent::GetTheme() const
+{
+    return m_theme;
+}
+
+void PhotoCopyEffectComponent::SetTheme(PhotoFilterTheme themeValue)
+{
+    m_theme = themeValue;
+}
+
+EnemyComponent::EnemyComponent(EnemyArchetype archetype, int contactDamage)
+    : m_archetype(archetype)
+    , m_contactDamage(std::max(0, contactDamage))
+    , m_enabled(true)
+    , m_defeated(false)
+{
+}
+
+void EnemyComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Enemy");
+    ImGui::Text("Type: %s", ToEnemyArchetypeLabel(m_archetype));
+    ImGui::Text("Contact Damage: %d", m_contactDamage);
+    ImGui::Text("Enabled: %s", m_enabled ? "Yes" : "No");
+    ImGui::Text("Defeated: %s", m_defeated ? "Yes" : "No");
+}
+
+EnemyArchetype EnemyComponent::GetArchetype() const
+{
+    return m_archetype;
+}
+
+int EnemyComponent::GetContactDamage() const
+{
+    return m_contactDamage;
+}
+
+bool EnemyComponent::IsEnabled() const
+{
+    return m_enabled && !m_defeated;
+}
+
+void EnemyComponent::SetEnabled(bool enabled)
+{
+    m_enabled = enabled;
+}
+
+bool EnemyComponent::IsDefeated() const
+{
+    return m_defeated;
+}
+
+void EnemyComponent::MarkDefeated()
+{
+    m_defeated = true;
+    m_enabled = false;
+}
+
+GimmickComponent::GimmickComponent(GimmickType type, bool startsEnabled, bool oneShot)
+    : m_type(type)
+    , m_enabled(startsEnabled)
+    , m_oneShot(oneShot)
+    , m_consumed(false)
+{
+}
+
+void GimmickComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Gimmick");
+    ImGui::Text("Type: %s", ToGimmickTypeLabel(m_type));
+    ImGui::Text("Enabled: %s", m_enabled ? "Yes" : "No");
+    ImGui::Text("One Shot: %s", m_oneShot ? "Yes" : "No");
+    ImGui::Text("Consumed: %s", m_consumed ? "Yes" : "No");
+}
+
+GimmickType GimmickComponent::GetType() const
+{
+    return m_type;
+}
+
+bool GimmickComponent::IsEnabled() const
+{
+    return m_enabled && (!m_oneShot || !m_consumed);
+}
+
+void GimmickComponent::SetEnabled(bool enabled)
+{
+    m_enabled = enabled;
+}
+
+bool GimmickComponent::IsOneShot() const
+{
+    return m_oneShot;
+}
+
+bool GimmickComponent::IsConsumed() const
+{
+    return m_consumed;
+}
+
+void GimmickComponent::Consume()
+{
+    if (m_oneShot)
+    {
+        m_consumed = true;
+    }
+}
+
+PhotoFilterComponent::PhotoFilterComponent(PhotoFilterTheme theme, PhotoCopyRole outputRole, PhotoCopyLayer outputLayer, float tintR, float tintG, float tintB, float tintA)
+    : m_theme(theme)
+    , m_outputRole(outputRole)
+    , m_outputLayer(outputLayer)
+    , m_tintR(tintR)
+    , m_tintG(tintG)
+    , m_tintB(tintB)
+    , m_tintA(tintA)
+{
+}
+
+void PhotoFilterComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Photo Filter");
+    ImGui::Text("Theme: %s", ToPhotoFilterThemeLabel(m_theme));
+    ImGui::Text("Role: %d", static_cast<int>(m_outputRole));
+    ImGui::Text("Layer: %d", static_cast<int>(m_outputLayer));
+    ImGui::Text("Tint: %.2f %.2f %.2f %.2f", m_tintR, m_tintG, m_tintB, m_tintA);
+}
+
+PhotoFilterTheme PhotoFilterComponent::GetTheme() const
+{
+    return m_theme;
+}
+
+PhotoCopyRole PhotoFilterComponent::GetOutputRole() const
+{
+    return m_outputRole;
+}
+
+PhotoCopyLayer PhotoFilterComponent::GetOutputLayer() const
+{
+    return m_outputLayer;
+}
+
+float PhotoFilterComponent::GetTintR() const
+{
+    return m_tintR;
+}
+
+float PhotoFilterComponent::GetTintG() const
+{
+    return m_tintG;
+}
+
+float PhotoFilterComponent::GetTintB() const
+{
+    return m_tintB;
+}
+
+float PhotoFilterComponent::GetTintA() const
+{
+    return m_tintA;
+}
+
 HealthComponent::HealthComponent(int maxHealth)
     : m_maxHealth(std::max(1, maxHealth))
     , m_currentHealth(std::max(1, maxHealth))
@@ -113,6 +362,7 @@ SpriteRenderComponent::SpriteRenderComponent(int textureId)
     , m_sourceY(0.0f)
     , m_sourceWidth(1.0f)
     , m_sourceHeight(1.0f)
+    , m_flipX(false)
 {
 }
 
@@ -143,6 +393,7 @@ void SpriteRenderComponent::Draw()
         m_sourceY,
         m_sourceWidth,
         m_sourceHeight,
+        m_flipX,
         transform->rotation);
 }
 
@@ -182,6 +433,16 @@ float SpriteRenderComponent::GetSourceWidth() const
 float SpriteRenderComponent::GetSourceHeight() const
 {
     return m_sourceHeight;
+}
+
+void SpriteRenderComponent::SetFlipX(bool value)
+{
+    m_flipX = value;
+}
+
+bool SpriteRenderComponent::GetFlipX() const
+{
+    return m_flipX;
 }
 
 void PlayerControllerComponent::Update(float deltaTime)

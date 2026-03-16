@@ -6,6 +6,34 @@ using namespace game_scene_detail;
 
 namespace
 {
+    void GetFilterThemeOverlayColor(PhotoFilterTheme theme, float& r, float& g, float& b)
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Hot:
+            r = 1.0f;
+            g = 0.20f;
+            b = 0.08f;
+            break;
+        case PhotoFilterTheme::Cold:
+            r = 0.14f;
+            g = 0.56f;
+            b = 1.0f;
+            break;
+        case PhotoFilterTheme::Invert:
+            r = 0.86f;
+            g = 0.86f;
+            b = 0.90f;
+            break;
+        case PhotoFilterTheme::None:
+        default:
+            r = 1.0f;
+            g = 1.0f;
+            b = 1.0f;
+            break;
+        }
+    }
+
     void DrawWorldRectOutline(float worldX, float worldY, float worldWidth, float worldHeight, float cameraX, unsigned int color)
     {
         const float viewScale = GetViewScale();
@@ -16,6 +44,108 @@ namespace
         const int right = static_cast<int>(std::round(viewOriginX + (worldX + worldWidth - cameraX) * viewScale));
         const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + worldHeight) * viewScale));
         DrawBox(left, top, right, bottom, color, FALSE);
+    }
+
+    const char* GetStageGuideText(float playerX)
+    {
+        static_cast<void>(playerX);
+        return "Sandbox: choose filter 1-4, capture, then place up to three copy groups.";
+    }
+
+    const char* GetRoleLabel(PhotoCopyRole role)
+    {
+        switch (role)
+        {
+        case PhotoCopyRole::Hazard:
+            return "Hazard";
+        case PhotoCopyRole::GoalRelay:
+            return "Goal";
+        case PhotoCopyRole::Pickup:
+            return "Pickup";
+        case PhotoCopyRole::Ally:
+            return "Ally";
+        case PhotoCopyRole::Solid:
+        default:
+            return "Solid";
+        }
+    }
+
+    const char* GetLayerLabel(PhotoCopyLayer layer)
+    {
+        switch (layer)
+        {
+        case PhotoCopyLayer::Background:
+            return "Background";
+        case PhotoCopyLayer::Shadow:
+            return "Shadow";
+        case PhotoCopyLayer::Foreground:
+        default:
+            return "Foreground";
+        }
+    }
+
+    const char* GetLayerEffectText(PhotoCopyLayer layer)
+    {
+        switch (layer)
+        {
+        case PhotoCopyLayer::Background:
+            return "Visible only / pass through";
+        case PhotoCopyLayer::Shadow:
+            return "Black shadow / pass through";
+        case PhotoCopyLayer::Foreground:
+        default:
+            return "Solid in world";
+        }
+    }
+
+    const char* GetFilterThemeLabel(PhotoFilterTheme theme)
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Hot:
+            return "Hot";
+        case PhotoFilterTheme::Cold:
+            return "Cold";
+        case PhotoFilterTheme::Invert:
+            return "Invert";
+        case PhotoFilterTheme::None:
+        default:
+            return "None";
+        }
+    }
+
+    void ApplyPreviewFilterTheme(CapturedPhotoItem& item)
+    {
+        switch (item.appliedTheme)
+        {
+        case PhotoFilterTheme::Hot:
+            item.role = PhotoCopyRole::Hazard;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.tintR = 1.0f;
+            item.tintG = 0.34f;
+            item.tintB = 0.12f;
+            item.tintA = 1.0f;
+            break;
+        case PhotoFilterTheme::Cold:
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.tintR = 0.76f;
+            item.tintG = 0.90f;
+            item.tintB = 1.0f;
+            item.tintA = 1.0f;
+            break;
+        case PhotoFilterTheme::Invert:
+            item.role = item.origin == PhotoCopyOrigin::Enemy ? PhotoCopyRole::Ally : PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.tintR = 0.62f;
+            item.tintG = 0.62f;
+            item.tintB = 0.64f;
+            item.tintA = 1.0f;
+            break;
+        case PhotoFilterTheme::None:
+        default:
+            break;
+        }
     }
 }
 
@@ -52,21 +182,29 @@ void GameScene::DrawCaptureOverlay() const
     const float drawWidth = frameWidth * viewScale;
     const float drawHeight = frameHeight * viewScale;
 
-    const float shutterT = Clamp01(m_shutterFlashRemaining / kShutterFlashSeconds);
+    const float shutterT = Clamp01(m_shutterFlashRemaining / gShutterFlashSeconds);
     const float frameInset = 10.0f * shutterT * viewScale;
     const float innerX = drawX + frameInset;
     const float innerY = drawY + frameInset;
     const float innerWidth = std::max(8.0f, drawWidth - frameInset * 2.0f);
     const float innerHeight = std::max(8.0f, drawHeight - frameInset * 2.0f);
+    float overlayR = 1.0f;
+    float overlayG = 1.0f;
+    float overlayB = 1.0f;
+    GetFilterThemeOverlayColor(m_selectedFilterTheme, overlayR, overlayG, overlayB);
 
     Shader_ResetStyle();
     Shader_SetOutline(
-        0.42f + shutterT * 0.48f,
-        0.78f + shutterT * 0.18f,
+        overlayR * (0.70f + shutterT * 0.30f),
+        overlayG * (0.70f + shutterT * 0.22f),
+        overlayB * (0.70f + shutterT * 0.22f),
         1.0f,
-        1.0f,
-        1.6f + shutterT * 1.2f);
-    Shader_SetTint(0.14f + shutterT * 0.42f, 0.28f + shutterT * 0.42f, 0.38f + shutterT * 0.42f, 0.18f + shutterT * 0.24f);
+        2.0f + shutterT * 1.4f);
+    Shader_SetTint(
+        overlayR * (0.24f + shutterT * 0.44f),
+        overlayG * (0.24f + shutterT * 0.36f),
+        overlayB * (0.24f + shutterT * 0.44f),
+        0.30f + shutterT * 0.24f);
     SpriteDraw(m_whiteTexture, innerX, innerY, innerWidth, innerHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
     if (Entity* target = FindCaptureTarget(*transform))
@@ -86,12 +224,12 @@ void GameScene::DrawCaptureOverlay() const
     if (m_shutterFlashRemaining > 0.0f)
     {
         Shader_ResetStyle();
-        Shader_SetTint(1.0f, 1.0f, 1.0f, 0.10f + shutterT * 0.55f);
+        Shader_SetTint(overlayR, overlayG, overlayB, 0.10f + shutterT * 0.55f);
         SpriteDraw(m_whiteTexture, GetViewOriginX(), GetViewOriginY(), GetViewWidth(), GetViewHeight(), 0.0f, 0.0f, 1.0f, 1.0f);
 
         const float lineWidth = 6.0f + shutterT * 10.0f;
         const float lineHeight = std::max(12.0f, 32.0f * shutterT * viewScale);
-        Shader_SetTint(1.0f, 1.0f, 1.0f, 0.24f + shutterT * 0.40f);
+        Shader_SetTint(overlayR, overlayG, overlayB, 0.24f + shutterT * 0.40f);
         SpriteDraw(m_whiteTexture, drawX, drawY - lineHeight, drawWidth, lineWidth, 0.0f, 0.0f, 1.0f, 1.0f);
         SpriteDraw(m_whiteTexture, drawX, drawY + drawHeight, drawWidth, lineWidth, 0.0f, 0.0f, 1.0f, 1.0f);
         SpriteDraw(m_whiteTexture, drawX - lineHeight, drawY, lineWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -99,6 +237,54 @@ void GameScene::DrawCaptureOverlay() const
     }
 
     Shader_ResetStyle();
+}
+
+void GameScene::DrawTuningPanel() const
+{
+    if (!m_showTuningPanel)
+    {
+        return;
+    }
+
+    const int left = 32;
+    const int top = 32;
+    const int width = 360;
+    const int height = 300;
+
+    DrawBox(left, top, left + width, top + height, GetColor(18, 22, 28), TRUE);
+    DrawBox(left, top, left + width, top + height, GetColor(210, 220, 240), FALSE);
+    DrawString(left + 16, top + 14, "Tuning Panel  F1: Close", GetColor(255, 255, 255));
+    DrawString(left + 16, top + 38, "Up/Down: Select  Left/Right: Adjust", GetColor(180, 210, 255));
+
+    struct Entry
+    {
+        const char* label;
+        float value;
+    };
+
+    const Entry entries[] =
+    {
+        { "Camera Width", gCameraViewWidth },
+        { "Camera Height", gCameraViewHeight },
+        { "Move Speed", gPlayerMoveSpeed },
+        { "Jump Speed", gPlayerJumpSpeed },
+        { "Gravity", gPlayerGravity },
+        { "Max Fall", gPlayerMaxFallSpeed },
+        { "Coyote", gCoyoteTimeSeconds },
+        { "Ground Snap", gGroundSnapDistance },
+        { "Capture Width", gCaptureWidthScale },
+        { "Capture Height", gCaptureHeightScale },
+        { "Pickup Bonus", gPickupTimeBonus },
+    };
+
+    for (int index = 0; index < static_cast<int>(sizeof(entries) / sizeof(entries[0])); ++index)
+    {
+        const int y = top + 72 + index * 22;
+        const unsigned int color = index == m_tuningSelection
+            ? GetColor(255, 240, 120)
+            : GetColor(235, 235, 235);
+        DrawFormatString(left + 16, y, color, "%c %-14s : %7.2f", index == m_tuningSelection ? '>' : ' ', entries[index].label, entries[index].value);
+    }
 }
 
 void GameScene::DrawPhotoPlacementPreview() const
@@ -111,8 +297,56 @@ void GameScene::DrawPhotoPlacementPreview() const
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
-    for (const auto& item : m_capturedPhotoItems)
+    std::vector<CapturedPhotoItem> previewItems = m_capturedPhotoItems;
+    if (m_photoPlacementFlipX)
     {
+        for (auto& item : previewItems)
+        {
+            item.relativeX = m_photoPlacementWidth - item.relativeX - item.width;
+            item.flipX = !item.flipX;
+        }
+    }
+    if (m_photoPlacementBridgeEnabled && previewItems.size() >= 2)
+    {
+        const std::vector<CapturedPhotoItem> baseItems = previewItems;
+        constexpr float kSegmentSize = 18.0f;
+        for (size_t index = 1; index < baseItems.size(); ++index)
+        {
+            const auto& a = baseItems[index - 1];
+            const auto& b = baseItems[index];
+            const float ax = a.relativeX + a.width * 0.5f;
+            const float ay = a.relativeY + a.height * 0.5f;
+            const float bx = b.relativeX + b.width * 0.5f;
+            const float by = b.relativeY + b.height * 0.5f;
+            const float length = std::max(std::fabs(bx - ax), std::fabs(by - ay));
+            const int steps = std::max(1, static_cast<int>(length / kSegmentSize));
+            for (int step = 1; step < steps; ++step)
+            {
+                const float t = static_cast<float>(step) / static_cast<float>(steps);
+                CapturedPhotoItem bridge;
+                bridge.textureId = m_whiteTexture;
+                bridge.appliedTheme = m_capturedPhotoTheme;
+                bridge.relativeX = std::lerp(ax, bx, t) - kSegmentSize * 0.5f;
+                bridge.relativeY = std::lerp(ay, by, t) - kSegmentSize * 0.5f;
+                bridge.width = kSegmentSize;
+                bridge.height = kSegmentSize;
+                bridge.sourceX = 0.0f;
+                bridge.sourceY = 0.0f;
+                bridge.sourceWidth = 1.0f;
+                bridge.sourceHeight = 1.0f;
+                bridge.tintR = 0.90f;
+                bridge.tintG = 0.96f;
+                bridge.tintB = 1.0f;
+                bridge.tintA = 0.92f;
+                previewItems.push_back(bridge);
+            }
+        }
+    }
+
+    for (const auto& item : previewItems)
+    {
+        CapturedPhotoItem previewItem = item;
+        ApplyPreviewFilterTheme(previewItem);
         const float drawX = viewOriginX + ((m_photoPlacementX + item.relativeX) - m_cameraX) * viewScale;
         const float drawY = viewOriginY + (m_photoPlacementY + item.relativeY) * viewScale;
         const float drawWidth = item.width * viewScale;
@@ -121,8 +355,23 @@ void GameScene::DrawPhotoPlacementPreview() const
         Shader_ResetStyle();
         if (m_photoPlacementValid)
         {
-            Shader_SetOutline(0.32f, 0.92f, 1.0f, 1.0f, 1.6f);
-            Shader_SetTint(item.tintR, item.tintG, item.tintB, 0.55f);
+            switch (previewItem.appliedTheme)
+            {
+            case PhotoFilterTheme::Hot:
+                Shader_SetOutline(1.0f, 0.42f, 0.18f, 1.0f, 1.8f);
+                break;
+            case PhotoFilterTheme::Cold:
+                Shader_SetOutline(0.76f, 0.94f, 1.0f, 1.0f, 1.8f);
+                break;
+            case PhotoFilterTheme::Invert:
+                Shader_SetOutline(0.86f, 0.86f, 0.92f, 1.0f, 1.8f);
+                break;
+            case PhotoFilterTheme::None:
+            default:
+                Shader_SetOutline(0.32f, 0.92f, 1.0f, 1.0f, 1.6f);
+                break;
+            }
+            Shader_SetTint(previewItem.tintR, previewItem.tintG, previewItem.tintB, 0.55f);
         }
         else
         {
@@ -140,10 +389,48 @@ void GameScene::DrawPhotoPlacementPreview() const
             item.sourceY,
             item.sourceWidth,
             item.sourceHeight,
+            item.flipX,
             0.0f);
     }
 
+    DrawFormatString(
+        static_cast<int>(viewOriginX + 24.0f),
+        static_cast<int>(viewOriginY + 24.0f),
+        GetColor(230, 240, 255),
+        "Filter:%s  Layer:%s  Flip:%s  Bridge:%s",
+        GetFilterThemeLabel(m_capturedPhotoTheme),
+        GetLayerLabel(m_photoPlacementLayer),
+        m_photoPlacementFlipX ? "On" : "Off",
+        m_photoPlacementBridgeEnabled ? "On" : "Off");
+    DrawFormatString(
+        static_cast<int>(viewOriginX + 24.0f),
+        static_cast<int>(viewOriginY + 48.0f),
+        GetColor(190, 220, 255),
+        "%s  Groups:%d/3  Keys:Q/F/B",
+        GetLayerEffectText(m_photoPlacementLayer),
+        m_activePhotoGroupCount);
+
     Shader_ResetStyle();
+}
+
+void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
+{
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, "PhotoBox"))
+        {
+            continue;
+        }
+
+        const auto* photoLayer = entity->GetComponent<PhotoCopyLayerComponent>();
+        const PhotoCopyLayer currentLayer = photoLayer ? photoLayer->layer : PhotoCopyLayer::Foreground;
+        if (currentLayer != layer)
+        {
+            continue;
+        }
+
+        DrawEntity(*entity);
+    }
 }
 
 void GameScene::DrawEntity(const Entity& entity) const
@@ -184,9 +471,93 @@ void GameScene::DrawEntity(const Entity& entity) const
     {
         Shader_SetOutline(0.18f, 0.90f, 1.0f, 1.0f, 1.4f);
     }
+    else if (entity.GetComponent<PhotoFilterComponent>())
+    {
+        if (const auto* filter = entity.GetComponent<PhotoFilterComponent>())
+        {
+            switch (filter->GetTheme())
+            {
+            case PhotoFilterTheme::Hot:
+                Shader_SetOutline(1.0f, 0.40f, 0.18f, 1.0f, 1.9f);
+                Shader_SetFlash(1.0f, 0.28f, 0.10f, 1.0f, 0.26f);
+                break;
+            case PhotoFilterTheme::Cold:
+                Shader_SetOutline(0.70f, 0.92f, 1.0f, 1.0f, 1.9f);
+                Shader_SetFlash(0.18f, 0.74f, 1.0f, 1.0f, 0.18f);
+                break;
+            case PhotoFilterTheme::Invert:
+                Shader_SetOutline(0.92f, 0.92f, 0.96f, 1.0f, 1.8f);
+                Shader_SetFlash(0.72f, 0.72f, 0.78f, 1.0f, 0.16f);
+                break;
+            case PhotoFilterTheme::None:
+            default:
+                Shader_SetOutline(0.26f, 1.0f, 0.92f, 1.0f, 1.8f);
+                Shader_SetFlash(0.18f, 0.92f, 0.88f, 1.0f, 0.22f);
+                break;
+            }
+        }
+    }
     else if (tag && tag->tag == "PhotoBox")
     {
-        Shader_SetFlash(0.82f, 0.90f, 1.0f, 1.0f, 0.18f);
+        const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
+        if (const auto* photoRole = entity.GetComponent<PhotoCopyRoleComponent>())
+        {
+            switch (photoRole->role)
+            {
+            case PhotoCopyRole::Hazard:
+                Shader_SetFlash(1.0f, 0.28f, 0.22f, 1.0f, 0.24f);
+                break;
+            case PhotoCopyRole::GoalRelay:
+                Shader_SetOutline(0.96f, 0.88f, 0.22f, 1.0f, 1.6f);
+                break;
+            case PhotoCopyRole::Pickup:
+                Shader_SetOutline(0.18f, 0.90f, 1.0f, 1.0f, 1.6f);
+                break;
+            case PhotoCopyRole::Ally:
+                Shader_SetOutline(0.78f, 0.94f, 0.82f, 1.0f, 1.8f);
+                break;
+            case PhotoCopyRole::Solid:
+            default:
+                Shader_SetFlash(0.82f, 0.90f, 1.0f, 1.0f, 0.18f);
+                break;
+            }
+        }
+        else
+        {
+            Shader_SetFlash(0.82f, 0.90f, 1.0f, 1.0f, 0.18f);
+        }
+
+        if (photoLayer)
+        {
+            if (photoLayer->layer == PhotoCopyLayer::Background)
+            {
+                Shader_SetTint(0.64f, 0.72f, 0.84f, 0.44f);
+            }
+            else if (photoLayer->layer == PhotoCopyLayer::Shadow)
+            {
+                Shader_SetOutline(0.04f, 0.04f, 0.06f, 1.0f, 1.6f);
+                Shader_SetTint(0.02f, 0.02f, 0.03f, 0.72f);
+            }
+        }
+
+        if (const auto* effect = entity.GetComponent<PhotoCopyEffectComponent>())
+        {
+            switch (effect->GetTheme())
+            {
+            case PhotoFilterTheme::Hot:
+                Shader_SetFlash(1.0f, 0.30f, 0.12f, 1.0f, 0.28f);
+                break;
+            case PhotoFilterTheme::Cold:
+                Shader_SetOutline(0.88f, 0.96f, 1.0f, 1.0f, 1.8f);
+                break;
+            case PhotoFilterTheme::Invert:
+                Shader_SetOutline(0.78f, 0.82f, 0.88f, 1.0f, 1.6f);
+                break;
+            case PhotoFilterTheme::None:
+            default:
+                break;
+            }
+        }
     }
     else if (tag && tag->tag == "Player")
     {
@@ -219,22 +590,27 @@ void GameScene::DrawEntity(const Entity& entity) const
         sprite->GetSourceY(),
         sprite->GetSourceWidth(),
         sprite->GetSourceHeight(),
+        sprite->GetFlipX(),
         transform->rotation);
 
-    if (m_showCollisionDebug && tag && (tag->tag == "Player" || tag->tag == "PhotoSource" || tag->tag == "PhotoBox"))
+    if (m_showCollisionDebug && (entity.GetComponent<PhotoFilterComponent>() || (tag && (tag->tag == "Player" || tag->tag == "PhotoSource" || tag->tag == "PhotoBox"))))
     {
         unsigned int color = GetColor(255, 255, 255);
-        if (tag->tag == "Player")
+        if (tag && tag->tag == "Player")
         {
             color = GetColor(255, 96, 96);
         }
-        else if (tag->tag == "PhotoSource")
+        else if (tag && tag->tag == "PhotoSource")
         {
             color = GetColor(96, 255, 255);
         }
-        else if (tag->tag == "PhotoBox")
+        else if (tag && tag->tag == "PhotoBox")
         {
             color = GetColor(255, 220, 96);
+        }
+        else if (entity.GetComponent<PhotoFilterComponent>())
+        {
+            color = GetColor(96, 255, 220);
         }
 
         DrawWorldRectOutline(
@@ -244,6 +620,85 @@ void GameScene::DrawEntity(const Entity& entity) const
             transform->height * transform->scale,
             m_cameraX,
             color);
+    }
+
+    if ((tag && (tag->tag == "PhotoSource" || tag->tag == "Hazard")) || entity.GetComponent<PhotoFilterComponent>())
+    {
+        const float textX = drawX;
+        const float textY = drawY - 18.0f;
+        PhotoCopyRole labelRole = PhotoCopyRole::Solid;
+        if (tag && tag->tag == "Hazard")
+        {
+            labelRole = PhotoCopyRole::Hazard;
+        }
+        else if (entity.GetComponent<PhotoFilterComponent>())
+        {
+            if (const auto* filter = entity.GetComponent<PhotoFilterComponent>())
+            {
+                labelRole = filter->GetOutputRole();
+            }
+        }
+        else if (const auto* tint = entity.GetComponent<TintComponent>())
+        {
+            labelRole = GetRoleFromTint(tint->r, tint->g, tint->b);
+        }
+
+        PhotoCopyLayer labelLayer = PhotoCopyLayer::Foreground;
+        if (entity.GetComponent<PhotoFilterComponent>())
+        {
+            if (const auto* filter = entity.GetComponent<PhotoFilterComponent>())
+            {
+                labelLayer = filter->GetOutputLayer();
+            }
+        }
+        else if (const auto* tint = entity.GetComponent<TintComponent>())
+        {
+            labelLayer = GetLayerFromTint(tint->r, tint->g, tint->b);
+        }
+
+        const char* header = "Filter";
+        if (const auto* filter = entity.GetComponent<PhotoFilterComponent>())
+        {
+            switch (filter->GetTheme())
+            {
+            case PhotoFilterTheme::Hot:
+                header = "Hot";
+                break;
+            case PhotoFilterTheme::Cold:
+                header = "Cold";
+                break;
+            case PhotoFilterTheme::Invert:
+                header = "Invert";
+                break;
+            case PhotoFilterTheme::None:
+            default:
+                header = "Filter";
+                break;
+            }
+        }
+
+        DrawFormatString(
+            static_cast<int>(textX),
+            static_cast<int>(textY),
+            GetColor(245, 248, 255),
+            "%s : %s / %s",
+            header,
+            GetRoleLabel(labelRole),
+            GetLayerLabel(labelLayer));
+    }
+    else if (tag && tag->tag == "PhotoBox")
+    {
+        const auto* photoRole = entity.GetComponent<PhotoCopyRoleComponent>();
+        const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
+        const auto* photoEffect = entity.GetComponent<PhotoCopyEffectComponent>();
+        DrawFormatString(
+            static_cast<int>(drawX),
+            static_cast<int>(drawY - 18.0f),
+            GetColor(255, 248, 220),
+            "%s / %s / %s",
+            photoRole ? GetRoleLabel(photoRole->role) : "Solid",
+            photoLayer ? GetLayerLabel(photoLayer->layer) : "Foreground",
+            photoEffect ? GetFilterThemeLabel(photoEffect->GetTheme()) : "None");
     }
 
     Shader_ResetStyle();
@@ -278,6 +733,18 @@ void GameScene::DrawBackdrop() const
 
     m_tileMap.Draw(m_tileTexture, viewOriginX - m_cameraX * viewScale, viewOriginY, viewScale);
 
+    if (const Entity* player = FindEntityByTag("Player"))
+    {
+        if (const auto* transform = player->GetComponent<TransformComponent>())
+        {
+            DrawString(
+                static_cast<int>(viewOriginX + 24.0f),
+                static_cast<int>(viewOriginY + GetViewHeight() - 42.0f),
+                GetStageGuideText(transform->x),
+                GetColor(238, 244, 255));
+        }
+    }
+
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
@@ -285,8 +752,8 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
 {
     const float playerWidth = playerTransform.width * playerTransform.scale;
     const float playerHeight = playerTransform.height * playerTransform.scale;
-    width = std::clamp(playerWidth * 1.85f, 120.0f, 196.0f);
-    height = std::clamp(playerHeight * 1.15f, 96.0f, 168.0f);
+    width = std::clamp(playerWidth * gCaptureWidthScale, 120.0f, 196.0f);
+    height = std::clamp(playerHeight * gCaptureHeightScale, 96.0f, 168.0f);
 
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();

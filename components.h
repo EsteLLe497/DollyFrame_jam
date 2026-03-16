@@ -9,6 +9,58 @@
 class PhysicsWorld;
 class EventBus;
 
+enum class PhotoCopyRole
+{
+    Solid,
+    Hazard,
+    GoalRelay,
+    Pickup,
+    Ally,
+};
+
+enum class PhotoCopyLayer
+{
+    Foreground,
+    Background,
+    Shadow,
+};
+
+enum class PhotoCopyOrigin
+{
+    Generic,
+    Enemy,
+    Hazard,
+    Goal,
+    Pickup,
+    Tile,
+};
+
+enum class PhotoFilterTheme
+{
+    None,
+    Hot,
+    Cold,
+    Invert,
+};
+
+enum class EnemyArchetype
+{
+    Floater,
+    Walker,
+    Turret,
+};
+
+enum class GimmickType
+{
+    Hazard,
+    Goal,
+    Pickup,
+    PhotoSource,
+    Filter,
+    Gate,
+    Switch,
+};
+
 class TransformComponent final : public Component
 {
 public:
@@ -39,6 +91,115 @@ public:
     explicit TagComponent(const char* value);
 
     std::string tag;
+};
+
+class PhotoCopyRoleComponent final : public Component
+{
+public:
+    explicit PhotoCopyRoleComponent(PhotoCopyRole roleValue);
+
+    PhotoCopyRole role;
+};
+
+class PhotoCopyLayerComponent final : public Component
+{
+public:
+    explicit PhotoCopyLayerComponent(PhotoCopyLayer layerValue);
+
+    PhotoCopyLayer layer;
+};
+
+class PhotoCopyGroupComponent final : public Component
+{
+public:
+    explicit PhotoCopyGroupComponent(int groupIdValue);
+
+    int groupId;
+};
+
+class PhotoCopyOriginComponent final : public Component
+{
+public:
+    explicit PhotoCopyOriginComponent(PhotoCopyOrigin originValue);
+
+    PhotoCopyOrigin origin;
+};
+
+class PhotoCopyEffectComponent final : public Component
+{
+public:
+    explicit PhotoCopyEffectComponent(PhotoFilterTheme themeValue = PhotoFilterTheme::None);
+
+    void DrawDebugUI() override;
+    PhotoFilterTheme GetTheme() const;
+    void SetTheme(PhotoFilterTheme themeValue);
+
+private:
+    PhotoFilterTheme m_theme;
+};
+
+class EnemyComponent final : public Component
+{
+public:
+    EnemyComponent(EnemyArchetype archetype, int contactDamage = 1);
+
+    void DrawDebugUI() override;
+    EnemyArchetype GetArchetype() const;
+    int GetContactDamage() const;
+    bool IsEnabled() const;
+    void SetEnabled(bool enabled);
+    bool IsDefeated() const;
+    void MarkDefeated();
+
+private:
+    EnemyArchetype m_archetype;
+    int m_contactDamage;
+    bool m_enabled;
+    bool m_defeated;
+};
+
+class GimmickComponent final : public Component
+{
+public:
+    GimmickComponent(GimmickType type, bool startsEnabled = true, bool oneShot = false);
+
+    void DrawDebugUI() override;
+    GimmickType GetType() const;
+    bool IsEnabled() const;
+    void SetEnabled(bool enabled);
+    bool IsOneShot() const;
+    bool IsConsumed() const;
+    void Consume();
+
+private:
+    GimmickType m_type;
+    bool m_enabled;
+    bool m_oneShot;
+    bool m_consumed;
+};
+
+class PhotoFilterComponent final : public Component
+{
+public:
+    PhotoFilterComponent(PhotoFilterTheme theme, PhotoCopyRole outputRole, PhotoCopyLayer outputLayer, float tintR, float tintG, float tintB, float tintA);
+
+    void DrawDebugUI() override;
+    PhotoFilterTheme GetTheme() const;
+    PhotoCopyRole GetOutputRole() const;
+    PhotoCopyLayer GetOutputLayer() const;
+    float GetTintR() const;
+    float GetTintG() const;
+    float GetTintB() const;
+    float GetTintA() const;
+
+private:
+    PhotoFilterTheme m_theme;
+    PhotoCopyRole m_outputRole;
+    PhotoCopyLayer m_outputLayer;
+    float m_tintR;
+    float m_tintG;
+    float m_tintB;
+    float m_tintA;
 };
 
 class HealthComponent final : public Component
@@ -86,6 +247,8 @@ public:
     float GetSourceY() const;
     float GetSourceWidth() const;
     float GetSourceHeight() const;
+    void SetFlipX(bool value);
+    bool GetFlipX() const;
 
 private:
     int m_textureId;
@@ -93,6 +256,7 @@ private:
     float m_sourceY;
     float m_sourceWidth;
     float m_sourceHeight;
+    bool m_flipX;
 };
 
 class PlayerControllerComponent final : public Component
