@@ -544,11 +544,8 @@ void GameScene::HandlePhotoCapture()
             item.tintA = tint->a;
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
-            tint->r = 0.16f;
-            tint->g = 0.34f;
-            tint->b = 0.38f;
-            tint->a = 0.55f;
         }
+        ApplyPhotoThemeToCapturedTarget(*entity, m_selectedFilterTheme);
         m_capturedPhotoItems.push_back(item);
         capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
         capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
@@ -638,6 +635,9 @@ void GameScene::HandlePhotoCapture()
         break;
     case PhotoFilterTheme::Invert:
         m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Captured framed objects with Invert filter", 0.0f, 0.0f });
+        break;
+    case PhotoFilterTheme::Sepia:
+        m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Captured framed objects with Sepia filter", 0.0f, 0.0f });
         break;
     case PhotoFilterTheme::None:
     default:
@@ -789,6 +789,130 @@ void GameScene::UpdateEnemies()
     m_goalUnlocked = m_photoBoxSpawned;
 }
 
+bool GameScene::ApplyPhotoThemeToCapturedTarget(Entity& target, PhotoFilterTheme theme)
+{
+    if (theme == PhotoFilterTheme::None)
+    {
+        if (auto* tint = target.GetComponent<TintComponent>())
+        {
+            tint->r = 0.16f;
+            tint->g = 0.34f;
+            tint->b = 0.38f;
+            tint->a = 0.55f;
+            return true;
+        }
+        return false;
+    }
+
+    bool changed = false;
+    if (auto* tint = target.GetComponent<TintComponent>())
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Hot:
+            tint->r = 1.0f;
+            tint->g = 0.28f;
+            tint->b = 0.10f;
+            tint->a = 0.95f;
+            changed = true;
+            break;
+        case PhotoFilterTheme::Cold:
+            tint->r = 0.54f;
+            tint->g = 0.82f;
+            tint->b = 1.0f;
+            tint->a = 0.96f;
+            changed = true;
+            break;
+        case PhotoFilterTheme::Invert:
+            tint->r = 0.60f;
+            tint->g = 0.96f;
+            tint->b = 0.72f;
+            tint->a = 0.96f;
+            changed = true;
+            break;
+        case PhotoFilterTheme::Sepia:
+            tint->r = 0.76f;
+            tint->g = 0.58f;
+            tint->b = 0.34f;
+            tint->a = 0.96f;
+            changed = true;
+            break;
+        case PhotoFilterTheme::None:
+        default:
+            break;
+        }
+    }
+
+    if (auto* enemy = target.GetComponent<EnemyComponent>())
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Hot:
+            enemy->MarkDefeated();
+            changed = true;
+            break;
+        case PhotoFilterTheme::Cold:
+            if (auto* mover = target.GetComponent<EnemyMoverComponent>())
+            {
+                mover->SetFrozen(true);
+            }
+            changed = true;
+            break;
+        case PhotoFilterTheme::Invert:
+            enemy->SetEnabled(false);
+            if (auto* mover = target.GetComponent<EnemyMoverComponent>())
+            {
+                mover->SetFrozen(true);
+            }
+            changed = true;
+            break;
+        case PhotoFilterTheme::Sepia:
+            enemy->Restore();
+            if (auto* mover = target.GetComponent<EnemyMoverComponent>())
+            {
+                mover->SetFrozen(false);
+                mover->Rewind(1.5f);
+            }
+            changed = true;
+            break;
+        case PhotoFilterTheme::None:
+        default:
+            break;
+        }
+    }
+
+    if (auto* gimmick = target.GetComponent<GimmickComponent>())
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Hot:
+            if (gimmick->GetType() == GimmickType::PhotoSource || gimmick->GetType() == GimmickType::Pickup)
+            {
+                gimmick->SetEnabled(false);
+                changed = true;
+            }
+            break;
+        case PhotoFilterTheme::Cold:
+            if (gimmick->GetType() == GimmickType::Hazard)
+            {
+                gimmick->SetEnabled(false);
+                changed = true;
+            }
+            break;
+        case PhotoFilterTheme::Sepia:
+            gimmick->Restore();
+            changed = true;
+            break;
+        case PhotoFilterTheme::Invert:
+        case PhotoFilterTheme::None:
+        default:
+            break;
+        }
+    }
+
+    return changed;
+}
+
 bool GameScene::ApplyPhotoFilterTheme(Entity& photoBox, PhotoFilterTheme theme)
 {
     auto* role = photoBox.GetComponent<PhotoCopyRoleComponent>();
@@ -834,6 +958,14 @@ bool GameScene::ApplyPhotoFilterTheme(Entity& photoBox, PhotoFilterTheme theme)
         nextTintR = 0.62f;
         nextTintG = 0.62f;
         nextTintB = 0.64f;
+        nextTintA = 1.0f;
+        break;
+    case PhotoFilterTheme::Sepia:
+        nextRole = PhotoCopyRole::Solid;
+        nextLayer = PhotoCopyLayer::Foreground;
+        nextTintR = 0.76f;
+        nextTintG = 0.58f;
+        nextTintB = 0.34f;
         nextTintA = 1.0f;
         break;
     case PhotoFilterTheme::None:

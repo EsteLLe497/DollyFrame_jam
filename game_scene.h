@@ -63,6 +63,7 @@ private:
     void UpdateGoalVisual(float deltaTime);
     void HandleWorldInteractions();
     bool ApplyPhotoFilterTheme(Entity& photoBox, PhotoFilterTheme theme);
+    bool ApplyPhotoThemeToCapturedTarget(Entity& target, PhotoFilterTheme theme);
     void RemoveDefeatedEnemies();
     void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage);
     void QueueResult(GameEndReason reason);
@@ -111,6 +112,8 @@ private:
     float m_goalPulse;
     float m_pickupPulse;
     float m_coyoteTimeRemaining;
+    float m_captureSlowRemaining;
+    float m_placementSlowRemaining;
     bool m_goalUnlocked;
     bool m_cameraMode;
     bool m_hasBoxPhoto;

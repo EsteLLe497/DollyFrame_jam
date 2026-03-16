@@ -25,6 +25,11 @@ namespace
             g = 0.86f;
             b = 0.90f;
             break;
+        case PhotoFilterTheme::Sepia:
+            r = 0.78f;
+            g = 0.60f;
+            b = 0.36f;
+            break;
         case PhotoFilterTheme::None:
         default:
             r = 1.0f;
@@ -108,6 +113,8 @@ namespace
             return "Cold";
         case PhotoFilterTheme::Invert:
             return "Invert";
+        case PhotoFilterTheme::Sepia:
+            return "Sepia";
         case PhotoFilterTheme::None:
         default:
             return "None";
@@ -142,9 +149,35 @@ namespace
             item.tintB = 0.64f;
             item.tintA = 1.0f;
             break;
+        case PhotoFilterTheme::Sepia:
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.tintR = 0.76f;
+            item.tintG = 0.58f;
+            item.tintB = 0.34f;
+            item.tintA = 1.0f;
+            break;
         case PhotoFilterTheme::None:
         default:
             break;
+        }
+    }
+
+    const char* GetFilterThemeEffectText(PhotoFilterTheme theme)
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Hot:
+            return "Makes copies dangerous";
+        case PhotoFilterTheme::Cold:
+            return "Freezes copies into footing";
+        case PhotoFilterTheme::Invert:
+            return "Enemy shots become allies";
+        case PhotoFilterTheme::Sepia:
+            return "Rewinds the target in time";
+        case PhotoFilterTheme::None:
+        default:
+            return "Keeps captured properties";
         }
     }
 }
@@ -366,6 +399,9 @@ void GameScene::DrawPhotoPlacementPreview() const
             case PhotoFilterTheme::Invert:
                 Shader_SetOutline(0.86f, 0.86f, 0.92f, 1.0f, 1.8f);
                 break;
+            case PhotoFilterTheme::Sepia:
+                Shader_SetOutline(0.90f, 0.72f, 0.42f, 1.0f, 1.8f);
+                break;
             case PhotoFilterTheme::None:
             default:
                 Shader_SetOutline(0.32f, 0.92f, 1.0f, 1.0f, 1.6f);
@@ -489,6 +525,10 @@ void GameScene::DrawEntity(const Entity& entity) const
                 Shader_SetOutline(0.92f, 0.92f, 0.96f, 1.0f, 1.8f);
                 Shader_SetFlash(0.72f, 0.72f, 0.78f, 1.0f, 0.16f);
                 break;
+            case PhotoFilterTheme::Sepia:
+                Shader_SetOutline(0.88f, 0.66f, 0.34f, 1.0f, 1.9f);
+                Shader_SetFlash(0.74f, 0.56f, 0.28f, 1.0f, 0.16f);
+                break;
             case PhotoFilterTheme::None:
             default:
                 Shader_SetOutline(0.26f, 1.0f, 0.92f, 1.0f, 1.8f);
@@ -545,13 +585,20 @@ void GameScene::DrawEntity(const Entity& entity) const
             switch (effect->GetTheme())
             {
             case PhotoFilterTheme::Hot:
+                Shader_SetOutline(1.0f, 0.52f, 0.20f, 1.0f, 2.1f);
                 Shader_SetFlash(1.0f, 0.30f, 0.12f, 1.0f, 0.28f);
                 break;
             case PhotoFilterTheme::Cold:
-                Shader_SetOutline(0.88f, 0.96f, 1.0f, 1.0f, 1.8f);
+                Shader_SetOutline(0.74f, 0.92f, 1.0f, 1.0f, 2.2f);
+                Shader_SetFlash(0.34f, 0.74f, 1.0f, 1.0f, 0.12f);
                 break;
             case PhotoFilterTheme::Invert:
-                Shader_SetOutline(0.78f, 0.82f, 0.88f, 1.0f, 1.6f);
+                Shader_SetOutline(0.90f, 0.94f, 0.92f, 1.0f, 2.0f);
+                Shader_SetFlash(0.78f, 0.96f, 0.84f, 1.0f, 0.16f);
+                break;
+            case PhotoFilterTheme::Sepia:
+                Shader_SetOutline(0.92f, 0.72f, 0.44f, 1.0f, 2.0f);
+                Shader_SetFlash(0.82f, 0.64f, 0.34f, 1.0f, 0.14f);
                 break;
             case PhotoFilterTheme::None:
             default:
@@ -670,6 +717,9 @@ void GameScene::DrawEntity(const Entity& entity) const
             case PhotoFilterTheme::Invert:
                 header = "Invert";
                 break;
+            case PhotoFilterTheme::Sepia:
+                header = "Sepia";
+                break;
             case PhotoFilterTheme::None:
             default:
                 header = "Filter";
@@ -725,6 +775,54 @@ void GameScene::DrawBackdrop() const
     Shader_SetTint(0.05f, 0.05f, 0.07f, 0.98f);
     SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
+    if (m_selectedFilterTheme != PhotoFilterTheme::None)
+    {
+        float filterR = 1.0f;
+        float filterG = 1.0f;
+        float filterB = 1.0f;
+        GetFilterThemeOverlayColor(m_selectedFilterTheme, filterR, filterG, filterB);
+        Shader_SetTint(filterR, filterG, filterB, 0.07f);
+        SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
+
+    {
+        const float worldLeft = m_cameraX;
+        const float worldRight = m_cameraX + gCameraViewWidth;
+        const float gridSpacing = m_tileMap.GetTileSize();
+        const unsigned int majorColor = GetColor(72, 188, 128);
+        const unsigned int minorColor = GetColor(38, 112, 82);
+
+        for (float worldX = std::floor(worldLeft / gridSpacing) * gridSpacing; worldX <= worldRight; worldX += gridSpacing)
+        {
+            const float screenX = viewOriginX + (worldX - m_cameraX) * viewScale;
+            const int x = static_cast<int>(std::round(screenX));
+            const bool major = std::fmod(std::fabs(worldX), gridSpacing * 4.0f) < 0.5f ||
+                (gridSpacing * 4.0f - std::fmod(std::fabs(worldX), gridSpacing * 4.0f)) < 0.5f;
+            DrawLine(x, static_cast<int>(viewOriginY), x, static_cast<int>(viewOriginY + viewHeight),
+                major ? majorColor : minorColor);
+            if (!major)
+            {
+                DrawLine(x + 1, static_cast<int>(viewOriginY), x + 1, static_cast<int>(viewOriginY + viewHeight),
+                    GetColor(22, 56, 40));
+            }
+        }
+
+        for (float worldY = 0.0f; worldY <= gCameraViewHeight; worldY += gridSpacing)
+        {
+            const float screenY = viewOriginY + worldY * viewScale;
+            const int y = static_cast<int>(std::round(screenY));
+            const bool major = std::fmod(worldY, gridSpacing * 4.0f) < 0.5f ||
+                (gridSpacing * 4.0f - std::fmod(worldY, gridSpacing * 4.0f)) < 0.5f;
+            DrawLine(static_cast<int>(viewOriginX), y, static_cast<int>(viewOriginX + viewWidth), y,
+                major ? majorColor : minorColor);
+            if (!major)
+            {
+                DrawLine(static_cast<int>(viewOriginX), y + 1, static_cast<int>(viewOriginX + viewWidth), y + 1,
+                    GetColor(22, 56, 40));
+            }
+        }
+    }
+
     Shader_SetTint(0.18f, 0.18f, 0.22f, 1.0f);
     SpriteDraw(m_whiteTexture, viewOriginX - 10.0f, viewOriginY - 10.0f, viewWidth + 20.0f, 10.0f, 0.0f, 0.0f, 1.0f, 1.0f);
     SpriteDraw(m_whiteTexture, viewOriginX - 10.0f, panelBottom, viewWidth + 20.0f, 10.0f, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -743,6 +841,46 @@ void GameScene::DrawBackdrop() const
                 GetStageGuideText(transform->x),
                 GetColor(238, 244, 255));
         }
+    }
+
+    {
+        float filterR = 1.0f;
+        float filterG = 1.0f;
+        float filterB = 1.0f;
+        GetFilterThemeOverlayColor(m_selectedFilterTheme, filterR, filterG, filterB);
+        const int panelX = static_cast<int>(viewOriginX + 22.0f);
+        const int panelY = static_cast<int>(viewOriginY + 18.0f);
+        const int panelWidth = 308;
+        const int panelHeight = 78;
+        DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(14, 18, 24), TRUE);
+        DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(220, 228, 236), FALSE);
+        DrawBox(
+            panelX + 10,
+            panelY + 10,
+            panelX + 44,
+            panelY + 44,
+            GetColor(
+                static_cast<int>(filterR * 255.0f),
+                static_cast<int>(filterG * 255.0f),
+                static_cast<int>(filterB * 255.0f)),
+            TRUE);
+        DrawFormatString(
+            panelX + 56,
+            panelY + 10,
+            GetColor(245, 248, 255),
+            "Filter: %s",
+            GetFilterThemeLabel(m_selectedFilterTheme));
+        DrawFormatString(
+            panelX + 56,
+            panelY + 32,
+            GetColor(180, 210, 235),
+            "%s",
+            GetFilterThemeEffectText(m_selectedFilterTheme));
+        DrawFormatString(
+            panelX + 12,
+            panelY + 54,
+            GetColor(205, 220, 235),
+            "C cycle  1 None  2 Hot  3 Cold  4 Invert  5 Sepia");
     }
 
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);

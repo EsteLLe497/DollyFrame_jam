@@ -41,6 +41,7 @@ enum class PhotoFilterTheme
     Hot,
     Cold,
     Invert,
+    Sepia,
 };
 
 enum class EnemyArchetype
@@ -150,6 +151,7 @@ public:
     void SetEnabled(bool enabled);
     bool IsDefeated() const;
     void MarkDefeated();
+    void Restore();
 
 private:
     EnemyArchetype m_archetype;
@@ -170,6 +172,7 @@ public:
     bool IsOneShot() const;
     bool IsConsumed() const;
     void Consume();
+    void Restore();
 
 private:
     GimmickType m_type;
@@ -278,6 +281,9 @@ public:
 
     void Update(float deltaTime) override;
     void DrawDebugUI() override;
+    void SetFrozen(bool frozen);
+    bool IsFrozen() const;
+    void Rewind(float seconds);
 
 private:
     float m_originX;
@@ -286,6 +292,7 @@ private:
     float m_amplitudeY;
     float m_frequency;
     float m_time;
+    bool m_frozen;
 };
 
 class RigidBodyComponent final : public Component

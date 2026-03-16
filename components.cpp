@@ -75,6 +75,8 @@ namespace
             return "Cold";
         case PhotoFilterTheme::Invert:
             return "Invert";
+        case PhotoFilterTheme::Sepia:
+            return "Sepia";
         case PhotoFilterTheme::None:
         default:
             return "None";
@@ -187,6 +189,12 @@ void EnemyComponent::MarkDefeated()
     m_enabled = false;
 }
 
+void EnemyComponent::Restore()
+{
+    m_defeated = false;
+    m_enabled = true;
+}
+
 GimmickComponent::GimmickComponent(GimmickType type, bool startsEnabled, bool oneShot)
     : m_type(type)
     , m_enabled(startsEnabled)
@@ -235,6 +243,12 @@ void GimmickComponent::Consume()
     {
         m_consumed = true;
     }
+}
+
+void GimmickComponent::Restore()
+{
+    m_enabled = true;
+    m_consumed = false;
 }
 
 PhotoFilterComponent::PhotoFilterComponent(PhotoFilterTheme theme, PhotoCopyRole outputRole, PhotoCopyLayer outputLayer, float tintR, float tintG, float tintB, float tintA)
@@ -518,6 +532,7 @@ EnemyMoverComponent::EnemyMoverComponent(float originX, float originY, float amp
     , m_amplitudeY(amplitudeY)
     , m_frequency(frequency)
     , m_time(0.0f)
+    , m_frozen(false)
 {
 }
 
@@ -525,6 +540,10 @@ void EnemyMoverComponent::Update(float deltaTime)
 {
     auto* transform = m_owner ? m_owner->GetComponent<TransformComponent>() : nullptr;
     if (!transform)
+    {
+        return;
+    }
+    if (m_frozen)
     {
         return;
     }
@@ -540,6 +559,35 @@ void EnemyMoverComponent::DrawDebugUI()
     ImGui::Text("Origin: %.1f, %.1f", m_originX, m_originY);
     ImGui::Text("Amplitude: %.1f, %.1f", m_amplitudeX, m_amplitudeY);
     ImGui::Text("Frequency: %.2f", m_frequency);
+    ImGui::Text("Frozen: %s", m_frozen ? "Yes" : "No");
+}
+
+void EnemyMoverComponent::SetFrozen(bool frozen)
+{
+    m_frozen = frozen;
+}
+
+bool EnemyMoverComponent::IsFrozen() const
+{
+    return m_frozen;
+}
+
+void EnemyMoverComponent::Rewind(float seconds)
+{
+    if (seconds <= 0.0f)
+    {
+        return;
+    }
+
+    auto* transform = m_owner ? m_owner->GetComponent<TransformComponent>() : nullptr;
+    if (!transform)
+    {
+        return;
+    }
+
+    m_time = std::max(0.0f, m_time - seconds);
+    transform->x = m_originX + std::sin(m_time * m_frequency) * m_amplitudeX;
+    transform->y = m_originY + std::cos(m_time * m_frequency * 0.8f) * m_amplitudeY;
 }
 
 RigidBodyComponent::RigidBodyComponent(PhysicsWorld& physicsWorld, b2BodyType bodyType, bool fixedRotation, float gravityScale)
