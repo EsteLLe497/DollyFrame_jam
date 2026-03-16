@@ -9,6 +9,14 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr const char* kTuningFilePath = "assets/tuning.json";
+    constexpr float kPhotoFocusTimeScale = 0.22f;
+    constexpr float kCaptureFocusDuration = 0.8f;
+    constexpr float kPlacementFocusDuration = 1.2f;
+
+    float AlignToGrid(float value, float gridSize)
+    {
+        return std::round(value / gridSize) * gridSize;
+    }
 
     PhotoFilterTheme GetNextFilterTheme(PhotoFilterTheme current)
     {
@@ -21,6 +29,8 @@ namespace
         case PhotoFilterTheme::Cold:
             return PhotoFilterTheme::Invert;
         case PhotoFilterTheme::Invert:
+            return PhotoFilterTheme::Sepia;
+        case PhotoFilterTheme::Sepia:
         default:
             return PhotoFilterTheme::None;
         }
@@ -97,6 +107,8 @@ GameScene::GameScene()
     , m_goalPulse(0.0f)
     , m_pickupPulse(0.0f)
     , m_coyoteTimeRemaining(0.0f)
+    , m_captureSlowRemaining(0.0f)
+    , m_placementSlowRemaining(0.0f)
     , m_goalUnlocked(false)
     , m_cameraMode(false)
     , m_hasBoxPhoto(false)
@@ -127,7 +139,7 @@ GameScene::GameScene()
     , m_photoPlacementHeight(0.0f)
     , m_photoPlacementLayer(PhotoCopyLayer::Foreground)
     , m_photoPlacementFlipX(false)
-    , m_photoPlacementBridgeEnabled(true)
+    , m_photoPlacementBridgeEnabled(false)
     , m_nextPhotoGroupId(1)
     , m_activePhotoGroupCount(0)
     , m_showTuningPanel(false)
@@ -159,6 +171,8 @@ void GameScene::OnEnter(ResourceManager& resources)
     m_goalPulse = 0.0f;
     m_pickupPulse = 0.0f;
     m_coyoteTimeRemaining = 0.0f;
+    m_captureSlowRemaining = 0.0f;
+    m_placementSlowRemaining = 0.0f;
     m_goalUnlocked = false;
     m_cameraMode = false;
     m_hasBoxPhoto = false;
@@ -189,7 +203,7 @@ void GameScene::OnEnter(ResourceManager& resources)
     m_photoPlacementHeight = 0.0f;
     m_photoPlacementLayer = PhotoCopyLayer::Foreground;
     m_photoPlacementFlipX = false;
-    m_photoPlacementBridgeEnabled = true;
+    m_photoPlacementBridgeEnabled = false;
     m_nextPhotoGroupId = 1;
     m_activePhotoGroupCount = 0;
     m_showTuningPanel = false;
@@ -218,6 +232,9 @@ void GameScene::OnEnter(ResourceManager& resources)
     float goalX = GetMapPixelWidth() - 120.0f;
     float goalY = 248.0f;
     const float tileSize = m_tileMap.GetTileSize();
+    const float oneTile = tileSize;
+    const float oneByTwoHeight = tileSize * 2.0f;
+    const float goalSize = tileSize * 2.0f;
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -227,8 +244,8 @@ void GameScene::OnEnter(ResourceManager& resources)
                 continue;
             }
 
-            goalX = static_cast<float>(column) * tileSize + 8.0f;
-            goalY = static_cast<float>(row + 1) * tileSize - 176.0f;
+            goalX = static_cast<float>(column) * tileSize;
+            goalY = static_cast<float>(row + 1) * tileSize - goalSize;
             row = m_tileMap.GetHeight();
             break;
         }
@@ -261,7 +278,13 @@ void GameScene::OnEnter(ResourceManager& resources)
         return enemy;
     };
 
-    Entity& player = addActor("Player", m_tileTexture, 96.0f, 336.0f, 72.0f, 96.0f);
+    Entity& player = addActor(
+        "Player",
+        m_tileTexture,
+        AlignToGrid(96.0f, tileSize),
+        AlignToGrid(336.0f, tileSize),
+        oneTile,
+        oneByTwoHeight);
     player.AddComponent<HealthComponent>(3);
     player.AddComponent<DamageCooldownComponent>(0.75f);
     if (auto* tint = player.GetComponent<TintComponent>())
@@ -272,7 +295,13 @@ void GameScene::OnEnter(ResourceManager& resources)
         tint->a = 1.0f;
     }
 
-    Entity& goal = addActor("Goal", m_tileTexture, goalX, 304.0f, 80.0f, 80.0f);
+    Entity& goal = addActor(
+        "Goal",
+        m_tileTexture,
+        AlignToGrid(goalX, tileSize),
+        AlignToGrid(goalY, tileSize),
+        goalSize,
+        goalSize);
     goal.AddComponent<GimmickComponent>(GimmickType::Goal);
     if (auto* tint = goal.GetComponent<TintComponent>())
     {
@@ -282,7 +311,7 @@ void GameScene::OnEnter(ResourceManager& resources)
         tint->a = 1.0f;
     }
 
-    Entity& photoSourceA = addActor("PhotoSource", m_tileTexture, 320.0f, 320.0f, 64.0f, 64.0f);
+    Entity& photoSourceA = addActor("PhotoSource", m_tileTexture, AlignToGrid(320.0f, tileSize), AlignToGrid(320.0f, tileSize), oneTile, oneTile);
     photoSourceA.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
     if (auto* tint = photoSourceA.GetComponent<TintComponent>())
     {
@@ -292,7 +321,7 @@ void GameScene::OnEnter(ResourceManager& resources)
         tint->a = 1.0f;
     }
 
-    Entity& photoSourceB = addActor("PhotoSource", m_tileTexture, 620.0f, 320.0f, 64.0f, 64.0f);
+    Entity& photoSourceB = addActor("PhotoSource", m_tileTexture, AlignToGrid(620.0f, tileSize), AlignToGrid(320.0f, tileSize), oneTile, oneTile);
     photoSourceB.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
     if (auto* tint = photoSourceB.GetComponent<TintComponent>())
     {
@@ -302,7 +331,7 @@ void GameScene::OnEnter(ResourceManager& resources)
         tint->a = 1.0f;
     }
 
-    Entity& shadowSource = addActor("PhotoSource", m_tileTexture, 920.0f, 320.0f, 64.0f, 64.0f);
+    Entity& shadowSource = addActor("PhotoSource", m_tileTexture, AlignToGrid(920.0f, tileSize), AlignToGrid(320.0f, tileSize), oneTile, oneTile);
     shadowSource.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
     if (auto* tint = shadowSource.GetComponent<TintComponent>())
     {
@@ -312,7 +341,7 @@ void GameScene::OnEnter(ResourceManager& resources)
         tint->a = 1.0f;
     }
 
-    Entity& flipSourceA = addActor("PhotoSource", m_tileTexture, 1220.0f, 288.0f, 64.0f, 64.0f);
+    Entity& flipSourceA = addActor("PhotoSource", m_tileTexture, AlignToGrid(1220.0f, tileSize), AlignToGrid(288.0f, tileSize), oneTile, oneTile);
     flipSourceA.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
     if (auto* tint = flipSourceA.GetComponent<TintComponent>())
     {
@@ -322,7 +351,7 @@ void GameScene::OnEnter(ResourceManager& resources)
         tint->a = 1.0f;
     }
 
-    Entity& flipSourceB = addActor("PhotoSource", m_tileTexture, 1300.0f, 352.0f, 64.0f, 64.0f);
+    Entity& flipSourceB = addActor("PhotoSource", m_tileTexture, AlignToGrid(1300.0f, tileSize), AlignToGrid(352.0f, tileSize), oneTile, oneTile);
     flipSourceB.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
     if (auto* tint = flipSourceB.GetComponent<TintComponent>())
     {
@@ -332,7 +361,7 @@ void GameScene::OnEnter(ResourceManager& resources)
         tint->a = 1.0f;
     }
 
-    Entity& hazardSource = addActor("Hazard", m_tileTexture, 1600.0f, 320.0f, 64.0f, 64.0f);
+    Entity& hazardSource = addActor("Hazard", m_tileTexture, AlignToGrid(1600.0f, tileSize), AlignToGrid(320.0f, tileSize), oneTile, oneTile);
     hazardSource.AddComponent<GimmickComponent>(GimmickType::Hazard);
     if (auto* tint = hazardSource.GetComponent<TintComponent>())
     {
@@ -342,8 +371,8 @@ void GameScene::OnEnter(ResourceManager& resources)
         tint->a = 1.0f;
     }
 
-    addEnemy(760.0f, 248.0f, 72.0f, 72.0f, 88.0f, 34.0f, 1.4f);
-    addEnemy(1470.0f, 230.0f, 80.0f, 80.0f, 54.0f, 82.0f, 1.1f);
+    addEnemy(AlignToGrid(760.0f, tileSize), AlignToGrid(248.0f, tileSize), oneTile, oneTile, 96.0f, 48.0f, 1.4f);
+    addEnemy(AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize), oneTile, oneTile, 48.0f, 96.0f, 1.1f);
 
     GameSession_Reset(3, m_timeLimit);
     Logger::Info("GameScene entered as photo sandbox stage");
@@ -374,14 +403,6 @@ void GameScene::Update(float deltaTime)
             LoadTuningJsonFile();
         }
     }
-    m_coyoteTimeRemaining = std::max(0.0f, m_coyoteTimeRemaining - deltaTime);
-    m_shutterFlashRemaining = std::max(0.0f, m_shutterFlashRemaining - deltaTime);
-    m_pickupPulse += deltaTime;
-    for (const auto& entity : m_entities)
-    {
-        entity->Update(deltaTime);
-    }
-
     if (Input_IsKeyPressed('T'))
     {
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
@@ -414,6 +435,10 @@ void GameScene::Update(float deltaTime)
     {
         m_selectedFilterTheme = PhotoFilterTheme::Invert;
     }
+    if (Input_IsKeyPressed('5'))
+    {
+        m_selectedFilterTheme = PhotoFilterTheme::Sepia;
+    }
     if (Input_IsKeyPressed('C'))
     {
         m_selectedFilterTheme = GetNextFilterTheme(m_selectedFilterTheme);
@@ -426,18 +451,44 @@ void GameScene::Update(float deltaTime)
     }
 
     UpdateCameraMode();
-    m_timeRemaining = std::max(0.0f, m_timeRemaining - deltaTime);
+    const bool placementHeld = m_hasBoxPhoto && Input_IsKeyDown('E');
+    if (Input_IsKeyPressed(VK_RBUTTON))
+    {
+        m_captureSlowRemaining = kCaptureFocusDuration;
+    }
+    if (m_hasBoxPhoto && Input_IsKeyPressed('E'))
+    {
+        m_placementSlowRemaining = kPlacementFocusDuration;
+    }
+
+    m_captureSlowRemaining = std::max(0.0f, m_captureSlowRemaining - deltaTime);
+    m_placementSlowRemaining = std::max(0.0f, m_placementSlowRemaining - deltaTime);
+    const bool slowForCapture = m_cameraMode && m_captureSlowRemaining > 0.0f;
+    const bool slowForPlacement = placementHeld && m_placementSlowRemaining > 0.0f;
+    const float gameplayDeltaTime = (slowForCapture || slowForPlacement)
+        ? deltaTime * kPhotoFocusTimeScale
+        : deltaTime;
+
+    m_coyoteTimeRemaining = std::max(0.0f, m_coyoteTimeRemaining - gameplayDeltaTime);
+    m_shutterFlashRemaining = std::max(0.0f, m_shutterFlashRemaining - deltaTime);
+    m_pickupPulse += gameplayDeltaTime;
+    for (const auto& entity : m_entities)
+    {
+        entity->Update(gameplayDeltaTime);
+    }
+
+    m_timeRemaining = std::max(0.0f, m_timeRemaining - gameplayDeltaTime);
     GameSession_SetTimeRemaining(m_timeRemaining);
     if (!m_resultQueued && m_timeRemaining <= 0.0f)
     {
         QueueResult(GameEndReason::TimeUp);
     }
 
-    UpdatePlayer(deltaTime);
+    UpdatePlayer(gameplayDeltaTime);
     HandlePhotoCapture();
     HandlePhotoSpawn();
     UpdateEnemies();
-    UpdateGoalVisual(deltaTime);
+    UpdateGoalVisual(gameplayDeltaTime);
     HandleWorldInteractions();
     RemoveDefeatedEnemies();
 }
@@ -469,7 +520,7 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Jump: W / Space / Gamepad A");
     ImGui::Text("Camera: Right Click hold");
     ImGui::Text("Capture: Left Click in camera mode");
-    ImGui::Text("Filter: C cycle  1 None  2 Hot  3 Cold  4 Invert");
+    ImGui::Text("Filter: C cycle  1 None  2 Hot  3 Cold  4 Invert  5 Sepia");
     ImGui::Text("Spawn Captured Object: Hold E");
     ImGui::Text("Placement Layer: Q cycle  Flip: F  Bridge: B");
     ImGui::Text("Stage: solve one gimmick at a time from left to right");
@@ -488,11 +539,13 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Selected Filter: %s",
         m_selectedFilterTheme == PhotoFilterTheme::Hot ? "Hot" :
         m_selectedFilterTheme == PhotoFilterTheme::Cold ? "Cold" :
-        m_selectedFilterTheme == PhotoFilterTheme::Invert ? "Invert" : "None");
+        m_selectedFilterTheme == PhotoFilterTheme::Invert ? "Invert" :
+        m_selectedFilterTheme == PhotoFilterTheme::Sepia ? "Sepia" : "None");
     ImGui::Text("Captured Filter: %s",
         m_capturedPhotoTheme == PhotoFilterTheme::Hot ? "Hot" :
         m_capturedPhotoTheme == PhotoFilterTheme::Cold ? "Cold" :
-        m_capturedPhotoTheme == PhotoFilterTheme::Invert ? "Invert" : "None");
+        m_capturedPhotoTheme == PhotoFilterTheme::Invert ? "Invert" :
+        m_capturedPhotoTheme == PhotoFilterTheme::Sepia ? "Sepia" : "None");
     ImGui::Text("Spawned Copy: %s", m_photoBoxSpawned ? "Active" : "None");
     ImGui::Text("Copy Groups: %d / 3", m_activePhotoGroupCount);
     ImGui::Text("Active Enemies: %d", m_enemyCount);
@@ -500,6 +553,9 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Placement Flip: %s", m_photoPlacementFlipX ? "On" : "Off");
     ImGui::Text("Bridge: %s", m_photoPlacementBridgeEnabled ? "On" : "Off");
     ImGui::Text("Camera Mode: %s", m_cameraMode ? "On" : "Off");
+    ImGui::Text("Focus Slow: %s", ((m_cameraMode && m_captureSlowRemaining > 0.0f) || ((m_hasBoxPhoto && Input_IsKeyDown('E')) && m_placementSlowRemaining > 0.0f)) ? "On" : "Off");
+    ImGui::Text("Capture Focus: %.2f", m_captureSlowRemaining);
+    ImGui::Text("Placement Focus: %.2f", m_placementSlowRemaining);
     ImGui::Text("Goal: %s", m_goalUnlocked ? "Unlocked" : "Locked");
     ImGui::Text("Goal Contact: %s", m_playerTouchingTarget ? "Hit" : "No Hit");
     ImGui::Text("Hazard Contact: %s", m_playerTouchingHazard ? "Hit" : "No Hit");
