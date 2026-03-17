@@ -176,6 +176,47 @@
 - グリッドに乗っていない
 - 見た目サイズと当たり判定サイズがズレている
 - プレイヤーと同じレイヤに重なって見づらくなる
+- 坂タイル `6 / 7` を置いたのに、撮影後のコピー側まで確認していない
+
+## レシピ7: 坂を追加する
+
+### 目的
+
+ステージや写真コピーで使える坂を追加、調整したい。
+
+### まず見るファイル
+
+- `assets/maps/side_scroll_stage01.csv`
+- `physics/tile_map.cpp`
+- `scenes/game/game_scene_collision.cpp`
+- `scenes/game/game_scene_render.cpp`
+- `gameplay/photo_system.cpp`
+
+### 現在のルール
+
+- `6`: 右上がり坂
+- `7`: 右下がり坂
+- 通常マップでも、撮影して貼った写真でも同じように坂として扱う
+
+### 最短手順
+
+1. CSV に `6` か `7` を置く
+2. 必要なら `physics/tile_map.cpp` と `scenes/game/game_scene_render.cpp` の見た目を調整する
+3. 接地や吸い付きの感触は `scenes/game/game_scene_collision.cpp` を見る
+4. 写真に写した後の挙動は `gameplay/photo_system.cpp` を見る
+
+### 壊しやすい点
+
+- 見た目だけ三角で、接地が四角のまま
+- 写真に撮ったとき `sourceTileValue` を落としている
+- タイル色から `role` を再判定してしまい、坂が `Pickup` 扱いになる
+
+### 作業後チェック
+
+- 通常マップの坂に自然に乗れるか
+- 写真に撮った坂がポラロイド内でも三角に見えるか
+- 貼った坂が四角床にならないか
+- 坂を踏んだ瞬間に消えないか
 
 ## レシピ6: 変更をレビューに出す前に見ること
 

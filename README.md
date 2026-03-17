@@ -1,6 +1,6 @@
 # DirectXFoundation
 
-`DirectXFoundation` は、`DirectX 11` ベースで 2D ゲームを組み立てるための基盤プロジェクトです。  
+`DirectXFoundation` は、`DxLib` ベースで 2D ゲームを組み立てるための基盤プロジェクトです。  
 このリポジトリには、描画、入力、音、デバッグ UI、シーン管理、簡易 ECS、物理、スクリプト、イベント駆動の接続までをまとめています。
 
 ## このプロジェクトでできること
@@ -49,32 +49,42 @@ Visual Studio の場合:
 - `TitleScene` から `GameScene` へ遷移できる
 - `GameScene` から `ResultScene` へ遷移できる
 - `ResultScene` から `TitleScene` か `GameScene` へ戻れる
-- `GameScene` に `HP`、`Goal`、`Timer` の基本ルールが入っている
+- `GameScene` に `HP`、`Goal`、写真撮影と貼り付けの基本ルールが入っている
 - `enemy` とダメージ無敵時間が入っている
 - `player` と `target` の 2 つのプレハブを生成する
 - `player` は入力で動く
 - `target` は Lua スクリプトで揺れる
 - `player` が `target` に接触すると色、音、ログが連動する
 - Lua が一定間隔で音のイベントを発行する
+- 写真を撮ってポラロイドとして貼り付けられる
+- 貼り付けた写真は回転でき、10 秒でフェードアウトする
+- CSV タイルと撮影した写真の両方で坂タイルを扱える
 
 ### 操作
 
-- `Arrow Keys`: 移動
-- `Q / E`: 回転
-- `Z / X`: 拡大縮小
-- `Space`: テスト音再生
+- `A / D` または `Arrow Keys`: 移動
+- `W / Space / Up`: ジャンプ
+- `Left Shift / Right Shift`: 回避
+- `Right Click`: カメラモード
+- `Left Click`: 撮影 / 配置確定
+- `C`: フィルター切り替え
+- `1 / 2 / 3 / 4 / 5`: `None / Hot / Cold / Invert / Sepia`
+- `E`: 写真配置モード
+- `Q`: 配置レイヤ切り替え
+- `F`: 左右反転
+- `B`: ブリッジ切り替え
+- `Z / X`: 配置中の写真を連続回転
 - `Enter`: タイトルからゲーム開始
 - `R`: シーン再読み込み
 - `T`: タイトルへ戻る
 - `GameScene` で `goal` に触れる: クリア
 - `GameScene` で `hazard` に触れる: HP が減少
 - `GameScene` で `enemy` に触れる: HP が減少
-- `GameScene` で時間切れ: リザルトへ遷移
 - `ResultScene` で `Enter`: タイトルへ戻る
 - `ResultScene` で `R`: リトライ
 - `Gamepad Left Stick`: 移動
-- `Gamepad Triggers`: 回転
-- `Gamepad A`: テスト音再生
+- `Gamepad A`: ジャンプ
+- `Gamepad Triggers`: 配置中の写真回転
 
 ## リポジトリの見方
 
@@ -219,8 +229,10 @@ Visual Studio の場合:
 - `3`: 装飾床
 - `4`: 危険帯の目印
 - `5`: ゴール目印
+- `6`: 右上がり坂
+- `7`: 右下がり坂
 
-今は [game_scene.cpp](/D:/DollyFrame_jam/scenes/game/game_scene.cpp) で背景として読み込んでいます。次に横スクロール本体へ進めるときは、この CSV をそのまま地形当たり判定へつなげられます。
+`6` と `7` は通常タイルだけでなく、写真で撮って貼った `PhotoBox` 側にも保存されます。見た目も当たり判定も坂として扱います。
 
 ## ドキュメント一覧
 
