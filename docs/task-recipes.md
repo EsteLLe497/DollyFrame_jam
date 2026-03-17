@@ -34,7 +34,7 @@
 ### 例
 
 - 「左右移動しかしない敵」を増やすだけなら、新しいクラスを作らず既存の `EnemyMoverComponent` の設定差分で済むことが多い
-- 「撮られると特殊反応する敵」を作るなら、`ApplyPhotoThemeToCapturedTarget()` 側も確認する
+- 「撮られると特殊反応する敵」を作るなら、`ApplyPhotoFilterToCapturedTarget()` 側も確認する
 
 ### 壊しやすい点
 
