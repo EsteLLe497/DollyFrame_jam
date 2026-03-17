@@ -127,11 +127,11 @@ public:
 手順:
 
 1. `components.h` の `PhotoFilterTheme` に追加する
-2. `components.cpp` のテーマ名表示を更新する
+2. `photo_filter_rules.cpp` のテーマ名表示とサイクル順を更新する
 3. `game_scene.cpp` の入力切り替えを更新する
-4. `game_scene_gameplay.cpp` の
-   - `ApplyPhotoFilterTheme()`
-   - `ApplyPhotoThemeToCapturedTarget()`
+4. `photo_filter_rules.cpp` の
+   - `ApplyPhotoFilterToPhotoBox()`
+   - `ApplyPhotoFilterToCapturedTarget()`
    を更新する
 5. `game_scene_render.cpp` の
    - UI

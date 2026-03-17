@@ -111,8 +111,8 @@
 
 - `HandlePhotoCapture()`
 - `HandlePhotoSpawn()`
-- `ApplyPhotoFilterTheme()`
-- `ApplyPhotoThemeToCapturedTarget()`
+- `ApplyPhotoFilterToPhotoBox()`
+- `ApplyPhotoFilterToCapturedTarget()`
 
 ### フィルター
 
@@ -177,12 +177,10 @@
 
 - `components.h`
   `PhotoFilterTheme`
-- `components.cpp`
-  テーマ名表示
+- `photo_filter_rules.cpp`
+  テーマ名表示、フィルター順、効果本体
 - `game_scene.cpp`
   入力切り替え
-- `game_scene_gameplay.cpp`
-  コピーへの効果、元オブジェクトへの効果
 - `game_scene_render.cpp`
   UI 色、プレビュー、オーバーレイ
 
@@ -263,10 +261,10 @@
 
 ### フィルターの効果を変えたい
 
-`game_scene_gameplay.cpp` の
+`photo_filter_rules.cpp` の
 
-- `ApplyPhotoFilterTheme()`
-- `ApplyPhotoThemeToCapturedTarget()`
+- `ApplyPhotoFilterToPhotoBox()`
+- `ApplyPhotoFilterToCapturedTarget()`
 
 を見ます。
 

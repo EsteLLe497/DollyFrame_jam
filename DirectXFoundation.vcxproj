@@ -54,7 +54,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)third_party\dxlib\include;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\imgui\backends;$(ProjectDir)third_party\tracy\public;$(ProjectDir)third_party\json\single_include;$(ProjectDir)third_party\spdlog\include;$(ProjectDir)third_party\sol2\include;$(ProjectDir)third_party\lua54;$(ProjectDir)third_party\box2d\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)core;$(ProjectDir)rendering;$(ProjectDir)physics;$(ProjectDir)gameplay;$(ProjectDir)scenes;$(ProjectDir)scenes\game;$(ProjectDir)third_party\dxlib\include;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\imgui\backends;$(ProjectDir)third_party\tracy\public;$(ProjectDir)third_party\json\single_include;$(ProjectDir)third_party\spdlog\include;$(ProjectDir)third_party\sol2\include;$(ProjectDir)third_party\lua54;$(ProjectDir)third_party\box2d\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /FS /wd4010 /wd4828 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -75,7 +75,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)third_party\dxlib\include;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\imgui\backends;$(ProjectDir)third_party\tracy\public;$(ProjectDir)third_party\json\single_include;$(ProjectDir)third_party\spdlog\include;$(ProjectDir)third_party\sol2\include;$(ProjectDir)third_party\lua54;$(ProjectDir)third_party\box2d\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)core;$(ProjectDir)rendering;$(ProjectDir)physics;$(ProjectDir)gameplay;$(ProjectDir)scenes;$(ProjectDir)scenes\game;$(ProjectDir)third_party\dxlib\include;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\imgui\backends;$(ProjectDir)third_party\tracy\public;$(ProjectDir)third_party\json\single_include;$(ProjectDir)third_party\spdlog\include;$(ProjectDir)third_party\sol2\include;$(ProjectDir)third_party\lua54;$(ProjectDir)third_party\box2d\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /FS /wd4010 /wd4828 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -88,40 +88,41 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="audio.cpp" />
-    <ClCompile Include="application.cpp" />
-    <ClCompile Include="asset_manifest.cpp" />
-    <ClCompile Include="collision.cpp" />
-    <ClCompile Include="component.cpp" />
-    <ClCompile Include="components.cpp" />
-    <ClCompile Include="demo_scene.cpp" />
-    <ClCompile Include="directX.cpp" />
-    <ClCompile Include="entity.cpp" />
-    <ClCompile Include="event_bus.cpp" />
-    <ClCompile Include="game_scene.cpp" />
-    <ClCompile Include="game_scene_collision.cpp" />
-    <ClCompile Include="game_scene_gameplay.cpp" />
-    <ClCompile Include="game_scene_render.cpp" />
-    <ClCompile Include="game_session.cpp" />
-    <ClCompile Include="imgui_layer.cpp" />
-    <ClCompile Include="input.cpp" />
-    <ClCompile Include="logger.cpp" />
+    <ClCompile Include="core\audio.cpp" />
+    <ClCompile Include="core\application.cpp" />
+    <ClCompile Include="core\asset_manifest.cpp" />
+    <ClCompile Include="physics\collision.cpp" />
+    <ClCompile Include="core\component.cpp" />
+    <ClCompile Include="gameplay\components.cpp" />
+    <ClCompile Include="scenes\demo_scene.cpp" />
+    <ClCompile Include="rendering\directX.cpp" />
+    <ClCompile Include="core\entity.cpp" />
+    <ClCompile Include="core\event_bus.cpp" />
+    <ClCompile Include="scenes\game\game_scene.cpp" />
+    <ClCompile Include="scenes\game\game_scene_collision.cpp" />
+    <ClCompile Include="scenes\game\game_scene_gameplay.cpp" />
+    <ClCompile Include="scenes\game\game_scene_render.cpp" />
+    <ClCompile Include="core\game_session.cpp" />
+    <ClCompile Include="rendering\imgui_layer.cpp" />
+    <ClCompile Include="core\input.cpp" />
+    <ClCompile Include="core\logger.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="prefab_factory.cpp" />
-    <ClCompile Include="physics_world.cpp">
+    <ClCompile Include="gameplay\prefab_factory.cpp" />
+    <ClCompile Include="physics\physics_world.cpp">
       <ObjectFileName>$(IntDir)foundation_physics_world.obj</ObjectFileName>
     </ClCompile>
-    <ClCompile Include="shader.cpp" />
-    <ClCompile Include="sprite.cpp" />
-    <ClCompile Include="resource_manager.cpp" />
-    <ClCompile Include="result_scene.cpp" />
-    <ClCompile Include="script_engine.cpp" />
-    <ClCompile Include="scene_manager.cpp" />
-    <ClCompile Include="scene_registry.cpp" />
-    <ClCompile Include="shader_showcase_scene.cpp" />
-    <ClCompile Include="tile_map.cpp" />
-    <ClCompile Include="texture.cpp" />
-    <ClCompile Include="title_scene.cpp" />
+    <ClCompile Include="gameplay\photo_filter_rules.cpp" />
+    <ClCompile Include="rendering\shader.cpp" />
+    <ClCompile Include="rendering\sprite.cpp" />
+    <ClCompile Include="core\resource_manager.cpp" />
+    <ClCompile Include="scenes\result_scene.cpp" />
+    <ClCompile Include="gameplay\script_engine.cpp" />
+    <ClCompile Include="core\scene_manager.cpp" />
+    <ClCompile Include="core\scene_registry.cpp" />
+    <ClCompile Include="scenes\shader_showcase_scene.cpp" />
+    <ClCompile Include="physics\tile_map.cpp" />
+    <ClCompile Include="rendering\texture.cpp" />
+    <ClCompile Include="scenes\title_scene.cpp" />
     <ClCompile Include="third_party\imgui\imgui.cpp" />
     <ClCompile Include="third_party\imgui\imgui_demo.cpp" />
     <ClCompile Include="third_party\imgui\imgui_draw.cpp" />
@@ -267,164 +268,165 @@
     <ClCompile Include="third_party\tracy\public\TracyClient.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="audio.h" />
-    <ClInclude Include="application.h" />
-    <ClInclude Include="asset_manifest.h" />
-    <ClInclude Include="collision.h" />
-    <ClInclude Include="component.h" />
-    <ClInclude Include="components.h" />
-    <ClInclude Include="demo_scene.h" />
-    <ClInclude Include="directX.h" />
+    <ClInclude Include="core\audio.h" />
+    <ClInclude Include="core\application.h" />
+    <ClInclude Include="core\asset_manifest.h" />
+    <ClInclude Include="physics\collision.h" />
+    <ClInclude Include="core\component.h" />
+    <ClInclude Include="gameplay\components.h" />
+    <ClInclude Include="scenes\demo_scene.h" />
+    <ClInclude Include="rendering\directX.h" />
     <ClInclude Include="DirectXTex.h" />
-    <ClInclude Include="entity.h" />
-    <ClInclude Include="event_bus.h" />
-    <ClInclude Include="game_scene.h" />
-    <ClInclude Include="game_scene_internal.h" />
-    <ClInclude Include="game_session.h" />
-    <ClInclude Include="imgui_layer.h" />
-    <ClInclude Include="input.h" />
-    <ClInclude Include="logger.h" />
-    <ClInclude Include="prefab_factory.h" />
-    <ClInclude Include="physics_world.h" />
-    <ClInclude Include="resource_manager.h" />
-    <ClInclude Include="result_scene.h" />
-    <ClInclude Include="script_engine.h" />
-    <ClInclude Include="shader.h" />
-    <ClInclude Include="scene.h" />
-    <ClInclude Include="scene_manager.h" />
-    <ClInclude Include="scene_registry.h" />
-    <ClInclude Include="sprite.h" />
-    <ClInclude Include="shader_showcase_scene.h" />
-    <ClInclude Include="tile_map.h" />
-    <ClInclude Include="texture.h" />
-    <ClInclude Include="title_scene.h" />
+    <ClInclude Include="core\entity.h" />
+    <ClInclude Include="core\event_bus.h" />
+    <ClInclude Include="scenes\game\game_scene.h" />
+    <ClInclude Include="scenes\game\game_scene_internal.h" />
+    <ClInclude Include="core\game_session.h" />
+    <ClInclude Include="rendering\imgui_layer.h" />
+    <ClInclude Include="core\input.h" />
+    <ClInclude Include="core\logger.h" />
+    <ClInclude Include="gameplay\prefab_factory.h" />
+    <ClInclude Include="physics\physics_world.h" />
+    <ClInclude Include="gameplay\photo_filter_rules.h" />
+    <ClInclude Include="core\resource_manager.h" />
+    <ClInclude Include="scenes\result_scene.h" />
+    <ClInclude Include="gameplay\script_engine.h" />
+    <ClInclude Include="rendering\shader.h" />
+    <ClInclude Include="core\scene.h" />
+    <ClInclude Include="core\scene_manager.h" />
+    <ClInclude Include="core\scene_registry.h" />
+    <ClInclude Include="rendering\sprite.h" />
+    <ClInclude Include="scenes\shader_showcase_scene.h" />
+    <ClInclude Include="physics\tile_map.h" />
+    <ClInclude Include="rendering\texture.h" />
+    <ClInclude Include="scenes\title_scene.h" />
     <ClInclude Include="third_party\imgui\imgui.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="shaderPixel2D_ChromaticAberration.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_ChromaticAberration.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_ChromaticAberration.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_ChromaticAberration.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Distortion.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Distortion.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Distortion.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Distortion.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Dissolve.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Dissolve.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Dissolve.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Dissolve.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Flash.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Flash.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Flash.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Flash.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Glitch.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Glitch.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Glitch.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Glitch.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_GradientMap.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_GradientMap.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_GradientMap.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_GradientMap.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_HeatOverlay.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_HeatOverlay.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_HeatOverlay.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_HeatOverlay.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_MaskClip.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_MaskClip.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_MaskClip.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_MaskClip.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Grayscale.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Grayscale.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Grayscale.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Grayscale.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Normal.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Normal.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Normal.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Normal.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_NormalMapLighting.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_NormalMapLighting.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_NormalMapLighting.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_NormalMapLighting.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Outline.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Outline.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Outline.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Outline.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Parallax.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Parallax.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Parallax.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Parallax.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_PaletteSwap.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_PaletteSwap.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_PaletteSwap.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_PaletteSwap.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Pixelate.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Pixelate.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Pixelate.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Pixelate.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Posterize.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Posterize.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Posterize.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Posterize.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_RimLight.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_RimLight.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_RimLight.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_RimLight.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_NoiseReveal.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_NoiseReveal.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_NoiseReveal.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_NoiseReveal.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_UVScroll.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_UVScroll.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_UVScroll.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_UVScroll.cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Wave.hlsl">
+    <FxCompile Include="shaders\src\shaderPixel2D_Wave.hlsl">
       <ShaderType>Pixel</ShaderType>
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaderPixel2D_Wave.cso</ObjectFileOutput>
+      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Wave.cso</ObjectFileOutput>
     </FxCompile>
-    <None Include="shaderPixel2D.cso" />
-    <None Include="shaderPixel2D.hlsl" />
-    <None Include="shaderVertex2D.cso" />
-    <None Include="shaderVertex2D.hlsl" />
+    <None Include="shaders\bin\shaderPixel2D.cso" />
+    <None Include="shaders\src\shaderPixel2D.hlsl" />
+    <None Include="shaders\bin\shaderVertex2D.cso" />
+    <None Include="shaders\src\shaderVertex2D.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
