@@ -12,12 +12,76 @@ namespace
         }
         return true;
     }
+
+    bool IsSlopeTileValue(int tile)
+    {
+        return tile == 6 || tile == 7;
+    }
+
+    bool TryGetSlopeSurfaceY(const TileMap& tileMap, int column, int row, float worldX, float& outSurfaceY)
+    {
+        const int tile = tileMap.GetTile(column, row);
+        if (!IsSlopeTileValue(tile))
+        {
+            return false;
+        }
+
+        const float tileSize = tileMap.GetTileSize();
+        const float tileLeft = static_cast<float>(column) * tileSize;
+        const float tileTop = static_cast<float>(row) * tileSize;
+        const float localX = std::clamp(worldX - tileLeft, 0.0f, tileSize);
+        const float normalizedX = localX / tileSize;
+        if (tile == 6)
+        {
+            outSurfaceY = tileTop + tileSize - normalizedX * tileSize;
+            return true;
+        }
+
+        outSurfaceY = tileTop + normalizedX * tileSize;
+        return true;
+    }
+
+    bool TryGetPhotoBoxSlopeSurfaceY(const Entity& entity, float worldX, float& outSurfaceY)
+    {
+        const auto* transform = entity.GetComponent<TransformComponent>();
+        const auto* tileValue = entity.GetComponent<PhotoCopyTileValueComponent>();
+        if (!transform || !tileValue || (tileValue->tileValue != 6 && tileValue->tileValue != 7))
+        {
+            return false;
+        }
+
+        const float width = transform->width * transform->scale;
+        const float height = transform->height * transform->scale;
+        const float localX = std::clamp(worldX - transform->x, 0.0f, width);
+        const float normalizedX = width > 0.0f ? localX / width : 0.0f;
+        if (tileValue->tileValue == 6)
+        {
+            outSurfaceY = transform->y + height - normalizedX * height;
+            return true;
+        }
+
+        outSurfaceY = transform->y + normalizedX * height;
+        return true;
+    }
+
+    void GetGroundProbeXs(const TransformComponent& transform, float outProbeXs[3])
+    {
+        const float width = transform.width * transform.scale;
+        outProbeXs[0] = transform.x + 6.0f;
+        outProbeXs[1] = transform.x + width * 0.5f;
+        outProbeXs[2] = transform.x + width - 6.0f;
+    }
 }
 
 bool GameScene::IsSolidTile(int column, int row) const
 {
     const int tile = m_tileMap.GetTile(column, row);
     return tile == 1 || tile == 2 || tile == 3 || tile == 4;
+}
+
+bool GameScene::IsSlopeTile(int column, int row) const
+{
+    return IsSlopeTileValue(m_tileMap.GetTile(column, row));
 }
 
 bool GameScene::IsPlatformTile(int column, int row) const
@@ -60,22 +124,46 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         }
     }
 
-    std::vector<TransformComponent> photoBoxes;
-    GetPhotoBoxBounds(photoBoxes);
-    for (const auto& photoBox : photoBoxes)
+    for (const auto& entity : m_entities)
     {
+        if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
+        {
+            continue;
+        }
+
+        const auto* photoBoxTransform = entity->GetComponent<TransformComponent>();
+        if (!photoBoxTransform)
+        {
+            continue;
+        }
+
         const float width = transform.width * transform.scale;
         const float height = transform.height * transform.scale;
         const float playerBottom = transform.y + height;
         const float playerLeft = transform.x + 6.0f;
         const float playerRight = transform.x + width - 6.0f;
-        const float boxTop = photoBox.y;
-        const float boxLeft = photoBox.x;
-        const float boxRight = photoBox.x + photoBox.width * photoBox.scale;
+        const float boxTop = photoBoxTransform->y;
+        const float boxLeft = photoBoxTransform->x;
+        const float boxRight = photoBoxTransform->x + photoBoxTransform->width * photoBoxTransform->scale;
         const bool horizontallyOverlapping = playerRight > boxLeft && playerLeft < boxRight;
         if (horizontallyOverlapping && std::fabs(playerBottom - boxTop) <= kSurfaceContactEpsilon)
         {
             return true;
+        }
+
+        if (horizontallyOverlapping)
+        {
+            float probeXs[3]{};
+            GetGroundProbeXs(transform, probeXs);
+            for (float probeX : probeXs)
+            {
+                float photoSlopeSurfaceY = 0.0f;
+                if (TryGetPhotoBoxSlopeSurfaceY(*entity, probeX, photoSlopeSurfaceY) &&
+                    std::fabs(playerBottom - photoSlopeSurfaceY) <= kSurfaceContactEpsilon + 2.0f)
+                {
+                    return true;
+                }
+            }
         }
     }
 
@@ -90,6 +178,19 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         if (IsSolidTile(column, row) || IsPlatformTile(column, row))
         {
             return true;
+        }
+
+        float probeXs[3]{};
+        GetGroundProbeXs(transform, probeXs);
+        for (float probeX : probeXs)
+        {
+            float slopeSurfaceY = 0.0f;
+            const float clampedProbeX = std::clamp(probeX, static_cast<float>(column) * tileSize, static_cast<float>(column + 1) * tileSize);
+            if (TryGetSlopeSurfaceY(m_tileMap, column, row, clampedProbeX, slopeSurfaceY) &&
+                std::fabs((transform.y + transform.height * transform.scale) - slopeSurfaceY) <= kSurfaceContactEpsilon + 2.0f)
+            {
+                return true;
+            }
         }
     }
     return false;
@@ -119,20 +220,48 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         }
     }
 
-    std::vector<TransformComponent> photoBoxes;
-    GetPhotoBoxBounds(photoBoxes);
-    for (const auto& photoBox : photoBoxes)
+    for (const auto& entity : m_entities)
     {
+        if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
+        {
+            continue;
+        }
+
+        const auto* photoBoxTransform = entity->GetComponent<TransformComponent>();
+        if (!photoBoxTransform)
+        {
+            continue;
+        }
+
         const float width = transform.width * transform.scale;
         const float height = transform.height * transform.scale;
         const float left = transform.x + 6.0f;
         const float right = transform.x + width - 6.0f;
-        const float photoBoxWidth = photoBox.width * photoBox.scale;
-        const bool horizontallyOverlapping = right > photoBox.x && left < photoBox.x + photoBoxWidth;
+        const float photoBoxWidth = photoBoxTransform->width * photoBoxTransform->scale;
+        const bool horizontallyOverlapping = right > photoBoxTransform->x && left < photoBoxTransform->x + photoBoxWidth;
         if (horizontallyOverlapping)
         {
-            const float candidateY = photoBox.y - height;
-            if (candidateY >= transform.y - 0.5f && (candidateY - transform.y) <= maxSnapDistance)
+            float candidateY = photoBoxTransform->y - height;
+            float probeXs[3]{};
+            GetGroundProbeXs(transform, probeXs);
+            bool foundSlopeProbe = false;
+            for (float probeX : probeXs)
+            {
+                float photoSlopeSurfaceY = 0.0f;
+                if (!TryGetPhotoBoxSlopeSurfaceY(*entity, probeX, photoSlopeSurfaceY))
+                {
+                    continue;
+                }
+
+                const float slopeCandidateY = photoSlopeSurfaceY - height;
+                if (!foundSlopeProbe || slopeCandidateY < candidateY)
+                {
+                    candidateY = slopeCandidateY;
+                    foundSlopeProbe = true;
+                }
+            }
+
+            if (candidateY >= transform.y - maxSnapDistance && std::fabs(candidateY - transform.y) <= maxSnapDistance)
             {
                 transform.y = candidateY;
                 return true;
@@ -151,17 +280,45 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
 
     float nearestGroundY = 0.0f;
     bool foundGround = false;
+    float probeXs[3]{};
+    GetGroundProbeXs(transform, probeXs);
     for (int row = rowStart; row <= rowEnd; ++row)
     {
         for (int column = columnStart; column <= columnEnd; ++column)
         {
-            if (!IsSolidTile(column, row))
+            if (!IsSolidTile(column, row) && !IsSlopeTile(column, row))
             {
                 continue;
             }
 
+            if (IsSlopeTile(column, row))
+            {
+                for (float probeX : probeXs)
+                {
+                    float slopeSurfaceY = 0.0f;
+                    const float clampedProbeX = std::clamp(probeX, static_cast<float>(column) * tileSize, static_cast<float>(column + 1) * tileSize);
+                    if (!TryGetSlopeSurfaceY(m_tileMap, column, row, clampedProbeX, slopeSurfaceY))
+                    {
+                        continue;
+                    }
+
+                    const float candidateY = slopeSurfaceY - height;
+                    if (candidateY < transform.y - maxSnapDistance)
+                    {
+                        continue;
+                    }
+
+                    if (!foundGround || candidateY < nearestGroundY)
+                    {
+                        nearestGroundY = candidateY;
+                        foundGround = true;
+                    }
+                }
+                continue;
+            }
+
             const float candidateY = static_cast<float>(row) * tileSize - height;
-            if (candidateY < transform.y - 0.5f)
+            if (candidateY < transform.y - maxSnapDistance)
             {
                 continue;
             }
@@ -179,7 +336,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         return false;
     }
 
-    if ((nearestGroundY - transform.y) > maxSnapDistance)
+    if (std::fabs(nearestGroundY - transform.y) > maxSnapDistance)
     {
         return false;
     }
@@ -279,6 +436,13 @@ void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
         {
             continue;
         }
+        if (const auto* tileValue = entity->GetComponent<PhotoCopyTileValueComponent>())
+        {
+            if (tileValue->tileValue == 6 || tileValue->tileValue == 7)
+            {
+                continue;
+            }
+        }
 
         TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
         rect.scale = transform->scale;
@@ -322,6 +486,11 @@ bool GameScene::FindSpawnPosition(float desiredX, float objectWidth, float objec
                         hasSupport = true;
                         break;
                     }
+                    if (IsSlopeTile(supportColumn, supportRow))
+                    {
+                        hasSupport = true;
+                        break;
+                    }
                 }
 
                 if (!hasSupport)
@@ -340,7 +509,7 @@ bool GameScene::FindSpawnPosition(float desiredX, float objectWidth, float objec
                 {
                     for (int testColumn = leftColumn; testColumn <= rightColumn; ++testColumn)
                     {
-                        if (!IsSolidTile(testColumn, testRow))
+                        if (!IsSolidTile(testColumn, testRow) && !IsSlopeTile(testColumn, testRow))
                         {
                             continue;
                         }
@@ -416,7 +585,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
         {
             for (int column = leftColumn; column <= rightColumn; ++column)
             {
-                if (!IsSolidTile(column, row))
+                if (!IsSolidTile(column, row) && !IsSlopeTile(column, row))
                 {
                     continue;
                 }

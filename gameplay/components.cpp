@@ -96,6 +96,11 @@ PhotoCopyOriginComponent::PhotoCopyOriginComponent(PhotoCopyOrigin originValue)
 {
 }
 
+PhotoCopyTileValueComponent::PhotoCopyTileValueComponent(int tileValueValue)
+    : tileValue(tileValueValue)
+{
+}
+
 namespace
 {
     const char* ToEnemyArchetypeLabel(EnemyArchetype archetype)

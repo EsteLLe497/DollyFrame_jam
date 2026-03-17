@@ -418,12 +418,7 @@ void GameScene::Update(float deltaTime)
         entity->Update(gameplayDeltaTime);
     }
 
-    m_timeRemaining = std::max(0.0f, m_timeRemaining - gameplayDeltaTime);
     GameSession_SetTimeRemaining(m_timeRemaining);
-    if (!m_resultQueued && m_timeRemaining <= 0.0f)
-    {
-        QueueResult(GameEndReason::TimeUp);
-    }
 
     UpdatePlayer(gameplayDeltaTime);
     HandlePhotoCapture();
@@ -477,7 +472,7 @@ void GameScene::DrawDebugUI()
         m_tileMap.GetTileSize());
     ImGui::Text("Camera X: %.1f / %.1f", m_cameraX, std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth));
     ImGui::Text("View Scale: %.2f", GetViewScale());
-    ImGui::Text("Time Remaining: %.1f / %.1f", m_timeRemaining, m_timeLimit);
+    ImGui::Text("Time Limit: Off");
     ImGui::Text("Captured Photo: %s", m_photo.capture.hasPhoto ? "Ready" : "Missing");
     ImGui::Text("Developed Preview: %.2f", m_developedPhotoPreviewRemaining);
     ImGui::Text("Selected Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));

@@ -190,6 +190,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     {
         m_playerVelocityY = std::min(gPlayerMaxFallSpeed, m_playerVelocityY + gPlayerGravity * deltaTime);
     }
+    const float verticalSnapDistance = std::max(gGroundSnapDistance, std::fabs(m_playerVelocityY) * deltaTime + 4.0f);
 
     transform->x += m_playerVelocityX * deltaTime;
     if (m_playerVelocityX > 0.0f)
@@ -288,7 +289,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     m_playerGrounded = false;
     if (m_playerVelocityY == 0.0f && wasGrounded)
     {
-        m_playerGrounded = TrySnapToGround(*transform, gGroundSnapDistance);
+        m_playerGrounded = TrySnapToGround(*transform, verticalSnapDistance);
     }
     else
     {
@@ -407,7 +408,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         }
         if (!m_playerGrounded && m_playerVelocityY >= 0.0f)
         {
-            if (TrySnapToGround(*transform, gGroundSnapDistance))
+            if (TrySnapToGround(*transform, verticalSnapDistance))
             {
                 m_playerVelocityY = 0.0f;
                 m_playerGrounded = true;
@@ -598,10 +599,8 @@ void GameScene::HandleWorldInteractions()
             }
             break;
         case GimmickType::Pickup:
-            m_timeRemaining = std::min(m_timeLimit, m_timeRemaining + gPickupTimeBonus);
-            GameSession_SetTimeRemaining(m_timeRemaining);
             m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "scene_change", 0.0f, 0.0f });
-            m_eventBus.Publish({ EventType::LogMessage, player, entity.get(), "Recovered time from gimmick pickup", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, player, entity.get(), "Picked up gimmick item", 0.0f, 0.0f });
             gimmick->Consume();
             if (gimmick->IsConsumed())
             {
@@ -669,10 +668,8 @@ void GameScene::HandleWorldInteractions()
             }
             break;
         case PhotoCopyRole::Pickup:
-            m_timeRemaining = std::min(m_timeLimit, m_timeRemaining + gPickupTimeBonus);
-            GameSession_SetTimeRemaining(m_timeRemaining);
             m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "scene_change", 0.0f, 0.0f });
-            m_eventBus.Publish({ EventType::LogMessage, player, entity.get(), "Recovered time from copied pickup", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, player, entity.get(), "Picked up copied item", 0.0f, 0.0f });
             consumedPickups.push_back(entity.get());
             break;
         case PhotoCopyRole::Solid:

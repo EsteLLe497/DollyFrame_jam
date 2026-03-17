@@ -36,6 +36,8 @@ struct CapturedPhotoItem
     float tintG = 1.0f;
     float tintB = 1.0f;
     float tintA = 1.0f;
+    int sourceTileValue = 0;
+    float rotation = 0.0f;
     bool flipX = false;
 };
 
@@ -79,6 +81,7 @@ struct PhotoPlacementState
     PhotoCopyLayer layer = PhotoCopyLayer::Foreground;
     bool flipX = false;
     bool bridgeEnabled = false;
+    float rotation = 0.0f;
 };
 
 struct PhotoGroupState
@@ -135,6 +138,7 @@ private:
     void GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const;
     Entity* FindCaptureTarget(const TransformComponent& playerTransform) const;
     bool IsSolidTile(int column, int row) const;
+    bool IsSlopeTile(int column, int row) const;
     bool IsPlatformTile(int column, int row) const;
     bool IsHazardTile(int column, int row) const;
     bool IsGoalTile(int column, int row) const;
