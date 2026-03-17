@@ -59,6 +59,38 @@ PhotoCopyGroupComponent::PhotoCopyGroupComponent(int groupIdValue)
 {
 }
 
+PhotoCopyLifetimeComponent::PhotoCopyLifetimeComponent(float lifetimeSeconds)
+    : m_lifetimeSeconds(std::max(0.0f, lifetimeSeconds))
+    , m_remainingSeconds(std::max(0.0f, lifetimeSeconds))
+{
+}
+
+void PhotoCopyLifetimeComponent::Update(float deltaTime)
+{
+    m_remainingSeconds = std::max(0.0f, m_remainingSeconds - deltaTime);
+}
+
+void PhotoCopyLifetimeComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Photo Lifetime");
+    ImGui::Text("Remaining: %.2f / %.2f", m_remainingSeconds, m_lifetimeSeconds);
+}
+
+float PhotoCopyLifetimeComponent::GetRemainingSeconds() const
+{
+    return m_remainingSeconds;
+}
+
+float PhotoCopyLifetimeComponent::GetLifetimeSeconds() const
+{
+    return m_lifetimeSeconds;
+}
+
+bool PhotoCopyLifetimeComponent::IsExpired() const
+{
+    return m_remainingSeconds <= 0.0f;
+}
+
 PhotoCopyOriginComponent::PhotoCopyOriginComponent(PhotoCopyOrigin originValue)
     : origin(originValue)
 {

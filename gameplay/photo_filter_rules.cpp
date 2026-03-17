@@ -201,6 +201,19 @@ bool ApplyPhotoFilterToPhotoBox(Entity& photoBox, PhotoFilterTheme theme)
         return false;
     }
 
+    if (layer->layer == PhotoCopyLayer::Background || layer->layer == PhotoCopyLayer::Shadow)
+    {
+        effect->SetTheme(PhotoFilterTheme::None);
+        return false;
+    }
+
+    if (theme == PhotoFilterTheme::None)
+    {
+        const bool changed = effect->GetTheme() != PhotoFilterTheme::None;
+        effect->SetTheme(PhotoFilterTheme::None);
+        return changed;
+    }
+
     PhotoCopyRole nextRole = role->role;
     PhotoCopyLayer nextLayer = layer->layer;
     const TintValues nextTint = GetPhotoBoxTint(theme);

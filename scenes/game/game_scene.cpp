@@ -100,6 +100,7 @@ GameScene::GameScene()
     , m_playerFacingRight(true)
     , m_photo()
     , m_shutterFlashRemaining(0.0f)
+    , m_developedPhotoPreviewRemaining(0.0f)
     , m_showCollisionDebug(false)
     , m_showTuningPanel(false)
     , m_tuningSelection(0)
@@ -142,6 +143,7 @@ void GameScene::OnEnter(ResourceManager& resources)
     m_playerFacingRight = true;
     m_photo = PhotoState{};
     m_shutterFlashRemaining = 0.0f;
+    m_developedPhotoPreviewRemaining = 0.0f;
     m_showCollisionDebug = false;
     m_showTuningPanel = false;
     m_tuningSelection = 0;
@@ -409,6 +411,7 @@ void GameScene::Update(float deltaTime)
 
     m_coyoteTimeRemaining = std::max(0.0f, m_coyoteTimeRemaining - gameplayDeltaTime);
     m_shutterFlashRemaining = std::max(0.0f, m_shutterFlashRemaining - deltaTime);
+    m_developedPhotoPreviewRemaining = std::max(0.0f, m_developedPhotoPreviewRemaining - deltaTime);
     m_pickupPulse += gameplayDeltaTime;
     for (const auto& entity : m_entities)
     {
@@ -447,6 +450,7 @@ void GameScene::Draw()
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
     DrawPhotoPlacementPreview();
     DrawCaptureOverlay();
+    DrawDevelopedPhotoPreview();
     DrawTuningPanel();
 }
 
@@ -475,6 +479,7 @@ void GameScene::DrawDebugUI()
     ImGui::Text("View Scale: %.2f", GetViewScale());
     ImGui::Text("Time Remaining: %.1f / %.1f", m_timeRemaining, m_timeLimit);
     ImGui::Text("Captured Photo: %s", m_photo.capture.hasPhoto ? "Ready" : "Missing");
+    ImGui::Text("Developed Preview: %.2f", m_developedPhotoPreviewRemaining);
     ImGui::Text("Selected Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));
     ImGui::Text("Captured Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.capturedTheme));
     ImGui::Text("Spawned Copy: %s", m_photo.groups.hasSpawnedCopy ? "Active" : "None");

@@ -24,7 +24,6 @@ namespace game_scene_detail
 constexpr float kPixelsPerMeter = 100.0f;
 inline float gCameraViewWidth = 1120.0f;
 inline float gCameraViewHeight = 630.0f;
-inline float gCameraViewOffsetY = 40.0f;
 inline float gPlayerMoveSpeed = 320.0f;
 inline float gPlayerJumpSpeed = -760.0f;
 inline float gPlayerGravity = 1900.0f;
@@ -222,6 +221,6 @@ inline float GetViewOriginX()
 
 inline float GetViewOriginY()
 {
-    return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f + gCameraViewOffsetY);
+    return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f);
 }
 }

@@ -13,144 +13,159 @@
       <UniqueIdentifier>{2C75A4F6-8D6A-4FB7-9B22-7748A65BEEA0}</UniqueIdentifier>
       <Extensions>hlsl;cso</Extensions>
     </Filter>
-    <Filter Include="Source Files\App">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A001}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Scene System">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A002}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Scenes">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A003}</UniqueIdentifier>
+    <Filter Include="Source Files\Core">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1001}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Gameplay">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A004}</UniqueIdentifier>
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Physics">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1003}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Rendering">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A005}</UniqueIdentifier>
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1004}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Platform">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A006}</UniqueIdentifier>
+    <Filter Include="Source Files\Scenes">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1005}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Scenes\Game">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1006}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Third Party">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A007}</UniqueIdentifier>
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1007}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\App">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A008}</UniqueIdentifier>
+    <Filter Include="Source Files\Third Party\Box2D">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1008}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Scene System">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A009}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Scenes">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00A}</UniqueIdentifier>
+    <Filter Include="Header Files\Core">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1009}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Gameplay">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00B}</UniqueIdentifier>
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF100A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Physics">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF100B}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Rendering">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00C}</UniqueIdentifier>
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF100C}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Platform">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00D}</UniqueIdentifier>
+    <Filter Include="Header Files\Scenes">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF100D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Scenes\Game">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF100E}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Third Party">
-      <UniqueIdentifier>{E74B29F9-4D3A-445B-9F1D-1D787214A00E}</UniqueIdentifier>
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF100F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Source">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1010}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Binary">
+      <UniqueIdentifier>{B18A6085-3444-49E8-BD82-E79B3FCF1011}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="audio.cpp">
-      <Filter>Source Files\Platform</Filter>
+    <ClCompile Include="core\audio.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="application.cpp">
-      <Filter>Source Files\App</Filter>
+    <ClCompile Include="core\application.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="asset_manifest.cpp">
+    <ClCompile Include="core\asset_manifest.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="physics\collision.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="core\component.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="gameplay\components.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\demo_scene.cpp">
+      <Filter>Source Files\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="rendering\directX.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="collision.cpp">
-      <Filter>Source Files\Gameplay</Filter>
+    <ClCompile Include="core\entity.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="component.cpp">
-      <Filter>Source Files\Gameplay</Filter>
+    <ClCompile Include="core\event_bus.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="components.cpp">
-      <Filter>Source Files\Gameplay</Filter>
+    <ClCompile Include="scenes\game\game_scene.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
-    <ClCompile Include="demo_scene.cpp">
-      <Filter>Source Files\Scenes</Filter>
+    <ClCompile Include="scenes\game\game_scene_collision.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
-    <ClCompile Include="directX.cpp">
+    <ClCompile Include="scenes\game\game_scene_gameplay.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_render.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="core\game_session.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="rendering\imgui_layer.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="entity.cpp">
-      <Filter>Source Files\Gameplay</Filter>
+    <ClCompile Include="core\input.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="event_bus.cpp">
-      <Filter>Source Files\Gameplay</Filter>
-    </ClCompile>
-    <ClCompile Include="game_scene.cpp">
-      <Filter>Source Files\Scenes</Filter>
-    </ClCompile>
-    <ClCompile Include="game_scene_collision.cpp">
-      <Filter>Source Files\Scenes</Filter>
-    </ClCompile>
-    <ClCompile Include="game_scene_gameplay.cpp">
-      <Filter>Source Files\Scenes</Filter>
-    </ClCompile>
-    <ClCompile Include="game_scene_render.cpp">
-      <Filter>Source Files\Scenes</Filter>
-    </ClCompile>
-    <ClCompile Include="game_session.cpp">
-      <Filter>Source Files\Gameplay</Filter>
-    </ClCompile>
-    <ClCompile Include="imgui_layer.cpp">
-      <Filter>Source Files\Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="input.cpp">
-      <Filter>Source Files\Platform</Filter>
-    </ClCompile>
-    <ClCompile Include="logger.cpp">
-      <Filter>Source Files\App</Filter>
+    <ClCompile Include="core\logger.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>Source Files\App</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="physics_world.cpp">
+    <ClCompile Include="gameplay\prefab_factory.cpp">
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
-    <ClCompile Include="prefab_factory.cpp">
+    <ClCompile Include="physics\physics_world.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="gameplay\photo_filter_rules.cpp">
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
-    <ClCompile Include="resource_manager.cpp">
+    <ClCompile Include="gameplay\photo_system.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="rendering\shader.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="result_scene.cpp">
+    <ClCompile Include="rendering\sprite.cpp">
+      <Filter>Source Files\Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="core\resource_manager.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\result_scene.cpp">
       <Filter>Source Files\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="scene_manager.cpp">
-      <Filter>Source Files\Scene System</Filter>
+    <ClCompile Include="gameplay\script_engine.cpp">
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
-    <ClCompile Include="scene_registry.cpp">
-      <Filter>Source Files\Scene System</Filter>
+    <ClCompile Include="core\scene_manager.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="shader_showcase_scene.cpp">
+    <ClCompile Include="core\scene_registry.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\shader_showcase_scene.cpp">
       <Filter>Source Files\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="tile_map.cpp">
-      <Filter>Source Files\Gameplay</Filter>
+    <ClCompile Include="physics\tile_map.cpp">
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
-    <ClCompile Include="script_engine.cpp">
-      <Filter>Source Files\Gameplay</Filter>
-    </ClCompile>
-    <ClCompile Include="shader.cpp">
+    <ClCompile Include="rendering\texture.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="sprite.cpp">
-      <Filter>Source Files\Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="texture.cpp">
-      <Filter>Source Files\Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="title_scene.cpp">
+    <ClCompile Include="scenes\title_scene.cpp">
       <Filter>Source Files\Scenes</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui.cpp">
@@ -171,102 +186,210 @@
     <ClCompile Include="third_party\lua54\onelua.c">
       <Filter>Source Files\Third Party</Filter>
     </ClCompile>
+    <ClCompile Include="third_party\box2d\src\aabb.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\arena_allocator.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\array.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\bitset.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\body.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\broad_phase.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\constraint_graph.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\contact.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\contact_solver.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\core.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\distance.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\distance_joint.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\dynamic_tree.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\geometry.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\hull.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\id_pool.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\island.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\joint.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\manifold.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\math_functions.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\motor_joint.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\mover.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\physics_world.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\prismatic_joint.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\revolute_joint.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\sensor.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\shape.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\solver.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\solver_set.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\table.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\timer.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\types.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\weld_joint.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\box2d\src\wheel_joint.c">
+      <Filter>Source Files\Third Party\Box2D</Filter>
+    </ClCompile>
     <ClCompile Include="third_party\tracy\public\TracyClient.cpp">
       <Filter>Source Files\Third Party</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="audio.h">
-      <Filter>Header Files\Platform</Filter>
+    <ClInclude Include="core\audio.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="application.h">
-      <Filter>Header Files\App</Filter>
+    <ClInclude Include="core\application.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="asset_manifest.h">
-      <Filter>Header Files\Rendering</Filter>
+    <ClInclude Include="core\asset_manifest.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="collision.h">
+    <ClInclude Include="physics\collision.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="core\component.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="gameplay\components.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
-    <ClInclude Include="component.h">
-      <Filter>Header Files\Gameplay</Filter>
-    </ClInclude>
-    <ClInclude Include="components.h">
-      <Filter>Header Files\Gameplay</Filter>
-    </ClInclude>
-    <ClInclude Include="demo_scene.h">
+    <ClInclude Include="scenes\demo_scene.h">
       <Filter>Header Files\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="directX.h">
+    <ClInclude Include="rendering\directX.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="DirectXTex.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="entity.h">
+    <ClInclude Include="core\entity.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\event_bus.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\game\game_scene.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\game\game_scene_internal.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="core\game_session.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="rendering\imgui_layer.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="core\input.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\logger.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="gameplay\prefab_factory.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
-    <ClInclude Include="event_bus.h">
+    <ClInclude Include="physics\physics_world.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="gameplay\photo_filter_rules.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
-    <ClInclude Include="game_scene.h">
+    <ClInclude Include="gameplay\photo_system.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
+    <ClInclude Include="core\resource_manager.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\result_scene.h">
       <Filter>Header Files\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="game_scene_internal.h">
+    <ClInclude Include="gameplay\script_engine.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
+    <ClInclude Include="rendering\shader.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="core\scene.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\scene_manager.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\scene_registry.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="rendering\sprite.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\shader_showcase_scene.h">
       <Filter>Header Files\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="game_session.h">
-      <Filter>Header Files\Gameplay</Filter>
+    <ClInclude Include="physics\tile_map.h">
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
-    <ClInclude Include="imgui_layer.h">
+    <ClInclude Include="rendering\texture.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="input.h">
-      <Filter>Header Files\Platform</Filter>
-    </ClInclude>
-    <ClInclude Include="logger.h">
-      <Filter>Header Files\App</Filter>
-    </ClInclude>
-    <ClInclude Include="physics_world.h">
-      <Filter>Header Files\Gameplay</Filter>
-    </ClInclude>
-    <ClInclude Include="prefab_factory.h">
-      <Filter>Header Files\Gameplay</Filter>
-    </ClInclude>
-    <ClInclude Include="resource_manager.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="result_scene.h">
-      <Filter>Header Files\Scenes</Filter>
-    </ClInclude>
-    <ClInclude Include="scene.h">
-      <Filter>Header Files\Scene System</Filter>
-    </ClInclude>
-    <ClInclude Include="scene_manager.h">
-      <Filter>Header Files\Scene System</Filter>
-    </ClInclude>
-    <ClInclude Include="scene_registry.h">
-      <Filter>Header Files\Scene System</Filter>
-    </ClInclude>
-    <ClInclude Include="shader_showcase_scene.h">
-      <Filter>Header Files\Scenes</Filter>
-    </ClInclude>
-    <ClInclude Include="tile_map.h">
-      <Filter>Header Files\Gameplay</Filter>
-    </ClInclude>
-    <ClInclude Include="script_engine.h">
-      <Filter>Header Files\Gameplay</Filter>
-    </ClInclude>
-    <ClInclude Include="shader.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="sprite.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="texture.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="title_scene.h">
+    <ClInclude Include="scenes\title_scene.h">
       <Filter>Header Files\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="third_party\imgui\imgui.h">
@@ -274,77 +397,77 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="shaderPixel2D_ChromaticAberration.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_ChromaticAberration.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Distortion.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Distortion.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Dissolve.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Dissolve.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Flash.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Flash.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Glitch.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Glitch.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_GradientMap.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_GradientMap.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_HeatOverlay.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_HeatOverlay.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_MaskClip.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_MaskClip.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Grayscale.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Grayscale.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Normal.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Normal.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_NormalMapLighting.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_NormalMapLighting.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Outline.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Outline.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Parallax.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Parallax.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_PaletteSwap.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_PaletteSwap.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Pixelate.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Pixelate.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Posterize.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Posterize.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_RimLight.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_RimLight.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_NoiseReveal.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_NoiseReveal.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_UVScroll.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_UVScroll.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <FxCompile Include="shaderPixel2D_Wave.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="shaders\src\shaderPixel2D_Wave.hlsl">
+      <Filter>Shaders\Source</Filter>
     </FxCompile>
-    <None Include="shaderPixel2D.cso">
-      <Filter>Shaders</Filter>
+    <None Include="shaders\bin\shaderPixel2D.cso">
+      <Filter>Shaders\Binary</Filter>
     </None>
-    <None Include="shaderPixel2D.hlsl">
-      <Filter>Shaders</Filter>
+    <None Include="shaders\src\shaderPixel2D.hlsl">
+      <Filter>Shaders\Source</Filter>
     </None>
-    <None Include="shaderVertex2D.cso">
-      <Filter>Shaders</Filter>
+    <None Include="shaders\bin\shaderVertex2D.cso">
+      <Filter>Shaders\Binary</Filter>
     </None>
-    <None Include="shaderVertex2D.hlsl">
-      <Filter>Shaders</Filter>
+    <None Include="shaders\src\shaderVertex2D.hlsl">
+      <Filter>Shaders\Source</Filter>
     </None>
   </ItemGroup>
 </Project>

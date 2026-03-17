@@ -75,14 +75,19 @@ README の古い説明だけを見ると `DirectX 11` 単体基盤に見える�
 
 対象例:
 
-- `shaderPixel2D_*.hlsl`
-- `shaderVertex2D.hlsl`
+- `shaders/src/shaderPixel2D_*.hlsl`
+- `shaders/src/shaderVertex2D.hlsl`
+
+生成先:
+
+- `shaders/bin/*.cso`
 
 ## 7. 初回ビルドで見る場所
 
 うまく動かないときは次を見てください。
 
 - `DirectXFoundation.vcxproj`
+- `DirectXFoundation.vcxproj.filters`
 - `dxlib_support_libs/`
 - `third_party/`
 - `assets/`

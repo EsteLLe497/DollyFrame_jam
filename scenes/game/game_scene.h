@@ -15,6 +15,7 @@
 #include "tile_map.h"
 
 class TransformComponent;
+class PhotoSystem;
 
 struct CapturedPhotoItem
 {
@@ -118,11 +119,6 @@ private:
     void HandleAttackHits();
     void HandlePhotoCapture();
     void HandlePhotoSpawn();
-    void CaptureEntitiesInFrame(float frameX, float frameY, float frameWidth, float frameHeight, float& capturedMaxRight, float& capturedMaxBottom);
-    void CaptureTilesInFrame(float frameX, float frameY, float frameWidth, float frameHeight, float& capturedMaxRight, float& capturedMaxBottom);
-    void FinalizeCapturedPhoto(Entity& player, float capturedMaxRight, float capturedMaxBottom);
-    bool UpdatePhotoPlacementPreview(float& spawnX, float& spawnY, float& spawnWidth, float& spawnHeight);
-    void SpawnPhotoGroup(Entity& player, float spawnX, float spawnY, float spawnWidth);
     void UpdateGoalVisual(float deltaTime);
     void HandleWorldInteractions();
     void RemoveDefeatedEnemies();
@@ -131,6 +127,7 @@ private:
     void UpdateTuningPanel();
     void DrawTuningPanel() const;
     void DrawCaptureOverlay() const;
+    void DrawDevelopedPhotoPreview() const;
     void DrawPhotoPlacementPreview() const;
     void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
     void DrawEntity(const Entity& entity) const;
@@ -152,6 +149,8 @@ private:
     bool IsPhotoPlacementValid(float x, float y, float width, float height) const;
     float GetMapPixelWidth() const;
     float GetMapPixelHeight() const;
+
+    friend class PhotoSystem;
 
     AssetManifest m_assets;
     int m_whiteTexture;
@@ -184,6 +183,7 @@ private:
     bool m_playerFacingRight;
     PhotoState m_photo;
     float m_shutterFlashRemaining;
+    float m_developedPhotoPreviewRemaining;
     bool m_showCollisionDebug;
     bool m_showTuningPanel;
     int m_tuningSelection;
