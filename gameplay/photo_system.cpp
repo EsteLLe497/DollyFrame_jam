@@ -8,6 +8,23 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr int kMaxPhotoGroups = 3;
+    constexpr float kPhotoCopyLifetimeSeconds = 10.0f;
+    constexpr float kPrintedPhotoPaddingX = 16.0f;
+    constexpr float kPrintedPhotoPaddingTop = 16.0f;
+    constexpr float kPrintedPhotoFooterHeight = 52.0f;
+    constexpr float kPrintedPhotoMinWidth = 120.0f;
+    constexpr float kPrintedPhotoMinHeight = 144.0f;
+    constexpr float kPrintedPhotoImageMatteInset = 3.0f;
+
+    float GetPrintedPhotoWidth(float contentWidth)
+    {
+        return std::max(kPrintedPhotoMinWidth, contentWidth + kPrintedPhotoPaddingX * 2.0f);
+    }
+
+    float GetPrintedPhotoHeight(float contentHeight)
+    {
+        return std::max(kPrintedPhotoMinHeight, contentHeight + kPrintedPhotoPaddingTop + kPrintedPhotoFooterHeight);
+    }
 
     const char* GetPreviewLayerLabel(PhotoCopyLayer layer)
     {
@@ -95,6 +112,118 @@ namespace
         default:
             break;
         }
+    }
+
+    std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
+        const std::vector<CapturedPhotoItem>& sourceItems,
+        int paperTextureId,
+        PhotoFilterTheme capturedTheme,
+        float contentWidth,
+        float contentHeight,
+        bool flipX,
+        bool bridgeEnabled)
+    {
+        const float printedWidth = GetPrintedPhotoWidth(contentWidth);
+        std::vector<CapturedPhotoItem> printedItems = sourceItems;
+        for (auto& item : printedItems)
+        {
+            item.relativeX += kPrintedPhotoPaddingX;
+            item.relativeY += kPrintedPhotoPaddingTop;
+        }
+
+        if (bridgeEnabled && printedItems.size() >= 2)
+        {
+            const std::vector<CapturedPhotoItem> baseItems = printedItems;
+            constexpr float kSegmentSize = 18.0f;
+            for (size_t index = 1; index < baseItems.size(); ++index)
+            {
+                const auto& a = baseItems[index - 1];
+                const auto& b = baseItems[index];
+                const float ax = a.relativeX + a.width * 0.5f;
+                const float ay = a.relativeY + a.height * 0.5f;
+                const float bx = b.relativeX + b.width * 0.5f;
+                const float by = b.relativeY + b.height * 0.5f;
+                const float length = std::max(std::fabs(bx - ax), std::fabs(by - ay));
+                const int steps = std::max(1, static_cast<int>(length / kSegmentSize));
+                for (int step = 1; step < steps; ++step)
+                {
+                    const float t = static_cast<float>(step) / static_cast<float>(steps);
+                    CapturedPhotoItem bridge;
+                    bridge.textureId = paperTextureId;
+                    bridge.role = PhotoCopyRole::Solid;
+                    bridge.layer = PhotoCopyLayer::Foreground;
+                    bridge.appliedTheme = capturedTheme;
+                    bridge.relativeX = std::lerp(ax, bx, t) - kSegmentSize * 0.5f;
+                    bridge.relativeY = std::lerp(ay, by, t) - kSegmentSize * 0.5f;
+                    bridge.width = kSegmentSize;
+                    bridge.height = kSegmentSize;
+                    bridge.sourceX = 0.0f;
+                    bridge.sourceY = 0.0f;
+                    bridge.sourceWidth = 1.0f;
+                    bridge.sourceHeight = 1.0f;
+                    bridge.tintR = 0.90f;
+                    bridge.tintG = 0.96f;
+                    bridge.tintB = 1.0f;
+                    bridge.tintA = 0.92f;
+                    bridge.flipX = flipX;
+                    printedItems.push_back(bridge);
+                }
+            }
+        }
+
+        if (flipX)
+        {
+            for (auto& item : printedItems)
+            {
+                item.relativeX = printedWidth - item.relativeX - item.width;
+                item.flipX = !item.flipX;
+            }
+        }
+
+        CapturedPhotoItem paper;
+        paper.textureId = paperTextureId;
+        paper.role = PhotoCopyRole::Solid;
+        paper.layer = PhotoCopyLayer::Background;
+        paper.origin = PhotoCopyOrigin::Generic;
+        paper.appliedTheme = PhotoFilterTheme::None;
+        paper.relativeX = 0.0f;
+        paper.relativeY = 0.0f;
+        paper.width = printedWidth;
+        paper.height = GetPrintedPhotoHeight(contentHeight);
+        paper.sourceX = 0.0f;
+        paper.sourceY = 0.0f;
+        paper.sourceWidth = 1.0f;
+        paper.sourceHeight = 1.0f;
+        paper.tintR = 0.98f;
+        paper.tintG = 0.96f;
+        paper.tintB = 0.90f;
+        paper.tintA = 0.94f;
+
+        CapturedPhotoItem matte;
+        matte.textureId = paperTextureId;
+        matte.role = PhotoCopyRole::Solid;
+        matte.layer = PhotoCopyLayer::Background;
+        matte.origin = PhotoCopyOrigin::Tile;
+        matte.appliedTheme = PhotoFilterTheme::None;
+        matte.relativeX = kPrintedPhotoPaddingX - kPrintedPhotoImageMatteInset;
+        matte.relativeY = kPrintedPhotoPaddingTop - kPrintedPhotoImageMatteInset;
+        matte.width = contentWidth + kPrintedPhotoImageMatteInset * 2.0f;
+        matte.height = contentHeight + kPrintedPhotoImageMatteInset * 2.0f;
+        matte.sourceX = 0.0f;
+        matte.sourceY = 0.0f;
+        matte.sourceWidth = 1.0f;
+        matte.sourceHeight = 1.0f;
+        matte.tintR = 0.10f;
+        matte.tintG = 0.12f;
+        matte.tintB = 0.14f;
+        matte.tintA = 0.92f;
+
+        std::vector<CapturedPhotoItem> result;
+        result.reserve(printedItems.size() + 2);
+        result.push_back(paper);
+        result.push_back(matte);
+        result.insert(result.end(), printedItems.begin(), printedItems.end());
+        return result;
     }
 }
 
@@ -190,24 +319,14 @@ public:
         const float viewScale = GetViewScale();
         const float viewOriginX = GetViewOriginX();
         const float viewOriginY = GetViewOriginY();
-        std::vector<CapturedPhotoItem> previewItems = scene.m_photo.capture.items;
-        if (scene.m_photo.placement.flipX)
-        {
-            for (auto& item : previewItems)
-            {
-                item.relativeX = scene.m_photo.placement.width - item.relativeX - item.width;
-                item.flipX = !item.flipX;
-            }
-        }
-        if (scene.m_photo.placement.bridgeEnabled && previewItems.size() >= 2)
-        {
-            AddBridgeSegments(
-                previewItems,
-                scene.m_whiteTexture,
-                scene.m_photo.placement.flipX,
-                true,
-                scene.m_photo.capture.capturedTheme);
-        }
+        std::vector<CapturedPhotoItem> previewItems = BuildPrintedPhotoItems(
+            scene.m_photo.capture.items,
+            scene.m_whiteTexture,
+            scene.m_photo.capture.capturedTheme,
+            scene.m_photo.capture.width,
+            scene.m_photo.capture.height,
+            scene.m_photo.placement.flipX,
+            scene.m_photo.placement.bridgeEnabled);
 
         for (const auto& item : previewItems)
         {
@@ -484,12 +603,13 @@ private:
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "scene_change", 0.0f, 0.0f });
             scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
             scene.m_shutterFlashRemaining = gShutterFlashSeconds;
+            scene.m_developedPhotoPreviewRemaining = 3.2f;
     }
 
     static bool UpdatePlacementPreview(GameScene& scene, float& spawnX, float& spawnY, float& spawnWidth, float& spawnHeight)
     {
-            spawnWidth = std::max(32.0f, scene.m_photo.capture.width);
-            spawnHeight = std::max(32.0f, scene.m_photo.capture.height);
+            spawnWidth = GetPrintedPhotoWidth(scene.m_photo.capture.width);
+            spawnHeight = GetPrintedPhotoHeight(scene.m_photo.capture.height);
             const float viewScale = GetViewScale();
             const float viewOriginX = GetViewOriginX();
             const float viewOriginY = GetViewOriginY();
@@ -514,16 +634,14 @@ private:
 
     static void SpawnPhotoGroup(GameScene& scene, Entity& player, float spawnX, float spawnY, float spawnWidth)
     {
-            std::vector<CapturedPhotoItem> spawnedItems = scene.m_photo.capture.items;
-            if (scene.m_photo.placement.flipX)
-            {
-                for (auto& item : spawnedItems)
-                {
-                    item.relativeX = spawnWidth - item.relativeX - item.width;
-                    item.flipX = !item.flipX;
-                }
-            }
-            AddBridgeSegments(spawnedItems, scene.m_whiteTexture, scene.m_photo.placement.flipX, scene.m_photo.placement.bridgeEnabled, scene.m_photo.capture.capturedTheme);
+            std::vector<CapturedPhotoItem> spawnedItems = BuildPrintedPhotoItems(
+                scene.m_photo.capture.items,
+                scene.m_whiteTexture,
+                scene.m_photo.capture.capturedTheme,
+                scene.m_photo.capture.width,
+                scene.m_photo.capture.height,
+                scene.m_photo.placement.flipX,
+                scene.m_photo.placement.bridgeEnabled);
 
             if (scene.m_photo.groups.activeGroupCount >= kMaxPhotoGroups)
             {
@@ -554,11 +672,15 @@ private:
                 lastSpawnedBox = entity.get();
                 lastSpawnedBox->AddComponent<TagComponent>("PhotoBox");
                 lastSpawnedBox->AddComponent<PhotoCopyGroupComponent>(groupId);
+                lastSpawnedBox->AddComponent<PhotoCopyLifetimeComponent>(kPhotoCopyLifetimeSeconds);
                 lastSpawnedBox->AddComponent<PhotoCopyRoleComponent>(item.role);
                 lastSpawnedBox->AddComponent<PhotoCopyOriginComponent>(item.origin);
                 lastSpawnedBox->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
-                lastSpawnedBox->AddComponent<PhotoCopyLayerComponent>(
-                    item.layer == PhotoCopyLayer::Shadow ? PhotoCopyLayer::Shadow : scene.m_photo.placement.layer);
+                const PhotoCopyLayer spawnedLayer =
+                    item.layer == PhotoCopyLayer::Shadow ? PhotoCopyLayer::Shadow :
+                    item.layer == PhotoCopyLayer::Background ? PhotoCopyLayer::Background :
+                    scene.m_photo.placement.layer;
+                lastSpawnedBox->AddComponent<PhotoCopyLayerComponent>(spawnedLayer);
                 lastSpawnedBox->AddComponent<TransformComponent>(
                     spawnX + item.relativeX,
                     spawnY + item.relativeY,

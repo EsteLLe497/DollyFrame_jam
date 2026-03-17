@@ -127,6 +127,7 @@ private:
     void UpdateTuningPanel();
     void DrawTuningPanel() const;
     void DrawCaptureOverlay() const;
+    void DrawDevelopedPhotoPreview() const;
     void DrawPhotoPlacementPreview() const;
     void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
     void DrawEntity(const Entity& entity) const;
@@ -182,6 +183,7 @@ private:
     bool m_playerFacingRight;
     PhotoState m_photo;
     float m_shutterFlashRemaining;
+    float m_developedPhotoPreviewRemaining;
     bool m_showCollisionDebug;
     bool m_showTuningPanel;
     int m_tuningSelection;

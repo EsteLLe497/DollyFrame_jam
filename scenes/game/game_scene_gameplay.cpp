@@ -715,7 +715,18 @@ void GameScene::RemoveDefeatedEnemies()
             [](const std::unique_ptr<Entity>& entity)
             {
                 const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
-                return enemy && enemy->IsDefeated();
+                if (enemy && enemy->IsDefeated())
+                {
+                    return true;
+                }
+
+                if (!entity || !HasTag(*entity, "PhotoBox"))
+                {
+                    return false;
+                }
+
+                const auto* lifetime = entity->GetComponent<PhotoCopyLifetimeComponent>();
+                return lifetime && lifetime->IsExpired();
             }),
         m_entities.end());
 

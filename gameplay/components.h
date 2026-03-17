@@ -118,6 +118,22 @@ public:
     int groupId;
 };
 
+class PhotoCopyLifetimeComponent final : public Component
+{
+public:
+    explicit PhotoCopyLifetimeComponent(float lifetimeSeconds);
+
+    void Update(float deltaTime) override;
+    void DrawDebugUI() override;
+    float GetRemainingSeconds() const;
+    float GetLifetimeSeconds() const;
+    bool IsExpired() const;
+
+private:
+    float m_lifetimeSeconds;
+    float m_remainingSeconds;
+};
+
 class PhotoCopyOriginComponent final : public Component
 {
 public:

@@ -173,6 +173,10 @@ void GameScene::DrawCaptureOverlay() const
     const float drawY = viewOriginY + frameY * viewScale;
     const float drawWidth = frameWidth * viewScale;
     const float drawHeight = frameHeight * viewScale;
+    const int left = static_cast<int>(std::round(drawX));
+    const int top = static_cast<int>(std::round(drawY));
+    const int right = static_cast<int>(std::round(drawX + drawWidth));
+    const int bottom = static_cast<int>(std::round(drawY + drawHeight));
 
     const float shutterT = Clamp01(m_shutterFlashRemaining / gShutterFlashSeconds);
     const float frameInset = 10.0f * shutterT * viewScale;
@@ -184,20 +188,56 @@ void GameScene::DrawCaptureOverlay() const
     float overlayG = 1.0f;
     float overlayB = 1.0f;
     GetFilterThemeOverlayColor(m_photo.capture.selectedTheme, overlayR, overlayG, overlayB);
+    const unsigned int frameColor = GetColor(
+        static_cast<int>(std::round(overlayR * 255.0f)),
+        static_cast<int>(std::round(overlayG * 255.0f)),
+        static_cast<int>(std::round(overlayB * 255.0f)));
+    const unsigned int guideColor = GetColor(
+        static_cast<int>(std::round(overlayR * 200.0f)),
+        static_cast<int>(std::round(overlayG * 200.0f)),
+        static_cast<int>(std::round(overlayB * 200.0f)));
 
-    Shader_ResetStyle();
-    Shader_SetOutline(
-        overlayR * (0.70f + shutterT * 0.30f),
-        overlayG * (0.70f + shutterT * 0.22f),
-        overlayB * (0.70f + shutterT * 0.22f),
-        1.0f,
-        2.0f + shutterT * 1.4f);
-    Shader_SetTint(
-        overlayR * (0.24f + shutterT * 0.44f),
-        overlayG * (0.24f + shutterT * 0.36f),
-        overlayB * (0.24f + shutterT * 0.44f),
-        0.30f + shutterT * 0.24f);
-    SpriteDraw(m_whiteTexture, innerX, innerY, innerWidth, innerHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+    const auto drawFrameBand = [&](float x, float y, float width, float height, float alpha)
+    {
+        Shader_ResetStyle();
+        Shader_SetTint(overlayR, overlayG, overlayB, alpha);
+        SpriteDraw(m_whiteTexture, x, y, width, height, 0.0f, 0.0f, 1.0f, 1.0f);
+    };
+
+    const auto drawCornerFrame = [&](int frameLeft, int frameTop, int frameRight, int frameBottom, int thickness, int cornerLength, unsigned int color)
+    {
+        for (int offset = 0; offset < thickness; ++offset)
+        {
+            DrawLine(frameLeft, frameTop + offset, frameLeft + cornerLength, frameTop + offset, color);
+            DrawLine(frameLeft + offset, frameTop, frameLeft + offset, frameTop + cornerLength, color);
+
+            DrawLine(frameRight - cornerLength, frameTop + offset, frameRight, frameTop + offset, color);
+            DrawLine(frameRight - offset, frameTop, frameRight - offset, frameTop + cornerLength, color);
+
+            DrawLine(frameLeft, frameBottom - offset, frameLeft + cornerLength, frameBottom - offset, color);
+            DrawLine(frameLeft + offset, frameBottom - cornerLength, frameLeft + offset, frameBottom, color);
+
+            DrawLine(frameRight - cornerLength, frameBottom - offset, frameRight, frameBottom - offset, color);
+            DrawLine(frameRight - offset, frameBottom - cornerLength, frameRight - offset, frameBottom, color);
+        }
+    };
+
+    const int cornerLength = std::max(18, static_cast<int>(std::round(34.0f * viewScale)));
+    const int cornerThickness = std::max(2, static_cast<int>(std::round(3.0f + shutterT * 2.0f)));
+    const int guideInset = std::max(12, static_cast<int>(std::round(24.0f * viewScale)));
+
+    drawFrameBand(innerX, innerY, innerWidth, innerHeight, 0.10f + shutterT * 0.18f);
+    drawFrameBand(drawX, drawY, drawWidth, std::max(4.0f, 8.0f * viewScale), 0.30f + shutterT * 0.16f);
+    drawFrameBand(drawX, drawY + drawHeight - std::max(4.0f, 8.0f * viewScale), drawWidth, std::max(4.0f, 8.0f * viewScale), 0.30f + shutterT * 0.16f);
+    drawFrameBand(drawX, drawY, std::max(4.0f, 8.0f * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
+    drawFrameBand(drawX + drawWidth - std::max(4.0f, 8.0f * viewScale), drawY, std::max(4.0f, 8.0f * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
+    drawCornerFrame(left, top, right, bottom, cornerThickness, cornerLength, frameColor);
+
+    const int centerX = (left + right) / 2;
+    const int centerY = (top + bottom) / 2;
+    DrawLine(centerX - guideInset, centerY, centerX + guideInset, centerY, guideColor);
+    DrawLine(centerX, centerY - guideInset, centerX, centerY + guideInset, guideColor);
+    DrawBox(left + guideInset, top + guideInset, right - guideInset, bottom - guideInset, guideColor, FALSE);
 
     if (Entity* target = FindCaptureTarget(*transform))
     {
@@ -219,13 +259,15 @@ void GameScene::DrawCaptureOverlay() const
         Shader_SetTint(overlayR, overlayG, overlayB, 0.10f + shutterT * 0.55f);
         SpriteDraw(m_whiteTexture, GetViewOriginX(), GetViewOriginY(), GetViewWidth(), GetViewHeight(), 0.0f, 0.0f, 1.0f, 1.0f);
 
-        const float lineWidth = 6.0f + shutterT * 10.0f;
-        const float lineHeight = std::max(12.0f, 32.0f * shutterT * viewScale);
-        Shader_SetTint(overlayR, overlayG, overlayB, 0.24f + shutterT * 0.40f);
-        SpriteDraw(m_whiteTexture, drawX, drawY - lineHeight, drawWidth, lineWidth, 0.0f, 0.0f, 1.0f, 1.0f);
-        SpriteDraw(m_whiteTexture, drawX, drawY + drawHeight, drawWidth, lineWidth, 0.0f, 0.0f, 1.0f, 1.0f);
-        SpriteDraw(m_whiteTexture, drawX - lineHeight, drawY, lineWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
-        SpriteDraw(m_whiteTexture, drawX + drawWidth, drawY, lineWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        const int pulseInset = static_cast<int>(std::round(20.0f * shutterT * viewScale));
+        drawCornerFrame(
+            left + pulseInset,
+            top + pulseInset,
+            right - pulseInset,
+            bottom - pulseInset,
+            std::max(2, cornerThickness + 1),
+            std::max(12, cornerLength - pulseInset / 2),
+            frameColor);
     }
 
     Shader_ResetStyle();
@@ -279,6 +321,110 @@ void GameScene::DrawTuningPanel() const
     }
 }
 
+void GameScene::DrawDevelopedPhotoPreview() const
+{
+    if (m_developedPhotoPreviewRemaining <= 0.0f || m_photo.capture.items.empty())
+    {
+        return;
+    }
+
+    constexpr float kPreviewLifetime = 3.2f;
+    const float remainingT = Clamp01(m_developedPhotoPreviewRemaining / kPreviewLifetime);
+    const float appearT = Clamp01((kPreviewLifetime - m_developedPhotoPreviewRemaining) / 0.35f);
+    const float fadeT = Clamp01(m_developedPhotoPreviewRemaining / 0.45f);
+    const float alpha = std::min(1.0f, appearT) * std::min(1.0f, fadeT);
+
+    const float photoWidth = 220.0f;
+    const float photoHeight = 248.0f;
+    const float frameInset = 16.0f;
+    const float imageWidth = photoWidth - frameInset * 2.0f;
+    const float imageHeight = 150.0f;
+    const float baseX = static_cast<float>(SCREEN_WIDTH) - photoWidth - 42.0f;
+    const float x = baseX + (1.0f - appearT) * 120.0f;
+    const float y = 34.0f + (1.0f - alpha) * -12.0f;
+
+    DrawBox(
+        static_cast<int>(std::round(x + 8.0f)),
+        static_cast<int>(std::round(y + 10.0f)),
+        static_cast<int>(std::round(x + photoWidth + 8.0f)),
+        static_cast<int>(std::round(y + photoHeight + 10.0f)),
+        GetColor(16, 18, 24),
+        TRUE);
+
+    Shader_ResetStyle();
+    Shader_SetTint(0.98f, 0.96f, 0.90f, 0.96f * alpha);
+    SpriteDraw(m_whiteTexture, x, y, photoWidth, photoHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+
+    Shader_SetTint(0.92f, 0.88f, 0.74f, 0.20f * alpha);
+    SpriteDraw(m_whiteTexture, x, y, photoWidth, 26.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+
+    const float photoX = x + frameInset;
+    const float photoY = y + frameInset;
+    Shader_SetTint(0.12f, 0.14f, 0.18f, 0.88f * alpha);
+    SpriteDraw(m_whiteTexture, photoX - 3.0f, photoY - 3.0f, imageWidth + 6.0f, imageHeight + 6.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+
+    const float previewScale = std::min(
+        imageWidth / std::max(1.0f, m_photo.capture.width),
+        imageHeight / std::max(1.0f, m_photo.capture.height));
+    const float contentOffsetX = photoX + (imageWidth - m_photo.capture.width * previewScale) * 0.5f;
+    const float contentOffsetY = photoY + (imageHeight - m_photo.capture.height * previewScale) * 0.5f;
+
+    Shader_SetTint(0.10f, 0.12f, 0.14f, 0.95f * alpha);
+    SpriteDraw(m_whiteTexture, photoX, photoY, imageWidth, imageHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+
+    for (const auto& item : m_photo.capture.items)
+    {
+        Shader_ResetStyle();
+        Shader_SetTint(item.tintR, item.tintG, item.tintB, std::min(1.0f, item.tintA) * alpha);
+        SpriteDraw(
+            item.textureId >= 0 ? item.textureId : m_tileTexture,
+            contentOffsetX + item.relativeX * previewScale,
+            contentOffsetY + item.relativeY * previewScale,
+            item.width * previewScale,
+            item.height * previewScale,
+            item.sourceX,
+            item.sourceY,
+            item.sourceWidth,
+            item.sourceHeight,
+            item.flipX,
+            0.0f);
+    }
+
+    DrawBox(
+        static_cast<int>(std::round(photoX)),
+        static_cast<int>(std::round(photoY)),
+        static_cast<int>(std::round(photoX + imageWidth)),
+        static_cast<int>(std::round(photoY + imageHeight)),
+        GetColor(215, 205, 180),
+        FALSE);
+    DrawString(
+        static_cast<int>(x + 18.0f),
+        static_cast<int>(y + imageHeight + 30.0f),
+        "Captured",
+        GetColor(62, 56, 48));
+    DrawFormatString(
+        static_cast<int>(x + 18.0f),
+        static_cast<int>(y + imageHeight + 54.0f),
+        GetColor(110, 96, 78),
+        "%s  %.0fx%.0f",
+        GetFilterThemeLabel(m_photo.capture.capturedTheme),
+        m_photo.capture.width,
+        m_photo.capture.height);
+
+    const int accent = GetColor(
+        static_cast<int>(std::round(160.0f * remainingT + 40.0f)),
+        static_cast<int>(std::round(190.0f * remainingT + 20.0f)),
+        255);
+    DrawBox(
+        static_cast<int>(std::round(x + photoWidth - 54.0f)),
+        static_cast<int>(std::round(y + 16.0f)),
+        static_cast<int>(std::round(x + photoWidth - 18.0f)),
+        static_cast<int>(std::round(y + 28.0f)),
+        accent,
+        TRUE);
+    Shader_ResetStyle();
+}
+
 void GameScene::DrawPhotoPlacementPreview() const
 {
     photo_system::DrawPlacementPreview(*this);
@@ -327,6 +473,7 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
 
     Shader_ResetStyle();
+    float alphaMultiplier = 1.0f;
 
     const auto* tag = entity.GetComponent<TagComponent>();
     if (tag && tag->tag == "Goal")
@@ -374,7 +521,15 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
     else if (tag && tag->tag == "PhotoBox")
     {
+        if (const auto* lifetime = entity.GetComponent<PhotoCopyLifetimeComponent>())
+        {
+            const float totalLifetime = std::max(0.001f, lifetime->GetLifetimeSeconds());
+            alphaMultiplier = Clamp01(lifetime->GetRemainingSeconds() / totalLifetime);
+        }
+
         const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
+        const auto* photoOrigin = entity.GetComponent<PhotoCopyOriginComponent>();
+        const auto* tint = entity.GetComponent<TintComponent>();
         if (const auto* photoRole = entity.GetComponent<PhotoCopyRoleComponent>())
         {
             switch (photoRole->role)
@@ -406,7 +561,27 @@ void GameScene::DrawEntity(const Entity& entity) const
         {
             if (photoLayer->layer == PhotoCopyLayer::Background)
             {
-                Shader_SetTint(0.64f, 0.72f, 0.84f, 0.44f);
+                const bool looksLikePrintedPhotoPaper =
+                    photoOrigin &&
+                    photoOrigin->origin == PhotoCopyOrigin::Generic &&
+                    tint &&
+                    tint->r > 0.9f &&
+                    tint->g > 0.9f &&
+                    tint->b > 0.85f;
+                if (looksLikePrintedPhotoPaper)
+                {
+                    Shader_SetOutline(0.90f, 0.84f, 0.72f, 1.0f, 1.4f);
+                    Shader_SetTint(0.98f, 0.96f, 0.90f, 0.92f);
+                }
+                else if (tint && tint->r < 0.2f && tint->g < 0.2f && tint->b < 0.2f)
+                {
+                    Shader_SetOutline(0.22f, 0.22f, 0.24f, 1.0f, 1.2f);
+                    Shader_SetTint(0.10f, 0.12f, 0.14f, 0.94f);
+                }
+                else
+                {
+                    Shader_SetTint(0.64f, 0.72f, 0.84f, 0.44f);
+                }
             }
             else if (photoLayer->layer == PhotoCopyLayer::Shadow)
             {
@@ -480,11 +655,11 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     if (const auto* tint = entity.GetComponent<TintComponent>())
     {
-        Shader_SetTint(tint->r, tint->g, tint->b, tint->a);
+        Shader_SetTint(tint->r, tint->g, tint->b, tint->a * alphaMultiplier);
     }
     else
     {
-        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+        Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
     }
 
     SpriteDraw(
@@ -748,9 +923,8 @@ void GameScene::DrawBackdrop() const
 
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
 {
-    const float playerWidth = playerTransform.width * playerTransform.scale;
     const float playerHeight = playerTransform.height * playerTransform.scale;
-    width = std::clamp(playerWidth * gCaptureWidthScale, 120.0f, 196.0f);
+    width = m_tileMap.GetTileSize() * 3.0f;
     height = std::clamp(playerHeight * gCaptureHeightScale, 96.0f, 168.0f);
 
     const float viewScale = GetViewScale();
