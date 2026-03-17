@@ -26,37 +26,37 @@
 
 - `main.cpp`
   エントリポイントです。
-- `application.h` / `application.cpp`
+- `core/application.h` / `core/application.cpp`
   メインループ、シーン更新、描画、イベント処理を持ちます。
-- `input.h` / `input.cpp`
+- `core/input.h` / `core/input.cpp`
   キーボード、マウス、ゲームパッド入力のラッパです。
-- `audio.h` / `audio.cpp`
+- `core/audio.h` / `core/audio.cpp`
   簡易音声再生です。
-- `logger.h` / `logger.cpp`
+- `core/logger.h` / `core/logger.cpp`
   ログ出力です。
 
 ### シーン
 
-- `scene.h`
+- `core/scene.h`
   シーン基底クラスです。
-- `scene_manager.*`
+- `core/scene_manager.*`
   現在シーンの所有と遷移処理です。
-- `scene_registry.*`
+- `core/scene_registry.*`
   シーン ID とシーンクラスの対応表です。
-- `title_scene.*`
+- `scenes/title_scene.*`
   タイトル画面です。
-- `game_scene.*`
+- `scenes/game/game_scene.*`
   メインのゲームプレイです。
-- `result_scene.*`
+- `scenes/result_scene.*`
   結果画面です。
 
 ### ECS 風オブジェクト
 
-- `entity.h` / `entity.cpp`
+- `core/entity.h` / `core/entity.cpp`
   コンポーネントを束ねるゲームオブジェクトです。
-- `component.h` / `component.cpp`
+- `core/component.h` / `core/component.cpp`
   コンポーネント基底です。
-- `components.h` / `components.cpp`
+- `gameplay/components.h` / `gameplay/components.cpp`
   実際のコンポーネント群です。
 
 ### データ
@@ -72,25 +72,30 @@
 
 `GameScene` は 1 ファイルではなく、役割ごとに分かれています。
 
-- `game_scene.h`
+- `scenes/game/game_scene.h`
   状態とメソッド宣言
-- `game_scene.cpp`
+- `scenes/game/game_scene.cpp`
   初期化、シーン更新、デバッグ UI
-- `game_scene_gameplay.cpp`
+- `scenes/game/game_scene_gameplay.cpp`
   プレイヤー更新、撮影、配置、敵、相互作用
-- `game_scene_render.cpp`
+- `scenes/game/game_scene_render.cpp`
   背景、オブジェクト、UI、プレビュー描画
-- `game_scene_collision.cpp`
+- `scenes/game/game_scene_collision.cpp`
   地形判定、重なり判定、補助関数
-- `game_scene_internal.h`
+- `scenes/game/game_scene_internal.h`
   `inline` の共通補助関数と定数
+- `gameplay/photo_system.cpp`
+  写真の撮影、配置、コピー生成、配置プレビュー描画
+- `gameplay/photo_filter_rules.cpp`
+  フィルター順、名称、効果本体
 
 改修時はまず「何を変えたいか」でファイルを分けて考えると速いです。
 
-- ルールを変えたい: `game_scene_gameplay.cpp`
-- 見た目を変えたい: `game_scene_render.cpp`
-- 当たり判定を変えたい: `game_scene_collision.cpp`
-- 新しい状態を持たせたい: `game_scene.h`
+- ルールを変えたい: `scenes/game/game_scene_gameplay.cpp`
+- 見た目を変えたい: `scenes/game/game_scene_render.cpp`
+- 当たり判定を変えたい: `scenes/game/game_scene_collision.cpp`
+- 写真まわりを変えたい: `gameplay/photo_system.cpp`
+- 新しい状態を持たせたい: `scenes/game/game_scene.h`
 
 ## 4. 主なゲーム要素
 
@@ -113,6 +118,11 @@
 - `HandlePhotoSpawn()`
 - `ApplyPhotoFilterToPhotoBox()`
 - `ApplyPhotoFilterToCapturedTarget()`
+
+実装の中心:
+
+- `gameplay/photo_system.cpp`
+- `gameplay/photo_filter_rules.cpp`
 
 ### フィルター
 
@@ -148,7 +158,7 @@
 - 配置開始時: `1.2` 秒
 - シャッターフラッシュは通常速度
 
-実装は `game_scene.cpp` の `Update()` にあります。
+実装は `scenes/game/game_scene.cpp` の `Update()` にあります。
 
 ### 敵
 
@@ -175,13 +185,13 @@
 
 触る場所:
 
-- `components.h`
+- `gameplay/components.h`
   `PhotoFilterTheme`
-- `photo_filter_rules.cpp`
+- `gameplay/photo_filter_rules.cpp`
   テーマ名表示、フィルター順、効果本体
-- `game_scene.cpp`
+- `scenes/game/game_scene.cpp`
   入力切り替え
-- `game_scene_render.cpp`
+- `scenes/game/game_scene_render.cpp`
   UI 色、プレビュー、オーバーレイ
 
 ### 新しい敵を追加したい
@@ -189,8 +199,8 @@
 最小構成:
 
 1. `components.*` に必要な状態を足す
-2. `game_scene.cpp` の生成処理を増やす
-3. 必要なら `prefab_factory.*` と `assets/prefabs.json` を更新する
+2. `scenes/game/game_scene.cpp` の生成処理を増やす
+3. 必要なら `gameplay/prefab_factory.*` と `assets/prefabs.json` を更新する
 
 ### 新しいギミックを追加したい
 
@@ -199,7 +209,7 @@
 
 ### 背景や UI を変えたい
 
-`game_scene_render.cpp` を見ます。
+`scenes/game/game_scene_render.cpp` を見ます。
 
 主な描画入口:
 
@@ -257,11 +267,11 @@
 
 ### フィルターの見た目だけ変えたい
 
-`game_scene_render.cpp` だけで足りることが多いです。
+`scenes/game/game_scene_render.cpp` だけで足りることが多いです。
 
 ### フィルターの効果を変えたい
 
-`photo_filter_rules.cpp` の
+`gameplay/photo_filter_rules.cpp` の
 
 - `ApplyPhotoFilterToPhotoBox()`
 - `ApplyPhotoFilterToCapturedTarget()`
@@ -270,15 +280,15 @@
 
 ### 写真配置の感触を変えたい
 
-`HandlePhotoSpawn()` を見ます。
+`gameplay/photo_system.cpp` の配置処理を見ます。
 
 ### スロー時間を変えたい
 
-`game_scene.cpp` の定数を見ます。
+`scenes/game/game_scene.cpp` と `scenes/game/game_scene_internal.h` の定数を見ます。
 
 ## 9. 実装上の注意
 
-- `GameScene` は状態が多いので、変更前に `game_scene.h` を確認する
+- `GameScene` は状態が多いので、変更前に `scenes/game/game_scene.h` を確認する
 - 見た目変更とルール変更を同じ関数に混ぜすぎない
 - `third_party/` は基本的に直接触らない
 - 生成物や依存バイナリは Git 管理方針が揺れやすいので注意する
@@ -287,13 +297,14 @@
 
 初見ならこの順が速いです。
 
-1. `game_scene.h`
-2. `game_scene.cpp`
-3. `game_scene_gameplay.cpp`
-4. `game_scene_render.cpp`
-5. `components.h`
-6. `game_scene_internal.h`
-7. `assets/prefabs.json`
-8. `assets/maps/side_scroll_stage01.csv`
+1. `scenes/game/game_scene.h`
+2. `scenes/game/game_scene.cpp`
+3. `scenes/game/game_scene_gameplay.cpp`
+4. `gameplay/photo_system.cpp`
+5. `scenes/game/game_scene_render.cpp`
+6. `gameplay/components.h`
+7. `scenes/game/game_scene_internal.h`
+8. `assets/prefabs.json`
+9. `assets/maps/side_scroll_stage01.csv`
 
 この順で読むと、状態、更新、描画、部品、データの対応が掴みやすいです。

@@ -35,7 +35,7 @@ Visual Studio の場合:
 コマンドラインの場合:
 
 ```powershell
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" "D:\directX\DirectXFoundation.vcxproj" /p:Configuration=Debug /p:Platform=x64 /m:1
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" "D:\DollyFrame_jam\DirectXFoundation.vcxproj" /p:Configuration=Debug /p:Platform=x64 /m:1
 ```
 
 出力先:
@@ -78,62 +78,59 @@ Visual Studio の場合:
 
 ## リポジトリの見方
 
-### ルートの主要ファイル
+### 主要ディレクトリ
 
 - `main.cpp`
-  エントリポイントです。`Application` を起動するだけに絞っています。
-- `application.h` / `application.cpp`
-  アプリ全体の初期化、メインループ、描画、ミドルウェア更新、イベント消費を担当します。
-- `scene.h`
+  エントリポイントです。`Application` を起動します。
+- `core/`
+  アプリ基盤、シーン管理、入力、音、ログ、ECS の土台です。
+- `gameplay/`
+  ゲーム固有のコンポーネント、プレハブ生成、フィルター処理、`photo_system` などです。
+- `physics/`
+  タイル、衝突、物理ワールドです。
+- `rendering/`
+  `DxLib` / 描画ラッパ / シェーダ管理 / テクスチャ管理です。
+- `scenes/`
+  `TitleScene`、`ResultScene`、`DemoScene`、`ShaderShowcaseScene` です。
+- `scenes/game/`
+  `GameScene` 本体です。更新、描画、衝突、内部定数を分割しています。
+- `shaders/src/`
+  `.hlsl` のソースです。
+- `shaders/bin/`
+  ビルドで生成される `.cso` の出力先です。
+
+### よく触るファイル
+
+- `core/application.h` / `core/application.cpp`
+  アプリ全体の初期化、メインループ、描画、イベント消費です。
+- `core/scene.h`
   すべてのシーンの抽象基底です。
-- `scene_manager.h` / `scene_manager.cpp`
-  現在シーンの所有と更新を担当します。
-- `scene_registry.h` / `scene_registry.cpp`
+- `core/scene_manager.h` / `core/scene_manager.cpp`
+  現在シーンの所有と更新です。
+- `core/scene_registry.h` / `core/scene_registry.cpp`
   シーン ID からシーンインスタンスを生成します。
-- `title_scene.h` / `title_scene.cpp`
-  タイトルシーンです。ゲーム開始導線を持ちます。
-- `game_scene.h` / `game_scene.cpp`
-  現在のプレイ用シーンです。HP、Goal、Timer、Enemy を持ちます。
-- `game_session.h` / `game_session.cpp`
-  実行中ゲームの結果情報を `ResultScene` へ引き渡します。
-- `result_scene.h` / `result_scene.cpp`
-  リザルトシーンです。タイトル復帰とリトライ導線を持ちます。
-- `demo_scene.h` / `demo_scene.cpp`
-  技術確認用のサンドボックスシーンです。
-- `entity.h` / `entity.cpp`
-  コンポーネントの集合としてのゲームオブジェクトです。
-- `component.h` / `component.cpp`
-  コンポーネント基底です。
-- `components.h` / `components.cpp`
-  `Transform`、`SpriteRender`、`PlayerController`、`RigidBody` などの実装です。
-- `event_bus.h` / `event_bus.cpp`
-  シーン内イベントの発行と収集を行います。
-- `physics_world.h` / `physics_world.cpp`
-  `Box2D` ワールドの管理と ECS との同期を行います。
-- `asset_manifest.h` / `asset_manifest.cpp`
-  `assets/manifest.json` を読み、テクスチャ ID を構築します。
-- `prefab_factory.h` / `prefab_factory.cpp`
+- `scenes/title_scene.h` / `scenes/title_scene.cpp`
+  タイトルシーンです。
+- `scenes/game/game_scene.h`
+  `GameScene` の状態と宣言です。
+- `scenes/game/game_scene.cpp`
+  初期化、全体更新、デバッグ UI です。
+- `scenes/game/game_scene_gameplay.cpp`
+  プレイヤー、敵、ワールド相互作用です。
+- `scenes/game/game_scene_render.cpp`
+  背景、UI、エンティティ描画です。
+- `scenes/game/game_scene_collision.cpp`
+  地形判定、重なり判定、配置判定です。
+- `gameplay/photo_filter_rules.h` / `gameplay/photo_filter_rules.cpp`
+  写真フィルターの名称、順序、効果本体です。
+- `gameplay/photo_system.h` / `gameplay/photo_system.cpp`
+  写真の撮影、配置、コピー生成、プレビュー描画です。
+- `gameplay/prefab_factory.h` / `gameplay/prefab_factory.cpp`
   `assets/prefabs.json` を読み、エンティティを生成します。
-- `tile_map.h` / `tile_map.cpp`
-  CSV タイルマップの読み込みと描画を担当します。
-- `script_engine.h` / `script_engine.cpp`
-  `Lua` 実行と `EventBus` への公開 API を担当します。
-- `resource_manager.h` / `resource_manager.cpp`
-  テクスチャ生成とロードを担当します。
-- `directX.h` / `directX.cpp`
-  Direct3D 11 デバイス、スワップチェーン、RTV/DSV、共通ステートを初期化します。
-- `shader.h` / `shader.cpp`
+- `rendering/shader.h` / `rendering/shader.cpp`
   2D スプライト描画用シェーダのセットアップです。
-- `sprite.h` / `sprite.cpp`
+- `rendering/sprite.h` / `rendering/sprite.cpp`
   スプライト描画ラッパです。
-- `imgui_layer.h` / `imgui_layer.cpp`
-  `ImGui` の Win32 / DX11 バックエンド層です。
-- `input.h` / `input.cpp`
-  キーボードとゲームパッド入力のラッパです。
-- `audio.h` / `audio.cpp`
-  `XAudio2` の簡易ラッパです。
-- `logger.h` / `logger.cpp`
-  `spdlog` ベースのログ出力です。
 
 ### データファイル
 
@@ -156,7 +153,7 @@ Visual Studio の場合:
 - `third_party/sol2`
 - `third_party/box2d`
 
-`third_party` 配下はライブラリ本体なので、通常の改修対象はこの README で列挙したルートファイル群です。
+`third_party` 配下はライブラリ本体なので、通常の改修対象は `core/` `gameplay/` `physics/` `rendering/` `scenes/` 配下です。
 
 ## 設計の要点
 
@@ -223,7 +220,7 @@ Visual Studio の場合:
 - `4`: 危険帯の目印
 - `5`: ゴール目印
 
-今は [game_scene.cpp](/D:/directX/game_scene.cpp) で背景として読み込んでいます。次に横スクロール本体へ進めるときは、この CSV をそのまま地形当たり判定へつなげられます。
+今は [game_scene.cpp](/D:/DollyFrame_jam/scenes/game/game_scene.cpp) で背景として読み込んでいます。次に横スクロール本体へ進めるときは、この CSV をそのまま地形当たり判定へつなげられます。
 
 ## ドキュメント一覧
 
@@ -269,15 +266,15 @@ Visual Studio の場合:
 用途別の開始地点は以下です。
 
 - 新しいシーンを作る
-  `scene.h`、`scene_registry.h`、`application.cpp`
+  `core/scene.h`、`core/scene_registry.h`、`core/application.cpp`
 - プレイヤーや敵を増やす
-  `components.h`、`prefab_factory.cpp`、`assets/prefabs.json`
+  `gameplay/components.h`、`gameplay/prefab_factory.cpp`、`assets/prefabs.json`
 - データを調整したい
   `assets/manifest.json`、`assets/prefabs.json`
 - スクリプトで試したい
-  `script_engine.cpp`、`assets/demo_scene.lua`
+  `gameplay/script_engine.cpp`、`assets/demo_scene.lua`
 - 音を増やす
-  `audio.cpp`、`event_bus.h`
+  `core/audio.cpp`、`core/event_bus.h`
 
 ## 補足
 

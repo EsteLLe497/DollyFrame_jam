@@ -112,6 +112,7 @@
       <ObjectFileName>$(IntDir)foundation_physics_world.obj</ObjectFileName>
     </ClCompile>
     <ClCompile Include="gameplay\photo_filter_rules.cpp" />
+    <ClCompile Include="gameplay\photo_system.cpp" />
     <ClCompile Include="rendering\shader.cpp" />
     <ClCompile Include="rendering\sprite.cpp" />
     <ClCompile Include="core\resource_manager.cpp" />
@@ -288,6 +289,7 @@
     <ClInclude Include="gameplay\prefab_factory.h" />
     <ClInclude Include="physics\physics_world.h" />
     <ClInclude Include="gameplay\photo_filter_rules.h" />
+    <ClInclude Include="gameplay\photo_system.h" />
     <ClInclude Include="core\resource_manager.h" />
     <ClInclude Include="scenes\result_scene.h" />
     <ClInclude Include="gameplay\script_engine.h" />

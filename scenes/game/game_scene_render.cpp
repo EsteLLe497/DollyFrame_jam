@@ -1,4 +1,5 @@
 #include "game_scene_internal.h"
+#include "photo_system.h"
 
 #include "DxLib.h"
 
@@ -118,48 +119,6 @@ namespace
         case PhotoFilterTheme::None:
         default:
             return "None";
-        }
-    }
-
-    void ApplyPreviewFilterTheme(CapturedPhotoItem& item)
-    {
-        switch (item.appliedTheme)
-        {
-        case PhotoFilterTheme::Hot:
-            item.role = PhotoCopyRole::Hazard;
-            item.layer = PhotoCopyLayer::Foreground;
-            item.tintR = 1.0f;
-            item.tintG = 0.34f;
-            item.tintB = 0.12f;
-            item.tintA = 1.0f;
-            break;
-        case PhotoFilterTheme::Cold:
-            item.role = PhotoCopyRole::Solid;
-            item.layer = PhotoCopyLayer::Foreground;
-            item.tintR = 0.76f;
-            item.tintG = 0.90f;
-            item.tintB = 1.0f;
-            item.tintA = 1.0f;
-            break;
-        case PhotoFilterTheme::Invert:
-            item.role = item.origin == PhotoCopyOrigin::Enemy ? PhotoCopyRole::Ally : PhotoCopyRole::Solid;
-            item.layer = PhotoCopyLayer::Foreground;
-            item.tintR = 0.62f;
-            item.tintG = 0.62f;
-            item.tintB = 0.64f;
-            item.tintA = 1.0f;
-            break;
-        case PhotoFilterTheme::Sepia:
-            item.role = PhotoCopyRole::Solid;
-            item.layer = PhotoCopyLayer::Foreground;
-            item.tintR = 0.76f;
-            item.tintG = 0.58f;
-            item.tintB = 0.34f;
-            item.tintA = 1.0f;
-            break;
-        case PhotoFilterTheme::None:
-        default:
-            break;
         }
     }
 
@@ -322,131 +281,7 @@ void GameScene::DrawTuningPanel() const
 
 void GameScene::DrawPhotoPlacementPreview() const
 {
-    if (!m_photo.placement.active || m_photo.capture.items.empty())
-    {
-        return;
-    }
-
-    const float viewScale = GetViewScale();
-    const float viewOriginX = GetViewOriginX();
-    const float viewOriginY = GetViewOriginY();
-    std::vector<CapturedPhotoItem> previewItems = m_photo.capture.items;
-    if (m_photo.placement.flipX)
-    {
-        for (auto& item : previewItems)
-        {
-            item.relativeX = m_photo.placement.width - item.relativeX - item.width;
-            item.flipX = !item.flipX;
-        }
-    }
-    if (m_photo.placement.bridgeEnabled && previewItems.size() >= 2)
-    {
-        const std::vector<CapturedPhotoItem> baseItems = previewItems;
-        constexpr float kSegmentSize = 18.0f;
-        for (size_t index = 1; index < baseItems.size(); ++index)
-        {
-            const auto& a = baseItems[index - 1];
-            const auto& b = baseItems[index];
-            const float ax = a.relativeX + a.width * 0.5f;
-            const float ay = a.relativeY + a.height * 0.5f;
-            const float bx = b.relativeX + b.width * 0.5f;
-            const float by = b.relativeY + b.height * 0.5f;
-            const float length = std::max(std::fabs(bx - ax), std::fabs(by - ay));
-            const int steps = std::max(1, static_cast<int>(length / kSegmentSize));
-            for (int step = 1; step < steps; ++step)
-            {
-                const float t = static_cast<float>(step) / static_cast<float>(steps);
-                CapturedPhotoItem bridge;
-                bridge.textureId = m_whiteTexture;
-                bridge.appliedTheme = m_photo.capture.capturedTheme;
-                bridge.relativeX = std::lerp(ax, bx, t) - kSegmentSize * 0.5f;
-                bridge.relativeY = std::lerp(ay, by, t) - kSegmentSize * 0.5f;
-                bridge.width = kSegmentSize;
-                bridge.height = kSegmentSize;
-                bridge.sourceX = 0.0f;
-                bridge.sourceY = 0.0f;
-                bridge.sourceWidth = 1.0f;
-                bridge.sourceHeight = 1.0f;
-                bridge.tintR = 0.90f;
-                bridge.tintG = 0.96f;
-                bridge.tintB = 1.0f;
-                bridge.tintA = 0.92f;
-                previewItems.push_back(bridge);
-            }
-        }
-    }
-
-    for (const auto& item : previewItems)
-    {
-        CapturedPhotoItem previewItem = item;
-        ApplyPreviewFilterTheme(previewItem);
-        const float drawX = viewOriginX + ((m_photo.placement.x + item.relativeX) - m_cameraX) * viewScale;
-        const float drawY = viewOriginY + (m_photo.placement.y + item.relativeY) * viewScale;
-        const float drawWidth = item.width * viewScale;
-        const float drawHeight = item.height * viewScale;
-
-        Shader_ResetStyle();
-        if (m_photo.placement.valid)
-        {
-            switch (previewItem.appliedTheme)
-            {
-            case PhotoFilterTheme::Hot:
-                Shader_SetOutline(1.0f, 0.42f, 0.18f, 1.0f, 1.8f);
-                break;
-            case PhotoFilterTheme::Cold:
-                Shader_SetOutline(0.76f, 0.94f, 1.0f, 1.0f, 1.8f);
-                break;
-            case PhotoFilterTheme::Invert:
-                Shader_SetOutline(0.86f, 0.86f, 0.92f, 1.0f, 1.8f);
-                break;
-            case PhotoFilterTheme::Sepia:
-                Shader_SetOutline(0.90f, 0.72f, 0.42f, 1.0f, 1.8f);
-                break;
-            case PhotoFilterTheme::None:
-            default:
-                Shader_SetOutline(0.32f, 0.92f, 1.0f, 1.0f, 1.6f);
-                break;
-            }
-            Shader_SetTint(previewItem.tintR, previewItem.tintG, previewItem.tintB, 0.55f);
-        }
-        else
-        {
-            Shader_SetOutline(1.0f, 0.24f, 0.24f, 1.0f, 1.6f);
-            Shader_SetTint(1.0f, 0.24f, 0.24f, 0.42f);
-        }
-
-        SpriteDraw(
-            item.textureId >= 0 ? item.textureId : m_tileTexture,
-            drawX,
-            drawY,
-            drawWidth,
-            drawHeight,
-            item.sourceX,
-            item.sourceY,
-            item.sourceWidth,
-            item.sourceHeight,
-            item.flipX,
-            0.0f);
-    }
-
-    DrawFormatString(
-        static_cast<int>(viewOriginX + 24.0f),
-        static_cast<int>(viewOriginY + 24.0f),
-        GetColor(230, 240, 255),
-        "Filter:%s  Layer:%s  Flip:%s  Bridge:%s",
-        GetFilterThemeLabel(m_photo.capture.capturedTheme),
-        GetLayerLabel(m_photo.placement.layer),
-        m_photo.placement.flipX ? "On" : "Off",
-        m_photo.placement.bridgeEnabled ? "On" : "Off");
-    DrawFormatString(
-        static_cast<int>(viewOriginX + 24.0f),
-        static_cast<int>(viewOriginY + 48.0f),
-        GetColor(190, 220, 255),
-        "%s  Groups:%d/3  Keys:Q/F/B",
-        GetLayerEffectText(m_photo.placement.layer),
-        m_photo.groups.activeGroupCount);
-
-    Shader_ResetStyle();
+    photo_system::DrawPlacementPreview(*this);
 }
 
 void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
