@@ -1,0 +1,15 @@
+[2026-03-18 04:21:55.217] [info] Logger initialized
+[2026-03-18 04:21:55.217] [info] Application initialization started
+[2026-03-18 04:21:56.046] [info] Asset manifest loaded from JSON
+[2026-03-18 04:21:56.058] [info] TitleScene entered
+[2026-03-18 04:21:56.058] [info] Application initialization completed
+[2026-03-18 04:21:57.340] [info] Changing scene to game
+[2026-03-18 04:21:57.344] [info] Asset manifest loaded from JSON
+[2026-03-18 04:21:57.347] [info] TileMap loaded from CSV: assets/maps/side_scroll_stage01.csv (40x10, tileSize=48)
+[2026-03-18 04:21:57.347] [info] GameScene entered as photo sandbox stage
+[2026-03-18 04:22:00.117] [info] Captured framed objects with no filter
+[2026-03-18 04:22:01.854] [info] Spawned filtered reconstruction
+[2026-03-18 04:22:15.734] [info] Captured framed objects with no filter
+[2026-03-18 04:22:20.558] [info] Captured framed objects with no filter
+[2026-03-18 04:22:22.537] [info] Captured framed objects with no filter
+[2026-03-18 04:22:28.090] [info] Logger shutdown
