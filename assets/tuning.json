@@ -1,7 +1,9 @@
 {
-  "capture_height_scale": 1.15,
-  "capture_width_scale": 1.85,
-  "coyote_time": 0.1,
+  "camera_view_height": 540.0,
+  "camera_view_width": 1160.0,
+  "capture_height_scale": 1.149999976158142,
+  "capture_width_scale": 1.850000023841858,
+  "coyote_time": 0.10000000149011612,
   "gravity": 1900.0,
   "ground_snap_distance": 8.0,
   "jump_speed": -760.0,
