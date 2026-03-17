@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "DxLib.h"
 #include "logger.h"
 #include "shader.h"
 #include "sprite.h"
@@ -142,13 +144,48 @@ void TileMap::Draw(int textureId, float originX, float originY, float scale) con
             float b = 1.0f;
             float a = 1.0f;
             GetTileTint(tileValue, r, g, b, a);
+            const float drawX = originX + static_cast<float>(column) * m_tileSize * scale;
+            const float drawY = originY + static_cast<float>(row) * m_tileSize * scale;
+            const float drawSize = m_tileSize * scale;
+            if (tileValue == 6 || tileValue == 7)
+            {
+                const int color = GetColor(
+                    static_cast<int>(std::round(r * 255.0f)),
+                    static_cast<int>(std::round(g * 255.0f)),
+                    static_cast<int>(std::round(b * 255.0f)));
+                if (tileValue == 6)
+                {
+                    DrawTriangleAA(
+                        drawX,
+                        drawY + drawSize,
+                        drawX + drawSize,
+                        drawY + drawSize,
+                        drawX + drawSize,
+                        drawY,
+                        color,
+                        TRUE);
+                }
+                else
+                {
+                    DrawTriangleAA(
+                        drawX,
+                        drawY,
+                        drawX,
+                        drawY + drawSize,
+                        drawX + drawSize,
+                        drawY + drawSize,
+                        color,
+                        TRUE);
+                }
+                continue;
+            }
             Shader_SetTint(r, g, b, a);
             SpriteDraw(
                 textureId,
-                originX + static_cast<float>(column) * m_tileSize * scale,
-                originY + static_cast<float>(row) * m_tileSize * scale,
-                m_tileSize * scale,
-                m_tileSize * scale,
+                drawX,
+                drawY,
+                drawSize,
+                drawSize,
                 0.0f,
                 0.0f,
                 1.0f,
@@ -222,6 +259,16 @@ void TileMap::GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
         r = 0.86f;
         g = 0.80f;
         b = 0.26f;
+        break;
+    case 6:
+        r = 0.54f;
+        g = 0.84f;
+        b = 0.34f;
+        break;
+    case 7:
+        r = 0.34f;
+        g = 0.86f;
+        b = 0.66f;
         break;
     default:
         r = 0.70f;

@@ -75,6 +75,16 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
         g = 0.80f;
         b = 0.26f;
         break;
+    case 6:
+        r = 0.54f;
+        g = 0.84f;
+        b = 0.34f;
+        break;
+    case 7:
+        r = 0.34f;
+        g = 0.86f;
+        b = 0.66f;
+        break;
     default:
         r = 0.70f;
         g = 0.74f;

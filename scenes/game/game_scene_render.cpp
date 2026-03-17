@@ -139,6 +139,70 @@ namespace
             return "Keeps captured properties";
         }
     }
+
+    bool DrawSlopeTriangle(float x, float y, float width, float height, int tileValue, const TintComponent* tint)
+    {
+        if (!tint || (tileValue != 6 && tileValue != 7))
+        {
+            return false;
+        }
+
+        const int color = GetColor(
+            static_cast<int>(std::round(tint->r * 255.0f)),
+            static_cast<int>(std::round(tint->g * 255.0f)),
+            static_cast<int>(std::round(tint->b * 255.0f)));
+        if (tileValue == 6)
+        {
+            DrawTriangleAA(x, y + height, x + width, y + height, x + width, y, color, TRUE);
+        }
+        else
+        {
+            DrawTriangleAA(x, y, x, y + height, x + width, y + height, color, TRUE);
+        }
+        return true;
+    }
+
+    void DrawCapturedPreviewItem(
+        int fallbackTextureId,
+        const CapturedPhotoItem& item,
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        float alpha)
+    {
+        Shader_ResetStyle();
+        Shader_SetTint(item.tintR, item.tintG, item.tintB, std::min(1.0f, item.tintA) * alpha);
+        if (item.sourceTileValue == 6 || item.sourceTileValue == 7)
+        {
+            const int color = GetColor(
+                static_cast<int>(std::round(item.tintR * 255.0f)),
+                static_cast<int>(std::round(item.tintG * 255.0f)),
+                static_cast<int>(std::round(item.tintB * 255.0f)));
+            if (item.sourceTileValue == 6)
+            {
+                DrawTriangleAA(drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, drawX + drawWidth, drawY, color, TRUE);
+            }
+            else
+            {
+                DrawTriangleAA(drawX, drawY, drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, color, TRUE);
+            }
+            return;
+        }
+
+        SpriteDraw(
+            item.textureId >= 0 ? item.textureId : fallbackTextureId,
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            item.sourceX,
+            item.sourceY,
+            item.sourceWidth,
+            item.sourceHeight,
+            item.flipX,
+            item.rotation);
+    }
 }
 
 void GameScene::DrawCaptureOverlay() const
@@ -374,20 +438,14 @@ void GameScene::DrawDevelopedPhotoPreview() const
 
     for (const auto& item : m_photo.capture.items)
     {
-        Shader_ResetStyle();
-        Shader_SetTint(item.tintR, item.tintG, item.tintB, std::min(1.0f, item.tintA) * alpha);
-        SpriteDraw(
-            item.textureId >= 0 ? item.textureId : m_tileTexture,
+        DrawCapturedPreviewItem(
+            m_tileTexture,
+            item,
             contentOffsetX + item.relativeX * previewScale,
             contentOffsetY + item.relativeY * previewScale,
             item.width * previewScale,
             item.height * previewScale,
-            item.sourceX,
-            item.sourceY,
-            item.sourceWidth,
-            item.sourceHeight,
-            item.flipX,
-            0.0f);
+            alpha);
     }
 
     DrawBox(
@@ -662,18 +720,27 @@ void GameScene::DrawEntity(const Entity& entity) const
         Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
     }
 
-    SpriteDraw(
-        sprite->GetTextureId(),
-        drawX,
-        drawY,
-        drawWidth,
-        drawHeight,
-        sprite->GetSourceX(),
-        sprite->GetSourceY(),
-        sprite->GetSourceWidth(),
-        sprite->GetSourceHeight(),
-        sprite->GetFlipX(),
-        transform->rotation);
+    if (!DrawSlopeTriangle(
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            entity.GetComponent<PhotoCopyTileValueComponent>() ? entity.GetComponent<PhotoCopyTileValueComponent>()->tileValue : 0,
+            entity.GetComponent<TintComponent>()))
+    {
+        SpriteDraw(
+            sprite->GetTextureId(),
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            sprite->GetSourceX(),
+            sprite->GetSourceY(),
+            sprite->GetSourceWidth(),
+            sprite->GetSourceHeight(),
+            sprite->GetFlipX(),
+            transform->rotation);
+    }
 
     if (m_showCollisionDebug && (entity.GetComponent<PhotoFilterComponent>() || (tag && (tag->tag == "Player" || tag->tag == "PhotoSource" || tag->tag == "PhotoBox"))))
     {

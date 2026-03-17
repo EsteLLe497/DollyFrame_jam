@@ -142,6 +142,14 @@ public:
     PhotoCopyOrigin origin;
 };
 
+class PhotoCopyTileValueComponent final : public Component
+{
+public:
+    explicit PhotoCopyTileValueComponent(int tileValue);
+
+    int tileValue;
+};
+
 class PhotoCopyEffectComponent final : public Component
 {
 public:

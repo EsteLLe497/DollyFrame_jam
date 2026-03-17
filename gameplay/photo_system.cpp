@@ -1,5 +1,7 @@
 #include "photo_system.h"
 
+#include <cfloat>
+
 #include "game_scene_internal.h"
 #include "DxLib.h"
 
@@ -9,6 +11,7 @@ namespace
 {
     constexpr int kMaxPhotoGroups = 3;
     constexpr float kPhotoCopyLifetimeSeconds = 10.0f;
+    constexpr float kPlacementRotateSpeed = 2.4f;
     constexpr float kPrintedPhotoPaddingX = 16.0f;
     constexpr float kPrintedPhotoPaddingTop = 16.0f;
     constexpr float kPrintedPhotoFooterHeight = 52.0f;
@@ -24,6 +27,109 @@ namespace
     float GetPrintedPhotoHeight(float contentHeight)
     {
         return std::max(kPrintedPhotoMinHeight, contentHeight + kPrintedPhotoPaddingTop + kPrintedPhotoFooterHeight);
+    }
+
+    float GetRotatedBoundsWidth(float width, float height, float rotation)
+    {
+        const float cosTheta = std::fabs(std::cos(rotation));
+        const float sinTheta = std::fabs(std::sin(rotation));
+        return width * cosTheta + height * sinTheta;
+    }
+
+    float GetRotatedBoundsHeight(float width, float height, float rotation)
+    {
+        const float cosTheta = std::fabs(std::cos(rotation));
+        const float sinTheta = std::fabs(std::sin(rotation));
+        return width * sinTheta + height * cosTheta;
+    }
+
+    void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width, float& height, float rotation)
+    {
+        if (std::fabs(rotation) <= 0.0001f)
+        {
+            return;
+        }
+
+        const float baseWidth = width;
+        const float baseHeight = height;
+        const float centerX = baseWidth * 0.5f;
+        const float centerY = baseHeight * 0.5f;
+        const float cosTheta = std::cos(rotation);
+        const float sinTheta = std::sin(rotation);
+        float minX = FLT_MAX;
+        float minY = FLT_MAX;
+        float maxX = -FLT_MAX;
+        float maxY = -FLT_MAX;
+
+        for (auto& item : items)
+        {
+            const float itemCenterX = item.relativeX + item.width * 0.5f;
+            const float itemCenterY = item.relativeY + item.height * 0.5f;
+            const float localX = itemCenterX - centerX;
+            const float localY = itemCenterY - centerY;
+            const float rotatedCenterX = centerX + (localX * cosTheta - localY * sinTheta);
+            const float rotatedCenterY = centerY + (localX * sinTheta + localY * cosTheta);
+
+            item.relativeX = rotatedCenterX - item.width * 0.5f;
+            item.relativeY = rotatedCenterY - item.height * 0.5f;
+            item.rotation += rotation;
+
+            minX = (std::min)(minX, item.relativeX);
+            minY = (std::min)(minY, item.relativeY);
+            maxX = (std::max)(maxX, item.relativeX + item.width);
+            maxY = (std::max)(maxY, item.relativeY + item.height);
+        }
+
+        for (auto& item : items)
+        {
+            item.relativeX -= minX;
+            item.relativeY -= minY;
+        }
+
+        width = maxX - minX;
+        height = maxY - minY;
+    }
+
+    void DrawCapturedPhotoItem(
+        int fallbackTextureId,
+        const CapturedPhotoItem& item,
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        float alpha)
+    {
+        Shader_ResetStyle();
+        Shader_SetTint(item.tintR, item.tintG, item.tintB, alpha);
+        if (item.sourceTileValue == 6 || item.sourceTileValue == 7)
+        {
+            const int color = GetColor(
+                static_cast<int>(std::round(item.tintR * 255.0f)),
+                static_cast<int>(std::round(item.tintG * 255.0f)),
+                static_cast<int>(std::round(item.tintB * 255.0f)));
+            if (item.sourceTileValue == 6)
+            {
+                DrawTriangleAA(drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, drawX + drawWidth, drawY, color, TRUE);
+            }
+            else
+            {
+                DrawTriangleAA(drawX, drawY, drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, color, TRUE);
+            }
+            return;
+        }
+
+        SpriteDraw(
+            item.textureId >= 0 ? item.textureId : fallbackTextureId,
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            item.sourceX,
+            item.sourceY,
+            item.sourceWidth,
+            item.sourceHeight,
+            item.flipX,
+            item.rotation);
     }
 
     const char* GetPreviewLayerLabel(PhotoCopyLayer layer)
@@ -290,6 +396,15 @@ public:
             {
                 scene.m_photo.placement.bridgeEnabled = !scene.m_photo.placement.bridgeEnabled;
             }
+            if (Input_IsKeyDown('Z'))
+            {
+                scene.m_photo.placement.rotation -= kPlacementRotateSpeed / 60.0f;
+            }
+            if (Input_IsKeyDown('X'))
+            {
+                scene.m_photo.placement.rotation += kPlacementRotateSpeed / 60.0f;
+            }
+            scene.m_photo.placement.rotation += Input_GetRotateAxis() * (kPlacementRotateSpeed / 60.0f);
 
             Entity* player = scene.FindEntityByTag("Player");
             if (!player)
@@ -327,6 +442,13 @@ public:
             scene.m_photo.capture.height,
             scene.m_photo.placement.flipX,
             scene.m_photo.placement.bridgeEnabled);
+        float previewWidth = GetPrintedPhotoWidth(scene.m_photo.capture.width);
+        float previewHeight = GetPrintedPhotoHeight(scene.m_photo.capture.height);
+        RotatePrintedPhotoItems(
+            previewItems,
+            previewWidth,
+            previewHeight,
+            scene.m_photo.placement.rotation);
 
         for (const auto& item : previewItems)
         {
@@ -367,18 +489,14 @@ public:
                 Shader_SetTint(1.0f, 0.24f, 0.24f, 0.42f);
             }
 
-            SpriteDraw(
-                item.textureId >= 0 ? item.textureId : scene.m_tileTexture,
+            DrawCapturedPhotoItem(
+                scene.m_tileTexture,
+                item,
                 drawX,
                 drawY,
                 drawWidth,
                 drawHeight,
-                item.sourceX,
-                item.sourceY,
-                item.sourceWidth,
-                item.sourceHeight,
-                item.flipX,
-                0.0f);
+                scene.m_photo.placement.valid ? 0.55f : 0.42f);
         }
 
         DrawFormatString(
@@ -394,9 +512,10 @@ public:
             static_cast<int>(viewOriginX + 24.0f),
             static_cast<int>(viewOriginY + 48.0f),
             GetColor(190, 220, 255),
-            "%s  Groups:%d/3  Keys:Q/F/B",
+            "%s  Groups:%d/3  Rot:%.0f  Keys:Q/F/B/Z/X",
             GetPreviewLayerEffectText(scene.m_photo.placement.layer),
-            scene.m_photo.groups.activeGroupCount);
+            scene.m_photo.groups.activeGroupCount,
+            scene.m_photo.placement.rotation * 57.2957795f);
 
         Shader_ResetStyle();
     }
@@ -573,8 +692,7 @@ private:
                     item.sourceWidth = 1.0f;
                     item.sourceHeight = 1.0f;
                     GetTileCaptureTint(tileValue, item.tintR, item.tintG, item.tintB, item.tintA);
-                    item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
-                    item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
+                    item.sourceTileValue = tileValue;
                     scene.m_photo.capture.items.push_back(item);
                     capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
                     capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
@@ -588,6 +706,7 @@ private:
             scene.m_photo.capture.capturedTheme = scene.m_photo.capture.selectedTheme;
             scene.m_photo.placement.layer = PhotoCopyLayer::Foreground;
             scene.m_photo.placement.flipX = false;
+            scene.m_photo.placement.rotation = 0.0f;
             scene.m_photo.capture.width = (std::max)(1.0f, capturedMaxRight);
             scene.m_photo.capture.height = (std::max)(1.0f, capturedMaxBottom);
             scene.m_photo.capture.textureId = scene.m_photo.capture.items.front().textureId;
@@ -610,6 +729,10 @@ private:
     {
             spawnWidth = GetPrintedPhotoWidth(scene.m_photo.capture.width);
             spawnHeight = GetPrintedPhotoHeight(scene.m_photo.capture.height);
+            const float basePrintedWidth = spawnWidth;
+            const float basePrintedHeight = spawnHeight;
+            spawnWidth = GetRotatedBoundsWidth(basePrintedWidth, basePrintedHeight, scene.m_photo.placement.rotation);
+            spawnHeight = GetRotatedBoundsHeight(basePrintedWidth, basePrintedHeight, scene.m_photo.placement.rotation);
             const float viewScale = GetViewScale();
             const float viewOriginX = GetViewOriginX();
             const float viewOriginY = GetViewOriginY();
@@ -642,6 +765,13 @@ private:
                 scene.m_photo.capture.height,
                 scene.m_photo.placement.flipX,
                 scene.m_photo.placement.bridgeEnabled);
+            float rotatedSpawnWidth = GetPrintedPhotoWidth(scene.m_photo.capture.width);
+            float rotatedSpawnHeight = GetPrintedPhotoHeight(scene.m_photo.capture.height);
+            RotatePrintedPhotoItems(
+                spawnedItems,
+                rotatedSpawnWidth,
+                rotatedSpawnHeight,
+                scene.m_photo.placement.rotation);
 
             if (scene.m_photo.groups.activeGroupCount >= kMaxPhotoGroups)
             {
@@ -675,6 +805,10 @@ private:
                 lastSpawnedBox->AddComponent<PhotoCopyLifetimeComponent>(kPhotoCopyLifetimeSeconds);
                 lastSpawnedBox->AddComponent<PhotoCopyRoleComponent>(item.role);
                 lastSpawnedBox->AddComponent<PhotoCopyOriginComponent>(item.origin);
+                if (item.origin == PhotoCopyOrigin::Tile && item.sourceTileValue > 0)
+                {
+                    lastSpawnedBox->AddComponent<PhotoCopyTileValueComponent>(item.sourceTileValue);
+                }
                 lastSpawnedBox->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
                 const PhotoCopyLayer spawnedLayer =
                     item.layer == PhotoCopyLayer::Shadow ? PhotoCopyLayer::Shadow :
@@ -692,6 +826,10 @@ private:
                 {
                     sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
                     sprite->SetFlipX(item.flipX);
+                }
+                if (auto* transform = lastSpawnedBox->GetComponent<TransformComponent>())
+                {
+                    transform->rotation = item.rotation;
                 }
                 ApplyPhotoFilterToPhotoBox(*lastSpawnedBox, item.appliedTheme);
                 scene.m_entities.push_back(std::move(entity));
