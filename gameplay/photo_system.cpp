@@ -719,7 +719,7 @@ private:
             scene.m_photo.capture.tintB = scene.m_photo.capture.items.front().tintB;
             scene.m_photo.capture.tintA = scene.m_photo.capture.items.front().tintA;
 
-            scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "scene_change", 0.0f, 0.0f });
+            scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
             scene.m_shutterFlashRemaining = gShutterFlashSeconds;
             scene.m_developedPhotoPreviewRemaining = 3.2f;

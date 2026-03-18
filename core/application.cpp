@@ -127,6 +127,8 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
         return false;
     }
 
+    Audio_LoadCueFromFile("shutter", "assets/effects/Sound/shutter.wav");
+
     m_sceneRegistry->Register("title", []()
         {
             return std::make_unique<TitleScene>();
