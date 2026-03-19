@@ -144,6 +144,7 @@
 - 貼り付けた写真は 10 秒でフェードアウトする
 - `PhotoFilterTheme::None` のときは撮影元の色をそのまま保持する
 - 坂タイル `6 / 7` は写真に保存され、貼り付け後も坂として扱う
+- 写真サイズを調整したいときは `scenes/game/game_scene_internal.h` と `assets/tuning.json` の `capture_width_tiles` / `capture_height_tiles` / `printed_photo_*` を見る
 
 関連メソッド:
 

@@ -50,6 +50,7 @@ GameScene::GameScene()
     , m_playerLandingImpact(0.0f)
     , m_playerJumpStretch(0.0f)
     , m_playerDodgeStretch(0.0f)
+    , m_photoTrayReveal(0.0f)
     , m_playerAfterimages()
 {
 }
@@ -146,6 +147,13 @@ void GameScene::Update(float deltaTime)
 
     UpdateCameraMode();
     const bool placementHeld = m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
+    const bool showPhotoTray = m_cameraMode || placementHeld || m_photo.placement.active;
+    const float trayTarget = showPhotoTray ? 1.0f : 0.0f;
+    m_photoTrayReveal += (trayTarget - m_photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
+    if (m_cameraMode || placementHeld || m_photo.placement.active)
+    {
+        UpdatePhotoTraySelection();
+    }
     if (Input_IsActionPressed(InputAction::HoldCamera))
     {
         m_captureSlowRemaining = kCaptureFocusDuration;
@@ -200,6 +208,7 @@ void GameScene::Draw()
     DrawPhotoPlacementPreview();
     DrawCaptureOverlay();
     DrawDevelopedPhotoPreview();
+    DrawPhotoStorageTray();
     DrawTuningPanel();
 }
 
@@ -214,7 +223,7 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Capture: Left Click in camera mode");
     ImGui::Text("Filter: C cycle  1 None  2 Hot  3 Cold  4 Invert  5 Sepia");
     ImGui::Text("Spawn Captured Object: Hold E");
-    ImGui::Text("Placement Layer: Q cycle  Flip: F  Bridge: B");
+    ImGui::Text("Placement: Flip F  Bridge B");
     ImGui::Text("Stage: solve one gimmick at a time from left to right");
     ImGui::Text("Restart: R  Title: T");
     ImGui::Text("Collision Debug: F3 (%s)", m_showCollisionDebug ? "On" : "Off");
@@ -228,6 +237,12 @@ void GameScene::DrawDebugUI()
     ImGui::Text("View Scale: %.2f", GetViewScale());
     ImGui::Text("Time Limit: Off");
     ImGui::Text("Captured Photo: %s", m_photo.capture.hasPhoto ? "Ready" : "Missing");
+    ImGui::Text("Stored Photos: %d / 3",
+        static_cast<int>(std::count_if(
+            m_photo.savedCaptures.begin(),
+            m_photo.savedCaptures.end(),
+            [](const PhotoCaptureState& capture) { return capture.hasPhoto; })));
+    ImGui::Text("Selected Slot: %d", m_photo.selectedCaptureSlot + 1);
     ImGui::Text("Developed Preview: %.2f", m_developedPhotoPreviewRemaining);
     ImGui::Text("Selected Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));
     ImGui::Text("Captured Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.capturedTheme));

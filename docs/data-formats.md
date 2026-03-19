@@ -260,3 +260,23 @@ JSON が読めない場合の挙動は以下です。
 - ルールの変更
 
 前者は JSON で済むことがありますが、後者はほぼコード変更が必要です。
+
+### `assets/tuning.json` の写真サイズ系キー
+
+写真サイズの調整でよく触るもの:
+
+- `capture_width_tiles`
+- `capture_height_tiles`
+- `printed_photo_padding_x`
+- `printed_photo_padding_top`
+- `printed_photo_footer_height`
+- `printed_photo_min_width`
+- `printed_photo_min_height`
+- `printed_photo_matte_inset`
+
+意味:
+
+- `capture_*`
+  撮影フレームのタイル数
+- `printed_photo_*`
+  貼り付け時のポラロイド台紙サイズ

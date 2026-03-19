@@ -38,8 +38,14 @@ namespace
         root["max_fall_speed"] = gPlayerMaxFallSpeed;
         root["coyote_time"] = gCoyoteTimeSeconds;
         root["ground_snap_distance"] = gGroundSnapDistance;
-        root["capture_width_scale"] = gCaptureWidthScale;
-        root["capture_height_scale"] = gCaptureHeightScale;
+        root["capture_width_tiles"] = gCaptureWidthTiles;
+        root["capture_height_tiles"] = gCaptureHeightTiles;
+        root["printed_photo_padding_x"] = gPrintedPhotoPaddingX;
+        root["printed_photo_padding_top"] = gPrintedPhotoPaddingTop;
+        root["printed_photo_footer_height"] = gPrintedPhotoFooterHeight;
+        root["printed_photo_min_width"] = gPrintedPhotoMinWidth;
+        root["printed_photo_min_height"] = gPrintedPhotoMinHeight;
+        root["printed_photo_matte_inset"] = gPrintedPhotoMatteInset;
         root["pickup_time_bonus"] = gPickupTimeBonus;
         return root;
     }
@@ -86,8 +92,14 @@ namespace game_scene_detail
         gPlayerMaxFallSpeed = root.value("max_fall_speed", gPlayerMaxFallSpeed);
         gCoyoteTimeSeconds = root.value("coyote_time", gCoyoteTimeSeconds);
         gGroundSnapDistance = root.value("ground_snap_distance", gGroundSnapDistance);
-        gCaptureWidthScale = root.value("capture_width_scale", gCaptureWidthScale);
-        gCaptureHeightScale = root.value("capture_height_scale", gCaptureHeightScale);
+        gCaptureWidthTiles = root.value("capture_width_tiles", gCaptureWidthTiles);
+        gCaptureHeightTiles = root.value("capture_height_tiles", gCaptureHeightTiles);
+        gPrintedPhotoPaddingX = root.value("printed_photo_padding_x", gPrintedPhotoPaddingX);
+        gPrintedPhotoPaddingTop = root.value("printed_photo_padding_top", gPrintedPhotoPaddingTop);
+        gPrintedPhotoFooterHeight = root.value("printed_photo_footer_height", gPrintedPhotoFooterHeight);
+        gPrintedPhotoMinWidth = root.value("printed_photo_min_width", gPrintedPhotoMinWidth);
+        gPrintedPhotoMinHeight = root.value("printed_photo_min_height", gPrintedPhotoMinHeight);
+        gPrintedPhotoMatteInset = root.value("printed_photo_matte_inset", gPrintedPhotoMatteInset);
         gPickupTimeBonus = root.value("pickup_time_bonus", gPickupTimeBonus);
     }
 }
@@ -132,6 +144,7 @@ void GameScene::ResetSceneState()
     m_playerLandingImpact = 0.0f;
     m_playerJumpStretch = 0.0f;
     m_playerDodgeStretch = 0.0f;
+    m_photoTrayReveal = 0.0f;
     m_playerAfterimages.clear();
 }
 

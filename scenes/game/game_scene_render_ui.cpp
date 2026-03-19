@@ -8,6 +8,11 @@ using namespace game_scene_detail;
 
 namespace
 {
+    constexpr int kPhotoTraySlotCount = 3;
+    constexpr float kPhotoTraySlotWidth = 170.0f;
+    constexpr float kPhotoTraySlotHeight = 92.0f;
+    constexpr float kPhotoTraySlotGap = 18.0f;
+
     const char* GetStageGuideText(float playerX)
     {
         static_cast<void>(playerX);
@@ -219,8 +224,8 @@ void GameScene::DrawTuningPanel() const
         { "Max Fall", gPlayerMaxFallSpeed },
         { "Coyote", gCoyoteTimeSeconds },
         { "Ground Snap", gGroundSnapDistance },
-        { "Capture Width", gCaptureWidthScale },
-        { "Capture Height", gCaptureHeightScale },
+        { "Capture W Tiles", gCaptureWidthTiles },
+        { "Capture H Tiles", gCaptureHeightTiles },
         { "Pickup Bonus", gPickupTimeBonus },
     };
 
@@ -329,6 +334,139 @@ void GameScene::DrawDevelopedPhotoPreview() const
         accent,
         TRUE);
     Shader_ResetStyle();
+}
+
+bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
+{
+    if (m_photoTrayReveal <= 0.05f)
+    {
+        return false;
+    }
+
+    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
+    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
+    const float hiddenOffset = (1.0f - m_photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
+    return
+        screenX >= trayX &&
+        screenX <= trayX + trayWidth &&
+        screenY >= trayY &&
+        screenY <= trayY + kPhotoTraySlotHeight;
+}
+
+void GameScene::DrawPhotoStorageTray() const
+{
+    if (m_photoTrayReveal <= 0.01f)
+    {
+        return;
+    }
+
+    constexpr float kInnerPadding = 10.0f;
+    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
+    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
+    const float hiddenOffset = (1.0f - m_photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
+    const int textBright = static_cast<int>(150.0f + m_photoTrayReveal * 105.0f);
+    const int textBrightCool = std::min(255, textBright + 10);
+
+    for (int slotIndex = 0; slotIndex < kPhotoTraySlotCount; ++slotIndex)
+    {
+        const PhotoCaptureState& storedCapture = m_photo.savedCaptures[slotIndex];
+        const bool selected = slotIndex == m_photo.selectedCaptureSlot;
+        const float slotX = trayX + slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
+        const float slotY = trayY;
+        const unsigned int fillColor = selected ? GetColor(30, 42, 56) : GetColor(16, 22, 30);
+        const unsigned int outlineColor = selected ? GetColor(255, 234, 156) : GetColor(188, 204, 224);
+
+        DrawBox(
+            static_cast<int>(std::round(slotX)),
+            static_cast<int>(std::round(slotY)),
+            static_cast<int>(std::round(slotX + kPhotoTraySlotWidth)),
+            static_cast<int>(std::round(slotY + kPhotoTraySlotHeight)),
+            fillColor,
+            TRUE);
+        DrawBox(
+            static_cast<int>(std::round(slotX)),
+            static_cast<int>(std::round(slotY)),
+            static_cast<int>(std::round(slotX + kPhotoTraySlotWidth)),
+            static_cast<int>(std::round(slotY + kPhotoTraySlotHeight)),
+            outlineColor,
+            FALSE);
+
+        DrawFormatString(
+            static_cast<int>(slotX + 10.0f),
+            static_cast<int>(slotY + 8.0f),
+            selected ? GetColor(255, textBright, 196) : GetColor(textBright, textBrightCool, 244),
+            "PHOTO %d",
+            slotIndex + 1);
+
+        if (!storedCapture.hasPhoto || storedCapture.items.empty())
+        {
+            DrawString(
+                static_cast<int>(slotX + 50.0f),
+                static_cast<int>(slotY + 42.0f),
+                "EMPTY",
+                GetColor(122, 136, 156));
+            continue;
+        }
+
+        const float previewX = slotX + kInnerPadding;
+        const float previewY = slotY + 28.0f;
+        const float previewWidth = 88.0f;
+        const float previewHeight = 50.0f;
+        const float scale = std::min(
+            previewWidth / std::max(1.0f, storedCapture.width),
+            previewHeight / std::max(1.0f, storedCapture.height));
+        const float contentX = previewX + (previewWidth - storedCapture.width * scale) * 0.5f;
+        const float contentY = previewY + (previewHeight - storedCapture.height * scale) * 0.5f;
+
+        DrawBox(
+            static_cast<int>(std::round(previewX)),
+            static_cast<int>(std::round(previewY)),
+            static_cast<int>(std::round(previewX + previewWidth)),
+            static_cast<int>(std::round(previewY + previewHeight)),
+            GetColor(10, 14, 18),
+            TRUE);
+
+        for (const auto& item : storedCapture.items)
+        {
+            DrawCapturedPreviewItem(
+                m_tileTexture,
+                item,
+                contentX + item.relativeX * scale,
+                contentY + item.relativeY * scale,
+                item.width * scale,
+                item.height * scale,
+                1.0f);
+        }
+
+        DrawBox(
+            static_cast<int>(std::round(previewX)),
+            static_cast<int>(std::round(previewY)),
+            static_cast<int>(std::round(previewX + previewWidth)),
+            static_cast<int>(std::round(previewY + previewHeight)),
+            GetColor(215, 205, 180),
+            FALSE);
+
+        DrawFormatString(
+            static_cast<int>(slotX + 108.0f),
+            static_cast<int>(slotY + 34.0f),
+            GetColor(230, 236, 242),
+            "%s",
+            GetPhotoFilterThemeLabel(storedCapture.capturedTheme));
+        DrawFormatString(
+            static_cast<int>(slotX + 108.0f),
+            static_cast<int>(slotY + 56.0f),
+            GetColor(170, 186, 204),
+            "%.0fx%.0f",
+            storedCapture.width,
+            storedCapture.height);
+        DrawFormatString(
+            static_cast<int>(slotX + 108.0f),
+            static_cast<int>(slotY + 74.0f),
+            GetColor(150, 170, 190),
+            selected ? "Selected" : "Click to select");
+    }
 }
 
 void GameScene::DrawPhotoPlacementPreview() const
@@ -466,9 +604,9 @@ void GameScene::DrawBackdrop() const
 
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
 {
-    const float playerHeight = playerTransform.height * playerTransform.scale;
-    width = m_tileMap.GetTileSize() * 3.0f;
-    height = std::clamp(playerHeight * gCaptureHeightScale, 96.0f, 168.0f);
+    static_cast<void>(playerTransform);
+    width = m_tileMap.GetTileSize() * gCaptureWidthTiles;
+    height = m_tileMap.GetTileSize() * gCaptureHeightTiles;
 
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();

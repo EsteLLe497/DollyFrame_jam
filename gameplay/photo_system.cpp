@@ -13,21 +13,15 @@ namespace
     constexpr int kMaxPhotoGroups = 3;
     constexpr float kPhotoCopyLifetimeSeconds = 10.0f;
     constexpr float kPlacementRotateSpeed = 2.4f;
-    constexpr float kPrintedPhotoPaddingX = 16.0f;
-    constexpr float kPrintedPhotoPaddingTop = 16.0f;
-    constexpr float kPrintedPhotoFooterHeight = 52.0f;
-    constexpr float kPrintedPhotoMinWidth = 120.0f;
-    constexpr float kPrintedPhotoMinHeight = 144.0f;
-    constexpr float kPrintedPhotoImageMatteInset = 3.0f;
 
     float GetPrintedPhotoWidth(float contentWidth)
     {
-        return std::max(kPrintedPhotoMinWidth, contentWidth + kPrintedPhotoPaddingX * 2.0f);
+        return std::max(gPrintedPhotoMinWidth, contentWidth + gPrintedPhotoPaddingX * 2.0f);
     }
 
     float GetPrintedPhotoHeight(float contentHeight)
     {
-        return std::max(kPrintedPhotoMinHeight, contentHeight + kPrintedPhotoPaddingTop + kPrintedPhotoFooterHeight);
+        return std::max(gPrintedPhotoMinHeight, contentHeight + gPrintedPhotoPaddingTop + gPrintedPhotoFooterHeight);
     }
 
     float GetRotatedBoundsWidth(float width, float height, float rotation)
@@ -133,34 +127,6 @@ namespace
             item.rotation);
     }
 
-    const char* GetPreviewLayerLabel(PhotoCopyLayer layer)
-    {
-        switch (layer)
-        {
-        case PhotoCopyLayer::Background:
-            return "Background";
-        case PhotoCopyLayer::Shadow:
-            return "Shadow";
-        case PhotoCopyLayer::Foreground:
-        default:
-            return "Foreground";
-        }
-    }
-
-    const char* GetPreviewLayerEffectText(PhotoCopyLayer layer)
-    {
-        switch (layer)
-        {
-        case PhotoCopyLayer::Background:
-            return "Visible only / pass through";
-        case PhotoCopyLayer::Shadow:
-            return "Black shadow / pass through";
-        case PhotoCopyLayer::Foreground:
-        default:
-            return "Solid in world";
-        }
-    }
-
     void ApplyPreviewFilterTheme(CapturedPhotoItem& item)
     {
         ApplyPhotoFilterThemeToPreviewItem(
@@ -187,8 +153,8 @@ namespace
         std::vector<CapturedPhotoItem> printedItems = sourceItems;
         for (auto& item : printedItems)
         {
-            item.relativeX += kPrintedPhotoPaddingX;
-            item.relativeY += kPrintedPhotoPaddingTop;
+            item.relativeX += gPrintedPhotoPaddingX;
+            item.relativeY += gPrintedPhotoPaddingTop;
         }
 
         if (bridgeEnabled && printedItems.size() >= 2)
@@ -265,10 +231,10 @@ namespace
         matte.layer = PhotoCopyLayer::Background;
         matte.origin = PhotoCopyOrigin::Tile;
         matte.appliedTheme = PhotoFilterTheme::None;
-        matte.relativeX = kPrintedPhotoPaddingX - kPrintedPhotoImageMatteInset;
-        matte.relativeY = kPrintedPhotoPaddingTop - kPrintedPhotoImageMatteInset;
-        matte.width = contentWidth + kPrintedPhotoImageMatteInset * 2.0f;
-        matte.height = contentHeight + kPrintedPhotoImageMatteInset * 2.0f;
+        matte.relativeX = gPrintedPhotoPaddingX - gPrintedPhotoMatteInset;
+        matte.relativeY = gPrintedPhotoPaddingTop - gPrintedPhotoMatteInset;
+        matte.width = contentWidth + gPrintedPhotoMatteInset * 2.0f;
+        matte.height = contentHeight + gPrintedPhotoMatteInset * 2.0f;
         matte.sourceX = 0.0f;
         matte.sourceY = 0.0f;
         matte.sourceWidth = 1.0f;
@@ -293,6 +259,10 @@ public:
     static void HandleCapture(GameScene& scene)
     {
             if (!scene.m_cameraMode || !Input_IsActionPressed(InputAction::CapturePhoto))
+            {
+                return;
+            }
+            if (scene.IsPhotoTrayHit(static_cast<float>(Input_GetMouseX()), static_cast<float>(Input_GetMouseY())))
             {
                 return;
             }
@@ -325,7 +295,7 @@ public:
                 return;
             }
 
-            FinalizeCapturedPhoto(scene, *player, capturedMaxRight, capturedMaxBottom);
+            FinalizeCapturedPhoto(scene, *player, frameWidth, frameHeight);
     }
 
     static void HandleSpawn(GameScene& scene)
@@ -338,10 +308,6 @@ public:
                 return;
             }
 
-            if (Input_IsActionPressed(InputAction::CyclePlacementLayer))
-            {
-                scene.m_photo.placement.layer = CyclePlacementLayer(scene.m_photo.placement.layer);
-            }
             if (Input_IsActionPressed(InputAction::FlipPlacement))
             {
                 scene.m_photo.placement.flipX = !scene.m_photo.placement.flipX;
@@ -443,17 +409,15 @@ public:
             static_cast<int>(viewOriginX + 24.0f),
             static_cast<int>(viewOriginY + 24.0f),
             GetColor(230, 240, 255),
-            "Filter:%s  Layer:%s  Flip:%s  Bridge:%s",
+            "Filter:%s  Flip:%s  Bridge:%s",
             GetPhotoFilterThemeLabel(scene.m_photo.capture.capturedTheme),
-            GetPreviewLayerLabel(scene.m_photo.placement.layer),
             scene.m_photo.placement.flipX ? "On" : "Off",
             scene.m_photo.placement.bridgeEnabled ? "On" : "Off");
         DrawFormatString(
             static_cast<int>(viewOriginX + 24.0f),
             static_cast<int>(viewOriginY + 48.0f),
             GetColor(190, 220, 255),
-            "%s  Groups:%d/3  Rot:%.0f  Keys:Q/F/B/Z/X",
-            GetPreviewLayerEffectText(scene.m_photo.placement.layer),
+            "Solid in world  Groups:%d/3  Rot:%.0f  Keys:F/B/Z/X",
             scene.m_photo.groups.activeGroupCount,
             scene.m_photo.placement.rotation * 57.2957795f);
 
@@ -461,20 +425,6 @@ public:
     }
 
 private:
-    static PhotoCopyLayer CyclePlacementLayer(PhotoCopyLayer current)
-    {
-            switch (current)
-            {
-            case PhotoCopyLayer::Foreground:
-                return PhotoCopyLayer::Background;
-            case PhotoCopyLayer::Background:
-                return PhotoCopyLayer::Shadow;
-            case PhotoCopyLayer::Shadow:
-            default:
-                return PhotoCopyLayer::Foreground;
-            }
-    }
-
     static void AddBridgeSegments(std::vector<CapturedPhotoItem>& items, int textureId, bool flipX, bool enabled, PhotoFilterTheme theme)
     {
             if (!enabled || items.size() < 2)
@@ -640,15 +590,15 @@ private:
             }
     }
 
-    static void FinalizeCapturedPhoto(GameScene& scene, Entity& player, float capturedMaxRight, float capturedMaxBottom)
+    static void FinalizeCapturedPhoto(GameScene& scene, Entity& player, float frameWidth, float frameHeight)
     {
             scene.m_photo.capture.hasPhoto = true;
             scene.m_photo.capture.capturedTheme = scene.m_photo.capture.selectedTheme;
             scene.m_photo.placement.layer = PhotoCopyLayer::Foreground;
             scene.m_photo.placement.flipX = false;
             scene.m_photo.placement.rotation = 0.0f;
-            scene.m_photo.capture.width = (std::max)(1.0f, capturedMaxRight);
-            scene.m_photo.capture.height = (std::max)(1.0f, capturedMaxBottom);
+            scene.m_photo.capture.width = (std::max)(1.0f, frameWidth);
+            scene.m_photo.capture.height = (std::max)(1.0f, frameHeight);
             scene.m_photo.capture.textureId = scene.m_photo.capture.items.front().textureId;
             scene.m_photo.capture.sourceX = scene.m_photo.capture.items.front().sourceX;
             scene.m_photo.capture.sourceY = scene.m_photo.capture.items.front().sourceY;
@@ -658,6 +608,7 @@ private:
             scene.m_photo.capture.tintG = scene.m_photo.capture.items.front().tintG;
             scene.m_photo.capture.tintB = scene.m_photo.capture.items.front().tintB;
             scene.m_photo.capture.tintA = scene.m_photo.capture.items.front().tintA;
+            scene.StoreCapturedPhoto();
 
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
@@ -692,7 +643,10 @@ private:
             scene.m_photo.placement.width = spawnWidth;
             scene.m_photo.placement.height = spawnHeight;
             scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
-            return scene.m_photo.placement.valid && Input_IsActionPressed(InputAction::ConfirmPlacement);
+            return
+                scene.m_photo.placement.valid &&
+                !scene.IsPhotoTrayHit(static_cast<float>(Input_GetMouseX()), static_cast<float>(Input_GetMouseY())) &&
+                Input_IsActionPressed(InputAction::ConfirmPlacement);
     }
 
     static void SpawnPhotoGroup(GameScene& scene, Entity& player, float spawnX, float spawnY, float spawnWidth)
@@ -777,6 +731,7 @@ private:
 
             scene.m_photo.groups.activeGroupCount = std::min(kMaxPhotoGroups, scene.m_photo.groups.activeGroupCount + 1);
             scene.m_photo.groups.hasSpawnedCopy = true;
+            scene.ConsumeSelectedPhotoSlot();
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, lastSpawnedBox, "test_tone", 0.0f, 0.0f });
             scene.m_eventBus.Publish({ EventType::LogMessage, &player, lastSpawnedBox, "Spawned filtered reconstruction", 0.0f, 0.0f });
     }

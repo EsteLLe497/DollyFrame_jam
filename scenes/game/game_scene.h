@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <array>
 #include <filesystem>
 #include <vector>
 
@@ -95,6 +96,9 @@ struct PhotoGroupState
 struct PhotoState
 {
     PhotoCaptureState capture;
+    std::array<PhotoCaptureState, 3> savedCaptures;
+    int selectedCaptureSlot = 0;
+    int nextCaptureSlot = 0;
     PhotoPlacementState placement;
     PhotoGroupState groups;
 };
@@ -129,6 +133,10 @@ private:
     void HandleAttackHits();
     void HandlePhotoCapture();
     void HandlePhotoSpawn();
+    void StoreCapturedPhoto();
+    void SetSelectedPhotoSlot(int slotIndex);
+    void ConsumeSelectedPhotoSlot();
+    void UpdatePhotoTraySelection();
     void UpdateGoalVisual(float deltaTime);
     void HandleWorldInteractions();
     void RemoveDefeatedEnemies();
@@ -138,10 +146,12 @@ private:
     void DrawTuningPanel() const;
     void DrawCaptureOverlay() const;
     void DrawDevelopedPhotoPreview() const;
+    void DrawPhotoStorageTray() const;
     void DrawPhotoPlacementPreview() const;
     void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
     void DrawEntity(const Entity& entity) const;
     void DrawBackdrop() const;
+    bool IsPhotoTrayHit(float screenX, float screenY) const;
     void GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const;
     Entity* FindCaptureTarget(const TransformComponent& playerTransform) const;
     bool IsSolidTile(int column, int row) const;
@@ -209,5 +219,6 @@ private:
     float m_playerLandingImpact;
     float m_playerJumpStretch;
     float m_playerDodgeStretch;
+    float m_photoTrayReveal;
     std::vector<PlayerAfterimage> m_playerAfterimages;
 };
