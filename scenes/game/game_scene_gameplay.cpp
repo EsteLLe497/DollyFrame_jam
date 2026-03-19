@@ -171,8 +171,14 @@ void GameScene::UpdateTuningPanel()
         { "Max Fall", &gPlayerMaxFallSpeed, 20.0f, 200.0f, 2400.0f },
         { "Coyote", &gCoyoteTimeSeconds, 0.01f, 0.0f, 0.4f },
         { "Ground Snap", &gGroundSnapDistance, 0.5f, 0.0f, 24.0f },
-        { "Capture Width", &gCaptureWidthScale, 0.05f, 0.5f, 3.0f },
-        { "Capture Height", &gCaptureHeightScale, 0.05f, 0.5f, 3.0f },
+        { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
+        { "Capture H Tiles", &gCaptureHeightTiles, 0.25f, 1.0f, 16.0f },
+        { "Print Pad X", &gPrintedPhotoPaddingX, 1.0f, 0.0f, 80.0f },
+        { "Print Pad Top", &gPrintedPhotoPaddingTop, 1.0f, 0.0f, 80.0f },
+        { "Print Footer", &gPrintedPhotoFooterHeight, 2.0f, 0.0f, 160.0f },
+        { "Print Min W", &gPrintedPhotoMinWidth, 4.0f, 32.0f, 320.0f },
+        { "Print Min H", &gPrintedPhotoMinHeight, 4.0f, 32.0f, 400.0f },
+        { "Matte Inset", &gPrintedPhotoMatteInset, 0.5f, 0.0f, 24.0f },
         { "Pickup Bonus", &gPickupTimeBonus, 1.0f, 0.0f, 60.0f },
     };
     constexpr int kEntryCount = static_cast<int>(sizeof(entries) / sizeof(entries[0]));
@@ -589,6 +595,116 @@ void GameScene::HandlePhotoCapture()
 void GameScene::HandlePhotoSpawn()
 {
     photo_system::HandleSpawn(*this);
+}
+
+void GameScene::StoreCapturedPhoto()
+{
+    int slotToStore = -1;
+    for (int index = 0; index < static_cast<int>(m_photo.savedCaptures.size()); ++index)
+    {
+        if (!m_photo.savedCaptures[index].hasPhoto)
+        {
+            slotToStore = index;
+            break;
+        }
+    }
+
+    if (slotToStore < 0)
+    {
+        slotToStore = m_photo.nextCaptureSlot;
+    }
+
+    m_photo.savedCaptures[slotToStore] = m_photo.capture;
+    m_photo.selectedCaptureSlot = slotToStore;
+    m_photo.nextCaptureSlot = (slotToStore + 1) % static_cast<int>(m_photo.savedCaptures.size());
+}
+
+void GameScene::SetSelectedPhotoSlot(int slotIndex)
+{
+    if (slotIndex < 0 || slotIndex >= static_cast<int>(m_photo.savedCaptures.size()))
+    {
+        return;
+    }
+
+    const PhotoCaptureState& storedCapture = m_photo.savedCaptures[slotIndex];
+    if (!storedCapture.hasPhoto)
+    {
+        return;
+    }
+
+    const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
+    m_photo.capture = storedCapture;
+    m_photo.capture.selectedTheme = selectedTheme;
+    m_photo.selectedCaptureSlot = slotIndex;
+}
+
+void GameScene::ConsumeSelectedPhotoSlot()
+{
+    if (m_photo.selectedCaptureSlot < 0 || m_photo.selectedCaptureSlot >= static_cast<int>(m_photo.savedCaptures.size()))
+    {
+        return;
+    }
+
+    PhotoCaptureState& selectedCapture = m_photo.savedCaptures[m_photo.selectedCaptureSlot];
+    if (!selectedCapture.hasPhoto)
+    {
+        return;
+    }
+
+    const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
+    selectedCapture = PhotoCaptureState{};
+
+    for (int offset = 1; offset <= static_cast<int>(m_photo.savedCaptures.size()); ++offset)
+    {
+        const int slotIndex = (m_photo.selectedCaptureSlot + offset) % static_cast<int>(m_photo.savedCaptures.size());
+        if (!m_photo.savedCaptures[slotIndex].hasPhoto)
+        {
+            continue;
+        }
+
+        SetSelectedPhotoSlot(slotIndex);
+        m_photo.capture.selectedTheme = selectedTheme;
+        return;
+    }
+
+    m_photo.capture = PhotoCaptureState{};
+    m_photo.capture.selectedTheme = selectedTheme;
+    m_photo.selectedCaptureSlot = 0;
+    m_photo.placement.active = false;
+    m_photo.placement.valid = false;
+}
+
+void GameScene::UpdatePhotoTraySelection()
+{
+    if (!Input_IsMouseLeftPressed())
+    {
+        return;
+    }
+
+    const float mouseX = static_cast<float>(Input_GetMouseX());
+    const float mouseY = static_cast<float>(Input_GetMouseY());
+    if (!IsPhotoTrayHit(mouseX, mouseY))
+    {
+        return;
+    }
+
+    constexpr int kSlotCount = 3;
+    constexpr float kSlotWidth = 170.0f;
+    constexpr float kSlotGap = 18.0f;
+    const float trayWidth = kSlotCount * kSlotWidth + (kSlotCount - 1) * kSlotGap;
+    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
+
+    for (int slotIndex = 0; slotIndex < kSlotCount; ++slotIndex)
+    {
+        const float slotX = trayX + slotIndex * (kSlotWidth + kSlotGap);
+        if (mouseX < slotX || mouseX > slotX + kSlotWidth)
+        {
+            continue;
+        }
+
+        SetSelectedPhotoSlot(slotIndex);
+        break;
+    }
 }
 
 void GameScene::UpdateEnemies()

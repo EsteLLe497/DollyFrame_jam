@@ -1,13 +1,19 @@
 {
   "camera_view_height": 540.0,
   "camera_view_width": 1160.0,
-  "capture_height_scale": 1.149999976158142,
-  "capture_width_scale": 1.850000023841858,
+  "capture_height_tiles": 3.0,
+  "capture_width_tiles": 5.0,
   "coyote_time": 0.10000000149011612,
   "gravity": 1900.0,
   "ground_snap_distance": 8.0,
   "jump_speed": -760.0,
   "max_fall_speed": 980.0,
   "move_speed": 320.0,
+  "printed_photo_footer_height": 52.0,
+  "printed_photo_matte_inset": 3.0,
+  "printed_photo_min_height": 144.0,
+  "printed_photo_min_width": 120.0,
+  "printed_photo_padding_top": 16.0,
+  "printed_photo_padding_x": 16.0,
   "pickup_time_bonus": 8.0
 }
