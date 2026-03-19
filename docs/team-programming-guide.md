@@ -21,6 +21,7 @@
 主に見る場所:
 
 - `game_scene_render.cpp`
+- `game_scene_render_ui.cpp`
 - `game_scene.cpp`
 - `shader*.hlsl`
 - `assets/`
@@ -37,6 +38,7 @@
 
 - ルール変更まで入れない
 - `DrawEntity()` を触ると影響範囲が広い
+- HUD やオーバーレイだけなら `game_scene_render_ui.cpp` を優先する
 
 ### プレイヤー操作・ゲームルールを触る人
 
@@ -75,7 +77,8 @@
 
 注意:
 
-- 今のステージ配置はコード直書きも多い
+- 主要配置物は `sandbox_*` prefab から生成する形へ移行している
+- 位置は `game_scene_setup.cpp`、構成は `assets/prefabs.json` を見る
 - JSON だけで全部は変えられない
 
 ### 基盤・ビルドを触る人
@@ -100,11 +103,13 @@
 1. `docs/programming-guide.md`
 2. `game_scene.h`
 3. `game_scene.cpp`
-4. `game_scene_gameplay.cpp`
-5. `game_scene_render.cpp`
-6. `components.h`
-7. `assets/prefabs.json`
-8. `assets/maps/side_scroll_stage01.csv`
+4. `game_scene_setup.cpp`
+5. `game_scene_gameplay.cpp`
+6. `game_scene_render.cpp`
+7. `game_scene_render_ui.cpp`
+8. `components.h`
+9. `assets/prefabs.json`
+10. `assets/maps/side_scroll_stage01.csv`
 
 ## 4. よくある変更パターン
 
@@ -121,14 +126,16 @@
 - `game_scene_gameplay.cpp`
   元オブジェクトへの効果、コピーへの効果
 - `game_scene_render.cpp`
-  色、UI、エフェクト
+  エンティティ側の見た目
+- `game_scene_render_ui.cpp`
+  UI、オーバーレイ、プレビュー
 
 ### 新しい敵を追加したい
 
 最小手順:
 
 1. `components.*` に状態を足す
-2. `game_scene.cpp` に生成を追加する
+2. `assets/prefabs.json` に定義し、`game_scene_setup.cpp` に配置を追加する
 3. 必要なら `prefab_factory.*` と `assets/prefabs.json` を更新する
 
 ## 敵担当向けガイド
@@ -139,9 +146,10 @@
 
 - `components.h`
 - `components.cpp`
-- `game_scene.cpp`
+- `game_scene_setup.cpp`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
+- `game_scene_render_ui.cpp`
 
 特に重要なのは次のコンポーネントです。
 
@@ -152,8 +160,8 @@
 
 ### 今の敵の作られ方
 
-現在の敵は `game_scene.cpp` の `addEnemy(...)` で生成しています。  
-つまり今の段階では、敵は完全 prefab 駆動ではなく、コード側で置かれています。
+現在の敵は `assets/prefabs.json` の `sandbox_*` prefab を `game_scene_setup.cpp` で配置しています。  
+つまり今の段階では、構成は prefab、配置はコード側です。
 
 今の基本構成:
 
@@ -296,6 +304,7 @@ PR を出す前に、自分で次を見ます。
 - `components.*`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
+- `game_scene_render_ui.cpp`
 
 ### 操作感を変えたい
 
@@ -332,8 +341,10 @@ PR を出す前に、自分で次を見ます。
 特に競合しやすいのは次です。
 
 - `game_scene.cpp`
+- `game_scene_setup.cpp`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
+- `game_scene_render_ui.cpp`
 - `components.h`
 - `components.cpp`
 - `DirectXFoundation.vcxproj`
@@ -427,8 +438,9 @@ PR を出す前に、自分で次を見ます。
 対策:
 
 - 状態は `game_scene.h`
+- 初期配置は `game_scene_setup.cpp`
 - ルールは `game_scene_gameplay.cpp`
-- 描画は `game_scene_render.cpp`
+- 描画は `game_scene_render.cpp` と `game_scene_render_ui.cpp`
 
 に分ける
 

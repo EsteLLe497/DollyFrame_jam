@@ -1,77 +1,12 @@
 #include "game_scene_internal.h"
 
-#include <fstream>
-
-#include <nlohmann/json.hpp>
-
 using namespace game_scene_detail;
 
 namespace
 {
-    constexpr const char* kTuningFilePath = "assets/tuning.json";
     constexpr float kPhotoFocusTimeScale = 0.22f;
     constexpr float kCaptureFocusDuration = 0.8f;
     constexpr float kPlacementFocusDuration = 1.2f;
-
-    float AlignToGrid(float value, float gridSize)
-    {
-        return std::round(value / gridSize) * gridSize;
-    }
-
-    void WriteTuningJsonFile()
-    {
-        nlohmann::json root;
-        root["camera_view_width"] = gCameraViewWidth;
-        root["camera_view_height"] = gCameraViewHeight;
-        root["move_speed"] = gPlayerMoveSpeed;
-        root["jump_speed"] = gPlayerJumpSpeed;
-        root["gravity"] = gPlayerGravity;
-        root["max_fall_speed"] = gPlayerMaxFallSpeed;
-        root["coyote_time"] = gCoyoteTimeSeconds;
-        root["ground_snap_distance"] = gGroundSnapDistance;
-        root["capture_width_scale"] = gCaptureWidthScale;
-        root["capture_height_scale"] = gCaptureHeightScale;
-        root["pickup_time_bonus"] = gPickupTimeBonus;
-
-        std::ofstream stream(kTuningFilePath, std::ios::binary | std::ios::trunc);
-        if (!stream.is_open())
-        {
-            return;
-        }
-        stream << root.dump(2);
-    }
-
-    void LoadTuningJsonFile()
-    {
-        std::ifstream stream(kTuningFilePath, std::ios::binary);
-        if (!stream.is_open())
-        {
-            WriteTuningJsonFile();
-            return;
-        }
-
-        nlohmann::json root;
-        try
-        {
-            stream >> root;
-        }
-        catch (...)
-        {
-            return;
-        }
-
-        gCameraViewWidth = root.value("camera_view_width", gCameraViewWidth);
-        gCameraViewHeight = root.value("camera_view_height", gCameraViewHeight);
-        gPlayerMoveSpeed = root.value("move_speed", gPlayerMoveSpeed);
-        gPlayerJumpSpeed = root.value("jump_speed", gPlayerJumpSpeed);
-        gPlayerGravity = root.value("gravity", gPlayerGravity);
-        gPlayerMaxFallSpeed = root.value("max_fall_speed", gPlayerMaxFallSpeed);
-        gCoyoteTimeSeconds = root.value("coyote_time", gCoyoteTimeSeconds);
-        gGroundSnapDistance = root.value("ground_snap_distance", gGroundSnapDistance);
-        gCaptureWidthScale = root.value("capture_width_scale", gCaptureWidthScale);
-        gCaptureHeightScale = root.value("capture_height_scale", gCaptureHeightScale);
-        gPickupTimeBonus = root.value("pickup_time_bonus", gPickupTimeBonus);
-    }
 }
 
 GameScene::GameScene()
@@ -107,6 +42,14 @@ GameScene::GameScene()
     , m_tuningReloadTimer(0.0f)
     , m_tuningFileWriteTime()
     , m_hasTuningFileWriteTime(false)
+    , m_playerRunAnimationTime(0.0f)
+    , m_playerVisualScaleX(1.0f)
+    , m_playerVisualScaleY(1.0f)
+    , m_playerVisualOffsetY(0.0f)
+    , m_playerVisualRotation(0.0f)
+    , m_playerLandingImpact(0.0f)
+    , m_playerJumpStretch(0.0f)
+    , m_playerDodgeStretch(0.0f)
     , m_playerAfterimages()
 {
 }
@@ -120,199 +63,10 @@ void GameScene::OnEnter(ResourceManager& resources)
 {
     ZoneScoped;
 
-    m_entities.clear();
-    m_playerTouchingTarget = false;
-    m_playerTouchingHazard = false;
-    m_resultQueued = false;
-    m_playerGrounded = false;
-    m_timeRemaining = m_timeLimit;
-    m_cameraX = 0.0f;
-    m_playerVelocityX = 0.0f;
-    m_playerVelocityY = 0.0f;
-    m_goalPulse = 0.0f;
-    m_pickupPulse = 0.0f;
-    m_playerDodgeRemaining = 0.0f;
-    m_playerDodgeCooldownRemaining = 0.0f;
-    m_playerDodgeDirection = 1.0f;
-    m_coyoteTimeRemaining = 0.0f;
-    m_captureSlowRemaining = 0.0f;
-    m_placementSlowRemaining = 0.0f;
-    m_goalUnlocked = false;
-    m_cameraMode = false;
-    m_enemyCount = 0;
-    m_playerFacingRight = true;
-    m_photo = PhotoState{};
-    m_shutterFlashRemaining = 0.0f;
-    m_developedPhotoPreviewRemaining = 0.0f;
-    m_showCollisionDebug = false;
-    m_showTuningPanel = false;
-    m_tuningSelection = 0;
-    m_tuningReloadTimer = 0.0f;
-    m_tuningFileWriteTime = {};
-    m_hasTuningFileWriteTime = false;
-    m_playerAfterimages.clear();
-
-    LoadTuningJsonFile();
-    {
-        std::error_code ec;
-        const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
-        if (!ec)
-        {
-            m_tuningFileWriteTime = writeTime;
-            m_hasTuningFileWriteTime = true;
-        }
-    }
-
-    m_assets.LoadDefaults(resources);
-    m_whiteTexture = m_assets.GetTexture("white");
-    m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
-    m_tileMap.LoadFromCsv("assets/maps/side_scroll_stage01.csv", 48.0f);
-    m_eventBus.Clear();
-
-    float goalX = GetMapPixelWidth() - 120.0f;
-    float goalY = 248.0f;
-    const float tileSize = m_tileMap.GetTileSize();
-    const float oneTile = tileSize;
-    const float oneByTwoHeight = tileSize * 2.0f;
-    const float goalSize = tileSize * 2.0f;
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
-    {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
-        {
-            if (!IsGoalTile(column, row))
-            {
-                continue;
-            }
-
-            goalX = static_cast<float>(column) * tileSize;
-            goalY = static_cast<float>(row + 1) * tileSize - goalSize;
-            row = m_tileMap.GetHeight();
-            break;
-        }
-    }
-
-    auto addActor = [this](const char* tag, int textureId, float x, float y, float width, float height) -> Entity&
-    {
-        auto entity = std::make_unique<Entity>();
-        Entity& entityRef = *entity;
-        entityRef.AddComponent<TagComponent>(tag);
-        entityRef.AddComponent<TransformComponent>(x, y, width, height);
-        entityRef.AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
-        entityRef.AddComponent<SpriteRenderComponent>(textureId);
-        m_entities.push_back(std::move(entity));
-        return entityRef;
-    };
-
-    auto addEnemy = [&](float x, float y, float width, float height, float amplitudeX, float amplitudeY, float frequency) -> Entity&
-    {
-        Entity& enemy = addActor("Enemy", m_tileTexture, x, y, width, height);
-        enemy.AddComponent<EnemyComponent>(EnemyArchetype::Floater, 1);
-        enemy.AddComponent<EnemyMoverComponent>(x, y, amplitudeX, amplitudeY, frequency);
-        if (auto* tint = enemy.GetComponent<TintComponent>())
-        {
-            tint->r = 0.78f;
-            tint->g = 0.38f;
-            tint->b = 0.92f;
-            tint->a = 1.0f;
-        }
-        return enemy;
-    };
-
-    Entity& player = addActor(
-        "Player",
-        m_tileTexture,
-        AlignToGrid(96.0f, tileSize),
-        AlignToGrid(336.0f, tileSize),
-        oneTile,
-        oneByTwoHeight);
-    player.AddComponent<HealthComponent>(3);
-    player.AddComponent<DamageCooldownComponent>(0.75f);
-    if (auto* tint = player.GetComponent<TintComponent>())
-    {
-        tint->r = 0.30f;
-        tint->g = 0.82f;
-        tint->b = 0.98f;
-        tint->a = 1.0f;
-    }
-
-    Entity& goal = addActor(
-        "Goal",
-        m_tileTexture,
-        AlignToGrid(goalX, tileSize),
-        AlignToGrid(goalY, tileSize),
-        goalSize,
-        goalSize);
-    goal.AddComponent<GimmickComponent>(GimmickType::Goal);
-    if (auto* tint = goal.GetComponent<TintComponent>())
-    {
-        tint->r = 0.62f;
-        tint->g = 0.30f;
-        tint->b = 0.24f;
-        tint->a = 1.0f;
-    }
-
-    Entity& photoSourceA = addActor("PhotoSource", m_tileTexture, AlignToGrid(320.0f, tileSize), AlignToGrid(320.0f, tileSize), oneTile, oneTile);
-    photoSourceA.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
-    if (auto* tint = photoSourceA.GetComponent<TintComponent>())
-    {
-        tint->r = 0.20f;
-        tint->g = 0.52f;
-        tint->b = 0.96f;
-        tint->a = 1.0f;
-    }
-
-    Entity& photoSourceB = addActor("PhotoSource", m_tileTexture, AlignToGrid(620.0f, tileSize), AlignToGrid(320.0f, tileSize), oneTile, oneTile);
-    photoSourceB.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
-    if (auto* tint = photoSourceB.GetComponent<TintComponent>())
-    {
-        tint->r = 0.18f;
-        tint->g = 0.90f;
-        tint->b = 0.82f;
-        tint->a = 1.0f;
-    }
-
-    Entity& shadowSource = addActor("PhotoSource", m_tileTexture, AlignToGrid(920.0f, tileSize), AlignToGrid(320.0f, tileSize), oneTile, oneTile);
-    shadowSource.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
-    if (auto* tint = shadowSource.GetComponent<TintComponent>())
-    {
-        tint->r = 0.08f;
-        tint->g = 0.08f;
-        tint->b = 0.10f;
-        tint->a = 1.0f;
-    }
-
-    Entity& flipSourceA = addActor("PhotoSource", m_tileTexture, AlignToGrid(1220.0f, tileSize), AlignToGrid(288.0f, tileSize), oneTile, oneTile);
-    flipSourceA.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
-    if (auto* tint = flipSourceA.GetComponent<TintComponent>())
-    {
-        tint->r = 0.96f;
-        tint->g = 0.68f;
-        tint->b = 0.18f;
-        tint->a = 1.0f;
-    }
-
-    Entity& flipSourceB = addActor("PhotoSource", m_tileTexture, AlignToGrid(1300.0f, tileSize), AlignToGrid(352.0f, tileSize), oneTile, oneTile);
-    flipSourceB.AddComponent<GimmickComponent>(GimmickType::PhotoSource);
-    if (auto* tint = flipSourceB.GetComponent<TintComponent>())
-    {
-        tint->r = 0.96f;
-        tint->g = 0.68f;
-        tint->b = 0.18f;
-        tint->a = 1.0f;
-    }
-
-    Entity& hazardSource = addActor("Hazard", m_tileTexture, AlignToGrid(1600.0f, tileSize), AlignToGrid(320.0f, tileSize), oneTile, oneTile);
-    hazardSource.AddComponent<GimmickComponent>(GimmickType::Hazard);
-    if (auto* tint = hazardSource.GetComponent<TintComponent>())
-    {
-        tint->r = 1.0f;
-        tint->g = 0.28f;
-        tint->b = 0.24f;
-        tint->a = 1.0f;
-    }
-
-    addEnemy(AlignToGrid(760.0f, tileSize), AlignToGrid(248.0f, tileSize), oneTile, oneTile, 96.0f, 48.0f, 1.4f);
-    addEnemy(AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize), oneTile, oneTile, 48.0f, 96.0f, 1.1f);
+    ResetSceneState();
+    LoadTuningState();
+    InitializeStageResources(resources);
+    InitializeStageEntities();
 
     GameSession_Reset(3, m_timeLimit);
     Logger::Info("GameScene entered as photo sandbox stage");
@@ -343,43 +97,43 @@ void GameScene::Update(float deltaTime)
             LoadTuningJsonFile();
         }
     }
-    if (Input_IsKeyPressed('T'))
+    if (Input_IsActionPressed(InputAction::ReturnToTitle))
     {
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
     }
-    if (Input_IsKeyPressed('R'))
+    if (Input_IsActionPressed(InputAction::RestartScene))
     {
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
     }
-    if (Input_IsKeyPressed(VK_F1))
+    if (Input_IsActionPressed(InputAction::ToggleTuningPanel))
     {
         m_showTuningPanel = !m_showTuningPanel;
     }
-    if (Input_IsKeyPressed(VK_F3))
+    if (Input_IsActionPressed(InputAction::ToggleCollisionDebug))
     {
         m_showCollisionDebug = !m_showCollisionDebug;
     }
-    if (Input_IsKeyPressed('1'))
+    if (Input_IsActionPressed(InputAction::SelectFilterNone))
     {
         m_photo.capture.selectedTheme = PhotoFilterTheme::None;
     }
-    if (Input_IsKeyPressed('2'))
+    if (Input_IsActionPressed(InputAction::SelectFilterHot))
     {
         m_photo.capture.selectedTheme = PhotoFilterTheme::Hot;
     }
-    if (Input_IsKeyPressed('3'))
+    if (Input_IsActionPressed(InputAction::SelectFilterCold))
     {
         m_photo.capture.selectedTheme = PhotoFilterTheme::Cold;
     }
-    if (Input_IsKeyPressed('4'))
+    if (Input_IsActionPressed(InputAction::SelectFilterInvert))
     {
         m_photo.capture.selectedTheme = PhotoFilterTheme::Invert;
     }
-    if (Input_IsKeyPressed('5'))
+    if (Input_IsActionPressed(InputAction::SelectFilterSepia))
     {
         m_photo.capture.selectedTheme = PhotoFilterTheme::Sepia;
     }
-    if (Input_IsKeyPressed('C'))
+    if (Input_IsActionPressed(InputAction::CycleFilter))
     {
         m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
     }
@@ -391,12 +145,12 @@ void GameScene::Update(float deltaTime)
     }
 
     UpdateCameraMode();
-    const bool placementHeld = m_photo.capture.hasPhoto && Input_IsKeyDown('E');
-    if (Input_IsKeyPressed(VK_RBUTTON))
+    const bool placementHeld = m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
+    if (Input_IsActionPressed(InputAction::HoldCamera))
     {
         m_captureSlowRemaining = kCaptureFocusDuration;
     }
-    if (m_photo.capture.hasPhoto && Input_IsKeyPressed('E'))
+    if (m_photo.capture.hasPhoto && Input_IsActionPressed(InputAction::HoldPlacement))
     {
         m_placementSlowRemaining = kPlacementFocusDuration;
     }
@@ -484,7 +238,7 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Placement Flip: %s", m_photo.placement.flipX ? "On" : "Off");
     ImGui::Text("Bridge: %s", m_photo.placement.bridgeEnabled ? "On" : "Off");
     ImGui::Text("Camera Mode: %s", m_cameraMode ? "On" : "Off");
-    ImGui::Text("Focus Slow: %s", ((m_cameraMode && m_captureSlowRemaining > 0.0f) || ((m_photo.capture.hasPhoto && Input_IsKeyDown('E')) && m_placementSlowRemaining > 0.0f)) ? "On" : "Off");
+    ImGui::Text("Focus Slow: %s", ((m_cameraMode && m_captureSlowRemaining > 0.0f) || ((m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement)) && m_placementSlowRemaining > 0.0f)) ? "On" : "Off");
     ImGui::Text("Capture Focus: %.2f", m_captureSlowRemaining);
     ImGui::Text("Placement Focus: %.2f", m_placementSlowRemaining);
     ImGui::Text("Goal: %s", m_goalUnlocked ? "Unlocked" : "Locked");
@@ -532,7 +286,7 @@ EventBus* GameScene::GetEventBus()
 
 void GameScene::UpdateCameraMode()
 {
-    m_cameraMode = Input_IsKeyDown(VK_RBUTTON);
+    m_cameraMode = Input_IsActionDown(InputAction::HoldCamera);
 }
 
 Entity* GameScene::FindEntityByTag(const char* tag) const

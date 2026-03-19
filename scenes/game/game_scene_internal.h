@@ -21,6 +21,7 @@
 
 namespace game_scene_detail
 {
+inline constexpr const char* kTuningFilePath = "assets/tuning.json";
 constexpr float kPixelsPerMeter = 100.0f;
 inline float gCameraViewWidth = 1120.0f;
 inline float gCameraViewHeight = 630.0f;
@@ -233,4 +234,7 @@ inline float GetViewOriginY()
 {
     return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f);
 }
+
+void WriteTuningJsonFile();
+void LoadTuningJsonFile();
 }

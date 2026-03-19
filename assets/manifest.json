@@ -7,12 +7,8 @@
       "rgba": "FFFFFFFF"
     },
     "player": {
-      "type": "checkerboard",
-      "width": 256,
-      "height": 256,
-      "rgbaA": "FF4EC9B0",
-      "rgbaB": "FF1B3340",
-      "cellSize": 32
+      "type": "file",
+      "path": "assets/texture/14_Anim.png"
     },
     "target": {
       "type": "checkerboard",

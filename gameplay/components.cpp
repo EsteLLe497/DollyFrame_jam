@@ -397,6 +397,11 @@ SpriteRenderComponent::SpriteRenderComponent(int textureId)
     , m_sourceWidth(1.0f)
     , m_sourceHeight(1.0f)
     , m_flipX(false)
+    , m_renderOffsetX(0.0f)
+    , m_renderOffsetY(0.0f)
+    , m_renderScaleX(1.0f)
+    , m_renderScaleY(1.0f)
+    , m_renderRotationOffset(0.0f)
 {
 }
 
@@ -419,16 +424,16 @@ void SpriteRenderComponent::Draw()
     }
     SpriteDraw(
         m_textureId,
-        transform->x,
-        transform->y,
-        transform->width * transform->scale,
-        transform->height * transform->scale,
+        transform->x + m_renderOffsetX,
+        transform->y + m_renderOffsetY,
+        transform->width * transform->scale * m_renderScaleX,
+        transform->height * transform->scale * m_renderScaleY,
         m_sourceX,
         m_sourceY,
         m_sourceWidth,
         m_sourceHeight,
         m_flipX,
-        transform->rotation);
+        transform->rotation + m_renderRotationOffset);
 }
 
 int SpriteRenderComponent::GetTextureId() const
@@ -477,6 +482,48 @@ void SpriteRenderComponent::SetFlipX(bool value)
 bool SpriteRenderComponent::GetFlipX() const
 {
     return m_flipX;
+}
+
+void SpriteRenderComponent::SetRenderOffset(float x, float y)
+{
+    m_renderOffsetX = x;
+    m_renderOffsetY = y;
+}
+
+void SpriteRenderComponent::SetRenderScale(float x, float y)
+{
+    m_renderScaleX = x;
+    m_renderScaleY = y;
+}
+
+void SpriteRenderComponent::SetRenderRotationOffset(float radians)
+{
+    m_renderRotationOffset = radians;
+}
+
+float SpriteRenderComponent::GetRenderOffsetX() const
+{
+    return m_renderOffsetX;
+}
+
+float SpriteRenderComponent::GetRenderOffsetY() const
+{
+    return m_renderOffsetY;
+}
+
+float SpriteRenderComponent::GetRenderScaleX() const
+{
+    return m_renderScaleX;
+}
+
+float SpriteRenderComponent::GetRenderScaleY() const
+{
+    return m_renderScaleY;
+}
+
+float SpriteRenderComponent::GetRenderRotationOffset() const
+{
+    return m_renderRotationOffset;
 }
 
 void PlayerControllerComponent::Update(float deltaTime)
@@ -580,6 +627,12 @@ void EnemyMoverComponent::DrawDebugUI()
     ImGui::Text("Amplitude: %.1f, %.1f", m_amplitudeX, m_amplitudeY);
     ImGui::Text("Frequency: %.2f", m_frequency);
     ImGui::Text("Frozen: %s", m_frozen ? "Yes" : "No");
+}
+
+void EnemyMoverComponent::SetOrigin(float originX, float originY)
+{
+    m_originX = originX;
+    m_originY = originY;
 }
 
 void EnemyMoverComponent::SetFrozen(bool frozen)

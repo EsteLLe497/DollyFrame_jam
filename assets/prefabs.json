@@ -255,6 +255,166 @@
           "a": 1.0
         }
       }
+    },
+    "sandbox_player": {
+      "tag": "Player",
+      "texture": "player",
+      "transform": {
+        "x": 96.0,
+        "y": 336.0,
+        "width": 48.0,
+        "height": 96.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.30,
+        "g": 0.82,
+        "b": 0.98,
+        "a": 1.0
+      },
+      "health": {
+        "enabled": true,
+        "maxHp": 3
+      },
+      "damageCooldown": {
+        "enabled": true,
+        "seconds": 0.75
+      }
+    },
+    "sandbox_goal": {
+      "tag": "Goal",
+      "texture": "target",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 96.0,
+        "height": 96.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.62,
+        "g": 0.30,
+        "b": 0.24,
+        "a": 1.0
+      },
+      "gimmick": {
+        "enabled": true,
+        "type": "goal",
+        "startsEnabled": true,
+        "oneShot": false
+      }
+    },
+    "sandbox_photo_source": {
+      "tag": "PhotoSource",
+      "texture": "white",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 48.0,
+        "height": 48.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.20,
+        "g": 0.52,
+        "b": 0.96,
+        "a": 1.0
+      },
+      "gimmick": {
+        "enabled": true,
+        "type": "photo_source",
+        "startsEnabled": true,
+        "oneShot": false
+      }
+    },
+    "sandbox_hazard": {
+      "tag": "Hazard",
+      "texture": "hazard",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 48.0,
+        "height": 48.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 1.0,
+        "g": 0.28,
+        "b": 0.24,
+        "a": 1.0
+      },
+      "gimmick": {
+        "enabled": true,
+        "type": "hazard",
+        "startsEnabled": true,
+        "oneShot": false
+      }
+    },
+    "sandbox_enemy_wide": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 760.0,
+        "y": 248.0,
+        "width": 48.0,
+        "height": 48.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.78,
+        "g": 0.38,
+        "b": 0.92,
+        "a": 1.0
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "floater",
+        "contactDamage": 1
+      },
+      "enemyMover": {
+        "enabled": true,
+        "originX": 760.0,
+        "originY": 248.0,
+        "amplitudeX": 96.0,
+        "amplitudeY": 48.0,
+        "frequency": 1.4
+      }
+    },
+    "sandbox_enemy_tall": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 1470.0,
+        "y": 230.0,
+        "width": 48.0,
+        "height": 48.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.78,
+        "g": 0.38,
+        "b": 0.92,
+        "a": 1.0
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "floater",
+        "contactDamage": 1
+      },
+      "enemyMover": {
+        "enabled": true,
+        "originX": 1470.0,
+        "originY": 230.0,
+        "amplitudeX": 48.0,
+        "amplitudeY": 96.0,
+        "frequency": 1.1
+      }
     }
   }
 }

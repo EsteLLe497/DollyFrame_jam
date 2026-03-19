@@ -112,11 +112,11 @@ public:
 
 ### 注意
 
-今の `GameScene` は prefab と直書き配置が混在しています。  
+今の `GameScene` は prefab とコード配置が混在しています。  
 新しいオブジェクトを追加するときは、
 
 - `prefab` で増やすのか
-- `game_scene.cpp` へ直書きするのか
+- `game_scene_setup.cpp` で配置するのか
 
 を最初に決めた方が混乱しません。
 
@@ -133,7 +133,7 @@ public:
    - `ApplyPhotoFilterToPhotoBox()`
    - `ApplyPhotoFilterToCapturedTarget()`
    を更新する
-5. `game_scene_render.cpp` の
+5. `game_scene_render.cpp` と `game_scene_render_ui.cpp` の
    - UI
    - オーバーレイ
    - プレビュー
@@ -151,7 +151,7 @@ public:
 
 1. `EnemyComponent` で足りるか確認する
 2. 足りなければ専用コンポーネントを追加する
-3. まず `game_scene.cpp` に 1 体だけ置く
+3. まず `assets/prefabs.json` に定義し、`game_scene_setup.cpp` に 1 体だけ置く
 4. `Cold` / `Invert` / `Sepia` への反応を確認する
 
 今の敵はフィルターの影響をかなり受けるので、  

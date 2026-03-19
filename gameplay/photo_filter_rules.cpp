@@ -49,6 +49,42 @@ namespace
             return { 1.0f, 1.0f, 1.0f, 1.0f };
         }
     }
+
+    struct ThemeTransform
+    {
+        PhotoCopyRole role;
+        PhotoCopyLayer layer;
+        TintValues tint;
+    };
+
+    ThemeTransform GetPhotoBoxTransform(PhotoFilterTheme theme, PhotoCopyOrigin origin, PhotoCopyRole currentRole, PhotoCopyLayer currentLayer)
+    {
+        ThemeTransform transform{ currentRole, currentLayer, GetPhotoBoxTint(theme) };
+        switch (theme)
+        {
+        case PhotoFilterTheme::Hot:
+            transform.role = PhotoCopyRole::Hazard;
+            transform.layer = PhotoCopyLayer::Foreground;
+            break;
+        case PhotoFilterTheme::Cold:
+            transform.role = PhotoCopyRole::Solid;
+            transform.layer = PhotoCopyLayer::Foreground;
+            break;
+        case PhotoFilterTheme::Invert:
+            transform.role = origin == PhotoCopyOrigin::Enemy ? PhotoCopyRole::Ally : PhotoCopyRole::Solid;
+            transform.layer = PhotoCopyLayer::Foreground;
+            break;
+        case PhotoFilterTheme::Sepia:
+            transform.role = PhotoCopyRole::Solid;
+            transform.layer = PhotoCopyLayer::Foreground;
+            break;
+        case PhotoFilterTheme::None:
+        default:
+            break;
+        }
+
+        return transform;
+    }
 }
 
 const char* GetPhotoFilterThemeLabel(PhotoFilterTheme theme)
@@ -66,6 +102,90 @@ const char* GetPhotoFilterThemeLabel(PhotoFilterTheme theme)
     case PhotoFilterTheme::None:
     default:
         return "None";
+    }
+}
+
+const char* GetPhotoFilterThemeEffectText(PhotoFilterTheme theme)
+{
+    switch (theme)
+    {
+    case PhotoFilterTheme::Hot:
+        return "Makes copies dangerous";
+    case PhotoFilterTheme::Cold:
+        return "Freezes copies into footing";
+    case PhotoFilterTheme::Invert:
+        return "Enemy shots become allies";
+    case PhotoFilterTheme::Sepia:
+        return "Rewinds the target in time";
+    case PhotoFilterTheme::None:
+    default:
+        return "Keeps captured properties";
+    }
+}
+
+void GetPhotoFilterThemeOverlayColor(PhotoFilterTheme theme, float& r, float& g, float& b)
+{
+    switch (theme)
+    {
+    case PhotoFilterTheme::Hot:
+        r = 1.0f;
+        g = 0.20f;
+        b = 0.08f;
+        break;
+    case PhotoFilterTheme::Cold:
+        r = 0.14f;
+        g = 0.56f;
+        b = 1.0f;
+        break;
+    case PhotoFilterTheme::Invert:
+        r = 0.86f;
+        g = 0.86f;
+        b = 0.90f;
+        break;
+    case PhotoFilterTheme::Sepia:
+        r = 0.78f;
+        g = 0.60f;
+        b = 0.36f;
+        break;
+    case PhotoFilterTheme::None:
+    default:
+        r = 1.0f;
+        g = 1.0f;
+        b = 1.0f;
+        break;
+    }
+}
+
+void GetPhotoFilterThemePreviewOutlineColor(PhotoFilterTheme theme, float& r, float& g, float& b)
+{
+    switch (theme)
+    {
+    case PhotoFilterTheme::Hot:
+        r = 1.0f;
+        g = 0.42f;
+        b = 0.18f;
+        break;
+    case PhotoFilterTheme::Cold:
+        r = 0.76f;
+        g = 0.94f;
+        b = 1.0f;
+        break;
+    case PhotoFilterTheme::Invert:
+        r = 0.86f;
+        g = 0.86f;
+        b = 0.92f;
+        break;
+    case PhotoFilterTheme::Sepia:
+        r = 0.90f;
+        g = 0.72f;
+        b = 0.42f;
+        break;
+    case PhotoFilterTheme::None:
+    default:
+        r = 0.32f;
+        g = 0.92f;
+        b = 1.0f;
+        break;
     }
 }
 
@@ -103,6 +223,30 @@ const char* GetPhotoCaptureLogMessage(PhotoFilterTheme theme)
     default:
         return "Captured framed objects with no filter";
     }
+}
+
+void ApplyPhotoFilterThemeToPreviewItem(
+    PhotoFilterTheme theme,
+    PhotoCopyOrigin origin,
+    PhotoCopyRole& role,
+    PhotoCopyLayer& layer,
+    float& tintR,
+    float& tintG,
+    float& tintB,
+    float& tintA)
+{
+    if (theme == PhotoFilterTheme::None)
+    {
+        return;
+    }
+
+    const ThemeTransform transform = GetPhotoBoxTransform(theme, origin, role, layer);
+    role = transform.role;
+    layer = transform.layer;
+    tintR = transform.tint.r;
+    tintG = transform.tint.g;
+    tintB = transform.tint.b;
+    tintA = transform.tint.a;
 }
 
 bool ApplyPhotoFilterToCapturedTarget(Entity& target, PhotoFilterTheme theme)
@@ -214,34 +358,14 @@ bool ApplyPhotoFilterToPhotoBox(Entity& photoBox, PhotoFilterTheme theme)
         return changed;
     }
 
-    PhotoCopyRole nextRole = role->role;
-    PhotoCopyLayer nextLayer = layer->layer;
-    const TintValues nextTint = GetPhotoBoxTint(theme);
-
-    switch (theme)
-    {
-    case PhotoFilterTheme::Hot:
-        nextRole = PhotoCopyRole::Hazard;
-        nextLayer = PhotoCopyLayer::Foreground;
-        break;
-    case PhotoFilterTheme::Cold:
-        nextRole = PhotoCopyRole::Solid;
-        nextLayer = PhotoCopyLayer::Foreground;
-        break;
-    case PhotoFilterTheme::Invert:
-        nextRole = origin && origin->origin == PhotoCopyOrigin::Enemy
-            ? PhotoCopyRole::Ally
-            : PhotoCopyRole::Solid;
-        nextLayer = PhotoCopyLayer::Foreground;
-        break;
-    case PhotoFilterTheme::Sepia:
-        nextRole = PhotoCopyRole::Solid;
-        nextLayer = PhotoCopyLayer::Foreground;
-        break;
-    case PhotoFilterTheme::None:
-    default:
-        break;
-    }
+    const ThemeTransform transform = GetPhotoBoxTransform(
+        theme,
+        origin ? origin->origin : PhotoCopyOrigin::Generic,
+        role->role,
+        layer->layer);
+    const PhotoCopyRole nextRole = transform.role;
+    const PhotoCopyLayer nextLayer = transform.layer;
+    const TintValues nextTint = transform.tint;
 
     const bool changed =
         role->role != nextRole ||

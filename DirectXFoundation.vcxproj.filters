@@ -108,6 +108,12 @@
     <ClCompile Include="scenes\game\game_scene_render.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_render_ui.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_setup.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
     <ClCompile Include="core\game_session.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>

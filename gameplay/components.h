@@ -276,6 +276,14 @@ public:
     float GetSourceHeight() const;
     void SetFlipX(bool value);
     bool GetFlipX() const;
+    void SetRenderOffset(float x, float y);
+    void SetRenderScale(float x, float y);
+    void SetRenderRotationOffset(float radians);
+    float GetRenderOffsetX() const;
+    float GetRenderOffsetY() const;
+    float GetRenderScaleX() const;
+    float GetRenderScaleY() const;
+    float GetRenderRotationOffset() const;
 
 private:
     int m_textureId;
@@ -284,6 +292,11 @@ private:
     float m_sourceWidth;
     float m_sourceHeight;
     bool m_flipX;
+    float m_renderOffsetX;
+    float m_renderOffsetY;
+    float m_renderScaleX;
+    float m_renderScaleY;
+    float m_renderRotationOffset;
 };
 
 class PlayerControllerComponent final : public Component
@@ -305,6 +318,7 @@ public:
 
     void Update(float deltaTime) override;
     void DrawDebugUI() override;
+    void SetOrigin(float originX, float originY);
     void SetFrozen(bool frozen);
     bool IsFrozen() const;
     void Rewind(float seconds);

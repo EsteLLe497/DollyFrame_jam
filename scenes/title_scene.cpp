@@ -58,17 +58,17 @@ void TitleScene::Update(float deltaTime)
         m_showPrompt = !m_showPrompt;
     }
 
-    if (Input_IsKeyPressed(VK_RETURN) || Input_IsKeyPressed(VK_SPACE) || Input_IsSouthButtonPressed())
+    if (Input_IsActionPressed(InputAction::StartGame))
     {
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
     }
 
-    if (Input_IsKeyPressed('D'))
+    if (Input_IsActionPressed(InputAction::OpenDemoScene))
     {
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "demo", 0.0f, 0.0f });
     }
-    if (Input_IsKeyPressed('S'))
+    if (Input_IsActionPressed(InputAction::OpenShaderShowcase))
     {
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "shader_showcase", 0.0f, 0.0f });
     }

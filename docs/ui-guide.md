@@ -5,11 +5,12 @@
 ## まず知っておくこと
 
 - このプロジェクトの UI は、専用 UI システムに閉じているわけではなく、各シーン描画に寄っています
-- `GameScene` の UI は `game_scene_render.cpp` に集まりやすいです
+- `GameScene` の UI は主に `game_scene_render_ui.cpp` にあります
 - 見た目だけでなく、入力やゲーム進行との関係も確認が必要です
 
 ## まず見るファイル
 
+- `game_scene_render_ui.cpp`
 - `game_scene_render.cpp`
 - `title_scene.cpp`
 - `result_scene.cpp`
@@ -19,7 +20,7 @@
 
 ### ゲーム中 HUD を直す
 
-- `game_scene_render.cpp` で描画位置と色を確認する
+- `game_scene_render_ui.cpp` で描画位置と色を確認する
 - プレイヤーが今必要な情報だけを出す
 - 写真、残り時間、フィルター、危険状態などの優先順位を考える
 

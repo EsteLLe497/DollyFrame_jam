@@ -29,7 +29,7 @@
 - `core/application.h` / `core/application.cpp`
   メインループ、シーン更新、描画、イベント処理を持ちます。
 - `core/input.h` / `core/input.cpp`
-  キーボード、マウス、ゲームパッド入力のラッパです。
+  キーボード、マウス、ゲームパッド入力のラッパです。主要操作は `InputAction` と `InputAxis` に寄せています。
 - `core/audio.h` / `core/audio.cpp`
   簡易音声再生です。
 - `core/logger.h` / `core/logger.cpp`
@@ -76,10 +76,14 @@
   状態とメソッド宣言
 - `scenes/game/game_scene.cpp`
   初期化、シーン更新、デバッグ UI
+- `scenes/game/game_scene_setup.cpp`
+  ステージ初期化、prefab 配置、チューニング入出力
 - `scenes/game/game_scene_gameplay.cpp`
   プレイヤー更新、撮影、配置、敵、相互作用
 - `scenes/game/game_scene_render.cpp`
-  背景、オブジェクト、UI、プレビュー描画
+  エンティティ描画とワールド側の見た目
+- `scenes/game/game_scene_render_ui.cpp`
+  背景、HUD、撮影オーバーレイ、写真プレビュー、調整 UI
 - `scenes/game/game_scene_collision.cpp`
   地形判定、重なり判定、補助関数
 - `scenes/game/game_scene_internal.h`
@@ -93,11 +97,26 @@
 
 - ルールを変えたい: `scenes/game/game_scene_gameplay.cpp`
 - 見た目を変えたい: `scenes/game/game_scene_render.cpp`
+- HUD やオーバーレイを変えたい: `scenes/game/game_scene_render_ui.cpp`
 - 当たり判定を変えたい: `scenes/game/game_scene_collision.cpp`
+- 初期配置や prefab 構成を変えたい: `scenes/game/game_scene_setup.cpp` と `assets/prefabs.json`
 - 写真まわりを変えたい: `gameplay/photo_system.cpp`
 - 新しい状態を持たせたい: `scenes/game/game_scene.h`
 
 ## 4. 主なゲーム要素
+
+### 入力
+
+主要な入力は `core/input.h` の `InputAction` / `InputAxis` でまとめています。
+
+- 離散入力: `Input_IsActionPressed()` / `Input_IsActionDown()`
+- 軸入力: `Input_GetAxis()`
+
+方針:
+
+- シーン遷移や `GameScene` の主要操作はアクション経由で扱う
+- `Input_IsKeyPressed()` / `Input_IsKeyDown()` は移行途中の補助として残す
+- 新規実装では、まずアクション追加で表現できるかを確認する
 
 ### プレイヤー
 
@@ -231,7 +250,7 @@
 
 ### 背景や UI を変えたい
 
-`scenes/game/game_scene_render.cpp` を見ます。
+ワールド描画は `scenes/game/game_scene_render.cpp`、HUD やオーバーレイは `scenes/game/game_scene_render_ui.cpp` を見ます。
 
 主な描画入口:
 
