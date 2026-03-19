@@ -300,10 +300,15 @@ public:
 
     static void HandleSpawn(GameScene& scene)
     {
-            scene.m_photo.placement.active = false;
             scene.m_photo.placement.valid = false;
 
-            if (!scene.m_photo.capture.hasPhoto || !Input_IsActionDown(InputAction::HoldPlacement))
+            if (scene.m_photo.capture.hasPhoto &&
+                (Input_IsActionPressed(InputAction::HoldPlacement) || Input_IsNorthButtonPressed()))
+            {
+                scene.m_photo.placement.active = !scene.m_photo.placement.active;
+            }
+
+            if (!scene.m_photo.capture.hasPhoto || !scene.m_photo.placement.active)
             {
                 return;
             }

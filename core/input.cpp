@@ -100,6 +100,56 @@ namespace
 
         return g_state.Buttons[XINPUT_BUTTON_A] != 0 && g_prevState.Buttons[XINPUT_BUTTON_A] == 0;
     }
+
+    bool IsGamepadEastPressed()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+
+        return g_state.Buttons[XINPUT_BUTTON_B] != 0 && g_prevState.Buttons[XINPUT_BUTTON_B] == 0;
+    }
+
+    bool IsGamepadNorthPressed()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+        return g_state.Buttons[XINPUT_BUTTON_Y] != 0 && g_prevState.Buttons[XINPUT_BUTTON_Y] == 0;
+	}
+
+    //LT がホールドされているか
+    bool IsGamepadLeftTriggerDown()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+        return g_state.LeftTrigger > kTriggerThreshold;
+    }
+
+    //RTを押したとき
+    bool IsGamepadRightTriggerPressed()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+        return g_state.RightTrigger > kTriggerThreshold && g_prevState.RightTrigger <= kTriggerThreshold;
+    }
+
+    //右スティック取得
+    float GetGamepadRightX()
+    {
+        return g_connected ? NormalizeThumb(g_state.ThumbRX, kThumbDeadZone) : 0.0f;
+    }
+    float GetGamepadRightY()
+    {
+        // 上方向が負になるように左スティックの取扱に合わせる
+        return g_connected ? -NormalizeThumb(g_state.ThumbRY, kThumbDeadZone) : 0.0f;
+    }
 }
 
 bool Input_Initialize()
@@ -136,9 +186,9 @@ bool Input_IsActionDown(InputAction action)
     switch (action)
     {
     case InputAction::HoldCamera:
-        return Input_IsKeyDown(VK_RBUTTON);
+        return Input_IsKeyDown(VK_RBUTTON)||IsGamepadLeftTriggerDown();
     case InputAction::HoldPlacement:
-        return Input_IsKeyDown('E');
+        return Input_IsKeyDown('E')||IsGamepadNorthPressed();
     case InputAction::RotatePlacementLeft:
         return Input_IsKeyDown('Z');
     case InputAction::RotatePlacementRight:
@@ -193,9 +243,9 @@ bool Input_IsActionPressed(InputAction action)
         return Input_IsKeyPressed(VK_RBUTTON);
     case InputAction::CapturePhoto:
     case InputAction::ConfirmPlacement:
-        return Input_IsMouseLeftPressed();
+        return Input_IsMouseLeftPressed()||IsGamepadRightTriggerPressed();
     case InputAction::HoldPlacement:
-        return Input_IsKeyPressed('E');
+        return Input_IsKeyPressed('E')||IsGamepadNorthPressed();
     case InputAction::CyclePlacementLayer:
         return Input_IsKeyPressed('Q');
     case InputAction::FlipPlacement:
@@ -217,7 +267,7 @@ bool Input_IsActionPressed(InputAction action)
     case InputAction::Jump:
         return Input_IsKeyPressed(VK_SPACE) || Input_IsKeyPressed('W') || Input_IsKeyPressed(VK_UP) || IsGamepadSouthPressed();
     case InputAction::Dodge:
-        return Input_IsKeyPressed(VK_LSHIFT) || Input_IsKeyPressed(VK_RSHIFT) || Input_IsKeyPressed(VK_SHIFT);
+        return Input_IsKeyPressed(VK_LSHIFT) || Input_IsKeyPressed(VK_RSHIFT) || Input_IsKeyPressed(VK_SHIFT)||IsGamepadEastPressed();
     case InputAction::ExitPromptYes:
         return Input_IsKeyPressed(VK_RETURN) || Input_IsKeyPressed('Y');
     case InputAction::ExitPromptNo:
@@ -310,6 +360,36 @@ float Input_GetRotateAxis()
 bool Input_IsSouthButtonPressed()
 {
     return IsGamepadSouthPressed();
+}
+
+bool Input_IsEastButtonPressed()
+{
+    return IsGamepadEastPressed();
+}
+
+bool Input_IsNorthButtonPressed()
+{
+    return IsGamepadNorthPressed();
+}
+
+bool Input_IsLeftTriggerDown()
+{
+    return IsGamepadLeftTriggerDown();
+}
+
+bool Input_IsRightTriggerPressed()
+{
+    return IsGamepadRightTriggerPressed();
+}
+
+float Input_GetRightStickX()
+{
+    return GetGamepadRightX();
+}
+
+float Input_GetRightStickY()
+{
+    return GetGamepadRightY();
 }
 
 int Input_GetMouseX()
