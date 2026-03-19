@@ -226,15 +226,24 @@ void GameScene::UpdatePlayer(float deltaTime)
         return;
     }
 
+    const bool blockPlayerInput = m_cameraMode || m_photo.placement.active;
+
     float moveAxis = 0.0f;
-    if (Input_IsActionDown(InputAction::MoveLeft)) { moveAxis -= 1.0f; }
-    if (Input_IsActionDown(InputAction::MoveRight)) { moveAxis += 1.0f; }
-    moveAxis += Input_GetAxis(InputAxis::MoveX);
-    moveAxis = std::clamp(moveAxis, -1.0f, 1.0f);
-    if (std::fabs(moveAxis) < 0.15f)
+    if (!blockPlayerInput)
+    {
+        if (Input_IsActionDown(InputAction::MoveLeft)) { moveAxis -= 1.0f; }
+        if (Input_IsActionDown(InputAction::MoveRight)) { moveAxis += 1.0f; }
+        moveAxis += Input_GetAxis(InputAxis::MoveX);
+        moveAxis = std::clamp(moveAxis, -1.0f, 1.0f);
+        if (std::fabs(moveAxis) < 0.15f)
+        {
+            moveAxis = 0.0f;
+        }
+    }
+    else
     {
         moveAxis = 0.0f;
-    }
+	}
 
     m_playerDodgeRemaining = std::max(0.0f, m_playerDodgeRemaining - deltaTime);
     m_playerDodgeCooldownRemaining = std::max(0.0f, m_playerDodgeCooldownRemaining - deltaTime);
@@ -249,7 +258,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_playerFacingRight = false;
     }
 
-    const bool dodgePressed = Input_IsActionPressed(InputAction::Dodge);
+    const bool dodgePressed = blockPlayerInput?false:Input_IsActionPressed(InputAction::Dodge);
     if (dodgePressed && m_playerDodgeRemaining <= 0.0f && m_playerDodgeCooldownRemaining <= 0.0f)
     {
         m_playerDodgeDirection = moveAxis != 0.0f ? (moveAxis > 0.0f ? 1.0f : -1.0f) : (m_playerFacingRight ? 1.0f : -1.0f);
@@ -285,7 +294,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_playerVelocityY = 0.0f;
     }
 
-    const bool jumpPressed = Input_IsActionPressed(InputAction::Jump);
+    const bool jumpPressed =blockPlayerInput?false: Input_IsActionPressed(InputAction::Jump);
     const bool canJumpNow = !isDodging && jumpPressed && m_coyoteTimeRemaining > 0.0f;
     if (canJumpNow)
     {
@@ -676,37 +685,8 @@ void GameScene::ConsumeSelectedPhotoSlot()
 
 void GameScene::UpdatePhotoTraySelection()
 {
-    if (!Input_IsMouseLeftPressed())
-    {
-        return;
-    }
 
-    const float mouseX = static_cast<float>(Input_GetMouseX());
-    const float mouseY = static_cast<float>(Input_GetMouseY());
-    if (!IsPhotoTrayHit(mouseX, mouseY))
-    {
-        return;
-    }
-
-    constexpr int kSlotCount = 3;
-    constexpr float kSlotWidth = 170.0f;
-    constexpr float kSlotGap = 18.0f;
-    const float trayWidth = kSlotCount * kSlotWidth + (kSlotCount - 1) * kSlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-
-    for (int slotIndex = 0; slotIndex < kSlotCount; ++slotIndex)
-    {
-        const float slotX = trayX + slotIndex * (kSlotWidth + kSlotGap);
-        if (mouseX < slotX || mouseX > slotX + kSlotWidth)
-        {
-            continue;
-        }
-
-        SetSelectedPhotoSlot(slotIndex);
-        break;
-    }
 }
-
 void GameScene::UpdateEnemies()
 {
     m_enemyCount = 0;

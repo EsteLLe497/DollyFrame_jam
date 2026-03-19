@@ -150,6 +150,42 @@ namespace
         // 上方向が負になるように左スティックの取扱に合わせる
         return g_connected ? -NormalizeThumb(g_state.ThumbRY, kThumbDeadZone) : 0.0f;
     }
+
+    bool IsGamepadRightShoulderDown()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+        return (g_state.Buttons[XINPUT_BUTTON_RIGHT_SHOULDER] != 0);
+	}
+
+    bool IsGamepadLeftShoulderDown()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+        return (g_state.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] != 0);
+    }
+
+    bool IsGamepadRightShoulderPressed()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+        return (g_state.Buttons[XINPUT_BUTTON_RIGHT_SHOULDER] != 0) && (g_prevState.Buttons[XINPUT_BUTTON_RIGHT_SHOULDER] == 0);
+	}
+
+    bool IsGamepadLeftShoulderPressed()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+        return (g_state.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] != 0) && (g_prevState.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] == 0);
+	}
 }
 
 bool Input_Initialize()
@@ -190,9 +226,9 @@ bool Input_IsActionDown(InputAction action)
     case InputAction::HoldPlacement:
         return Input_IsKeyDown('E')||IsGamepadNorthPressed();
     case InputAction::RotatePlacementLeft:
-        return Input_IsKeyDown('Z');
+        return Input_IsKeyDown('Z')||IsGamepadLeftShoulderDown();
     case InputAction::RotatePlacementRight:
-        return Input_IsKeyDown('X');
+        return Input_IsKeyDown('X')||IsGamepadRightShoulderDown();
     case InputAction::MoveLeft:
         return Input_IsKeyDown('A') || Input_IsKeyDown(VK_LEFT);
     case InputAction::MoveRight:
@@ -253,9 +289,9 @@ bool Input_IsActionPressed(InputAction action)
     case InputAction::ToggleBridgePlacement:
         return Input_IsKeyPressed('B');
     case InputAction::RotatePlacementLeft:
-        return Input_IsKeyPressed('Z');
+        return Input_IsKeyPressed('Z')||IsGamepadLeftShoulderPressed();
     case InputAction::RotatePlacementRight:
-        return Input_IsKeyPressed('X');
+        return Input_IsKeyPressed('X')||IsGamepadRightShoulderPressed();
     case InputAction::MoveLeft:
         return Input_IsKeyPressed('A') || Input_IsKeyPressed(VK_LEFT);
     case InputAction::MoveRight:
