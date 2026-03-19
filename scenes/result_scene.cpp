@@ -63,12 +63,12 @@ void ResultScene::Update(float deltaTime)
         m_showPrompt = !m_showPrompt;
     }
 
-    if (Input_IsKeyPressed(VK_RETURN) || Input_IsKeyPressed(VK_SPACE) || Input_IsSouthButtonPressed())
+    if (Input_IsActionPressed(InputAction::Confirm))
     {
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
     }
 
-    if (Input_IsKeyPressed('R'))
+    if (Input_IsActionPressed(InputAction::RestartScene))
     {
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
     }

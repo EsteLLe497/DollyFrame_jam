@@ -13,6 +13,11 @@ namespace
     {
         return static_cast<unsigned int>(std::stoul(value, nullptr, 16));
     }
+
+    std::wstring ToWideString(const std::string& value)
+    {
+        return std::wstring(value.begin(), value.end());
+    }
 }
 
 void AssetManifest::LoadDefaults(ResourceManager& resources)
@@ -60,6 +65,14 @@ void AssetManifest::LoadDefaults(ResourceManager& resources)
                     ParseHexColor(desc.value("rgbaA", "FFFFFFFF")),
                     ParseHexColor(desc.value("rgbaB", "FF000000")),
                     desc.value("cellSize", 8)));
+        }
+        else if (type == "file")
+        {
+            const std::string path = desc.value("path", "");
+            if (!path.empty())
+            {
+                m_textureIds.emplace(key, resources.LoadTexture(ToWideString(path)));
+            }
         }
     }
 

@@ -1,10 +1,6 @@
 #include "game_scene_internal.h"
 #include "photo_system.h"
 
-#include <fstream>
-
-#include <nlohmann/json.hpp>
-
 using namespace game_scene_detail;
 
 namespace
@@ -12,6 +8,10 @@ namespace
     constexpr float kPlayerAfterimageLifetime = 0.18f;
     constexpr float kPlayerAfterimageSpawnInterval = 0.03f;
     constexpr int kMaxPlayerAfterimages = 8;
+    constexpr float kPlayerVisualSmoothing = 14.0f;
+    constexpr float kPlayerLandingDecay = 6.5f;
+    constexpr float kPlayerJumpDecay = 5.0f;
+    constexpr float kPlayerDodgeDecay = 7.5f;
 
     struct TuningEntry
     {
@@ -22,6 +22,136 @@ namespace
         float maxValue;
     };
 
+    void SetSpriteSheetCell1Based(SpriteRenderComponent& sprite, int row, int column, int rows = 4, int columns = 4)
+    {
+        const float cellWidth = 1.0f / static_cast<float>(columns);
+        const float cellHeight = 1.0f / static_cast<float>(rows);
+        sprite.SetSourceRect(
+            static_cast<float>(column - 1) * cellWidth,
+            static_cast<float>(row - 1) * cellHeight,
+            cellWidth,
+            cellHeight);
+    }
+
+}
+
+void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame)
+{
+    auto* sprite = player.GetComponent<SpriteRenderComponent>();
+    if (!sprite)
+    {
+        return;
+    }
+
+    sprite->SetFlipX(false);
+
+    if (landedThisFrame)
+    {
+        m_playerLandingImpact = 1.0f;
+    }
+    if (!wasGrounded && m_playerVelocityY < -80.0f)
+    {
+        m_playerJumpStretch = 1.0f;
+    }
+    if (isDodging)
+    {
+        m_playerDodgeStretch = 1.0f;
+    }
+
+    m_playerLandingImpact = std::max(0.0f, m_playerLandingImpact - deltaTime * kPlayerLandingDecay);
+    m_playerJumpStretch = std::max(0.0f, m_playerJumpStretch - deltaTime * kPlayerJumpDecay);
+    m_playerDodgeStretch = std::max(0.0f, m_playerDodgeStretch - deltaTime * kPlayerDodgeDecay);
+
+    const float horizontalSpeedRatio = Clamp01(std::fabs(m_playerVelocityX) / std::max(1.0f, gPlayerMoveSpeed));
+    if (m_playerGrounded && horizontalSpeedRatio > 0.05f)
+    {
+        m_playerRunAnimationTime += deltaTime * (2.6f + horizontalSpeedRatio * 5.2f);
+    }
+
+    int frameRow = 2;
+    int frameColumn = 2;
+    if (isDodging)
+    {
+        frameRow = 3;
+        frameColumn = m_playerFacingRight ? 2 : 3;
+    }
+    else if (!m_playerGrounded)
+    {
+        if (m_playerVelocityY < -40.0f)
+        {
+            frameRow = 1;
+            frameColumn = m_playerFacingRight ? 2 : 4;
+        }
+        else
+        {
+            frameRow = 1;
+            frameColumn = m_playerFacingRight ? 1 : 3;
+        }
+    }
+    else if (horizontalSpeedRatio > 0.20f)
+    {
+        frameRow = 3;
+        frameColumn = m_playerFacingRight ? 1 : 4;
+    }
+    else
+    {
+        frameRow = 2;
+        frameColumn = m_playerFacingRight ? 2 : 1;
+    }
+
+    SetSpriteSheetCell1Based(*sprite, frameRow, frameColumn);
+
+    float targetScaleX = 1.0f;
+    float targetScaleY = 1.0f;
+    float targetOffsetY = 0.0f;
+    float targetRotation = 0.0f;
+
+    if (m_playerGrounded)
+    {
+        const float runWave = std::sin(m_playerRunAnimationTime * 6.2831853f);
+        const float runBounce = std::fabs(runWave);
+        targetScaleX += runBounce * 0.05f * horizontalSpeedRatio;
+        targetScaleY -= runBounce * 0.07f * horizontalSpeedRatio;
+        targetOffsetY += runBounce * 1.8f * horizontalSpeedRatio;
+        targetRotation += runWave * 0.03f * horizontalSpeedRatio;
+        targetRotation += moveAxis * 0.035f;
+    }
+    else if (m_playerVelocityY < 0.0f)
+    {
+        targetScaleX -= 0.05f;
+        targetScaleY += 0.10f;
+        targetOffsetY -= 2.0f;
+        targetRotation += moveAxis * 0.05f;
+    }
+    else
+    {
+        targetScaleX += 0.07f;
+        targetScaleY -= 0.06f;
+        targetOffsetY += 1.0f;
+        targetRotation += moveAxis * 0.04f;
+    }
+
+    targetScaleX += m_playerLandingImpact * 0.14f;
+    targetScaleY -= m_playerLandingImpact * 0.18f;
+    targetOffsetY += m_playerLandingImpact * 3.5f;
+
+    targetScaleX -= m_playerJumpStretch * 0.07f;
+    targetScaleY += m_playerJumpStretch * 0.13f;
+    targetOffsetY -= m_playerJumpStretch * 2.5f;
+
+    targetScaleX += m_playerDodgeStretch * 0.13f;
+    targetScaleY -= m_playerDodgeStretch * 0.10f;
+    targetRotation += (m_playerFacingRight ? 1.0f : -1.0f) * m_playerDodgeStretch * 0.08f;
+
+    const float blend = std::min(1.0f, deltaTime * kPlayerVisualSmoothing);
+    m_playerVisualScaleX += (targetScaleX - m_playerVisualScaleX) * blend;
+    m_playerVisualScaleY += (targetScaleY - m_playerVisualScaleY) * blend;
+    m_playerVisualOffsetY += (targetOffsetY - m_playerVisualOffsetY) * blend;
+    m_playerVisualRotation += (targetRotation - m_playerVisualRotation) * blend;
+
+    sprite->SetRenderScale(m_playerVisualScaleX, m_playerVisualScaleY);
+    sprite->SetRenderOffset(0.0f, m_playerVisualOffsetY);
+    sprite->SetRenderRotationOffset(m_playerVisualRotation);
 }
 
 void GameScene::UpdateTuningPanel()
@@ -47,21 +177,21 @@ void GameScene::UpdateTuningPanel()
     };
     constexpr int kEntryCount = static_cast<int>(sizeof(entries) / sizeof(entries[0]));
 
-    if (Input_IsKeyPressed(VK_UP))
+    if (Input_IsActionPressed(InputAction::MoveUp))
     {
         m_tuningSelection = (m_tuningSelection + kEntryCount - 1) % kEntryCount;
     }
-    if (Input_IsKeyPressed(VK_DOWN))
+    if (Input_IsActionPressed(InputAction::MoveDown))
     {
         m_tuningSelection = (m_tuningSelection + 1) % kEntryCount;
     }
 
     float delta = 0.0f;
-    if (Input_IsKeyDown(VK_LEFT))
+    if (Input_IsActionDown(InputAction::MoveLeft))
     {
         delta -= entries[m_tuningSelection].step;
     }
-    if (Input_IsKeyDown(VK_RIGHT))
+    if (Input_IsActionDown(InputAction::MoveRight))
     {
         delta += entries[m_tuningSelection].step;
     }
@@ -72,23 +202,7 @@ void GameScene::UpdateTuningPanel()
             *entries[m_tuningSelection].value + delta,
             entries[m_tuningSelection].minValue,
             entries[m_tuningSelection].maxValue);
-        nlohmann::json root;
-        root["camera_view_width"] = gCameraViewWidth;
-        root["camera_view_height"] = gCameraViewHeight;
-        root["move_speed"] = gPlayerMoveSpeed;
-        root["jump_speed"] = gPlayerJumpSpeed;
-        root["gravity"] = gPlayerGravity;
-        root["max_fall_speed"] = gPlayerMaxFallSpeed;
-        root["coyote_time"] = gCoyoteTimeSeconds;
-        root["ground_snap_distance"] = gGroundSnapDistance;
-        root["capture_width_scale"] = gCaptureWidthScale;
-        root["capture_height_scale"] = gCaptureHeightScale;
-        root["pickup_time_bonus"] = gPickupTimeBonus;
-        std::ofstream stream("assets/tuning.json", std::ios::binary | std::ios::trunc);
-        if (stream.is_open())
-        {
-            stream << root.dump(2);
-        }
+        WriteTuningJsonFile();
     }
 }
 
@@ -107,9 +221,9 @@ void GameScene::UpdatePlayer(float deltaTime)
     }
 
     float moveAxis = 0.0f;
-    if (Input_IsKeyDown('A') || Input_IsKeyDown(VK_LEFT)) { moveAxis -= 1.0f; }
-    if (Input_IsKeyDown('D') || Input_IsKeyDown(VK_RIGHT)) { moveAxis += 1.0f; }
-    moveAxis += Input_GetMoveX();
+    if (Input_IsActionDown(InputAction::MoveLeft)) { moveAxis -= 1.0f; }
+    if (Input_IsActionDown(InputAction::MoveRight)) { moveAxis += 1.0f; }
+    moveAxis += Input_GetAxis(InputAxis::MoveX);
     moveAxis = std::clamp(moveAxis, -1.0f, 1.0f);
     if (std::fabs(moveAxis) < 0.15f)
     {
@@ -129,10 +243,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_playerFacingRight = false;
     }
 
-    const bool dodgePressed =
-        Input_IsKeyPressed(VK_LSHIFT) ||
-        Input_IsKeyPressed(VK_RSHIFT) ||
-        Input_IsKeyPressed(VK_SHIFT);
+    const bool dodgePressed = Input_IsActionPressed(InputAction::Dodge);
     if (dodgePressed && m_playerDodgeRemaining <= 0.0f && m_playerDodgeCooldownRemaining <= 0.0f)
     {
         m_playerDodgeDirection = moveAxis != 0.0f ? (moveAxis > 0.0f ? 1.0f : -1.0f) : (m_playerFacingRight ? 1.0f : -1.0f);
@@ -168,11 +279,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_playerVelocityY = 0.0f;
     }
 
-    const bool jumpPressed =
-        Input_IsKeyPressed(VK_SPACE) ||
-        Input_IsKeyPressed('W') ||
-        Input_IsKeyPressed(VK_UP) ||
-        Input_IsSouthButtonPressed();
+    const bool jumpPressed = Input_IsActionPressed(InputAction::Jump);
     const bool canJumpNow = !isDodging && jumpPressed && m_coyoteTimeRemaining > 0.0f;
     if (canJumpNow)
     {
@@ -423,12 +530,14 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_playerGrounded = true;
     }
 
+    const bool landedThisFrame = !wasGrounded && m_playerGrounded;
+    UpdatePlayerPresentation(*player, deltaTime, moveAxis, wasGrounded, isDodging, landedThisFrame);
+
     const float cameraTarget = std::clamp(
         transform->x + playerWidth * 0.5f - gCameraViewWidth * 0.5f,
         0.0f,
         std::max(0.0f, mapWidth - gCameraViewWidth));
     m_cameraX += (cameraTarget - m_cameraX) * std::min(1.0f, deltaTime * 8.0f);
-    m_cameraX = std::round(m_cameraX);
 }
 
 void GameScene::UpdatePlayerAfterimages(float deltaTime)

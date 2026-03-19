@@ -16,6 +16,7 @@
 
 class TransformComponent;
 class PhotoSystem;
+class PrefabFactory;
 
 struct CapturedPhotoItem
 {
@@ -113,8 +114,14 @@ public:
     EventBus* GetEventBus() override;
 
 private:
+    void ResetSceneState();
+    void LoadTuningState();
+    void InitializeStageResources(ResourceManager& resources);
+    void InitializeStageEntities();
+    Entity& SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y);
     Entity* FindEntityByTag(const char* tag) const;
     void UpdatePlayer(float deltaTime);
+    void UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame);
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
     void UpdateEnemies();
@@ -194,5 +201,13 @@ private:
     float m_tuningReloadTimer;
     std::filesystem::file_time_type m_tuningFileWriteTime;
     bool m_hasTuningFileWriteTime;
+    float m_playerRunAnimationTime;
+    float m_playerVisualScaleX;
+    float m_playerVisualScaleY;
+    float m_playerVisualOffsetY;
+    float m_playerVisualRotation;
+    float m_playerLandingImpact;
+    float m_playerJumpStretch;
+    float m_playerDodgeStretch;
     std::vector<PlayerAfterimage> m_playerAfterimages;
 };

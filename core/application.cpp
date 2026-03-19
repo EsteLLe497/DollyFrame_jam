@@ -181,19 +181,20 @@ void Application::Update(float deltaTime)
     Input_Update();
     Audio_Update();
 
-    const bool escapePressed = Input_IsKeyPressed(VK_ESCAPE);
-    if (escapePressed)
+    const bool escapePressed = Input_IsActionPressed(InputAction::Cancel);
+    if (!m_exitConfirmationOpen && escapePressed)
     {
-        m_exitConfirmationOpen = !m_exitConfirmationOpen;
+        m_exitConfirmationOpen = true;
+        return;
     }
 
     if (m_exitConfirmationOpen)
     {
-        if (Input_IsKeyPressed(VK_RETURN) || Input_IsKeyPressed('Y'))
+        if (Input_IsActionPressed(InputAction::ExitPromptYes))
         {
             m_running = false;
         }
-        else if (Input_IsKeyPressed('N') || (!escapePressed && Input_IsKeyPressed(VK_ESCAPE)))
+        else if (Input_IsActionPressed(InputAction::ExitPromptNo))
         {
             m_exitConfirmationOpen = false;
         }

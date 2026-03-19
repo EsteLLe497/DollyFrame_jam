@@ -23,9 +23,11 @@
 ### まず見る場所
 
 - `game_scene.cpp`
+- `game_scene_setup.cpp`
 - `game_scene.h`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
+- `game_scene_render_ui.cpp`
 
 ### よくある作業
 
@@ -33,6 +35,7 @@
 - 写真システムの変更
 - フィルター仕様の追加
 - 敵やギミックの追加
+- 初期配置や prefab 配置の調整
 - UI や演出の調整
 
 ### 注意

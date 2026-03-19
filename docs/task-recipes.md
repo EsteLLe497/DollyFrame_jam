@@ -19,7 +19,7 @@
 
 - `components.h`
 - `components.cpp`
-- `game_scene.cpp`
+- `game_scene_setup.cpp`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
 
@@ -27,7 +27,7 @@
 
 1. `components.h` の `EnemyArchetype` が足りなければ種類を追加する
 2. 敵が使う状態を `EnemyComponent` か `EnemyMoverComponent` に追加する
-3. `game_scene.cpp` の敵生成処理で、その敵を生成する
+3. `assets/prefabs.json` に敵 prefab を追加し、`game_scene_setup.cpp` で配置する
 4. `game_scene_gameplay.cpp` で移動や接触時の挙動を追加する
 5. `game_scene_render.cpp` で見た目や色を追加する
 
@@ -57,7 +57,7 @@
 ### まず見るファイル
 
 - `components.h`
-- `game_scene.cpp`
+- `game_scene_setup.cpp`
 - `game_scene_gameplay.cpp`
 - `prefab_factory.cpp`
 - `assets/prefabs.json`
@@ -66,7 +66,7 @@
 
 1. `components.h` の `GimmickType` に必要なら新しい種類を追加する
 2. 必要な状態を新しいコンポーネントか既存コンポーネントに足す
-3. `game_scene.cpp` か `PrefabFactory` で生成できるようにする
+3. `assets/prefabs.json` へ定義し、`game_scene_setup.cpp` か対象シーンで配置する
 4. `game_scene_gameplay.cpp` に接触・有効化・無効化の処理を足す
 5. 将来的に使い回すなら `assets/prefabs.json` に prefab を追加する
 
@@ -77,7 +77,7 @@
 
 ### 壊しやすい点
 
-- `game_scene.cpp` にだけ置いて、`PrefabFactory` 側を放置する
+- `game_scene_setup.cpp` にだけ置いて、`PrefabFactory` 側を放置する
 - `enabled=false` の見た目がなく、動いていないだけに見える
 - リセット時に元へ戻す処理を入れていない
 
@@ -100,13 +100,14 @@
 - `game_scene.cpp`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
+- `game_scene_render_ui.cpp`
 - `docs/filter-spec.md`
 
 ### 最短手順
 
 1. `components.h` の `PhotoFilterTheme` に新しい theme を追加する
 2. `game_scene.cpp` の入力切り替えに追加する
-3. `game_scene_render.cpp` に UI 名称と色を追加する
+3. `game_scene_render_ui.cpp` に UI 名称と色を追加する
 4. `game_scene_gameplay.cpp` のコピー側適用処理に追加する
 5. `game_scene_gameplay.cpp` の元オブジェクト側適用処理に追加する
 6. `docs/filter-spec.md` に仕様を追記する
@@ -144,7 +145,7 @@
 
 1. `assets/prefabs.json` に新しいエントリを追加する
 2. 必要なキーを `PrefabFactory` が読めるか確認する
-3. `game_scene.cpp` か対象シーンで prefab 名を指定して生成する
+3. `game_scene_setup.cpp` か対象シーンで prefab 名を指定して生成する
 4. 色、サイズ、タグ、追加コンポーネントが想定通りか確認する
 
 ### 壊しやすい点
@@ -162,6 +163,7 @@
 ### まず見るファイル
 
 - `game_scene.cpp`
+- `game_scene_setup.cpp`
 - `docs/level-editing-guide.md`
 
 ### 最短手順
@@ -228,7 +230,7 @@
 
 ## 迷ったときの基準
 
-- 一度しか使わない試作なら `game_scene.cpp` 直書きでもよい
+- 一度しか使わない試作なら `game_scene_setup.cpp` で最小配置してもよい
 - 何度も置くなら prefab 化する
 - 見た目だけではなく、接触、復元、フィルター反応まで揃えて初めて完成
 - 触る場所が多すぎると感じたら、`GameScene` に責務が集まりすぎている可能性が高い

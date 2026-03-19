@@ -90,6 +90,16 @@ namespace
         return static_cast<float>(value - kTriggerThreshold) /
             static_cast<float>(255 - kTriggerThreshold);
     }
+
+    bool IsGamepadSouthPressed()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+
+        return g_state.Buttons[XINPUT_BUTTON_A] != 0 && g_prevState.Buttons[XINPUT_BUTTON_A] == 0;
+    }
 }
 
 bool Input_Initialize()
@@ -119,6 +129,117 @@ void Input_Update()
 
     ZeroMemory(&g_state, sizeof(g_state));
     g_connected = GetJoypadXInputState(DX_INPUT_PAD1, &g_state) == 0;
+}
+
+bool Input_IsActionDown(InputAction action)
+{
+    switch (action)
+    {
+    case InputAction::HoldCamera:
+        return Input_IsKeyDown(VK_RBUTTON);
+    case InputAction::HoldPlacement:
+        return Input_IsKeyDown('E');
+    case InputAction::RotatePlacementLeft:
+        return Input_IsKeyDown('Z');
+    case InputAction::RotatePlacementRight:
+        return Input_IsKeyDown('X');
+    case InputAction::MoveLeft:
+        return Input_IsKeyDown('A') || Input_IsKeyDown(VK_LEFT);
+    case InputAction::MoveRight:
+        return Input_IsKeyDown('D') || Input_IsKeyDown(VK_RIGHT);
+    case InputAction::MoveUp:
+        return Input_IsKeyDown('W') || Input_IsKeyDown(VK_UP);
+    case InputAction::MoveDown:
+        return Input_IsKeyDown('S') || Input_IsKeyDown(VK_DOWN);
+    default:
+        return Input_IsActionPressed(action);
+    }
+}
+
+bool Input_IsActionPressed(InputAction action)
+{
+    switch (action)
+    {
+    case InputAction::Confirm:
+    case InputAction::StartGame:
+        return Input_IsKeyPressed(VK_RETURN) || Input_IsKeyPressed(VK_SPACE) || IsGamepadSouthPressed();
+    case InputAction::Cancel:
+        return Input_IsKeyPressed(VK_ESCAPE);
+    case InputAction::OpenDemoScene:
+        return Input_IsKeyPressed('D');
+    case InputAction::OpenShaderShowcase:
+        return Input_IsKeyPressed('S');
+    case InputAction::RestartScene:
+        return Input_IsKeyPressed('R');
+    case InputAction::ReturnToTitle:
+        return Input_IsKeyPressed('T');
+    case InputAction::ToggleTuningPanel:
+        return Input_IsKeyPressed(VK_F1);
+    case InputAction::ToggleCollisionDebug:
+        return Input_IsKeyPressed(VK_F3);
+    case InputAction::CycleFilter:
+        return Input_IsKeyPressed('C');
+    case InputAction::SelectFilterNone:
+        return Input_IsKeyPressed('1');
+    case InputAction::SelectFilterHot:
+        return Input_IsKeyPressed('2');
+    case InputAction::SelectFilterCold:
+        return Input_IsKeyPressed('3');
+    case InputAction::SelectFilterInvert:
+        return Input_IsKeyPressed('4');
+    case InputAction::SelectFilterSepia:
+        return Input_IsKeyPressed('5');
+    case InputAction::HoldCamera:
+        return Input_IsKeyPressed(VK_RBUTTON);
+    case InputAction::CapturePhoto:
+    case InputAction::ConfirmPlacement:
+        return Input_IsMouseLeftPressed();
+    case InputAction::HoldPlacement:
+        return Input_IsKeyPressed('E');
+    case InputAction::CyclePlacementLayer:
+        return Input_IsKeyPressed('Q');
+    case InputAction::FlipPlacement:
+        return Input_IsKeyPressed('F');
+    case InputAction::ToggleBridgePlacement:
+        return Input_IsKeyPressed('B');
+    case InputAction::RotatePlacementLeft:
+        return Input_IsKeyPressed('Z');
+    case InputAction::RotatePlacementRight:
+        return Input_IsKeyPressed('X');
+    case InputAction::MoveLeft:
+        return Input_IsKeyPressed('A') || Input_IsKeyPressed(VK_LEFT);
+    case InputAction::MoveRight:
+        return Input_IsKeyPressed('D') || Input_IsKeyPressed(VK_RIGHT);
+    case InputAction::MoveUp:
+        return Input_IsKeyPressed('W') || Input_IsKeyPressed(VK_UP);
+    case InputAction::MoveDown:
+        return Input_IsKeyPressed('S') || Input_IsKeyPressed(VK_DOWN);
+    case InputAction::Jump:
+        return Input_IsKeyPressed(VK_SPACE) || Input_IsKeyPressed('W') || Input_IsKeyPressed(VK_UP) || IsGamepadSouthPressed();
+    case InputAction::Dodge:
+        return Input_IsKeyPressed(VK_LSHIFT) || Input_IsKeyPressed(VK_RSHIFT) || Input_IsKeyPressed(VK_SHIFT);
+    case InputAction::ExitPromptYes:
+        return Input_IsKeyPressed(VK_RETURN) || Input_IsKeyPressed('Y');
+    case InputAction::ExitPromptNo:
+        return Input_IsKeyPressed('N') || Input_IsKeyPressed(VK_ESCAPE);
+    default:
+        return false;
+    }
+}
+
+float Input_GetAxis(InputAxis axis)
+{
+    switch (axis)
+    {
+    case InputAxis::MoveX:
+        return Input_GetMoveX();
+    case InputAxis::MoveY:
+        return Input_GetMoveY();
+    case InputAxis::Rotate:
+        return Input_GetRotateAxis();
+    default:
+        return 0.0f;
+    }
 }
 
 bool Input_IsKeyDown(int virtualKey)
@@ -188,12 +309,7 @@ float Input_GetRotateAxis()
 
 bool Input_IsSouthButtonPressed()
 {
-    if (!g_connected)
-    {
-        return false;
-    }
-
-    return g_state.Buttons[XINPUT_BUTTON_A] != 0 && g_prevState.Buttons[XINPUT_BUTTON_A] == 0;
+    return IsGamepadSouthPressed();
 }
 
 int Input_GetMouseX()

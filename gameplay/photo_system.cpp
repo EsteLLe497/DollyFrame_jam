@@ -3,6 +3,7 @@
 #include <cfloat>
 
 #include "game_scene_internal.h"
+#include "photo_filter_rules.h"
 #include "DxLib.h"
 
 using namespace game_scene_detail;
@@ -160,64 +161,17 @@ namespace
         }
     }
 
-    const char* GetPreviewFilterThemeLabel(PhotoFilterTheme theme)
-    {
-        switch (theme)
-        {
-        case PhotoFilterTheme::Hot:
-            return "Hot";
-        case PhotoFilterTheme::Cold:
-            return "Cold";
-        case PhotoFilterTheme::Invert:
-            return "Invert";
-        case PhotoFilterTheme::Sepia:
-            return "Sepia";
-        case PhotoFilterTheme::None:
-        default:
-            return "None";
-        }
-    }
-
     void ApplyPreviewFilterTheme(CapturedPhotoItem& item)
     {
-        switch (item.appliedTheme)
-        {
-        case PhotoFilterTheme::Hot:
-            item.role = PhotoCopyRole::Hazard;
-            item.layer = PhotoCopyLayer::Foreground;
-            item.tintR = 1.0f;
-            item.tintG = 0.34f;
-            item.tintB = 0.12f;
-            item.tintA = 1.0f;
-            break;
-        case PhotoFilterTheme::Cold:
-            item.role = PhotoCopyRole::Solid;
-            item.layer = PhotoCopyLayer::Foreground;
-            item.tintR = 0.76f;
-            item.tintG = 0.90f;
-            item.tintB = 1.0f;
-            item.tintA = 1.0f;
-            break;
-        case PhotoFilterTheme::Invert:
-            item.role = item.origin == PhotoCopyOrigin::Enemy ? PhotoCopyRole::Ally : PhotoCopyRole::Solid;
-            item.layer = PhotoCopyLayer::Foreground;
-            item.tintR = 0.62f;
-            item.tintG = 0.62f;
-            item.tintB = 0.64f;
-            item.tintA = 1.0f;
-            break;
-        case PhotoFilterTheme::Sepia:
-            item.role = PhotoCopyRole::Solid;
-            item.layer = PhotoCopyLayer::Foreground;
-            item.tintR = 0.76f;
-            item.tintG = 0.58f;
-            item.tintB = 0.34f;
-            item.tintA = 1.0f;
-            break;
-        case PhotoFilterTheme::None:
-        default:
-            break;
-        }
+        ApplyPhotoFilterThemeToPreviewItem(
+            item.appliedTheme,
+            item.origin,
+            item.role,
+            item.layer,
+            item.tintR,
+            item.tintG,
+            item.tintB,
+            item.tintA);
     }
 
     std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
@@ -338,7 +292,7 @@ class PhotoSystem
 public:
     static void HandleCapture(GameScene& scene)
     {
-            if (!scene.m_cameraMode || !Input_IsMouseLeftPressed())
+            if (!scene.m_cameraMode || !Input_IsActionPressed(InputAction::CapturePhoto))
             {
                 return;
             }
@@ -379,32 +333,32 @@ public:
             scene.m_photo.placement.active = false;
             scene.m_photo.placement.valid = false;
 
-            if (!scene.m_photo.capture.hasPhoto || !Input_IsKeyDown('E'))
+            if (!scene.m_photo.capture.hasPhoto || !Input_IsActionDown(InputAction::HoldPlacement))
             {
                 return;
             }
 
-            if (Input_IsKeyPressed('Q'))
+            if (Input_IsActionPressed(InputAction::CyclePlacementLayer))
             {
                 scene.m_photo.placement.layer = CyclePlacementLayer(scene.m_photo.placement.layer);
             }
-            if (Input_IsKeyPressed('F'))
+            if (Input_IsActionPressed(InputAction::FlipPlacement))
             {
                 scene.m_photo.placement.flipX = !scene.m_photo.placement.flipX;
             }
-            if (Input_IsKeyPressed('B'))
+            if (Input_IsActionPressed(InputAction::ToggleBridgePlacement))
             {
                 scene.m_photo.placement.bridgeEnabled = !scene.m_photo.placement.bridgeEnabled;
             }
-            if (Input_IsKeyDown('Z'))
+            if (Input_IsActionDown(InputAction::RotatePlacementLeft))
             {
                 scene.m_photo.placement.rotation -= kPlacementRotateSpeed / 60.0f;
             }
-            if (Input_IsKeyDown('X'))
+            if (Input_IsActionDown(InputAction::RotatePlacementRight))
             {
                 scene.m_photo.placement.rotation += kPlacementRotateSpeed / 60.0f;
             }
-            scene.m_photo.placement.rotation += Input_GetRotateAxis() * (kPlacementRotateSpeed / 60.0f);
+            scene.m_photo.placement.rotation += Input_GetAxis(InputAxis::Rotate) * (kPlacementRotateSpeed / 60.0f);
 
             Entity* player = scene.FindEntityByTag("Player");
             if (!player)
@@ -462,25 +416,11 @@ public:
             Shader_ResetStyle();
             if (scene.m_photo.placement.valid)
             {
-                switch (previewItem.appliedTheme)
-                {
-                case PhotoFilterTheme::Hot:
-                    Shader_SetOutline(1.0f, 0.42f, 0.18f, 1.0f, 1.8f);
-                    break;
-                case PhotoFilterTheme::Cold:
-                    Shader_SetOutline(0.76f, 0.94f, 1.0f, 1.0f, 1.8f);
-                    break;
-                case PhotoFilterTheme::Invert:
-                    Shader_SetOutline(0.86f, 0.86f, 0.92f, 1.0f, 1.8f);
-                    break;
-                case PhotoFilterTheme::Sepia:
-                    Shader_SetOutline(0.90f, 0.72f, 0.42f, 1.0f, 1.8f);
-                    break;
-                case PhotoFilterTheme::None:
-                default:
-                    Shader_SetOutline(0.32f, 0.92f, 1.0f, 1.0f, 1.6f);
-                    break;
-                }
+                float outlineR = 0.32f;
+                float outlineG = 0.92f;
+                float outlineB = 1.0f;
+                GetPhotoFilterThemePreviewOutlineColor(previewItem.appliedTheme, outlineR, outlineG, outlineB);
+                Shader_SetOutline(outlineR, outlineG, outlineB, 1.0f, previewItem.appliedTheme == PhotoFilterTheme::None ? 1.6f : 1.8f);
                 Shader_SetTint(previewItem.tintR, previewItem.tintG, previewItem.tintB, 0.55f);
             }
             else
@@ -504,7 +444,7 @@ public:
             static_cast<int>(viewOriginY + 24.0f),
             GetColor(230, 240, 255),
             "Filter:%s  Layer:%s  Flip:%s  Bridge:%s",
-            GetPreviewFilterThemeLabel(scene.m_photo.capture.capturedTheme),
+            GetPhotoFilterThemeLabel(scene.m_photo.capture.capturedTheme),
             GetPreviewLayerLabel(scene.m_photo.placement.layer),
             scene.m_photo.placement.flipX ? "On" : "Off",
             scene.m_photo.placement.bridgeEnabled ? "On" : "Off");
@@ -752,7 +692,7 @@ private:
             scene.m_photo.placement.width = spawnWidth;
             scene.m_photo.placement.height = spawnHeight;
             scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
-            return scene.m_photo.placement.valid && Input_IsMouseLeftPressed();
+            return scene.m_photo.placement.valid && Input_IsActionPressed(InputAction::ConfirmPlacement);
     }
 
     static void SpawnPhotoGroup(GameScene& scene, Entity& player, float spawnX, float spawnY, float spawnWidth)

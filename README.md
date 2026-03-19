@@ -51,6 +51,7 @@ Visual Studio の場合:
 - `ResultScene` から `TitleScene` か `GameScene` へ戻れる
 - `GameScene` に `HP`、`Goal`、写真撮影と貼り付けの基本ルールが入っている
 - `enemy` とダメージ無敵時間が入っている
+- `GameScene` の主要配置物は `assets/prefabs.json` の `sandbox_*` prefab から生成する
 - `player` と `target` の 2 つのプレハブを生成する
 - `player` は入力で動く
 - `target` は Lua スクリプトで揺れる
@@ -93,7 +94,7 @@ Visual Studio の場合:
 - `main.cpp`
   エントリポイントです。`Application` を起動します。
 - `core/`
-  アプリ基盤、シーン管理、入力、音、ログ、ECS の土台です。
+  アプリ基盤、シーン管理、入力、音、ログ、ECS の土台です。主要入力は `InputAction` / `InputAxis` に寄せています。
 - `gameplay/`
   ゲーム固有のコンポーネント、プレハブ生成、フィルター処理、`photo_system` などです。
 - `physics/`
@@ -124,11 +125,15 @@ Visual Studio の場合:
 - `scenes/game/game_scene.h`
   `GameScene` の状態と宣言です。
 - `scenes/game/game_scene.cpp`
-  初期化、全体更新、デバッグ UI です。
+  全体更新、シーン制御、デバッグ UI です。
+- `scenes/game/game_scene_setup.cpp`
+  ステージ初期化、prefab 配置、チューニング入出力です。
 - `scenes/game/game_scene_gameplay.cpp`
   プレイヤー、敵、ワールド相互作用です。
 - `scenes/game/game_scene_render.cpp`
-  背景、UI、エンティティ描画です。
+  エンティティ描画とワールド側の見た目です。
+- `scenes/game/game_scene_render_ui.cpp`
+  背景、HUD、撮影オーバーレイ、写真プレビュー、調整 UI です。
 - `scenes/game/game_scene_collision.cpp`
   地形判定、重なり判定、配置判定です。
 - `gameplay/photo_filter_rules.h` / `gameplay/photo_filter_rules.cpp`
@@ -147,7 +152,7 @@ Visual Studio の場合:
 - `assets/manifest.json`
   テクスチャ定義です。
 - `assets/prefabs.json`
-  プレハブ定義です。
+  プレハブ定義です。`GameScene` の主要配置物は `sandbox_*` prefab を使います。
 - `assets/demo_scene.lua`
   サンプルシーンの Lua スクリプトです。
 - `assets/maps/side_scroll_stage01.csv`
@@ -281,6 +286,8 @@ Visual Studio の場合:
   `core/scene.h`、`core/scene_registry.h`、`core/application.cpp`
 - プレイヤーや敵を増やす
   `gameplay/components.h`、`gameplay/prefab_factory.cpp`、`assets/prefabs.json`
+- `GameScene` の初期配置を変える
+  `scenes/game/game_scene_setup.cpp`、`assets/prefabs.json`
 - データを調整したい
   `assets/manifest.json`、`assets/prefabs.json`
 - スクリプトで試したい

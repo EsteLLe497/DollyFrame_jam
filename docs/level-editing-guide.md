@@ -57,9 +57,9 @@
 
 これらは今の実装ではコード側の方が強いです。
 
-## 4. `game_scene.cpp` の直書き配置
+## 4. `GameScene` の prefab 配置
 
-現在は次のものを `OnEnter()` で直書きしています。
+現在の `GameScene` では、次の主要配置物を `assets/prefabs.json` の `sandbox_*` prefab から生成しています。
 
 - プレイヤー
 - ゴール
@@ -67,8 +67,13 @@
 - `Hazard`
 - 敵
 
-つまり、ステージ上の主要なインタラクティブ要素を動かしたい場合は、  
-`game_scene.cpp` も見る必要があります。
+配置座標そのものは `game_scene_setup.cpp` で決めています。  
+つまり、ステージ上の主要なインタラクティブ要素を動かしたい場合は、
+
+- 構成を変えるなら `assets/prefabs.json`
+- 位置を変えるなら `game_scene_setup.cpp`
+
+を見ます。
 
 ## 5. 配置するときのルール
 
@@ -122,13 +127,15 @@
 
 見る場所:
 
-- `game_scene.cpp`
+- `assets/prefabs.json`
+- `game_scene_setup.cpp`
 
 ### `PhotoSource` の位置を変えたい
 
 見る場所:
 
-- `game_scene.cpp`
+- `assets/prefabs.json`
+- `game_scene_setup.cpp`
 
 ### フィルターで遊び方を変えたい
 
