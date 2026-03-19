@@ -56,6 +56,7 @@ private:
     Entity* FindEntityByTag(const char* tag) const;
     void UpdatePlayer(float deltaTime);
     void UpdateEnemies();
+    void UpdateBullets();  // 3/19í«â¡(ìcîVè„èr)
     void UpdateCameraMode();
     void HandleAttackHits();
     void HandlePhotoCapture();
@@ -149,4 +150,7 @@ private:
     float m_tuningReloadTimer;
     std::filesystem::file_time_type m_tuningFileWriteTime;
     bool m_hasTuningFileWriteTime;
+
+    //3/18
+    float m_lastDeltaTime;
 };

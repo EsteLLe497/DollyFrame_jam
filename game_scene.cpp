@@ -135,6 +135,7 @@ GameScene::GameScene()
     , m_tuningReloadTimer(0.0f)
     , m_tuningFileWriteTime()
     , m_hasTuningFileWriteTime(false)
+    , m_lastDeltaTime(0.0f)  //3/18í«â¡
 {
 }
 
@@ -197,6 +198,7 @@ void GameScene::OnEnter(ResourceManager& resources)
     m_tuningReloadTimer = 0.0f;
     m_tuningFileWriteTime = {};
     m_hasTuningFileWriteTime = false;
+    m_lastDeltaTime = 0.0f;  //3/18í«â¡
 
     LoadTuningJsonFile();
     {
@@ -260,6 +262,37 @@ void GameScene::OnEnter(ResourceManager& resources)
         }
         return enemy;
     };
+
+	//3/18ÉTÉCÉYÇÃï‡çsìGÇí«â¡Ç∑ÇÈÇΩÇﬂÇÃÉâÉÄÉ_ä÷êî(ìcîVè„èr)
+    auto addWalker = [&](float x, float y) -> Entity&
+    {
+        Entity& enemy = addActor("Enemy", m_tileTexture, x, y, 64.0f, 80.0f);
+        enemy.AddComponent<EnemyComponent>(EnemyArchetype::Walker, 1);
+        // EnemyMoverComponent ÇÕïtÇØÇ»Ç¢
+        if (auto* tint = enemy.GetComponent<TintComponent>())
+        {
+            tint->r = 0.92f;
+            tint->g = 0.38f;
+            tint->b = 0.38f;
+            tint->a = 1.0f;
+        }
+        return enemy;
+    };
+
+    // 3/19í«â¡ÅFâìãóó£çUåÇìGÇí«â¡Ç∑ÇÈÇΩÇﬂÇÃÉâÉÄÉ_ä÷êî(ìcîVè„èr)
+    auto addRanged = [&](float x, float y) -> Entity&
+        {
+            Entity& enemy = addActor("Enemy", m_tileTexture, x, y, 64.0f, 80.0f);
+            enemy.AddComponent<EnemyComponent>(EnemyArchetype::Ranged, 1);
+            if (auto* tint = enemy.GetComponent<TintComponent>())
+            {
+                tint->r = 0.38f;
+                tint->g = 0.38f;
+                tint->b = 0.92f;
+                tint->a = 1.0f;
+            }
+            return enemy;
+        };
 
     Entity& player = addActor("Player", m_tileTexture, 96.0f, 336.0f, 72.0f, 96.0f);
     player.AddComponent<HealthComponent>(3);
@@ -345,6 +378,12 @@ void GameScene::OnEnter(ResourceManager& resources)
     addEnemy(760.0f, 248.0f, 72.0f, 72.0f, 88.0f, 34.0f, 1.4f);
     addEnemy(1470.0f, 230.0f, 80.0f, 80.0f, 54.0f, 82.0f, 1.1f);
 
+	// 3/18í«â¡
+    addWalker(500.0f, 352.0f);
+
+	// 3/19í«â¡
+	addRanged(1100.0f, 352.0f);
+
     GameSession_Reset(3, m_timeLimit);
     Logger::Info("GameScene entered as photo sandbox stage");
 }
@@ -358,6 +397,7 @@ void GameScene::OnExit()
 
 void GameScene::Update(float deltaTime)
 {
+	m_lastDeltaTime = deltaTime;  // 3/18í«â¡
     ZoneScoped;
 
     m_eventBus.Clear();
@@ -437,6 +477,7 @@ void GameScene::Update(float deltaTime)
     HandlePhotoCapture();
     HandlePhotoSpawn();
     UpdateEnemies();
+    UpdateBullets();  // 3/19í«â¡(ìcîVè„èr)
     UpdateGoalVisual(deltaTime);
     HandleWorldInteractions();
     RemoveDefeatedEnemies();

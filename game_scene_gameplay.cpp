@@ -773,20 +773,138 @@ void GameScene::HandlePhotoSpawn()
 void GameScene::UpdateEnemies()
 {
     m_enemyCount = 0;
+    Entity* player = FindEntityByTag("Player");
+    const TransformComponent* playerTransform =
+        player ? player->GetComponent<TransformComponent>() : nullptr;
+
+    // 3/19追加：ループ中にm_entitiesを変更しないための一時バッファ(田之上俊)
+    std::vector<std::unique_ptr<Entity>> newBullets;
+
     for (const auto& entity : m_entities)
     {
-        if (!entity)
-        {
-            continue;
-        }
+        if (!entity) continue;
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled()) continue;
+        ++m_enemyCount;
 
-        const auto* enemy = entity->GetComponent<EnemyComponent>();
-        if (enemy && enemy->IsEnabled())
+        if (!playerTransform) continue;
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform) continue;
+
+        if (enemy->GetArchetype() == EnemyArchetype::Walker)
         {
-            ++m_enemyCount;
+            // Walker処理はそのまま
+            const float dx = playerTransform->x - transform->x;
+            const float dist = std::fabs(dx);
+            constexpr float kWalkerSpeed = 120.0f;
+
+            switch (enemy->GetAIState())
+            {
+            case EnemyComponent::AIState::Idle:
+                if (dist < enemy->detectRange)
+                    enemy->SetAIState(EnemyComponent::AIState::Chase);
+                break;
+            case EnemyComponent::AIState::Chase:
+                if (dist < enemy->attackRange)
+                {
+                    enemy->attackTimer = 0.0f;
+                    enemy->SetAIState(EnemyComponent::AIState::Attack);
+                }
+                else if (dist > enemy->detectRange)
+                {
+                    enemy->SetAIState(EnemyComponent::AIState::Idle);
+                }
+                else
+                {
+                    transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * m_lastDeltaTime;
+                }
+                break;
+            case EnemyComponent::AIState::Attack:
+                enemy->attackTimer += m_lastDeltaTime;
+                if (dist >= enemy->attackRange)
+                    enemy->SetAIState(EnemyComponent::AIState::Chase);
+                else if (enemy->attackTimer >= enemy->attackCooldown)
+                    enemy->attackTimer = 0.0f;
+                break;
+            }
+        }
+        else if (enemy->GetArchetype() == EnemyArchetype::Ranged)
+        {
+            const float dx = playerTransform->x - transform->x;
+            const float dy = playerTransform->y - transform->y;
+            const float dist = std::sqrt(dx * dx + dy * dy);
+
+            enemy->attackTimer += m_lastDeltaTime;
+
+            if (dist < enemy->detectRange && enemy->attackTimer >= enemy->attackCooldown)
+            {
+                enemy->attackTimer = 0.0f;
+
+                constexpr float kBulletSpeed = 300.0f;
+                const float length = std::max(1.0f, dist);
+                const float velX = (dx / length) * kBulletSpeed;
+                const float velY = (dy / length) * kBulletSpeed;
+
+                // 3/19修正：一時バッファに追加(田之上俊)
+                auto bullet = std::make_unique<Entity>();
+                bullet->AddComponent<TagComponent>("Bullet");
+                bullet->AddComponent<TransformComponent>(
+                    transform->x + 24.0f,
+                    transform->y + 24.0f,
+                    16.0f, 16.0f);
+                bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
+                bullet->AddComponent<SpriteRenderComponent>(m_tileTexture);
+                bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
+                newBullets.push_back(std::move(bullet));
+            }
         }
     }
+
+    // ループ後にまとめて追加
+    for (auto& bullet : newBullets)
+    {
+        m_entities.push_back(std::move(bullet));
+    }
+
     m_goalUnlocked = m_photoBoxSpawned;
+}
+
+// 3/19追加：弾の移動と画面外削除(田之上俊)
+void GameScene::UpdateBullets()
+{
+    const float mapWidth = GetMapPixelWidth();
+    const float mapHeight = GetMapPixelHeight();
+    Entity* player = FindEntityByTag("Player");
+
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [&](const std::unique_ptr<Entity>& entity) -> bool
+            {
+                if (!entity || !HasTag(*entity, "Bullet")) return false;
+
+                auto* transform = entity->GetComponent<TransformComponent>();
+                auto* projectile = entity->GetComponent<ProjectileComponent>();
+                if (!transform || !projectile) return false;
+
+                transform->x += projectile->GetVelocityX() * m_lastDeltaTime;
+                transform->y += projectile->GetVelocityY() * m_lastDeltaTime;
+
+                // 3/19追加：プレイヤーへの当たり判定とダメージ(田之上俊)
+                if (player && IntersectsEntity(*player, *entity))
+                {
+                    HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by bullet");
+                    return true; // 当たったら削除
+                }
+
+                // 画面外で削除
+                return transform->x < 0.0f
+                    || transform->x > mapWidth
+                    || transform->y < 0.0f
+                    || transform->y > mapHeight;
+            }),
+        m_entities.end());
 }
 
 bool GameScene::ApplyPhotoFilterTheme(Entity& photoBox, PhotoFilterTheme theme)
