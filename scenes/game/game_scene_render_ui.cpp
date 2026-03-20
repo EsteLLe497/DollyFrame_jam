@@ -12,6 +12,18 @@ namespace
     constexpr float kPhotoTraySlotWidth = 170.0f;
     constexpr float kPhotoTraySlotHeight = 92.0f;
     constexpr float kPhotoTraySlotGap = 18.0f;
+    constexpr float kTuningPanelX = 24.0f;
+    constexpr float kTuningPanelY = 24.0f;
+    constexpr float kTuningPanelWidth = 460.0f;
+    constexpr float kTuningPanelHeight = 620.0f;
+    constexpr float kTuningRowStartY = 124.0f;
+    constexpr float kTuningRowHeight = 22.0f;
+    constexpr float kTuningSectionGap = 14.0f;
+    constexpr float kTuningSectionHeaderHeight = 24.0f;
+    constexpr float kTuningMinusButtonX = 314.0f;
+    constexpr float kTuningPlusButtonX = 390.0f;
+    constexpr float kTuningButtonWidth = 52.0f;
+    constexpr float kTuningButtonHeight = 18.0f;
 
     const char* GetStageGuideText(float playerX)
     {
@@ -59,6 +71,43 @@ namespace
             item.sourceHeight,
             item.flipX,
             item.rotation);
+    }
+
+    float GetTuningRowY(int index)
+    {
+        float y = kTuningPanelY + kTuningRowStartY;
+        if (index >= 2)
+        {
+            y += kTuningSectionHeaderHeight + kTuningSectionGap;
+        }
+        if (index >= 12)
+        {
+            y += kTuningSectionHeaderHeight + kTuningSectionGap;
+        }
+        return y + static_cast<float>(index) * kTuningRowHeight;
+    }
+
+    void DrawTuningButton(float x, float y, float width, float height, const char* label, bool highlighted)
+    {
+        DrawBox(
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(y)),
+            static_cast<int>(std::round(x + width)),
+            static_cast<int>(std::round(y + height)),
+            highlighted ? GetColor(228, 196, 120) : GetColor(48, 60, 78),
+            TRUE);
+        DrawBox(
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(y)),
+            static_cast<int>(std::round(x + width)),
+            static_cast<int>(std::round(y + height)),
+            GetColor(220, 230, 244),
+            FALSE);
+        DrawString(
+            static_cast<int>(std::round(x + 18.0f)),
+            static_cast<int>(std::round(y + 2.0f)),
+            label,
+            highlighted ? GetColor(18, 18, 22) : GetColor(232, 238, 245));
     }
 }
 
@@ -199,51 +248,103 @@ void GameScene::DrawTuningPanel()
     }
 
     const auto entries = BuildGameSceneTuningEntries();
-    bool wroteTuning = false;
+    DrawBox(
+        static_cast<int>(std::round(kTuningPanelX)),
+        static_cast<int>(std::round(kTuningPanelY)),
+        static_cast<int>(std::round(kTuningPanelX + kTuningPanelWidth)),
+        static_cast<int>(std::round(kTuningPanelY + kTuningPanelHeight)),
+        GetColor(12, 16, 22),
+        TRUE);
+    DrawBox(
+        static_cast<int>(std::round(kTuningPanelX)),
+        static_cast<int>(std::round(kTuningPanelY)),
+        static_cast<int>(std::round(kTuningPanelX + kTuningPanelWidth)),
+        static_cast<int>(std::round(kTuningPanelY + kTuningPanelHeight)),
+        GetColor(220, 230, 244),
+        FALSE);
 
-    ImGui::SetNextWindowPos(ImVec2(24.0f, 24.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(420.0f, 540.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Game Tuning", &m_debug.showTuningPanel))
-    {
-        ImGui::End();
-        return;
-    }
+    DrawString(
+        static_cast<int>(kTuningPanelX + 16.0f),
+        static_cast<int>(kTuningPanelY + 14.0f),
+        "Game Tuning",
+        GetColor(245, 248, 255));
+    DrawString(
+        static_cast<int>(kTuningPanelX + 16.0f),
+        static_cast<int>(kTuningPanelY + 42.0f),
+        "F1 close  Arrow keys adjust  Click +/- writes assets/tuning.json",
+        GetColor(178, 198, 220));
 
-    ImGui::TextUnformatted("Adjust values directly. Changes are written to assets/tuning.json.");
-    ImGui::SeparatorText("Camera");
-    for (int index = 0; index < 2; ++index)
+    const auto drawSectionHeader = [](float y, const char* label)
     {
-        if (ImGui::DragFloat(entries[index].label, entries[index].value, entries[index].step, entries[index].minValue, entries[index].maxValue, "%.2f"))
+        DrawBox(
+            static_cast<int>(std::round(kTuningPanelX + 14.0f)),
+            static_cast<int>(std::round(y)),
+            static_cast<int>(std::round(kTuningPanelX + kTuningPanelWidth - 14.0f)),
+            static_cast<int>(std::round(y + kTuningSectionHeaderHeight - 6.0f)),
+            GetColor(28, 36, 48),
+            TRUE);
+        DrawString(
+            static_cast<int>(std::round(kTuningPanelX + 24.0f)),
+            static_cast<int>(std::round(y + 2.0f)),
+            label,
+            GetColor(255, 228, 164));
+    };
+
+    drawSectionHeader(kTuningPanelY + 76.0f, "Camera");
+    drawSectionHeader(kTuningPanelY + 76.0f + (2.0f * kTuningRowHeight) + kTuningSectionHeaderHeight + kTuningSectionGap, "Player");
+    drawSectionHeader(kTuningPanelY + 76.0f + (12.0f * kTuningRowHeight) + (kTuningSectionHeaderHeight + kTuningSectionGap) * 2.0f, "Photo");
+
+    for (int index = 0; index < static_cast<int>(entries.size()); ++index)
+    {
+        const float rowY = GetTuningRowY(index);
+        const bool selected = index == m_debug.tuningSelection;
+        const int labelColor = selected ? GetColor(255, 236, 178) : GetColor(228, 234, 242);
+        const int valueColor = selected ? GetColor(255, 236, 178) : GetColor(172, 196, 220);
+
+        if (selected)
         {
-            wroteTuning = true;
+            DrawBox(
+                static_cast<int>(std::round(kTuningPanelX + 12.0f)),
+                static_cast<int>(std::round(rowY - 1.0f)),
+                static_cast<int>(std::round(kTuningPanelX + kTuningPanelWidth - 12.0f)),
+                static_cast<int>(std::round(rowY + kTuningButtonHeight + 1.0f)),
+                GetColor(38, 48, 62),
+                TRUE);
         }
+
+        DrawString(
+            static_cast<int>(std::round(kTuningPanelX + 20.0f)),
+            static_cast<int>(std::round(rowY + 1.0f)),
+            entries[index].label,
+            labelColor);
+        DrawFormatString(
+            static_cast<int>(std::round(kTuningPanelX + 190.0f)),
+            static_cast<int>(std::round(rowY + 1.0f)),
+            valueColor,
+            "%.2f",
+            *entries[index].value);
+
+        DrawTuningButton(kTuningPanelX + kTuningMinusButtonX, rowY, kTuningButtonWidth, kTuningButtonHeight, "-", selected);
+        DrawTuningButton(kTuningPanelX + kTuningPlusButtonX, rowY, kTuningButtonWidth, kTuningButtonHeight, "+", selected);
     }
 
-    ImGui::SeparatorText("Player");
-    for (int index = 2; index < 12; ++index)
-    {
-        if (ImGui::DragFloat(entries[index].label, entries[index].value, entries[index].step, entries[index].minValue, entries[index].maxValue, "%.2f"))
-        {
-            wroteTuning = true;
-        }
-    }
-    ImGui::Text("Dodge Time: %.2f", GetPlayerDodgeDuration());
+    DrawFormatString(
+        static_cast<int>(kTuningPanelX + 20.0f),
+        static_cast<int>(kTuningPanelY + kTuningPanelHeight - 34.0f),
+        GetColor(176, 208, 228),
+        "Dodge Time: %.2f",
+        GetPlayerDodgeDuration());
 
-    ImGui::SeparatorText("Photo");
-    for (int index = 12; index < static_cast<int>(entries.size()); ++index)
-    {
-        if (ImGui::DragFloat(entries[index].label, entries[index].value, entries[index].step, entries[index].minValue, entries[index].maxValue, "%.2f"))
-        {
-            wroteTuning = true;
-        }
-    }
-
-    if (wroteTuning)
-    {
-        WriteTuningJsonFile();
-    }
-
-    ImGui::End();
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
+    const int cursorOuter = GetColor(255, 242, 170);
+    const int cursorInner = GetColor(18, 22, 28);
+    DrawCircle(mouseX, mouseY, 7, cursorOuter, FALSE);
+    DrawCircle(mouseX, mouseY, 2, cursorOuter, TRUE);
+    DrawLine(mouseX - 10, mouseY, mouseX + 10, mouseY, cursorInner);
+    DrawLine(mouseX, mouseY - 10, mouseX, mouseY + 10, cursorInner);
+    DrawLine(mouseX - 9, mouseY, mouseX + 9, mouseY, cursorOuter);
+    DrawLine(mouseX, mouseY - 9, mouseX, mouseY + 9, cursorOuter);
 }
 
 void GameScene::DrawDevelopedPhotoPreview() const
