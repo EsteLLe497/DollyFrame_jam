@@ -3,6 +3,7 @@
 #include "game_scene.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 
@@ -53,11 +54,48 @@ inline float Clamp01(float value)
     return std::clamp(value, 0.0f, 1.0f);
 }
 
+struct GameSceneTuningEntry
+{
+    const char* label;
+    float* value;
+    float step;
+    float minValue;
+    float maxValue;
+};
+
 inline float GetPlayerDodgeDuration()
 {
     return gPlayerDodgeSpeed > 0.0f
         ? gPlayerDodgeDistance / gPlayerDodgeSpeed
         : 0.0f;
+}
+
+inline auto BuildGameSceneTuningEntries()
+{
+    return std::array<GameSceneTuningEntry, 21>
+    {{
+        { "Camera Width", &gCameraViewWidth, 20.0f, 640.0f, 1920.0f },
+        { "Camera Height", &gCameraViewHeight, 20.0f, 360.0f, 1080.0f },
+        { "Move Speed", &gPlayerMoveSpeed, 10.0f, 80.0f, 960.0f },
+        { "Jump Speed", &gPlayerJumpSpeed, 20.0f, -1600.0f, -120.0f },
+        { "Gravity", &gPlayerGravity, 50.0f, 200.0f, 4000.0f },
+        { "Max Fall", &gPlayerMaxFallSpeed, 20.0f, 200.0f, 2400.0f },
+        { "Dodge Speed", &gPlayerDodgeSpeed, 10.0f, 0.0f, 1600.0f },
+        { "Dodge Dist", &gPlayerDodgeDistance, 4.0f, 0.0f, 480.0f },
+        { "Dodge I-Frame", &gPlayerDodgeInvincibilitySeconds, 0.01f, 0.0f, 1.0f },
+        { "Dodge Cooldown", &gPlayerDodgeCooldown, 0.01f, 0.0f, 2.0f },
+        { "Coyote", &gCoyoteTimeSeconds, 0.01f, 0.0f, 0.4f },
+        { "Ground Snap", &gGroundSnapDistance, 0.5f, 0.0f, 24.0f },
+        { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
+        { "Capture H Tiles", &gCaptureHeightTiles, 0.25f, 1.0f, 16.0f },
+        { "Print Pad X", &gPrintedPhotoPaddingX, 1.0f, 0.0f, 80.0f },
+        { "Print Pad Top", &gPrintedPhotoPaddingTop, 1.0f, 0.0f, 80.0f },
+        { "Print Footer", &gPrintedPhotoFooterHeight, 2.0f, 0.0f, 160.0f },
+        { "Print Min W", &gPrintedPhotoMinWidth, 4.0f, 32.0f, 320.0f },
+        { "Print Min H", &gPrintedPhotoMinHeight, 4.0f, 32.0f, 400.0f },
+        { "Matte Inset", &gPrintedPhotoMatteInset, 0.5f, 0.0f, 24.0f },
+        { "Pickup Bonus", &gPickupTimeBonus, 1.0f, 0.0f, 60.0f },
+    }};
 }
 
 inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, float& a)

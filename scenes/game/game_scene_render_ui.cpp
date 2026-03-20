@@ -191,56 +191,59 @@ void GameScene::DrawCaptureOverlay() const
     Shader_ResetStyle();
 }
 
-void GameScene::DrawTuningPanel() const
+void GameScene::DrawTuningPanel()
 {
     if (!m_debug.showTuningPanel)
     {
         return;
     }
 
-    const int left = 32;
-    const int top = 32;
-    const int width = 360;
-    const int height = 360;
+    const auto entries = BuildGameSceneTuningEntries();
+    bool wroteTuning = false;
 
-    DrawBox(left, top, left + width, top + height, GetColor(18, 22, 28), TRUE);
-    DrawBox(left, top, left + width, top + height, GetColor(210, 220, 240), FALSE);
-    DrawString(left + 16, top + 14, "Tuning Panel  F1: Close", GetColor(255, 255, 255));
-    DrawString(left + 16, top + 38, "Up/Down: Select  Left/Right: Adjust", GetColor(180, 210, 255));
-
-    struct Entry
+    ImGui::SetNextWindowPos(ImVec2(24.0f, 24.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(420.0f, 540.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Game Tuning", &m_debug.showTuningPanel))
     {
-        const char* label;
-        float value;
-    };
-
-    const Entry entries[] =
-    {
-        { "Camera Width", gCameraViewWidth },
-        { "Camera Height", gCameraViewHeight },
-        { "Move Speed", gPlayerMoveSpeed },
-        { "Jump Speed", gPlayerJumpSpeed },
-        { "Gravity", gPlayerGravity },
-        { "Max Fall", gPlayerMaxFallSpeed },
-        { "Dodge Speed", gPlayerDodgeSpeed },
-        { "Dodge Dist", gPlayerDodgeDistance },
-        { "Dodge I-Frame", gPlayerDodgeInvincibilitySeconds },
-        { "Dodge Time", GetPlayerDodgeDuration() },
-        { "Coyote", gCoyoteTimeSeconds },
-        { "Ground Snap", gGroundSnapDistance },
-        { "Capture W Tiles", gCaptureWidthTiles },
-        { "Capture H Tiles", gCaptureHeightTiles },
-        { "Pickup Bonus", gPickupTimeBonus },
-    };
-
-    for (int index = 0; index < static_cast<int>(sizeof(entries) / sizeof(entries[0])); ++index)
-    {
-        const int y = top + 72 + index * 22;
-        const unsigned int color = index == m_debug.tuningSelection
-            ? GetColor(255, 240, 120)
-            : GetColor(235, 235, 235);
-        DrawFormatString(left + 16, y, color, "%c %-14s : %7.2f", index == m_debug.tuningSelection ? '>' : ' ', entries[index].label, entries[index].value);
+        ImGui::End();
+        return;
     }
+
+    ImGui::TextUnformatted("Adjust values directly. Changes are written to assets/tuning.json.");
+    ImGui::SeparatorText("Camera");
+    for (int index = 0; index < 2; ++index)
+    {
+        if (ImGui::DragFloat(entries[index].label, entries[index].value, entries[index].step, entries[index].minValue, entries[index].maxValue, "%.2f"))
+        {
+            wroteTuning = true;
+        }
+    }
+
+    ImGui::SeparatorText("Player");
+    for (int index = 2; index < 12; ++index)
+    {
+        if (ImGui::DragFloat(entries[index].label, entries[index].value, entries[index].step, entries[index].minValue, entries[index].maxValue, "%.2f"))
+        {
+            wroteTuning = true;
+        }
+    }
+    ImGui::Text("Dodge Time: %.2f", GetPlayerDodgeDuration());
+
+    ImGui::SeparatorText("Photo");
+    for (int index = 12; index < static_cast<int>(entries.size()); ++index)
+    {
+        if (ImGui::DragFloat(entries[index].label, entries[index].value, entries[index].step, entries[index].minValue, entries[index].maxValue, "%.2f"))
+        {
+            wroteTuning = true;
+        }
+    }
+
+    if (wroteTuning)
+    {
+        WriteTuningJsonFile();
+    }
+
+    ImGui::End();
 }
 
 void GameScene::DrawDevelopedPhotoPreview() const

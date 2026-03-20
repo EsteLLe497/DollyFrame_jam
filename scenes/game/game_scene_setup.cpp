@@ -39,6 +39,7 @@ namespace
         root["dodge_speed"] = gPlayerDodgeSpeed;
         root["dodge_distance"] = gPlayerDodgeDistance;
         root["dodge_invincibility"] = gPlayerDodgeInvincibilitySeconds;
+        root["dodge_cooldown"] = gPlayerDodgeCooldown;
         root["coyote_time"] = gCoyoteTimeSeconds;
         root["ground_snap_distance"] = gGroundSnapDistance;
         root["capture_width_tiles"] = gCaptureWidthTiles;
@@ -96,6 +97,7 @@ namespace game_scene_detail
         gPlayerDodgeSpeed = root.value("dodge_speed", gPlayerDodgeSpeed);
         gPlayerDodgeDistance = root.value("dodge_distance", gPlayerDodgeDistance);
         gPlayerDodgeInvincibilitySeconds = root.value("dodge_invincibility", gPlayerDodgeInvincibilitySeconds);
+        gPlayerDodgeCooldown = root.value("dodge_cooldown", gPlayerDodgeCooldown);
         gCoyoteTimeSeconds = root.value("coyote_time", gCoyoteTimeSeconds);
         gGroundSnapDistance = root.value("ground_snap_distance", gGroundSnapDistance);
         gCaptureWidthTiles = root.value("capture_width_tiles", gCaptureWidthTiles);
