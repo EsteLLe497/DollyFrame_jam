@@ -130,6 +130,16 @@ namespace
         return g_state.LeftTrigger > kTriggerThreshold;
     }
 
+    bool IsGamepadRightTriggerDown()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+        return g_state.RightTrigger > kTriggerThreshold;
+	}
+
+
     //RT‚ð‰Ÿ‚µ‚½‚Æ‚«
     bool IsGamepadRightTriggerPressed()
     {
@@ -278,8 +288,9 @@ bool Input_IsActionPressed(InputAction action)
     case InputAction::HoldCamera:
         return Input_IsKeyPressed(VK_RBUTTON);
     case InputAction::CapturePhoto:
+        return Input_IsMouseLeftPressed() || IsGamepadRightTriggerPressed();
     case InputAction::ConfirmPlacement:
-        return Input_IsMouseLeftPressed()||IsGamepadRightTriggerPressed();
+        return Input_IsMouseLeftPressed()||IsGamepadRightTriggerPressed()||IsGamepadSouthPressed();
     case InputAction::HoldPlacement:
         return Input_IsKeyPressed('E')||IsGamepadNorthPressed();
     case InputAction::CyclePlacementLayer:
@@ -427,6 +438,11 @@ bool Input_IsLeftTriggerDown()
 bool Input_IsRightTriggerPressed()
 {
     return IsGamepadRightTriggerPressed();
+}
+
+bool Input_IsRightTriggerDown()
+{
+    return IsGamepadRightTriggerDown();
 }
 
 float Input_GetRightStickX()
