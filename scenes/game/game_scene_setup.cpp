@@ -107,45 +107,12 @@ namespace game_scene_detail
 void GameScene::ResetSceneState()
 {
     m_entities.clear();
-    m_playerTouchingTarget = false;
-    m_playerTouchingHazard = false;
-    m_resultQueued = false;
-    m_playerGrounded = false;
-    m_timeRemaining = m_timeLimit;
-    m_cameraX = 0.0f;
-    m_playerVelocityX = 0.0f;
-    m_playerVelocityY = 0.0f;
-    m_goalPulse = 0.0f;
-    m_pickupPulse = 0.0f;
-    m_playerDodgeRemaining = 0.0f;
-    m_playerDodgeCooldownRemaining = 0.0f;
-    m_playerDodgeDirection = 1.0f;
-    m_coyoteTimeRemaining = 0.0f;
-    m_captureSlowRemaining = 0.0f;
-    m_placementSlowRemaining = 0.0f;
-    m_goalUnlocked = false;
-    m_cameraMode = false;
-    m_enemyCount = 0;
-    m_playerFacingRight = true;
     m_photo = PhotoState{};
-    m_shutterFlashRemaining = 0.0f;
-    m_developedPhotoPreviewRemaining = 0.0f;
-    m_showCollisionDebug = false;
-    m_showTuningPanel = false;
-    m_tuningSelection = 0;
-    m_tuningReloadTimer = 0.0f;
-    m_tuningFileWriteTime = {};
-    m_hasTuningFileWriteTime = false;
-    m_playerRunAnimationTime = 0.0f;
-    m_playerVisualScaleX = 1.0f;
-    m_playerVisualScaleY = 1.0f;
-    m_playerVisualOffsetY = 0.0f;
-    m_playerVisualRotation = 0.0f;
-    m_playerLandingImpact = 0.0f;
-    m_playerJumpStretch = 0.0f;
-    m_playerDodgeStretch = 0.0f;
-    m_photoTrayReveal = 0.0f;
-    m_playerAfterimages.clear();
+    m_flow = GameSceneFlowState{};
+    m_player = GameScenePlayerState{};
+    m_debug = GameSceneDebugState{};
+    m_flow.timeLimit = 60.0f;
+    m_flow.timeRemaining = m_flow.timeLimit;
 }
 
 void GameScene::LoadTuningState()
@@ -155,8 +122,8 @@ void GameScene::LoadTuningState()
     const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
     if (!ec)
     {
-        m_tuningFileWriteTime = writeTime;
-        m_hasTuningFileWriteTime = true;
+        m_debug.tuningFileWriteTime = writeTime;
+        m_debug.hasTuningFileWriteTime = true;
     }
 }
 

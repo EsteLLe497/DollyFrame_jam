@@ -12,6 +12,7 @@ namespace
 {
     constexpr int kMaxPhotoGroups = 3;
     constexpr float kPhotoCopyLifetimeSeconds = 10.0f;
+    constexpr float kPhotoPasteAnimationSeconds = 0.24f;
     constexpr float kPlacementRotateSpeed = 2.4f;
 
     float GetPrintedPhotoWidth(float contentWidth)
@@ -258,7 +259,7 @@ class PhotoSystem
 public:
     static void HandleCapture(GameScene& scene)
     {
-            if (!scene.m_cameraMode || !Input_IsActionPressed(InputAction::CapturePhoto))
+            if (!scene.m_flow.cameraMode || !Input_IsActionPressed(InputAction::CapturePhoto))
             {
                 return;
             }
@@ -379,7 +380,7 @@ public:
         {
             CapturedPhotoItem previewItem = item;
             ApplyPreviewFilterTheme(previewItem);
-            const float drawX = viewOriginX + ((scene.m_photo.placement.x + item.relativeX) - scene.m_cameraX) * viewScale;
+            const float drawX = viewOriginX + ((scene.m_photo.placement.x + item.relativeX) - scene.m_flow.cameraX) * viewScale;
             const float drawY = viewOriginY + (scene.m_photo.placement.y + item.relativeY) * viewScale;
             const float drawWidth = item.width * viewScale;
             const float drawHeight = item.height * viewScale;
@@ -617,8 +618,8 @@ private:
 
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
-            scene.m_shutterFlashRemaining = gShutterFlashSeconds;
-            scene.m_developedPhotoPreviewRemaining = 3.2f;
+            scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
+            scene.m_flow.developedPhotoPreviewRemaining = 3.2f;
     }
 
     static bool UpdatePlacementPreview(GameScene& scene, float& spawnX, float& spawnY, float& spawnWidth, float& spawnHeight)
@@ -633,7 +634,7 @@ private:
             const float viewOriginX = GetViewOriginX();
             const float viewOriginY = GetViewOriginY();
             const float cursorWorldX =
-                ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + scene.m_cameraX;
+                ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
             const float cursorWorldY =
                 (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
 
@@ -702,6 +703,7 @@ private:
                 lastSpawnedBox->AddComponent<TagComponent>("PhotoBox");
                 lastSpawnedBox->AddComponent<PhotoCopyGroupComponent>(groupId);
                 lastSpawnedBox->AddComponent<PhotoCopyLifetimeComponent>(kPhotoCopyLifetimeSeconds);
+                lastSpawnedBox->AddComponent<PhotoPasteAnimationComponent>(kPhotoPasteAnimationSeconds);
                 lastSpawnedBox->AddComponent<PhotoCopyRoleComponent>(item.role);
                 lastSpawnedBox->AddComponent<PhotoCopyOriginComponent>(item.origin);
                 if (item.origin == PhotoCopyOrigin::Tile && item.sourceTileValue > 0)

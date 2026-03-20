@@ -47,25 +47,25 @@ void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float 
 
     if (landedThisFrame)
     {
-        m_playerLandingImpact = 1.0f;
+        m_player.landingImpact = 1.0f;
     }
-    if (!wasGrounded && m_playerVelocityY < -80.0f)
+    if (!wasGrounded && m_player.velocityY < -80.0f)
     {
-        m_playerJumpStretch = 1.0f;
+        m_player.jumpStretch = 1.0f;
     }
     if (isDodging)
     {
-        m_playerDodgeStretch = 1.0f;
+        m_player.dodgeStretch = 1.0f;
     }
 
-    m_playerLandingImpact = std::max(0.0f, m_playerLandingImpact - deltaTime * kPlayerLandingDecay);
-    m_playerJumpStretch = std::max(0.0f, m_playerJumpStretch - deltaTime * kPlayerJumpDecay);
-    m_playerDodgeStretch = std::max(0.0f, m_playerDodgeStretch - deltaTime * kPlayerDodgeDecay);
+    m_player.landingImpact = std::max(0.0f, m_player.landingImpact - deltaTime * kPlayerLandingDecay);
+    m_player.jumpStretch = std::max(0.0f, m_player.jumpStretch - deltaTime * kPlayerJumpDecay);
+    m_player.dodgeStretch = std::max(0.0f, m_player.dodgeStretch - deltaTime * kPlayerDodgeDecay);
 
-    const float horizontalSpeedRatio = Clamp01(std::fabs(m_playerVelocityX) / std::max(1.0f, gPlayerMoveSpeed));
-    if (m_playerGrounded && horizontalSpeedRatio > 0.05f)
+    const float horizontalSpeedRatio = Clamp01(std::fabs(m_player.velocityX) / std::max(1.0f, gPlayerMoveSpeed));
+    if (m_player.grounded && horizontalSpeedRatio > 0.05f)
     {
-        m_playerRunAnimationTime += deltaTime * (2.6f + horizontalSpeedRatio * 5.2f);
+        m_player.runAnimationTime += deltaTime * (2.6f + horizontalSpeedRatio * 5.2f);
     }
 
     int frameRow = 2;
@@ -73,30 +73,30 @@ void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float 
     if (isDodging)
     {
         frameRow = 3;
-        frameColumn = m_playerFacingRight ? 2 : 3;
+        frameColumn = m_player.facingRight ? 2 : 3;
     }
-    else if (!m_playerGrounded)
+    else if (!m_player.grounded)
     {
-        if (m_playerVelocityY < -40.0f)
+        if (m_player.velocityY < -40.0f)
         {
             frameRow = 1;
-            frameColumn = m_playerFacingRight ? 2 : 4;
+            frameColumn = m_player.facingRight ? 2 : 4;
         }
         else
         {
             frameRow = 1;
-            frameColumn = m_playerFacingRight ? 1 : 3;
+            frameColumn = m_player.facingRight ? 1 : 3;
         }
     }
     else if (horizontalSpeedRatio > 0.20f)
     {
         frameRow = 3;
-        frameColumn = m_playerFacingRight ? 1 : 4;
+        frameColumn = m_player.facingRight ? 1 : 4;
     }
     else
     {
         frameRow = 2;
-        frameColumn = m_playerFacingRight ? 2 : 1;
+        frameColumn = m_player.facingRight ? 2 : 1;
     }
 
     SetSpriteSheetCell1Based(*sprite, frameRow, frameColumn);
@@ -106,9 +106,9 @@ void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float 
     float targetOffsetY = 0.0f;
     float targetRotation = 0.0f;
 
-    if (m_playerGrounded)
+    if (m_player.grounded)
     {
-        const float runWave = std::sin(m_playerRunAnimationTime * 6.2831853f);
+        const float runWave = std::sin(m_player.runAnimationTime * 6.2831853f);
         const float runBounce = std::fabs(runWave);
         targetScaleX += runBounce * 0.05f * horizontalSpeedRatio;
         targetScaleY -= runBounce * 0.07f * horizontalSpeedRatio;
@@ -116,7 +116,7 @@ void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float 
         targetRotation += runWave * 0.03f * horizontalSpeedRatio;
         targetRotation += moveAxis * 0.035f;
     }
-    else if (m_playerVelocityY < 0.0f)
+    else if (m_player.velocityY < 0.0f)
     {
         targetScaleX -= 0.05f;
         targetScaleY += 0.10f;
@@ -131,32 +131,32 @@ void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float 
         targetRotation += moveAxis * 0.04f;
     }
 
-    targetScaleX += m_playerLandingImpact * 0.14f;
-    targetScaleY -= m_playerLandingImpact * 0.18f;
-    targetOffsetY += m_playerLandingImpact * 3.5f;
+    targetScaleX += m_player.landingImpact * 0.14f;
+    targetScaleY -= m_player.landingImpact * 0.18f;
+    targetOffsetY += m_player.landingImpact * 3.5f;
 
-    targetScaleX -= m_playerJumpStretch * 0.07f;
-    targetScaleY += m_playerJumpStretch * 0.13f;
-    targetOffsetY -= m_playerJumpStretch * 2.5f;
+    targetScaleX -= m_player.jumpStretch * 0.07f;
+    targetScaleY += m_player.jumpStretch * 0.13f;
+    targetOffsetY -= m_player.jumpStretch * 2.5f;
 
-    targetScaleX += m_playerDodgeStretch * 0.13f;
-    targetScaleY -= m_playerDodgeStretch * 0.10f;
-    targetRotation += (m_playerFacingRight ? 1.0f : -1.0f) * m_playerDodgeStretch * 0.08f;
+    targetScaleX += m_player.dodgeStretch * 0.13f;
+    targetScaleY -= m_player.dodgeStretch * 0.10f;
+    targetRotation += (m_player.facingRight ? 1.0f : -1.0f) * m_player.dodgeStretch * 0.08f;
 
     const float blend = std::min(1.0f, deltaTime * kPlayerVisualSmoothing);
-    m_playerVisualScaleX += (targetScaleX - m_playerVisualScaleX) * blend;
-    m_playerVisualScaleY += (targetScaleY - m_playerVisualScaleY) * blend;
-    m_playerVisualOffsetY += (targetOffsetY - m_playerVisualOffsetY) * blend;
-    m_playerVisualRotation += (targetRotation - m_playerVisualRotation) * blend;
+    m_player.visualScaleX += (targetScaleX - m_player.visualScaleX) * blend;
+    m_player.visualScaleY += (targetScaleY - m_player.visualScaleY) * blend;
+    m_player.visualOffsetY += (targetOffsetY - m_player.visualOffsetY) * blend;
+    m_player.visualRotation += (targetRotation - m_player.visualRotation) * blend;
 
-    sprite->SetRenderScale(m_playerVisualScaleX, m_playerVisualScaleY);
-    sprite->SetRenderOffset(0.0f, m_playerVisualOffsetY);
-    sprite->SetRenderRotationOffset(m_playerVisualRotation);
+    sprite->SetRenderScale(m_player.visualScaleX, m_player.visualScaleY);
+    sprite->SetRenderOffset(0.0f, m_player.visualOffsetY);
+    sprite->SetRenderRotationOffset(m_player.visualRotation);
 }
 
 void GameScene::UpdateTuningPanel()
 {
-    if (!m_showTuningPanel)
+    if (!m_debug.showTuningPanel)
     {
         return;
     }
@@ -185,29 +185,29 @@ void GameScene::UpdateTuningPanel()
 
     if (Input_IsActionPressed(InputAction::MoveUp))
     {
-        m_tuningSelection = (m_tuningSelection + kEntryCount - 1) % kEntryCount;
+        m_debug.tuningSelection = (m_debug.tuningSelection + kEntryCount - 1) % kEntryCount;
     }
     if (Input_IsActionPressed(InputAction::MoveDown))
     {
-        m_tuningSelection = (m_tuningSelection + 1) % kEntryCount;
+        m_debug.tuningSelection = (m_debug.tuningSelection + 1) % kEntryCount;
     }
 
     float delta = 0.0f;
     if (Input_IsActionDown(InputAction::MoveLeft))
     {
-        delta -= entries[m_tuningSelection].step;
+        delta -= entries[m_debug.tuningSelection].step;
     }
     if (Input_IsActionDown(InputAction::MoveRight))
     {
-        delta += entries[m_tuningSelection].step;
+        delta += entries[m_debug.tuningSelection].step;
     }
 
     if (delta != 0.0f)
     {
-        *entries[m_tuningSelection].value = std::clamp(
-            *entries[m_tuningSelection].value + delta,
-            entries[m_tuningSelection].minValue,
-            entries[m_tuningSelection].maxValue);
+        *entries[m_debug.tuningSelection].value = std::clamp(
+            *entries[m_debug.tuningSelection].value + delta,
+            entries[m_debug.tuningSelection].minValue,
+            entries[m_debug.tuningSelection].maxValue);
         WriteTuningJsonFile();
     }
 }
@@ -226,7 +226,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         return;
     }
 
-    const bool blockPlayerInput = m_cameraMode || m_photo.placement.active;
+    const bool blockPlayerInput = m_flow.cameraMode || m_photo.placement.active;
 
     float moveAxis = 0.0f;
     if (!blockPlayerInput)
@@ -245,33 +245,33 @@ void GameScene::UpdatePlayer(float deltaTime)
         moveAxis = 0.0f;
 	}
 
-    m_playerDodgeRemaining = std::max(0.0f, m_playerDodgeRemaining - deltaTime);
-    m_playerDodgeCooldownRemaining = std::max(0.0f, m_playerDodgeCooldownRemaining - deltaTime);
+    m_player.dodgeRemaining = std::max(0.0f, m_player.dodgeRemaining - deltaTime);
+    m_player.dodgeCooldownRemaining = std::max(0.0f, m_player.dodgeCooldownRemaining - deltaTime);
     UpdatePlayerAfterimages(deltaTime);
 
     if (moveAxis > 0.1f)
     {
-        m_playerFacingRight = true;
+        m_player.facingRight = true;
     }
     else if (moveAxis < -0.1f)
     {
-        m_playerFacingRight = false;
+        m_player.facingRight = false;
     }
 
     const bool dodgePressed = blockPlayerInput?false:Input_IsActionPressed(InputAction::Dodge);
-    if (dodgePressed && m_playerDodgeRemaining <= 0.0f && m_playerDodgeCooldownRemaining <= 0.0f)
+    if (dodgePressed && m_player.dodgeRemaining <= 0.0f && m_player.dodgeCooldownRemaining <= 0.0f)
     {
-        m_playerDodgeDirection = moveAxis != 0.0f ? (moveAxis > 0.0f ? 1.0f : -1.0f) : (m_playerFacingRight ? 1.0f : -1.0f);
-        m_playerFacingRight = m_playerDodgeDirection > 0.0f;
-        m_playerDodgeRemaining = gPlayerDodgeDuration;
-        m_playerDodgeCooldownRemaining = gPlayerDodgeCooldown;
+        m_player.dodgeDirection = moveAxis != 0.0f ? (moveAxis > 0.0f ? 1.0f : -1.0f) : (m_player.facingRight ? 1.0f : -1.0f);
+        m_player.facingRight = m_player.dodgeDirection > 0.0f;
+        m_player.dodgeRemaining = gPlayerDodgeDuration;
+        m_player.dodgeCooldownRemaining = gPlayerDodgeCooldown;
         m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
         m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Player dodged", 0.0f, 0.0f });
     }
 
-    const bool isDodging = m_playerDodgeRemaining > 0.0f;
-    m_playerVelocityX = isDodging
-        ? m_playerDodgeDirection * gPlayerDodgeSpeed
+    const bool isDodging = m_player.dodgeRemaining > 0.0f;
+    m_player.velocityX = isDodging
+        ? m_player.dodgeDirection * gPlayerDodgeSpeed
         : moveAxis * gPlayerMoveSpeed;
 
     const float tileSize = m_tileMap.GetTileSize();
@@ -283,39 +283,39 @@ void GameScene::UpdatePlayer(float deltaTime)
     const float previousY = transform->y;
     const float previousBottom = previousY + playerHeight;
     const bool wasGrounded = IsStandingOnGround(*transform);
-    m_playerGrounded = wasGrounded;
+    m_player.grounded = wasGrounded;
     if (wasGrounded)
     {
-        m_coyoteTimeRemaining = gCoyoteTimeSeconds;
+        m_player.coyoteTimeRemaining = gCoyoteTimeSeconds;
     }
 
-    if (wasGrounded && m_playerVelocityY > 0.0f)
+    if (wasGrounded && m_player.velocityY > 0.0f)
     {
-        m_playerVelocityY = 0.0f;
+        m_player.velocityY = 0.0f;
     }
 
     const bool jumpPressed =blockPlayerInput?false: Input_IsActionPressed(InputAction::Jump);
-    const bool canJumpNow = !isDodging && jumpPressed && m_coyoteTimeRemaining > 0.0f;
+    const bool canJumpNow = !isDodging && jumpPressed && m_player.coyoteTimeRemaining > 0.0f;
     if (canJumpNow)
     {
-        m_playerVelocityY = gPlayerJumpSpeed;
-        m_playerGrounded = false;
-        m_coyoteTimeRemaining = 0.0f;
+        m_player.velocityY = gPlayerJumpSpeed;
+        m_player.grounded = false;
+        m_player.coyoteTimeRemaining = 0.0f;
         m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
     }
 
-    if (m_playerGrounded && !canJumpNow)
+    if (m_player.grounded && !canJumpNow)
     {
-        m_playerVelocityY = 0.0f;
+        m_player.velocityY = 0.0f;
     }
     else
     {
-        m_playerVelocityY = std::min(gPlayerMaxFallSpeed, m_playerVelocityY + gPlayerGravity * deltaTime);
+        m_player.velocityY = std::min(gPlayerMaxFallSpeed, m_player.velocityY + gPlayerGravity * deltaTime);
     }
-    const float verticalSnapDistance = std::max(gGroundSnapDistance, std::fabs(m_playerVelocityY) * deltaTime + 4.0f);
+    const float verticalSnapDistance = std::max(gGroundSnapDistance, std::fabs(m_player.velocityY) * deltaTime + 4.0f);
 
-    transform->x += m_playerVelocityX * deltaTime;
-    if (m_playerVelocityX > 0.0f)
+    transform->x += m_player.velocityX * deltaTime;
+    if (m_player.velocityX > 0.0f)
     {
         const int column = static_cast<int>((transform->x + playerWidth - 1.0f) / tileSize);
         const int rowStart = static_cast<int>((transform->y + 4.0f) / tileSize);
@@ -325,12 +325,12 @@ void GameScene::UpdatePlayer(float deltaTime)
             if (IsSolidTile(column, row))
             {
                 transform->x = static_cast<float>(column) * tileSize - playerWidth;
-                m_playerVelocityX = 0.0f;
+                m_player.velocityX = 0.0f;
                 break;
             }
         }
     }
-    else if (m_playerVelocityX < 0.0f)
+    else if (m_player.velocityX < 0.0f)
     {
         const int column = static_cast<int>(transform->x / tileSize);
         const int rowStart = static_cast<int>((transform->y + 4.0f) / tileSize);
@@ -340,7 +340,7 @@ void GameScene::UpdatePlayer(float deltaTime)
             if (IsSolidTile(column, row))
             {
                 transform->x = static_cast<float>(column + 1) * tileSize;
-                m_playerVelocityX = 0.0f;
+                m_player.velocityX = 0.0f;
                 break;
             }
         }
@@ -374,16 +374,16 @@ void GameScene::UpdatePlayer(float deltaTime)
 
             const float photoBoxX = photoBoxBounds.x;
             const float photoBoxWidth = photoBoxBounds.width * photoBoxBounds.scale;
-            if (m_playerVelocityX > 0.0f && previousX + playerWidth <= photoBoxX + kHorizontalCollisionEpsilon)
+            if (m_player.velocityX > 0.0f && previousX + playerWidth <= photoBoxX + kHorizontalCollisionEpsilon)
             {
                 transform->x = photoBoxX - playerWidth;
-                m_playerVelocityX = 0.0f;
+                m_player.velocityX = 0.0f;
                 break;
             }
-            if (m_playerVelocityX < 0.0f && previousX >= photoBoxX + photoBoxWidth - kHorizontalCollisionEpsilon)
+            if (m_player.velocityX < 0.0f && previousX >= photoBoxX + photoBoxWidth - kHorizontalCollisionEpsilon)
             {
                 transform->x = photoBoxX + photoBoxWidth;
-                m_playerVelocityX = 0.0f;
+                m_player.velocityX = 0.0f;
                 break;
             }
         }
@@ -395,28 +395,28 @@ void GameScene::UpdatePlayer(float deltaTime)
         TransformComponent photoSourceBounds(photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight);
         if (IntersectsRect(playerBounds, photoSourceBounds))
         {
-            if (m_playerVelocityX > 0.0f && previousX + playerWidth <= photoSourceX + kHorizontalCollisionEpsilon)
+            if (m_player.velocityX > 0.0f && previousX + playerWidth <= photoSourceX + kHorizontalCollisionEpsilon)
             {
                 transform->x = photoSourceX - playerWidth;
-                m_playerVelocityX = 0.0f;
+                m_player.velocityX = 0.0f;
             }
-            else if (m_playerVelocityX < 0.0f && previousX >= photoSourceX + photoSourceWidth - kHorizontalCollisionEpsilon)
+            else if (m_player.velocityX < 0.0f && previousX >= photoSourceX + photoSourceWidth - kHorizontalCollisionEpsilon)
             {
                 transform->x = photoSourceX + photoSourceWidth;
-                m_playerVelocityX = 0.0f;
+                m_player.velocityX = 0.0f;
             }
         }
     }
 
-    m_playerGrounded = false;
-    if (m_playerVelocityY == 0.0f && wasGrounded)
+    m_player.grounded = false;
+    if (m_player.velocityY == 0.0f && wasGrounded)
     {
-        m_playerGrounded = TrySnapToGround(*transform, verticalSnapDistance);
+        m_player.grounded = TrySnapToGround(*transform, verticalSnapDistance);
     }
     else
     {
-        transform->y += m_playerVelocityY * deltaTime;
-        if (m_playerVelocityY > 0.0f)
+        transform->y += m_player.velocityY * deltaTime;
+        if (m_player.velocityY > 0.0f)
         {
             const int rowStart = static_cast<int>(previousBottom / tileSize);
             const int rowEnd = static_cast<int>((transform->y + playerHeight - 1.0f) / tileSize);
@@ -434,8 +434,8 @@ void GameScene::UpdatePlayer(float deltaTime)
                     if (solidHit || platformHit)
                     {
                         transform->y = static_cast<float>(row) * tileSize - playerHeight;
-                        m_playerVelocityY = 0.0f;
-                        m_playerGrounded = true;
+                        m_player.velocityY = 0.0f;
+                        m_player.grounded = true;
                         collided = true;
                         break;
                     }
@@ -446,7 +446,7 @@ void GameScene::UpdatePlayer(float deltaTime)
                 }
             }
 
-            if (!m_playerGrounded && hasPhotoBox)
+            if (!m_player.grounded && hasPhotoBox)
             {
                 for (const auto& photoBoxBounds : photoBoxes)
                 {
@@ -456,13 +456,13 @@ void GameScene::UpdatePlayer(float deltaTime)
                         previousBottom <= photoBoxBounds.y + kSurfaceContactEpsilon)
                     {
                         transform->y = photoBoxBounds.y - playerHeight;
-                        m_playerVelocityY = 0.0f;
-                        m_playerGrounded = true;
+                        m_player.velocityY = 0.0f;
+                        m_player.grounded = true;
                         break;
                     }
                 }
             }
-            if (!m_playerGrounded && hasPhotoSource)
+            if (!m_player.grounded && hasPhotoSource)
             {
                 TransformComponent playerBounds(transform->x, transform->y, transform->width, transform->height);
                 playerBounds.scale = transform->scale;
@@ -470,12 +470,12 @@ void GameScene::UpdatePlayer(float deltaTime)
                 if (IntersectsRect(playerBounds, photoSourceBounds) && previousBottom <= photoSourceY + kSurfaceContactEpsilon)
                 {
                     transform->y = photoSourceY - playerHeight;
-                    m_playerVelocityY = 0.0f;
-                    m_playerGrounded = true;
+                    m_player.velocityY = 0.0f;
+                    m_player.grounded = true;
                 }
             }
         }
-        else if (m_playerVelocityY < 0.0f)
+        else if (m_player.velocityY < 0.0f)
         {
             const int rowStart = static_cast<int>(previousY / tileSize);
             const int rowEnd = static_cast<int>(transform->y / tileSize);
@@ -489,7 +489,7 @@ void GameScene::UpdatePlayer(float deltaTime)
                     if (IsSolidTile(column, row))
                     {
                         transform->y = static_cast<float>(row + 1) * tileSize;
-                        m_playerVelocityY = 0.0f;
+                        m_player.velocityY = 0.0f;
                         collided = true;
                         break;
                     }
@@ -511,7 +511,7 @@ void GameScene::UpdatePlayer(float deltaTime)
                         previousY >= photoBoxBounds.y + photoBoxHeight - kSurfaceContactEpsilon)
                     {
                         transform->y = photoBoxBounds.y + photoBoxHeight;
-                        m_playerVelocityY = 0.0f;
+                        m_player.velocityY = 0.0f;
                         break;
                     }
                 }
@@ -524,16 +524,16 @@ void GameScene::UpdatePlayer(float deltaTime)
                 if (IntersectsRect(playerBounds, photoSourceBounds) && previousY >= photoSourceY + photoSourceHeight - kSurfaceContactEpsilon)
                 {
                     transform->y = photoSourceY + photoSourceHeight;
-                    m_playerVelocityY = 0.0f;
+                    m_player.velocityY = 0.0f;
                 }
             }
         }
-        if (!m_playerGrounded && m_playerVelocityY >= 0.0f)
+        if (!m_player.grounded && m_player.velocityY >= 0.0f)
         {
             if (TrySnapToGround(*transform, verticalSnapDistance))
             {
-                m_playerVelocityY = 0.0f;
-                m_playerGrounded = true;
+                m_player.velocityY = 0.0f;
+                m_player.grounded = true;
             }
         }
     }
@@ -541,42 +541,42 @@ void GameScene::UpdatePlayer(float deltaTime)
     if (transform->y + playerHeight >= mapHeight)
     {
         transform->y = mapHeight - playerHeight;
-        m_playerVelocityY = 0.0f;
-        m_playerGrounded = true;
+        m_player.velocityY = 0.0f;
+        m_player.grounded = true;
     }
 
-    const bool landedThisFrame = !wasGrounded && m_playerGrounded;
+    const bool landedThisFrame = !wasGrounded && m_player.grounded;
     UpdatePlayerPresentation(*player, deltaTime, moveAxis, wasGrounded, isDodging, landedThisFrame);
 
     const float cameraTarget = std::clamp(
         transform->x + playerWidth * 0.5f - gCameraViewWidth * 0.5f,
         0.0f,
         std::max(0.0f, mapWidth - gCameraViewWidth));
-    m_cameraX += (cameraTarget - m_cameraX) * std::min(1.0f, deltaTime * 8.0f);
+    m_flow.cameraX += (cameraTarget - m_flow.cameraX) * std::min(1.0f, deltaTime * 8.0f);
 }
 
 void GameScene::UpdatePlayerAfterimages(float deltaTime)
 {
-    for (auto& afterimage : m_playerAfterimages)
+    for (auto& afterimage : m_player.afterimages)
     {
         afterimage.life = std::max(0.0f, afterimage.life - deltaTime);
     }
-    m_playerAfterimages.erase(
+    m_player.afterimages.erase(
         std::remove_if(
-            m_playerAfterimages.begin(),
-            m_playerAfterimages.end(),
+            m_player.afterimages.begin(),
+            m_player.afterimages.end(),
             [](const PlayerAfterimage& afterimage)
             {
                 return afterimage.life <= 0.0f;
             }),
-        m_playerAfterimages.end());
+        m_player.afterimages.end());
 }
 
 void GameScene::TrySpawnPlayerAfterimage(const TransformComponent& transform)
 {
     const bool shouldAddAfterimage =
-        m_playerAfterimages.empty() ||
-        (kPlayerAfterimageLifetime - m_playerAfterimages.front().life) >= kPlayerAfterimageSpawnInterval;
+        m_player.afterimages.empty() ||
+        (kPlayerAfterimageLifetime - m_player.afterimages.front().life) >= kPlayerAfterimageSpawnInterval;
     if (!shouldAddAfterimage)
     {
         return;
@@ -587,12 +587,12 @@ void GameScene::TrySpawnPlayerAfterimage(const TransformComponent& transform)
     afterimage.y = transform.y;
     afterimage.rotation = transform.rotation;
     afterimage.scale = transform.scale;
-    afterimage.flipX = m_playerFacingRight ? false : true;
+    afterimage.flipX = m_player.facingRight ? false : true;
     afterimage.life = kPlayerAfterimageLifetime;
-    m_playerAfterimages.insert(m_playerAfterimages.begin(), afterimage);
-    if (static_cast<int>(m_playerAfterimages.size()) > kMaxPlayerAfterimages)
+    m_player.afterimages.insert(m_player.afterimages.begin(), afterimage);
+    if (static_cast<int>(m_player.afterimages.size()) > kMaxPlayerAfterimages)
     {
-        m_playerAfterimages.resize(kMaxPlayerAfterimages);
+        m_player.afterimages.resize(kMaxPlayerAfterimages);
     }
 }
 
@@ -683,13 +683,9 @@ void GameScene::ConsumeSelectedPhotoSlot()
     m_photo.placement.valid = false;
 }
 
-void GameScene::UpdatePhotoTraySelection()
-{
-
-}
 void GameScene::UpdateEnemies()
 {
-    m_enemyCount = 0;
+    m_flow.enemyCount = 0;
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -700,10 +696,10 @@ void GameScene::UpdateEnemies()
         const auto* enemy = entity->GetComponent<EnemyComponent>();
         if (enemy && enemy->IsEnabled())
         {
-            ++m_enemyCount;
+            ++m_flow.enemyCount;
         }
     }
-    m_goalUnlocked = m_photo.groups.hasSpawnedCopy;
+    m_flow.goalUnlocked = m_photo.groups.hasSpawnedCopy;
 }
 
 void GameScene::HandleAttackHits()
@@ -713,13 +709,13 @@ void GameScene::HandleAttackHits()
 
 void GameScene::UpdateGoalVisual(float deltaTime)
 {
-    m_goalPulse += deltaTime;
+    m_flow.goalPulse += deltaTime;
     if (Entity* goal = FindEntityByTag("Goal"))
     {
         if (auto* tint = goal->GetComponent<TintComponent>())
         {
-            const float pulse = 0.65f + 0.35f * std::sin(m_goalPulse * 3.2f);
-            if (m_goalUnlocked)
+            const float pulse = 0.65f + 0.35f * std::sin(m_flow.goalPulse * 3.2f);
+            if (m_flow.goalUnlocked)
             {
                 tint->r = 0.32f + pulse * 0.18f;
                 tint->g = 0.92f;
@@ -744,32 +740,58 @@ void GameScene::HandleWorldInteractions()
         return;
     }
 
-    m_playerTouchingHazard = false;
-    m_playerTouchingTarget = false;
+    m_flow.playerTouchingHazard = false;
+    m_flow.playerTouchingTarget = false;
 
-    if (auto* playerTransform = player->GetComponent<TransformComponent>())
-    {
-        if (IntersectsHazardTile(*playerTransform))
-        {
-            m_playerTouchingHazard = true;
-            HandlePlayerDamage(*player, nullptr, "GameScene player damaged by hazard tile");
-        }
-
-        if (m_goalUnlocked && IntersectsGoalTile(*playerTransform))
-        {
-            m_playerTouchingTarget = true;
-            if (!m_resultQueued)
-            {
-                m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "contact_tone", 0.0f, 0.0f });
-                QueueResult(GameEndReason::GoalReached);
-            }
-        }
-    }
+    HandleWorldTileInteractions(*player);
 
     std::vector<Entity*> consumedGimmicks;
+    HandleWorldEntityInteractions(*player, consumedGimmicks);
+
+    std::vector<Entity*> consumedPickups;
+    std::vector<Entity*> defeatedEnemies;
+    HandlePhotoBoxInteractions(*player, consumedPickups, defeatedEnemies);
+
+    std::vector<Entity*> entitiesToRemove = consumedGimmicks;
+    entitiesToRemove.insert(entitiesToRemove.end(), consumedPickups.begin(), consumedPickups.end());
+    RemoveEntitiesByPointerList(entitiesToRemove);
+
+    if (!defeatedEnemies.empty())
+    {
+        m_eventBus.Publish({ EventType::LogMessage, player, defeatedEnemies.front(), "Invert photo neutralized an enemy", 0.0f, 0.0f });
+    }
+}
+
+void GameScene::HandleWorldTileInteractions(Entity& player)
+{
+    auto* playerTransform = player.GetComponent<TransformComponent>();
+    if (!playerTransform)
+    {
+        return;
+    }
+
+    if (IntersectsHazardTile(*playerTransform))
+    {
+        m_flow.playerTouchingHazard = true;
+        HandlePlayerDamage(player, nullptr, "GameScene player damaged by hazard tile");
+    }
+
+    if (m_flow.goalUnlocked && IntersectsGoalTile(*playerTransform))
+    {
+        m_flow.playerTouchingTarget = true;
+        if (!m_flow.resultQueued)
+        {
+            m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "contact_tone", 0.0f, 0.0f });
+            QueueResult(GameEndReason::GoalReached);
+        }
+    }
+}
+
+void GameScene::HandleWorldEntityInteractions(Entity& player, std::vector<Entity*>& consumedGimmicks)
+{
     for (const auto& entity : m_entities)
     {
-        if (!entity || entity.get() == player || !IntersectsEntity(*player, *entity))
+        if (!entity || entity.get() == &player || !IntersectsEntity(player, *entity))
         {
             continue;
         }
@@ -778,8 +800,8 @@ void GameScene::HandleWorldInteractions()
         {
             if (enemy->IsEnabled())
             {
-                m_playerTouchingHazard = true;
-                HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by enemy");
+                m_flow.playerTouchingHazard = true;
+                HandlePlayerDamage(player, entity.get(), "GameScene player damaged by enemy");
             }
         }
 
@@ -792,20 +814,20 @@ void GameScene::HandleWorldInteractions()
         switch (gimmick->GetType())
         {
         case GimmickType::Hazard:
-            m_playerTouchingHazard = true;
-            HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by gimmick hazard");
+            m_flow.playerTouchingHazard = true;
+            HandlePlayerDamage(player, entity.get(), "GameScene player damaged by gimmick hazard");
             break;
         case GimmickType::Goal:
-            if (m_goalUnlocked && !m_resultQueued)
+            if (m_flow.goalUnlocked && !m_flow.resultQueued)
             {
-                m_playerTouchingTarget = true;
-                m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "contact_tone", 0.0f, 0.0f });
+                m_flow.playerTouchingTarget = true;
+                m_eventBus.Publish({ EventType::PlaySoundRequest, &player, entity.get(), "contact_tone", 0.0f, 0.0f });
                 QueueResult(GameEndReason::GoalReached);
             }
             break;
         case GimmickType::Pickup:
-            m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "scene_change", 0.0f, 0.0f });
-            m_eventBus.Publish({ EventType::LogMessage, player, entity.get(), "Picked up gimmick item", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::PlaySoundRequest, &player, entity.get(), "scene_change", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, &player, entity.get(), "Picked up gimmick item", 0.0f, 0.0f });
             gimmick->Consume();
             if (gimmick->IsConsumed())
             {
@@ -819,9 +841,10 @@ void GameScene::HandleWorldInteractions()
             break;
         }
     }
+}
 
-    std::vector<Entity*> consumedPickups;
-    std::vector<Entity*> defeatedEnemies;
+void GameScene::HandlePhotoBoxInteractions(Entity& player, std::vector<Entity*>& consumedPickups, std::vector<Entity*>& defeatedEnemies)
+{
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, "PhotoBox"))
@@ -831,7 +854,7 @@ void GameScene::HandleWorldInteractions()
 
         const auto* photoRole = entity->GetComponent<PhotoCopyRoleComponent>();
         const auto* photoLayer = entity->GetComponent<PhotoCopyLayerComponent>();
-        if (!photoRole || !IntersectsEntity(*player, *entity))
+        if (!photoRole || !IntersectsEntity(player, *entity))
         {
             continue;
         }
@@ -843,8 +866,8 @@ void GameScene::HandleWorldInteractions()
         switch (photoRole->role)
         {
         case PhotoCopyRole::Hazard:
-            m_playerTouchingHazard = true;
-            HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by copied hazard");
+            m_flow.playerTouchingHazard = true;
+            HandlePlayerDamage(player, entity.get(), "GameScene player damaged by copied hazard");
             break;
         case PhotoCopyRole::Ally:
             for (const auto& enemyEntity : m_entities)
@@ -865,16 +888,16 @@ void GameScene::HandleWorldInteractions()
             }
             break;
         case PhotoCopyRole::GoalRelay:
-            if (m_goalUnlocked && !m_resultQueued)
+            if (m_flow.goalUnlocked && !m_flow.resultQueued)
             {
-                m_playerTouchingTarget = true;
-                m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "contact_tone", 0.0f, 0.0f });
+                m_flow.playerTouchingTarget = true;
+                m_eventBus.Publish({ EventType::PlaySoundRequest, &player, entity.get(), "contact_tone", 0.0f, 0.0f });
                 QueueResult(GameEndReason::GoalReached);
             }
             break;
         case PhotoCopyRole::Pickup:
-            m_eventBus.Publish({ EventType::PlaySoundRequest, player, entity.get(), "scene_change", 0.0f, 0.0f });
-            m_eventBus.Publish({ EventType::LogMessage, player, entity.get(), "Picked up copied item", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::PlaySoundRequest, &player, entity.get(), "scene_change", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, &player, entity.get(), "Picked up copied item", 0.0f, 0.0f });
             consumedPickups.push_back(entity.get());
             break;
         case PhotoCopyRole::Solid:
@@ -882,30 +905,24 @@ void GameScene::HandleWorldInteractions()
             break;
         }
     }
+}
 
-    if (!consumedGimmicks.empty() || !consumedPickups.empty())
+void GameScene::RemoveEntitiesByPointerList(const std::vector<Entity*>& entitiesToRemove)
+{
+    if (entitiesToRemove.empty())
     {
-        m_entities.erase(
-            std::remove_if(
-                m_entities.begin(),
-                m_entities.end(),
-                [&](const std::unique_ptr<Entity>& entity)
-                {
-                    if (!entity)
-                    {
-                        return false;
-                    }
-
-                    return std::find(consumedGimmicks.begin(), consumedGimmicks.end(), entity.get()) != consumedGimmicks.end() ||
-                        std::find(consumedPickups.begin(), consumedPickups.end(), entity.get()) != consumedPickups.end();
-                }),
-            m_entities.end());
+        return;
     }
 
-    if (!defeatedEnemies.empty())
-    {
-        m_eventBus.Publish({ EventType::LogMessage, player, defeatedEnemies.front(), "Invert photo neutralized an enemy", 0.0f, 0.0f });
-    }
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [&](const std::unique_ptr<Entity>& entity)
+            {
+                return entity && std::find(entitiesToRemove.begin(), entitiesToRemove.end(), entity.get()) != entitiesToRemove.end();
+            }),
+        m_entities.end());
 }
 
 void GameScene::RemoveDefeatedEnemies()
@@ -932,6 +949,11 @@ void GameScene::RemoveDefeatedEnemies()
             }),
         m_entities.end());
 
+    RefreshPhotoGroupState();
+}
+
+void GameScene::RefreshPhotoGroupState()
+{
     m_photo.groups.hasSpawnedCopy = FindEntityByTag("PhotoBox") != nullptr;
     int maxGroupId = 0;
     std::vector<int> groups;
@@ -957,7 +979,7 @@ void GameScene::RemoveDefeatedEnemies()
 
 void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage)
 {
-    if (m_playerDodgeRemaining > 0.0f)
+    if (m_player.dodgeRemaining > 0.0f)
     {
         return;
     }
@@ -983,7 +1005,7 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
     GameSession_SetCurrentHp(health->GetCurrentHealth());
     m_eventBus.Publish({ EventType::PlaySoundRequest, &player, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &player, sourceEntity, logMessage, 0.0f, 0.0f });
-    if (health->IsDead() && !m_resultQueued)
+    if (health->IsDead() && !m_flow.resultQueued)
     {
         QueueResult(GameEndReason::HpZero);
     }
@@ -991,12 +1013,12 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
 
 void GameScene::QueueResult(GameEndReason reason)
 {
-    if (m_resultQueued)
+    if (m_flow.resultQueued)
     {
         return;
     }
 
-    m_resultQueued = true;
+    m_flow.resultQueued = true;
     GameSession_SetEndReason(reason);
     m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "result", 0.0f, 0.0f });
 }

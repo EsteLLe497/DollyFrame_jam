@@ -8,6 +8,9 @@
 このプロジェクトは、完全なエンジンではなく「ゲーム本体にかなり近い基盤」です。  
 そのため、見た目を変えるだけでも `GameScene` 側のコードに触ることがあります。
 
+設計レベルで競合を減らす方針は `docs/conflict-free-design.md` にまとめています。  
+実装前に「どの state / system の責務か」を先に見ると事故を減らせます。
+
 大事なのは次の 3 つです。
 
 - 変更対象を最初に狭く決める
@@ -107,9 +110,9 @@
 5. `game_scene_gameplay.cpp`
 6. `game_scene_render.cpp`
 7. `game_scene_render_ui.cpp`
-8. `components.h`
-9. `assets/prefabs.json`
-10. `assets/maps/side_scroll_stage01.csv`
+8. `photo_components.h`
+9. `world_components.h`
+10. `assets/prefabs.json`
 
 ## 4. よくある変更パターン
 
@@ -117,10 +120,8 @@
 
 触る場所:
 
-- `components.h`
+- `photo_components.h`
   `PhotoFilterTheme`
-- `components.cpp`
-  テーマ名表示
 - `game_scene.cpp`
   入力切り替え
 - `game_scene_gameplay.cpp`
@@ -134,7 +135,7 @@
 
 最小手順:
 
-1. `components.*` に状態を足す
+1. `world_components.*` に状態を足す
 2. `assets/prefabs.json` に定義し、`game_scene_setup.cpp` に配置を追加する
 3. 必要なら `prefab_factory.*` と `assets/prefabs.json` を更新する
 
@@ -144,8 +145,9 @@
 
 敵を触る人は、まず次を見ます。
 
-- `components.h`
-- `components.cpp`
+- `world_components.h`
+- `world_components.cpp`
+- `photo_components.h`
 - `game_scene_setup.cpp`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
@@ -301,7 +303,7 @@ PR を出す前に、自分で次を見ます。
 
 よく触る場所:
 
-- `components.*`
+- `world_components.*`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
 - `game_scene_render_ui.cpp`
@@ -347,6 +349,10 @@ PR を出す前に、自分で次を見ます。
 - `game_scene_render_ui.cpp`
 - `components.h`
 - `components.cpp`
+- `photo_components.h`
+- `photo_components.cpp`
+- `world_components.h`
+- `world_components.cpp`
 - `DirectXFoundation.vcxproj`
 - バイナリ生成物
 

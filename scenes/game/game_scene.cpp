@@ -12,46 +12,7 @@ namespace
 GameScene::GameScene()
     : m_whiteTexture(-1)
     , m_tileTexture(-1)
-    , m_playerTouchingTarget(false)
-    , m_playerTouchingHazard(false)
-    , m_resultQueued(false)
-    , m_playerGrounded(false)
-    , m_timeLimit(60.0f)
-    , m_timeRemaining(60.0f)
-    , m_cameraX(0.0f)
-    , m_playerVelocityX(0.0f)
-    , m_playerVelocityY(0.0f)
-    , m_goalPulse(0.0f)
-    , m_pickupPulse(0.0f)
-    , m_playerDodgeRemaining(0.0f)
-    , m_playerDodgeCooldownRemaining(0.0f)
-    , m_playerDodgeDirection(1.0f)
-    , m_coyoteTimeRemaining(0.0f)
-    , m_captureSlowRemaining(0.0f)
-    , m_placementSlowRemaining(0.0f)
-    , m_goalUnlocked(false)
-    , m_cameraMode(false)
-    , m_enemyCount(0)
-    , m_playerFacingRight(true)
     , m_photo()
-    , m_shutterFlashRemaining(0.0f)
-    , m_developedPhotoPreviewRemaining(0.0f)
-    , m_showCollisionDebug(false)
-    , m_showTuningPanel(false)
-    , m_tuningSelection(0)
-    , m_tuningReloadTimer(0.0f)
-    , m_tuningFileWriteTime()
-    , m_hasTuningFileWriteTime(false)
-    , m_playerRunAnimationTime(0.0f)
-    , m_playerVisualScaleX(1.0f)
-    , m_playerVisualScaleY(1.0f)
-    , m_playerVisualOffsetY(0.0f)
-    , m_playerVisualRotation(0.0f)
-    , m_playerLandingImpact(0.0f)
-    , m_playerJumpStretch(0.0f)
-    , m_playerDodgeStretch(0.0f)
-    , m_photoTrayReveal(0.0f)
-    , m_playerAfterimages()
 {
 }
 
@@ -69,7 +30,7 @@ void GameScene::OnEnter(ResourceManager& resources)
     InitializeStageResources(resources);
     InitializeStageEntities();
 
-    GameSession_Reset(3, m_timeLimit);
+    GameSession_Reset(3, m_flow.timeLimit);
     Logger::Info("GameScene entered as photo sandbox stage");
 }
 
@@ -85,16 +46,16 @@ void GameScene::Update(float deltaTime)
     ZoneScoped;
 
     m_eventBus.Clear();
-    m_tuningReloadTimer = std::max(0.0f, m_tuningReloadTimer - deltaTime);
-    if (m_tuningReloadTimer <= 0.0f)
+    m_debug.tuningReloadTimer = std::max(0.0f, m_debug.tuningReloadTimer - deltaTime);
+    if (m_debug.tuningReloadTimer <= 0.0f)
     {
-        m_tuningReloadTimer = 0.25f;
+        m_debug.tuningReloadTimer = 0.25f;
         std::error_code ec;
         const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
-        if (!ec && (!m_hasTuningFileWriteTime || writeTime != m_tuningFileWriteTime))
+        if (!ec && (!m_debug.hasTuningFileWriteTime || writeTime != m_debug.tuningFileWriteTime))
         {
-            m_tuningFileWriteTime = writeTime;
-            m_hasTuningFileWriteTime = true;
+            m_debug.tuningFileWriteTime = writeTime;
+            m_debug.hasTuningFileWriteTime = true;
             LoadTuningJsonFile();
         }
     }
@@ -108,11 +69,11 @@ void GameScene::Update(float deltaTime)
     }
     if (Input_IsActionPressed(InputAction::ToggleTuningPanel))
     {
-        m_showTuningPanel = !m_showTuningPanel;
+        m_debug.showTuningPanel = !m_debug.showTuningPanel;
     }
     if (Input_IsActionPressed(InputAction::ToggleCollisionDebug))
     {
-        m_showCollisionDebug = !m_showCollisionDebug;
+        m_debug.showCollisionDebug = !m_debug.showCollisionDebug;
     }
     if (Input_IsActionPressed(InputAction::SelectFilterNone))
     {
@@ -140,47 +101,43 @@ void GameScene::Update(float deltaTime)
     }
 
     UpdateTuningPanel();
-    if (m_showTuningPanel)
+    if (m_debug.showTuningPanel)
     {
         return;
     }
 
     UpdateCameraMode();
     const bool placementHeld = m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
-    const bool showPhotoTray = m_cameraMode || placementHeld || m_photo.placement.active;
+    const bool showPhotoTray = m_flow.cameraMode || placementHeld || m_photo.placement.active;
     const float trayTarget = showPhotoTray ? 1.0f : 0.0f;
-    m_photoTrayReveal += (trayTarget - m_photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
-    if (m_cameraMode || placementHeld || m_photo.placement.active)
-    {
-        UpdatePhotoTraySelection();
-    }
+    m_flow.photoTrayReveal += (trayTarget - m_flow.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
     if (Input_IsActionPressed(InputAction::HoldCamera))
     {
-        m_captureSlowRemaining = kCaptureFocusDuration;
+        m_flow.captureSlowRemaining = kCaptureFocusDuration;
     }
     if (m_photo.capture.hasPhoto && Input_IsActionPressed(InputAction::HoldPlacement))
     {
-        m_placementSlowRemaining = kPlacementFocusDuration;
+        m_flow.placementSlowRemaining = kPlacementFocusDuration;
     }
 
-    m_captureSlowRemaining = std::max(0.0f, m_captureSlowRemaining - deltaTime);
-    m_placementSlowRemaining = std::max(0.0f, m_placementSlowRemaining - deltaTime);
-    const bool slowForCapture = m_cameraMode && m_captureSlowRemaining > 0.0f;
-    const bool slowForPlacement = placementHeld && m_placementSlowRemaining > 0.0f;
+    m_flow.captureSlowRemaining = std::max(0.0f, m_flow.captureSlowRemaining - deltaTime);
+    m_flow.placementSlowRemaining = std::max(0.0f, m_flow.placementSlowRemaining - deltaTime);
+    const bool slowForCapture = m_flow.cameraMode && m_flow.captureSlowRemaining > 0.0f;
+    const bool slowForPlacement = placementHeld && m_flow.placementSlowRemaining > 0.0f;
     const float gameplayDeltaTime = (slowForCapture || slowForPlacement)
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
 
-    m_coyoteTimeRemaining = std::max(0.0f, m_coyoteTimeRemaining - gameplayDeltaTime);
-    m_shutterFlashRemaining = std::max(0.0f, m_shutterFlashRemaining - deltaTime);
-    m_developedPhotoPreviewRemaining = std::max(0.0f, m_developedPhotoPreviewRemaining - deltaTime);
-    m_pickupPulse += gameplayDeltaTime;
+    m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - gameplayDeltaTime);
+    m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
+    m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
+    m_flow.pickupPulse += gameplayDeltaTime;
     for (const auto& entity : m_entities)
     {
         entity->Update(gameplayDeltaTime);
     }
 
-    GameSession_SetTimeRemaining(m_timeRemaining);
+    GameSession_SetTimeRemaining(m_flow.timeRemaining);
 
     UpdatePlayer(gameplayDeltaTime);
     HandlePhotoCapture();
@@ -226,14 +183,14 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Placement: Flip F  Bridge B");
     ImGui::Text("Stage: solve one gimmick at a time from left to right");
     ImGui::Text("Restart: R  Title: T");
-    ImGui::Text("Collision Debug: F3 (%s)", m_showCollisionDebug ? "On" : "Off");
+    ImGui::Text("Collision Debug: F3 (%s)", m_debug.showCollisionDebug ? "On" : "Off");
     ImGui::Text("Entity Count: %d", static_cast<int>(m_entities.size()));
     ImGui::Text("CSV TileMap: %s", m_tileMap.IsLoaded() ? "Loaded" : "Missing");
     ImGui::Text("TileMap Size: %d x %d (tile %.0f)",
         m_tileMap.GetWidth(),
         m_tileMap.GetHeight(),
         m_tileMap.GetTileSize());
-    ImGui::Text("Camera X: %.1f / %.1f", m_cameraX, std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth));
+    ImGui::Text("Camera X: %.1f / %.1f", m_flow.cameraX, std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth));
     ImGui::Text("View Scale: %.2f", GetViewScale());
     ImGui::Text("Time Limit: Off");
     ImGui::Text("Captured Photo: %s", m_photo.capture.hasPhoto ? "Ready" : "Missing");
@@ -243,30 +200,30 @@ void GameScene::DrawDebugUI()
             m_photo.savedCaptures.end(),
             [](const PhotoCaptureState& capture) { return capture.hasPhoto; })));
     ImGui::Text("Selected Slot: %d", m_photo.selectedCaptureSlot + 1);
-    ImGui::Text("Developed Preview: %.2f", m_developedPhotoPreviewRemaining);
+    ImGui::Text("Developed Preview: %.2f", m_flow.developedPhotoPreviewRemaining);
     ImGui::Text("Selected Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));
     ImGui::Text("Captured Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.capturedTheme));
     ImGui::Text("Spawned Copy: %s", m_photo.groups.hasSpawnedCopy ? "Active" : "None");
     ImGui::Text("Copy Groups: %d / 3", m_photo.groups.activeGroupCount);
-    ImGui::Text("Active Enemies: %d", m_enemyCount);
+    ImGui::Text("Active Enemies: %d", m_flow.enemyCount);
     ImGui::Text("Placement Mode: %s", m_photo.placement.active ? "On" : "Off");
     ImGui::Text("Placement Flip: %s", m_photo.placement.flipX ? "On" : "Off");
     ImGui::Text("Bridge: %s", m_photo.placement.bridgeEnabled ? "On" : "Off");
-    ImGui::Text("Camera Mode: %s", m_cameraMode ? "On" : "Off");
-    ImGui::Text("Focus Slow: %s", ((m_cameraMode && m_captureSlowRemaining > 0.0f) || ((m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement)) && m_placementSlowRemaining > 0.0f)) ? "On" : "Off");
-    ImGui::Text("Capture Focus: %.2f", m_captureSlowRemaining);
-    ImGui::Text("Placement Focus: %.2f", m_placementSlowRemaining);
-    ImGui::Text("Goal: %s", m_goalUnlocked ? "Unlocked" : "Locked");
-    ImGui::Text("Goal Contact: %s", m_playerTouchingTarget ? "Hit" : "No Hit");
-    ImGui::Text("Hazard Contact: %s", m_playerTouchingHazard ? "Hit" : "No Hit");
-    ImGui::Checkbox("Show Collision Debug", &m_showCollisionDebug);
+    ImGui::Text("Camera Mode: %s", m_flow.cameraMode ? "On" : "Off");
+    ImGui::Text("Focus Slow: %s", ((m_flow.cameraMode && m_flow.captureSlowRemaining > 0.0f) || ((m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement)) && m_flow.placementSlowRemaining > 0.0f)) ? "On" : "Off");
+    ImGui::Text("Capture Focus: %.2f", m_flow.captureSlowRemaining);
+    ImGui::Text("Placement Focus: %.2f", m_flow.placementSlowRemaining);
+    ImGui::Text("Goal: %s", m_flow.goalUnlocked ? "Unlocked" : "Locked");
+    ImGui::Text("Goal Contact: %s", m_flow.playerTouchingTarget ? "Hit" : "No Hit");
+    ImGui::Text("Hazard Contact: %s", m_flow.playerTouchingHazard ? "Hit" : "No Hit");
+    ImGui::Checkbox("Show Collision Debug", &m_debug.showCollisionDebug);
 
     if (auto* player = FindEntityByTag("Player"))
     {
         if (auto* transform = player->GetComponent<TransformComponent>())
         {
             ImGui::Text("Player Pos: %.1f, %.1f", transform->x, transform->y);
-            if (m_cameraMode)
+            if (m_flow.cameraMode)
             {
                 float frameX = 0.0f;
                 float frameY = 0.0f;
@@ -276,10 +233,10 @@ void GameScene::DrawDebugUI()
                 ImGui::Text("Capture Frame: %.1f, %.1f, %.1f, %.1f", frameX, frameY, frameWidth, frameHeight);
             }
         }
-        ImGui::Text("Grounded: %s", m_playerGrounded ? "Yes" : "No");
-        ImGui::Text("Velocity: %.1f, %.1f", m_playerVelocityX, m_playerVelocityY);
-        ImGui::Text("Dodge: %.2f / Cooldown: %.2f", m_playerDodgeRemaining, m_playerDodgeCooldownRemaining);
-        ImGui::Text("Coyote: %.2f", m_coyoteTimeRemaining);
+        ImGui::Text("Grounded: %s", m_player.grounded ? "Yes" : "No");
+        ImGui::Text("Velocity: %.1f, %.1f", m_player.velocityX, m_player.velocityY);
+        ImGui::Text("Dodge: %.2f / Cooldown: %.2f", m_player.dodgeRemaining, m_player.dodgeCooldownRemaining);
+        ImGui::Text("Coyote: %.2f", m_player.coyoteTimeRemaining);
         if (auto* health = player->GetComponent<HealthComponent>())
         {
             ImGui::Text("Player HP: %d / %d", health->GetCurrentHealth(), health->GetMaxHealth());
@@ -301,7 +258,7 @@ EventBus* GameScene::GetEventBus()
 
 void GameScene::UpdateCameraMode()
 {
-    m_cameraMode = Input_IsActionDown(InputAction::HoldCamera);
+    m_flow.cameraMode = Input_IsActionDown(InputAction::HoldCamera);
 }
 
 Entity* GameScene::FindEntityByTag(const char* tag) const
