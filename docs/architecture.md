@@ -53,6 +53,8 @@
 - `game_scene_state.h`
 - `game_scene.cpp`
 - `game_scene_gameplay.cpp`
+- `game_scene_photo_tray_system.h`
+- `game_scene_combat_system.h`
 - `game_scene_render.cpp`
 - `game_scene_collision.cpp`
 - `game_scene_internal.h`
@@ -78,6 +80,15 @@
   撮影、保存、配置、コピーグループ
 
 この方針により、機能追加時の競合点を `game_scene.h` から減らしていきます。
+さらに、入力寄りの写真スロット選択と combat 更新は helper header へ逃がし、`game_scene_gameplay.cpp` を orchestration 寄りに保ちます。
+
+プレイヤー回避の tuning は `game_scene_internal.h` の値を `assets/tuning.json` 経由で読む構成です。
+
+- `dodge_speed`
+- `dodge_distance`
+- `dodge_invincibility`
+
+`dodge_invincibility` は回避中の無敵、`damageCooldown.seconds` は被弾後の再被弾防止で、責務を分けています。
 
 ### `SceneManager`
 

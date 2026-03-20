@@ -36,6 +36,9 @@ namespace
         root["jump_speed"] = gPlayerJumpSpeed;
         root["gravity"] = gPlayerGravity;
         root["max_fall_speed"] = gPlayerMaxFallSpeed;
+        root["dodge_speed"] = gPlayerDodgeSpeed;
+        root["dodge_distance"] = gPlayerDodgeDistance;
+        root["dodge_invincibility"] = gPlayerDodgeInvincibilitySeconds;
         root["coyote_time"] = gCoyoteTimeSeconds;
         root["ground_snap_distance"] = gGroundSnapDistance;
         root["capture_width_tiles"] = gCaptureWidthTiles;
@@ -90,6 +93,9 @@ namespace game_scene_detail
         gPlayerJumpSpeed = root.value("jump_speed", gPlayerJumpSpeed);
         gPlayerGravity = root.value("gravity", gPlayerGravity);
         gPlayerMaxFallSpeed = root.value("max_fall_speed", gPlayerMaxFallSpeed);
+        gPlayerDodgeSpeed = root.value("dodge_speed", gPlayerDodgeSpeed);
+        gPlayerDodgeDistance = root.value("dodge_distance", gPlayerDodgeDistance);
+        gPlayerDodgeInvincibilitySeconds = root.value("dodge_invincibility", gPlayerDodgeInvincibilitySeconds);
         gCoyoteTimeSeconds = root.value("coyote_time", gCoyoteTimeSeconds);
         gGroundSnapDistance = root.value("ground_snap_distance", gGroundSnapDistance);
         gCaptureWidthTiles = root.value("capture_width_tiles", gCaptureWidthTiles);

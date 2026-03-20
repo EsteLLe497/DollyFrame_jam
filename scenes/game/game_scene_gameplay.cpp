@@ -1,4 +1,6 @@
 #include "game_scene_internal.h"
+#include "game_scene_combat_system.h"
+#include "game_scene_photo_tray_system.h"
 #include "photo_system.h"
 
 using namespace game_scene_detail;
@@ -169,6 +171,9 @@ void GameScene::UpdateTuningPanel()
         { "Jump Speed", &gPlayerJumpSpeed, 20.0f, -1600.0f, -120.0f },
         { "Gravity", &gPlayerGravity, 50.0f, 200.0f, 4000.0f },
         { "Max Fall", &gPlayerMaxFallSpeed, 20.0f, 200.0f, 2400.0f },
+        { "Dodge Speed", &gPlayerDodgeSpeed, 10.0f, 0.0f, 1600.0f },
+        { "Dodge Dist", &gPlayerDodgeDistance, 4.0f, 0.0f, 480.0f },
+        { "Dodge I-Frame", &gPlayerDodgeInvincibilitySeconds, 0.01f, 0.0f, 1.0f },
         { "Coyote", &gCoyoteTimeSeconds, 0.01f, 0.0f, 0.4f },
         { "Ground Snap", &gGroundSnapDistance, 0.5f, 0.0f, 24.0f },
         { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
@@ -263,7 +268,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     {
         m_player.dodgeDirection = moveAxis != 0.0f ? (moveAxis > 0.0f ? 1.0f : -1.0f) : (m_player.facingRight ? 1.0f : -1.0f);
         m_player.facingRight = m_player.dodgeDirection > 0.0f;
-        m_player.dodgeRemaining = gPlayerDodgeDuration;
+        m_player.dodgeRemaining = GetPlayerDodgeDuration();
         m_player.dodgeCooldownRemaining = gPlayerDodgeCooldown;
         m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
         m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Player dodged", 0.0f, 0.0f });
@@ -685,235 +690,44 @@ void GameScene::ConsumeSelectedPhotoSlot()
 
 void GameScene::UpdatePhotoTraySelection()
 {
-    if (m_flow.photoTrayReveal <= 0.05f)
-    {
-        return;
-    }
-
-    if (Input_IsGamepadConnected())
-    {
-        static float prevAxisX = 0.0f;
-        const float axis = Input_GetMoveX();
-        constexpr float kAxisThreshold = 0.5f;
-        constexpr int kSlotCount = 3;
-
-        if (axis > kAxisThreshold && prevAxisX <= kAxisThreshold)
+    game_scene_photo_tray_system::UpdateSelection(
+        m_photo,
+        m_flow.photoTrayReveal,
+        [this](int slotIndex)
         {
-            const int start = m_photo.selectedCaptureSlot;
-            for (int i = 1; i <= kSlotCount; ++i)
-            {
-                const int idx = (start + i) % kSlotCount;
-                if (m_photo.savedCaptures[idx].hasPhoto)
-                {
-                    SetSelectedPhotoSlot(idx);
-                    break;
-                }
-            }
-        }
-        else if (axis < -kAxisThreshold && prevAxisX >= -kAxisThreshold)
-        {
-            const int start = m_photo.selectedCaptureSlot;
-            for (int i = 1; i <= kSlotCount; ++i)
-            {
-                const int idx = (start + kSlotCount - i) % kSlotCount;
-                if (m_photo.savedCaptures[idx].hasPhoto)
-                {
-                    SetSelectedPhotoSlot(idx);
-                    break;
-                }
-            }
-        }
-        prevAxisX = axis;
-    }
-
-    {
-        constexpr int kSlotCount = 3;
-
-        if (Input_IsKeyPressed('D'))
-        {
-            const int start = m_photo.selectedCaptureSlot;
-            for (int i = 1; i <= kSlotCount; ++i)
-            {
-                const int idx = (start + i) % kSlotCount;
-                if (m_photo.savedCaptures[idx].hasPhoto)
-                {
-                    SetSelectedPhotoSlot(idx);
-                    break;
-                }
-            }
-        }
-
-        if (Input_IsKeyPressed('A'))
-        {
-            const int start = m_photo.selectedCaptureSlot;
-            for (int i = 1; i <= kSlotCount; ++i)
-            {
-                const int idx = (start + kSlotCount - i) % kSlotCount;
-                if (m_photo.savedCaptures[idx].hasPhoto)
-                {
-                    SetSelectedPhotoSlot(idx);
-                    break;
-                }
-            }
-        }
-    }
+            SetSelectedPhotoSlot(slotIndex);
+        });
 }
 
 void GameScene::UpdateEnemies()
 {
-    m_flow.enemyCount = 0;
     Entity* player = FindEntityByTag("Player");
     const TransformComponent* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
-
-    std::vector<std::unique_ptr<Entity>> newBullets;
-
-    for (const auto& entity : m_entities)
-    {
-        if (!entity)
-        {
-            continue;
-        }
-
-        auto* enemy = entity->GetComponent<EnemyComponent>();
-        if (!enemy || !enemy->IsEnabled())
-        {
-            continue;
-        }
-
-        ++m_flow.enemyCount;
-
-        if (!playerTransform)
-        {
-            continue;
-        }
-
-        auto* transform = entity->GetComponent<TransformComponent>();
-        if (!transform)
-        {
-            continue;
-        }
-
-        if (enemy->GetArchetype() == EnemyArchetype::Walker)
-        {
-            const float dx = playerTransform->x - transform->x;
-            const float dist = std::fabs(dx);
-            constexpr float kWalkerSpeed = 120.0f;
-
-            switch (enemy->GetAIState())
-            {
-            case EnemyComponent::AIState::Idle:
-                if (dist < enemy->detectRange)
-                {
-                    enemy->SetAIState(EnemyComponent::AIState::Chase);
-                }
-                break;
-            case EnemyComponent::AIState::Chase:
-                if (dist < enemy->attackRange)
-                {
-                    enemy->attackTimer = 0.0f;
-                    enemy->SetAIState(EnemyComponent::AIState::Attack);
-                }
-                else if (dist > enemy->detectRange)
-                {
-                    enemy->SetAIState(EnemyComponent::AIState::Idle);
-                }
-                else
-                {
-                    transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * m_flow.lastDeltaTime;
-                }
-                break;
-            case EnemyComponent::AIState::Attack:
-                enemy->attackTimer += m_flow.lastDeltaTime;
-                if (dist >= enemy->attackRange)
-                {
-                    enemy->SetAIState(EnemyComponent::AIState::Chase);
-                }
-                else if (enemy->attackTimer >= enemy->attackCooldown)
-                {
-                    enemy->attackTimer = 0.0f;
-                }
-                break;
-            }
-        }
-        else if (enemy->GetArchetype() == EnemyArchetype::Ranged)
-        {
-            const float dx = playerTransform->x - transform->x;
-            const float dy = playerTransform->y - transform->y;
-            const float dist = std::sqrt(dx * dx + dy * dy);
-
-            enemy->attackTimer += m_flow.lastDeltaTime;
-
-            if (dist < enemy->detectRange && enemy->attackTimer >= enemy->attackCooldown)
-            {
-                enemy->attackTimer = 0.0f;
-
-                constexpr float kBulletSpeed = 300.0f;
-                const float length = std::max(1.0f, dist);
-                const float velX = (dx / length) * kBulletSpeed;
-                const float velY = (dy / length) * kBulletSpeed;
-
-                auto bullet = std::make_unique<Entity>();
-                bullet->AddComponent<TagComponent>("Bullet");
-                bullet->AddComponent<TransformComponent>(
-                    transform->x + 24.0f,
-                    transform->y + 24.0f,
-                    16.0f,
-                    16.0f);
-                bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
-                bullet->AddComponent<SpriteRenderComponent>(m_tileTexture);
-                bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
-                newBullets.push_back(std::move(bullet));
-            }
-        }
-    }
-
-    for (auto& bullet : newBullets)
-    {
-        m_entities.push_back(std::move(bullet));
-    }
-
-    m_flow.goalUnlocked = m_photo.groups.hasSpawnedCopy;
+    game_scene_combat_system::UpdateEnemies(
+        m_entities,
+        m_tileTexture,
+        m_flow,
+        m_photo,
+        playerTransform);
 }
 
 void GameScene::UpdateBullets()
 {
-    const float mapWidth = GetMapPixelWidth();
-    const float mapHeight = GetMapPixelHeight();
     Entity* player = FindEntityByTag("Player");
-
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [&](const std::unique_ptr<Entity>& entity) -> bool
-            {
-                if (!entity || !HasTag(*entity, "Bullet"))
-                {
-                    return false;
-                }
-
-                auto* transform = entity->GetComponent<TransformComponent>();
-                auto* projectile = entity->GetComponent<ProjectileComponent>();
-                if (!transform || !projectile)
-                {
-                    return false;
-                }
-
-                transform->x += projectile->GetVelocityX() * m_flow.lastDeltaTime;
-                transform->y += projectile->GetVelocityY() * m_flow.lastDeltaTime;
-
-                if (player && IntersectsEntity(*player, *entity))
-                {
-                    HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by bullet");
-                    return true;
-                }
-
-                return transform->x < 0.0f
-                    || transform->x > mapWidth
-                    || transform->y < 0.0f
-                    || transform->y > mapHeight;
-            }),
-        m_entities.end());
+    game_scene_combat_system::UpdateBullets(
+        m_entities,
+        GetMapPixelWidth(),
+        GetMapPixelHeight(),
+        m_flow.lastDeltaTime,
+        player,
+        [this](const Entity& a, const Entity& b)
+        {
+            return IntersectsEntity(a, b);
+        },
+        [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)
+        {
+            HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
+        });
 }
 void GameScene::HandleAttackHits()
 {
@@ -1192,7 +1006,10 @@ void GameScene::RefreshPhotoGroupState()
 
 void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage)
 {
-    if (m_player.dodgeRemaining > 0.0f)
+    const float dodgeDuration = GetPlayerDodgeDuration();
+    const float dodgeElapsed = std::max(0.0f, dodgeDuration - m_player.dodgeRemaining);
+    const float dodgeInvincibility = std::min(gPlayerDodgeInvincibilitySeconds, dodgeDuration);
+    if (m_player.dodgeRemaining > 0.0f && dodgeElapsed < dodgeInvincibility)
     {
         return;
     }
