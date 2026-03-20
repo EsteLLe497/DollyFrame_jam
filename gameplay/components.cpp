@@ -111,6 +111,8 @@ namespace
             return "Walker";
         case EnemyArchetype::Turret:
             return "Turret";
+        case EnemyArchetype::Ranged: // 3/19’Ç‰Á(“c”Vãr)
+            return "Ranged";
         case EnemyArchetype::Floater:
         default:
             return "Floater";

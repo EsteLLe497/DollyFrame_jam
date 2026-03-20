@@ -146,6 +146,7 @@ void GameScene::ResetSceneState()
     m_playerDodgeStretch = 0.0f;
     m_photoTrayReveal = 0.0f;
     m_playerAfterimages.clear();
+    m_lastDeltaTime = 0.0f; // 3/19í«â¡(ìcîVè„èr)
 }
 
 void GameScene::LoadTuningState()
@@ -226,6 +227,10 @@ void GameScene::InitializeStageEntities()
 
     SpawnStagePrefab(prefabs, "sandbox_enemy_wide", AlignToGrid(760.0f, tileSize), AlignToGrid(248.0f, tileSize));
     SpawnStagePrefab(prefabs, "sandbox_enemy_tall", AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize));
+
+    // 3/19í«â¡(ìcîVè„èr)
+    SpawnStagePrefab(prefabs, "sandbox_enemy_walker", AlignToGrid(500.0f, tileSize), AlignToGrid(352.0f, tileSize));
+    SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", AlignToGrid(900.0f, tileSize), AlignToGrid(352.0f, tileSize));
 }
 
 Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y)
