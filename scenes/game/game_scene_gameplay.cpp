@@ -685,7 +685,82 @@ void GameScene::ConsumeSelectedPhotoSlot()
 
 void GameScene::UpdatePhotoTraySelection()
 {
+    if (m_photoTrayReveal <= 0.05f)
+    {
+        return;
+    }
 
+    // コントローラでの選択 (Lスティック)
+    if (Input_IsGamepadConnected())
+    {
+        static float prevAxisX = 0.0f;
+        const float axis = Input_GetMoveX();
+        constexpr float kAxisThreshold = 0.5f;
+        constexpr int kSlotCount = 3;
+
+        if (axis > kAxisThreshold && prevAxisX <= kAxisThreshold)
+        {
+            int start = m_photo.selectedCaptureSlot;
+            for (int i = 1; i <= kSlotCount; ++i)
+            {
+                int idx = (start + i) % kSlotCount;
+                if (m_photo.savedCaptures[idx].hasPhoto)
+                {
+                    SetSelectedPhotoSlot(idx);
+                    break;
+                }
+            }
+        }
+        else if (axis < -kAxisThreshold && prevAxisX >= -kAxisThreshold)
+        {
+            int start = m_photo.selectedCaptureSlot;
+            for (int i = 1; i <= kSlotCount; ++i)
+            {
+                int idx = (start + kSlotCount - i) % kSlotCount;
+                if (m_photo.savedCaptures[idx].hasPhoto)
+                {
+                    SetSelectedPhotoSlot(idx);
+                    break;
+                }
+            }
+        }
+        prevAxisX = axis;
+    }
+
+	// キーボードでの選択 (数字キー)
+    {
+        constexpr int kSlotCount = 3;
+
+        // Dキー
+        if (Input_IsKeyPressed('D'))
+        {
+            int start = m_photo.selectedCaptureSlot;
+            for (int i = 1; i <= kSlotCount; ++i)
+            {
+                int idx = (start + i) % kSlotCount;
+                if (m_photo.savedCaptures[idx].hasPhoto)
+                {
+                    SetSelectedPhotoSlot(idx);
+                    break;
+                }
+            }
+        }
+
+        // Aキー
+        if (Input_IsKeyPressed('A'))
+        {
+            int start = m_photo.selectedCaptureSlot;
+            for (int i = 1; i <= kSlotCount; ++i)
+            {
+                int idx = (start + kSlotCount - i) % kSlotCount;
+                if (m_photo.savedCaptures[idx].hasPhoto)
+                {
+                    SetSelectedPhotoSlot(idx);
+                    break;
+                }
+            }
+        }
+    }
 }
 void GameScene::UpdateEnemies()
 {
