@@ -92,6 +92,14 @@
   写真スロット選択の入力処理
 - `scenes/game/game_scene_combat_system.h`
   敵 AI と bullet 更新の runtime helper
+- `scenes/game/game_scene_player_system.h`
+  プレイヤー入力、回避開始、水平速度決定の helper
+- `scenes/game/game_scene_player_movement_system.h`
+  プレイヤーの横移動、縦移動、写真オブジェクト接触、カメラ追従の helper
+- `scenes/game/game_scene_player_visual_system.h`
+  プレイヤーの見た目更新と残像制御の helper
+- `scenes/game/game_scene_world_interaction_system.h`
+  タイル接触、エンティティ接触、写真ボックス接触、被弾判定の helper
 - `scenes/game/game_scene_render.cpp`
   エンティティ描画とワールド側の見た目
 - `scenes/game/game_scene_render_ui.cpp`
@@ -124,6 +132,10 @@
 - ルールを変えたい: `scenes/game/game_scene_gameplay.cpp`
 - 写真スロット選択を変えたい: `scenes/game/game_scene_photo_tray_system.h`
 - 敵 AI や bullet を変えたい: `scenes/game/game_scene_combat_system.h`
+- プレイヤー入力や回避開始条件を変えたい: `scenes/game/game_scene_player_system.h`
+- プレイヤー移動やカメラ追従を変えたい: `scenes/game/game_scene_player_movement_system.h`
+- プレイヤーの見た目や残像を変えたい: `scenes/game/game_scene_player_visual_system.h`
+- ワールド接触や被弾処理を変えたい: `scenes/game/game_scene_world_interaction_system.h`
 - 見た目を変えたい: `scenes/game/game_scene_render.cpp`
 - HUD やオーバーレイを変えたい: `scenes/game/game_scene_render_ui.cpp`
 - 当たり判定を変えたい: `scenes/game/game_scene_collision.cpp`
@@ -161,6 +173,8 @@
   回避で進む距離
 - `dodge_invincibility`
   回避開始から何秒ぶん被弾を無効化するか
+- `dodge_cooldown`
+  次の回避を受け付けるまでの待ち時間
 
 `Dodge Time` は保存値ではなく、`dodge_distance / dodge_speed` から計算される派生値です。  
 つまり回避時間を変えたいときは `dodge_speed` か `dodge_distance` を調整します。
@@ -173,6 +187,12 @@
   被弾した直後の再被弾防止時間
 
 この 2 つは役割が違うので、同じ「無敵」でも混ぜて調整しない方が安全です。
+
+現在の tuning tool は ImGui ベースです。
+
+- `F1` で表示切り替え
+- `Game Tuning` ウィンドウから値を直接調整
+- 変更は `assets/tuning.json` へ即時反映
 
 ### 写真システム
 

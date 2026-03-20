@@ -35,8 +35,13 @@
 - `game_scene_photo_state.h` を追加し、写真系 state を `game_scene.h` から分離
 - `HandleWorldInteractions()` の写真コピーまわりは責務ごとの補助関数へ整理済み
 - 写真スロット入力は `game_scene_photo_tray_system.h` へ分離
+- プレイヤー入力と回避開始判定は `game_scene_player_system.h` へ分離
+- プレイヤー移動解決とカメラ追従は `game_scene_player_movement_system.h` へ分離
+- プレイヤー見た目更新と残像制御は `game_scene_player_visual_system.h` へ分離
+- ワールド接触と被弾判定は `game_scene_world_interaction_system.h` へ分離
+- tuning panel は固定描画から ImGui ベースへ移行
 - 敵 AI / bullet 更新は `game_scene_combat_system.h` へ分離
-- プレイヤー回避は `dodge_speed` / `dodge_distance` / `dodge_invincibility` を tuning tool から調整可能にした
+- プレイヤー回避は `dodge_speed` / `dodge_distance` / `dodge_invincibility` / `dodge_cooldown` を tuning tool から調整可能にした
 - `EnemyComponent` / `GimmickComponent` / `EnemyMoverComponent` は `world_components.*` へ分離済み
 
 残りの主課題:

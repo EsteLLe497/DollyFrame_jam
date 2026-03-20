@@ -1,159 +1,24 @@
 #include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
+#include "game_scene_player_system.h"
+#include "game_scene_player_movement_system.h"
+#include "game_scene_player_visual_system.h"
 #include "game_scene_photo_tray_system.h"
+#include "game_scene_world_interaction_system.h"
 #include "photo_system.h"
 
 using namespace game_scene_detail;
 
-namespace
-{
-    constexpr float kPlayerAfterimageLifetime = 0.18f;
-    constexpr float kPlayerAfterimageSpawnInterval = 0.03f;
-    constexpr int kMaxPlayerAfterimages = 8;
-    constexpr float kPlayerVisualSmoothing = 14.0f;
-    constexpr float kPlayerLandingDecay = 6.5f;
-    constexpr float kPlayerJumpDecay = 5.0f;
-    constexpr float kPlayerDodgeDecay = 7.5f;
-
-    struct TuningEntry
-    {
-        const char* label;
-        float* value;
-        float step;
-        float minValue;
-        float maxValue;
-    };
-
-    void SetSpriteSheetCell1Based(SpriteRenderComponent& sprite, int row, int column, int rows = 4, int columns = 4)
-    {
-        const float cellWidth = 1.0f / static_cast<float>(columns);
-        const float cellHeight = 1.0f / static_cast<float>(rows);
-        sprite.SetSourceRect(
-            static_cast<float>(column - 1) * cellWidth,
-            static_cast<float>(row - 1) * cellHeight,
-            cellWidth,
-            cellHeight);
-    }
-
-}
-
 void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame)
 {
-    auto* sprite = player.GetComponent<SpriteRenderComponent>();
-    if (!sprite)
-    {
-        return;
-    }
-
-    sprite->SetFlipX(false);
-
-    if (landedThisFrame)
-    {
-        m_player.landingImpact = 1.0f;
-    }
-    if (!wasGrounded && m_player.velocityY < -80.0f)
-    {
-        m_player.jumpStretch = 1.0f;
-    }
-    if (isDodging)
-    {
-        m_player.dodgeStretch = 1.0f;
-    }
-
-    m_player.landingImpact = std::max(0.0f, m_player.landingImpact - deltaTime * kPlayerLandingDecay);
-    m_player.jumpStretch = std::max(0.0f, m_player.jumpStretch - deltaTime * kPlayerJumpDecay);
-    m_player.dodgeStretch = std::max(0.0f, m_player.dodgeStretch - deltaTime * kPlayerDodgeDecay);
-
-    const float horizontalSpeedRatio = Clamp01(std::fabs(m_player.velocityX) / std::max(1.0f, gPlayerMoveSpeed));
-    if (m_player.grounded && horizontalSpeedRatio > 0.05f)
-    {
-        m_player.runAnimationTime += deltaTime * (2.6f + horizontalSpeedRatio * 5.2f);
-    }
-
-    int frameRow = 2;
-    int frameColumn = 2;
-    if (isDodging)
-    {
-        frameRow = 3;
-        frameColumn = m_player.facingRight ? 2 : 3;
-    }
-    else if (!m_player.grounded)
-    {
-        if (m_player.velocityY < -40.0f)
-        {
-            frameRow = 1;
-            frameColumn = m_player.facingRight ? 2 : 4;
-        }
-        else
-        {
-            frameRow = 1;
-            frameColumn = m_player.facingRight ? 1 : 3;
-        }
-    }
-    else if (horizontalSpeedRatio > 0.20f)
-    {
-        frameRow = 3;
-        frameColumn = m_player.facingRight ? 1 : 4;
-    }
-    else
-    {
-        frameRow = 2;
-        frameColumn = m_player.facingRight ? 2 : 1;
-    }
-
-    SetSpriteSheetCell1Based(*sprite, frameRow, frameColumn);
-
-    float targetScaleX = 1.0f;
-    float targetScaleY = 1.0f;
-    float targetOffsetY = 0.0f;
-    float targetRotation = 0.0f;
-
-    if (m_player.grounded)
-    {
-        const float runWave = std::sin(m_player.runAnimationTime * 6.2831853f);
-        const float runBounce = std::fabs(runWave);
-        targetScaleX += runBounce * 0.05f * horizontalSpeedRatio;
-        targetScaleY -= runBounce * 0.07f * horizontalSpeedRatio;
-        targetOffsetY += runBounce * 1.8f * horizontalSpeedRatio;
-        targetRotation += runWave * 0.03f * horizontalSpeedRatio;
-        targetRotation += moveAxis * 0.035f;
-    }
-    else if (m_player.velocityY < 0.0f)
-    {
-        targetScaleX -= 0.05f;
-        targetScaleY += 0.10f;
-        targetOffsetY -= 2.0f;
-        targetRotation += moveAxis * 0.05f;
-    }
-    else
-    {
-        targetScaleX += 0.07f;
-        targetScaleY -= 0.06f;
-        targetOffsetY += 1.0f;
-        targetRotation += moveAxis * 0.04f;
-    }
-
-    targetScaleX += m_player.landingImpact * 0.14f;
-    targetScaleY -= m_player.landingImpact * 0.18f;
-    targetOffsetY += m_player.landingImpact * 3.5f;
-
-    targetScaleX -= m_player.jumpStretch * 0.07f;
-    targetScaleY += m_player.jumpStretch * 0.13f;
-    targetOffsetY -= m_player.jumpStretch * 2.5f;
-
-    targetScaleX += m_player.dodgeStretch * 0.13f;
-    targetScaleY -= m_player.dodgeStretch * 0.10f;
-    targetRotation += (m_player.facingRight ? 1.0f : -1.0f) * m_player.dodgeStretch * 0.08f;
-
-    const float blend = std::min(1.0f, deltaTime * kPlayerVisualSmoothing);
-    m_player.visualScaleX += (targetScaleX - m_player.visualScaleX) * blend;
-    m_player.visualScaleY += (targetScaleY - m_player.visualScaleY) * blend;
-    m_player.visualOffsetY += (targetOffsetY - m_player.visualOffsetY) * blend;
-    m_player.visualRotation += (targetRotation - m_player.visualRotation) * blend;
-
-    sprite->SetRenderScale(m_player.visualScaleX, m_player.visualScaleY);
-    sprite->SetRenderOffset(0.0f, m_player.visualOffsetY);
-    sprite->SetRenderRotationOffset(m_player.visualRotation);
+    game_scene_player_visual_system::UpdatePresentation(
+        m_player,
+        player,
+        deltaTime,
+        moveAxis,
+        wasGrounded,
+        isDodging,
+        landedThisFrame);
 }
 
 void GameScene::UpdateTuningPanel()
@@ -163,30 +28,8 @@ void GameScene::UpdateTuningPanel()
         return;
     }
 
-    TuningEntry entries[] =
-    {
-        { "Camera Width", &gCameraViewWidth, 20.0f, 640.0f, 1920.0f },
-        { "Camera Height", &gCameraViewHeight, 20.0f, 360.0f, 1080.0f },
-        { "Move Speed", &gPlayerMoveSpeed, 10.0f, 80.0f, 960.0f },
-        { "Jump Speed", &gPlayerJumpSpeed, 20.0f, -1600.0f, -120.0f },
-        { "Gravity", &gPlayerGravity, 50.0f, 200.0f, 4000.0f },
-        { "Max Fall", &gPlayerMaxFallSpeed, 20.0f, 200.0f, 2400.0f },
-        { "Dodge Speed", &gPlayerDodgeSpeed, 10.0f, 0.0f, 1600.0f },
-        { "Dodge Dist", &gPlayerDodgeDistance, 4.0f, 0.0f, 480.0f },
-        { "Dodge I-Frame", &gPlayerDodgeInvincibilitySeconds, 0.01f, 0.0f, 1.0f },
-        { "Coyote", &gCoyoteTimeSeconds, 0.01f, 0.0f, 0.4f },
-        { "Ground Snap", &gGroundSnapDistance, 0.5f, 0.0f, 24.0f },
-        { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
-        { "Capture H Tiles", &gCaptureHeightTiles, 0.25f, 1.0f, 16.0f },
-        { "Print Pad X", &gPrintedPhotoPaddingX, 1.0f, 0.0f, 80.0f },
-        { "Print Pad Top", &gPrintedPhotoPaddingTop, 1.0f, 0.0f, 80.0f },
-        { "Print Footer", &gPrintedPhotoFooterHeight, 2.0f, 0.0f, 160.0f },
-        { "Print Min W", &gPrintedPhotoMinWidth, 4.0f, 32.0f, 320.0f },
-        { "Print Min H", &gPrintedPhotoMinHeight, 4.0f, 32.0f, 400.0f },
-        { "Matte Inset", &gPrintedPhotoMatteInset, 0.5f, 0.0f, 24.0f },
-        { "Pickup Bonus", &gPickupTimeBonus, 1.0f, 0.0f, 60.0f },
-    };
-    constexpr int kEntryCount = static_cast<int>(sizeof(entries) / sizeof(entries[0]));
+    auto entries = BuildGameSceneTuningEntries();
+    const int kEntryCount = static_cast<int>(entries.size());
 
     if (Input_IsActionPressed(InputAction::MoveUp))
     {
@@ -232,52 +75,30 @@ void GameScene::UpdatePlayer(float deltaTime)
     }
 
     const bool blockPlayerInput = m_flow.cameraMode || m_photo.placement.active;
+    const auto controls = game_scene_player_system::SampleControls(blockPlayerInput);
+    const float moveAxis = controls.moveAxis;
 
-    float moveAxis = 0.0f;
-    if (!blockPlayerInput)
-    {
-        if (Input_IsActionDown(InputAction::MoveLeft)) { moveAxis -= 1.0f; }
-        if (Input_IsActionDown(InputAction::MoveRight)) { moveAxis += 1.0f; }
-        moveAxis += Input_GetAxis(InputAxis::MoveX);
-        moveAxis = std::clamp(moveAxis, -1.0f, 1.0f);
-        if (std::fabs(moveAxis) < 0.15f)
-        {
-            moveAxis = 0.0f;
-        }
-    }
-    else
-    {
-        moveAxis = 0.0f;
-	}
-
-    m_player.dodgeRemaining = std::max(0.0f, m_player.dodgeRemaining - deltaTime);
-    m_player.dodgeCooldownRemaining = std::max(0.0f, m_player.dodgeCooldownRemaining - deltaTime);
+    game_scene_player_system::TickDodgeState(m_player, deltaTime);
     UpdatePlayerAfterimages(deltaTime);
 
-    if (moveAxis > 0.1f)
-    {
-        m_player.facingRight = true;
-    }
-    else if (moveAxis < -0.1f)
-    {
-        m_player.facingRight = false;
-    }
+    game_scene_player_system::UpdateFacingFromMoveAxis(m_player, moveAxis);
 
-    const bool dodgePressed = blockPlayerInput?false:Input_IsActionPressed(InputAction::Dodge);
-    if (dodgePressed && m_player.dodgeRemaining <= 0.0f && m_player.dodgeCooldownRemaining <= 0.0f)
+    if (controls.dodgePressed && game_scene_player_system::TryBeginDodge(
+        m_player,
+        moveAxis,
+        GetPlayerDodgeDuration(),
+        gPlayerDodgeCooldown))
     {
-        m_player.dodgeDirection = moveAxis != 0.0f ? (moveAxis > 0.0f ? 1.0f : -1.0f) : (m_player.facingRight ? 1.0f : -1.0f);
-        m_player.facingRight = m_player.dodgeDirection > 0.0f;
-        m_player.dodgeRemaining = GetPlayerDodgeDuration();
-        m_player.dodgeCooldownRemaining = gPlayerDodgeCooldown;
         m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
         m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Player dodged", 0.0f, 0.0f });
     }
 
     const bool isDodging = m_player.dodgeRemaining > 0.0f;
-    m_player.velocityX = isDodging
-        ? m_player.dodgeDirection * gPlayerDodgeSpeed
-        : moveAxis * gPlayerMoveSpeed;
+    m_player.velocityX = game_scene_player_system::GetHorizontalVelocity(
+        m_player,
+        moveAxis,
+        gPlayerDodgeSpeed,
+        gPlayerMoveSpeed);
 
     const float tileSize = m_tileMap.GetTileSize();
     const float playerWidth = transform->width * transform->scale;
@@ -299,8 +120,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_player.velocityY = 0.0f;
     }
 
-    const bool jumpPressed =blockPlayerInput?false: Input_IsActionPressed(InputAction::Jump);
-    const bool canJumpNow = !isDodging && jumpPressed && m_player.coyoteTimeRemaining > 0.0f;
+    const bool canJumpNow = !isDodging && controls.jumpPressed && m_player.coyoteTimeRemaining > 0.0f;
     if (canJumpNow)
     {
         m_player.velocityY = gPlayerJumpSpeed;
@@ -318,40 +138,27 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_player.velocityY = std::min(gPlayerMaxFallSpeed, m_player.velocityY + gPlayerGravity * deltaTime);
     }
     const float verticalSnapDistance = std::max(gGroundSnapDistance, std::fabs(m_player.velocityY) * deltaTime + 4.0f);
+    const game_scene_player_movement_system::PlayerMovementContext movementContext{
+        deltaTime,
+        tileSize,
+        playerWidth,
+        playerHeight,
+        mapWidth,
+        mapHeight,
+        previousX,
+        previousY,
+        previousBottom,
+        verticalSnapDistance,
+    };
 
-    transform->x += m_player.velocityX * deltaTime;
-    if (m_player.velocityX > 0.0f)
-    {
-        const int column = static_cast<int>((transform->x + playerWidth - 1.0f) / tileSize);
-        const int rowStart = static_cast<int>((transform->y + 4.0f) / tileSize);
-        const int rowEnd = static_cast<int>((transform->y + playerHeight - 4.0f) / tileSize);
-        for (int row = rowStart; row <= rowEnd; ++row)
+    game_scene_player_movement_system::ResolveHorizontalTileCollisions(
+        *transform,
+        m_player,
+        movementContext,
+        [this](int column, int row)
         {
-            if (IsSolidTile(column, row))
-            {
-                transform->x = static_cast<float>(column) * tileSize - playerWidth;
-                m_player.velocityX = 0.0f;
-                break;
-            }
-        }
-    }
-    else if (m_player.velocityX < 0.0f)
-    {
-        const int column = static_cast<int>(transform->x / tileSize);
-        const int rowStart = static_cast<int>((transform->y + 4.0f) / tileSize);
-        const int rowEnd = static_cast<int>((transform->y + playerHeight - 4.0f) / tileSize);
-        for (int row = rowStart; row <= rowEnd; ++row)
-        {
-            if (IsSolidTile(column, row))
-            {
-                transform->x = static_cast<float>(column + 1) * tileSize;
-                m_player.velocityX = 0.0f;
-                break;
-            }
-        }
-    }
-
-    transform->x = std::clamp(transform->x, 0.0f, std::max(0.0f, mapWidth - playerWidth));
+            return IsSolidTile(column, row);
+        });
 
     if (isDodging)
     {
@@ -366,239 +173,60 @@ void GameScene::UpdatePlayer(float deltaTime)
     float photoSourceWidth = 0.0f;
     float photoSourceHeight = 0.0f;
     const bool hasPhotoSource = GetEntityBoundsByTag("PhotoSource", photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight);
-    if (hasPhotoBox)
-    {
-        for (const auto& photoBoxBounds : photoBoxes)
-        {
-            TransformComponent playerBounds(transform->x, transform->y, transform->width, transform->height);
-            playerBounds.scale = transform->scale;
-            if (!IntersectsRect(playerBounds, photoBoxBounds))
-            {
-                continue;
-            }
+    game_scene_player_movement_system::ResolveHorizontalObjectCollisions(
+        *transform,
+        m_player,
+        movementContext,
+        photoBoxes,
+        hasPhotoSource,
+        photoSourceX,
+        photoSourceY,
+        photoSourceWidth,
+        photoSourceHeight);
 
-            const float photoBoxX = photoBoxBounds.x;
-            const float photoBoxWidth = photoBoxBounds.width * photoBoxBounds.scale;
-            if (m_player.velocityX > 0.0f && previousX + playerWidth <= photoBoxX + kHorizontalCollisionEpsilon)
-            {
-                transform->x = photoBoxX - playerWidth;
-                m_player.velocityX = 0.0f;
-                break;
-            }
-            if (m_player.velocityX < 0.0f && previousX >= photoBoxX + photoBoxWidth - kHorizontalCollisionEpsilon)
-            {
-                transform->x = photoBoxX + photoBoxWidth;
-                m_player.velocityX = 0.0f;
-                break;
-            }
-        }
-    }
-    if (hasPhotoSource)
-    {
-        TransformComponent playerBounds(transform->x, transform->y, transform->width, transform->height);
-        playerBounds.scale = transform->scale;
-        TransformComponent photoSourceBounds(photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight);
-        if (IntersectsRect(playerBounds, photoSourceBounds))
+    game_scene_player_movement_system::ResolveVerticalMotion(
+        *transform,
+        m_player,
+        wasGrounded,
+        movementContext,
+        photoBoxes,
+        hasPhotoSource,
+        photoSourceX,
+        photoSourceY,
+        photoSourceWidth,
+        photoSourceHeight,
+        [this](int column, int row)
         {
-            if (m_player.velocityX > 0.0f && previousX + playerWidth <= photoSourceX + kHorizontalCollisionEpsilon)
-            {
-                transform->x = photoSourceX - playerWidth;
-                m_player.velocityX = 0.0f;
-            }
-            else if (m_player.velocityX < 0.0f && previousX >= photoSourceX + photoSourceWidth - kHorizontalCollisionEpsilon)
-            {
-                transform->x = photoSourceX + photoSourceWidth;
-                m_player.velocityX = 0.0f;
-            }
-        }
-    }
-
-    m_player.grounded = false;
-    if (m_player.velocityY == 0.0f && wasGrounded)
-    {
-        m_player.grounded = TrySnapToGround(*transform, verticalSnapDistance);
-    }
-    else
-    {
-        transform->y += m_player.velocityY * deltaTime;
-        if (m_player.velocityY > 0.0f)
+            return IsSolidTile(column, row);
+        },
+        [this](int column, int row)
         {
-            const int rowStart = static_cast<int>(previousBottom / tileSize);
-            const int rowEnd = static_cast<int>((transform->y + playerHeight - 1.0f) / tileSize);
-            const int columnStart = static_cast<int>((transform->x + 6.0f) / tileSize);
-            const int columnEnd = static_cast<int>((transform->x + playerWidth - 6.0f) / tileSize);
-            for (int row = rowStart; row <= rowEnd; ++row)
-            {
-                bool collided = false;
-                for (int column = columnStart; column <= columnEnd; ++column)
-                {
-                    const bool solidHit = IsSolidTile(column, row);
-                    const bool platformHit =
-                        IsPlatformTile(column, row) &&
-                        previousBottom <= static_cast<float>(row) * tileSize + 8.0f;
-                    if (solidHit || platformHit)
-                    {
-                        transform->y = static_cast<float>(row) * tileSize - playerHeight;
-                        m_player.velocityY = 0.0f;
-                        m_player.grounded = true;
-                        collided = true;
-                        break;
-                    }
-                }
-                if (collided)
-                {
-                    break;
-                }
-            }
-
-            if (!m_player.grounded && hasPhotoBox)
-            {
-                for (const auto& photoBoxBounds : photoBoxes)
-                {
-                    TransformComponent playerBounds(transform->x, transform->y, transform->width, transform->height);
-                    playerBounds.scale = transform->scale;
-                    if (IntersectsRect(playerBounds, photoBoxBounds) &&
-                        previousBottom <= photoBoxBounds.y + kSurfaceContactEpsilon)
-                    {
-                        transform->y = photoBoxBounds.y - playerHeight;
-                        m_player.velocityY = 0.0f;
-                        m_player.grounded = true;
-                        break;
-                    }
-                }
-            }
-            if (!m_player.grounded && hasPhotoSource)
-            {
-                TransformComponent playerBounds(transform->x, transform->y, transform->width, transform->height);
-                playerBounds.scale = transform->scale;
-                TransformComponent photoSourceBounds(photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight);
-                if (IntersectsRect(playerBounds, photoSourceBounds) && previousBottom <= photoSourceY + kSurfaceContactEpsilon)
-                {
-                    transform->y = photoSourceY - playerHeight;
-                    m_player.velocityY = 0.0f;
-                    m_player.grounded = true;
-                }
-            }
-        }
-        else if (m_player.velocityY < 0.0f)
+            return IsPlatformTile(column, row);
+        },
+        [this](TransformComponent& targetTransform, float snapDistance)
         {
-            const int rowStart = static_cast<int>(previousY / tileSize);
-            const int rowEnd = static_cast<int>(transform->y / tileSize);
-            const int columnStart = static_cast<int>((transform->x + 6.0f) / tileSize);
-            const int columnEnd = static_cast<int>((transform->x + playerWidth - 6.0f) / tileSize);
-            for (int row = rowStart; row >= rowEnd; --row)
-            {
-                bool collided = false;
-                for (int column = columnStart; column <= columnEnd; ++column)
-                {
-                    if (IsSolidTile(column, row))
-                    {
-                        transform->y = static_cast<float>(row + 1) * tileSize;
-                        m_player.velocityY = 0.0f;
-                        collided = true;
-                        break;
-                    }
-                }
-                if (collided)
-                {
-                    break;
-                }
-            }
-
-            if (hasPhotoBox)
-            {
-                for (const auto& photoBoxBounds : photoBoxes)
-                {
-                    TransformComponent playerBounds(transform->x, transform->y, transform->width, transform->height);
-                    playerBounds.scale = transform->scale;
-                    const float photoBoxHeight = photoBoxBounds.height * photoBoxBounds.scale;
-                    if (IntersectsRect(playerBounds, photoBoxBounds) &&
-                        previousY >= photoBoxBounds.y + photoBoxHeight - kSurfaceContactEpsilon)
-                    {
-                        transform->y = photoBoxBounds.y + photoBoxHeight;
-                        m_player.velocityY = 0.0f;
-                        break;
-                    }
-                }
-            }
-            if (hasPhotoSource)
-            {
-                TransformComponent playerBounds(transform->x, transform->y, transform->width, transform->height);
-                playerBounds.scale = transform->scale;
-                TransformComponent photoSourceBounds(photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight);
-                if (IntersectsRect(playerBounds, photoSourceBounds) && previousY >= photoSourceY + photoSourceHeight - kSurfaceContactEpsilon)
-                {
-                    transform->y = photoSourceY + photoSourceHeight;
-                    m_player.velocityY = 0.0f;
-                }
-            }
-        }
-        if (!m_player.grounded && m_player.velocityY >= 0.0f)
-        {
-            if (TrySnapToGround(*transform, verticalSnapDistance))
-            {
-                m_player.velocityY = 0.0f;
-                m_player.grounded = true;
-            }
-        }
-    }
-
-    if (transform->y + playerHeight >= mapHeight)
-    {
-        transform->y = mapHeight - playerHeight;
-        m_player.velocityY = 0.0f;
-        m_player.grounded = true;
-    }
+            return TrySnapToGround(targetTransform, snapDistance);
+        });
 
     const bool landedThisFrame = !wasGrounded && m_player.grounded;
     UpdatePlayerPresentation(*player, deltaTime, moveAxis, wasGrounded, isDodging, landedThisFrame);
 
-    const float cameraTarget = std::clamp(
-        transform->x + playerWidth * 0.5f - gCameraViewWidth * 0.5f,
-        0.0f,
-        std::max(0.0f, mapWidth - gCameraViewWidth));
-    m_flow.cameraX += (cameraTarget - m_flow.cameraX) * std::min(1.0f, deltaTime * 8.0f);
+    game_scene_player_movement_system::UpdateCameraX(
+        m_flow.cameraX,
+        transform->x,
+        playerWidth,
+        mapWidth,
+        deltaTime);
 }
 
 void GameScene::UpdatePlayerAfterimages(float deltaTime)
 {
-    for (auto& afterimage : m_player.afterimages)
-    {
-        afterimage.life = std::max(0.0f, afterimage.life - deltaTime);
-    }
-    m_player.afterimages.erase(
-        std::remove_if(
-            m_player.afterimages.begin(),
-            m_player.afterimages.end(),
-            [](const PlayerAfterimage& afterimage)
-            {
-                return afterimage.life <= 0.0f;
-            }),
-        m_player.afterimages.end());
+    game_scene_player_visual_system::UpdateAfterimages(m_player, deltaTime);
 }
 
 void GameScene::TrySpawnPlayerAfterimage(const TransformComponent& transform)
 {
-    const bool shouldAddAfterimage =
-        m_player.afterimages.empty() ||
-        (kPlayerAfterimageLifetime - m_player.afterimages.front().life) >= kPlayerAfterimageSpawnInterval;
-    if (!shouldAddAfterimage)
-    {
-        return;
-    }
-
-    PlayerAfterimage afterimage;
-    afterimage.x = transform.x;
-    afterimage.y = transform.y;
-    afterimage.rotation = transform.rotation;
-    afterimage.scale = transform.scale;
-    afterimage.flipX = m_player.facingRight ? false : true;
-    afterimage.life = kPlayerAfterimageLifetime;
-    m_player.afterimages.insert(m_player.afterimages.begin(), afterimage);
-    if (static_cast<int>(m_player.afterimages.size()) > kMaxPlayerAfterimages)
-    {
-        m_player.afterimages.resize(kMaxPlayerAfterimages);
-    }
+    game_scene_player_visual_system::TrySpawnAfterimage(m_player, transform);
 }
 
 void GameScene::HandlePhotoCapture()
@@ -770,18 +398,72 @@ void GameScene::HandleWorldInteractions()
     m_flow.playerTouchingHazard = false;
     m_flow.playerTouchingTarget = false;
 
-    HandleWorldTileInteractions(*player);
+    game_scene_world_interaction_system::HandleTileInteractions(
+        m_flow,
+        *player,
+        [this](const TransformComponent& transform)
+        {
+            return IntersectsHazardTile(transform);
+        },
+        [this](const TransformComponent& transform)
+        {
+            return IntersectsGoalTile(transform);
+        },
+        [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)
+        {
+            HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
+        },
+        [this](GameEndReason reason)
+        {
+            QueueResult(reason);
+        },
+        m_eventBus);
 
     std::vector<Entity*> consumedGimmicks;
-    HandleWorldEntityInteractions(*player, consumedGimmicks);
+    game_scene_world_interaction_system::HandleEntityInteractions(
+        m_entities,
+        m_flow,
+        *player,
+        consumedGimmicks,
+        [this](const Entity& a, const Entity& b)
+        {
+            return IntersectsEntity(a, b);
+        },
+        [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)
+        {
+            HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
+        },
+        [this](GameEndReason reason)
+        {
+            QueueResult(reason);
+        },
+        m_eventBus);
 
     std::vector<Entity*> consumedPickups;
     std::vector<Entity*> defeatedEnemies;
-    HandlePhotoBoxInteractions(*player, consumedPickups, defeatedEnemies);
+    game_scene_world_interaction_system::HandlePhotoBoxInteractions(
+        m_entities,
+        m_flow,
+        *player,
+        consumedPickups,
+        defeatedEnemies,
+        [this](const Entity& a, const Entity& b)
+        {
+            return IntersectsEntity(a, b);
+        },
+        [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)
+        {
+            HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
+        },
+        [this](GameEndReason reason)
+        {
+            QueueResult(reason);
+        },
+        m_eventBus);
 
     std::vector<Entity*> entitiesToRemove = consumedGimmicks;
     entitiesToRemove.insert(entitiesToRemove.end(), consumedPickups.begin(), consumedPickups.end());
-    RemoveEntitiesByPointerList(entitiesToRemove);
+    game_scene_world_interaction_system::RemoveEntitiesByPointerList(m_entities, entitiesToRemove);
 
     if (!defeatedEnemies.empty())
     {
@@ -954,28 +636,7 @@ void GameScene::RemoveEntitiesByPointerList(const std::vector<Entity*>& entities
 
 void GameScene::RemoveDefeatedEnemies()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
-            {
-                const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
-                if (enemy && enemy->IsDefeated())
-                {
-                    return true;
-                }
-
-                if (!entity || !HasTag(*entity, "PhotoBox"))
-                {
-                    return false;
-                }
-
-                const auto* lifetime = entity->GetComponent<PhotoCopyLifetimeComponent>();
-                return lifetime && lifetime->IsExpired();
-            }),
-        m_entities.end());
-
+    game_scene_world_interaction_system::RemoveDefeatedEnemies(m_entities);
     RefreshPhotoGroupState();
 }
 
@@ -1006,10 +667,10 @@ void GameScene::RefreshPhotoGroupState()
 
 void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage)
 {
-    const float dodgeDuration = GetPlayerDodgeDuration();
-    const float dodgeElapsed = std::max(0.0f, dodgeDuration - m_player.dodgeRemaining);
-    const float dodgeInvincibility = std::min(gPlayerDodgeInvincibilitySeconds, dodgeDuration);
-    if (m_player.dodgeRemaining > 0.0f && dodgeElapsed < dodgeInvincibility)
+    if (game_scene_world_interaction_system::IsPlayerDamageBlocked(
+        m_player,
+        GetPlayerDodgeDuration(),
+        gPlayerDodgeInvincibilitySeconds))
     {
         return;
     }

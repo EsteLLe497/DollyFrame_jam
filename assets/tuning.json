@@ -5,6 +5,7 @@
   "capture_width_tiles": 5.0,
   "coyote_time": 0.10000000149011612,
   "dodge_distance": 124.80000305175781,
+  "dodge_cooldown": 0.44999998807907104,
   "dodge_invincibility": 0.1599999964237213,
   "dodge_speed": 780.0,
   "gravity": 1900.0,

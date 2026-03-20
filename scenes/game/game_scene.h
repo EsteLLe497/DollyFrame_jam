@@ -65,7 +65,7 @@ private:
     void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage);
     void QueueResult(GameEndReason reason);
     void UpdateTuningPanel();
-    void DrawTuningPanel() const;
+    void DrawTuningPanel();
     void DrawCaptureOverlay() const;
     void DrawDevelopedPhotoPreview() const;
     void DrawPhotoStorageTray() const;
