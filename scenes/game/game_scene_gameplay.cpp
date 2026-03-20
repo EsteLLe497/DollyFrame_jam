@@ -9,6 +9,48 @@
 
 using namespace game_scene_detail;
 
+namespace
+{
+    constexpr float kTuningPanelX = 24.0f;
+    constexpr float kTuningPanelY = 24.0f;
+    constexpr float kTuningPanelWidth = 460.0f;
+    constexpr float kTuningPanelHeight = 620.0f;
+    constexpr float kTuningRowStartY = 124.0f;
+    constexpr float kTuningRowHeight = 22.0f;
+    constexpr float kTuningSectionGap = 14.0f;
+    constexpr float kTuningSectionHeaderHeight = 24.0f;
+    constexpr float kTuningMinusButtonX = 314.0f;
+    constexpr float kTuningPlusButtonX = 390.0f;
+    constexpr float kTuningButtonWidth = 52.0f;
+    constexpr float kTuningButtonHeight = 18.0f;
+
+    struct TuningRowLayout
+    {
+        float y;
+        bool isSectionHeader;
+    };
+
+    TuningRowLayout GetTuningRowLayout(int index)
+    {
+        float y = kTuningPanelY + kTuningRowStartY;
+        if (index >= 2)
+        {
+            y += kTuningSectionHeaderHeight + kTuningSectionGap;
+        }
+        if (index >= 12)
+        {
+            y += kTuningSectionHeaderHeight + kTuningSectionGap;
+        }
+        y += static_cast<float>(index) * kTuningRowHeight;
+        return { y, false };
+    }
+
+    bool IsPointInside(float pointX, float pointY, float x, float y, float width, float height)
+    {
+        return pointX >= x && pointX <= x + width && pointY >= y && pointY <= y + height;
+    }
+}
+
 void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame)
 {
     game_scene_player_visual_system::UpdatePresentation(
@@ -57,6 +99,44 @@ void GameScene::UpdateTuningPanel()
             entries[m_debug.tuningSelection].minValue,
             entries[m_debug.tuningSelection].maxValue);
         WriteTuningJsonFile();
+    }
+
+    if (!Input_IsMouseLeftPressed())
+    {
+        return;
+    }
+
+    const float mouseX = static_cast<float>(Input_GetMouseX());
+    const float mouseY = static_cast<float>(Input_GetMouseY());
+    if (!IsPointInside(mouseX, mouseY, kTuningPanelX, kTuningPanelY, kTuningPanelWidth, kTuningPanelHeight))
+    {
+        return;
+    }
+
+    for (int index = 0; index < kEntryCount; ++index)
+    {
+        const auto layout = GetTuningRowLayout(index);
+        const float rowY = layout.y;
+        if (IsPointInside(mouseX, mouseY, kTuningPanelX + kTuningMinusButtonX, rowY, kTuningButtonWidth, kTuningButtonHeight))
+        {
+            m_debug.tuningSelection = index;
+            *entries[index].value = std::clamp(
+                *entries[index].value - entries[index].step,
+                entries[index].minValue,
+                entries[index].maxValue);
+            WriteTuningJsonFile();
+            return;
+        }
+        if (IsPointInside(mouseX, mouseY, kTuningPanelX + kTuningPlusButtonX, rowY, kTuningButtonWidth, kTuningButtonHeight))
+        {
+            m_debug.tuningSelection = index;
+            *entries[index].value = std::clamp(
+                *entries[index].value + entries[index].step,
+                entries[index].minValue,
+                entries[index].maxValue);
+            WriteTuningJsonFile();
+            return;
+        }
     }
 }
 

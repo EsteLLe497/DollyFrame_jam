@@ -113,6 +113,7 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     {
         return false;
     }
+    SetMouseDispFlag(TRUE);
 
     DirectXInitialize(nullptr);
     if (!Shader_Initialize(nullptr, nullptr))
