@@ -114,29 +114,68 @@ void GameScene::Update(float deltaTime)
     {
         m_showCollisionDebug = !m_showCollisionDebug;
     }
-    if (Input_IsActionPressed(InputAction::SelectFilterNone))
+
+	const bool blockFilterChange = Input_IsActionDown(InputAction::HoldCamera) || m_photo.placement.active;
+    if (!blockFilterChange)
     {
-        m_photo.capture.selectedTheme = PhotoFilterTheme::None;
-    }
-    if (Input_IsActionPressed(InputAction::SelectFilterHot))
-    {
-        m_photo.capture.selectedTheme = PhotoFilterTheme::Hot;
-    }
-    if (Input_IsActionPressed(InputAction::SelectFilterCold))
-    {
-        m_photo.capture.selectedTheme = PhotoFilterTheme::Cold;
-    }
-    if (Input_IsActionPressed(InputAction::SelectFilterInvert))
-    {
-        m_photo.capture.selectedTheme = PhotoFilterTheme::Invert;
-    }
-    if (Input_IsActionPressed(InputAction::SelectFilterSepia))
-    {
-        m_photo.capture.selectedTheme = PhotoFilterTheme::Sepia;
-    }
-    if (Input_IsActionPressed(InputAction::CycleFilter))
-    {
-        m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
+
+        if (Input_IsActionPressed(InputAction::SelectFilterNone))
+        {
+            m_photo.capture.selectedTheme = PhotoFilterTheme::None;
+        }
+        if (Input_IsActionPressed(InputAction::SelectFilterHot))
+        {
+            m_photo.capture.selectedTheme = PhotoFilterTheme::Hot;
+        }
+        if (Input_IsActionPressed(InputAction::SelectFilterCold))
+        {
+            m_photo.capture.selectedTheme = PhotoFilterTheme::Cold;
+        }
+        if (Input_IsActionPressed(InputAction::SelectFilterInvert))
+        {
+            m_photo.capture.selectedTheme = PhotoFilterTheme::Invert;
+        }
+        if (Input_IsActionPressed(InputAction::SelectFilterSepia))
+        {
+            m_photo.capture.selectedTheme = PhotoFilterTheme::Sepia;
+        }
+        if (Input_IsActionPressed(InputAction::CycleFilter))
+        {
+            m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
+        }
+
+
+        // PAD の L/R ショルダーでフィルターを左右に変更
+        if (!m_photo.placement.active)
+        {
+            if (Input_IsRightShoulderPressed())
+            {
+                m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
+            }
+            else if (Input_IsLeftShoulderPressed())
+            {
+                // 前のフィルターを選択
+                switch (m_photo.capture.selectedTheme)
+                {
+                case PhotoFilterTheme::None:
+                    m_photo.capture.selectedTheme = PhotoFilterTheme::Sepia;
+                    break;
+                case PhotoFilterTheme::Hot:
+                    m_photo.capture.selectedTheme = PhotoFilterTheme::None;
+                    break;
+                case PhotoFilterTheme::Cold:
+                    m_photo.capture.selectedTheme = PhotoFilterTheme::Hot;
+                    break;
+                case PhotoFilterTheme::Invert:
+                    m_photo.capture.selectedTheme = PhotoFilterTheme::Cold;
+                    break;
+                case PhotoFilterTheme::Sepia:
+                default:
+                    m_photo.capture.selectedTheme = PhotoFilterTheme::Invert;
+                    break;
+                }
+            }
+        }
     }
 
     UpdateTuningPanel();

@@ -408,6 +408,17 @@ bool Input_IsNorthButtonPressed()
     return IsGamepadNorthPressed();
 }
 
+bool Input_IsRightShoulderPressed()
+{
+    return IsGamepadRightShoulderPressed();
+}
+
+
+bool Input_IsLeftShoulderPressed()
+{
+    return IsGamepadLeftShoulderPressed();
+}
+
 bool Input_IsLeftTriggerDown()
 {
     return IsGamepadLeftTriggerDown();
