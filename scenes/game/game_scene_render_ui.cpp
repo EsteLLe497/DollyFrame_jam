@@ -201,7 +201,7 @@ void GameScene::DrawTuningPanel() const
     const int left = 32;
     const int top = 32;
     const int width = 360;
-    const int height = 300;
+    const int height = 360;
 
     DrawBox(left, top, left + width, top + height, GetColor(18, 22, 28), TRUE);
     DrawBox(left, top, left + width, top + height, GetColor(210, 220, 240), FALSE);
@@ -222,6 +222,10 @@ void GameScene::DrawTuningPanel() const
         { "Jump Speed", gPlayerJumpSpeed },
         { "Gravity", gPlayerGravity },
         { "Max Fall", gPlayerMaxFallSpeed },
+        { "Dodge Speed", gPlayerDodgeSpeed },
+        { "Dodge Dist", gPlayerDodgeDistance },
+        { "Dodge I-Frame", gPlayerDodgeInvincibilitySeconds },
+        { "Dodge Time", GetPlayerDodgeDuration() },
         { "Coyote", gCoyoteTimeSeconds },
         { "Ground Snap", gGroundSnapDistance },
         { "Capture W Tiles", gCaptureWidthTiles },

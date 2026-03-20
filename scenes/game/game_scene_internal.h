@@ -30,7 +30,8 @@ inline float gPlayerJumpSpeed = -760.0f;
 inline float gPlayerGravity = 1900.0f;
 inline float gPlayerMaxFallSpeed = 980.0f;
 inline float gPlayerDodgeSpeed = 780.0f;
-inline float gPlayerDodgeDuration = 0.16f;
+inline float gPlayerDodgeDistance = 124.8f;
+inline float gPlayerDodgeInvincibilitySeconds = 0.16f;
 inline float gPlayerDodgeCooldown = 0.45f;
 inline float gCoyoteTimeSeconds = 0.10f;
 inline float gGroundSnapDistance = 8.0f;
@@ -50,6 +51,13 @@ constexpr float kHorizontalCollisionEpsilon = 1.0f;
 inline float Clamp01(float value)
 {
     return std::clamp(value, 0.0f, 1.0f);
+}
+
+inline float GetPlayerDodgeDuration()
+{
+    return gPlayerDodgeSpeed > 0.0f
+        ? gPlayerDodgeDistance / gPlayerDodgeSpeed
+        : 0.0f;
 }
 
 inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, float& a)

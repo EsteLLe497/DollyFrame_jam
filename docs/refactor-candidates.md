@@ -34,7 +34,9 @@
 - `game_scene_state.h` を追加し、`GameScene` の状態を `m_flow` / `m_player` / `m_debug` へ集約開始
 - `game_scene_photo_state.h` を追加し、写真系 state を `game_scene.h` から分離
 - `HandleWorldInteractions()` の写真コピーまわりは責務ごとの補助関数へ整理済み
-- 空実装だった `UpdatePhotoTraySelection()` は削除済み
+- 写真スロット入力は `game_scene_photo_tray_system.h` へ分離
+- 敵 AI / bullet 更新は `game_scene_combat_system.h` へ分離
+- プレイヤー回避は `dodge_speed` / `dodge_distance` / `dodge_invincibility` を tuning tool から調整可能にした
 - `EnemyComponent` / `GimmickComponent` / `EnemyMoverComponent` は `world_components.*` へ分離済み
 
 残りの主課題:

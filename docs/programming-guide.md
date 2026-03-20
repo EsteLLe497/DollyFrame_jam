@@ -88,6 +88,10 @@
   ステージ初期化、prefab 配置、チューニング入出力
 - `scenes/game/game_scene_gameplay.cpp`
   プレイヤー更新、撮影、配置、敵、相互作用
+- `scenes/game/game_scene_photo_tray_system.h`
+  写真スロット選択の入力処理
+- `scenes/game/game_scene_combat_system.h`
+  敵 AI と bullet 更新の runtime helper
 - `scenes/game/game_scene_render.cpp`
   エンティティ描画とワールド側の見た目
 - `scenes/game/game_scene_render_ui.cpp`
@@ -118,6 +122,8 @@
 改修時はまず「何を変えたいか」でファイルを分けて考えると速いです。
 
 - ルールを変えたい: `scenes/game/game_scene_gameplay.cpp`
+- 写真スロット選択を変えたい: `scenes/game/game_scene_photo_tray_system.h`
+- 敵 AI や bullet を変えたい: `scenes/game/game_scene_combat_system.h`
 - 見た目を変えたい: `scenes/game/game_scene_render.cpp`
 - HUD やオーバーレイを変えたい: `scenes/game/game_scene_render_ui.cpp`
 - 当たり判定を変えたい: `scenes/game/game_scene_collision.cpp`
@@ -146,6 +152,27 @@
 
 プレイヤー更新で直接触る状態は主に `m_player` へ集約されています。  
 移動系の改修では `scenes/game/game_scene_state.h` の `GameScenePlayerState` も一緒に見ると追いやすいです。
+
+回避まわりは tuning tool から次を調整できます。
+
+- `dodge_speed`
+  回避中の水平速度
+- `dodge_distance`
+  回避で進む距離
+- `dodge_invincibility`
+  回避開始から何秒ぶん被弾を無効化するか
+
+`Dodge Time` は保存値ではなく、`dodge_distance / dodge_speed` から計算される派生値です。  
+つまり回避時間を変えたいときは `dodge_speed` か `dodge_distance` を調整します。
+
+注意:
+
+- `dodge_invincibility`
+  回避中だけの無敵時間
+- `assets/prefabs.json` の `damageCooldown.seconds`
+  被弾した直後の再被弾防止時間
+
+この 2 つは役割が違うので、同じ「無敵」でも混ぜて調整しない方が安全です。
 
 ### 写真システム
 
