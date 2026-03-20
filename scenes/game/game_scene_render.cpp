@@ -7,6 +7,22 @@ using namespace game_scene_detail;
 
 namespace
 {
+    float EaseOutCubic(float t)
+    {
+        const float clamped = Clamp01(t);
+        const float inv = 1.0f - clamped;
+        return 1.0f - inv * inv * inv;
+    }
+
+    float EaseOutBack(float t)
+    {
+        const float clamped = Clamp01(t);
+        constexpr float c1 = 1.70158f;
+        constexpr float c3 = c1 + 1.0f;
+        const float shifted = clamped - 1.0f;
+        return 1.0f + c3 * shifted * shifted * shifted + c1 * shifted * shifted;
+    }
+
     void DrawWorldRectOutline(float worldX, float worldY, float worldWidth, float worldHeight, float cameraX, unsigned int color)
     {
         const float viewScale = GetViewScale();
@@ -122,10 +138,10 @@ void GameScene::DrawEntity(const Entity& entity) const
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
     const float viewWidth = GetViewWidth();
-    const float drawX = viewOriginX + (transform->x - m_cameraX) * viewScale;
-    const float drawY = viewOriginY + transform->y * viewScale;
-    const float drawWidth = transform->width * transform->scale * viewScale;
-    const float drawHeight = transform->height * transform->scale * viewScale;
+    float drawX = viewOriginX + (transform->x - m_flow.cameraX) * viewScale;
+    float drawY = viewOriginY + transform->y * viewScale;
+    float drawWidth = transform->width * transform->scale * viewScale;
+    float drawHeight = transform->height * transform->scale * viewScale;
     if (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth)
     {
         return;
@@ -138,9 +154,9 @@ void GameScene::DrawEntity(const Entity& entity) const
     if (tag && tag->tag == "Goal")
     {
         Shader_SetOutline(
-            m_goalUnlocked ? 0.28f : 0.92f,
-            m_goalUnlocked ? 1.0f : 0.22f,
-            m_goalUnlocked ? 0.42f : 0.18f,
+            m_flow.goalUnlocked ? 0.28f : 0.92f,
+            m_flow.goalUnlocked ? 1.0f : 0.22f,
+            m_flow.goalUnlocked ? 0.42f : 0.18f,
             1.0f,
             1.5f);
     }
@@ -184,6 +200,24 @@ void GameScene::DrawEntity(const Entity& entity) const
         {
             const float totalLifetime = std::max(0.001f, lifetime->GetLifetimeSeconds());
             alphaMultiplier = Clamp01(lifetime->GetRemainingSeconds() / totalLifetime);
+        }
+
+        if (const auto* pasteAnimation = entity.GetComponent<PhotoPasteAnimationComponent>())
+        {
+            const float progress = pasteAnimation->GetNormalizedProgress();
+            const float settleT = EaseOutBack(progress);
+            const float slamT = EaseOutCubic(progress);
+            const float animationScale = 0.82f + 0.18f * settleT;
+            const float centerX = drawX + drawWidth * 0.5f;
+            const float bottomY = drawY + drawHeight;
+            const float animatedWidth = drawWidth * animationScale;
+            const float animatedHeight = drawHeight * (1.12f - 0.12f * slamT);
+            drawX = centerX - animatedWidth * 0.5f;
+            drawY = bottomY - animatedHeight - (1.0f - slamT) * 18.0f * viewScale;
+            drawWidth = animatedWidth;
+            drawHeight = animatedHeight;
+            alphaMultiplier *= 0.45f + 0.55f * slamT;
+            Shader_SetFlash(1.0f, 0.98f, 0.92f, 1.0f, (1.0f - progress) * 0.28f);
         }
 
         const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
@@ -277,10 +311,10 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
     else if (tag && tag->tag == "Player")
     {
-        for (size_t index = m_playerAfterimages.size(); index > 0; --index)
+        for (size_t index = m_player.afterimages.size(); index > 0; --index)
         {
-            const auto& afterimage = m_playerAfterimages[index - 1];
-            const float afterimageDrawX = viewOriginX + (afterimage.x - m_cameraX) * viewScale;
+            const auto& afterimage = m_player.afterimages[index - 1];
+            const float afterimageDrawX = viewOriginX + (afterimage.x - m_flow.cameraX) * viewScale;
             const float afterimageDrawY = viewOriginY + afterimage.y * viewScale;
             const float afterimageDrawWidth = transform->width * afterimage.scale * viewScale;
             const float afterimageDrawHeight = transform->height * afterimage.scale * viewScale;
@@ -343,7 +377,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             transform->rotation);
     }
 
-    if (m_showCollisionDebug && (entity.GetComponent<PhotoFilterComponent>() || (tag && (tag->tag == "Player" || tag->tag == "PhotoSource" || tag->tag == "PhotoBox"))))
+    if (m_debug.showCollisionDebug && (entity.GetComponent<PhotoFilterComponent>() || (tag && (tag->tag == "Player" || tag->tag == "PhotoSource" || tag->tag == "PhotoBox"))))
     {
         unsigned int color = GetColor(255, 255, 255);
         if (tag && tag->tag == "Player")
@@ -368,7 +402,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             transform->y,
             transform->width * transform->scale,
             transform->height * transform->scale,
-            m_cameraX,
+            m_flow.cameraX,
             color);
     }
 

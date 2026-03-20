@@ -49,6 +49,8 @@
 現状で最もゲームロジックが大きいのは `GameScene` です。  
 `GameScene` はさらに次の単位へ分割されています。
 
+- `game_scene_photo_state.h`
+- `game_scene_state.h`
 - `game_scene.cpp`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
@@ -57,11 +59,25 @@
 
 この構成を崩さず、
 
+- 状態所有
 - ルール
 - 描画
 - 当たり判定
 
 を分けて保つのが今の保守上かなり重要です。
+
+現在の `GameScene` は、フラットに大量のメンバを持つ形から次の state struct へ整理し始めています。
+
+- `m_flow`
+  シーン進行、カメラ、スロー、プレビュー時間
+- `m_player`
+  プレイヤー運動、接地、回避、見た目補間
+- `m_debug`
+  デバッグ表示、チューニング UI、ホットリロード
+- `m_photo`
+  撮影、保存、配置、コピーグループ
+
+この方針により、機能追加時の競合点を `game_scene.h` から減らしていきます。
 
 ### `SceneManager`
 

@@ -29,6 +29,20 @@
 
 への分割
 
+進捗:
+
+- `game_scene_state.h` を追加し、`GameScene` の状態を `m_flow` / `m_player` / `m_debug` へ集約開始
+- `game_scene_photo_state.h` を追加し、写真系 state を `game_scene.h` から分離
+- `HandleWorldInteractions()` の写真コピーまわりは責務ごとの補助関数へ整理済み
+- 空実装だった `UpdatePhotoTraySelection()` は削除済み
+- `EnemyComponent` / `GimmickComponent` / `EnemyMoverComponent` は `world_components.*` へ分離済み
+
+残りの主課題:
+
+- `m_photo` を含む写真状態の所有をさらに明確化する
+- `GameScene` 本体を orchestration 中心に寄せる
+- state ごとに system 依存をさらに分離する
+
 ### 2. フィルター適用処理の独立
 
 今はフィルターのロジックが `GameScene` 側に寄っています。
@@ -37,6 +51,7 @@
 
 - `photo_filter_rules.*` を導入し、キャプチャ対象とコピー生成物への適用処理は集約済み
 - テーマ名 / 効果文 / UI オーバーレイ色 / 配置プレビュー反映も `photo_filter_rules.*` 側へ寄せ始めている
+- 写真系の列挙とコンポーネントは `photo_components.*` へ分離済み
 
 候補:
 
@@ -86,7 +101,23 @@
 - アクション単位の入力定義を残り箇所へ拡張
 - シーンごとの入力責務整理
 
-### 6. 描画ヘルパの整理
+### 6. コンポーネント定義の競合分散
+
+`components.h` / `components.cpp` に定義が集中すると、複数人作業で衝突しやすいです。
+
+進捗:
+
+- 写真系の列挙とコンポーネントは `photo_components.h` / `photo_components.cpp` へ分離済み
+- `GameScene` と `photo_filter_rules` は写真系ヘッダを直接参照する形へ整理済み
+- 敵、ギミック、敵移動は `world_components.h` / `world_components.cpp` へ分離済み
+
+候補:
+
+- 物理系コンポーネントの分離
+- 描画系コンポーネントの分離
+- `components.*` を汎用・描画・物理でさらに責務分割
+
+### 7. 描画ヘルパの整理
 
 `game_scene_render.cpp` に UI と演出が集まりやすいです。
 
@@ -108,7 +139,7 @@
 
 ## 優先度低
 
-### 7. ドキュメント更新フローの整備
+### 8. ドキュメント更新フローの整備
 
 今は説明書を増やしている段階で、更新ルールはまだ弱いです。
 
@@ -117,7 +148,7 @@
 - 変更種別ごとの更新対象一覧
 - PR テンプレートに docs 更新確認を入れる
 
-### 8. シーン登録まわりの整理
+### 9. シーン登録まわりの整理
 
 `SceneManager` と `SceneRegistry` は今すぐ大きな問題ではないですが、将来的にシーン追加が増えると整理余地があります。
 

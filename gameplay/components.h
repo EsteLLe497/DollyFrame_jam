@@ -49,7 +49,7 @@ enum class EnemyArchetype
     Floater,
     Walker,
     Turret,
-    Ranged, // 3/19’Ç‰Á(“c”Vãr)
+    Ranged, // 3/19ï¿½Ç‰ï¿½(ï¿½cï¿½Vï¿½ï¿½r)
 };
 
 enum class GimmickType
@@ -135,6 +135,20 @@ private:
     float m_remainingSeconds;
 };
 
+class PhotoPasteAnimationComponent final : public Component
+{
+public:
+    explicit PhotoPasteAnimationComponent(float durationSeconds);
+
+    void Update(float deltaTime) override;
+    float GetNormalizedProgress() const;
+    bool IsFinished() const;
+
+private:
+    float m_durationSeconds;
+    float m_elapsedSeconds;
+};
+
 class PhotoCopyOriginComponent final : public Component
 {
 public:
@@ -169,7 +183,7 @@ class EnemyComponent final : public Component
 public:
     EnemyComponent(EnemyArchetype archetype, int contactDamage = 1);
 
-    // 3/19’Ç‰ÁFŠÈ’P‚ÈAIó‘ÔŠÇ—‚Ì‚½‚ß‚Ì—ñ‹“Œ^(“c”Vãr)
+    // 3/19ï¿½Ç‰ï¿½ï¿½Fï¿½È’Pï¿½ï¿½AIï¿½ï¿½ÔŠÇ—ï¿½ï¿½Ì‚ï¿½ï¿½ß‚Ì—ñ‹“Œ^(ï¿½cï¿½Vï¿½ï¿½r)
     enum class AIState { Idle, Chase, Attack };
 
     void DrawDebugUI() override;
@@ -181,7 +195,7 @@ public:
     void MarkDefeated();
     void Restore(); 
 
-    // 3/19’Ç‰ÁFŠÈ’P‚ÈAIó‘ÔŠÇ—‚Ì‚½‚ß‚ÌƒvƒƒpƒeƒB‚Æƒ^ƒCƒ}[(“c”Vãr)
+    // 3/19ï¿½Ç‰ï¿½ï¿½Fï¿½È’Pï¿½ï¿½AIï¿½ï¿½ÔŠÇ—ï¿½ï¿½Ì‚ï¿½ï¿½ß‚Ìƒvï¿½ï¿½ï¿½pï¿½eï¿½Bï¿½Æƒ^ï¿½Cï¿½}ï¿½[(ï¿½cï¿½Vï¿½ï¿½r)
     AIState GetAIState() const { return m_aiState; }
     void SetAIState(AIState state) { m_aiState = state; }
     float attackTimer = 0.0f;
@@ -194,11 +208,11 @@ private:
     int m_contactDamage;
     bool m_enabled;
     bool m_defeated;
-    // 3/19’Ç‰Á(“c”Vãr)
+    // 3/19ï¿½Ç‰ï¿½(ï¿½cï¿½Vï¿½ï¿½r)
     AIState m_aiState = AIState::Idle;
 };
 
-// 3/19’Ç‰ÁF‰“‹——£UŒ‚‚Ì’eƒRƒ“ƒ|[ƒlƒ“ƒg(“c”Vãr)
+// 3/19ï¿½Ç‰ï¿½ï¿½Fï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Uï¿½ï¿½ï¿½Ì’eï¿½Rï¿½ï¿½ï¿½|ï¿½[ï¿½lï¿½ï¿½ï¿½g(ï¿½cï¿½Vï¿½ï¿½r)
 class ProjectileComponent final : public Component
 {
 public:
