@@ -201,7 +201,6 @@ void GameScene::Draw()
     DrawCaptureOverlay();
     DrawDevelopedPhotoPreview();
     DrawPhotoStorageTray();
-    DrawTuningPanel();
 }
 
 void GameScene::DrawDebugUI()
@@ -284,6 +283,8 @@ void GameScene::DrawDebugUI()
 
     ImGui::Text("Events This Frame: %d", static_cast<int>(m_eventBus.GetEvents().size()));
     ImGui::End();
+
+    DrawTuningPanel();
 }
 
 EventBus* GameScene::GetEventBus()
