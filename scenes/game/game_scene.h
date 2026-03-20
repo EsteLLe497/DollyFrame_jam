@@ -129,6 +129,7 @@ private:
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
     void UpdateEnemies();
+    void UpdateBullets(); // 3/19í«â¡(ìcîVè„èr)
     void UpdateCameraMode();
     void HandleAttackHits();
     void HandlePhotoCapture();
@@ -221,4 +222,5 @@ private:
     float m_playerDodgeStretch;
     float m_photoTrayReveal;
     std::vector<PlayerAfterimage> m_playerAfterimages;
+    float m_lastDeltaTime; // 3/19í«â¡(ìcîVè„èr)
 };

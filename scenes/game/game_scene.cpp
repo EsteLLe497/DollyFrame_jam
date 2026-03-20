@@ -52,6 +52,7 @@ GameScene::GameScene()
     , m_playerDodgeStretch(0.0f)
     , m_photoTrayReveal(0.0f)
     , m_playerAfterimages()
+    , m_lastDeltaTime(0.0f)
 {
 }
 
@@ -82,6 +83,7 @@ void GameScene::OnExit()
 
 void GameScene::Update(float deltaTime)
 {
+    m_lastDeltaTime = deltaTime;
     ZoneScoped;
 
     m_eventBus.Clear();
@@ -186,6 +188,7 @@ void GameScene::Update(float deltaTime)
     HandlePhotoCapture();
     HandlePhotoSpawn();
     UpdateEnemies();
+	UpdateBullets();
     UpdateGoalVisual(gameplayDeltaTime);
     HandleWorldInteractions();
     RemoveDefeatedEnemies();

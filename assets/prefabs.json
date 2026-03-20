@@ -415,6 +415,52 @@
         "amplitudeY": 96.0,
         "frequency": 1.1
       }
+    },
+    "sandbox_enemy_walker": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 64.0,
+        "height": 80.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.92,
+        "g": 0.38,
+        "b": 0.38,
+        "a": 1.0
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "walker",
+        "contactDamage": 1
+      }
+    },
+    "sandbox_enemy_ranged": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 64.0,
+        "height": 80.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.38,
+        "g": 0.38,
+        "b": 0.92,
+        "a": 1.0
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "ranged",
+        "contactDamage": 1
+      }
     }
   }
 }
