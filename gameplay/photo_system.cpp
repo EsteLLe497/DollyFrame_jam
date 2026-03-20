@@ -330,7 +330,14 @@ public:
             {
                 scene.m_photo.placement.rotation += kPlacementRotateSpeed / 60.0f;
             }
-            scene.m_photo.placement.rotation += Input_GetAxis(InputAxis::Rotate) * (kPlacementRotateSpeed / 60.0f);
+
+            const bool leftTriggerDown = Input_IsLeftTriggerDown();
+			const bool rightTriggerDown = Input_IsRightTriggerDown();
+
+            if (!(leftTriggerDown || rightTriggerDown))
+            {
+                scene.m_photo.placement.rotation += Input_GetAxis(InputAxis::Rotate) * (kPlacementRotateSpeed / 60.0f);
+            }
 
             Entity* player = scene.FindEntityByTag("Player");
             if (!player)

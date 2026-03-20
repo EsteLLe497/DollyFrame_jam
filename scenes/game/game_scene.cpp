@@ -43,6 +43,7 @@ void GameScene::OnExit()
 
 void GameScene::Update(float deltaTime)
 {
+    m_flow.lastDeltaTime = deltaTime;
     ZoneScoped;
 
     m_eventBus.Clear();
@@ -100,6 +101,36 @@ void GameScene::Update(float deltaTime)
         m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
     }
 
+    const bool blockFilterChange = m_photo.placement.active;
+    if (!blockFilterChange)
+    {
+        if (Input_IsRightShoulderPressed())
+        {
+            m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
+        }
+        else if (Input_IsLeftShoulderPressed())
+        {
+            switch (m_photo.capture.selectedTheme)
+            {
+            case PhotoFilterTheme::None:
+                m_photo.capture.selectedTheme = PhotoFilterTheme::Sepia;
+                break;
+            case PhotoFilterTheme::Hot:
+                m_photo.capture.selectedTheme = PhotoFilterTheme::None;
+                break;
+            case PhotoFilterTheme::Cold:
+                m_photo.capture.selectedTheme = PhotoFilterTheme::Hot;
+                break;
+            case PhotoFilterTheme::Invert:
+                m_photo.capture.selectedTheme = PhotoFilterTheme::Cold;
+                break;
+            case PhotoFilterTheme::Sepia:
+                m_photo.capture.selectedTheme = PhotoFilterTheme::Invert;
+                break;
+            }
+        }
+    }
+
     UpdateTuningPanel();
     if (m_debug.showTuningPanel)
     {
@@ -111,6 +142,10 @@ void GameScene::Update(float deltaTime)
     const bool showPhotoTray = m_flow.cameraMode || placementHeld || m_photo.placement.active;
     const float trayTarget = showPhotoTray ? 1.0f : 0.0f;
     m_flow.photoTrayReveal += (trayTarget - m_flow.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
+    if (m_flow.cameraMode || placementHeld || m_photo.placement.active)
+    {
+        UpdatePhotoTraySelection();
+    }
     if (Input_IsActionPressed(InputAction::HoldCamera))
     {
         m_flow.captureSlowRemaining = kCaptureFocusDuration;
@@ -143,11 +178,11 @@ void GameScene::Update(float deltaTime)
     HandlePhotoCapture();
     HandlePhotoSpawn();
     UpdateEnemies();
+    UpdateBullets();
     UpdateGoalVisual(gameplayDeltaTime);
     HandleWorldInteractions();
     RemoveDefeatedEnemies();
 }
-
 void GameScene::Draw()
 {
     DrawBackdrop();

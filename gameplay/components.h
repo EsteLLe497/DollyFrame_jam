@@ -49,6 +49,7 @@ enum class EnemyArchetype
     Floater,
     Walker,
     Turret,
+    Ranged, // 3/19�ǉ�(�c�V��r)
 };
 
 enum class GimmickType
@@ -134,6 +135,20 @@ private:
     float m_remainingSeconds;
 };
 
+class PhotoPasteAnimationComponent final : public Component
+{
+public:
+    explicit PhotoPasteAnimationComponent(float durationSeconds);
+
+    void Update(float deltaTime) override;
+    float GetNormalizedProgress() const;
+    bool IsFinished() const;
+
+private:
+    float m_durationSeconds;
+    float m_elapsedSeconds;
+};
+
 class PhotoCopyOriginComponent final : public Component
 {
 public:
@@ -168,6 +183,9 @@ class EnemyComponent final : public Component
 public:
     EnemyComponent(EnemyArchetype archetype, int contactDamage = 1);
 
+    // 3/19�ǉ��F�ȒP��AI��ԊǗ��̂��߂̗񋓌^(�c�V��r)
+    enum class AIState { Idle, Chase, Attack };
+
     void DrawDebugUI() override;
     EnemyArchetype GetArchetype() const;
     int GetContactDamage() const;
@@ -175,13 +193,44 @@ public:
     void SetEnabled(bool enabled);
     bool IsDefeated() const;
     void MarkDefeated();
-    void Restore();
+    void Restore(); 
+
+    // 3/19�ǉ��F�ȒP��AI��ԊǗ��̂��߂̃v���p�e�B�ƃ^�C�}�[(�c�V��r)
+    AIState GetAIState() const { return m_aiState; }
+    void SetAIState(AIState state) { m_aiState = state; }
+    float attackTimer = 0.0f;
+    float attackCooldown = 3.0f;
+    float detectRange = 400.0f;
+    float attackRange = 80.0f;
 
 private:
     EnemyArchetype m_archetype;
     int m_contactDamage;
     bool m_enabled;
     bool m_defeated;
+    // 3/19�ǉ�(�c�V��r)
+    AIState m_aiState = AIState::Idle;
+};
+
+// 3/19�ǉ��F�������U���̒e�R���|�[�l���g(�c�V��r)
+class ProjectileComponent final : public Component
+{
+public:
+    ProjectileComponent(float velocityX, float velocityY, int damage = 1)
+        : m_velocityX(velocityX)
+        , m_velocityY(velocityY)
+        , m_damage(damage)
+    {
+    }
+
+    float GetVelocityX() const { return m_velocityX; }
+    float GetVelocityY() const { return m_velocityY; }
+    int GetDamage() const { return m_damage; }
+
+private:
+    float m_velocityX;
+    float m_velocityY;
+    int m_damage;
 };
 
 class GimmickComponent final : public Component

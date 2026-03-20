@@ -202,6 +202,10 @@ void PrefabFactory::LoadDefinitions()
         {
             definition.enemyArchetype = EnemyArchetype::Turret;
         }
+        else if (enemyArchetype == "ranged") // 3/19í«â¡(ìcîVè„èr)
+        {
+            definition.enemyArchetype = EnemyArchetype::Ranged;
+        }
         else
         {
             definition.enemyArchetype = EnemyArchetype::Floater;

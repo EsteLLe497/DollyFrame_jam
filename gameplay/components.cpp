@@ -91,6 +91,27 @@ bool PhotoCopyLifetimeComponent::IsExpired() const
     return m_remainingSeconds <= 0.0f;
 }
 
+PhotoPasteAnimationComponent::PhotoPasteAnimationComponent(float durationSeconds)
+    : m_durationSeconds(std::max(0.001f, durationSeconds))
+    , m_elapsedSeconds(0.0f)
+{
+}
+
+void PhotoPasteAnimationComponent::Update(float deltaTime)
+{
+    m_elapsedSeconds = std::min(m_durationSeconds, m_elapsedSeconds + std::max(0.0f, deltaTime));
+}
+
+float PhotoPasteAnimationComponent::GetNormalizedProgress() const
+{
+    return std::clamp(m_elapsedSeconds / m_durationSeconds, 0.0f, 1.0f);
+}
+
+bool PhotoPasteAnimationComponent::IsFinished() const
+{
+    return m_elapsedSeconds >= m_durationSeconds;
+}
+
 PhotoCopyOriginComponent::PhotoCopyOriginComponent(PhotoCopyOrigin originValue)
     : origin(originValue)
 {
@@ -111,6 +132,8 @@ namespace
             return "Walker";
         case EnemyArchetype::Turret:
             return "Turret";
+        case EnemyArchetype::Ranged: // 3/19�ǉ�(�c�V��r)
+            return "Ranged";
         case EnemyArchetype::Floater:
         default:
             return "Floater";

@@ -3,7 +3,7 @@
 #include <array>
 #include <vector>
 
-#include "photo_components.h"
+#include "components.h"
 
 struct CapturedPhotoItem
 {

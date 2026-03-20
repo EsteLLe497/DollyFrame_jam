@@ -45,6 +45,7 @@ private:
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
     void UpdateEnemies();
+    void UpdateBullets();
     void UpdateCameraMode();
     void HandleAttackHits();
     void HandlePhotoCapture();
@@ -52,6 +53,7 @@ private:
     void StoreCapturedPhoto();
     void SetSelectedPhotoSlot(int slotIndex);
     void ConsumeSelectedPhotoSlot();
+    void UpdatePhotoTraySelection();
     void UpdateGoalVisual(float deltaTime);
     void HandleWorldInteractions();
     void HandleWorldTileInteractions(Entity& player);

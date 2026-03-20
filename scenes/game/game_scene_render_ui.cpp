@@ -440,6 +440,7 @@ void GameScene::DrawPhotoStorageTray() const
                 1.0f);
         }
 
+
         DrawBox(
             static_cast<int>(std::round(previewX)),
             static_cast<int>(std::round(previewY)),

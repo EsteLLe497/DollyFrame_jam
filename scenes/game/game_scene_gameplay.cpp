@@ -683,9 +683,90 @@ void GameScene::ConsumeSelectedPhotoSlot()
     m_photo.placement.valid = false;
 }
 
+void GameScene::UpdatePhotoTraySelection()
+{
+    if (m_flow.photoTrayReveal <= 0.05f)
+    {
+        return;
+    }
+
+    if (Input_IsGamepadConnected())
+    {
+        static float prevAxisX = 0.0f;
+        const float axis = Input_GetMoveX();
+        constexpr float kAxisThreshold = 0.5f;
+        constexpr int kSlotCount = 3;
+
+        if (axis > kAxisThreshold && prevAxisX <= kAxisThreshold)
+        {
+            const int start = m_photo.selectedCaptureSlot;
+            for (int i = 1; i <= kSlotCount; ++i)
+            {
+                const int idx = (start + i) % kSlotCount;
+                if (m_photo.savedCaptures[idx].hasPhoto)
+                {
+                    SetSelectedPhotoSlot(idx);
+                    break;
+                }
+            }
+        }
+        else if (axis < -kAxisThreshold && prevAxisX >= -kAxisThreshold)
+        {
+            const int start = m_photo.selectedCaptureSlot;
+            for (int i = 1; i <= kSlotCount; ++i)
+            {
+                const int idx = (start + kSlotCount - i) % kSlotCount;
+                if (m_photo.savedCaptures[idx].hasPhoto)
+                {
+                    SetSelectedPhotoSlot(idx);
+                    break;
+                }
+            }
+        }
+        prevAxisX = axis;
+    }
+
+    {
+        constexpr int kSlotCount = 3;
+
+        if (Input_IsKeyPressed('D'))
+        {
+            const int start = m_photo.selectedCaptureSlot;
+            for (int i = 1; i <= kSlotCount; ++i)
+            {
+                const int idx = (start + i) % kSlotCount;
+                if (m_photo.savedCaptures[idx].hasPhoto)
+                {
+                    SetSelectedPhotoSlot(idx);
+                    break;
+                }
+            }
+        }
+
+        if (Input_IsKeyPressed('A'))
+        {
+            const int start = m_photo.selectedCaptureSlot;
+            for (int i = 1; i <= kSlotCount; ++i)
+            {
+                const int idx = (start + kSlotCount - i) % kSlotCount;
+                if (m_photo.savedCaptures[idx].hasPhoto)
+                {
+                    SetSelectedPhotoSlot(idx);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 void GameScene::UpdateEnemies()
 {
     m_flow.enemyCount = 0;
+    Entity* player = FindEntityByTag("Player");
+    const TransformComponent* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+
+    std::vector<std::unique_ptr<Entity>> newBullets;
+
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -693,15 +774,147 @@ void GameScene::UpdateEnemies()
             continue;
         }
 
-        const auto* enemy = entity->GetComponent<EnemyComponent>();
-        if (enemy && enemy->IsEnabled())
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled())
         {
-            ++m_flow.enemyCount;
+            continue;
+        }
+
+        ++m_flow.enemyCount;
+
+        if (!playerTransform)
+        {
+            continue;
+        }
+
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform)
+        {
+            continue;
+        }
+
+        if (enemy->GetArchetype() == EnemyArchetype::Walker)
+        {
+            const float dx = playerTransform->x - transform->x;
+            const float dist = std::fabs(dx);
+            constexpr float kWalkerSpeed = 120.0f;
+
+            switch (enemy->GetAIState())
+            {
+            case EnemyComponent::AIState::Idle:
+                if (dist < enemy->detectRange)
+                {
+                    enemy->SetAIState(EnemyComponent::AIState::Chase);
+                }
+                break;
+            case EnemyComponent::AIState::Chase:
+                if (dist < enemy->attackRange)
+                {
+                    enemy->attackTimer = 0.0f;
+                    enemy->SetAIState(EnemyComponent::AIState::Attack);
+                }
+                else if (dist > enemy->detectRange)
+                {
+                    enemy->SetAIState(EnemyComponent::AIState::Idle);
+                }
+                else
+                {
+                    transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * m_flow.lastDeltaTime;
+                }
+                break;
+            case EnemyComponent::AIState::Attack:
+                enemy->attackTimer += m_flow.lastDeltaTime;
+                if (dist >= enemy->attackRange)
+                {
+                    enemy->SetAIState(EnemyComponent::AIState::Chase);
+                }
+                else if (enemy->attackTimer >= enemy->attackCooldown)
+                {
+                    enemy->attackTimer = 0.0f;
+                }
+                break;
+            }
+        }
+        else if (enemy->GetArchetype() == EnemyArchetype::Ranged)
+        {
+            const float dx = playerTransform->x - transform->x;
+            const float dy = playerTransform->y - transform->y;
+            const float dist = std::sqrt(dx * dx + dy * dy);
+
+            enemy->attackTimer += m_flow.lastDeltaTime;
+
+            if (dist < enemy->detectRange && enemy->attackTimer >= enemy->attackCooldown)
+            {
+                enemy->attackTimer = 0.0f;
+
+                constexpr float kBulletSpeed = 300.0f;
+                const float length = std::max(1.0f, dist);
+                const float velX = (dx / length) * kBulletSpeed;
+                const float velY = (dy / length) * kBulletSpeed;
+
+                auto bullet = std::make_unique<Entity>();
+                bullet->AddComponent<TagComponent>("Bullet");
+                bullet->AddComponent<TransformComponent>(
+                    transform->x + 24.0f,
+                    transform->y + 24.0f,
+                    16.0f,
+                    16.0f);
+                bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
+                bullet->AddComponent<SpriteRenderComponent>(m_tileTexture);
+                bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
+                newBullets.push_back(std::move(bullet));
+            }
         }
     }
+
+    for (auto& bullet : newBullets)
+    {
+        m_entities.push_back(std::move(bullet));
+    }
+
     m_flow.goalUnlocked = m_photo.groups.hasSpawnedCopy;
 }
 
+void GameScene::UpdateBullets()
+{
+    const float mapWidth = GetMapPixelWidth();
+    const float mapHeight = GetMapPixelHeight();
+    Entity* player = FindEntityByTag("Player");
+
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [&](const std::unique_ptr<Entity>& entity) -> bool
+            {
+                if (!entity || !HasTag(*entity, "Bullet"))
+                {
+                    return false;
+                }
+
+                auto* transform = entity->GetComponent<TransformComponent>();
+                auto* projectile = entity->GetComponent<ProjectileComponent>();
+                if (!transform || !projectile)
+                {
+                    return false;
+                }
+
+                transform->x += projectile->GetVelocityX() * m_flow.lastDeltaTime;
+                transform->y += projectile->GetVelocityY() * m_flow.lastDeltaTime;
+
+                if (player && IntersectsEntity(*player, *entity))
+                {
+                    HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by bullet");
+                    return true;
+                }
+
+                return transform->x < 0.0f
+                    || transform->x > mapWidth
+                    || transform->y < 0.0f
+                    || transform->y > mapHeight;
+            }),
+        m_entities.end());
+}
 void GameScene::HandleAttackHits()
 {
     return;

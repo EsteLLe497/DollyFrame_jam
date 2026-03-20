@@ -31,6 +31,7 @@ struct GameSceneFlowState
     float shutterFlashRemaining = 0.0f;
     float developedPhotoPreviewRemaining = 0.0f;
     float photoTrayReveal = 0.0f;
+    float lastDeltaTime = 0.0f;
 };
 
 struct GameScenePlayerState
