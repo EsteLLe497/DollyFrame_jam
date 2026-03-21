@@ -720,13 +720,73 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
-    const float cursorWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + m_flow.cameraX;
-    const float cursorWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
+
+    // マウスから得られるワールド座標
+    const float mouseWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale);
+    const float mouseWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
+
+    // 右スティックでの操作用に仮想カーソル（ワールド座標）を保持する静的変数
+    // 初回はマウス位置で初期化される
+    static float padCursorWorldX = mouseWorldX;
+    static float padCursorWorldY = mouseWorldY;
+    static int lastMouseX = Input_GetMouseX();
+    static int lastMouseY = Input_GetMouseY();
+    static unsigned int lastTimeMs = 0;
+
+    // マウスが動いたら仮想カーソルをマウス位置に同期（マウスとパッドの切替時に自然になる）
+    const int curMouseX = Input_GetMouseX();
+    const int curMouseY = Input_GetMouseY();
+    if (curMouseX != lastMouseX || curMouseY != lastMouseY)
+    {
+        padCursorWorldX = mouseWorldX;
+        padCursorWorldY = mouseWorldY;
+    }
+    lastMouseX = curMouseX;
+    lastMouseY = curMouseY;
+
+    // 経過時間を取得（DxLib の GetNowCount はミリ秒を返す）
+    const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
+    const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
+    lastTimeMs = nowMs;
+
+    // 右スティック入力（正規化済み -1..1）
+    const float rightX = Input_GetRightStickX();
+    const float rightY = Input_GetRightStickY();
+
+    // スティック感度とデッドゾーン（必要に応じて値を調整してください）
+    constexpr float kPadDead = 0.08f;
+    constexpr float kPadCursorSpeed = 800.0f; // ワールド単位 / 秒
+    constexpr float kPadReturnLerpSpeed = 8.0f; // スティックを離した後、仮想カーソルをマウスに戻す速さ（大きいほど速く戻る）
+
+    // パッド接続かつスティックがデッドゾーン外なら仮想カーソルを移動
+    const bool padActive = Input_IsGamepadConnected() && (std::fabs(rightX) > kPadDead || std::fabs(rightY) > kPadDead);
+    if (padActive)
+    {
+        padCursorWorldX += rightX * kPadCursorSpeed * dt;
+        padCursorWorldY += rightY * kPadCursorSpeed * dt;
+    }
+    else
+    {
+        // スティックを離したときは仮想カーソルを即座にマウスに戻さず、滑らかに補間して戻す
+        // マウスが動いた場合は先に同期されるので問題ない
+        const float lerpFactor = std::min(1.0f, dt * kPadReturnLerpSpeed);
+        padCursorWorldX += (mouseWorldX - padCursorWorldX) * lerpFactor;
+        padCursorWorldY += (mouseWorldY - padCursorWorldY) * lerpFactor;
+    }
+
+    // 仮想カーソルがマップ外に行かないように軽くクランプ（厳密なクランプは後でフレーム矩形で行う）
+    const float mapW = GetMapPixelWidth();
+    const float mapH = GetMapPixelHeight();
+    padCursorWorldX = std::clamp(padCursorWorldX, 0.0f, std::max(0.0f, mapW));
+    padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapH));
+
+    // 常に仮想カーソルを用いる（マウス移動時は上で同期されるため自然に切替わる）
+    const float cursorWorldX = padCursorWorldX;
+    const float cursorWorldY = padCursorWorldY;
 
     x = std::clamp(cursorWorldX - width * 0.5f, 0.0f, std::max(0.0f, GetMapPixelWidth() - width));
     y = std::clamp(cursorWorldY - height * 0.5f, 0.0f, std::max(0.0f, GetMapPixelHeight() - height));
 }
-
 Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) const
 {
     float frameX = 0.0f;
