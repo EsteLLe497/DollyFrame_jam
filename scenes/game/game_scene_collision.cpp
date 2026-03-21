@@ -103,20 +103,30 @@ bool GameScene::IsGoalTile(int column, int row) const
 
 bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 {
-    float photoSourceX = 0.0f;
-    float photoSourceY = 0.0f;
-    float photoSourceWidth = 0.0f;
-    float photoSourceHeight = 0.0f;
-    if (GetEntityBoundsByTag("PhotoSource", photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight))
+    // プレイヤーの基礎情報
+    const float width = transform.width * transform.scale;
+    const float height = transform.height * transform.scale;
+    const float playerBottom = transform.y + height;
+    const float playerLeft = transform.x + 6.0f;
+    const float playerRight = transform.x + width - 6.0f;
+
+    // --- PhotoSource をすべてチェックするように変更 ---
+    for (const auto& entity : m_entities)
     {
-        const float width = transform.width * transform.scale;
-        const float height = transform.height * transform.scale;
-        const float playerBottom = transform.y + height;
-        const float playerLeft = transform.x + 6.0f;
-        const float playerRight = transform.x + width - 6.0f;
-        const float sourceTop = photoSourceY;
-        const float sourceLeft = photoSourceX;
-        const float sourceRight = photoSourceX + photoSourceWidth;
+        if (!entity || !HasTag(*entity, "PhotoSource"))
+        {
+            continue;
+        }
+
+        const auto* srcTransform = entity->GetComponent<TransformComponent>();
+        if (!srcTransform)
+        {
+            continue;
+        }
+
+        const float sourceTop = srcTransform->y;
+        const float sourceLeft = srcTransform->x;
+        const float sourceRight = srcTransform->x + srcTransform->width * srcTransform->scale;
         const bool horizontallyOverlapping = playerRight > sourceLeft && playerLeft < sourceRight;
         if (horizontallyOverlapping && std::fabs(playerBottom - sourceTop) <= kSurfaceContactEpsilon)
         {
@@ -124,6 +134,7 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         }
     }
 
+    // 以下は従来どおり PhotoBox / タイル判定
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
@@ -167,12 +178,13 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         }
     }
 
+    // タイル判定（変更無し）
     const float tileSize = m_tileMap.GetTileSize();
-    const float width = transform.width * transform.scale;
+    const float width2 = transform.width * transform.scale;
     const float footY = transform.y + transform.height * transform.scale + 2.0f;
     const int row = static_cast<int>(footY / tileSize);
     const int columnStart = static_cast<int>((transform.x + 6.0f) / tileSize);
-    const int columnEnd = static_cast<int>((transform.x + width - 6.0f) / tileSize);
+    const int columnEnd = static_cast<int>((transform.x + width2 - 6.0f) / tileSize);
     for (int column = columnStart; column <= columnEnd; ++column)
     {
         if (IsSolidTile(column, row) || IsPlatformTile(column, row))
@@ -198,20 +210,32 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 
 bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const
 {
-    float photoSourceX = 0.0f;
-    float photoSourceY = 0.0f;
-    float photoSourceWidth = 0.0f;
-    float photoSourceHeight = 0.0f;
-    if (GetEntityBoundsByTag("PhotoSource", photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight))
+    // マウス／プレイヤー位置等に依存するため、まず基本情報を計算
+    const float width = transform.width * transform.scale;
+    const float height = transform.height * transform.scale;
+    const float left = transform.x + 6.0f;
+    const float right = transform.x + width - 6.0f;
+
+    // --- PhotoSource をすべてチェックするように変更 ---
+    for (const auto& entity : m_entities)
     {
-        const float width = transform.width * transform.scale;
-        const float height = transform.height * transform.scale;
-        const float left = transform.x + 6.0f;
-        const float right = transform.x + width - 6.0f;
-        const bool horizontallyOverlapping = right > photoSourceX && left < photoSourceX + photoSourceWidth;
+        if (!entity || !HasTag(*entity, "PhotoSource"))
+        {
+            continue;
+        }
+
+        const auto* srcTransform = entity->GetComponent<TransformComponent>();
+        if (!srcTransform)
+        {
+            continue;
+        }
+
+        const float sourceLeft = srcTransform->x;
+        const float sourceRight = srcTransform->x + srcTransform->width * srcTransform->scale;
+        const bool horizontallyOverlapping = right > sourceLeft && left < sourceRight;
         if (horizontallyOverlapping)
         {
-            const float candidateY = photoSourceY - height;
+            const float candidateY = srcTransform->y - height;
             if (candidateY >= transform.y - 0.5f && (candidateY - transform.y) <= maxSnapDistance)
             {
                 transform.y = candidateY;
@@ -220,6 +244,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         }
     }
 
+    // 以下は従来どおり PhotoBox ベースの吸い付き判定
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
@@ -269,12 +294,13 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         }
     }
 
+    // タイルベースの吸い付き（変更無し）
     const float tileSize = m_tileMap.GetTileSize();
-    const float width = transform.width * transform.scale;
-    const float height = transform.height * transform.scale;
-    const float bottom = transform.y + height;
+    const float width2 = transform.width * transform.scale;
+    const float height2 = transform.height * transform.scale;
+    const float bottom = transform.y + height2;
     const int columnStart = static_cast<int>((transform.x + 6.0f) / tileSize);
-    const int columnEnd = static_cast<int>((transform.x + width - 6.0f) / tileSize);
+    const int columnEnd = static_cast<int>((transform.x + width2 - 6.0f) / tileSize);
     const int rowStart = static_cast<int>(bottom / tileSize);
     const int rowEnd = static_cast<int>((bottom + maxSnapDistance) / tileSize);
 
@@ -302,7 +328,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
                         continue;
                     }
 
-                    const float candidateY = slopeSurfaceY - height;
+                    const float candidateY = slopeSurfaceY - height2;
                     if (candidateY < transform.y - maxSnapDistance)
                     {
                         continue;
@@ -317,7 +343,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
                 continue;
             }
 
-            const float candidateY = static_cast<float>(row) * tileSize - height;
+            const float candidateY = static_cast<float>(row) * tileSize - height2;
             if (candidateY < transform.y - maxSnapDistance)
             {
                 continue;

@@ -11,7 +11,7 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr int kMaxPhotoGroups = 3;
-    constexpr float kPhotoCopyLifetimeSeconds = 10.0f;
+    constexpr float kPhotoCopyLifetimeSeconds = 30.0f;
     constexpr float kPhotoPasteAnimationSeconds = 0.24f;
     constexpr float kPlacementRotateSpeed = 2.4f;
 
@@ -542,6 +542,13 @@ private:
                     item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
                     item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
                 }
+
+                // ここで補正：role が Solid の場合は必ず Foreground にする
+                if (item.role == PhotoCopyRole::Solid)
+                {
+                    item.layer = PhotoCopyLayer::Foreground;
+                }
+
                 ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
                 scene.m_photo.capture.items.push_back(item);
                 capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
@@ -563,6 +570,12 @@ private:
                 {
                     const int tileValue = scene.m_tileMap.GetTile(column, row);
                     if (tileValue <= 0)
+                    {
+                        continue;
+                    }
+
+                    // 変更点: CSV で 1 としている「地面」タイルは撮影しない
+                    if (tileValue == 1)
                     {
                         continue;
                     }
@@ -641,19 +654,18 @@ private:
         const float viewOriginX = GetViewOriginX();
         const float viewOriginY = GetViewOriginY();
 
-        // マウスから得られるワールド座標（ワールド原点は cameraX を足す）
-        const float mouseWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale);
+        // マウス（スクリーン）をワールド座標へ変換（カメラXを加える）
+        const float mouseWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
         const float mouseWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
 
-        // 右スティック用の仮想カーソル（ワールド座標）を保持
-        // 初回はマウス位置で初期化される
+        // 右スティック用の仮想カーソル（ワールド座標）
         static float padCursorWorldX = mouseWorldX;
         static float padCursorWorldY = mouseWorldY;
         static int lastMouseX = Input_GetMouseX();
         static int lastMouseY = Input_GetMouseY();
         static unsigned int lastTimeMs = 0;
 
-        // マウスが動いたら仮想カーソルをマウス位置に同期
+        // マウスが動いたら仮想カーソルを同期
         const int curMouseX = Input_GetMouseX();
         const int curMouseY = Input_GetMouseY();
         if (curMouseX != lastMouseX || curMouseY != lastMouseY)
@@ -692,17 +704,18 @@ private:
             padCursorWorldY += (mouseWorldY - padCursorWorldY) * lerpFactor;
         }
 
-        // マップ外に出ないよう軽くクランプ
+        // 横は制限せず、縦のみマップ内にクランプ
         const float mapWidth = scene.GetMapPixelWidth();
         const float mapHeight = scene.GetMapPixelHeight();
-        padCursorWorldX = std::clamp(padCursorWorldX, 0.0f, std::max(0.0f, mapWidth));
+        (void)mapWidth; // 横制限を行わないので未使用（警告抑制）
         padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
 
         // 最終的なカーソル（ワールド座標）
         const float cursorWorldX = padCursorWorldX;
         const float cursorWorldY = padCursorWorldY;
 
-        spawnX = std::clamp(cursorWorldX - spawnWidth * 0.5f, 0.0f, std::max(0.0f, mapWidth - spawnWidth));
+        // 横制限を外してプレビュー表示（配置確定は IsPhotoPlacementValid による判定）
+        spawnX = cursorWorldX - spawnWidth * 0.5f;
         spawnY = std::clamp(cursorWorldY - spawnHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - spawnHeight));
 
         scene.m_photo.placement.active = true;
@@ -713,7 +726,7 @@ private:
         scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
 
         // 仮想カーソルのスクリーン座標を作成してトレイ判定に使う
-        const float cursorScreenX = viewOriginX + (cursorWorldX) * viewScale;
+        const float cursorScreenX = viewOriginX + (cursorWorldX - scene.m_flow.cameraX) * viewScale;
         const float cursorScreenY = viewOriginY + cursorWorldY * viewScale;
 
         return
