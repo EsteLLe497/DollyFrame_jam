@@ -140,7 +140,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_assets.LoadDefaults(resources);
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
-    m_tileMap.LoadFromCsv("assets/maps/side_scroll_stage01.csv", 48.0f);
+    m_tileMap.LoadFromCsv("assets/maps/stage01_1.csv", 48.0f);
     m_eventBus.Clear();
 }
 
@@ -174,35 +174,37 @@ void GameScene::InitializeStageEntities()
         AlignToGrid(336.0f, tileSize));
     SetEntityTint(player, 0.30f, 0.82f, 0.98f);
 
-    Entity& goal = SpawnStagePrefab(
+   /* Entity& goal = SpawnStagePrefab(
         prefabs,
         "sandbox_goal",
         AlignToGrid(goalX, tileSize),
-        AlignToGrid(goalY, tileSize));
-    SetEntityTint(goal, 0.62f, 0.30f, 0.24f);
+        AlignToGrid(goalY, tileSize));*/
+    //SetEntityTint(goal, 0.62f, 0.30f, 0.24f);
 
-    Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(320.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    SetEntityTint(photoSourceA, 0.20f, 0.52f, 0.96f);
+ //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
+	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);
+ //   Entity& photoSourceB= SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1360.0f, tileSize), AlignToGrid(240.0f, tileSize)); 
+ //   SetEntityTint(photoSourceB, 0.96f, 0.68f, 0.18f);
 
-    Entity& photoSourceB = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(620.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    SetEntityTint(photoSourceB, 0.18f, 0.90f, 0.82f);
+ //   Entity& photoSourceC = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1400.0f, tileSize), AlignToGrid(240.0f, tileSize));
+ //   SetEntityTint(photoSourceC, 0.96f, 0.68f, 0.18f);
 
-    Entity& shadowSource = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(920.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    SetEntityTint(shadowSource, 0.08f, 0.08f, 0.10f);
+    //Entity& shadowSource = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(920.0f, tileSize), AlignToGrid(320.0f, tileSize));
+    ////SetEntityTint(shadowSource, 0.08f, 0.08f, 0.10f);
 
-    Entity& flipSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1220.0f, tileSize), AlignToGrid(288.0f, tileSize));
-    SetEntityTint(flipSourceA, 0.96f, 0.68f, 0.18f);
+    //Entity& flipSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1220.0f, tileSize), AlignToGrid(288.0f, tileSize));
+    ////SetEntityTint(flipSourceA, 0.96f, 0.68f, 0.18f);
 
-    Entity& flipSourceB = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1300.0f, tileSize), AlignToGrid(352.0f, tileSize));
-    SetEntityTint(flipSourceB, 0.96f, 0.68f, 0.18f);
+    //Entity& flipSourceB = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1300.0f, tileSize), AlignToGrid(352.0f, tileSize));
+    ////SetEntityTint(flipSourceB, 0.96f, 0.68f, 0.18f);
 
-    Entity& hazardSource = SpawnStagePrefab(prefabs, "sandbox_hazard", AlignToGrid(1600.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    SetEntityTint(hazardSource, 1.0f, 0.28f, 0.24f);
+    //Entity& hazardSource = SpawnStagePrefab(prefabs, "sandbox_hazard", AlignToGrid(1600.0f, tileSize), AlignToGrid(320.0f, tileSize));
+    //SetEntityTint(hazardSource, 1.0f, 0.28f, 0.24f);
 
-    SpawnStagePrefab(prefabs, "sandbox_enemy_wide", AlignToGrid(760.0f, tileSize), AlignToGrid(248.0f, tileSize));
-    SpawnStagePrefab(prefabs, "sandbox_enemy_tall", AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize));
-    SpawnStagePrefab(prefabs, "sandbox_enemy_walker", AlignToGrid(500.0f, tileSize), AlignToGrid(352.0f, tileSize));
-    SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", AlignToGrid(900.0f, tileSize), AlignToGrid(352.0f, tileSize));
+   // SpawnStagePrefab(prefabs, "sandbox_enemy_wide", AlignToGrid(760.0f, tileSize), AlignToGrid(248.0f, tileSize));
+    //SpawnStagePrefab(prefabs, "sandbox_enemy_tall", AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize));
+    //SpawnStagePrefab(prefabs, "sandbox_enemy_walker", AlignToGrid(500.0f, tileSize), AlignToGrid(352.0f, tileSize));
+    //SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", AlignToGrid(900.0f, tileSize), AlignToGrid(352.0f, tileSize));
 }
 
 Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y)

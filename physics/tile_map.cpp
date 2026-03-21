@@ -153,27 +153,34 @@ void TileMap::Draw(int textureId, float originX, float originY, float scale) con
                     static_cast<int>(std::round(r * 255.0f)),
                     static_cast<int>(std::round(g * 255.0f)),
                     static_cast<int>(std::round(b * 255.0f)));
+
+              
+                const float triSize = drawSize * 5.0f;
+                const float offset = (triSize - drawSize) * 0.5f;  // 0.5 * 0.5 * drawSize = 0.25 * drawSize
+                const float triX = drawX - offset;
+                const float triY = drawY - offset;
+
                 if (tileValue == 6)
                 {
                     DrawTriangleAA(
-                        drawX,
-                        drawY + drawSize,
-                        drawX + drawSize,
-                        drawY + drawSize,
-                        drawX + drawSize,
-                        drawY,
+                        triX,
+                        triY + triSize,
+                        triX + triSize,
+                        triY + triSize,
+                        triX + triSize,
+                        triY,
                         color,
                         TRUE);
                 }
                 else
                 {
                     DrawTriangleAA(
-                        drawX,
-                        drawY,
-                        drawX,
-                        drawY + drawSize,
-                        drawX + drawSize,
-                        drawY + drawSize,
+                        triX,
+                        triY,
+                        triX,
+                        triY + triSize,
+                        triX + triSize,
+                        triY + triSize,
                         color,
                         TRUE);
                 }
@@ -241,14 +248,14 @@ void TileMap::GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
         b = 0.76f;
         break;
     case 2:
-        r = 0.92f;
-        g = 0.54f;
-        b = 0.20f;
+        r = 0.784f;
+        g = 0.941f;
+        b = 1.0f;
         break;
     case 3:
-        r = 0.22f;
-        g = 0.72f;
-        b = 0.48f;
+        r = 0.34f;
+        g = 0.86f;
+        b = 0.66f;
         break;
     case 4:
         r = 0.88f;
