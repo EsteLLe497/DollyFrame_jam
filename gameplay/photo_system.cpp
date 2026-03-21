@@ -631,35 +631,95 @@ private:
 
     static bool UpdatePlacementPreview(GameScene& scene, float& spawnX, float& spawnY, float& spawnWidth, float& spawnHeight)
     {
-            spawnWidth = GetPrintedPhotoWidth(scene.m_photo.capture.width);
-            spawnHeight = GetPrintedPhotoHeight(scene.m_photo.capture.height);
-            const float basePrintedWidth = spawnWidth;
-            const float basePrintedHeight = spawnHeight;
-            spawnWidth = GetRotatedBoundsWidth(basePrintedWidth, basePrintedHeight, scene.m_photo.placement.rotation);
-            spawnHeight = GetRotatedBoundsHeight(basePrintedWidth, basePrintedHeight, scene.m_photo.placement.rotation);
-            const float viewScale = GetViewScale();
-            const float viewOriginX = GetViewOriginX();
-            const float viewOriginY = GetViewOriginY();
-            const float cursorWorldX =
-                ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
-            const float cursorWorldY =
-                (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
+        spawnWidth = GetPrintedPhotoWidth(scene.m_photo.capture.width);
+        spawnHeight = GetPrintedPhotoHeight(scene.m_photo.capture.height);
+        const float basePrintedWidth = spawnWidth;
+        const float basePrintedHeight = spawnHeight;
+        spawnWidth = GetRotatedBoundsWidth(basePrintedWidth, basePrintedHeight, scene.m_photo.placement.rotation);
+        spawnHeight = GetRotatedBoundsHeight(basePrintedWidth, basePrintedHeight, scene.m_photo.placement.rotation);
+        const float viewScale = GetViewScale();
+        const float viewOriginX = GetViewOriginX();
+        const float viewOriginY = GetViewOriginY();
 
-            const float mapWidth = scene.GetMapPixelWidth();
-            const float mapHeight = scene.GetMapPixelHeight();
-            spawnX = std::clamp(cursorWorldX - spawnWidth * 0.5f, 0.0f, std::max(0.0f, mapWidth - spawnWidth));
-            spawnY = std::clamp(cursorWorldY - spawnHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - spawnHeight));
+        // マウスから得られるワールド座標（ワールド原点は cameraX を足す）
+        const float mouseWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale);
+        const float mouseWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
 
-            scene.m_photo.placement.active = true;
-            scene.m_photo.placement.x = spawnX;
-            scene.m_photo.placement.y = spawnY;
-            scene.m_photo.placement.width = spawnWidth;
-            scene.m_photo.placement.height = spawnHeight;
-            scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
-            return
-                scene.m_photo.placement.valid &&
-                !scene.IsPhotoTrayHit(static_cast<float>(Input_GetMouseX()), static_cast<float>(Input_GetMouseY())) &&
-                Input_IsActionPressed(InputAction::ConfirmPlacement);
+        // 右スティック用の仮想カーソル（ワールド座標）を保持
+        // 初回はマウス位置で初期化される
+        static float padCursorWorldX = mouseWorldX;
+        static float padCursorWorldY = mouseWorldY;
+        static int lastMouseX = Input_GetMouseX();
+        static int lastMouseY = Input_GetMouseY();
+        static unsigned int lastTimeMs = 0;
+
+        // マウスが動いたら仮想カーソルをマウス位置に同期
+        const int curMouseX = Input_GetMouseX();
+        const int curMouseY = Input_GetMouseY();
+        if (curMouseX != lastMouseX || curMouseY != lastMouseY)
+        {
+            padCursorWorldX = mouseWorldX;
+            padCursorWorldY = mouseWorldY;
+        }
+        lastMouseX = curMouseX;
+        lastMouseY = curMouseY;
+
+        // 経過時間
+        const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
+        const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
+        lastTimeMs = nowMs;
+
+        // 右スティック入力
+        const float rightX = Input_GetRightStickX();
+        const float rightY = Input_GetRightStickY();
+
+        // パッド移動・戻りの挙動（要調整可能）
+        constexpr float kPadDead = 0.08f;
+        constexpr float kPadCursorSpeed = 800.0f; // ワールド単位 / 秒
+        constexpr float kPadReturnLerpSpeed = 8.0f; // スティック離脱後の戻り速さ
+
+        const bool padActive = Input_IsGamepadConnected() && (std::fabs(rightX) > kPadDead || std::fabs(rightY) > kPadDead);
+        if (padActive)
+        {
+            padCursorWorldX += rightX * kPadCursorSpeed * dt;
+            padCursorWorldY += rightY * kPadCursorSpeed * dt;
+        }
+        else
+        {
+            // 滑らかにマウス位置へ補間して戻す
+            const float lerpFactor = std::min(1.0f, dt * kPadReturnLerpSpeed);
+            padCursorWorldX += (mouseWorldX - padCursorWorldX) * lerpFactor;
+            padCursorWorldY += (mouseWorldY - padCursorWorldY) * lerpFactor;
+        }
+
+        // マップ外に出ないよう軽くクランプ
+        const float mapWidth = scene.GetMapPixelWidth();
+        const float mapHeight = scene.GetMapPixelHeight();
+        padCursorWorldX = std::clamp(padCursorWorldX, 0.0f, std::max(0.0f, mapWidth));
+        padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
+
+        // 最終的なカーソル（ワールド座標）
+        const float cursorWorldX = padCursorWorldX;
+        const float cursorWorldY = padCursorWorldY;
+
+        spawnX = std::clamp(cursorWorldX - spawnWidth * 0.5f, 0.0f, std::max(0.0f, mapWidth - spawnWidth));
+        spawnY = std::clamp(cursorWorldY - spawnHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - spawnHeight));
+
+        scene.m_photo.placement.active = true;
+        scene.m_photo.placement.x = spawnX;
+        scene.m_photo.placement.y = spawnY;
+        scene.m_photo.placement.width = spawnWidth;
+        scene.m_photo.placement.height = spawnHeight;
+        scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
+
+        // 仮想カーソルのスクリーン座標を作成してトレイ判定に使う
+        const float cursorScreenX = viewOriginX + (cursorWorldX) * viewScale;
+        const float cursorScreenY = viewOriginY + cursorWorldY * viewScale;
+
+        return
+            scene.m_photo.placement.valid &&
+            !scene.IsPhotoTrayHit(cursorScreenX, cursorScreenY) &&
+            Input_IsActionPressed(InputAction::ConfirmPlacement);
     }
 
     static void SpawnPhotoGroup(GameScene& scene, Entity& player, float spawnX, float spawnY, float spawnWidth)
