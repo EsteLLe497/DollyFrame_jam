@@ -3,6 +3,7 @@
 #include "game_scene.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 
@@ -30,10 +31,12 @@ inline float gPlayerJumpSpeed = -760.0f;
 inline float gPlayerGravity = 1900.0f;
 inline float gPlayerMaxFallSpeed = 980.0f;
 inline float gPlayerDodgeSpeed = 780.0f;
-inline float gPlayerDodgeDuration = 0.16f;
+inline float gPlayerDodgeDistance = 124.8f;
+inline float gPlayerDodgeInvincibilitySeconds = 0.16f;
 inline float gPlayerDodgeCooldown = 0.45f;
 inline float gCoyoteTimeSeconds = 0.10f;
 inline float gGroundSnapDistance = 8.0f;
+inline float gGroundStepUpHeight = 0.25f;
 inline float gShutterFlashSeconds = 0.18f;
 inline float gCaptureWidthTiles = 5.0f;
 inline float gCaptureHeightTiles = 3.0f;
@@ -44,12 +47,64 @@ inline float gPrintedPhotoMinWidth = 120.0f;
 inline float gPrintedPhotoMinHeight = 144.0f;
 inline float gPrintedPhotoMatteInset = 3.0f;
 inline float gPickupTimeBonus = 8.0f;
+inline float gBarrelGravity = 1900.0f;
+inline float gBarrelMaxFallSpeed = 980.0f;
+inline float gBarrelRollSpeed = 220.0f;
+inline float gBarrelGroundFriction = 720.0f;
+inline int gBarrelContactDamage = 1;
+inline float gBarrelBreakMinFallDistance = 99999.0f;
+inline float gBarrelBreakMinImpactSpeed = 99999.0f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
 constexpr float kHorizontalCollisionEpsilon = 1.0f;
 
 inline float Clamp01(float value)
 {
     return std::clamp(value, 0.0f, 1.0f);
+}
+
+struct GameSceneTuningEntry
+{
+    const char* label;
+    float* value;
+    float step;
+    float minValue;
+    float maxValue;
+};
+
+inline float GetPlayerDodgeDuration()
+{
+    return gPlayerDodgeSpeed > 0.0f
+        ? gPlayerDodgeDistance / gPlayerDodgeSpeed
+        : 0.0f;
+}
+
+inline auto BuildGameSceneTuningEntries()
+{
+    return std::array<GameSceneTuningEntry, 22>
+    {{
+        { "Camera Width", &gCameraViewWidth, 20.0f, 640.0f, 1920.0f },
+        { "Camera Height", &gCameraViewHeight, 20.0f, 360.0f, 1080.0f },
+        { "Move Speed", &gPlayerMoveSpeed, 10.0f, 80.0f, 960.0f },
+        { "Jump Speed", &gPlayerJumpSpeed, 20.0f, -1600.0f, -120.0f },
+        { "Gravity", &gPlayerGravity, 50.0f, 200.0f, 4000.0f },
+        { "Max Fall", &gPlayerMaxFallSpeed, 20.0f, 200.0f, 2400.0f },
+        { "Dodge Speed", &gPlayerDodgeSpeed, 10.0f, 0.0f, 1600.0f },
+        { "Dodge Dist", &gPlayerDodgeDistance, 4.0f, 0.0f, 480.0f },
+        { "Dodge I-Frame", &gPlayerDodgeInvincibilitySeconds, 0.01f, 0.0f, 1.0f },
+        { "Dodge Cooldown", &gPlayerDodgeCooldown, 0.01f, 0.0f, 2.0f },
+        { "Coyote", &gCoyoteTimeSeconds, 0.01f, 0.0f, 0.4f },
+        { "Ground Snap", &gGroundSnapDistance, 0.5f, 0.0f, 24.0f },
+        { "Step Up", &gGroundStepUpHeight, 0.25f, 0.0f, 8.0f },
+        { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
+        { "Capture H Tiles", &gCaptureHeightTiles, 0.25f, 1.0f, 16.0f },
+        { "Print Pad X", &gPrintedPhotoPaddingX, 1.0f, 0.0f, 80.0f },
+        { "Print Pad Top", &gPrintedPhotoPaddingTop, 1.0f, 0.0f, 80.0f },
+        { "Print Footer", &gPrintedPhotoFooterHeight, 2.0f, 0.0f, 160.0f },
+        { "Print Min W", &gPrintedPhotoMinWidth, 4.0f, 32.0f, 320.0f },
+        { "Print Min H", &gPrintedPhotoMinHeight, 4.0f, 32.0f, 400.0f },
+        { "Matte Inset", &gPrintedPhotoMatteInset, 0.5f, 0.0f, 24.0f },
+        { "Pickup Bonus", &gPickupTimeBonus, 1.0f, 0.0f, 60.0f },
+    }};
 }
 
 inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, float& a)
@@ -63,14 +118,15 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
         b = 0.76f;
         break;
     case 2:
-        r = 0.92f;
-        g = 0.54f;
-        b = 0.20f;
+        r = 0.784f;
+        g = 0.941f;
+        b = 1.0f;
         break;
     case 3:
-        r = 0.22f;
-        g = 0.72f;
-        b = 0.48f;
+        r = 0.34f;
+        g = 0.86f;
+        b = 0.66f;
+        break;
         break;
     case 4:
         r = 0.88f;
@@ -88,6 +144,16 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
         b = 0.34f;
         break;
     case 7:
+        r = 0.34f;
+        g = 0.86f;
+        b = 0.66f;
+        break;
+    case 8:
+        r = 0.54f;
+        g = 0.84f;
+        b = 0.34f;
+        break;
+    case 9:
         r = 0.34f;
         g = 0.86f;
         b = 0.66f;

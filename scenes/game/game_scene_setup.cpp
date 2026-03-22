@@ -36,8 +36,13 @@ namespace
         root["jump_speed"] = gPlayerJumpSpeed;
         root["gravity"] = gPlayerGravity;
         root["max_fall_speed"] = gPlayerMaxFallSpeed;
+        root["dodge_speed"] = gPlayerDodgeSpeed;
+        root["dodge_distance"] = gPlayerDodgeDistance;
+        root["dodge_invincibility"] = gPlayerDodgeInvincibilitySeconds;
+        root["dodge_cooldown"] = gPlayerDodgeCooldown;
         root["coyote_time"] = gCoyoteTimeSeconds;
         root["ground_snap_distance"] = gGroundSnapDistance;
+        root["ground_step_up_height"] = gGroundStepUpHeight;
         root["capture_width_tiles"] = gCaptureWidthTiles;
         root["capture_height_tiles"] = gCaptureHeightTiles;
         root["printed_photo_padding_x"] = gPrintedPhotoPaddingX;
@@ -90,8 +95,13 @@ namespace game_scene_detail
         gPlayerJumpSpeed = root.value("jump_speed", gPlayerJumpSpeed);
         gPlayerGravity = root.value("gravity", gPlayerGravity);
         gPlayerMaxFallSpeed = root.value("max_fall_speed", gPlayerMaxFallSpeed);
+        gPlayerDodgeSpeed = root.value("dodge_speed", gPlayerDodgeSpeed);
+        gPlayerDodgeDistance = root.value("dodge_distance", gPlayerDodgeDistance);
+        gPlayerDodgeInvincibilitySeconds = root.value("dodge_invincibility", gPlayerDodgeInvincibilitySeconds);
+        gPlayerDodgeCooldown = root.value("dodge_cooldown", gPlayerDodgeCooldown);
         gCoyoteTimeSeconds = root.value("coyote_time", gCoyoteTimeSeconds);
         gGroundSnapDistance = root.value("ground_snap_distance", gGroundSnapDistance);
+        gGroundStepUpHeight = root.value("ground_step_up_height", gGroundStepUpHeight);
         gCaptureWidthTiles = root.value("capture_width_tiles", gCaptureWidthTiles);
         gCaptureHeightTiles = root.value("capture_height_tiles", gCaptureHeightTiles);
         gPrintedPhotoPaddingX = root.value("printed_photo_padding_x", gPrintedPhotoPaddingX);
@@ -107,46 +117,12 @@ namespace game_scene_detail
 void GameScene::ResetSceneState()
 {
     m_entities.clear();
-    m_playerTouchingTarget = false;
-    m_playerTouchingHazard = false;
-    m_resultQueued = false;
-    m_playerGrounded = false;
-    m_timeRemaining = m_timeLimit;
-    m_cameraX = 0.0f;
-    m_playerVelocityX = 0.0f;
-    m_playerVelocityY = 0.0f;
-    m_goalPulse = 0.0f;
-    m_pickupPulse = 0.0f;
-    m_playerDodgeRemaining = 0.0f;
-    m_playerDodgeCooldownRemaining = 0.0f;
-    m_playerDodgeDirection = 1.0f;
-    m_coyoteTimeRemaining = 0.0f;
-    m_captureSlowRemaining = 0.0f;
-    m_placementSlowRemaining = 0.0f;
-    m_goalUnlocked = false;
-    m_cameraMode = false;
-    m_enemyCount = 0;
-    m_playerFacingRight = true;
     m_photo = PhotoState{};
-    m_shutterFlashRemaining = 0.0f;
-    m_developedPhotoPreviewRemaining = 0.0f;
-    m_showCollisionDebug = false;
-    m_showTuningPanel = false;
-    m_tuningSelection = 0;
-    m_tuningReloadTimer = 0.0f;
-    m_tuningFileWriteTime = {};
-    m_hasTuningFileWriteTime = false;
-    m_playerRunAnimationTime = 0.0f;
-    m_playerVisualScaleX = 1.0f;
-    m_playerVisualScaleY = 1.0f;
-    m_playerVisualOffsetY = 0.0f;
-    m_playerVisualRotation = 0.0f;
-    m_playerLandingImpact = 0.0f;
-    m_playerJumpStretch = 0.0f;
-    m_playerDodgeStretch = 0.0f;
-    m_photoTrayReveal = 0.0f;
-    m_playerAfterimages.clear();
-    m_lastDeltaTime = 0.0f; // 3/19í«â¡(ìcîVè„èr)
+    m_flow = GameSceneFlowState{};
+    m_player = GameScenePlayerState{};
+    m_debug = GameSceneDebugState{};
+    m_flow.timeLimit = 60.0f;
+    m_flow.timeRemaining = m_flow.timeLimit;
 }
 
 void GameScene::LoadTuningState()
@@ -156,8 +132,8 @@ void GameScene::LoadTuningState()
     const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
     if (!ec)
     {
-        m_tuningFileWriteTime = writeTime;
-        m_hasTuningFileWriteTime = true;
+        m_debug.tuningFileWriteTime = writeTime;
+        m_debug.hasTuningFileWriteTime = true;
     }
 }
 
@@ -166,7 +142,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_assets.LoadDefaults(resources);
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
-    m_tileMap.LoadFromCsv("assets/maps/side_scroll_stage01.csv", 48.0f);
+    m_tileMap.LoadFromCsv("assets/maps/stage01_1.csv", 48.0f);
     m_eventBus.Clear();
 }
 
@@ -196,41 +172,80 @@ void GameScene::InitializeStageEntities()
     Entity& player = SpawnStagePrefab(
         prefabs,
         "sandbox_player",
-        AlignToGrid(96.0f, tileSize),
+        AlignToGrid(192.0f, tileSize),
         AlignToGrid(336.0f, tileSize));
     SetEntityTint(player, 0.30f, 0.82f, 0.98f);
 
-    Entity& goal = SpawnStagePrefab(
+    bool hasBarrelMarker = false;
+    for (int row = 0; row < m_tileMap.GetHeight() && !hasBarrelMarker; ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            if (m_tileMap.GetMarker(column, row) == 'B')
+            {
+                hasBarrelMarker = true;
+                break;
+            }
+        }
+    }
+
+    if (!hasBarrelMarker)
+    {
+        SpawnStagePrefab(
+            prefabs,
+            "sandbox_barrel",
+            AlignToGrid(432.0f, tileSize),
+            AlignToGrid(240.0f, tileSize));
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            if (m_tileMap.GetMarker(column, row) != 'B')
+            {
+                continue;
+            }
+
+            SpawnStagePrefab(
+                prefabs,
+                "sandbox_barrel",
+                AlignToGrid(static_cast<float>(column) * tileSize, tileSize),
+                AlignToGrid(static_cast<float>(row) * tileSize, tileSize));
+        }
+    }
+
+   /* Entity& goal = SpawnStagePrefab(
         prefabs,
         "sandbox_goal",
         AlignToGrid(goalX, tileSize),
-        AlignToGrid(goalY, tileSize));
-    SetEntityTint(goal, 0.62f, 0.30f, 0.24f);
+        AlignToGrid(goalY, tileSize));*/
+    //SetEntityTint(goal, 0.62f, 0.30f, 0.24f);
 
-    Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(320.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    SetEntityTint(photoSourceA, 0.20f, 0.52f, 0.96f);
+ //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
+	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);
+ //   Entity& photoSourceB= SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1360.0f, tileSize), AlignToGrid(240.0f, tileSize)); 
+ //   SetEntityTint(photoSourceB, 0.96f, 0.68f, 0.18f);
 
-    Entity& photoSourceB = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(620.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    SetEntityTint(photoSourceB, 0.18f, 0.90f, 0.82f);
+ //   Entity& photoSourceC = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1400.0f, tileSize), AlignToGrid(240.0f, tileSize));
+ //   SetEntityTint(photoSourceC, 0.96f, 0.68f, 0.18f);
 
-    Entity& shadowSource = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(920.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    SetEntityTint(shadowSource, 0.08f, 0.08f, 0.10f);
+    //Entity& shadowSource = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(920.0f, tileSize), AlignToGrid(320.0f, tileSize));
+    ////SetEntityTint(shadowSource, 0.08f, 0.08f, 0.10f);
 
-    Entity& flipSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1220.0f, tileSize), AlignToGrid(288.0f, tileSize));
-    SetEntityTint(flipSourceA, 0.96f, 0.68f, 0.18f);
+    //Entity& flipSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1220.0f, tileSize), AlignToGrid(288.0f, tileSize));
+    ////SetEntityTint(flipSourceA, 0.96f, 0.68f, 0.18f);
 
-    Entity& flipSourceB = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1300.0f, tileSize), AlignToGrid(352.0f, tileSize));
-    SetEntityTint(flipSourceB, 0.96f, 0.68f, 0.18f);
+    //Entity& flipSourceB = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1300.0f, tileSize), AlignToGrid(352.0f, tileSize));
+    ////SetEntityTint(flipSourceB, 0.96f, 0.68f, 0.18f);
 
-    Entity& hazardSource = SpawnStagePrefab(prefabs, "sandbox_hazard", AlignToGrid(1600.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    SetEntityTint(hazardSource, 1.0f, 0.28f, 0.24f);
+    //Entity& hazardSource = SpawnStagePrefab(prefabs, "sandbox_hazard", AlignToGrid(1600.0f, tileSize), AlignToGrid(320.0f, tileSize));
+    //SetEntityTint(hazardSource, 1.0f, 0.28f, 0.24f);
 
-    SpawnStagePrefab(prefabs, "sandbox_enemy_wide", AlignToGrid(760.0f, tileSize), AlignToGrid(248.0f, tileSize));
-    SpawnStagePrefab(prefabs, "sandbox_enemy_tall", AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize));
-
-    // 3/19í«â¡(ìcîVè„èr)
-    SpawnStagePrefab(prefabs, "sandbox_enemy_walker", AlignToGrid(500.0f, tileSize), AlignToGrid(352.0f, tileSize));
-    SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", AlignToGrid(900.0f, tileSize), AlignToGrid(352.0f, tileSize));
+   // SpawnStagePrefab(prefabs, "sandbox_enemy_wide", AlignToGrid(760.0f, tileSize), AlignToGrid(248.0f, tileSize));
+    //SpawnStagePrefab(prefabs, "sandbox_enemy_tall", AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize));
+    //SpawnStagePrefab(prefabs, "sandbox_enemy_walker", AlignToGrid(500.0f, tileSize), AlignToGrid(352.0f, tileSize));
+    //SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", AlignToGrid(900.0f, tileSize), AlignToGrid(352.0f, tileSize));
 }
 
 Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y)

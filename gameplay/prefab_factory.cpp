@@ -96,6 +96,18 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
             definition.gimmickOneShot);
     }
 
+    if (definition.hasBarrel)
+    {
+        entity->AddComponent<BarrelComponent>(
+            definition.barrelGravity,
+            definition.barrelMaxFallSpeed,
+            definition.barrelRollSpeed,
+            definition.barrelGroundFriction,
+            definition.barrelContactDamage,
+            definition.barrelBreakMinFallDistance,
+            definition.barrelBreakMinImpactSpeed);
+    }
+
     if (definition.hasPhotoFilter)
     {
         entity->AddComponent<PhotoFilterComponent>(
@@ -202,7 +214,7 @@ void PrefabFactory::LoadDefinitions()
         {
             definition.enemyArchetype = EnemyArchetype::Turret;
         }
-        else if (enemyArchetype == "ranged") // 3/19í«â¡(ìcîVè„èr)
+        else if (enemyArchetype == "ranged") // 3/19ËøΩÂä†(Áî∞‰πã‰∏ä‰øä)
         {
             definition.enemyArchetype = EnemyArchetype::Ranged;
         }
@@ -253,6 +265,16 @@ void PrefabFactory::LoadDefinitions()
         }
         definition.gimmickStartsEnabled = gimmick.value("startsEnabled", true);
         definition.gimmickOneShot = gimmick.value("oneShot", false);
+
+        const auto& barrel = data.contains("barrel") && data["barrel"].is_object() ? data["barrel"] : nlohmann::json::object();
+        definition.hasBarrel = barrel.value("enabled", false);
+        definition.barrelGravity = barrel.value("gravity", definition.barrelGravity);
+        definition.barrelMaxFallSpeed = barrel.value("maxFallSpeed", definition.barrelMaxFallSpeed);
+        definition.barrelRollSpeed = barrel.value("rollSpeed", definition.barrelRollSpeed);
+        definition.barrelGroundFriction = barrel.value("groundFriction", definition.barrelGroundFriction);
+        definition.barrelContactDamage = barrel.value("contactDamage", definition.barrelContactDamage);
+        definition.barrelBreakMinFallDistance = barrel.value("breakMinFallDistance", definition.barrelBreakMinFallDistance);
+        definition.barrelBreakMinImpactSpeed = barrel.value("breakMinImpactSpeed", definition.barrelBreakMinImpactSpeed);
 
         const auto& filter = data.contains("photoFilter") && data["photoFilter"].is_object() ? data["photoFilter"] : nlohmann::json::object();
         definition.hasPhotoFilter = filter.value("enabled", false);

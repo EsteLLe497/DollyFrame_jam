@@ -53,6 +53,14 @@ struct PrefabDefinition
     GimmickType gimmickType = GimmickType::Hazard;
     bool gimmickStartsEnabled = true;
     bool gimmickOneShot = false;
+    bool hasBarrel = false;
+    float barrelGravity = 1900.0f;
+    float barrelMaxFallSpeed = 980.0f;
+    float barrelRollSpeed = 220.0f;
+    float barrelGroundFriction = 720.0f;
+    int barrelContactDamage = 1;
+    float barrelBreakMinFallDistance = 99999.0f;
+    float barrelBreakMinImpactSpeed = 99999.0f;
     bool hasPhotoFilter = false;
     PhotoFilterTheme filterTheme = PhotoFilterTheme::None;
     PhotoCopyRole filterOutputRole = PhotoCopyRole::Solid;

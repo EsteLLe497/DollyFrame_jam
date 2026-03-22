@@ -4,6 +4,231 @@ using namespace game_scene_detail;
 
 namespace
 {
+    constexpr int kMaxTriangleSpanTiles = 5;
+
+    struct CollisionPoint
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+    };
+
+    using CollisionPolygon = std::vector<CollisionPoint>;
+
+    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
+    {
+        if (std::fabs(rotation) <= 0.0001f)
+        {
+            return;
+        }
+
+        const float localX = x - centerX;
+        const float localY = y - centerY;
+        const float cosTheta = std::cos(rotation);
+        const float sinTheta = std::sin(rotation);
+        x = centerX + (localX * cosTheta - localY * sinTheta);
+        y = centerY + (localX * sinTheta + localY * cosTheta);
+    }
+
+    void BuildRotatedRectPolygon(float left, float top, float width, float height, float rotation, CollisionPolygon& outPolygon)
+    {
+        outPolygon.resize(4);
+        outPolygon[0] = { left, top };
+        outPolygon[1] = { left + width, top };
+        outPolygon[2] = { left + width, top + height };
+        outPolygon[3] = { left, top + height };
+
+        const float centerX = left + width * 0.5f;
+        const float centerY = top + height * 0.5f;
+        for (CollisionPoint& point : outPolygon)
+        {
+            RotatePoint(centerX, centerY, rotation, point.x, point.y);
+        }
+    }
+
+    void BuildTrianglePolygon(
+        float left,
+        float top,
+        float width,
+        float height,
+        bool risesRight,
+        bool flipX,
+        float rotation,
+        CollisionPolygon& outPolygon)
+    {
+        outPolygon.resize(3);
+        const bool finalRisesRight = flipX ? !risesRight : risesRight;
+        if (finalRisesRight)
+        {
+            outPolygon[0] = { left, top + height };
+            outPolygon[1] = { left + width, top + height };
+            outPolygon[2] = { left + width, top };
+        }
+        else
+        {
+            outPolygon[0] = { left, top };
+            outPolygon[1] = { left, top + height };
+            outPolygon[2] = { left + width, top + height };
+        }
+
+        const float centerX = left + width * 0.5f;
+        const float centerY = top + height * 0.5f;
+        for (CollisionPoint& point : outPolygon)
+        {
+            RotatePoint(centerX, centerY, rotation, point.x, point.y);
+        }
+    }
+
+    bool BuildPhotoBoxCollisionPolygon(const Entity& entity, CollisionPolygon& outPolygon)
+    {
+        const auto* transform = entity.GetComponent<TransformComponent>();
+        if (!transform)
+        {
+            return false;
+        }
+
+        const auto* tileValue = entity.GetComponent<PhotoCopyTileValueComponent>();
+        const auto* sprite = entity.GetComponent<SpriteRenderComponent>();
+        const float width = transform->width * transform->scale;
+        const float height = transform->height * transform->scale;
+        if (tileValue)
+        {
+            const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue->tileValue);
+            if (triangle.isTriangle)
+            {
+                BuildTrianglePolygon(
+                    transform->x,
+                    transform->y,
+                    width,
+                    height,
+                    triangle.risesRight,
+                    sprite ? sprite->GetFlipX() : false,
+                    transform->rotation,
+                    outPolygon);
+                return true;
+            }
+        }
+
+        BuildRotatedRectPolygon(transform->x, transform->y, width, height, transform->rotation, outPolygon);
+        return true;
+    }
+
+    void GetPolygonAabb(const CollisionPolygon& polygon, float& left, float& top, float& right, float& bottom)
+    {
+        left = polygon.front().x;
+        right = polygon.front().x;
+        top = polygon.front().y;
+        bottom = polygon.front().y;
+        for (const CollisionPoint& point : polygon)
+        {
+            left = (std::min)(left, point.x);
+            right = (std::max)(right, point.x);
+            top = (std::min)(top, point.y);
+            bottom = (std::max)(bottom, point.y);
+        }
+    }
+
+    void ProjectPolygonOntoAxis(const CollisionPolygon& polygon, float axisX, float axisY, float& outMin, float& outMax)
+    {
+        outMin = polygon.front().x * axisX + polygon.front().y * axisY;
+        outMax = outMin;
+        for (size_t index = 1; index < polygon.size(); ++index)
+        {
+            const float projection = polygon[index].x * axisX + polygon[index].y * axisY;
+            outMin = (std::min)(outMin, projection);
+            outMax = (std::max)(outMax, projection);
+        }
+    }
+
+    bool PolygonsIntersect(const CollisionPolygon& a, const CollisionPolygon& b)
+    {
+        const CollisionPolygon* polygons[2] = { &a, &b };
+        for (const CollisionPolygon* polygon : polygons)
+        {
+            for (size_t index = 0; index < polygon->size(); ++index)
+            {
+                const CollisionPoint& p0 = (*polygon)[index];
+                const CollisionPoint& p1 = (*polygon)[(index + 1) % polygon->size()];
+                const float edgeX = p1.x - p0.x;
+                const float edgeY = p1.y - p0.y;
+                const float axisX = -edgeY;
+                const float axisY = edgeX;
+                const float axisLength = std::sqrt(axisX * axisX + axisY * axisY);
+                if (axisLength <= 0.0001f)
+                {
+                    continue;
+                }
+
+                const float normalizedAxisX = axisX / axisLength;
+                const float normalizedAxisY = axisY / axisLength;
+                float minA = 0.0f;
+                float maxA = 0.0f;
+                float minB = 0.0f;
+                float maxB = 0.0f;
+                ProjectPolygonOntoAxis(a, normalizedAxisX, normalizedAxisY, minA, maxA);
+                ProjectPolygonOntoAxis(b, normalizedAxisX, normalizedAxisY, minB, maxB);
+                if (maxA < minB || maxB < minA)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    bool TryIntersectVerticalLineSegment(float lineX, const CollisionPoint& a, const CollisionPoint& b, float& outY)
+    {
+        const float minX = (std::min)(a.x, b.x);
+        const float maxX = (std::max)(a.x, b.x);
+        if (lineX < minX - 0.01f || lineX > maxX + 0.01f)
+        {
+            return false;
+        }
+
+        if (std::fabs(a.x - b.x) <= 0.01f)
+        {
+            outY = (std::min)(a.y, b.y);
+            return true;
+        }
+
+        const float t = (lineX - a.x) / (b.x - a.x);
+        if (t < -0.01f || t > 1.01f)
+        {
+            return false;
+        }
+
+        outY = a.y + (b.y - a.y) * t;
+        return true;
+    }
+
+    bool TryGetPolygonSurfaceY(const CollisionPolygon& polygon, float worldX, float& outSurfaceY)
+    {
+        bool found = false;
+        float bestY = 0.0f;
+        for (size_t index = 0; index < polygon.size(); ++index)
+        {
+            float edgeY = 0.0f;
+            if (!TryIntersectVerticalLineSegment(worldX, polygon[index], polygon[(index + 1) % polygon.size()], edgeY))
+            {
+                continue;
+            }
+
+            if (!found || edgeY < bestY)
+            {
+                bestY = edgeY;
+                found = true;
+            }
+        }
+
+        if (!found)
+        {
+            return false;
+        }
+
+        outSurfaceY = bestY;
+        return true;
+    }
+
     bool UsesSolidCollision(const Entity& entity)
     {
         if (const auto* layer = entity.GetComponent<PhotoCopyLayerComponent>())
@@ -15,53 +240,124 @@ namespace
 
     bool IsSlopeTileValue(int tile)
     {
-        return tile == 6 || tile == 7;
+        return TileMap::GetTriangleShape(tile).isTriangle;
     }
 
-    bool TryGetSlopeSurfaceY(const TileMap& tileMap, int column, int row, float worldX, float& outSurfaceY)
+    bool DoesTriangleOccupyCell(
+        int originColumn,
+        int originRow,
+        const TileTriangleShape& triangle,
+        float tileSize,
+        int column,
+        int row)
     {
-        const int tile = tileMap.GetTile(column, row);
-        if (!IsSlopeTileValue(tile))
+        if (!triangle.isTriangle ||
+            column < originColumn ||
+            row < originRow ||
+            column >= originColumn + triangle.widthTiles ||
+            row >= originRow + triangle.heightTiles)
         {
             return false;
         }
 
-        const float tileSize = tileMap.GetTileSize();
-        const float tileLeft = static_cast<float>(column) * tileSize;
-        const float tileTop = static_cast<float>(row) * tileSize;
-        const float localX = std::clamp(worldX - tileLeft, 0.0f, tileSize);
-        const float normalizedX = localX / tileSize;
-        if (tile == 6)
+        const float localLeft = static_cast<float>(column - originColumn) * tileSize;
+        const float localRight = localLeft + tileSize;
+        const float localBottom = static_cast<float>(row - originRow + 1) * tileSize;
+        const float width = static_cast<float>(triangle.widthTiles) * tileSize;
+        const float height = static_cast<float>(triangle.heightTiles) * tileSize;
+        const float minSurfaceY = triangle.risesRight
+            ? height - (localRight / width) * height
+            : (localLeft / width) * height;
+        return localBottom > minSurfaceY;
+    }
+
+    bool TryComputeSlopeSurfaceY(float left, float top, float width, float height, bool risesRight, float worldX, float& outSurfaceY)
+    {
+        if (width <= 0.0f || height <= 0.0f || worldX < left || worldX > left + width)
         {
-            outSurfaceY = tileTop + tileSize - normalizedX * tileSize;
-            return true;
+            return false;
         }
 
-        outSurfaceY = tileTop + normalizedX * tileSize;
+        const float localX = std::clamp(worldX - left, 0.0f, width);
+        const float normalizedX = width > 0.0f ? localX / width : 0.0f;
+        outSurfaceY = risesRight
+            ? top + height - normalizedX * height
+            : top + normalizedX * height;
+        return true;
+    }
+
+    bool TryGetSlopeSurfaceY(
+        const TileMap& tileMap,
+        int column,
+        int row,
+        float worldX,
+        float& outSurfaceY,
+        TileTriangleShape* outTriangle = nullptr)
+    {
+        const float tileSize = tileMap.GetTileSize();
+        bool foundSurface = false;
+        float bestSurfaceY = 0.0f;
+        TileTriangleShape bestTriangle{};
+        const int originColumnStart = (std::max)(0, column - (kMaxTriangleSpanTiles - 1));
+        const int originRowStart = (std::max)(0, row - (kMaxTriangleSpanTiles - 1));
+        for (int originRow = originRowStart; originRow <= row; ++originRow)
+        {
+            for (int originColumn = originColumnStart; originColumn <= column; ++originColumn)
+            {
+                const TileTriangleShape triangle = TileMap::GetTriangleShape(tileMap.GetTile(originColumn, originRow));
+                if (!triangle.isTriangle)
+                {
+                    continue;
+                }
+
+                if (!DoesTriangleOccupyCell(originColumn, originRow, triangle, tileSize, column, row))
+                {
+                    continue;
+                }
+
+                float surfaceY = 0.0f;
+                if (!TryComputeSlopeSurfaceY(
+                        static_cast<float>(originColumn) * tileSize,
+                        static_cast<float>(originRow) * tileSize,
+                        static_cast<float>(triangle.widthTiles) * tileSize,
+                        static_cast<float>(triangle.heightTiles) * tileSize,
+                        triangle.risesRight,
+                        worldX,
+                        surfaceY))
+                {
+                    continue;
+                }
+
+                if (!foundSurface || surfaceY < bestSurfaceY)
+                {
+                    bestSurfaceY = surfaceY;
+                    bestTriangle = triangle;
+                    foundSurface = true;
+                }
+            }
+        }
+
+        if (!foundSurface)
+        {
+            return false;
+        }
+
+        outSurfaceY = bestSurfaceY;
+        if (outTriangle)
+        {
+            *outTriangle = bestTriangle;
+        }
         return true;
     }
 
     bool TryGetPhotoBoxSlopeSurfaceY(const Entity& entity, float worldX, float& outSurfaceY)
     {
-        const auto* transform = entity.GetComponent<TransformComponent>();
-        const auto* tileValue = entity.GetComponent<PhotoCopyTileValueComponent>();
-        if (!transform || !tileValue || (tileValue->tileValue != 6 && tileValue->tileValue != 7))
+        CollisionPolygon polygon;
+        if (!BuildPhotoBoxCollisionPolygon(entity, polygon))
         {
             return false;
         }
-
-        const float width = transform->width * transform->scale;
-        const float height = transform->height * transform->scale;
-        const float localX = std::clamp(worldX - transform->x, 0.0f, width);
-        const float normalizedX = width > 0.0f ? localX / width : 0.0f;
-        if (tileValue->tileValue == 6)
-        {
-            outSurfaceY = transform->y + height - normalizedX * height;
-            return true;
-        }
-
-        outSurfaceY = transform->y + normalizedX * height;
-        return true;
+        return TryGetPolygonSurfaceY(polygon, worldX, outSurfaceY);
     }
 
     void GetGroundProbeXs(const TransformComponent& transform, float outProbeXs[3])
@@ -81,7 +377,91 @@ bool GameScene::IsSolidTile(int column, int row) const
 
 bool GameScene::IsSlopeTile(int column, int row) const
 {
-    return IsSlopeTileValue(m_tileMap.GetTile(column, row));
+    const float tileSize = m_tileMap.GetTileSize();
+    const int originColumnStart = (std::max)(0, column - (kMaxTriangleSpanTiles - 1));
+    const int originRowStart = (std::max)(0, row - (kMaxTriangleSpanTiles - 1));
+    for (int originRow = originRowStart; originRow <= row; ++originRow)
+    {
+        for (int originColumn = originColumnStart; originColumn <= column; ++originColumn)
+        {
+            const TileTriangleShape triangle = TileMap::GetTriangleShape(m_tileMap.GetTile(originColumn, originRow));
+            if (!triangle.isTriangle)
+            {
+                continue;
+            }
+
+            if (DoesTriangleOccupyCell(originColumn, originRow, triangle, tileSize, column, row))
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool GameScene::IsTileBlockingFromLeft(int column, int row) const
+{
+    if (IsSolidTile(column, row))
+    {
+        return true;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    const int originColumnStart = (std::max)(0, column - (kMaxTriangleSpanTiles - 1));
+    const int originRowStart = (std::max)(0, row - (kMaxTriangleSpanTiles - 1));
+    for (int originRow = originRowStart; originRow <= row; ++originRow)
+    {
+        for (int originColumn = originColumnStart; originColumn <= column; ++originColumn)
+        {
+            const TileTriangleShape triangle = TileMap::GetTriangleShape(m_tileMap.GetTile(originColumn, originRow));
+            if (!triangle.isTriangle ||
+                triangle.risesRight ||
+                !DoesTriangleOccupyCell(originColumn, originRow, triangle, tileSize, column, row))
+            {
+                continue;
+            }
+
+            if (column == originColumn)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool GameScene::IsTileBlockingFromRight(int column, int row) const
+{
+    if (IsSolidTile(column, row))
+    {
+        return true;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    const int originColumnStart = (std::max)(0, column - (kMaxTriangleSpanTiles - 1));
+    const int originRowStart = (std::max)(0, row - (kMaxTriangleSpanTiles - 1));
+    for (int originRow = originRowStart; originRow <= row; ++originRow)
+    {
+        for (int originColumn = originColumnStart; originColumn <= column; ++originColumn)
+        {
+            const TileTriangleShape triangle = TileMap::GetTriangleShape(m_tileMap.GetTile(originColumn, originRow));
+            if (!triangle.isTriangle ||
+                !triangle.risesRight ||
+                !DoesTriangleOccupyCell(originColumn, originRow, triangle, tileSize, column, row))
+            {
+                continue;
+            }
+
+            if (column == originColumn + triangle.widthTiles - 1)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 bool GameScene::IsPlatformTile(int column, int row) const
@@ -103,12 +483,13 @@ bool GameScene::IsGoalTile(int column, int row) const
 
 bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 {
-    float photoSourceX = 0.0f;
-    float photoSourceY = 0.0f;
-    float photoSourceWidth = 0.0f;
-    float photoSourceHeight = 0.0f;
-    if (GetEntityBoundsByTag("PhotoSource", photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight))
+    std::vector<TransformComponent> photoSources;
+    GetEntityBoundsByTag("PhotoSource", photoSources);
+    for (const auto& photoSourceBounds : photoSources)
     {
+        const float photoSourceX = photoSourceBounds.x;
+        const float photoSourceY = photoSourceBounds.y;
+        const float photoSourceWidth = photoSourceBounds.width * photoSourceBounds.scale;
         const float width = transform.width * transform.scale;
         const float height = transform.height * transform.scale;
         const float playerBottom = transform.y + height;
@@ -124,6 +505,7 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         }
     }
 
+    // ?????]??????? PhotoBox / ?^?C??????
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
@@ -142,9 +524,18 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         const float playerBottom = transform.y + height;
         const float playerLeft = transform.x + 6.0f;
         const float playerRight = transform.x + width - 6.0f;
-        const float boxTop = photoBoxTransform->y;
-        const float boxLeft = photoBoxTransform->x;
-        const float boxRight = photoBoxTransform->x + photoBoxTransform->width * photoBoxTransform->scale;
+        CollisionPolygon polygon;
+        if (!BuildPhotoBoxCollisionPolygon(*entity, polygon))
+        {
+            continue;
+        }
+
+        float boxLeft = 0.0f;
+        float boxTop = 0.0f;
+        float boxRight = 0.0f;
+        float boxBottom = 0.0f;
+        GetPolygonAabb(polygon, boxLeft, boxTop, boxRight, boxBottom);
+        static_cast<void>(boxBottom);
         const bool horizontallyOverlapping = playerRight > boxLeft && playerLeft < boxRight;
         if (horizontallyOverlapping && std::fabs(playerBottom - boxTop) <= kSurfaceContactEpsilon)
         {
@@ -167,29 +558,33 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         }
     }
 
+    // ?^?C??????i??X?????j
     const float tileSize = m_tileMap.GetTileSize();
-    const float width = transform.width * transform.scale;
+    const float width2 = transform.width * transform.scale;
     const float footY = transform.y + transform.height * transform.scale + 2.0f;
-    const int row = static_cast<int>(footY / tileSize);
+    const int rowStart = std::max(0, static_cast<int>((footY - 4.0f) / tileSize));
+    const int rowEnd = std::min(m_tileMap.GetHeight() - 1, static_cast<int>(footY / tileSize));
     const int columnStart = static_cast<int>((transform.x + 6.0f) / tileSize);
-    const int columnEnd = static_cast<int>((transform.x + width - 6.0f) / tileSize);
-    for (int column = columnStart; column <= columnEnd; ++column)
+    const int columnEnd = static_cast<int>((transform.x + width2 - 6.0f) / tileSize);
+    for (int row = rowStart; row <= rowEnd; ++row)
     {
-        if (IsSolidTile(column, row) || IsPlatformTile(column, row))
+        for (int column = columnStart; column <= columnEnd; ++column)
         {
-            return true;
-        }
-
-        float probeXs[3]{};
-        GetGroundProbeXs(transform, probeXs);
-        for (float probeX : probeXs)
-        {
-            float slopeSurfaceY = 0.0f;
-            const float clampedProbeX = std::clamp(probeX, static_cast<float>(column) * tileSize, static_cast<float>(column + 1) * tileSize);
-            if (TryGetSlopeSurfaceY(m_tileMap, column, row, clampedProbeX, slopeSurfaceY) &&
-                std::fabs((transform.y + transform.height * transform.scale) - slopeSurfaceY) <= kSurfaceContactEpsilon + 2.0f)
+            if (IsSolidTile(column, row) || IsPlatformTile(column, row))
             {
                 return true;
+            }
+
+            float probeXs[3]{};
+            GetGroundProbeXs(transform, probeXs);
+            for (float probeX : probeXs)
+            {
+                float slopeSurfaceY = 0.0f;
+                if (TryGetSlopeSurfaceY(m_tileMap, column, row, probeX, slopeSurfaceY) &&
+                    std::fabs((transform.y + transform.height * transform.scale) - slopeSurfaceY) <= kSurfaceContactEpsilon + 2.0f)
+                {
+                    return true;
+                }
             }
         }
     }
@@ -198,12 +593,13 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 
 bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const
 {
-    float photoSourceX = 0.0f;
-    float photoSourceY = 0.0f;
-    float photoSourceWidth = 0.0f;
-    float photoSourceHeight = 0.0f;
-    if (GetEntityBoundsByTag("PhotoSource", photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight))
+    std::vector<TransformComponent> photoSources;
+    GetEntityBoundsByTag("PhotoSource", photoSources);
+    for (const auto& photoSourceBounds : photoSources)
     {
+        const float photoSourceX = photoSourceBounds.x;
+        const float photoSourceY = photoSourceBounds.y;
+        const float photoSourceWidth = photoSourceBounds.width * photoSourceBounds.scale;
         const float width = transform.width * transform.scale;
         const float height = transform.height * transform.scale;
         const float left = transform.x + 6.0f;
@@ -220,6 +616,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         }
     }
 
+    // ?????]??????? PhotoBox ?x?[?X??z???t??????
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
@@ -237,11 +634,22 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         const float height = transform.height * transform.scale;
         const float left = transform.x + 6.0f;
         const float right = transform.x + width - 6.0f;
-        const float photoBoxWidth = photoBoxTransform->width * photoBoxTransform->scale;
-        const bool horizontallyOverlapping = right > photoBoxTransform->x && left < photoBoxTransform->x + photoBoxWidth;
+        CollisionPolygon polygon;
+        if (!BuildPhotoBoxCollisionPolygon(*entity, polygon))
+        {
+            continue;
+        }
+
+        float photoBoxLeft = 0.0f;
+        float photoBoxTop = 0.0f;
+        float photoBoxRight = 0.0f;
+        float photoBoxBottom = 0.0f;
+        GetPolygonAabb(polygon, photoBoxLeft, photoBoxTop, photoBoxRight, photoBoxBottom);
+        static_cast<void>(photoBoxBottom);
+        const bool horizontallyOverlapping = right > photoBoxLeft && left < photoBoxRight;
         if (horizontallyOverlapping)
         {
-            float candidateY = photoBoxTransform->y - height;
+            float candidateY = photoBoxTop - height;
             float probeXs[3]{};
             GetGroundProbeXs(transform, probeXs);
             bool foundSlopeProbe = false;
@@ -254,10 +662,16 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
                 }
 
                 const float slopeCandidateY = photoSlopeSurfaceY - height;
-                if (!foundSlopeProbe || slopeCandidateY < candidateY)
+                if (!foundSlopeProbe)
                 {
                     candidateY = slopeCandidateY;
                     foundSlopeProbe = true;
+                    continue;
+                }
+
+                if (slopeCandidateY < candidateY)
+                {
+                    candidateY = slopeCandidateY;
                 }
             }
 
@@ -269,14 +683,17 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         }
     }
 
+    // ?^?C???x?[?X??z???t???i??X?????j
     const float tileSize = m_tileMap.GetTileSize();
-    const float width = transform.width * transform.scale;
-    const float height = transform.height * transform.scale;
-    const float bottom = transform.y + height;
+    const float width2 = transform.width * transform.scale;
+    const float height2 = transform.height * transform.scale;
+    const float bottom = transform.y + height2;
     const int columnStart = static_cast<int>((transform.x + 6.0f) / tileSize);
-    const int columnEnd = static_cast<int>((transform.x + width - 6.0f) / tileSize);
-    const int rowStart = static_cast<int>(bottom / tileSize);
-    const int rowEnd = static_cast<int>((bottom + maxSnapDistance) / tileSize);
+    const int columnEnd = static_cast<int>((transform.x + width2 - 6.0f) / tileSize);
+    const int rowStart = std::max(0, static_cast<int>((bottom - maxSnapDistance) / tileSize));
+    const int rowEnd = std::min(
+        m_tileMap.GetHeight() - 1,
+        static_cast<int>((bottom + maxSnapDistance) / tileSize));
 
     float nearestGroundY = 0.0f;
     bool foundGround = false;
@@ -293,31 +710,46 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
 
             if (IsSlopeTile(column, row))
             {
+                bool hasSlopeCandidate = false;
+                float slopeGroundY = 0.0f;
                 for (float probeX : probeXs)
                 {
                     float slopeSurfaceY = 0.0f;
-                    const float clampedProbeX = std::clamp(probeX, static_cast<float>(column) * tileSize, static_cast<float>(column + 1) * tileSize);
-                    if (!TryGetSlopeSurfaceY(m_tileMap, column, row, clampedProbeX, slopeSurfaceY))
+                    TileTriangleShape triangle{};
+                    if (!TryGetSlopeSurfaceY(m_tileMap, column, row, probeX, slopeSurfaceY, &triangle))
                     {
                         continue;
                     }
 
-                    const float candidateY = slopeSurfaceY - height;
+                    const float candidateY = slopeSurfaceY - height2;
                     if (candidateY < transform.y - maxSnapDistance)
                     {
                         continue;
                     }
 
-                    if (!foundGround || candidateY < nearestGroundY)
+                    if (!hasSlopeCandidate)
                     {
-                        nearestGroundY = candidateY;
-                        foundGround = true;
+                        slopeGroundY = candidateY;
+                        hasSlopeCandidate = true;
+                        continue;
                     }
+
+                    if ((triangle.risesRight && candidateY < slopeGroundY) ||
+                        (!triangle.risesRight && candidateY > slopeGroundY))
+                    {
+                        slopeGroundY = candidateY;
+                    }
+                }
+
+                if (hasSlopeCandidate && (!foundGround || slopeGroundY < nearestGroundY))
+                {
+                    nearestGroundY = slopeGroundY;
+                    foundGround = true;
                 }
                 continue;
             }
 
-            const float candidateY = static_cast<float>(row) * tileSize - height;
+            const float candidateY = static_cast<float>(row) * tileSize - height2;
             if (candidateY < transform.y - maxSnapDistance)
             {
                 continue;
@@ -396,6 +828,39 @@ bool GameScene::IntersectsEntity(const Entity& a, const Entity& b) const
     return IntersectsRect(*transformA, *transformB);
 }
 
+bool GameScene::IntersectsSolidPhotoBox(const TransformComponent& transform) const
+{
+    CollisionPolygon candidatePolygon;
+    BuildRotatedRectPolygon(
+        transform.x,
+        transform.y,
+        transform.width * transform.scale,
+        transform.height * transform.scale,
+        transform.rotation,
+        candidatePolygon);
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
+        {
+            continue;
+        }
+
+        CollisionPolygon photoPolygon;
+        if (!BuildPhotoBoxCollisionPolygon(*entity, photoPolygon))
+        {
+            continue;
+        }
+
+        if (PolygonsIntersect(candidatePolygon, photoPolygon))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool GameScene::GetEntityBoundsByTag(const char* tag, float& x, float& y, float& width, float& height) const
 {
     Entity* entity = FindEntityByTag(tag);
@@ -417,6 +882,28 @@ bool GameScene::GetEntityBoundsByTag(const char* tag, float& x, float& y, float&
     return true;
 }
 
+void GameScene::GetEntityBoundsByTag(const char* tag, std::vector<TransformComponent>& bounds) const
+{
+    bounds.clear();
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, tag))
+        {
+            continue;
+        }
+
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform)
+        {
+            continue;
+        }
+
+        TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
+        rect.scale = transform->scale;
+        bounds.push_back(rect);
+    }
+}
+
 void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
 {
     bounds.clear();
@@ -436,16 +923,19 @@ void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
         {
             continue;
         }
-        if (const auto* tileValue = entity->GetComponent<PhotoCopyTileValueComponent>())
+        CollisionPolygon polygon;
+        if (!BuildPhotoBoxCollisionPolygon(*entity, polygon))
         {
-            if (tileValue->tileValue == 6 || tileValue->tileValue == 7)
-            {
-                continue;
-            }
+            continue;
         }
 
-        TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
-        rect.scale = transform->scale;
+        float left = 0.0f;
+        float top = 0.0f;
+        float right = 0.0f;
+        float bottom = 0.0f;
+        GetPolygonAabb(polygon, left, top, right, bottom);
+        TransformComponent rect(left, top, right - left, bottom - top);
+        rect.scale = 1.0f;
         bounds.push_back(rect);
     }
 }
@@ -609,14 +1099,18 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
                 continue;
             }
 
-            if (HasTag(*entity, "PhotoBox"))
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (!transform)
             {
                 continue;
             }
 
-            const auto* transform = entity->GetComponent<TransformComponent>();
-            if (!transform)
+            if (HasTag(*entity, "PhotoBox"))
             {
+                if (UsesSolidCollision(*entity) && IntersectsSolidPhotoBox(candidate))
+                {
+                    return true;
+                }
                 continue;
             }
 

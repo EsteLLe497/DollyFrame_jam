@@ -57,7 +57,11 @@
 - `core/component.h` / `core/component.cpp`
   コンポーネント基底です。
 - `gameplay/components.h` / `gameplay/components.cpp`
-  実際のコンポーネント群です。
+  汎用、描画、物理寄りのコンポーネント群です。
+- `gameplay/photo_components.h` / `gameplay/photo_components.cpp`
+  写真コピー、写真フィルター、貼り付け演出用のコンポーネント群です。
+- `gameplay/world_components.h` / `gameplay/world_components.cpp`
+  敵、ギミック、敵移動などワールド挙動寄りのコンポーネント群です。
 
 ### データ
 
@@ -73,13 +77,29 @@
 `GameScene` は 1 ファイルではなく、役割ごとに分かれています。
 
 - `scenes/game/game_scene.h`
-  状態とメソッド宣言
+  シーン本体とメソッド宣言
+- `scenes/game/game_scene_photo_state.h`
+  `CapturedPhotoItem` と `PhotoState` 系の写真専用 state 定義
+- `scenes/game/game_scene_state.h`
+  `m_flow` / `m_player` / `m_debug` の state struct 定義
 - `scenes/game/game_scene.cpp`
   初期化、シーン更新、デバッグ UI
 - `scenes/game/game_scene_setup.cpp`
   ステージ初期化、prefab 配置、チューニング入出力
 - `scenes/game/game_scene_gameplay.cpp`
   プレイヤー更新、撮影、配置、敵、相互作用
+- `scenes/game/game_scene_photo_tray_system.h`
+  写真スロット選択の入力処理
+- `scenes/game/game_scene_combat_system.h`
+  敵 AI と bullet 更新の runtime helper
+- `scenes/game/game_scene_player_system.h`
+  プレイヤー入力、回避開始、水平速度決定の helper
+- `scenes/game/game_scene_player_movement_system.h`
+  プレイヤーの横移動、縦移動、写真オブジェクト接触、カメラ追従の helper
+- `scenes/game/game_scene_player_visual_system.h`
+  プレイヤーの見た目更新と残像制御の helper
+- `scenes/game/game_scene_world_interaction_system.h`
+  タイル接触、エンティティ接触、写真ボックス接触、被弾判定の helper
 - `scenes/game/game_scene_render.cpp`
   エンティティ描画とワールド側の見た目
 - `scenes/game/game_scene_render_ui.cpp`
@@ -93,15 +113,35 @@
 - `gameplay/photo_filter_rules.cpp`
   フィルター順、名称、効果本体
 
+状態の持ち方も少し整理されています。
+
+- `m_flow`
+  カメラ、進行、スロー、プレビュー時間などのシーン進行状態
+- `m_player`
+  速度、接地、回避、見た目補間、残像などのプレイヤー状態
+- `m_debug`
+  チューニング UI、デバッグ表示、ホットリロード状態
+- `m_photo`
+  撮影、保存スロット、配置、コピーグループなどの写真状態
+
+つまり、`GameScene` に新しい bool や float を直置きするのではなく、まずどの state の責務かを決めてから追加する方針です。  
+写真担当の変更はまず `scenes/game/game_scene_photo_state.h` を見る形に寄せています。
+
 改修時はまず「何を変えたいか」でファイルを分けて考えると速いです。
 
 - ルールを変えたい: `scenes/game/game_scene_gameplay.cpp`
+- 写真スロット選択を変えたい: `scenes/game/game_scene_photo_tray_system.h`
+- 敵 AI や bullet を変えたい: `scenes/game/game_scene_combat_system.h`
+- プレイヤー入力や回避開始条件を変えたい: `scenes/game/game_scene_player_system.h`
+- プレイヤー移動やカメラ追従を変えたい: `scenes/game/game_scene_player_movement_system.h`
+- プレイヤーの見た目や残像を変えたい: `scenes/game/game_scene_player_visual_system.h`
+- ワールド接触や被弾処理を変えたい: `scenes/game/game_scene_world_interaction_system.h`
 - 見た目を変えたい: `scenes/game/game_scene_render.cpp`
 - HUD やオーバーレイを変えたい: `scenes/game/game_scene_render_ui.cpp`
 - 当たり判定を変えたい: `scenes/game/game_scene_collision.cpp`
 - 初期配置や prefab 構成を変えたい: `scenes/game/game_scene_setup.cpp` と `assets/prefabs.json`
 - 写真まわりを変えたい: `gameplay/photo_system.cpp`
-- 新しい状態を持たせたい: `scenes/game/game_scene.h`
+- 新しい状態を持たせたい: `scenes/game/game_scene_state.h` または `scenes/game/game_scene_photo_state.h` と `scenes/game/game_scene.h`
 
 ## 4. 主なゲーム要素
 
@@ -121,6 +161,38 @@
 ### プレイヤー
 
 `GameScene::UpdatePlayer()` で移動、ジャンプ、重力、地形接地、写真オブジェクトとの接触を処理しています。
+
+プレイヤー更新で直接触る状態は主に `m_player` へ集約されています。  
+移動系の改修では `scenes/game/game_scene_state.h` の `GameScenePlayerState` も一緒に見ると追いやすいです。
+
+回避まわりは tuning tool から次を調整できます。
+
+- `dodge_speed`
+  回避中の水平速度
+- `dodge_distance`
+  回避で進む距離
+- `dodge_invincibility`
+  回避開始から何秒ぶん被弾を無効化するか
+- `dodge_cooldown`
+  次の回避を受け付けるまでの待ち時間
+
+`Dodge Time` は保存値ではなく、`dodge_distance / dodge_speed` から計算される派生値です。  
+つまり回避時間を変えたいときは `dodge_speed` か `dodge_distance` を調整します。
+
+注意:
+
+- `dodge_invincibility`
+  回避中だけの無敵時間
+- `assets/prefabs.json` の `damageCooldown.seconds`
+  被弾した直後の再被弾防止時間
+
+この 2 つは役割が違うので、同じ「無敵」でも混ぜて調整しない方が安全です。
+
+現在の tuning tool は ImGui ベースです。
+
+- `F1` で表示切り替え
+- `Game Tuning` ウィンドウから値を直接調整
+- 変更は `assets/tuning.json` へ即時反映
 
 ### 写真システム
 
@@ -157,6 +229,7 @@
 
 - `gameplay/photo_system.cpp`
 - `gameplay/photo_filter_rules.cpp`
+- `scenes/game/game_scene_photo_state.h`
 
 ### フィルター
 
@@ -192,7 +265,7 @@
 - 配置開始時: `1.2` 秒
 - シャッターフラッシュは通常速度
 
-実装は `scenes/game/game_scene.cpp` の `Update()` にあります。
+実装は `scenes/game/game_scene.cpp` の `Update()` にあり、進行状態は `m_flow` に入っています。
 
 ### 時間制限
 
@@ -219,6 +292,12 @@
 - `GimmickComponent`
 - `PhotoFilterComponent`
 
+補足:
+
+- 写真系の列挙と `PhotoFilterComponent` などは `gameplay/photo_components.*` に分離済み
+- 敵、ギミック、敵移動は `gameplay/world_components.*` に分離済み
+- 汎用、描画、物理コンポーネントは `gameplay/components.*` にあります
+
 今の `GameScene` では、ワールド上のフィルター装置より「選択したフィルターで撮る」方が主軸です。
 
 ## 5. 改修するときの入口
@@ -227,7 +306,7 @@
 
 触る場所:
 
-- `gameplay/components.h`
+- `gameplay/photo_components.h`
   `PhotoFilterTheme`
 - `gameplay/photo_filter_rules.cpp`
   テーマ名表示、フィルター順、効果本体
@@ -240,8 +319,8 @@
 
 最小構成:
 
-1. `components.*` に必要な状態を足す
-2. `scenes/game/game_scene.cpp` の生成処理を増やす
+1. `world_components.*` に必要な状態を足す
+2. `scenes/game/game_scene_setup.cpp` の生成処理を増やす
 3. 必要なら `gameplay/prefab_factory.*` と `assets/prefabs.json` を更新する
 
 ### 新しいギミックを追加したい
@@ -346,7 +425,8 @@
 
 ## 9. 実装上の注意
 
-- `GameScene` は状態が多いので、変更前に `scenes/game/game_scene.h` を確認する
+- `GameScene` は状態が多いので、変更前に `scenes/game/game_scene.h`、`scenes/game/game_scene_state.h`、`scenes/game/game_scene_photo_state.h` を確認する
+- 新しい状態を足すときは `m_flow` / `m_player` / `m_debug` / `m_photo` のどこに属するかを先に決める
 - 見た目変更とルール変更を同じ関数に混ぜすぎない
 - `third_party/` は基本的に直接触らない
 - 生成物や依存バイナリは Git 管理方針が揺れやすいので注意する
@@ -356,13 +436,15 @@
 初見ならこの順が速いです。
 
 1. `scenes/game/game_scene.h`
-2. `scenes/game/game_scene.cpp`
-3. `scenes/game/game_scene_gameplay.cpp`
-4. `gameplay/photo_system.cpp`
-5. `scenes/game/game_scene_render.cpp`
-6. `gameplay/components.h`
-7. `scenes/game/game_scene_internal.h`
-8. `assets/prefabs.json`
-9. `assets/maps/side_scroll_stage01.csv`
+2. `scenes/game/game_scene_state.h`
+3. `scenes/game/game_scene_photo_state.h`
+4. `scenes/game/game_scene.cpp`
+5. `scenes/game/game_scene_gameplay.cpp`
+6. `gameplay/photo_system.cpp`
+7. `scenes/game/game_scene_render.cpp`
+8. `gameplay/components.h`
+9. `scenes/game/game_scene_internal.h`
+10. `assets/prefabs.json`
+11. `assets/maps/side_scroll_stage01.csv`
 
 この順で読むと、状態、更新、描画、部品、データの対応が掴みやすいです。

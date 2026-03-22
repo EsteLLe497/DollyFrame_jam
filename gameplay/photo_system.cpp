@@ -11,7 +11,8 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr int kMaxPhotoGroups = 3;
-    constexpr float kPhotoCopyLifetimeSeconds = 10.0f;
+    constexpr float kPhotoCopyLifetimeSeconds = 30.0f;
+    constexpr float kPhotoPasteAnimationSeconds = 0.24f;
     constexpr float kPlacementRotateSpeed = 2.4f;
 
     float GetPrintedPhotoWidth(float contentWidth)
@@ -36,6 +37,66 @@ namespace
         const float cosTheta = std::fabs(std::cos(rotation));
         const float sinTheta = std::fabs(std::sin(rotation));
         return width * sinTheta + height * cosTheta;
+    }
+
+    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
+    {
+        if (std::fabs(rotation) <= 0.0001f)
+        {
+            return;
+        }
+
+        const float localX = x - centerX;
+        const float localY = y - centerY;
+        const float cosTheta = std::cos(rotation);
+        const float sinTheta = std::sin(rotation);
+        x = centerX + (localX * cosTheta - localY * sinTheta);
+        y = centerY + (localX * sinTheta + localY * cosTheta);
+    }
+
+    void DrawTriangleItem(
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        bool risesRight,
+        bool flipX,
+        float rotation,
+        int color)
+    {
+        const bool finalRisesRight = flipX ? !risesRight : risesRight;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
+        float cx = 0.0f;
+        float cy = 0.0f;
+
+        if (finalRisesRight)
+        {
+            ax = drawX;
+            ay = drawY + drawHeight;
+            bx = drawX + drawWidth;
+            by = drawY + drawHeight;
+            cx = drawX + drawWidth;
+            cy = drawY;
+        }
+        else
+        {
+            ax = drawX;
+            ay = drawY;
+            bx = drawX;
+            by = drawY + drawHeight;
+            cx = drawX + drawWidth;
+            cy = drawY + drawHeight;
+        }
+
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        RotatePoint(centerX, centerY, rotation, ax, ay);
+        RotatePoint(centerX, centerY, rotation, bx, by);
+        RotatePoint(centerX, centerY, rotation, cx, cy);
+        DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
     }
 
     void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width, float& height, float rotation)
@@ -96,20 +157,22 @@ namespace
     {
         Shader_ResetStyle();
         Shader_SetTint(item.tintR, item.tintG, item.tintB, alpha);
-        if (item.sourceTileValue == 6 || item.sourceTileValue == 7)
+        const TileTriangleShape triangle = TileMap::GetTriangleShape(item.sourceTileValue);
+        if (triangle.isTriangle)
         {
             const int color = GetColor(
                 static_cast<int>(std::round(item.tintR * 255.0f)),
                 static_cast<int>(std::round(item.tintG * 255.0f)),
                 static_cast<int>(std::round(item.tintB * 255.0f)));
-            if (item.sourceTileValue == 6)
-            {
-                DrawTriangleAA(drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, drawX + drawWidth, drawY, color, TRUE);
-            }
-            else
-            {
-                DrawTriangleAA(drawX, drawY, drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, color, TRUE);
-            }
+            DrawTriangleItem(
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                triangle.risesRight,
+                item.flipX,
+                item.rotation,
+                color);
             return;
         }
 
@@ -251,6 +314,59 @@ namespace
         result.insert(result.end(), printedItems.begin(), printedItems.end());
         return result;
     }
+
+    bool ContainsSpawnArchetypeItem(const std::vector<CapturedPhotoItem>& items)
+    {
+        for (const auto& item : items)
+        {
+            if (item.spawnArchetype != CapturedSpawnArchetype::None)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    std::vector<CapturedPhotoItem> BuildPlacementItems(
+        const PhotoCaptureState& capture,
+        const PhotoPlacementState& placement,
+        int whiteTexture,
+        float& outWidth,
+        float& outHeight)
+    {
+        const bool containsArchetype = ContainsSpawnArchetypeItem(capture.items);
+        if (containsArchetype)
+        {
+            std::vector<CapturedPhotoItem> items = capture.items;
+            outWidth = (std::max)(1.0f, capture.width);
+            outHeight = (std::max)(1.0f, capture.height);
+
+            if (placement.flipX)
+            {
+                for (auto& item : items)
+                {
+                    item.relativeX = outWidth - item.relativeX - item.width;
+                    item.flipX = !item.flipX;
+                }
+            }
+
+            RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
+            return items;
+        }
+
+        outWidth = GetPrintedPhotoWidth(capture.width);
+        outHeight = GetPrintedPhotoHeight(capture.height);
+        std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
+            capture.items,
+            whiteTexture,
+            capture.capturedTheme,
+            capture.width,
+            capture.height,
+            placement.flipX,
+            placement.bridgeEnabled);
+        RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
+        return items;
+    }
 }
 
 class PhotoSystem
@@ -258,7 +374,7 @@ class PhotoSystem
 public:
     static void HandleCapture(GameScene& scene)
     {
-            if (!scene.m_cameraMode || !Input_IsActionPressed(InputAction::CapturePhoto))
+            if (!scene.m_flow.cameraMode || !Input_IsActionPressed(InputAction::CapturePhoto))
             {
                 return;
             }
@@ -329,7 +445,14 @@ public:
             {
                 scene.m_photo.placement.rotation += kPlacementRotateSpeed / 60.0f;
             }
-            scene.m_photo.placement.rotation += Input_GetAxis(InputAxis::Rotate) * (kPlacementRotateSpeed / 60.0f);
+
+            const bool leftTriggerDown = Input_IsLeftTriggerDown();
+			const bool rightTriggerDown = Input_IsRightTriggerDown();
+
+            if (!(leftTriggerDown || rightTriggerDown))
+            {
+                scene.m_photo.placement.rotation += Input_GetAxis(InputAxis::Rotate) * (kPlacementRotateSpeed / 60.0f);
+            }
 
             Entity* player = scene.FindEntityByTag("Player");
             if (!player)
@@ -359,27 +482,20 @@ public:
         const float viewScale = GetViewScale();
         const float viewOriginX = GetViewOriginX();
         const float viewOriginY = GetViewOriginY();
-        std::vector<CapturedPhotoItem> previewItems = BuildPrintedPhotoItems(
-            scene.m_photo.capture.items,
+        float previewWidth = 0.0f;
+        float previewHeight = 0.0f;
+        std::vector<CapturedPhotoItem> previewItems = BuildPlacementItems(
+            scene.m_photo.capture,
+            scene.m_photo.placement,
             scene.m_whiteTexture,
-            scene.m_photo.capture.capturedTheme,
-            scene.m_photo.capture.width,
-            scene.m_photo.capture.height,
-            scene.m_photo.placement.flipX,
-            scene.m_photo.placement.bridgeEnabled);
-        float previewWidth = GetPrintedPhotoWidth(scene.m_photo.capture.width);
-        float previewHeight = GetPrintedPhotoHeight(scene.m_photo.capture.height);
-        RotatePrintedPhotoItems(
-            previewItems,
             previewWidth,
-            previewHeight,
-            scene.m_photo.placement.rotation);
+            previewHeight);
 
         for (const auto& item : previewItems)
         {
             CapturedPhotoItem previewItem = item;
             ApplyPreviewFilterTheme(previewItem);
-            const float drawX = viewOriginX + ((scene.m_photo.placement.x + item.relativeX) - scene.m_cameraX) * viewScale;
+            const float drawX = viewOriginX + ((scene.m_photo.placement.x + item.relativeX) - scene.m_flow.cameraX) * viewScale;
             const float drawY = viewOriginY + (scene.m_photo.placement.y + item.relativeY) * viewScale;
             const float drawWidth = item.width * viewScale;
             const float drawHeight = item.height * viewScale;
@@ -512,11 +628,13 @@ private:
                 const float localHeight = overlapHeight / targetHeight;
 
                 CapturedPhotoItem item;
+                const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr;
                 item.textureId = sprite->GetTextureId();
                 item.role = GetEntityCopyRole(*entity);
                 item.layer = PhotoCopyLayer::Foreground;
                 item.origin = GetEntityCopyOrigin(*entity);
                 item.appliedTheme = scene.m_photo.capture.selectedTheme;
+                item.spawnArchetype = capturedBarrel ? CapturedSpawnArchetype::Barrel : CapturedSpawnArchetype::None;
                 item.relativeX = overlapLeft - frameX;
                 item.relativeY = overlapTop - frameY;
                 item.width = overlapWidth;
@@ -531,10 +649,28 @@ private:
                     item.tintG = tint->g;
                     item.tintB = tint->b;
                     item.tintA = tint->a;
+                }
+                if (!capturedBarrel)
+                {
                     item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
                     item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
                 }
-                ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
+                else
+                {
+                    item.role = PhotoCopyRole::Solid;
+                    item.layer = PhotoCopyLayer::Foreground;
+                }
+
+                // �����ŕ␳�Frole �� Solid �̏ꍇ�͕K�� Foreground �ɂ���
+                if (item.role == PhotoCopyRole::Solid)
+                {
+                    item.layer = PhotoCopyLayer::Foreground;
+                }
+
+                if (!capturedBarrel)
+                {
+                    ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
+                }
                 scene.m_photo.capture.items.push_back(item);
                 capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
                 capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
@@ -559,12 +695,25 @@ private:
                         continue;
                     }
 
+                    // �ύX�_: CSV �� 1 �Ƃ��Ă���u�n�ʁv�^�C���͎B�e���Ȃ�
+                    if (tileValue == 1)
+                    {
+                        continue;
+                    }
+
                     const float tileX = static_cast<float>(column) * tileSize;
                     const float tileY = static_cast<float>(row) * tileSize;
+                    const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue);
+                    const float boundsWidth = triangle.isTriangle
+                        ? static_cast<float>(triangle.widthTiles) * tileSize
+                        : tileSize;
+                    const float boundsHeight = triangle.isTriangle
+                        ? static_cast<float>(triangle.heightTiles) * tileSize
+                        : tileSize;
                     const float overlapLeft = (std::max)(frameX, tileX);
                     const float overlapTop = (std::max)(frameY, tileY);
-                    const float overlapRight = (std::min)(frameX + frameWidth, tileX + tileSize);
-                    const float overlapBottom = (std::min)(frameY + frameHeight, tileY + tileSize);
+                    const float overlapRight = (std::min)(frameX + frameWidth, tileX + boundsWidth);
+                    const float overlapBottom = (std::min)(frameY + frameHeight, tileY + boundsHeight);
                     const float overlapWidth = (std::max)(0.0f, overlapRight - overlapLeft);
                     const float overlapHeight = (std::max)(0.0f, overlapBottom - overlapTop);
                     if (overlapWidth <= 1.0f || overlapHeight <= 1.0f)
@@ -617,60 +766,120 @@ private:
 
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
-            scene.m_shutterFlashRemaining = gShutterFlashSeconds;
-            scene.m_developedPhotoPreviewRemaining = 3.2f;
+            scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
+            scene.m_flow.developedPhotoPreviewRemaining = 3.2f;
     }
 
     static bool UpdatePlacementPreview(GameScene& scene, float& spawnX, float& spawnY, float& spawnWidth, float& spawnHeight)
     {
-            spawnWidth = GetPrintedPhotoWidth(scene.m_photo.capture.width);
-            spawnHeight = GetPrintedPhotoHeight(scene.m_photo.capture.height);
-            const float basePrintedWidth = spawnWidth;
-            const float basePrintedHeight = spawnHeight;
-            spawnWidth = GetRotatedBoundsWidth(basePrintedWidth, basePrintedHeight, scene.m_photo.placement.rotation);
-            spawnHeight = GetRotatedBoundsHeight(basePrintedWidth, basePrintedHeight, scene.m_photo.placement.rotation);
-            const float viewScale = GetViewScale();
-            const float viewOriginX = GetViewOriginX();
-            const float viewOriginY = GetViewOriginY();
-            const float cursorWorldX =
-                ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + scene.m_cameraX;
-            const float cursorWorldY =
-                (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
+        float placementWidth = 0.0f;
+        float placementHeight = 0.0f;
+        static_cast<void>(BuildPlacementItems(
+            scene.m_photo.capture,
+            scene.m_photo.placement,
+            scene.m_whiteTexture,
+            placementWidth,
+            placementHeight));
+        spawnWidth = placementWidth;
+        spawnHeight = placementHeight;
+        const float viewScale = GetViewScale();
+        const float viewOriginX = GetViewOriginX();
+        const float viewOriginY = GetViewOriginY();
 
-            const float mapWidth = scene.GetMapPixelWidth();
-            const float mapHeight = scene.GetMapPixelHeight();
-            spawnX = std::clamp(cursorWorldX - spawnWidth * 0.5f, 0.0f, std::max(0.0f, mapWidth - spawnWidth));
-            spawnY = std::clamp(cursorWorldY - spawnHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - spawnHeight));
+        // �}�E�X�i�X�N���[���j����[���h���W�֕ϊ��i�J����X�������j
+        const float mouseWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
+        const float mouseWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
 
-            scene.m_photo.placement.active = true;
-            scene.m_photo.placement.x = spawnX;
-            scene.m_photo.placement.y = spawnY;
-            scene.m_photo.placement.width = spawnWidth;
-            scene.m_photo.placement.height = spawnHeight;
-            scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
-            return
-                scene.m_photo.placement.valid &&
-                !scene.IsPhotoTrayHit(static_cast<float>(Input_GetMouseX()), static_cast<float>(Input_GetMouseY())) &&
-                Input_IsActionPressed(InputAction::ConfirmPlacement);
+        // �E�X�e�B�b�N�p�̉��z�J�[�\���i���[���h���W�j
+        static float padCursorWorldX = mouseWorldX;
+        static float padCursorWorldY = mouseWorldY;
+        static int lastMouseX = Input_GetMouseX();
+        static int lastMouseY = Input_GetMouseY();
+        static unsigned int lastTimeMs = 0;
+
+        // �}�E�X���������牼�z�J�[�\���𓯊�
+        const int curMouseX = Input_GetMouseX();
+        const int curMouseY = Input_GetMouseY();
+        if (curMouseX != lastMouseX || curMouseY != lastMouseY)
+        {
+            padCursorWorldX = mouseWorldX;
+            padCursorWorldY = mouseWorldY;
+        }
+        lastMouseX = curMouseX;
+        lastMouseY = curMouseY;
+
+        // �o�ߎ���
+        const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
+        const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
+        lastTimeMs = nowMs;
+
+        // �E�X�e�B�b�N����
+        const float rightX = Input_GetRightStickX();
+        const float rightY = Input_GetRightStickY();
+
+        // �p�b�h�ړ��E�߂�̋����i�v�����\�j
+        constexpr float kPadDead = 0.08f;
+        constexpr float kPadCursorSpeed = 800.0f; // ���[���h�P�� / �b
+        constexpr float kPadReturnLerpSpeed = 8.0f; // �X�e�B�b�N���E��̖߂葬��
+
+        const bool padActive = Input_IsGamepadConnected() && (std::fabs(rightX) > kPadDead || std::fabs(rightY) > kPadDead);
+        if (padActive)
+        {
+            padCursorWorldX += rightX * kPadCursorSpeed * dt;
+            padCursorWorldY += rightY * kPadCursorSpeed * dt;
+        }
+        else
+        {
+            // ���炩�Ƀ}�E�X�ʒu�֕�Ԃ��Ė߂�
+            const float lerpFactor = std::min(1.0f, dt * kPadReturnLerpSpeed);
+            padCursorWorldX += (mouseWorldX - padCursorWorldX) * lerpFactor;
+            padCursorWorldY += (mouseWorldY - padCursorWorldY) * lerpFactor;
+        }
+
+        // ���͐��������A�c�̂݃}�b�v��ɃN�����v
+        const float mapWidth = scene.GetMapPixelWidth();
+        const float mapHeight = scene.GetMapPixelHeight();
+        (void)mapWidth; // ��������s��Ȃ��̂Ŗ��g�p�i�x���}���j
+        padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
+
+        // �ŏI�I�ȃJ�[�\���i���[���h���W�j
+        const float cursorWorldX = padCursorWorldX;
+        const float cursorWorldY = padCursorWorldY;
+
+        // ��������O���ăv���r���[�\���i�z�u�m��� IsPhotoPlacementValid �ɂ�锻��j
+        spawnX = cursorWorldX - spawnWidth * 0.5f;
+        spawnY = std::clamp(cursorWorldY - spawnHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - spawnHeight));
+
+        scene.m_photo.placement.active = true;
+        scene.m_photo.placement.x = spawnX;
+        scene.m_photo.placement.y = spawnY;
+        scene.m_photo.placement.width = spawnWidth;
+        scene.m_photo.placement.height = spawnHeight;
+        scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
+
+        // ���z�J�[�\���̃X�N���[�����W��쐬���ăg���C����Ɏg��
+        const float cursorScreenX = viewOriginX + (cursorWorldX - scene.m_flow.cameraX) * viewScale;
+        const float cursorScreenY = viewOriginY + cursorWorldY * viewScale;
+
+        return
+            scene.m_photo.placement.valid &&
+            !scene.IsPhotoTrayHit(cursorScreenX, cursorScreenY) &&
+            Input_IsActionPressed(InputAction::ConfirmPlacement);
     }
 
     static void SpawnPhotoGroup(GameScene& scene, Entity& player, float spawnX, float spawnY, float spawnWidth)
     {
-            std::vector<CapturedPhotoItem> spawnedItems = BuildPrintedPhotoItems(
-                scene.m_photo.capture.items,
+            static_cast<void>(spawnWidth);
+            float rotatedSpawnWidth = 0.0f;
+            float rotatedSpawnHeight = 0.0f;
+            std::vector<CapturedPhotoItem> spawnedItems = BuildPlacementItems(
+                scene.m_photo.capture,
+                scene.m_photo.placement,
                 scene.m_whiteTexture,
-                scene.m_photo.capture.capturedTheme,
-                scene.m_photo.capture.width,
-                scene.m_photo.capture.height,
-                scene.m_photo.placement.flipX,
-                scene.m_photo.placement.bridgeEnabled);
-            float rotatedSpawnWidth = GetPrintedPhotoWidth(scene.m_photo.capture.width);
-            float rotatedSpawnHeight = GetPrintedPhotoHeight(scene.m_photo.capture.height);
-            RotatePrintedPhotoItems(
-                spawnedItems,
                 rotatedSpawnWidth,
-                rotatedSpawnHeight,
-                scene.m_photo.placement.rotation);
+                rotatedSpawnHeight);
+            static_cast<void>(rotatedSpawnWidth);
+            static_cast<void>(rotatedSpawnHeight);
 
             if (scene.m_photo.groups.activeGroupCount >= kMaxPhotoGroups)
             {
@@ -694,51 +903,91 @@ private:
             }
 
             const int groupId = scene.m_photo.groups.nextGroupId++;
-            Entity* lastSpawnedBox = nullptr;
+            Entity* lastSpawnedEntity = nullptr;
+            int spawnedPhotoBoxCount = 0;
             for (const auto& item : spawnedItems)
             {
+                if (item.spawnArchetype == CapturedSpawnArchetype::Barrel)
+                {
+                    auto barrelEntity = std::make_unique<Entity>();
+                    Entity* spawnedBarrel = barrelEntity.get();
+                    lastSpawnedEntity = spawnedBarrel;
+                    spawnedBarrel->AddComponent<TagComponent>("Barrel");
+                    spawnedBarrel->AddComponent<TransformComponent>(
+                        spawnX + item.relativeX,
+                        spawnY + item.relativeY,
+                        item.width,
+                        item.height);
+                    spawnedBarrel->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+                    spawnedBarrel->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+                    spawnedBarrel->AddComponent<BarrelComponent>(
+                        gBarrelGravity,
+                        gBarrelMaxFallSpeed,
+                        gBarrelRollSpeed,
+                        gBarrelGroundFriction,
+                        gBarrelContactDamage,
+                        gBarrelBreakMinFallDistance,
+                        gBarrelBreakMinImpactSpeed);
+                    if (auto* sprite = spawnedBarrel->GetComponent<SpriteRenderComponent>())
+                    {
+                        sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                        sprite->SetFlipX(item.flipX);
+                    }
+                    if (auto* transform = spawnedBarrel->GetComponent<TransformComponent>())
+                    {
+                        transform->rotation = item.rotation;
+                    }
+                    scene.m_entities.push_back(std::move(barrelEntity));
+                    continue;
+                }
+
                 auto entity = std::make_unique<Entity>();
-                lastSpawnedBox = entity.get();
-                lastSpawnedBox->AddComponent<TagComponent>("PhotoBox");
-                lastSpawnedBox->AddComponent<PhotoCopyGroupComponent>(groupId);
-                lastSpawnedBox->AddComponent<PhotoCopyLifetimeComponent>(kPhotoCopyLifetimeSeconds);
-                lastSpawnedBox->AddComponent<PhotoCopyRoleComponent>(item.role);
-                lastSpawnedBox->AddComponent<PhotoCopyOriginComponent>(item.origin);
+                lastSpawnedEntity = entity.get();
+                ++spawnedPhotoBoxCount;
+                lastSpawnedEntity->AddComponent<TagComponent>("PhotoBox");
+                lastSpawnedEntity->AddComponent<PhotoCopyGroupComponent>(groupId);
+                lastSpawnedEntity->AddComponent<PhotoCopyLifetimeComponent>(kPhotoCopyLifetimeSeconds);
+                lastSpawnedEntity->AddComponent<PhotoPasteAnimationComponent>(kPhotoPasteAnimationSeconds);
+                lastSpawnedEntity->AddComponent<PhotoCopyRoleComponent>(item.role);
+                lastSpawnedEntity->AddComponent<PhotoCopyOriginComponent>(item.origin);
                 if (item.origin == PhotoCopyOrigin::Tile && item.sourceTileValue > 0)
                 {
-                    lastSpawnedBox->AddComponent<PhotoCopyTileValueComponent>(item.sourceTileValue);
+                    lastSpawnedEntity->AddComponent<PhotoCopyTileValueComponent>(item.sourceTileValue);
                 }
-                lastSpawnedBox->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
+                lastSpawnedEntity->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
                 const PhotoCopyLayer spawnedLayer =
                     item.layer == PhotoCopyLayer::Shadow ? PhotoCopyLayer::Shadow :
                     item.layer == PhotoCopyLayer::Background ? PhotoCopyLayer::Background :
                     scene.m_photo.placement.layer;
-                lastSpawnedBox->AddComponent<PhotoCopyLayerComponent>(spawnedLayer);
-                lastSpawnedBox->AddComponent<TransformComponent>(
+                lastSpawnedEntity->AddComponent<PhotoCopyLayerComponent>(spawnedLayer);
+                lastSpawnedEntity->AddComponent<TransformComponent>(
                     spawnX + item.relativeX,
                     spawnY + item.relativeY,
                     item.width,
                     item.height);
-                lastSpawnedBox->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
-                lastSpawnedBox->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
-                if (auto* sprite = lastSpawnedBox->GetComponent<SpriteRenderComponent>())
+                lastSpawnedEntity->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+                lastSpawnedEntity->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+                if (auto* sprite = lastSpawnedEntity->GetComponent<SpriteRenderComponent>())
                 {
                     sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
                     sprite->SetFlipX(item.flipX);
                 }
-                if (auto* transform = lastSpawnedBox->GetComponent<TransformComponent>())
+                if (auto* transform = lastSpawnedEntity->GetComponent<TransformComponent>())
                 {
                     transform->rotation = item.rotation;
                 }
-                ApplyPhotoFilterToPhotoBox(*lastSpawnedBox, item.appliedTheme);
+                ApplyPhotoFilterToPhotoBox(*lastSpawnedEntity, item.appliedTheme);
                 scene.m_entities.push_back(std::move(entity));
             }
 
-            scene.m_photo.groups.activeGroupCount = std::min(kMaxPhotoGroups, scene.m_photo.groups.activeGroupCount + 1);
-            scene.m_photo.groups.hasSpawnedCopy = true;
+            if (spawnedPhotoBoxCount > 0)
+            {
+                scene.m_photo.groups.activeGroupCount = std::min(kMaxPhotoGroups, scene.m_photo.groups.activeGroupCount + 1);
+                scene.m_photo.groups.hasSpawnedCopy = true;
+            }
             scene.ConsumeSelectedPhotoSlot();
-            scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, lastSpawnedBox, "test_tone", 0.0f, 0.0f });
-            scene.m_eventBus.Publish({ EventType::LogMessage, &player, lastSpawnedBox, "Spawned filtered reconstruction", 0.0f, 0.0f });
+            scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, lastSpawnedEntity, "test_tone", 0.0f, 0.0f });
+            scene.m_eventBus.Publish({ EventType::LogMessage, &player, lastSpawnedEntity, "Spawned filtered reconstruction", 0.0f, 0.0f });
     }
 };
 

@@ -21,6 +21,33 @@ namespace
     constexpr float kPixelsPerMeter = 100.0f;
 }
 
+BarrelComponent::BarrelComponent(
+    float gravityValue,
+    float maxFallSpeedValue,
+    float rollSpeedValue,
+    float groundFrictionValue,
+    int contactDamageValue,
+    float breakMinFallDistanceValue,
+    float breakMinImpactSpeedValue)
+    : gravity(gravityValue)
+    , maxFallSpeed(maxFallSpeedValue)
+    , rollSpeed(rollSpeedValue)
+    , groundFriction(groundFrictionValue)
+    , contactDamage(std::max(1, contactDamageValue))
+    , breakMinFallDistance(breakMinFallDistanceValue)
+    , breakMinImpactSpeed(breakMinImpactSpeedValue)
+{
+}
+
+void BarrelComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Barrel");
+    ImGui::Text("Velocity: %.1f, %.1f", velocityX, velocityY);
+    ImGui::Text("Grounded: %s", grounded ? "Yes" : "No");
+    ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
+    ImGui::Text("Fall Distance: %.1f", accumulatedFallDistance);
+}
+
 TransformComponent::TransformComponent(float xValue, float yValue, float widthValue, float heightValue)
     : x(xValue)
     , y(yValue)
@@ -91,6 +118,27 @@ bool PhotoCopyLifetimeComponent::IsExpired() const
     return m_remainingSeconds <= 0.0f;
 }
 
+PhotoPasteAnimationComponent::PhotoPasteAnimationComponent(float durationSeconds)
+    : m_durationSeconds(std::max(0.001f, durationSeconds))
+    , m_elapsedSeconds(0.0f)
+{
+}
+
+void PhotoPasteAnimationComponent::Update(float deltaTime)
+{
+    m_elapsedSeconds = std::min(m_durationSeconds, m_elapsedSeconds + std::max(0.0f, deltaTime));
+}
+
+float PhotoPasteAnimationComponent::GetNormalizedProgress() const
+{
+    return std::clamp(m_elapsedSeconds / m_durationSeconds, 0.0f, 1.0f);
+}
+
+bool PhotoPasteAnimationComponent::IsFinished() const
+{
+    return m_elapsedSeconds >= m_durationSeconds;
+}
+
 PhotoCopyOriginComponent::PhotoCopyOriginComponent(PhotoCopyOrigin originValue)
     : origin(originValue)
 {
@@ -111,7 +159,7 @@ namespace
             return "Walker";
         case EnemyArchetype::Turret:
             return "Turret";
-        case EnemyArchetype::Ranged: // 3/19í«â¡(ìcîVè„èr)
+        case EnemyArchetype::Ranged: // 3/19ÔøΩ«âÔøΩ(ÔøΩcÔøΩVÔøΩÔøΩr)
             return "Ranged";
         case EnemyArchetype::Floater:
         default:

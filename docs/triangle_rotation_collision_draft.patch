@@ -1,0 +1,327 @@
+*** Begin Patch
+*** Update File: scenes/game/game_scene.h
+@@
+     bool IsStandingOnGround(const TransformComponent& transform) const;
+     bool TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const;
++    bool TryGetPhotoBoxTriangleSurfaceY(const Entity& entity, float worldX, float& outSurfaceY) const;
++    bool IntersectsSolidPhotoBox(const TransformComponent& candidate) const;
+     bool IntersectsHazardTile(const TransformComponent& transform) const;
+*** Update File: scenes/game/game_scene_collision.cpp
+@@
+ namespace
+ {
+     constexpr int kMaxTriangleSpanTiles = 5;
++
++    struct TriangleVertex
++    {
++        float x = 0.0f;
++        float y = 0.0f;
++    };
++
++    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
++    {
++        if (std::fabs(rotation) <= 0.0001f)
++        {
++            return;
++        }
++
++        const float localX = x - centerX;
++        const float localY = y - centerY;
++        const float cosTheta = std::cos(rotation);
++        const float sinTheta = std::sin(rotation);
++        x = centerX + (localX * cosTheta - localY * sinTheta);
++        y = centerY + (localX * sinTheta + localY * cosTheta);
++    }
++
++    void InverseRotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
++    {
++        RotatePoint(centerX, centerY, -rotation, x, y);
++    }
++
++    void GetTriangleVertices(
++        float left,
++        float top,
++        float width,
++        float height,
++        bool risesRight,
++        bool flipX,
++        float rotation,
++        TriangleVertex outVertices[3])
++    {
++        const bool finalRisesRight = flipX ? !risesRight : risesRight;
++        if (finalRisesRight)
++        {
++            outVertices[0] = { left, top + height };
++            outVertices[1] = { left + width, top + height };
++            outVertices[2] = { left + width, top };
++        }
++        else
++        {
++            outVertices[0] = { left, top };
++            outVertices[1] = { left, top + height };
++            outVertices[2] = { left + width, top + height };
++        }
++
++        const float centerX = left + width * 0.5f;
++        const float centerY = top + height * 0.5f;
++        for (TriangleVertex& vertex : outVertices)
++        {
++            RotatePoint(centerX, centerY, rotation, vertex.x, vertex.y);
++        }
++    }
++
++    float Cross(const TriangleVertex& a, const TriangleVertex& b, const TriangleVertex& p)
++    {
++        return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
++    }
++
++    bool IsPointInTriangle(const TriangleVertex& p, const TriangleVertex vertices[3])
++    {
++        const float c0 = Cross(vertices[0], vertices[1], p);
++        const float c1 = Cross(vertices[1], vertices[2], p);
++        const float c2 = Cross(vertices[2], vertices[0], p);
++        const bool hasNegative = c0 < -0.01f || c1 < -0.01f || c2 < -0.01f;
++        const bool hasPositive = c0 > 0.01f || c1 > 0.01f || c2 > 0.01f;
++        return !(hasNegative && hasPositive);
++    }
++
++    bool TryIntersectVerticalLineSegment(
++        float lineX,
++        const TriangleVertex& a,
++        const TriangleVertex& b,
++        float& outY)
++    {
++        const float minX = (std::min)(a.x, b.x);
++        const float maxX = (std::max)(a.x, b.x);
++        if (lineX < minX - 0.01f || lineX > maxX + 0.01f)
++        {
++            return false;
++        }
++
++        if (std::fabs(a.x - b.x) <= 0.01f)
++        {
++            outY = (std::min)(a.y, b.y);
++            return true;
++        }
++
++        const float t = (lineX - a.x) / (b.x - a.x);
++        if (t < -0.01f || t > 1.01f)
++        {
++            return false;
++        }
++
++        outY = a.y + (b.y - a.y) * t;
++        return true;
++    }
++
++    bool TryGetTriangleSurfaceY(const TriangleVertex vertices[3], float worldX, float& outSurfaceY)
++    {
++        bool found = false;
++        float bestY = 0.0f;
++        for (int edgeIndex = 0; edgeIndex < 3; ++edgeIndex)
++        {
++            const TriangleVertex& a = vertices[edgeIndex];
++            const TriangleVertex& b = vertices[(edgeIndex + 1) % 3];
++            float edgeY = 0.0f;
++            if (!TryIntersectVerticalLineSegment(worldX, a, b, edgeY))
++            {
++                continue;
++            }
++
++            if (!found || edgeY < bestY)
++            {
++                bestY = edgeY;
++                found = true;
++            }
++        }
++
++        if (!found)
++        {
++            return false;
++        }
++
++        outSurfaceY = bestY;
++        return true;
++    }
+@@
+-    bool TryGetPhotoBoxSlopeSurfaceY(const Entity& entity, float worldX, float& outSurfaceY)
++    bool TryGetPhotoBoxSlopeSurfaceY(const Entity& entity, float worldX, float& outSurfaceY)
+     {
+         const auto* transform = entity.GetComponent<TransformComponent>();
+         const auto* tileValue = entity.GetComponent<PhotoCopyTileValueComponent>();
++        const auto* sprite = entity.GetComponent<SpriteRenderComponent>();
+         if (!transform || !tileValue)
+         {
+             return false;
+         }
+@@
+-        const float width = transform->width * transform->scale;
+-        const float height = transform->height * transform->scale;
+-        return TryComputeSlopeSurfaceY(transform->x, transform->y, width, height, triangle.risesRight, worldX, outSurfaceY);
++        const float width = transform->width * transform->scale;
++        const float height = transform->height * transform->scale;
++        const bool flipX = sprite ? sprite->GetFlipX() : false;
++        TriangleVertex vertices[3]{};
++        GetTriangleVertices(
++            transform->x,
++            transform->y,
++            width,
++            height,
++            triangle.risesRight,
++            flipX,
++            transform->rotation,
++            vertices);
++        return TryGetTriangleSurfaceY(vertices, worldX, outSurfaceY);
+     }
+@@
++bool GameScene::TryGetPhotoBoxTriangleSurfaceY(const Entity& entity, float worldX, float& outSurfaceY) const
++{
++    return TryGetPhotoBoxSlopeSurfaceY(entity, worldX, outSurfaceY);
++}
++
++bool GameScene::IntersectsSolidPhotoBox(const TransformComponent& candidate) const
++{
++    const float candidateWidth = candidate.width * candidate.scale;
++    const float candidateHeight = candidate.height * candidate.scale;
++    const TriangleVertex samplePoints[4] =
++    {
++        { candidate.x + 6.0f, candidate.y + 4.0f },
++        { candidate.x + candidateWidth - 6.0f, candidate.y + 4.0f },
++        { candidate.x + 6.0f, candidate.y + candidateHeight - 4.0f },
++        { candidate.x + candidateWidth - 6.0f, candidate.y + candidateHeight - 4.0f },
++    };
++
++    for (const auto& entity : m_entities)
++    {
++        if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
++        {
++            continue;
++        }
++
++        const auto* transform = entity->GetComponent<TransformComponent>();
++        const auto* tileValue = entity->GetComponent<PhotoCopyTileValueComponent>();
++        const auto* sprite = entity->GetComponent<SpriteRenderComponent>();
++        if (!transform || !tileValue)
++        {
++            continue;
++        }
++
++        const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue->tileValue);
++        if (!triangle.isTriangle)
++        {
++            continue;
++        }
++
++        const float width = transform->width * transform->scale;
++        const float height = transform->height * transform->scale;
++        TriangleVertex vertices[3]{};
++        GetTriangleVertices(
++            transform->x,
++            transform->y,
++            width,
++            height,
++            triangle.risesRight,
++            sprite ? sprite->GetFlipX() : false,
++            transform->rotation,
++            vertices);
++
++        for (const TriangleVertex& point : samplePoints)
++        {
++            if (IsPointInTriangle(point, vertices))
++            {
++                return true;
++            }
++        }
++    }
++
++    return false;
++}
+@@
+ bool GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
+ {
+@@
+ }
+@@
+ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float height) const
+ {
+@@
+     auto intersectsWorld = [&](const TransformComponent& candidate) -> bool
+     {
+@@
++        if (IntersectsSolidPhotoBox(candidate))
++        {
++            return true;
++        }
++
+         for (const auto& entity : m_entities)
+         {
+*** Update File: scenes/game/game_scene_player_movement_system.h
+@@
+-template <typename IsSolidTileFn>
+-bool CanOccupyTileSpace(const TransformComponent& transform, const PlayerMovementContext& ctx, IsSolidTileFn&& isSolidTile)
++template <typename IsSolidTileFn, typename IntersectsSolidObjectFn>
++bool CanOccupyTileSpace(
++    const TransformComponent& transform,
++    const PlayerMovementContext& ctx,
++    IsSolidTileFn&& isSolidTile,
++    IntersectsSolidObjectFn&& intersectsSolidObject)
+ {
+@@
+             if (isSolidTile(column, row))
+             {
+                 return false;
+             }
+         }
+     }
+ 
+-    return true;
++    return !intersectsSolidObject(transform);
+ }
+@@
+-template <typename IsSolidTileFn>
++template <typename IsSolidTileFn, typename IntersectsSolidObjectFn>
+ void ResolveHorizontalTileCollisions(
+     TransformComponent& transform,
+     GameScenePlayerState& player,
+     const PlayerMovementContext& ctx,
+-    IsSolidTileFn&& isSolidTile)
++    IsSolidTileFn&& isSolidTile,
++    IntersectsSolidObjectFn&& intersectsSolidObject)
+ {
+@@
+                     TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
+                     stepCandidate.scale = transform.scale;
+                     if (stepCandidate.y >= 0.0f &&
+-                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile))
++                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile, intersectsSolidObject))
+                     {
+                         transform.y = stepCandidate.y;
+                         steppedUp = true;
+                     }
+@@
+                     TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
+                     stepCandidate.scale = transform.scale;
+                     if (stepCandidate.y >= 0.0f &&
+-                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile))
++                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile, intersectsSolidObject))
+                     {
+                         transform.y = stepCandidate.y;
+                         steppedUp = true;
+                     }
+*** Update File: scenes/game/game_scene_gameplay.cpp
+@@
+     game_scene_player_movement_system::ResolveHorizontalTileCollisions(
+         *transform,
+         m_player,
+         movementContext,
+         [this, horizontalVelocity](int column, int row)
+         {
+             return horizontalVelocity > 0.0f
+                 ? IsTileBlockingFromLeft(column, row)
+                 : IsTileBlockingFromRight(column, row);
++        },
++        [this](const TransformComponent& candidate)
++        {
++            return IntersectsSolidPhotoBox(candidate);
+         });
+*** End Patch

@@ -1,4 +1,4 @@
-#include "game_scene_internal.h"
+﻿#include "game_scene_internal.h"
 #include "photo_system.h"
 #include "photo_filter_rules.h"
 
@@ -12,6 +12,78 @@ namespace
     constexpr float kPhotoTraySlotWidth = 170.0f;
     constexpr float kPhotoTraySlotHeight = 92.0f;
     constexpr float kPhotoTraySlotGap = 18.0f;
+    constexpr float kTuningPanelX = 24.0f;
+    constexpr float kTuningPanelY = 24.0f;
+    constexpr float kTuningPanelWidth = 460.0f;
+    constexpr float kTuningPanelHeight = 620.0f;
+    constexpr float kTuningRowStartY = 124.0f;
+    constexpr float kTuningRowHeight = 22.0f;
+    constexpr float kTuningSectionGap = 14.0f;
+    constexpr float kTuningSectionHeaderHeight = 24.0f;
+    constexpr float kTuningMinusButtonX = 314.0f;
+    constexpr float kTuningPlusButtonX = 390.0f;
+    constexpr float kTuningButtonWidth = 52.0f;
+    constexpr float kTuningButtonHeight = 18.0f;
+
+    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
+    {
+        if (std::fabs(rotation) <= 0.0001f)
+        {
+            return;
+        }
+
+        const float localX = x - centerX;
+        const float localY = y - centerY;
+        const float cosTheta = std::cos(rotation);
+        const float sinTheta = std::sin(rotation);
+        x = centerX + (localX * cosTheta - localY * sinTheta);
+        y = centerY + (localX * sinTheta + localY * cosTheta);
+    }
+
+    void DrawTriangleItem(
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        bool risesRight,
+        bool flipX,
+        float rotation,
+        int color)
+    {
+        const bool finalRisesRight = flipX ? !risesRight : risesRight;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
+        float cx = 0.0f;
+        float cy = 0.0f;
+
+        if (finalRisesRight)
+        {
+            ax = drawX;
+            ay = drawY + drawHeight;
+            bx = drawX + drawWidth;
+            by = drawY + drawHeight;
+            cx = drawX + drawWidth;
+            cy = drawY;
+        }
+        else
+        {
+            ax = drawX;
+            ay = drawY;
+            bx = drawX;
+            by = drawY + drawHeight;
+            cx = drawX + drawWidth;
+            cy = drawY + drawHeight;
+        }
+
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        RotatePoint(centerX, centerY, rotation, ax, ay);
+        RotatePoint(centerX, centerY, rotation, bx, by);
+        RotatePoint(centerX, centerY, rotation, cx, cy);
+        DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
+    }
 
     const char* GetStageGuideText(float playerX)
     {
@@ -30,20 +102,22 @@ namespace
     {
         Shader_ResetStyle();
         Shader_SetTint(item.tintR, item.tintG, item.tintB, std::min(1.0f, item.tintA) * alpha);
-        if (item.sourceTileValue == 6 || item.sourceTileValue == 7)
+        const TileTriangleShape triangle = TileMap::GetTriangleShape(item.sourceTileValue);
+        if (triangle.isTriangle)
         {
             const int color = GetColor(
                 static_cast<int>(std::round(item.tintR * 255.0f)),
                 static_cast<int>(std::round(item.tintG * 255.0f)),
                 static_cast<int>(std::round(item.tintB * 255.0f)));
-            if (item.sourceTileValue == 6)
-            {
-                DrawTriangleAA(drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, drawX + drawWidth, drawY, color, TRUE);
-            }
-            else
-            {
-                DrawTriangleAA(drawX, drawY, drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, color, TRUE);
-            }
+            DrawTriangleItem(
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                triangle.risesRight,
+                item.flipX,
+                item.rotation,
+                color);
             return;
         }
 
@@ -60,11 +134,48 @@ namespace
             item.flipX,
             item.rotation);
     }
+
+    float GetTuningRowY(int index)
+    {
+        float y = kTuningPanelY + kTuningRowStartY;
+        if (index >= 2)
+        {
+            y += kTuningSectionHeaderHeight + kTuningSectionGap;
+        }
+        if (index >= 12)
+        {
+            y += kTuningSectionHeaderHeight + kTuningSectionGap;
+        }
+        return y + static_cast<float>(index) * kTuningRowHeight;
+    }
+
+    void DrawTuningButton(float x, float y, float width, float height, const char* label, bool highlighted)
+    {
+        DrawBox(
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(y)),
+            static_cast<int>(std::round(x + width)),
+            static_cast<int>(std::round(y + height)),
+            highlighted ? GetColor(228, 196, 120) : GetColor(48, 60, 78),
+            TRUE);
+        DrawBox(
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(y)),
+            static_cast<int>(std::round(x + width)),
+            static_cast<int>(std::round(y + height)),
+            GetColor(220, 230, 244),
+            FALSE);
+        DrawString(
+            static_cast<int>(std::round(x + 18.0f)),
+            static_cast<int>(std::round(y + 2.0f)),
+            label,
+            highlighted ? GetColor(18, 18, 22) : GetColor(232, 238, 245));
+    }
 }
 
 void GameScene::DrawCaptureOverlay() const
 {
-    if (!m_cameraMode && m_shutterFlashRemaining <= 0.0f)
+    if (!m_flow.cameraMode && m_flow.shutterFlashRemaining <= 0.0f)
     {
         return;
     }
@@ -90,7 +201,7 @@ void GameScene::DrawCaptureOverlay() const
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
-    const float drawX = viewOriginX + (frameX - m_cameraX) * viewScale;
+    const float drawX = viewOriginX + (frameX - m_flow.cameraX) * viewScale;
     const float drawY = viewOriginY + frameY * viewScale;
     const float drawWidth = frameWidth * viewScale;
     const float drawHeight = frameHeight * viewScale;
@@ -99,7 +210,7 @@ void GameScene::DrawCaptureOverlay() const
     const int right = static_cast<int>(std::round(drawX + drawWidth));
     const int bottom = static_cast<int>(std::round(drawY + drawHeight));
 
-    const float shutterT = Clamp01(m_shutterFlashRemaining / gShutterFlashSeconds);
+    const float shutterT = Clamp01(m_flow.shutterFlashRemaining / gShutterFlashSeconds);
     const float frameInset = 10.0f * shutterT * viewScale;
     const float innerX = drawX + frameInset;
     const float innerY = drawY + frameInset;
@@ -161,7 +272,7 @@ void GameScene::DrawCaptureOverlay() const
     {
         if (const auto* targetTransform = target->GetComponent<TransformComponent>())
         {
-            const float targetDrawX = viewOriginX + (targetTransform->x - m_cameraX) * viewScale;
+            const float targetDrawX = viewOriginX + (targetTransform->x - m_flow.cameraX) * viewScale;
             const float targetDrawY = viewOriginY + targetTransform->y * viewScale;
             const float targetDrawWidth = targetTransform->width * targetTransform->scale * viewScale;
             const float targetDrawHeight = targetTransform->height * targetTransform->scale * viewScale;
@@ -171,7 +282,7 @@ void GameScene::DrawCaptureOverlay() const
         }
     }
 
-    if (m_shutterFlashRemaining > 0.0f)
+    if (m_flow.shutterFlashRemaining > 0.0f)
     {
         Shader_ResetStyle();
         Shader_SetTint(overlayR, overlayG, overlayB, 0.10f + shutterT * 0.55f);
@@ -191,65 +302,124 @@ void GameScene::DrawCaptureOverlay() const
     Shader_ResetStyle();
 }
 
-void GameScene::DrawTuningPanel() const
+void GameScene::DrawTuningPanel()
 {
-    if (!m_showTuningPanel)
+    if (!m_debug.showTuningPanel)
     {
         return;
     }
 
-    const int left = 32;
-    const int top = 32;
-    const int width = 360;
-    const int height = 300;
+    const auto entries = BuildGameSceneTuningEntries();
+    DrawBox(
+        static_cast<int>(std::round(kTuningPanelX)),
+        static_cast<int>(std::round(kTuningPanelY)),
+        static_cast<int>(std::round(kTuningPanelX + kTuningPanelWidth)),
+        static_cast<int>(std::round(kTuningPanelY + kTuningPanelHeight)),
+        GetColor(12, 16, 22),
+        TRUE);
+    DrawBox(
+        static_cast<int>(std::round(kTuningPanelX)),
+        static_cast<int>(std::round(kTuningPanelY)),
+        static_cast<int>(std::round(kTuningPanelX + kTuningPanelWidth)),
+        static_cast<int>(std::round(kTuningPanelY + kTuningPanelHeight)),
+        GetColor(220, 230, 244),
+        FALSE);
 
-    DrawBox(left, top, left + width, top + height, GetColor(18, 22, 28), TRUE);
-    DrawBox(left, top, left + width, top + height, GetColor(210, 220, 240), FALSE);
-    DrawString(left + 16, top + 14, "Tuning Panel  F1: Close", GetColor(255, 255, 255));
-    DrawString(left + 16, top + 38, "Up/Down: Select  Left/Right: Adjust", GetColor(180, 210, 255));
+    DrawString(
+        static_cast<int>(kTuningPanelX + 16.0f),
+        static_cast<int>(kTuningPanelY + 14.0f),
+        "Game Tuning",
+        GetColor(245, 248, 255));
+    DrawString(
+        static_cast<int>(kTuningPanelX + 16.0f),
+        static_cast<int>(kTuningPanelY + 42.0f),
+        "F1 close  Arrow keys adjust  Click +/- writes assets/tuning.json",
+        GetColor(178, 198, 220));
 
-    struct Entry
+    const auto drawSectionHeader = [](float y, const char* label)
     {
-        const char* label;
-        float value;
+        DrawBox(
+            static_cast<int>(std::round(kTuningPanelX + 14.0f)),
+            static_cast<int>(std::round(y)),
+            static_cast<int>(std::round(kTuningPanelX + kTuningPanelWidth - 14.0f)),
+            static_cast<int>(std::round(y + kTuningSectionHeaderHeight - 6.0f)),
+            GetColor(28, 36, 48),
+            TRUE);
+        DrawString(
+            static_cast<int>(std::round(kTuningPanelX + 24.0f)),
+            static_cast<int>(std::round(y + 2.0f)),
+            label,
+            GetColor(255, 228, 164));
     };
 
-    const Entry entries[] =
-    {
-        { "Camera Width", gCameraViewWidth },
-        { "Camera Height", gCameraViewHeight },
-        { "Move Speed", gPlayerMoveSpeed },
-        { "Jump Speed", gPlayerJumpSpeed },
-        { "Gravity", gPlayerGravity },
-        { "Max Fall", gPlayerMaxFallSpeed },
-        { "Coyote", gCoyoteTimeSeconds },
-        { "Ground Snap", gGroundSnapDistance },
-        { "Capture W Tiles", gCaptureWidthTiles },
-        { "Capture H Tiles", gCaptureHeightTiles },
-        { "Pickup Bonus", gPickupTimeBonus },
-    };
+    drawSectionHeader(kTuningPanelY + 76.0f, "Camera");
+    drawSectionHeader(kTuningPanelY + 76.0f + (2.0f * kTuningRowHeight) + kTuningSectionHeaderHeight + kTuningSectionGap, "Player");
+    drawSectionHeader(kTuningPanelY + 76.0f + (12.0f * kTuningRowHeight) + (kTuningSectionHeaderHeight + kTuningSectionGap) * 2.0f, "Photo");
 
-    for (int index = 0; index < static_cast<int>(sizeof(entries) / sizeof(entries[0])); ++index)
+    for (int index = 0; index < static_cast<int>(entries.size()); ++index)
     {
-        const int y = top + 72 + index * 22;
-        const unsigned int color = index == m_tuningSelection
-            ? GetColor(255, 240, 120)
-            : GetColor(235, 235, 235);
-        DrawFormatString(left + 16, y, color, "%c %-14s : %7.2f", index == m_tuningSelection ? '>' : ' ', entries[index].label, entries[index].value);
+        const float rowY = GetTuningRowY(index);
+        const bool selected = index == m_debug.tuningSelection;
+        const int labelColor = selected ? GetColor(255, 236, 178) : GetColor(228, 234, 242);
+        const int valueColor = selected ? GetColor(255, 236, 178) : GetColor(172, 196, 220);
+
+        if (selected)
+        {
+            DrawBox(
+                static_cast<int>(std::round(kTuningPanelX + 12.0f)),
+                static_cast<int>(std::round(rowY - 1.0f)),
+                static_cast<int>(std::round(kTuningPanelX + kTuningPanelWidth - 12.0f)),
+                static_cast<int>(std::round(rowY + kTuningButtonHeight + 1.0f)),
+                GetColor(38, 48, 62),
+                TRUE);
+        }
+
+        DrawString(
+            static_cast<int>(std::round(kTuningPanelX + 20.0f)),
+            static_cast<int>(std::round(rowY + 1.0f)),
+            entries[index].label,
+            labelColor);
+        DrawFormatString(
+            static_cast<int>(std::round(kTuningPanelX + 190.0f)),
+            static_cast<int>(std::round(rowY + 1.0f)),
+            valueColor,
+            "%.2f",
+            *entries[index].value);
+
+        DrawTuningButton(kTuningPanelX + kTuningMinusButtonX, rowY, kTuningButtonWidth, kTuningButtonHeight, "-", selected);
+        DrawTuningButton(kTuningPanelX + kTuningPlusButtonX, rowY, kTuningButtonWidth, kTuningButtonHeight, "+", selected);
     }
+
+    DrawFormatString(
+        static_cast<int>(kTuningPanelX + 20.0f),
+        static_cast<int>(kTuningPanelY + kTuningPanelHeight - 34.0f),
+        GetColor(176, 208, 228),
+        "Dodge Time: %.2f",
+        GetPlayerDodgeDuration());
+
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
+    const int cursorOuter = GetColor(255, 242, 170);
+    const int cursorInner = GetColor(18, 22, 28);
+    DrawCircle(mouseX, mouseY, 7, cursorOuter, FALSE);
+    DrawCircle(mouseX, mouseY, 2, cursorOuter, TRUE);
+    DrawLine(mouseX - 10, mouseY, mouseX + 10, mouseY, cursorInner);
+    DrawLine(mouseX, mouseY - 10, mouseX, mouseY + 10, cursorInner);
+    DrawLine(mouseX - 9, mouseY, mouseX + 9, mouseY, cursorOuter);
+    DrawLine(mouseX, mouseY - 9, mouseX, mouseY + 9, cursorOuter);
 }
 
 void GameScene::DrawDevelopedPhotoPreview() const
 {
-    if (m_developedPhotoPreviewRemaining <= 0.0f || m_photo.capture.items.empty())
+    if (m_flow.developedPhotoPreviewRemaining <= 0.0f || m_photo.capture.items.empty())
     {
         return;
     }
 
     constexpr float kPreviewLifetime = 3.2f;
-    const float remainingT = Clamp01(m_developedPhotoPreviewRemaining / kPreviewLifetime);
-    const float appearT = Clamp01((kPreviewLifetime - m_developedPhotoPreviewRemaining) / 0.35f);
-    const float fadeT = Clamp01(m_developedPhotoPreviewRemaining / 0.45f);
+    const float remainingT = Clamp01(m_flow.developedPhotoPreviewRemaining / kPreviewLifetime);
+    const float appearT = Clamp01((kPreviewLifetime - m_flow.developedPhotoPreviewRemaining) / 0.35f);
+    const float fadeT = Clamp01(m_flow.developedPhotoPreviewRemaining / 0.45f);
     const float alpha = std::min(1.0f, appearT) * std::min(1.0f, fadeT);
 
     const float photoWidth = 220.0f;
@@ -338,14 +508,14 @@ void GameScene::DrawDevelopedPhotoPreview() const
 
 bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 {
-    if (m_photoTrayReveal <= 0.05f)
+    if (m_flow.photoTrayReveal <= 0.05f)
     {
         return false;
     }
 
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
     const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     return
         screenX >= trayX &&
@@ -356,7 +526,7 @@ bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 
 void GameScene::DrawPhotoStorageTray() const
 {
-    if (m_photoTrayReveal <= 0.01f)
+    if (m_flow.photoTrayReveal <= 0.01f)
     {
         return;
     }
@@ -364,9 +534,9 @@ void GameScene::DrawPhotoStorageTray() const
     constexpr float kInnerPadding = 10.0f;
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
     const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
-    const int textBright = static_cast<int>(150.0f + m_photoTrayReveal * 105.0f);
+    const int textBright = static_cast<int>(150.0f + m_flow.photoTrayReveal * 105.0f);
     const int textBrightCool = std::min(255, textBright + 10);
 
     for (int slotIndex = 0; slotIndex < kPhotoTraySlotCount; ++slotIndex)
@@ -440,6 +610,7 @@ void GameScene::DrawPhotoStorageTray() const
                 1.0f);
         }
 
+
         DrawBox(
             static_cast<int>(std::round(previewX)),
             static_cast<int>(std::round(previewY)),
@@ -506,15 +677,15 @@ void GameScene::DrawBackdrop() const
     }
 
     {
-        const float worldLeft = m_cameraX;
-        const float worldRight = m_cameraX + gCameraViewWidth;
+        const float worldLeft = m_flow.cameraX;
+        const float worldRight = m_flow.cameraX + gCameraViewWidth;
         const float gridSpacing = m_tileMap.GetTileSize();
         const unsigned int majorColor = GetColor(72, 188, 128);
         const unsigned int minorColor = GetColor(38, 112, 82);
 
         for (float worldX = std::floor(worldLeft / gridSpacing) * gridSpacing; worldX <= worldRight; worldX += gridSpacing)
         {
-            const float screenX = viewOriginX + (worldX - m_cameraX) * viewScale;
+            const float screenX = viewOriginX + (worldX - m_flow.cameraX) * viewScale;
             const int x = static_cast<int>(std::round(screenX));
             const bool major = std::fmod(std::fabs(worldX), gridSpacing * 4.0f) < 0.5f ||
                 (gridSpacing * 4.0f - std::fmod(std::fabs(worldX), gridSpacing * 4.0f)) < 0.5f;
@@ -545,7 +716,7 @@ void GameScene::DrawBackdrop() const
     SpriteDraw(m_whiteTexture, viewOriginX - 10.0f, viewOriginY, 10.0f, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
     SpriteDraw(m_whiteTexture, panelRight, viewOriginY, 10.0f, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
-    m_tileMap.Draw(m_tileTexture, viewOriginX - m_cameraX * viewScale, viewOriginY, viewScale);
+    m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY, viewScale);
 
     if (const Entity* player = FindEntityByTag("Player"))
     {
@@ -605,16 +776,73 @@ void GameScene::DrawBackdrop() const
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
 {
     static_cast<void>(playerTransform);
-    width = m_tileMap.GetTileSize() * gCaptureWidthTiles;
-    height = m_tileMap.GetTileSize() * gCaptureHeightTiles;
+    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_flow.captureFinderScale;
+    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_flow.captureFinderScale;
 
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
-    const float cursorWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + m_cameraX;
-    const float cursorWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
 
-    x = std::clamp(cursorWorldX - width * 0.5f, 0.0f, std::max(0.0f, GetMapPixelWidth() - width));
+    // �����}�E�X�i�X�N���[�����W�j����[���h���W�֕ϊ��i�J����X�������j
+    const float mouseWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + m_flow.cameraX;
+    const float mouseWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
+
+    // �E�X�e�B�b�N�p�̉��z�J�[�\���i���[���h���W�j
+    static float padCursorWorldX = mouseWorldX;
+    static float padCursorWorldY = mouseWorldY;
+    static int lastMouseX = Input_GetMouseX();
+    static int lastMouseY = Input_GetMouseY();
+    static unsigned int lastTimeMs = 0;
+
+    // �}�E�X���������牼�z�J�[�\���𓯊�
+    const int curMouseX = Input_GetMouseX();
+    const int curMouseY = Input_GetMouseY();
+    if (curMouseX != lastMouseX || curMouseY != lastMouseY)
+    {
+        padCursorWorldX = mouseWorldX;
+        padCursorWorldY = mouseWorldY;
+    }
+    lastMouseX = curMouseX;
+    lastMouseY = curMouseY;
+
+    // �o�ߎ���
+    const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
+    const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
+    lastTimeMs = nowMs;
+
+    // �E�X�e�B�b�N���́i���K���ς݁j
+    const float rightX = Input_GetRightStickX();
+    const float rightY = Input_GetRightStickY();
+
+    // ���x / �f�b�h�]�[��
+    constexpr float kPadDead = 0.08f;
+    constexpr float kPadCursorSpeed = 800.0f; // ���[���h�P�� / �b
+    constexpr float kPadReturnLerpSpeed = 8.0f; // �X�e�B�b�N���E��̖߂葬��
+
+    const bool padActive = Input_IsGamepadConnected() && (std::fabs(rightX) > kPadDead || std::fabs(rightY) > kPadDead);
+    if (padActive)
+    {
+        padCursorWorldX += rightX * kPadCursorSpeed * dt;
+        padCursorWorldY += rightY * kPadCursorSpeed * dt;
+    }
+    else
+    {
+        // �X�e�B�b�N���E���͊��炩�ɕ����}�E�X�֖߂�
+        const float lerpFactor = std::min(1.0f, dt * kPadReturnLerpSpeed);
+        padCursorWorldX += (mouseWorldX - padCursorWorldX) * lerpFactor;
+        padCursorWorldY += (mouseWorldY - padCursorWorldY) * lerpFactor;
+    }
+
+    // �������̃}�b�v��N�����v�͍폜�i���[�U�v�]�j
+    // �c�����̂݃}�b�v��ɐ������Ă���
+    const float mapHeight = GetMapPixelHeight();
+    padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
+
+    const float cursorWorldX = padCursorWorldX;
+    const float cursorWorldY = padCursorWorldY;
+
+    // ���͐����������S���킹�A�c�̂݃}�b�v��Ɏ��߂�
+    x = cursorWorldX - width * 0.5f;
     y = std::clamp(cursorWorldY - height * 0.5f, 0.0f, std::max(0.0f, GetMapPixelHeight() - height));
 }
 
