@@ -270,30 +270,21 @@ bool GameScene::IsGoalTile(int column, int row) const
 
 bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 {
-    // ?v???C???[???b???
-    const float width = transform.width * transform.scale;
-    const float height = transform.height * transform.scale;
-    const float playerBottom = transform.y + height;
-    const float playerLeft = transform.x + 6.0f;
-    const float playerRight = transform.x + width - 6.0f;
-
-    // --- PhotoSource ??????`?F?b?N????????X ---
-    for (const auto& entity : m_entities)
+    std::vector<TransformComponent> photoSources;
+    GetEntityBoundsByTag("PhotoSource", photoSources);
+    for (const auto& photoSourceBounds : photoSources)
     {
-        if (!entity || !HasTag(*entity, "PhotoSource"))
-        {
-            continue;
-        }
-
-        const auto* srcTransform = entity->GetComponent<TransformComponent>();
-        if (!srcTransform)
-        {
-            continue;
-        }
-
-        const float sourceTop = srcTransform->y;
-        const float sourceLeft = srcTransform->x;
-        const float sourceRight = srcTransform->x + srcTransform->width * srcTransform->scale;
+        const float photoSourceX = photoSourceBounds.x;
+        const float photoSourceY = photoSourceBounds.y;
+        const float photoSourceWidth = photoSourceBounds.width * photoSourceBounds.scale;
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        const float playerBottom = transform.y + height;
+        const float playerLeft = transform.x + 6.0f;
+        const float playerRight = transform.x + width - 6.0f;
+        const float sourceTop = photoSourceY;
+        const float sourceLeft = photoSourceX;
+        const float sourceRight = photoSourceX + photoSourceWidth;
         const bool horizontallyOverlapping = playerRight > sourceLeft && playerLeft < sourceRight;
         if (horizontallyOverlapping && std::fabs(playerBottom - sourceTop) <= kSurfaceContactEpsilon)
         {
@@ -380,32 +371,21 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 
 bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const
 {
-    // ?}?E?X?^?v???C???[??u????????????A?????{????v?Z
-    const float width = transform.width * transform.scale;
-    const float height = transform.height * transform.scale;
-    const float left = transform.x + 6.0f;
-    const float right = transform.x + width - 6.0f;
-
-    // --- PhotoSource ??????`?F?b?N????????X ---
-    for (const auto& entity : m_entities)
+    std::vector<TransformComponent> photoSources;
+    GetEntityBoundsByTag("PhotoSource", photoSources);
+    for (const auto& photoSourceBounds : photoSources)
     {
-        if (!entity || !HasTag(*entity, "PhotoSource"))
-        {
-            continue;
-        }
-
-        const auto* srcTransform = entity->GetComponent<TransformComponent>();
-        if (!srcTransform)
-        {
-            continue;
-        }
-
-        const float sourceLeft = srcTransform->x;
-        const float sourceRight = srcTransform->x + srcTransform->width * srcTransform->scale;
-        const bool horizontallyOverlapping = right > sourceLeft && left < sourceRight;
+        const float photoSourceX = photoSourceBounds.x;
+        const float photoSourceY = photoSourceBounds.y;
+        const float photoSourceWidth = photoSourceBounds.width * photoSourceBounds.scale;
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        const float left = transform.x + 6.0f;
+        const float right = transform.x + width - 6.0f;
+        const bool horizontallyOverlapping = right > photoSourceX && left < photoSourceX + photoSourceWidth;
         if (horizontallyOverlapping)
         {
-            const float candidateY = srcTransform->y - height;
+            const float candidateY = photoSourceY - height;
             if (candidateY >= transform.y - 0.5f && (candidateY - transform.y) <= maxSnapDistance)
             {
                 transform.y = candidateY;
@@ -639,6 +619,28 @@ bool GameScene::GetEntityBoundsByTag(const char* tag, float& x, float& y, float&
     width = transform->width * transform->scale;
     height = transform->height * transform->scale;
     return true;
+}
+
+void GameScene::GetEntityBoundsByTag(const char* tag, std::vector<TransformComponent>& bounds) const
+{
+    bounds.clear();
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, tag))
+        {
+            continue;
+        }
+
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform)
+        {
+            continue;
+        }
+
+        TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
+        rect.scale = transform->scale;
+        bounds.push_back(rect);
+    }
 }
 
 void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
