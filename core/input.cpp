@@ -1,4 +1,4 @@
-#include "input.h"
+ï»¿#include "input.h"
 
 #include "DxLib.h"
 
@@ -132,7 +132,7 @@ namespace
             g_prevState.Buttons[XINPUT_BUTTON_BACK] == 0;
     }
 
-    //LT ‚ªƒz[ƒ‹ƒh‚³‚ê‚Ä‚¢‚é‚©
+    //LT ãŒãƒ›ãƒ¼ãƒ«ãƒ‰ã•ã‚Œã¦ã„ã‚‹ã‹
     bool IsGamepadLeftTriggerDown()
     {
         if (!g_connected)
@@ -152,7 +152,7 @@ namespace
 	}
 
 
-    //RT‚ð‰Ÿ‚µ‚½‚Æ‚«
+    //RTã‚’æŠ¼ã—ãŸã¨ã
     bool IsGamepadRightTriggerPressed()
     {
         if (!g_connected)
@@ -162,14 +162,14 @@ namespace
         return g_state.RightTrigger > kTriggerThreshold && g_prevState.RightTrigger <= kTriggerThreshold;
     }
 
-    //‰EƒXƒeƒBƒbƒNŽæ“¾
+    //å³ã‚¹ãƒ†ã‚£ãƒƒã‚¯å–å¾—
     float GetGamepadRightX()
     {
         return g_connected ? NormalizeThumb(g_state.ThumbRX, kThumbDeadZone) : 0.0f;
     }
     float GetGamepadRightY()
     {
-        // ã•ûŒü‚ª•‰‚É‚È‚é‚æ‚¤‚É¶ƒXƒeƒBƒbƒN‚ÌŽæˆµ‚É‡‚í‚¹‚é
+        // ä¸Šæ–¹å‘ãŒè² ã«ãªã‚‹ã‚ˆã†ã«å·¦ã‚¹ãƒ†ã‚£ãƒƒã‚¯ã®å–æ‰±ã«åˆã‚ã›ã‚‹
         return g_connected ? -NormalizeThumb(g_state.ThumbRY, kThumbDeadZone) : 0.0f;
     }
 
@@ -482,3 +482,40 @@ int Input_GetMouseY()
     GetMousePoint(&x, &y);
     return y;
 }
+
+bool Input_IsDpadUpPressed()
+{
+    if (!g_connected)
+    {
+        return false;
+    }
+    return g_state.Buttons[XINPUT_BUTTON_DPAD_UP] != 0 && g_prevState.Buttons[XINPUT_BUTTON_DPAD_UP] == 0;
+}
+
+bool Input_IsDpadDownPressed()
+{
+    if (!g_connected)
+    {
+        return false;
+    }
+    return g_state.Buttons[XINPUT_BUTTON_DPAD_DOWN] != 0 && g_prevState.Buttons[XINPUT_BUTTON_DPAD_DOWN] == 0;
+}
+
+bool Input_IsDpadUpDown()
+{
+    if (!g_connected)
+    {
+        return false;
+    }
+    return g_state.Buttons[XINPUT_BUTTON_DPAD_UP] != 0;
+}
+
+bool Input_IsDpadDownDown()
+{
+    if (!g_connected)
+    {
+        return false;
+    }
+    return g_state.Buttons[XINPUT_BUTTON_DPAD_DOWN] != 0;
+}
+

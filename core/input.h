@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <windows.h>
 
@@ -69,3 +69,8 @@ float Input_GetRightStickX();
 float Input_GetRightStickY();
 bool Input_IsLeftShoulderPressed();
 bool Input_IsRightShoulderPressed();
+bool Input_IsDpadUpPressed();
+bool Input_IsDpadDownPressed();
+bool Input_IsDpadUpDown();
+bool Input_IsDpadDownDown();
+
