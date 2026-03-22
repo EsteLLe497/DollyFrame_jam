@@ -712,22 +712,29 @@ void GameScene::UpdateEnemies()
         if (enemy->GetArchetype() == EnemyArchetype::Walker)
         {
             const float dx = playerTransform->x - transform->x;
+            const float dy = playerTransform->y - transform->y;
             const float dist = std::fabs(dx);
             constexpr float kWalkerSpeed = 120.0f;
+            constexpr float kWalkerDetectRange = 192.0f; // 4ƒOƒŠƒbƒh~48px 3/21C³(“c”Vãr)
+            constexpr float kWalkerAttackRange = 48.0f;
+            constexpr float kWalkerDetectHeight = 96.0f; // 2ƒOƒŠƒbƒh~48px
+
+            // 3/21C³FkWalkerDetectRange‚ÆkWalkerDetectHeight‚ğg‚¤‚æ‚¤C³(“c”Vãr)
+            const bool inDetectRange = dist < kWalkerDetectRange && std::fabs(dy) < kWalkerDetectHeight;
 
             switch (enemy->GetAIState())
             {
             case EnemyComponent::AIState::Idle:
-                if (dist < enemy->detectRange)
+                if (inDetectRange)
                     enemy->SetAIState(EnemyComponent::AIState::Chase);
                 break;
             case EnemyComponent::AIState::Chase:
-                if (dist < enemy->attackRange)
+                if (dist < kWalkerAttackRange)
                 {
                     enemy->attackTimer = 0.0f;
                     enemy->SetAIState(EnemyComponent::AIState::Attack);
                 }
-                else if (dist > enemy->detectRange)
+                else if (!inDetectRange)
                 {
                     enemy->SetAIState(EnemyComponent::AIState::Idle);
                 }
@@ -738,37 +745,58 @@ void GameScene::UpdateEnemies()
                 break;
             case EnemyComponent::AIState::Attack:
                 enemy->attackTimer += m_lastDeltaTime;
-                if (dist >= enemy->attackRange)
+                if (dist >= kWalkerAttackRange)
                     enemy->SetAIState(EnemyComponent::AIState::Chase);
-                else if (enemy->attackTimer >= enemy->attackCooldown)
+                else if (enemy->attackTimer >= 3.0f)
+                {
                     enemy->attackTimer = 0.0f;
+                    // 3/21’Ç‰ÁFUŒ‚”ÍˆÍ“à‚È‚çƒ_ƒ[ƒW(“c”Vãr)
+                    if (player && IntersectsEntity(*player, *entity))
+                    {
+                        HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by melee attack");
+                    }
+                    const float attackX = dx > 0.0f
+                        ? transform->x + transform->width * transform->scale
+                        : transform->x - 48.0f;
+                    auto attack = std::make_unique<Entity>();
+                    attack->AddComponent<TagComponent>("MeleeAttack");
+                    attack->AddComponent<TransformComponent>(
+                        attackX,
+                        transform->y,
+                        48.0f, 48.0f);
+                    attack->AddComponent<TintComponent>(1.0f, 0.4f, 0.1f, 1.0f);
+                    attack->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+                    attack->AddComponent<PhotoCopyLifetimeComponent>(0.3f);
+                    newBullets.push_back(std::move(attack));
+                }
                 break;
             }
         }
         else if (enemy->GetArchetype() == EnemyArchetype::Ranged)
         {
-            // 3/19’Ç‰ÁFRanged AIƒƒWƒbƒN(“c”Vãr)
             const float dx = playerTransform->x - transform->x;
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
+            constexpr float kRangedDetectRange = 360.0f; // 15ƒOƒŠƒbƒh~48px 3/21’Ç‰Á(“c”Vãr)
+            constexpr float kRangedDetectHeight = 96.0f; // 2ƒOƒŠƒbƒh~48px 3/21’Ç‰Á(“c”Vãr)
 
             enemy->attackTimer += m_lastDeltaTime;
 
-            if (dist < enemy->detectRange && enemy->attackTimer >= enemy->attackCooldown)
+            if (dist < kRangedDetectRange && enemy->attackTimer >= 3.0f) // CD3•b 3/21’Ç‰Á(“c”Vãr)
             {
                 enemy->attackTimer = 0.0f;
 
                 constexpr float kBulletSpeed = 300.0f;
-                const float length = std::max(1.0f, dist);
-                const float velX = (dx / length) * kBulletSpeed;
-                const float velY = (dy / length) * kBulletSpeed;
+                // 3/21C³F…•½•ûŒü‚Ì‚İ‚É”­Ë(“c”Vãr)
+                const float velX = (dx > 0.0f ? 1.0f : -1.0f) * kBulletSpeed;
+                const float velY = 0.0f;
 
                 auto bullet = std::make_unique<Entity>();
                 bullet->AddComponent<TagComponent>("Bullet");
                 bullet->AddComponent<TransformComponent>(
                     transform->x + 24.0f,
                     transform->y + 24.0f,
-                    16.0f, 16.0f);
+                    48.0f, 24.0f); // ‰¡1ƒOƒŠƒbƒh~c0.5ƒOƒŠƒbƒh 3/21C³(“c”Vãr)
                 bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
                 bullet->AddComponent<SpriteRenderComponent>(m_tileTexture);
                 bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
@@ -807,6 +835,13 @@ void GameScene::UpdateBullets()
                 transform->x += projectile->GetVelocityX() * m_lastDeltaTime;
                 transform->y += projectile->GetVelocityY() * m_lastDeltaTime;
 
+                // 3/21’Ç‰ÁFõ–½ƒ`ƒFƒbƒN(“c”Vãr)
+                if (auto* lifetime = entity->GetComponent<PhotoCopyLifetimeComponent>())
+                {
+                    lifetime->Update(m_lastDeltaTime); // è“®XV
+                    if (lifetime->IsExpired()) return true;
+                }
+
                 if (player && IntersectsEntity(*player, *entity))
                 {
                     HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by bullet");
@@ -820,6 +855,7 @@ void GameScene::UpdateBullets()
             }),
         m_entities.end());
 }
+
 
 void GameScene::HandleAttackHits()
 {
@@ -1035,6 +1071,13 @@ void GameScene::RemoveDefeatedEnemies()
                 if (enemy && enemy->IsDefeated())
                 {
                     return true;
+                }
+
+                // 3/21’Ç‰ÁFMeleeAttack‚Ìõ–½ƒ`ƒFƒbƒN(“c”Vãr)
+                if (entity && HasTag(*entity, "MeleeAttack"))
+                {
+                    const auto* lifetime = entity->GetComponent<PhotoCopyLifetimeComponent>();
+                    return !lifetime || lifetime->IsExpired();
                 }
 
                 if (!entity || !HasTag(*entity, "PhotoBox"))

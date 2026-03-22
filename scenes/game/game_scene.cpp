@@ -213,6 +213,8 @@ void GameScene::Draw()
     DrawDevelopedPhotoPreview();
     DrawPhotoStorageTray();
     DrawTuningPanel();
+    
+   
 }
 
 void GameScene::DrawDebugUI()
