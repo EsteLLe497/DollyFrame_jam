@@ -42,6 +42,7 @@ namespace
         root["dodge_cooldown"] = gPlayerDodgeCooldown;
         root["coyote_time"] = gCoyoteTimeSeconds;
         root["ground_snap_distance"] = gGroundSnapDistance;
+        root["ground_step_up_height"] = gGroundStepUpHeight;
         root["capture_width_tiles"] = gCaptureWidthTiles;
         root["capture_height_tiles"] = gCaptureHeightTiles;
         root["printed_photo_padding_x"] = gPrintedPhotoPaddingX;
@@ -100,6 +101,7 @@ namespace game_scene_detail
         gPlayerDodgeCooldown = root.value("dodge_cooldown", gPlayerDodgeCooldown);
         gCoyoteTimeSeconds = root.value("coyote_time", gCoyoteTimeSeconds);
         gGroundSnapDistance = root.value("ground_snap_distance", gGroundSnapDistance);
+        gGroundStepUpHeight = root.value("ground_step_up_height", gGroundStepUpHeight);
         gCaptureWidthTiles = root.value("capture_width_tiles", gCaptureWidthTiles);
         gCaptureHeightTiles = root.value("capture_height_tiles", gCaptureHeightTiles);
         gPrintedPhotoPaddingX = root.value("printed_photo_padding_x", gPrintedPhotoPaddingX);
@@ -170,7 +172,7 @@ void GameScene::InitializeStageEntities()
     Entity& player = SpawnStagePrefab(
         prefabs,
         "sandbox_player",
-        AlignToGrid(96.0f, tileSize),
+        AlignToGrid(192.0f, tileSize),
         AlignToGrid(336.0f, tileSize));
     SetEntityTint(player, 0.30f, 0.82f, 0.98f);
 

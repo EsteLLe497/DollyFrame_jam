@@ -7,10 +7,15 @@
 #include "game_scene_world_interaction_system.h"
 #include "photo_system.h"
 
+#include "DxLib.h"
+
 using namespace game_scene_detail;
 
 namespace
 {
+    constexpr float kCaptureFinderScaleMin = 1.0f;
+    constexpr float kCaptureFinderScaleMax = 2.0f;
+    constexpr float kCaptureFinderScaleStep = 0.1f;
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
     constexpr float kTuningPanelWidth = 460.0f;
@@ -142,6 +147,19 @@ void GameScene::UpdateTuningPanel()
 
 void GameScene::UpdatePlayer(float deltaTime)
 {
+    if (m_flow.cameraMode)
+    {
+        const int wheelDelta = GetMouseWheelRotVol();
+        if (wheelDelta != 0)
+        {
+            const float scaleStep = wheelDelta > 0 ? kCaptureFinderScaleStep : -kCaptureFinderScaleStep;
+            m_flow.captureFinderScale = std::clamp(
+                m_flow.captureFinderScale + scaleStep,
+                kCaptureFinderScaleMin,
+                kCaptureFinderScaleMax);
+        }
+    }
+
     Entity* player = FindEntityByTag("Player");
     if (!player)
     {
@@ -230,14 +248,17 @@ void GameScene::UpdatePlayer(float deltaTime)
         previousBottom,
         verticalSnapDistance,
     };
+    const float horizontalVelocity = m_player.velocityX;
 
     game_scene_player_movement_system::ResolveHorizontalTileCollisions(
         *transform,
         m_player,
         movementContext,
-        [this](int column, int row)
+        [this, horizontalVelocity](int column, int row)
         {
-            return IsSolidTile(column, row);
+            return horizontalVelocity > 0.0f
+                ? IsTileBlockingFromLeft(column, row)
+                : IsTileBlockingFromRight(column, row);
         });
 
     if (isDodging)
@@ -264,6 +285,14 @@ void GameScene::UpdatePlayer(float deltaTime)
         photoSourceWidth,
         photoSourceHeight);
 
+    if (m_player.velocityY >= 0.0f && wasGrounded)
+    {
+        if (TrySnapToGround(*transform, verticalSnapDistance))
+        {
+            m_player.grounded = true;
+        }
+    }
+
     game_scene_player_movement_system::ResolveVerticalMotion(
         *transform,
         m_player,
@@ -282,6 +311,10 @@ void GameScene::UpdatePlayer(float deltaTime)
         [this](int column, int row)
         {
             return IsPlatformTile(column, row);
+        },
+        [this](int column, int row)
+        {
+            return IsSolidTile(column, row) || IsSlopeTile(column, row);
         },
         [this](TransformComponent& targetTransform, float snapDistance)
         {

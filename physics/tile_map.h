@@ -3,6 +3,14 @@
 #include <string>
 #include <vector>
 
+struct TileTriangleShape
+{
+    bool isTriangle = false;
+    int widthTiles = 1;
+    int heightTiles = 1;
+    bool risesRight = false;
+};
+
 class TileMap
 {
 public:
@@ -19,6 +27,7 @@ public:
     bool IsLoaded() const;
     int GetTile(int column, int row) const;
     bool IsSolid(int column, int row) const;
+    static TileTriangleShape GetTriangleShape(int tileValue);
 
 private:
     static void GetTileTint(int tileValue, float& r, float& g, float& b, float& a);

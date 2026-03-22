@@ -36,6 +36,7 @@ inline float gPlayerDodgeInvincibilitySeconds = 0.16f;
 inline float gPlayerDodgeCooldown = 0.45f;
 inline float gCoyoteTimeSeconds = 0.10f;
 inline float gGroundSnapDistance = 8.0f;
+inline float gGroundStepUpHeight = 0.25f;
 inline float gShutterFlashSeconds = 0.18f;
 inline float gCaptureWidthTiles = 5.0f;
 inline float gCaptureHeightTiles = 3.0f;
@@ -72,7 +73,7 @@ inline float GetPlayerDodgeDuration()
 
 inline auto BuildGameSceneTuningEntries()
 {
-    return std::array<GameSceneTuningEntry, 21>
+    return std::array<GameSceneTuningEntry, 22>
     {{
         { "Camera Width", &gCameraViewWidth, 20.0f, 640.0f, 1920.0f },
         { "Camera Height", &gCameraViewHeight, 20.0f, 360.0f, 1080.0f },
@@ -86,6 +87,7 @@ inline auto BuildGameSceneTuningEntries()
         { "Dodge Cooldown", &gPlayerDodgeCooldown, 0.01f, 0.0f, 2.0f },
         { "Coyote", &gCoyoteTimeSeconds, 0.01f, 0.0f, 0.4f },
         { "Ground Snap", &gGroundSnapDistance, 0.5f, 0.0f, 24.0f },
+        { "Step Up", &gGroundStepUpHeight, 0.25f, 0.0f, 8.0f },
         { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
         { "Capture H Tiles", &gCaptureHeightTiles, 0.25f, 1.0f, 16.0f },
         { "Print Pad X", &gPrintedPhotoPaddingX, 1.0f, 0.0f, 80.0f },
@@ -135,6 +137,16 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
         b = 0.34f;
         break;
     case 7:
+        r = 0.34f;
+        g = 0.86f;
+        b = 0.66f;
+        break;
+    case 8:
+        r = 0.54f;
+        g = 0.84f;
+        b = 0.34f;
+        break;
+    case 9:
         r = 0.34f;
         g = 0.86f;
         b = 0.66f;

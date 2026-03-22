@@ -123,7 +123,7 @@ void TileMap::Clear()
 
 void TileMap::Draw(int textureId, float originX, float originY, float scale) const
 {
-    if (textureId < 0 || m_tiles.empty() || m_width <= 0 || m_height <= 0)
+    if (textureId < 0  ||m_tiles.empty()||  m_width <= 0 || m_height <= 0)
     {
         return;
     }
@@ -146,46 +146,42 @@ void TileMap::Draw(int textureId, float originX, float originY, float scale) con
             GetTileTint(tileValue, r, g, b, a);
             const float drawX = originX + static_cast<float>(column) * m_tileSize * scale;
             const float drawY = originY + static_cast<float>(row) * m_tileSize * scale;
-            const float drawSize = m_tileSize * scale;
-            if (tileValue == 6 || tileValue == 7)
+            const TileTriangleShape triangle = GetTriangleShape(tileValue);
+            if (triangle.isTriangle)
             {
+                const float drawWidth = static_cast<float>(triangle.widthTiles) * m_tileSize * scale;
+                const float drawHeight = static_cast<float>(triangle.heightTiles) * m_tileSize * scale;
                 const int color = GetColor(
                     static_cast<int>(std::round(r * 255.0f)),
                     static_cast<int>(std::round(g * 255.0f)),
                     static_cast<int>(std::round(b * 255.0f)));
-
-              
-                const float triSize = drawSize * 5.0f;
-                const float offset = (triSize - drawSize) * 0.5f;  // 0.5 * 0.5 * drawSize = 0.25 * drawSize
-                const float triX = drawX - offset;
-                const float triY = drawY - offset;
-
-                if (tileValue == 6)
+                if (triangle.risesRight)
                 {
                     DrawTriangleAA(
-                        triX,
-                        triY + triSize,
-                        triX + triSize,
-                        triY + triSize,
-                        triX + triSize,
-                        triY,
+                        drawX,
+                        drawY + drawHeight,
+                        drawX + drawWidth,
+                        drawY + drawHeight,
+                        drawX + drawWidth,
+                        drawY,
                         color,
                         TRUE);
                 }
                 else
                 {
                     DrawTriangleAA(
-                        triX,
-                        triY,
-                        triX,
-                        triY + triSize,
-                        triX + triSize,
-                        triY + triSize,
+                        drawX,
+                        drawY,
+                        drawX,
+                        drawY + drawHeight,
+                        drawX + drawWidth,
+                        drawY + drawHeight,
                         color,
                         TRUE);
                 }
                 continue;
             }
+            const float drawSize = m_tileSize * scale;
             Shader_SetTint(r, g, b, a);
             SpriteDraw(
                 textureId,
@@ -237,6 +233,23 @@ bool TileMap::IsSolid(int column, int row) const
     return GetTile(column, row) > 0;
 }
 
+TileTriangleShape TileMap::GetTriangleShape(int tileValue)
+{
+    switch (tileValue)
+    {
+    case 6:
+        return TileTriangleShape{ true, 1, 1, true };
+    case 7:
+        return TileTriangleShape{ true, 1, 1, false };
+    case 8:
+        return TileTriangleShape{ true, 2, 2, true };
+    case 9:
+        return TileTriangleShape{ true, 5, 5, false };
+    default:
+        return TileTriangleShape{};
+    }
+}
+
 void TileMap::GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
 {
     a = 1.0f;
@@ -258,9 +271,10 @@ void TileMap::GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
         b = 0.66f;
         break;
     case 4:
-        r = 0.88f;
-        g = 0.24f;
-        b = 0.22f;
+        r = 1.0f;
+        g = 0.0f;
+        b = 0.0f;
+        a = 0.0f;
         break;
     case 5:
         r = 0.86f;
@@ -268,11 +282,21 @@ void TileMap::GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
         b = 0.26f;
         break;
     case 6:
+        r = 0.22f;
+        g = 0.40f;
+        b = 0.76f;
+        break;
+    case 7:
+        r = 0.34f;
+        g = 0.86f;
+        b = 0.66f;
+        break;
+    case 8:
         r = 0.54f;
         g = 0.84f;
         b = 0.34f;
         break;
-    case 7:
+    case 9:
         r = 0.34f;
         g = 0.86f;
         b = 0.66f;

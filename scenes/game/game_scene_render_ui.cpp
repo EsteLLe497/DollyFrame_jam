@@ -1,4 +1,4 @@
-#include "game_scene_internal.h"
+ï»¿#include "game_scene_internal.h"
 #include "photo_system.h"
 #include "photo_filter_rules.h"
 
@@ -25,6 +25,66 @@ namespace
     constexpr float kTuningButtonWidth = 52.0f;
     constexpr float kTuningButtonHeight = 18.0f;
 
+    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
+    {
+        if (std::fabs(rotation) <= 0.0001f)
+        {
+            return;
+        }
+
+        const float localX = x - centerX;
+        const float localY = y - centerY;
+        const float cosTheta = std::cos(rotation);
+        const float sinTheta = std::sin(rotation);
+        x = centerX + (localX * cosTheta - localY * sinTheta);
+        y = centerY + (localX * sinTheta + localY * cosTheta);
+    }
+
+    void DrawTriangleItem(
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        bool risesRight,
+        bool flipX,
+        float rotation,
+        int color)
+    {
+        const bool finalRisesRight = flipX ? !risesRight : risesRight;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
+        float cx = 0.0f;
+        float cy = 0.0f;
+
+        if (finalRisesRight)
+        {
+            ax = drawX;
+            ay = drawY + drawHeight;
+            bx = drawX + drawWidth;
+            by = drawY + drawHeight;
+            cx = drawX + drawWidth;
+            cy = drawY;
+        }
+        else
+        {
+            ax = drawX;
+            ay = drawY;
+            bx = drawX;
+            by = drawY + drawHeight;
+            cx = drawX + drawWidth;
+            cy = drawY + drawHeight;
+        }
+
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        RotatePoint(centerX, centerY, rotation, ax, ay);
+        RotatePoint(centerX, centerY, rotation, bx, by);
+        RotatePoint(centerX, centerY, rotation, cx, cy);
+        DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
+    }
+
     const char* GetStageGuideText(float playerX)
     {
         static_cast<void>(playerX);
@@ -42,20 +102,22 @@ namespace
     {
         Shader_ResetStyle();
         Shader_SetTint(item.tintR, item.tintG, item.tintB, std::min(1.0f, item.tintA) * alpha);
-        if (item.sourceTileValue == 6 || item.sourceTileValue == 7)
+        const TileTriangleShape triangle = TileMap::GetTriangleShape(item.sourceTileValue);
+        if (triangle.isTriangle)
         {
             const int color = GetColor(
                 static_cast<int>(std::round(item.tintR * 255.0f)),
                 static_cast<int>(std::round(item.tintG * 255.0f)),
                 static_cast<int>(std::round(item.tintB * 255.0f)));
-            if (item.sourceTileValue == 6)
-            {
-                DrawTriangleAA(drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, drawX + drawWidth, drawY, color, TRUE);
-            }
-            else
-            {
-                DrawTriangleAA(drawX, drawY, drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, color, TRUE);
-            }
+            DrawTriangleItem(
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                triangle.risesRight,
+                item.flipX,
+                item.rotation,
+                color);
             return;
         }
 
@@ -714,25 +776,25 @@ void GameScene::DrawBackdrop() const
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
 {
     static_cast<void>(playerTransform);
-    width = m_tileMap.GetTileSize() * gCaptureWidthTiles;
-    height = m_tileMap.GetTileSize() * gCaptureHeightTiles;
+    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_flow.captureFinderScale;
+    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_flow.captureFinderScale;
 
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
 
-    // •¨—ƒ}ƒEƒXiƒXƒNƒŠ[ƒ“À•Wj‚ğƒ[ƒ‹ƒhÀ•W‚Ö•ÏŠ·iƒJƒƒ‰X‚ğ‰Á‚¦‚éj
+    // ï¿½ï¿½ï¿½ï¿½ï¿½}ï¿½Eï¿½Xï¿½iï¿½Xï¿½Nï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Wï¿½jï¿½ï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Wï¿½Ö•ÏŠï¿½ï¿½iï¿½Jï¿½ï¿½ï¿½ï¿½Xï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½j
     const float mouseWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + m_flow.cameraX;
     const float mouseWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
 
-    // ‰EƒXƒeƒBƒbƒN—p‚Ì‰¼‘zƒJ[ƒ\ƒ‹iƒ[ƒ‹ƒhÀ•Wj
+    // ï¿½Eï¿½Xï¿½eï¿½Bï¿½bï¿½Nï¿½pï¿½Ì‰ï¿½ï¿½zï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½iï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Wï¿½j
     static float padCursorWorldX = mouseWorldX;
     static float padCursorWorldY = mouseWorldY;
     static int lastMouseX = Input_GetMouseX();
     static int lastMouseY = Input_GetMouseY();
     static unsigned int lastTimeMs = 0;
 
-    // ƒ}ƒEƒX‚ª“®‚¢‚½‚ç‰¼‘zƒJ[ƒ\ƒ‹‚ğ“¯Šú
+    // ï¿½}ï¿½Eï¿½Xï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ç‰¼ï¿½zï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½ğ“¯Šï¿½
     const int curMouseX = Input_GetMouseX();
     const int curMouseY = Input_GetMouseY();
     if (curMouseX != lastMouseX || curMouseY != lastMouseY)
@@ -743,19 +805,19 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     lastMouseX = curMouseX;
     lastMouseY = curMouseY;
 
-    // Œo‰ßŠÔ
+    // ï¿½oï¿½ßï¿½ï¿½ï¿½
     const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
     const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
     lastTimeMs = nowMs;
 
-    // ‰EƒXƒeƒBƒbƒN“ü—Íi³‹K‰»Ï‚İj
+    // ï¿½Eï¿½Xï¿½eï¿½Bï¿½bï¿½Nï¿½ï¿½ï¿½Íiï¿½ï¿½ï¿½Kï¿½ï¿½ï¿½Ï‚İj
     const float rightX = Input_GetRightStickX();
     const float rightY = Input_GetRightStickY();
 
-    // Š´“x / ƒfƒbƒhƒ][ƒ“
+    // ï¿½ï¿½ï¿½x / ï¿½fï¿½bï¿½hï¿½]ï¿½[ï¿½ï¿½
     constexpr float kPadDead = 0.08f;
-    constexpr float kPadCursorSpeed = 800.0f; // ƒ[ƒ‹ƒh’PˆÊ / •b
-    constexpr float kPadReturnLerpSpeed = 8.0f; // ƒXƒeƒBƒbƒN—£’EŒã‚Ì–ß‚è‘¬‚³
+    constexpr float kPadCursorSpeed = 800.0f; // ï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½Pï¿½ï¿½ / ï¿½b
+    constexpr float kPadReturnLerpSpeed = 8.0f; // ï¿½Xï¿½eï¿½Bï¿½bï¿½Nï¿½ï¿½ï¿½Eï¿½ï¿½Ì–ß‚è‘¬ï¿½ï¿½
 
     const bool padActive = Input_IsGamepadConnected() && (std::fabs(rightX) > kPadDead || std::fabs(rightY) > kPadDead);
     if (padActive)
@@ -765,21 +827,21 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     }
     else
     {
-        // ƒXƒeƒBƒbƒN—£’E‚ÍŠŠ‚ç‚©‚É•¨—ƒ}ƒEƒX‚Ö–ß‚·
+        // ï¿½Xï¿½eï¿½Bï¿½bï¿½Nï¿½ï¿½ï¿½Eï¿½ï¿½ï¿½ÍŠï¿½ï¿½ç‚©ï¿½É•ï¿½ï¿½ï¿½ï¿½}ï¿½Eï¿½Xï¿½Ö–ß‚ï¿½
         const float lerpFactor = std::min(1.0f, dt * kPadReturnLerpSpeed);
         padCursorWorldX += (mouseWorldX - padCursorWorldX) * lerpFactor;
         padCursorWorldY += (mouseWorldY - padCursorWorldY) * lerpFactor;
     }
 
-    // ‰¡•ûŒü‚Ìƒ}ƒbƒv“àƒNƒ‰ƒ“ƒv‚Ííœiƒ†[ƒU—v–]j
-    // c•ûŒü‚Ì‚İƒ}ƒbƒv“à‚É§ŒÀ‚µ‚Ä‚¨‚­
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìƒ}ï¿½bï¿½vï¿½ï¿½Nï¿½ï¿½ï¿½ï¿½ï¿½vï¿½Ííœï¿½iï¿½ï¿½ï¿½[ï¿½Uï¿½vï¿½]ï¿½j
+    // ï¿½cï¿½ï¿½ï¿½ï¿½ï¿½Ì‚İƒ}ï¿½bï¿½vï¿½ï¿½Éï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½
     const float mapHeight = GetMapPixelHeight();
     padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
 
     const float cursorWorldX = padCursorWorldX;
     const float cursorWorldY = padCursorWorldY;
 
-    // ‰¡‚Í§ŒÀ‚¹‚¸’†S‡‚í‚¹Ac‚Ì‚İƒ}ƒbƒv“à‚Éû‚ß‚é
+    // ï¿½ï¿½ï¿½Íï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Sï¿½ï¿½ï¿½í‚¹ï¿½Aï¿½cï¿½Ì‚İƒ}ï¿½bï¿½vï¿½ï¿½Éï¿½ï¿½ß‚ï¿½
     x = cursorWorldX - width * 0.5f;
     y = std::clamp(cursorWorldY - height * 0.5f, 0.0f, std::max(0.0f, GetMapPixelHeight() - height));
 }
