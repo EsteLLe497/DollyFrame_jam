@@ -215,12 +215,12 @@ void GameScene::InitializeStageEntities()
         }
     }
 
-   /* Entity& goal = SpawnStagePrefab(
+   Entity& goal = SpawnStagePrefab(
         prefabs,
         "sandbox_goal",
-        AlignToGrid(goalX, tileSize),
-        AlignToGrid(goalY, tileSize));*/
-    //SetEntityTint(goal, 0.62f, 0.30f, 0.24f);
+        AlignToGrid(5500.0f, tileSize),
+        AlignToGrid(240.0f, tileSize));
+    SetEntityTint(goal, 0.62f, 0.30f, 0.24f);
 
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
 	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);
