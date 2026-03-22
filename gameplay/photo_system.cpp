@@ -14,6 +14,10 @@ namespace
     constexpr float kPhotoCopyLifetimeSeconds = 30.0f;
     constexpr float kPhotoPasteAnimationSeconds = 0.24f;
     constexpr float kPlacementRotateSpeed = 2.4f;
+    constexpr float kPadDeadZone = 0.18f;
+    constexpr float kPadCursorMaxSpeed = 920.0f;
+    constexpr float kPadCursorResponse = 14.0f;
+    constexpr float kPadCursorDamping = 10.0f;
 
     float GetPrintedPhotoWidth(float contentWidth)
     {
@@ -422,6 +426,10 @@ public:
                 (Input_IsActionPressed(InputAction::HoldPlacement) || Input_IsNorthButtonPressed()))
             {
                 scene.m_photo.placement.active = !scene.m_photo.placement.active;
+                if (scene.m_photo.placement.active)
+                {
+                    ++scene.m_photo.placement.sessionId;
+                }
             }
 
             if (!scene.m_photo.capture.hasPhoto || !scene.m_photo.placement.active)
@@ -482,6 +490,8 @@ public:
         const float viewScale = GetViewScale();
         const float viewOriginX = GetViewOriginX();
         const float viewOriginY = GetViewOriginY();
+        const float mapWidth = scene.GetMapPixelWidth();
+        const float mapHeight = scene.GetMapPixelHeight();
         float previewWidth = 0.0f;
         float previewHeight = 0.0f;
         std::vector<CapturedPhotoItem> previewItems = BuildPlacementItems(
@@ -787,59 +797,85 @@ private:
         const float viewOriginY = GetViewOriginY();
 
         // �}�E�X�i�X�N���[���j����[���h���W�֕ϊ��i�J����X�������j
-        const float mouseWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
-        const float mouseWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
 
         // �E�X�e�B�b�N�p�̉��z�J�[�\���i���[���h���W�j
-        static float padCursorWorldX = mouseWorldX;
-        static float padCursorWorldY = mouseWorldY;
+        const float mapWidth = scene.GetMapPixelWidth();
+        const float mapHeight = scene.GetMapPixelHeight();
+        static float padCursorWorldX = 0.0f;
+        static float padCursorWorldY = 0.0f;
+        static float padCursorVelocityX = 0.0f;
+        static float padCursorVelocityY = 0.0f;
+        static unsigned int lastTimeMs = 0;
+        static bool initialized = false;
+        static int lastSessionId = -1;
         static int lastMouseX = Input_GetMouseX();
         static int lastMouseY = Input_GetMouseY();
-        static unsigned int lastTimeMs = 0;
 
-        // �}�E�X���������牼�z�J�[�\���𓯊�
-        const int curMouseX = Input_GetMouseX();
-        const int curMouseY = Input_GetMouseY();
-        if (curMouseX != lastMouseX || curMouseY != lastMouseY)
+        const float cursorStartWorldX = scene.m_flow.cameraX + gCameraViewWidth * 0.5f;
+        const float cursorStartWorldY = mapHeight * 0.5f;
+
+        if (!initialized)
         {
-            padCursorWorldX = mouseWorldX;
-            padCursorWorldY = mouseWorldY;
+            padCursorWorldX = cursorStartWorldX;
+            padCursorWorldY = cursorStartWorldY;
+            initialized = true;
         }
-        lastMouseX = curMouseX;
-        lastMouseY = curMouseY;
 
-        // �o�ߎ���
+        if (lastSessionId != scene.m_photo.placement.sessionId)
+        {
+            padCursorWorldX = cursorStartWorldX;
+            padCursorWorldY = cursorStartWorldY;
+            padCursorVelocityX = 0.0f;
+            padCursorVelocityY = 0.0f;
+            lastSessionId = scene.m_photo.placement.sessionId;
+        }
+
         const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
         const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
         lastTimeMs = nowMs;
 
-        // �E�X�e�B�b�N����
+        const int mouseX = Input_GetMouseX();
+        const int mouseY = Input_GetMouseY();
+        const bool mouseMoved = mouseX != lastMouseX || mouseY != lastMouseY;
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
+
+        if (mouseMoved)
+        {
+            padCursorWorldX = ((static_cast<float>(mouseX) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
+            padCursorWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale);
+            padCursorVelocityX = 0.0f;
+            padCursorVelocityY = 0.0f;
+        }
+
         const float rightX = Input_GetRightStickX();
         const float rightY = Input_GetRightStickY();
-
-        // �p�b�h�ړ��E�߂�̋����i�v�����\�j
-        constexpr float kPadDead = 0.08f;
-        constexpr float kPadCursorSpeed = 800.0f; // ���[���h�P�� / �b
-        constexpr float kPadReturnLerpSpeed = 8.0f; // �X�e�B�b�N���E��̖߂葬��
-
-        const bool padActive = Input_IsGamepadConnected() && (std::fabs(rightX) > kPadDead || std::fabs(rightY) > kPadDead);
+        const float magnitude = std::sqrt(rightX * rightX + rightY * rightY);
+        const bool padActive = Input_IsGamepadConnected() && magnitude > kPadDeadZone;
         if (padActive)
         {
-            padCursorWorldX += rightX * kPadCursorSpeed * dt;
-            padCursorWorldY += rightY * kPadCursorSpeed * dt;
+            const float normalizedMagnitude = std::clamp((magnitude - kPadDeadZone) / (1.0f - kPadDeadZone), 0.0f, 1.0f);
+            const float curvedMagnitude = normalizedMagnitude * normalizedMagnitude;
+            const float scale = curvedMagnitude / magnitude;
+            const float desiredVelocityX = rightX * scale * kPadCursorMaxSpeed;
+            const float desiredVelocityY = rightY * scale * kPadCursorMaxSpeed;
+            const float response = std::min(1.0f, dt * kPadCursorResponse);
+            padCursorVelocityX += (desiredVelocityX - padCursorVelocityX) * response;
+            padCursorVelocityY += (desiredVelocityY - padCursorVelocityY) * response;
         }
         else
         {
-            // ���炩�Ƀ}�E�X�ʒu�֕�Ԃ��Ė߂�
-            const float lerpFactor = std::min(1.0f, dt * kPadReturnLerpSpeed);
-            padCursorWorldX += (mouseWorldX - padCursorWorldX) * lerpFactor;
-            padCursorWorldY += (mouseWorldY - padCursorWorldY) * lerpFactor;
+            const float damping = std::max(0.0f, 1.0f - dt * kPadCursorDamping);
+            padCursorVelocityX *= damping;
+            padCursorVelocityY *= damping;
         }
 
+        padCursorWorldX += padCursorVelocityX * dt;
+        padCursorWorldY += padCursorVelocityY * dt;
+
         // ���͐��������A�c�̂݃}�b�v��ɃN�����v
-        const float mapWidth = scene.GetMapPixelWidth();
-        const float mapHeight = scene.GetMapPixelHeight();
         (void)mapWidth; // ��������s��Ȃ��̂Ŗ��g�p�i�x���}���j
+        padCursorWorldX = std::clamp(padCursorWorldX, 0.0f, std::max(0.0f, mapWidth));
         padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
 
         // �ŏI�I�ȃJ�[�\���i���[���h���W�j

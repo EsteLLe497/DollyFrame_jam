@@ -34,6 +34,7 @@ struct GameSceneFlowState
     float photoTrayReveal = 0.0f;
     float captureFinderScale = 1.0f;
     float lastDeltaTime = 0.0f;
+    int cameraModeSessionId = 0;
 };
 
 struct GameScenePlayerState

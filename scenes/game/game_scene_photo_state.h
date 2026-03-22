@@ -67,6 +67,7 @@ struct PhotoPlacementState
     bool flipX = false;
     bool bridgeEnabled = false;
     float rotation = 0.0f;
+    int sessionId = 0;
 };
 
 struct PhotoGroupState
