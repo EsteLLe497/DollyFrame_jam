@@ -89,6 +89,7 @@ private:
     bool IntersectsGoalTile(const TransformComponent& transform) const;
     bool IntersectsEntity(const Entity& a, const Entity& b) const;
     bool GetEntityBoundsByTag(const char* tag, float& x, float& y, float& width, float& height) const;
+    void GetEntityBoundsByTag(const char* tag, std::vector<TransformComponent>& bounds) const;
     void GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const;
     bool FindSpawnPosition(float desiredX, float objectWidth, float objectHeight, float& outX, float& outY) const;
     bool IsPhotoPlacementValid(float x, float y, float width, float height) const;
