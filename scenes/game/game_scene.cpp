@@ -138,7 +138,7 @@ void GameScene::Update(float deltaTime)
     }
 
     UpdateCameraMode();
-    const bool placementHeld = m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
+    const bool placementHeld = !m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
     const bool showPhotoTray = m_flow.cameraMode || placementHeld || m_photo.placement.active;
     const float trayTarget = showPhotoTray ? 1.0f : 0.0f;
     m_flow.photoTrayReveal += (trayTarget - m_flow.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
@@ -150,7 +150,7 @@ void GameScene::Update(float deltaTime)
     {
         m_flow.captureSlowRemaining = kCaptureFocusDuration;
     }
-    if (m_photo.capture.hasPhoto && Input_IsActionPressed(InputAction::HoldPlacement))
+    if (!m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionPressed(InputAction::HoldPlacement))
     {
         m_flow.placementSlowRemaining = kPlacementFocusDuration;
     }
@@ -296,7 +296,17 @@ EventBus* GameScene::GetEventBus()
 
 void GameScene::UpdateCameraMode()
 {
+    const bool wasCameraMode = m_flow.cameraMode;
     m_flow.cameraMode = Input_IsActionDown(InputAction::HoldCamera);
+    if (m_flow.cameraMode)
+    {
+        m_photo.placement.active = false;
+        m_photo.placement.valid = false;
+    }
+    if (m_flow.cameraMode && !wasCameraMode)
+    {
+        ++m_flow.cameraModeSessionId;
+    }
 }
 
 Entity* GameScene::FindEntityByTag(const char* tag) const

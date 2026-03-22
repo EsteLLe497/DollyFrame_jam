@@ -120,6 +120,18 @@ namespace
         return g_state.Buttons[XINPUT_BUTTON_Y] != 0 && g_prevState.Buttons[XINPUT_BUTTON_Y] == 0;
 	}
 
+
+    bool IsGamepadBackPressed()
+    {
+        if (!g_connected)
+        {
+            return false;
+        }
+
+        return g_state.Buttons[XINPUT_BUTTON_BACK] != 0 &&
+            g_prevState.Buttons[XINPUT_BUTTON_BACK] == 0;
+    }
+
     //LT Ç™ÉzÅ[ÉãÉhÇ≥ÇÍÇƒÇ¢ÇÈÇ©
     bool IsGamepadLeftTriggerDown()
     {
@@ -266,7 +278,7 @@ bool Input_IsActionPressed(InputAction action)
     case InputAction::OpenShaderShowcase:
         return Input_IsKeyPressed('S');
     case InputAction::RestartScene:
-        return Input_IsKeyPressed('R');
+        return Input_IsKeyPressed('R') || IsGamepadBackPressed();
     case InputAction::ReturnToTitle:
         return Input_IsKeyPressed('T');
     case InputAction::ToggleTuningPanel:
