@@ -65,9 +65,14 @@ private:
     void RefreshPhotoGroupState();
     void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage);
     void HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amount, const char* logMessage);
+    void StartPitRestart(Entity* player, const char* logMessage);
+    void SpawnBarrelBreakEffect(float x, float y, float width, float height);
     void QueueResult(GameEndReason reason);
+    void UpdateEffects(float deltaTime);
     void UpdateTuningPanel();
     void DrawTuningPanel();
+    void DrawPitRestartOverlay() const;
+    void DrawEffects() const;
     void DrawCaptureOverlay() const;
     void DrawDevelopedPhotoPreview() const;
     void DrawPhotoStorageTray() const;
@@ -84,12 +89,14 @@ private:
     bool IsTileBlockingFromRight(int column, int row) const;
     bool IsPlatformTile(int column, int row) const;
     bool IsHazardTile(int column, int row) const;
+    bool IsPitTile(int column, int row) const;
     bool IsGoalTile(int column, int row) const;
     bool IsStandingOnGround(const TransformComponent& transform) const;
     bool TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const;
     bool IntersectsSolidPhotoBox(const TransformComponent& transform) const;
     bool GetSlopeSurfaceY(int column, int row, float worldX, float& outSurfaceY) const;
     bool IntersectsHazardTile(const TransformComponent& transform) const;
+    bool IntersectsPitTile(const TransformComponent& transform) const;
     bool IntersectsGoalTile(const TransformComponent& transform) const;
     bool IntersectsEntity(const Entity& a, const Entity& b) const;
     bool GetEntityBoundsByTag(const char* tag, float& x, float& y, float& width, float& height) const;
@@ -114,4 +121,5 @@ private:
     GameSceneFlowState m_flow;
     GameScenePlayerState m_player;
     GameSceneDebugState m_debug;
+    GameSceneEffectsState m_effects;
 };

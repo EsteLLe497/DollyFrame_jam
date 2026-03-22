@@ -13,6 +13,7 @@ namespace
     constexpr float kPadCursorResponse = 14.0f;
     constexpr float kPadCursorDamping = 10.0f;
     constexpr float kPadCursorMouseReturnDelay = 0.28f;
+    constexpr float kPitRestartFadeDuration = 0.45f;
 
     void UpdatePadCursor(
         float mouseWorldX,
@@ -233,6 +234,21 @@ namespace
             label,
             highlighted ? GetColor(18, 18, 22) : GetColor(232, 238, 245));
     }
+}
+
+void GameScene::DrawPitRestartOverlay() const
+{
+    if (!m_flow.pitRestartActive)
+    {
+        return;
+    }
+
+    const float progress = Clamp01(1.0f - (m_flow.pitRestartTimer / kPitRestartFadeDuration));
+    const float alpha = 0.35f + progress * 0.65f;
+    Shader_ResetStyle();
+    Shader_SetTint(0.01f, 0.01f, 0.02f, alpha);
+    SpriteDraw(m_whiteTexture, 0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f, 0.0f, 1.0f, 1.0f);
+    Shader_ResetStyle();
 }
 
 void GameScene::DrawCaptureOverlay() const

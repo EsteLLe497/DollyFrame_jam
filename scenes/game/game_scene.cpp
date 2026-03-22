@@ -7,6 +7,8 @@ namespace
     constexpr float kPhotoFocusTimeScale = 0.22f;
     constexpr float kCaptureFocusDuration = 0.8f;
     constexpr float kPlacementFocusDuration = 1.2f;
+    constexpr float kPitRestartFadeDuration = 0.45f;
+    constexpr float kBarrelDebrisGravity = 980.0f;
 }
 
 GameScene::GameScene()
@@ -137,6 +139,16 @@ void GameScene::Update(float deltaTime)
         return;
     }
 
+    if (m_flow.pitRestartActive)
+    {
+        m_flow.pitRestartTimer = std::max(0.0f, m_flow.pitRestartTimer - deltaTime);
+        if (m_flow.pitRestartTimer <= 0.0f)
+        {
+            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+        }
+        return;
+    }
+
     UpdateCameraMode();
     const bool placementHeld = !m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
     const bool showPhotoTray = m_flow.cameraMode || placementHeld || m_photo.placement.active;
@@ -183,6 +195,7 @@ void GameScene::Update(float deltaTime)
     UpdateGoalVisual(gameplayDeltaTime);
     HandleWorldInteractions();
     RemoveDefeatedEnemies();
+    UpdateEffects(gameplayDeltaTime);
 }
 void GameScene::Draw()
 {
@@ -197,12 +210,36 @@ void GameScene::Draw()
         }
         DrawEntity(*entity);
     }
+    DrawEffects();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
     DrawPhotoPlacementPreview();
     DrawCaptureOverlay();
     DrawDevelopedPhotoPreview();
     DrawPhotoStorageTray();
+    DrawPitRestartOverlay();
     DrawTuningPanel();
+}
+
+void GameScene::UpdateEffects(float deltaTime)
+{
+    for (auto& particle : m_effects.barrelDebris)
+    {
+        particle.life = std::max(0.0f, particle.life - deltaTime);
+        particle.x += particle.velocityX * deltaTime;
+        particle.y += particle.velocityY * deltaTime;
+        particle.velocityY += kBarrelDebrisGravity * deltaTime;
+        particle.rotation += particle.rotationSpeed * deltaTime;
+    }
+
+    m_effects.barrelDebris.erase(
+        std::remove_if(
+            m_effects.barrelDebris.begin(),
+            m_effects.barrelDebris.end(),
+            [](const BarrelDebrisParticle& particle)
+            {
+                return particle.life <= 0.0f;
+            }),
+        m_effects.barrelDebris.end());
 }
 
 void GameScene::DrawDebugUI()

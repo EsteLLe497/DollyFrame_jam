@@ -75,6 +75,7 @@ public:
         float breakMinFallDistance,
         float breakMinImpactSpeed);
 
+    void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
 
     float velocityX = 0.0f;
@@ -89,6 +90,12 @@ public:
     int contactDamage = 1;
     float breakMinFallDistance = 0.0f;
     float breakMinImpactSpeed = 0.0f;
+    float spawnX = 0.0f;
+    float spawnY = 0.0f;
+    bool active = false;
+    bool cooldownActive = false;
+    float cooldownRemaining = 0.0f;
+    bool respawnEnabled = true;
 };
 
 class TransformComponent final : public Component

@@ -16,6 +16,8 @@ namespace
     constexpr float kCaptureFinderScaleMin = 1.0f;
     constexpr float kCaptureFinderScaleMax = 2.0f;
     constexpr float kCaptureFinderScaleStep = 0.1f;
+    constexpr float kBarrelDebrisLifetime = 0.55f;
+    constexpr float kPitRestartFadeDuration = 0.45f;
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
     constexpr float kTuningPanelWidth = 460.0f;
@@ -53,6 +55,51 @@ namespace
     bool IsPointInside(float pointX, float pointY, float x, float y, float width, float height)
     {
         return pointX >= x && pointX <= x + width && pointY >= y && pointY <= y + height;
+    }
+}
+
+void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float height)
+{
+    const float centerX = x + width * 0.5f;
+    const float centerY = y + height * 0.5f;
+    constexpr float velocities[][2] =
+    {
+        { -180.0f, -260.0f },
+        { -120.0f, -210.0f },
+        { -60.0f, -180.0f },
+        {  60.0f, -190.0f },
+        {  120.0f, -220.0f },
+        {  180.0f, -250.0f },
+        { -90.0f, -140.0f },
+        {  90.0f, -150.0f },
+    };
+    constexpr float sizes[] = { 12.0f, 10.0f, 9.0f, 11.0f, 8.0f, 10.0f, 7.0f, 9.0f };
+    constexpr float rotations[] = { -0.4f, 0.2f, -0.8f, 0.6f, -0.3f, 0.5f, -0.9f, 0.9f };
+    constexpr float rotationSpeeds[] = { -4.0f, 3.2f, -5.4f, 4.6f, -3.8f, 5.0f, -6.2f, 6.0f };
+    constexpr float colors[][3] =
+    {
+        { 0.52f, 0.31f, 0.16f },
+        { 0.44f, 0.25f, 0.12f },
+        { 0.60f, 0.38f, 0.20f },
+        { 0.34f, 0.18f, 0.08f },
+    };
+
+    for (int index = 0; index < 8; ++index)
+    {
+        BarrelDebrisParticle particle;
+        particle.x = centerX - sizes[index] * 0.5f;
+        particle.y = centerY - sizes[index] * 0.5f;
+        particle.velocityX = velocities[index][0];
+        particle.velocityY = velocities[index][1];
+        particle.size = sizes[index];
+        particle.rotation = rotations[index];
+        particle.rotationSpeed = rotationSpeeds[index];
+        particle.life = kBarrelDebrisLifetime;
+        particle.maxLife = kBarrelDebrisLifetime;
+        particle.r = colors[index % 4][0];
+        particle.g = colors[index % 4][1];
+        particle.b = colors[index % 4][2];
+        m_effects.barrelDebris.push_back(particle);
     }
 }
 
@@ -350,10 +397,35 @@ void GameScene::UpdateBarrels(float deltaTime)
     }
 
     Entity* player = FindEntityByTag("Player");
-    const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
     const float tileSize = m_tileMap.GetTileSize();
-    std::vector<Entity*> barrelsToRemove;
+    const float activationDistance = tileSize * 10.0f;
+
+    auto setBarrelVisible = [](Entity& barrelEntity, bool visible)
+    {
+        if (auto* tint = barrelEntity.GetComponent<TintComponent>())
+        {
+            tint->a = visible ? 1.0f : 0.0f;
+        }
+    };
+
+    auto resetBarrel = [&](Entity& barrelEntity, BarrelComponent& barrel, TransformComponent& transform)
+    {
+        SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
+        m_eventBus.Publish({ EventType::PlaySoundRequest, &barrelEntity, nullptr, "barrel", 0.0f, 0.0f });
+        if (!barrel.respawnEnabled)
+        {
+            barrel.destroyed = true;
+        }
+        barrel.active = false;
+        barrel.cooldownActive = barrel.respawnEnabled && !barrel.destroyed;
+        barrel.cooldownRemaining = barrel.cooldownActive ? 3.0f : 0.0f;
+        barrel.velocityX = 0.0f;
+        barrel.velocityY = 0.0f;
+        barrel.grounded = false;
+        barrel.accumulatedFallDistance = 0.0f;
+        setBarrelVisible(barrelEntity, false);
+    };
 
     auto isBarrelObjectCollision = [&](const Entity& barrelEntity, const TransformComponent& barrelBounds, Entity*& outHit) -> bool
     {
@@ -400,7 +472,7 @@ void GameScene::UpdateBarrels(float deltaTime)
         return false;
     };
 
-    auto intersectsSolidTile = [&](const TransformComponent& bounds) -> bool
+    auto intersectsDespawnTile = [&](const TransformComponent& bounds) -> bool
     {
         const float width = bounds.width * bounds.scale;
         const float height = bounds.height * bounds.scale;
@@ -412,7 +484,8 @@ void GameScene::UpdateBarrels(float deltaTime)
         {
             for (int column = left; column <= right; ++column)
             {
-                if (!IsSolidTile(column, row) && !IsSlopeTile(column, row))
+                const int tileValue = m_tileMap.GetTile(column, row);
+                if (tileValue != 1 && tileValue != TileMap::kPitTileValue)
                 {
                     continue;
                 }
@@ -447,169 +520,142 @@ void GameScene::UpdateBarrels(float deltaTime)
 
         if (barrel->destroyed)
         {
-            barrelsToRemove.push_back(entity.get());
+            setBarrelVisible(*entity, false);
             continue;
         }
 
         const float barrelWidth = transform->width * transform->scale;
         const float barrelHeight = transform->height * transform->scale;
-        const bool wasGrounded = IsStandingOnGround(*transform);
-        barrel->grounded = wasGrounded;
 
-        if (wasGrounded)
+        if (barrel->cooldownActive)
         {
-            TrySnapToGround(*transform, std::max(gGroundSnapDistance, 6.0f));
+            barrel->cooldownRemaining = std::max(0.0f, barrel->cooldownRemaining - deltaTime);
+            if (barrel->cooldownRemaining <= 0.0f)
+            {
+                barrel->cooldownActive = false;
+                transform->x = barrel->spawnX;
+                transform->y = barrel->spawnY;
+                setBarrelVisible(*entity, true);
+            }
+        }
 
-            TransformComponent leftProbe = *transform;
-            leftProbe.x -= 4.0f;
-            TransformComponent rightProbe = *transform;
-            rightProbe.x += 4.0f;
-            const bool leftSupported = IsStandingOnGround(leftProbe);
-            const bool rightSupported = IsStandingOnGround(rightProbe);
+        if (!barrel->active)
+        {
+            barrel->velocityX = 0.0f;
+            barrel->velocityY = 0.0f;
+            barrel->grounded = false;
+            barrel->accumulatedFallDistance = 0.0f;
 
-            if (leftSupported && !rightSupported)
+            if (!barrel->cooldownActive)
             {
-                barrel->velocityX = std::fabs(barrel->rollSpeed);
+                transform->x = barrel->spawnX;
+                transform->y = barrel->spawnY;
             }
-            else if (rightSupported && !leftSupported)
+
+            if (!barrel->cooldownActive && player)
             {
-                barrel->velocityX = -std::fabs(barrel->rollSpeed);
-            }
-            else
-            {
-                const float frictionStep = std::max(0.0f, barrel->groundFriction * deltaTime);
-                if (std::fabs(barrel->velocityX) <= frictionStep)
+                const auto* playerTransform = player->GetComponent<TransformComponent>();
+                if (playerTransform)
                 {
-                    barrel->velocityX = 0.0f;
-                }
-                else
-                {
-                    barrel->velocityX += barrel->velocityX > 0.0f ? -frictionStep : frictionStep;
+                    const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+                    const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
+                    const float barrelCenterX = transform->x + barrelWidth * 0.5f;
+                    const float barrelCenterY = transform->y + barrelHeight * 0.5f;
+                    const float dx = playerCenterX - barrelCenterX;
+                    const float dy = playerCenterY - barrelCenterY;
+                    const float distance = std::sqrt(dx * dx + dy * dy);
+                    if (distance <= activationDistance)
+                    {
+                        barrel->active = true;
+                        setBarrelVisible(*entity, true);
+                    }
                 }
             }
+            else if (!barrel->respawnEnabled)
+            {
+                barrel->active = true;
+                setBarrelVisible(*entity, true);
+            }
+
+            continue;
         }
 
         barrel->velocityY = std::min(barrel->maxFallSpeed, barrel->velocityY + barrel->gravity * deltaTime);
-
-        const float prevX = transform->x;
-        transform->x = std::clamp(
-            transform->x + barrel->velocityX * deltaTime,
-            0.0f,
-            std::max(0.0f, mapWidth - barrelWidth));
-
-        Entity* horizontalObjectHit = nullptr;
-        if (intersectsSolidTile(*transform) || isBarrelObjectCollision(*entity, *transform, horizontalObjectHit))
-        {
-            transform->x = prevX;
-            if (horizontalObjectHit)
-            {
-                barrel->destroyed = true;
-                barrelsToRemove.push_back(entity.get());
-            }
-            barrel->velocityX = 0.0f;
-        }
-
-        const float prevY = transform->y;
         transform->y += barrel->velocityY * deltaTime;
-        if (barrel->velocityY > 0.0f)
-        {
-            barrel->accumulatedFallDistance += barrel->velocityY * deltaTime;
-        }
+        const bool canCollideAfterDrop = transform->y >= barrel->spawnY + std::max(8.0f, tileSize * 0.25f);
 
-        bool groundedNow = false;
         if (transform->y + barrelHeight >= mapHeight)
         {
-            transform->y = mapHeight - barrelHeight;
-            groundedNow = true;
+            resetBarrel(*entity, *barrel, *transform);
+            continue;
         }
 
-        if (!groundedNow && barrel->velocityY >= 0.0f)
+        if (canCollideAfterDrop && intersectsDespawnTile(*transform))
         {
-            const float snapDistance = std::max(gGroundSnapDistance, std::fabs(barrel->velocityY) * deltaTime + 4.0f);
-            if (TrySnapToGround(*transform, snapDistance))
-            {
-                groundedNow = true;
-            }
+            resetBarrel(*entity, *barrel, *transform);
+            continue;
         }
 
-        Entity* verticalObjectHit = nullptr;
-        if (!groundedNow && (intersectsSolidTile(*transform) || isBarrelObjectCollision(*entity, *transform, verticalObjectHit)))
-        {
-            transform->y = prevY;
-            if (verticalObjectHit)
-            {
-                barrel->destroyed = true;
-                barrelsToRemove.push_back(entity.get());
-            }
-            groundedNow = barrel->velocityY > 0.0f;
-        }
-
-        if (groundedNow && barrel->velocityY > 0.0f)
-        {
-            if (barrel->accumulatedFallDistance >= barrel->breakMinFallDistance &&
-                std::fabs(barrel->velocityY) >= barrel->breakMinImpactSpeed)
-            {
-                barrel->destroyed = true;
-                barrelsToRemove.push_back(entity.get());
-            }
-            barrel->velocityY = 0.0f;
-            barrel->accumulatedFallDistance = 0.0f;
-        }
-        barrel->grounded = groundedNow;
-
-        if (!barrel->destroyed && player && IntersectsEntity(*entity, *player))
+        if (player && IntersectsEntity(*entity, *player))
         {
             HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by barrel");
+            resetBarrel(*entity, *barrel, *transform);
+            continue;
         }
 
-        if (!barrel->destroyed)
+        bool consumed = false;
+        for (const auto& enemyEntity : m_entities)
         {
-            for (const auto& enemyEntity : m_entities)
+            if (!enemyEntity || enemyEntity.get() == entity.get())
             {
-                if (!enemyEntity || enemyEntity.get() == entity.get())
-                {
-                    continue;
-                }
-
-                auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
-                if (!enemy || !enemy->IsEnabled() || !IntersectsEntity(*entity, *enemyEntity))
-                {
-                    continue;
-                }
-
-                HandleEnemyDamage(*enemyEntity, entity.get(), barrel->contactDamage, "Barrel hit enemy");
+                continue;
             }
-        }
 
-        if (!barrel->destroyed)
+            auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
+            if (!enemy || !enemy->IsEnabled() || !IntersectsEntity(*entity, *enemyEntity))
+            {
+                continue;
+            }
+
+            HandleEnemyDamage(*enemyEntity, entity.get(), barrel->contactDamage, "Barrel hit enemy");
+            resetBarrel(*entity, *barrel, *transform);
+            consumed = true;
+            break;
+        }
+        if (consumed)
         {
-            for (const auto& gimmickEntity : m_entities)
-            {
-                if (!gimmickEntity || gimmickEntity.get() == entity.get())
-                {
-                    continue;
-                }
-
-                auto* gimmick = gimmickEntity->GetComponent<GimmickComponent>();
-                if (!gimmick || !gimmick->IsEnabled() || !IntersectsEntity(*entity, *gimmickEntity))
-                {
-                    continue;
-                }
-
-                if (gimmick->GetType() == GimmickType::Switch)
-                {
-                    m_flow.goalUnlockedBySwitch = true;
-                    gimmick->Consume();
-                }
-
-                barrel->destroyed = true;
-                barrelsToRemove.push_back(entity.get());
-                break;
-            }
+            continue;
         }
+
+        for (const auto& gimmickEntity : m_entities)
+        {
+            if (!gimmickEntity || gimmickEntity.get() == entity.get())
+            {
+                continue;
+            }
+
+            auto* gimmick = gimmickEntity->GetComponent<GimmickComponent>();
+            if (!gimmick || !gimmick->IsEnabled() || !IntersectsEntity(*entity, *gimmickEntity))
+            {
+                continue;
+            }
+
+            if (gimmick->GetType() == GimmickType::Switch)
+            {
+                m_flow.goalUnlockedBySwitch = true;
+                gimmick->Consume();
+            }
+
+            resetBarrel(*entity, *barrel, *transform);
+            consumed = true;
+            break;
+        }
+        if (consumed)
+        {
+            continue;
+        }
+
     }
-
-    RemoveEntitiesByPointerList(barrelsToRemove);
 }
 
 void GameScene::UpdatePlayerAfterimages(float deltaTime)
@@ -791,6 +837,15 @@ void GameScene::HandleWorldInteractions()
     m_flow.playerTouchingHazard = false;
     m_flow.playerTouchingTarget = false;
 
+    if (const auto* playerTransform = player->GetComponent<TransformComponent>())
+    {
+        if (IntersectsPitTile(*playerTransform))
+        {
+            StartPitRestart(player, "GameScene player fell into pit tile");
+            return;
+        }
+    }
+
     game_scene_world_interaction_system::HandleTileInteractions(
         m_flow,
         *player,
@@ -876,6 +931,12 @@ void GameScene::HandleWorldTileInteractions(Entity& player)
     {
         m_flow.playerTouchingHazard = true;
         HandlePlayerDamage(player, nullptr, "GameScene player damaged by hazard tile");
+    }
+
+    if (IntersectsPitTile(*playerTransform))
+    {
+        StartPitRestart(&player, "GameScene player fell into pit tile");
+        return;
     }
 
     if (m_flow.goalUnlocked && IntersectsGoalTile(*playerTransform))
@@ -1130,5 +1191,21 @@ void GameScene::QueueResult(GameEndReason reason)
     m_flow.resultQueued = true;
     GameSession_SetEndReason(reason);
     m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "result", 0.0f, 0.0f });
+}
+
+void GameScene::StartPitRestart(Entity* player, const char* logMessage)
+{
+    if (m_flow.pitRestartActive)
+    {
+        return;
+    }
+
+    m_flow.pitRestartActive = true;
+    m_flow.pitRestartTimer = kPitRestartFadeDuration;
+    m_flow.cameraMode = false;
+    m_photo.placement.active = false;
+    m_flow.playerTouchingHazard = true;
+    m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "contact_tone", 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::LogMessage, player, nullptr, logMessage, 0.0f, 0.0f });
 }
 

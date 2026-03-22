@@ -262,6 +262,11 @@ Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId
         transform->x = x;
         transform->y = y;
     }
+    if (auto* barrel = entityRef.GetComponent<BarrelComponent>())
+    {
+        barrel->spawnX = x;
+        barrel->spawnY = y;
+    }
     if (auto* enemyMover = entityRef.GetComponent<EnemyMoverComponent>())
     {
         enemyMover->SetOrigin(x, y);

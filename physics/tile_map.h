@@ -14,6 +14,8 @@ struct TileTriangleShape
 class TileMap
 {
 public:
+    static constexpr int kPitTileValue = 10;
+
     TileMap();
 
     bool LoadFromCsv(const std::string& path, float tileSize);

@@ -476,6 +476,11 @@ bool GameScene::IsHazardTile(int column, int row) const
     return m_tileMap.GetTile(column, row) == 4;
 }
 
+bool GameScene::IsPitTile(int column, int row) const
+{
+    return m_tileMap.GetTile(column, row) == TileMap::kPitTileValue;
+}
+
 bool GameScene::IsGoalTile(int column, int row) const
 {
     return m_tileMap.GetTile(column, row) == 5;
@@ -787,6 +792,23 @@ bool GameScene::IntersectsHazardTile(const TransformComponent& transform) const
     for (int column = columnStart; column <= columnEnd; ++column)
     {
         if (IsHazardTile(column, footRow))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool GameScene::IntersectsPitTile(const TransformComponent& transform) const
+{
+    const float tileSize = m_tileMap.GetTileSize();
+    const float width = transform.width * transform.scale;
+    const int columnStart = static_cast<int>((transform.x + 8.0f) / tileSize);
+    const int columnEnd = static_cast<int>((transform.x + width - 8.0f) / tileSize);
+    const int footRow = static_cast<int>((transform.y + transform.height * transform.scale + 2.0f) / tileSize);
+    for (int column = columnStart; column <= columnEnd; ++column)
+    {
+        if (IsPitTile(column, footRow))
         {
             return true;
         }

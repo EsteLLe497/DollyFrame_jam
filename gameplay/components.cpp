@@ -39,11 +39,24 @@ BarrelComponent::BarrelComponent(
 {
 }
 
+void BarrelComponent::OnAttach(Entity& owner)
+{
+    Component::OnAttach(owner);
+
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        spawnX = transform->x;
+        spawnY = transform->y;
+    }
+}
+
 void BarrelComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Barrel");
     ImGui::Text("Velocity: %.1f, %.1f", velocityX, velocityY);
     ImGui::Text("Grounded: %s", grounded ? "Yes" : "No");
+    ImGui::Text("Active: %s", active ? "Yes" : "No");
+    ImGui::Text("Cooldown: %.2f", cooldownRemaining);
     ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
     ImGui::Text("Fall Distance: %.1f", accumulatedFallDistance);
 }
