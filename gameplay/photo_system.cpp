@@ -422,12 +422,14 @@ public:
     {
             scene.m_photo.placement.valid = false;
 
-            if (scene.m_photo.capture.hasPhoto &&
+            if (!scene.m_flow.cameraMode &&
+                scene.m_photo.capture.hasPhoto &&
                 (Input_IsActionPressed(InputAction::HoldPlacement) || Input_IsNorthButtonPressed()))
             {
                 scene.m_photo.placement.active = !scene.m_photo.placement.active;
                 if (scene.m_photo.placement.active)
                 {
+                    scene.m_flow.cameraMode = false;
                     ++scene.m_photo.placement.sessionId;
                 }
             }
@@ -1027,6 +1029,8 @@ private:
                 scene.m_photo.groups.hasSpawnedCopy = true;
             }
             scene.ConsumeSelectedPhotoSlot();
+            scene.m_photo.placement.active = false;
+            scene.m_photo.placement.valid = false;
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, lastSpawnedEntity, "test_tone", 0.0f, 0.0f });
             scene.m_eventBus.Publish({ EventType::LogMessage, &player, lastSpawnedEntity, "Spawned filtered reconstruction", 0.0f, 0.0f });
     }
