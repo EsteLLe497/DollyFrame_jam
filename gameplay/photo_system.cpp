@@ -701,6 +701,11 @@ private:
                         continue;
                     }
 
+                    if (tileValue == 8)
+                    {
+                        continue;
+                    }
+
                     const float tileX = static_cast<float>(column) * tileSize;
                     const float tileY = static_cast<float>(row) * tileSize;
                     const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue);

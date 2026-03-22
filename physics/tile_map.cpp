@@ -347,9 +347,9 @@ void TileMap::GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
         b = 0.66f;
         break;
     case 8:
-        r = 0.54f;
-        g = 0.84f;
-        b = 0.34f;
+        r = 0.22f;
+        g = 0.40f;
+        b = 0.76f;
         break;
     case 9:
         r = 0.34f;
