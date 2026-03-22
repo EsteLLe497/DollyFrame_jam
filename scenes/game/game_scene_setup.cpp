@@ -176,6 +176,45 @@ void GameScene::InitializeStageEntities()
         AlignToGrid(336.0f, tileSize));
     SetEntityTint(player, 0.30f, 0.82f, 0.98f);
 
+    bool hasBarrelMarker = false;
+    for (int row = 0; row < m_tileMap.GetHeight() && !hasBarrelMarker; ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            if (m_tileMap.GetMarker(column, row) == 'B')
+            {
+                hasBarrelMarker = true;
+                break;
+            }
+        }
+    }
+
+    if (!hasBarrelMarker)
+    {
+        SpawnStagePrefab(
+            prefabs,
+            "sandbox_barrel",
+            AlignToGrid(432.0f, tileSize),
+            AlignToGrid(240.0f, tileSize));
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            if (m_tileMap.GetMarker(column, row) != 'B')
+            {
+                continue;
+            }
+
+            SpawnStagePrefab(
+                prefabs,
+                "sandbox_barrel",
+                AlignToGrid(static_cast<float>(column) * tileSize, tileSize),
+                AlignToGrid(static_cast<float>(row) * tileSize, tileSize));
+        }
+    }
+
    /* Entity& goal = SpawnStagePrefab(
         prefabs,
         "sandbox_goal",

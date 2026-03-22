@@ -133,7 +133,7 @@ inline void UpdateEnemies(
         entities.push_back(std::move(bullet));
     }
 
-    flow.goalUnlocked = photo.groups.hasSpawnedCopy;
+    flow.goalUnlocked = photo.groups.hasSpawnedCopy || flow.goalUnlockedBySwitch;
 }
 
 template <typename IntersectsEntityFn, typename HandlePlayerDamageFn>

@@ -41,6 +41,7 @@ private:
     Entity& SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y);
     Entity* FindEntityByTag(const char* tag) const;
     void UpdatePlayer(float deltaTime);
+    void UpdateBarrels(float deltaTime);
     void UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame);
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
@@ -63,6 +64,7 @@ private:
     void RemoveDefeatedEnemies();
     void RefreshPhotoGroupState();
     void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage);
+    void HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amount, const char* logMessage);
     void QueueResult(GameEndReason reason);
     void UpdateTuningPanel();
     void DrawTuningPanel();
@@ -86,6 +88,7 @@ private:
     bool IsStandingOnGround(const TransformComponent& transform) const;
     bool TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const;
     bool IntersectsSolidPhotoBox(const TransformComponent& transform) const;
+    bool GetSlopeSurfaceY(int column, int row, float worldX, float& outSurfaceY) const;
     bool IntersectsHazardTile(const TransformComponent& transform) const;
     bool IntersectsGoalTile(const TransformComponent& transform) const;
     bool IntersectsEntity(const Entity& a, const Entity& b) const;

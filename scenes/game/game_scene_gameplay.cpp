@@ -332,6 +332,276 @@ void GameScene::UpdatePlayer(float deltaTime)
         deltaTime);
 }
 
+void GameScene::UpdateBarrels(float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag("Player");
+    const float mapWidth = GetMapPixelWidth();
+    const float mapHeight = GetMapPixelHeight();
+    const float tileSize = m_tileMap.GetTileSize();
+    std::vector<Entity*> barrelsToRemove;
+
+    auto isBarrelObjectCollision = [&](const Entity& barrelEntity, const TransformComponent& barrelBounds, Entity*& outHit) -> bool
+    {
+        outHit = nullptr;
+        for (const auto& candidate : m_entities)
+        {
+            if (!candidate || candidate.get() == &barrelEntity)
+            {
+                continue;
+            }
+
+            if (candidate->GetComponent<BarrelComponent>())
+            {
+                continue;
+            }
+
+            if (HasTag(*candidate, "Player") || HasTag(*candidate, "Enemy") || HasTag(*candidate, "Bullet"))
+            {
+                continue;
+            }
+
+            if (HasTag(*candidate, "PhotoBox"))
+            {
+                const auto* layer = candidate->GetComponent<PhotoCopyLayerComponent>();
+                if (layer && layer->layer != PhotoCopyLayer::Foreground)
+                {
+                    continue;
+                }
+            }
+
+            const auto* otherTransform = candidate->GetComponent<TransformComponent>();
+            if (!otherTransform)
+            {
+                continue;
+            }
+
+            if (IntersectsRect(barrelBounds, *otherTransform))
+            {
+                outHit = candidate.get();
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    auto intersectsSolidTile = [&](const TransformComponent& bounds) -> bool
+    {
+        const float width = bounds.width * bounds.scale;
+        const float height = bounds.height * bounds.scale;
+        const int left = std::max(0, static_cast<int>((bounds.x + 2.0f) / tileSize));
+        const int right = std::min(m_tileMap.GetWidth() - 1, static_cast<int>((bounds.x + width - 2.0f) / tileSize));
+        const int top = std::max(0, static_cast<int>((bounds.y + 2.0f) / tileSize));
+        const int bottom = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bounds.y + height - 2.0f) / tileSize));
+        for (int row = top; row <= bottom; ++row)
+        {
+            for (int column = left; column <= right; ++column)
+            {
+                if (!IsSolidTile(column, row) && !IsSlopeTile(column, row))
+                {
+                    continue;
+                }
+
+                TransformComponent tileBounds(
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize,
+                    tileSize,
+                    tileSize);
+                if (IntersectsRect(bounds, tileBounds))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* barrel = entity->GetComponent<BarrelComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!barrel || !transform)
+        {
+            continue;
+        }
+
+        if (barrel->destroyed)
+        {
+            barrelsToRemove.push_back(entity.get());
+            continue;
+        }
+
+        const float barrelWidth = transform->width * transform->scale;
+        const float barrelHeight = transform->height * transform->scale;
+        const bool wasGrounded = IsStandingOnGround(*transform);
+        barrel->grounded = wasGrounded;
+
+        if (wasGrounded)
+        {
+            TrySnapToGround(*transform, std::max(gGroundSnapDistance, 6.0f));
+
+            TransformComponent leftProbe = *transform;
+            leftProbe.x -= 4.0f;
+            TransformComponent rightProbe = *transform;
+            rightProbe.x += 4.0f;
+            const bool leftSupported = IsStandingOnGround(leftProbe);
+            const bool rightSupported = IsStandingOnGround(rightProbe);
+
+            if (leftSupported && !rightSupported)
+            {
+                barrel->velocityX = std::fabs(barrel->rollSpeed);
+            }
+            else if (rightSupported && !leftSupported)
+            {
+                barrel->velocityX = -std::fabs(barrel->rollSpeed);
+            }
+            else
+            {
+                const float frictionStep = std::max(0.0f, barrel->groundFriction * deltaTime);
+                if (std::fabs(barrel->velocityX) <= frictionStep)
+                {
+                    barrel->velocityX = 0.0f;
+                }
+                else
+                {
+                    barrel->velocityX += barrel->velocityX > 0.0f ? -frictionStep : frictionStep;
+                }
+            }
+        }
+
+        barrel->velocityY = std::min(barrel->maxFallSpeed, barrel->velocityY + barrel->gravity * deltaTime);
+
+        const float prevX = transform->x;
+        transform->x = std::clamp(
+            transform->x + barrel->velocityX * deltaTime,
+            0.0f,
+            std::max(0.0f, mapWidth - barrelWidth));
+
+        Entity* horizontalObjectHit = nullptr;
+        if (intersectsSolidTile(*transform) || isBarrelObjectCollision(*entity, *transform, horizontalObjectHit))
+        {
+            transform->x = prevX;
+            if (horizontalObjectHit)
+            {
+                barrel->destroyed = true;
+                barrelsToRemove.push_back(entity.get());
+            }
+            barrel->velocityX = 0.0f;
+        }
+
+        const float prevY = transform->y;
+        transform->y += barrel->velocityY * deltaTime;
+        if (barrel->velocityY > 0.0f)
+        {
+            barrel->accumulatedFallDistance += barrel->velocityY * deltaTime;
+        }
+
+        bool groundedNow = false;
+        if (transform->y + barrelHeight >= mapHeight)
+        {
+            transform->y = mapHeight - barrelHeight;
+            groundedNow = true;
+        }
+
+        if (!groundedNow && barrel->velocityY >= 0.0f)
+        {
+            const float snapDistance = std::max(gGroundSnapDistance, std::fabs(barrel->velocityY) * deltaTime + 4.0f);
+            if (TrySnapToGround(*transform, snapDistance))
+            {
+                groundedNow = true;
+            }
+        }
+
+        Entity* verticalObjectHit = nullptr;
+        if (!groundedNow && (intersectsSolidTile(*transform) || isBarrelObjectCollision(*entity, *transform, verticalObjectHit)))
+        {
+            transform->y = prevY;
+            if (verticalObjectHit)
+            {
+                barrel->destroyed = true;
+                barrelsToRemove.push_back(entity.get());
+            }
+            groundedNow = barrel->velocityY > 0.0f;
+        }
+
+        if (groundedNow && barrel->velocityY > 0.0f)
+        {
+            if (barrel->accumulatedFallDistance >= barrel->breakMinFallDistance &&
+                std::fabs(barrel->velocityY) >= barrel->breakMinImpactSpeed)
+            {
+                barrel->destroyed = true;
+                barrelsToRemove.push_back(entity.get());
+            }
+            barrel->velocityY = 0.0f;
+            barrel->accumulatedFallDistance = 0.0f;
+        }
+        barrel->grounded = groundedNow;
+
+        if (!barrel->destroyed && player && IntersectsEntity(*entity, *player))
+        {
+            HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by barrel");
+        }
+
+        if (!barrel->destroyed)
+        {
+            for (const auto& enemyEntity : m_entities)
+            {
+                if (!enemyEntity || enemyEntity.get() == entity.get())
+                {
+                    continue;
+                }
+
+                auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
+                if (!enemy || !enemy->IsEnabled() || !IntersectsEntity(*entity, *enemyEntity))
+                {
+                    continue;
+                }
+
+                HandleEnemyDamage(*enemyEntity, entity.get(), barrel->contactDamage, "Barrel hit enemy");
+            }
+        }
+
+        if (!barrel->destroyed)
+        {
+            for (const auto& gimmickEntity : m_entities)
+            {
+                if (!gimmickEntity || gimmickEntity.get() == entity.get())
+                {
+                    continue;
+                }
+
+                auto* gimmick = gimmickEntity->GetComponent<GimmickComponent>();
+                if (!gimmick || !gimmick->IsEnabled() || !IntersectsEntity(*entity, *gimmickEntity))
+                {
+                    continue;
+                }
+
+                if (gimmick->GetType() == GimmickType::Switch)
+                {
+                    m_flow.goalUnlockedBySwitch = true;
+                    gimmick->Consume();
+                }
+
+                barrel->destroyed = true;
+                barrelsToRemove.push_back(entity.get());
+                break;
+            }
+        }
+    }
+
+    RemoveEntitiesByPointerList(barrelsToRemove);
+}
+
 void GameScene::UpdatePlayerAfterimages(float deltaTime)
 {
     game_scene_player_visual_system::UpdateAfterimages(m_player, deltaTime);
@@ -813,6 +1083,31 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
     {
         QueueResult(GameEndReason::HpZero);
     }
+}
+
+void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amount, const char* logMessage)
+{
+    auto* enemyComponent = enemy.GetComponent<EnemyComponent>();
+    if (!enemyComponent || !enemyComponent->IsEnabled())
+    {
+        return;
+    }
+
+    if (auto* health = enemy.GetComponent<HealthComponent>())
+    {
+        health->ApplyDamage(amount);
+        if (health->IsDead())
+        {
+            enemyComponent->MarkDefeated();
+        }
+    }
+    else
+    {
+        enemyComponent->MarkDefeated();
+    }
+
+    m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
 }
 
 void GameScene::QueueResult(GameEndReason reason)

@@ -63,6 +63,34 @@ enum class GimmickType
     Switch,
 };
 
+class BarrelComponent final : public Component
+{
+public:
+    BarrelComponent(
+        float gravity,
+        float maxFallSpeed,
+        float rollSpeed,
+        float groundFriction,
+        int contactDamage,
+        float breakMinFallDistance,
+        float breakMinImpactSpeed);
+
+    void DrawDebugUI() override;
+
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    bool grounded = false;
+    bool destroyed = false;
+    float accumulatedFallDistance = 0.0f;
+    float gravity = 0.0f;
+    float maxFallSpeed = 0.0f;
+    float rollSpeed = 0.0f;
+    float groundFriction = 0.0f;
+    int contactDamage = 1;
+    float breakMinFallDistance = 0.0f;
+    float breakMinImpactSpeed = 0.0f;
+};
+
 class TransformComponent final : public Component
 {
 public:
