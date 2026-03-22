@@ -294,7 +294,12 @@ EventBus* GameScene::GetEventBus()
 
 void GameScene::UpdateCameraMode()
 {
+    const bool wasCameraMode = m_flow.cameraMode;
     m_flow.cameraMode = Input_IsActionDown(InputAction::HoldCamera);
+    if (m_flow.cameraMode && !wasCameraMode)
+    {
+        ++m_flow.cameraModeSessionId;
+    }
 }
 
 Entity* GameScene::FindEntityByTag(const char* tag) const
