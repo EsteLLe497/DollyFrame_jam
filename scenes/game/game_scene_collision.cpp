@@ -6,6 +6,229 @@ namespace
 {
     constexpr int kMaxTriangleSpanTiles = 5;
 
+    struct CollisionPoint
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+    };
+
+    using CollisionPolygon = std::vector<CollisionPoint>;
+
+    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
+    {
+        if (std::fabs(rotation) <= 0.0001f)
+        {
+            return;
+        }
+
+        const float localX = x - centerX;
+        const float localY = y - centerY;
+        const float cosTheta = std::cos(rotation);
+        const float sinTheta = std::sin(rotation);
+        x = centerX + (localX * cosTheta - localY * sinTheta);
+        y = centerY + (localX * sinTheta + localY * cosTheta);
+    }
+
+    void BuildRotatedRectPolygon(float left, float top, float width, float height, float rotation, CollisionPolygon& outPolygon)
+    {
+        outPolygon.resize(4);
+        outPolygon[0] = { left, top };
+        outPolygon[1] = { left + width, top };
+        outPolygon[2] = { left + width, top + height };
+        outPolygon[3] = { left, top + height };
+
+        const float centerX = left + width * 0.5f;
+        const float centerY = top + height * 0.5f;
+        for (CollisionPoint& point : outPolygon)
+        {
+            RotatePoint(centerX, centerY, rotation, point.x, point.y);
+        }
+    }
+
+    void BuildTrianglePolygon(
+        float left,
+        float top,
+        float width,
+        float height,
+        bool risesRight,
+        bool flipX,
+        float rotation,
+        CollisionPolygon& outPolygon)
+    {
+        outPolygon.resize(3);
+        const bool finalRisesRight = flipX ? !risesRight : risesRight;
+        if (finalRisesRight)
+        {
+            outPolygon[0] = { left, top + height };
+            outPolygon[1] = { left + width, top + height };
+            outPolygon[2] = { left + width, top };
+        }
+        else
+        {
+            outPolygon[0] = { left, top };
+            outPolygon[1] = { left, top + height };
+            outPolygon[2] = { left + width, top + height };
+        }
+
+        const float centerX = left + width * 0.5f;
+        const float centerY = top + height * 0.5f;
+        for (CollisionPoint& point : outPolygon)
+        {
+            RotatePoint(centerX, centerY, rotation, point.x, point.y);
+        }
+    }
+
+    bool BuildPhotoBoxCollisionPolygon(const Entity& entity, CollisionPolygon& outPolygon)
+    {
+        const auto* transform = entity.GetComponent<TransformComponent>();
+        if (!transform)
+        {
+            return false;
+        }
+
+        const auto* tileValue = entity.GetComponent<PhotoCopyTileValueComponent>();
+        const auto* sprite = entity.GetComponent<SpriteRenderComponent>();
+        const float width = transform->width * transform->scale;
+        const float height = transform->height * transform->scale;
+        if (tileValue)
+        {
+            const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue->tileValue);
+            if (triangle.isTriangle)
+            {
+                BuildTrianglePolygon(
+                    transform->x,
+                    transform->y,
+                    width,
+                    height,
+                    triangle.risesRight,
+                    sprite ? sprite->GetFlipX() : false,
+                    transform->rotation,
+                    outPolygon);
+                return true;
+            }
+        }
+
+        BuildRotatedRectPolygon(transform->x, transform->y, width, height, transform->rotation, outPolygon);
+        return true;
+    }
+
+    void GetPolygonAabb(const CollisionPolygon& polygon, float& left, float& top, float& right, float& bottom)
+    {
+        left = polygon.front().x;
+        right = polygon.front().x;
+        top = polygon.front().y;
+        bottom = polygon.front().y;
+        for (const CollisionPoint& point : polygon)
+        {
+            left = (std::min)(left, point.x);
+            right = (std::max)(right, point.x);
+            top = (std::min)(top, point.y);
+            bottom = (std::max)(bottom, point.y);
+        }
+    }
+
+    void ProjectPolygonOntoAxis(const CollisionPolygon& polygon, float axisX, float axisY, float& outMin, float& outMax)
+    {
+        outMin = polygon.front().x * axisX + polygon.front().y * axisY;
+        outMax = outMin;
+        for (size_t index = 1; index < polygon.size(); ++index)
+        {
+            const float projection = polygon[index].x * axisX + polygon[index].y * axisY;
+            outMin = (std::min)(outMin, projection);
+            outMax = (std::max)(outMax, projection);
+        }
+    }
+
+    bool PolygonsIntersect(const CollisionPolygon& a, const CollisionPolygon& b)
+    {
+        const CollisionPolygon* polygons[2] = { &a, &b };
+        for (const CollisionPolygon* polygon : polygons)
+        {
+            for (size_t index = 0; index < polygon->size(); ++index)
+            {
+                const CollisionPoint& p0 = (*polygon)[index];
+                const CollisionPoint& p1 = (*polygon)[(index + 1) % polygon->size()];
+                const float edgeX = p1.x - p0.x;
+                const float edgeY = p1.y - p0.y;
+                const float axisX = -edgeY;
+                const float axisY = edgeX;
+                const float axisLength = std::sqrt(axisX * axisX + axisY * axisY);
+                if (axisLength <= 0.0001f)
+                {
+                    continue;
+                }
+
+                const float normalizedAxisX = axisX / axisLength;
+                const float normalizedAxisY = axisY / axisLength;
+                float minA = 0.0f;
+                float maxA = 0.0f;
+                float minB = 0.0f;
+                float maxB = 0.0f;
+                ProjectPolygonOntoAxis(a, normalizedAxisX, normalizedAxisY, minA, maxA);
+                ProjectPolygonOntoAxis(b, normalizedAxisX, normalizedAxisY, minB, maxB);
+                if (maxA < minB || maxB < minA)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    bool TryIntersectVerticalLineSegment(float lineX, const CollisionPoint& a, const CollisionPoint& b, float& outY)
+    {
+        const float minX = (std::min)(a.x, b.x);
+        const float maxX = (std::max)(a.x, b.x);
+        if (lineX < minX - 0.01f || lineX > maxX + 0.01f)
+        {
+            return false;
+        }
+
+        if (std::fabs(a.x - b.x) <= 0.01f)
+        {
+            outY = (std::min)(a.y, b.y);
+            return true;
+        }
+
+        const float t = (lineX - a.x) / (b.x - a.x);
+        if (t < -0.01f || t > 1.01f)
+        {
+            return false;
+        }
+
+        outY = a.y + (b.y - a.y) * t;
+        return true;
+    }
+
+    bool TryGetPolygonSurfaceY(const CollisionPolygon& polygon, float worldX, float& outSurfaceY)
+    {
+        bool found = false;
+        float bestY = 0.0f;
+        for (size_t index = 0; index < polygon.size(); ++index)
+        {
+            float edgeY = 0.0f;
+            if (!TryIntersectVerticalLineSegment(worldX, polygon[index], polygon[(index + 1) % polygon.size()], edgeY))
+            {
+                continue;
+            }
+
+            if (!found || edgeY < bestY)
+            {
+                bestY = edgeY;
+                found = true;
+            }
+        }
+
+        if (!found)
+        {
+            return false;
+        }
+
+        outSurfaceY = bestY;
+        return true;
+    }
+
     bool UsesSolidCollision(const Entity& entity)
     {
         if (const auto* layer = entity.GetComponent<PhotoCopyLayerComponent>())
@@ -129,22 +352,12 @@ namespace
 
     bool TryGetPhotoBoxSlopeSurfaceY(const Entity& entity, float worldX, float& outSurfaceY)
     {
-        const auto* transform = entity.GetComponent<TransformComponent>();
-        const auto* tileValue = entity.GetComponent<PhotoCopyTileValueComponent>();
-        if (!transform || !tileValue)
+        CollisionPolygon polygon;
+        if (!BuildPhotoBoxCollisionPolygon(entity, polygon))
         {
             return false;
         }
-
-        const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue->tileValue);
-        if (!triangle.isTriangle)
-        {
-            return false;
-        }
-
-        const float width = transform->width * transform->scale;
-        const float height = transform->height * transform->scale;
-        return TryComputeSlopeSurfaceY(transform->x, transform->y, width, height, triangle.risesRight, worldX, outSurfaceY);
+        return TryGetPolygonSurfaceY(polygon, worldX, outSurfaceY);
     }
 
     void GetGroundProbeXs(const TransformComponent& transform, float outProbeXs[3])
@@ -311,9 +524,18 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         const float playerBottom = transform.y + height;
         const float playerLeft = transform.x + 6.0f;
         const float playerRight = transform.x + width - 6.0f;
-        const float boxTop = photoBoxTransform->y;
-        const float boxLeft = photoBoxTransform->x;
-        const float boxRight = photoBoxTransform->x + photoBoxTransform->width * photoBoxTransform->scale;
+        CollisionPolygon polygon;
+        if (!BuildPhotoBoxCollisionPolygon(*entity, polygon))
+        {
+            continue;
+        }
+
+        float boxLeft = 0.0f;
+        float boxTop = 0.0f;
+        float boxRight = 0.0f;
+        float boxBottom = 0.0f;
+        GetPolygonAabb(polygon, boxLeft, boxTop, boxRight, boxBottom);
+        static_cast<void>(boxBottom);
         const bool horizontallyOverlapping = playerRight > boxLeft && playerLeft < boxRight;
         if (horizontallyOverlapping && std::fabs(playerBottom - boxTop) <= kSurfaceContactEpsilon)
         {
@@ -412,11 +634,22 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         const float height = transform.height * transform.scale;
         const float left = transform.x + 6.0f;
         const float right = transform.x + width - 6.0f;
-        const float photoBoxWidth = photoBoxTransform->width * photoBoxTransform->scale;
-        const bool horizontallyOverlapping = right > photoBoxTransform->x && left < photoBoxTransform->x + photoBoxWidth;
+        CollisionPolygon polygon;
+        if (!BuildPhotoBoxCollisionPolygon(*entity, polygon))
+        {
+            continue;
+        }
+
+        float photoBoxLeft = 0.0f;
+        float photoBoxTop = 0.0f;
+        float photoBoxRight = 0.0f;
+        float photoBoxBottom = 0.0f;
+        GetPolygonAabb(polygon, photoBoxLeft, photoBoxTop, photoBoxRight, photoBoxBottom);
+        static_cast<void>(photoBoxBottom);
+        const bool horizontallyOverlapping = right > photoBoxLeft && left < photoBoxRight;
         if (horizontallyOverlapping)
         {
-            float candidateY = photoBoxTransform->y - height;
+            float candidateY = photoBoxTop - height;
             float probeXs[3]{};
             GetGroundProbeXs(transform, probeXs);
             bool foundSlopeProbe = false;
@@ -429,10 +662,6 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
                 }
 
                 const float slopeCandidateY = photoSlopeSurfaceY - height;
-                const auto* tileValue = entity->GetComponent<PhotoCopyTileValueComponent>();
-                const TileTriangleShape triangle = tileValue
-                    ? TileMap::GetTriangleShape(tileValue->tileValue)
-                    : TileTriangleShape{};
                 if (!foundSlopeProbe)
                 {
                     candidateY = slopeCandidateY;
@@ -440,8 +669,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
                     continue;
                 }
 
-                if ((triangle.risesRight && slopeCandidateY < candidateY) ||
-                    (!triangle.risesRight && slopeCandidateY > candidateY))
+                if (slopeCandidateY < candidateY)
                 {
                     candidateY = slopeCandidateY;
                 }
@@ -600,6 +828,39 @@ bool GameScene::IntersectsEntity(const Entity& a, const Entity& b) const
     return IntersectsRect(*transformA, *transformB);
 }
 
+bool GameScene::IntersectsSolidPhotoBox(const TransformComponent& transform) const
+{
+    CollisionPolygon candidatePolygon;
+    BuildRotatedRectPolygon(
+        transform.x,
+        transform.y,
+        transform.width * transform.scale,
+        transform.height * transform.scale,
+        transform.rotation,
+        candidatePolygon);
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
+        {
+            continue;
+        }
+
+        CollisionPolygon photoPolygon;
+        if (!BuildPhotoBoxCollisionPolygon(*entity, photoPolygon))
+        {
+            continue;
+        }
+
+        if (PolygonsIntersect(candidatePolygon, photoPolygon))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool GameScene::GetEntityBoundsByTag(const char* tag, float& x, float& y, float& width, float& height) const
 {
     Entity* entity = FindEntityByTag(tag);
@@ -662,16 +923,19 @@ void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
         {
             continue;
         }
-        if (const auto* tileValue = entity->GetComponent<PhotoCopyTileValueComponent>())
+        CollisionPolygon polygon;
+        if (!BuildPhotoBoxCollisionPolygon(*entity, polygon))
         {
-            if (TileMap::GetTriangleShape(tileValue->tileValue).isTriangle)
-            {
-                continue;
-            }
+            continue;
         }
 
-        TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
-        rect.scale = transform->scale;
+        float left = 0.0f;
+        float top = 0.0f;
+        float right = 0.0f;
+        float bottom = 0.0f;
+        GetPolygonAabb(polygon, left, top, right, bottom);
+        TransformComponent rect(left, top, right - left, bottom - top);
+        rect.scale = 1.0f;
         bounds.push_back(rect);
     }
 }
@@ -835,14 +1099,18 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
                 continue;
             }
 
-            if (HasTag(*entity, "PhotoBox"))
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (!transform)
             {
                 continue;
             }
 
-            const auto* transform = entity->GetComponent<TransformComponent>();
-            if (!transform)
+            if (HasTag(*entity, "PhotoBox"))
             {
+                if (UsesSolidCollision(*entity) && IntersectsSolidPhotoBox(candidate))
+                {
+                    return true;
+                }
                 continue;
             }
 

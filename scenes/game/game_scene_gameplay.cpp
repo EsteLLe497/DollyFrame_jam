@@ -259,6 +259,10 @@ void GameScene::UpdatePlayer(float deltaTime)
             return horizontalVelocity > 0.0f
                 ? IsTileBlockingFromLeft(column, row)
                 : IsTileBlockingFromRight(column, row);
+        },
+        [this](const TransformComponent& candidate)
+        {
+            return IntersectsSolidPhotoBox(candidate);
         });
 
     if (isDodging)
@@ -275,6 +279,10 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_player,
         movementContext,
         photoBoxes,
+        [this](const TransformComponent& candidate)
+        {
+            return IntersectsSolidPhotoBox(candidate);
+        },
         photoSources);
 
     if (m_player.velocityY >= 0.0f && wasGrounded)
@@ -307,6 +315,10 @@ void GameScene::UpdatePlayer(float deltaTime)
         [this](TransformComponent& targetTransform, float snapDistance)
         {
             return TrySnapToGround(targetTransform, snapDistance);
+        },
+        [this](const TransformComponent& candidate)
+        {
+            return IntersectsSolidPhotoBox(candidate);
         });
 
     const bool landedThisFrame = !wasGrounded && m_player.grounded;

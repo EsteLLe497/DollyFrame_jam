@@ -25,8 +25,12 @@ struct PlayerMovementContext
     float verticalSnapDistance = 0.0f;
 };
 
-template <typename IsSolidTileFn>
-bool CanOccupyTileSpace(const TransformComponent& transform, const PlayerMovementContext& ctx, IsSolidTileFn&& isSolidTile)
+template <typename IsSolidTileFn, typename IntersectsSolidObjectFn>
+bool CanOccupyTileSpace(
+    const TransformComponent& transform,
+    const PlayerMovementContext& ctx,
+    IsSolidTileFn&& isSolidTile,
+    IntersectsSolidObjectFn&& intersectsSolidObject)
 {
     const int columnStart = static_cast<int>((transform.x + 6.0f) / ctx.tileSize);
     const int columnEnd = static_cast<int>((transform.x + ctx.playerWidth - 6.0f) / ctx.tileSize);
@@ -43,15 +47,16 @@ bool CanOccupyTileSpace(const TransformComponent& transform, const PlayerMovemen
         }
     }
 
-    return true;
+    return !intersectsSolidObject(transform);
 }
 
-template <typename IsSolidTileFn>
+template <typename IsSolidTileFn, typename IntersectsSolidObjectFn>
 void ResolveHorizontalTileCollisions(
     TransformComponent& transform,
     GameScenePlayerState& player,
     const PlayerMovementContext& ctx,
-    IsSolidTileFn&& isSolidTile)
+    IsSolidTileFn&& isSolidTile,
+    IntersectsSolidObjectFn&& intersectsSolidObject)
 {
     transform.x += player.velocityX * ctx.deltaTime;
     const float maxStepHeight = std::clamp(gGroundStepUpHeight, 0.0f, ctx.tileSize * 0.5f);
@@ -70,7 +75,7 @@ void ResolveHorizontalTileCollisions(
                     TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
                     stepCandidate.scale = transform.scale;
                     if (stepCandidate.y >= 0.0f &&
-                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile))
+                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile, intersectsSolidObject))
                     {
                         transform.y = stepCandidate.y;
                         steppedUp = true;
@@ -103,7 +108,7 @@ void ResolveHorizontalTileCollisions(
                     TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
                     stepCandidate.scale = transform.scale;
                     if (stepCandidate.y >= 0.0f &&
-                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile))
+                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile, intersectsSolidObject))
                     {
                         transform.y = stepCandidate.y;
                         steppedUp = true;
@@ -125,11 +130,13 @@ void ResolveHorizontalTileCollisions(
     transform.x = std::clamp(transform.x, 0.0f, std::max(0.0f, ctx.mapWidth - ctx.playerWidth));
 }
 
+template <typename IntersectsSolidObjectFn>
 inline void ResolveHorizontalObjectCollisions(
     TransformComponent& transform,
     GameScenePlayerState& player,
     const PlayerMovementContext& ctx,
     const std::vector<TransformComponent>& photoBoxes,
+    IntersectsSolidObjectFn&& intersectsSolidObject,
     const std::vector<TransformComponent>& photoSources)
 {
     if (!photoBoxes.empty())
@@ -138,7 +145,7 @@ inline void ResolveHorizontalObjectCollisions(
         {
             TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
             playerBounds.scale = transform.scale;
-            if (!IntersectsRect(playerBounds, photoBoxBounds))
+            if (!IntersectsRect(playerBounds, photoBoxBounds) || !intersectsSolidObject(playerBounds))
             {
                 continue;
             }
@@ -186,7 +193,7 @@ inline void ResolveHorizontalObjectCollisions(
     }
 }
 
-template <typename IsSolidTileFn, typename IsPlatformTileFn, typename IsCeilingTileFn, typename TrySnapToGroundFn>
+template <typename IsSolidTileFn, typename IsPlatformTileFn, typename IsCeilingTileFn, typename TrySnapToGroundFn, typename IntersectsSolidObjectFn>
 void ResolveVerticalMotion(
     TransformComponent& transform,
     GameScenePlayerState& player,
@@ -197,7 +204,8 @@ void ResolveVerticalMotion(
     IsSolidTileFn&& isSolidTile,
     IsPlatformTileFn&& isPlatformTile,
     IsCeilingTileFn&& isCeilingTile,
-    TrySnapToGroundFn&& trySnapToGround)
+    TrySnapToGroundFn&& trySnapToGround,
+    IntersectsSolidObjectFn&& intersectsSolidObject)
 {
     player.grounded = false;
     if (player.velocityY == 0.0f && wasGrounded)
@@ -244,6 +252,7 @@ void ResolveVerticalMotion(
                     TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
                     playerBounds.scale = transform.scale;
                     if (IntersectsRect(playerBounds, photoBoxBounds) &&
+                        intersectsSolidObject(playerBounds) &&
                         ctx.previousBottom <= photoBoxBounds.y + kSurfaceContactEpsilon)
                     {
                         transform.y = photoBoxBounds.y - ctx.playerHeight;
@@ -302,6 +311,7 @@ void ResolveVerticalMotion(
                 playerBounds.scale = transform.scale;
                 const float photoBoxHeight = photoBoxBounds.height * photoBoxBounds.scale;
                 if (IntersectsRect(playerBounds, photoBoxBounds) &&
+                    intersectsSolidObject(playerBounds) &&
                     ctx.previousY >= photoBoxBounds.y + photoBoxHeight - kSurfaceContactEpsilon)
                 {
                     transform.y = photoBoxBounds.y + photoBoxHeight;
