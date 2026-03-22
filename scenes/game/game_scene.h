@@ -85,6 +85,7 @@ private:
     bool IsGoalTile(int column, int row) const;
     bool IsStandingOnGround(const TransformComponent& transform) const;
     bool TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const;
+    bool IntersectsSolidPhotoBox(const TransformComponent& transform) const;
     bool IntersectsHazardTile(const TransformComponent& transform) const;
     bool IntersectsGoalTile(const TransformComponent& transform) const;
     bool IntersectsEntity(const Entity& a, const Entity& b) const;
