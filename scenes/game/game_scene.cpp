@@ -177,6 +177,7 @@ void GameScene::Update(float deltaTime)
     UpdatePlayer(gameplayDeltaTime);
     HandlePhotoCapture();
     HandlePhotoSpawn();
+    UpdateBarrels(gameplayDeltaTime);
     UpdateEnemies();
     UpdateBullets();
     UpdateGoalVisual(gameplayDeltaTime);

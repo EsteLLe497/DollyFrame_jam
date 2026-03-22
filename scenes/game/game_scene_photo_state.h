@@ -5,6 +5,12 @@
 
 #include "components.h"
 
+enum class CapturedSpawnArchetype
+{
+    None,
+    Barrel,
+};
+
 struct CapturedPhotoItem
 {
     int textureId = -1;
@@ -27,6 +33,7 @@ struct CapturedPhotoItem
     int sourceTileValue = 0;
     float rotation = 0.0f;
     bool flipX = false;
+    CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
 };
 
 struct PhotoCaptureState

@@ -354,6 +354,34 @@
         "oneShot": false
       }
     },
+    "sandbox_barrel": {
+      "tag": "Barrel",
+      "texture": "white",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 48.0,
+        "height": 48.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.58,
+        "g": 0.36,
+        "b": 0.18,
+        "a": 1.0
+      },
+      "barrel": {
+        "enabled": true,
+        "gravity": 1900.0,
+        "maxFallSpeed": 980.0,
+        "rollSpeed": 220.0,
+        "groundFriction": 720.0,
+        "contactDamage": 1,
+        "breakMinFallDistance": 99999.0,
+        "breakMinImpactSpeed": 99999.0
+      }
+    },
     "sandbox_enemy_wide": {
       "tag": "Enemy",
       "texture": "enemy",

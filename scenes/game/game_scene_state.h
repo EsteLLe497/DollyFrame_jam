@@ -26,6 +26,7 @@ struct GameSceneFlowState
     float captureSlowRemaining = 0.0f;
     float placementSlowRemaining = 0.0f;
     bool goalUnlocked = false;
+    bool goalUnlockedBySwitch = false;
     bool cameraMode = false;
     int enemyCount = 0;
     float shutterFlashRemaining = 0.0f;

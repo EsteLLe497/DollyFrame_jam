@@ -47,6 +47,13 @@ inline float gPrintedPhotoMinWidth = 120.0f;
 inline float gPrintedPhotoMinHeight = 144.0f;
 inline float gPrintedPhotoMatteInset = 3.0f;
 inline float gPickupTimeBonus = 8.0f;
+inline float gBarrelGravity = 1900.0f;
+inline float gBarrelMaxFallSpeed = 980.0f;
+inline float gBarrelRollSpeed = 220.0f;
+inline float gBarrelGroundFriction = 720.0f;
+inline int gBarrelContactDamage = 1;
+inline float gBarrelBreakMinFallDistance = 99999.0f;
+inline float gBarrelBreakMinImpactSpeed = 99999.0f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
 constexpr float kHorizontalCollisionEpsilon = 1.0f;
 
