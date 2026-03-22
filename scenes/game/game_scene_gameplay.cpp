@@ -1,4 +1,4 @@
-#include "game_scene_internal.h"
+﻿#include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
 #include "game_scene_player_system.h"
 #include "game_scene_player_movement_system.h"
@@ -150,9 +150,19 @@ void GameScene::UpdatePlayer(float deltaTime)
     if (m_flow.cameraMode)
     {
         const int wheelDelta = GetMouseWheelRotVol();
-        if (wheelDelta != 0)
+        const bool dpadUpDown = Input_IsDpadUpDown();
+        const bool dpadDownDown = Input_IsDpadDownDown();
+        if (wheelDelta != 0 || dpadUpDown || dpadDownDown)
         {
-            const float scaleStep = wheelDelta > 0 ? kCaptureFinderScaleStep : -kCaptureFinderScaleStep;
+            float scaleStep = 0.0f;
+            if (wheelDelta > 0 || dpadUpDown)
+            {
+                scaleStep += kCaptureFinderScaleStep;
+            }
+            if (wheelDelta < 0 || dpadDownDown)
+            {
+                scaleStep -= kCaptureFinderScaleStep;
+            }
             m_flow.captureFinderScale = std::clamp(
                 m_flow.captureFinderScale + scaleStep,
                 kCaptureFinderScaleMin,
@@ -1121,3 +1131,4 @@ void GameScene::QueueResult(GameEndReason reason)
     GameSession_SetEndReason(reason);
     m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "result", 0.0f, 0.0f });
 }
+
