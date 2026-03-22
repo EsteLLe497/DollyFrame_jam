@@ -919,11 +919,18 @@ private:
         // ���z�J�[�\���̃X�N���[�����W��쐬���ăg���C����Ɏg��
         const float cursorScreenX = viewOriginX + (cursorWorldX - scene.m_flow.cameraX) * viewScale;
         const float cursorScreenY = viewOriginY + cursorWorldY * viewScale;
+        const bool confirmPressed = Input_IsActionPressed(InputAction::ConfirmPlacement);
+        const bool blockedByTray = scene.IsPhotoTrayHit(cursorScreenX, cursorScreenY);
+
+        if (confirmPressed && (!scene.m_photo.placement.valid || blockedByTray))
+        {
+            scene.m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "cant_paste", 0.0f, 0.0f });
+        }
 
         return
             scene.m_photo.placement.valid &&
-            !scene.IsPhotoTrayHit(cursorScreenX, cursorScreenY) &&
-            Input_IsActionPressed(InputAction::ConfirmPlacement);
+            !blockedByTray &&
+            confirmPressed;
     }
 
     static void SpawnPhotoGroup(GameScene& scene, Entity& player, float spawnX, float spawnY, float spawnWidth)

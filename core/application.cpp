@@ -130,6 +130,7 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
 
     Audio_LoadCueFromFile("shutter", "assets/effects/Sound/shutter.wav");
     Audio_LoadCueFromFile("barrel", "assets/effects/Sound/barrel.wav");
+    Audio_LoadCueFromFile("cant_paste", "assets/effects/Sound/cantPaste.wav");
 
     m_sceneRegistry->Register("title", []()
         {
