@@ -272,12 +272,8 @@ void GameScene::UpdatePlayer(float deltaTime)
 
     std::vector<TransformComponent> photoBoxes;
     GetPhotoBoxBounds(photoBoxes);
-    const bool hasPhotoBox = !photoBoxes.empty();
-    float photoSourceX = 0.0f;
-    float photoSourceY = 0.0f;
-    float photoSourceWidth = 0.0f;
-    float photoSourceHeight = 0.0f;
-    const bool hasPhotoSource = GetEntityBoundsByTag("PhotoSource", photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight);
+    std::vector<TransformComponent> photoSources;
+    GetEntityBoundsByTag("PhotoSource", photoSources);
     game_scene_player_movement_system::ResolveHorizontalObjectCollisions(
         *transform,
         m_player,
@@ -287,11 +283,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         {
             return IntersectsSolidPhotoBox(candidate);
         },
-        hasPhotoSource,
-        photoSourceX,
-        photoSourceY,
-        photoSourceWidth,
-        photoSourceHeight);
+        photoSources);
 
     if (m_player.velocityY >= 0.0f && wasGrounded)
     {
@@ -307,11 +299,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         wasGrounded,
         movementContext,
         photoBoxes,
-        hasPhotoSource,
-        photoSourceX,
-        photoSourceY,
-        photoSourceWidth,
-        photoSourceHeight,
+        photoSources,
         [this](int column, int row)
         {
             return IsSolidTile(column, row);

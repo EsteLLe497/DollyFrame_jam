@@ -137,11 +137,7 @@ inline void ResolveHorizontalObjectCollisions(
     const PlayerMovementContext& ctx,
     const std::vector<TransformComponent>& photoBoxes,
     IntersectsSolidObjectFn&& intersectsSolidObject,
-    bool hasPhotoSource,
-    float photoSourceX,
-    float photoSourceY,
-    float photoSourceWidth,
-    float photoSourceHeight)
+    const std::vector<TransformComponent>& photoSources)
 {
     if (!photoBoxes.empty())
     {
@@ -171,28 +167,29 @@ inline void ResolveHorizontalObjectCollisions(
         }
     }
 
-    if (!hasPhotoSource)
+    for (const auto& photoSourceBounds : photoSources)
     {
-        return;
-    }
+        TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
+        playerBounds.scale = transform.scale;
+        if (!IntersectsRect(playerBounds, photoSourceBounds))
+        {
+            continue;
+        }
 
-    TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
-    playerBounds.scale = transform.scale;
-    TransformComponent photoSourceBounds(photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight);
-    if (!IntersectsRect(playerBounds, photoSourceBounds))
-    {
-        return;
-    }
-
-    if (player.velocityX > 0.0f && ctx.previousX + ctx.playerWidth <= photoSourceX + kHorizontalCollisionEpsilon)
-    {
-        transform.x = photoSourceX - ctx.playerWidth;
-        player.velocityX = 0.0f;
-    }
-    else if (player.velocityX < 0.0f && ctx.previousX >= photoSourceX + photoSourceWidth - kHorizontalCollisionEpsilon)
-    {
-        transform.x = photoSourceX + photoSourceWidth;
-        player.velocityX = 0.0f;
+        const float sourceX = photoSourceBounds.x;
+        const float sourceWidth = photoSourceBounds.width * photoSourceBounds.scale;
+        if (player.velocityX > 0.0f && ctx.previousX + ctx.playerWidth <= sourceX + kHorizontalCollisionEpsilon)
+        {
+            transform.x = sourceX - ctx.playerWidth;
+            player.velocityX = 0.0f;
+            break;
+        }
+        if (player.velocityX < 0.0f && ctx.previousX >= sourceX + sourceWidth - kHorizontalCollisionEpsilon)
+        {
+            transform.x = sourceX + sourceWidth;
+            player.velocityX = 0.0f;
+            break;
+        }
     }
 }
 
@@ -203,11 +200,7 @@ void ResolveVerticalMotion(
     bool wasGrounded,
     const PlayerMovementContext& ctx,
     const std::vector<TransformComponent>& photoBoxes,
-    bool hasPhotoSource,
-    float photoSourceX,
-    float photoSourceY,
-    float photoSourceWidth,
-    float photoSourceHeight,
+    const std::vector<TransformComponent>& photoSources,
     IsSolidTileFn&& isSolidTile,
     IsPlatformTileFn&& isPlatformTile,
     IsCeilingTileFn&& isCeilingTile,
@@ -252,16 +245,38 @@ void ResolveVerticalMotion(
                 }
             }
 
-            if (!player.grounded && hasPhotoSource)
+            if (!player.grounded)
             {
-                TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
-                playerBounds.scale = transform.scale;
-                TransformComponent photoSourceBounds(photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight);
-                if (IntersectsRect(playerBounds, photoSourceBounds) && ctx.previousBottom <= photoSourceY + kSurfaceContactEpsilon)
+                for (const auto& photoBoxBounds : photoBoxes)
                 {
-                    transform.y = photoSourceY - ctx.playerHeight;
-                    player.velocityY = 0.0f;
-                    player.grounded = true;
+                    TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
+                    playerBounds.scale = transform.scale;
+                    if (IntersectsRect(playerBounds, photoBoxBounds) &&
+                        intersectsSolidObject(playerBounds) &&
+                        ctx.previousBottom <= photoBoxBounds.y + kSurfaceContactEpsilon)
+                    {
+                        transform.y = photoBoxBounds.y - ctx.playerHeight;
+                        player.velocityY = 0.0f;
+                        player.grounded = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!player.grounded)
+            {
+                for (const auto& photoSourceBounds : photoSources)
+                {
+                    TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
+                    playerBounds.scale = transform.scale;
+                    const float sourceY = photoSourceBounds.y;
+                    if (IntersectsRect(playerBounds, photoSourceBounds) && ctx.previousBottom <= sourceY + kSurfaceContactEpsilon)
+                    {
+                        transform.y = sourceY - ctx.playerHeight;
+                        player.velocityY = 0.0f;
+                        player.grounded = true;
+                        break;
+                    }
                 }
             }
         }
@@ -305,15 +320,17 @@ void ResolveVerticalMotion(
                 }
             }
 
-            if (hasPhotoSource)
+            for (const auto& photoSourceBounds : photoSources)
             {
                 TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
                 playerBounds.scale = transform.scale;
-                TransformComponent photoSourceBounds(photoSourceX, photoSourceY, photoSourceWidth, photoSourceHeight);
-                if (IntersectsRect(playerBounds, photoSourceBounds) && ctx.previousY >= photoSourceY + photoSourceHeight - kSurfaceContactEpsilon)
+                const float sourceY = photoSourceBounds.y;
+                const float sourceHeight = photoSourceBounds.height * photoSourceBounds.scale;
+                if (IntersectsRect(playerBounds, photoSourceBounds) && ctx.previousY >= sourceY + sourceHeight - kSurfaceContactEpsilon)
                 {
-                    transform.y = photoSourceY + photoSourceHeight;
+                    transform.y = sourceY + sourceHeight;
                     player.velocityY = 0.0f;
+                    break;
                 }
             }
         }
