@@ -13,6 +13,22 @@ struct PlayerAfterimage
     float life = 0.0f;
 };
 
+struct BarrelDebrisParticle
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    float size = 0.0f;
+    float rotation = 0.0f;
+    float rotationSpeed = 0.0f;
+    float life = 0.0f;
+    float maxLife = 0.0f;
+    float r = 1.0f;
+    float g = 1.0f;
+    float b = 1.0f;
+};
+
 struct GameSceneFlowState
 {
     bool playerTouchingTarget = false;
@@ -35,6 +51,8 @@ struct GameSceneFlowState
     float captureFinderScale = 1.0f;
     float lastDeltaTime = 0.0f;
     int cameraModeSessionId = 0;
+    bool pitRestartActive = false;
+    float pitRestartTimer = 0.0f;
 };
 
 struct GameScenePlayerState
@@ -66,4 +84,9 @@ struct GameSceneDebugState
     float tuningReloadTimer = 0.0f;
     std::filesystem::file_time_type tuningFileWriteTime{};
     bool hasTuningFileWriteTime = false;
+};
+
+struct GameSceneEffectsState
+{
+    std::vector<BarrelDebrisParticle> barrelDebris;
 };

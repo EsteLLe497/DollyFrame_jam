@@ -536,6 +536,22 @@ public:
                 drawWidth,
                 drawHeight,
                 scene.m_photo.placement.valid ? 0.55f : 0.42f);
+
+            if (item.spawnArchetype == CapturedSpawnArchetype::Barrel)
+            {
+                Shader_ResetStyle();
+                if (scene.m_photo.placement.valid)
+                {
+                    Shader_SetOutline(0.34f, 1.0f, 0.48f, 1.0f, 1.8f);
+                    Shader_SetTint(0.10f, 0.30f, 0.14f, 0.12f);
+                }
+                else
+                {
+                    Shader_SetOutline(1.0f, 0.24f, 0.24f, 1.0f, 1.8f);
+                    Shader_SetTint(0.30f, 0.10f, 0.10f, 0.12f);
+                }
+                SpriteDraw(scene.m_whiteTexture, drawX, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+            }
         }
 
         DrawFormatString(
@@ -979,6 +995,13 @@ private:
                     if (auto* transform = spawnedBarrel->GetComponent<TransformComponent>())
                     {
                         transform->rotation = item.rotation;
+                    }
+                    if (auto* barrel = spawnedBarrel->GetComponent<BarrelComponent>())
+                    {
+                        barrel->spawnX = spawnX + item.relativeX;
+                        barrel->spawnY = spawnY + item.relativeY;
+                        barrel->respawnEnabled = false;
+                        barrel->active = true;
                     }
                     scene.m_entities.push_back(std::move(barrelEntity));
                     continue;

@@ -158,6 +158,11 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
         g = 0.86f;
         b = 0.66f;
         break;
+    case TileMap::kPitTileValue:
+        r = 0.08f;
+        g = 0.09f;
+        b = 0.13f;
+        break;
     default:
         r = 0.70f;
         g = 0.74f;
@@ -169,6 +174,10 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
 inline PhotoCopyRole GetTileCopyRole(int tileValue)
 {
     if (tileValue == 4)
+    {
+        return PhotoCopyRole::Hazard;
+    }
+    if (tileValue == TileMap::kPitTileValue)
     {
         return PhotoCopyRole::Hazard;
     }

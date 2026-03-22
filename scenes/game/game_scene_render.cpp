@@ -165,6 +165,34 @@ void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
     }
 }
 
+void GameScene::DrawEffects() const
+{
+    const float viewScale = GetViewScale();
+    const float viewOriginX = GetViewOriginX();
+    const float viewOriginY = GetViewOriginY();
+
+    for (const auto& particle : m_effects.barrelDebris)
+    {
+        const float lifeT = Clamp01(particle.life / std::max(0.001f, particle.maxLife));
+        Shader_ResetStyle();
+        Shader_SetTint(particle.r, particle.g, particle.b, lifeT * 0.85f);
+        SpriteDraw(
+            m_whiteTexture,
+            viewOriginX + (particle.x - m_flow.cameraX) * viewScale,
+            viewOriginY + particle.y * viewScale,
+            particle.size * viewScale,
+            particle.size * viewScale,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f,
+            false,
+            particle.rotation);
+    }
+
+    Shader_ResetStyle();
+}
+
 void GameScene::DrawEntity(const Entity& entity) const
 {
     const auto* transform = entity.GetComponent<TransformComponent>();

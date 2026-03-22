@@ -38,15 +38,46 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker)
         return true;
     }
 
-    int parsedValue = 0;
-    const auto parseResult = std::from_chars(
-        cell.data(),
-        cell.data() + cell.size(),
-        parsedValue);
-    if (parseResult.ec == std::errc() && parseResult.ptr == cell.data() + cell.size())
+    const auto tryParseTileValue = [&](const std::string& token, int& outValue) -> bool
     {
-        outTileValue = parsedValue;
+        int parsedValue = 0;
+        const auto parseResult = std::from_chars(
+            token.data(),
+            token.data() + token.size(),
+            parsedValue);
+        if (parseResult.ec == std::errc() && parseResult.ptr == token.data() + token.size())
+        {
+            outValue = parsedValue;
+            return true;
+        }
+
+        if (token.size() == 1)
+        {
+            switch (static_cast<char>(std::toupper(static_cast<unsigned char>(token[0]))))
+            {
+            case 'N':
+                outValue = TileMap::kPitTileValue;
+                return true;
+            default:
+                break;
+            }
+        }
+
+        return false;
+    };
+
+    if (tryParseTileValue(cell, outTileValue))
+    {
         return true;
+    }
+
+    if (cell.size() > 5 && cell.rfind("tile=", 0) == 0)
+    {
+        const std::string tileToken = Trim(cell.substr(5));
+        if (tryParseTileValue(tileToken, outTileValue))
+        {
+            return true;
+        }
     }
 
     if (cell.size() == 1)
@@ -355,6 +386,11 @@ void TileMap::GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
         r = 0.34f;
         g = 0.86f;
         b = 0.66f;
+        break;
+    case TileMap::kPitTileValue:
+        r = 0.03f;
+        g = 0.04f;
+        b = 0.08f;
         break;
     default:
         r = 0.70f;
