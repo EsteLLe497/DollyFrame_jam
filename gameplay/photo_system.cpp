@@ -1,4 +1,4 @@
-#include "photo_system.h"
+ï»¿#include "photo_system.h"
 
 #include <cfloat>
 
@@ -37,6 +37,66 @@ namespace
         const float cosTheta = std::fabs(std::cos(rotation));
         const float sinTheta = std::fabs(std::sin(rotation));
         return width * sinTheta + height * cosTheta;
+    }
+
+    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
+    {
+        if (std::fabs(rotation) <= 0.0001f)
+        {
+            return;
+        }
+
+        const float localX = x - centerX;
+        const float localY = y - centerY;
+        const float cosTheta = std::cos(rotation);
+        const float sinTheta = std::sin(rotation);
+        x = centerX + (localX * cosTheta - localY * sinTheta);
+        y = centerY + (localX * sinTheta + localY * cosTheta);
+    }
+
+    void DrawTriangleItem(
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        bool risesRight,
+        bool flipX,
+        float rotation,
+        int color)
+    {
+        const bool finalRisesRight = flipX ? !risesRight : risesRight;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
+        float cx = 0.0f;
+        float cy = 0.0f;
+
+        if (finalRisesRight)
+        {
+            ax = drawX;
+            ay = drawY + drawHeight;
+            bx = drawX + drawWidth;
+            by = drawY + drawHeight;
+            cx = drawX + drawWidth;
+            cy = drawY;
+        }
+        else
+        {
+            ax = drawX;
+            ay = drawY;
+            bx = drawX;
+            by = drawY + drawHeight;
+            cx = drawX + drawWidth;
+            cy = drawY + drawHeight;
+        }
+
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        RotatePoint(centerX, centerY, rotation, ax, ay);
+        RotatePoint(centerX, centerY, rotation, bx, by);
+        RotatePoint(centerX, centerY, rotation, cx, cy);
+        DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
     }
 
     void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width, float& height, float rotation)
@@ -97,20 +157,22 @@ namespace
     {
         Shader_ResetStyle();
         Shader_SetTint(item.tintR, item.tintG, item.tintB, alpha);
-        if (item.sourceTileValue == 6 || item.sourceTileValue == 7)
+        const TileTriangleShape triangle = TileMap::GetTriangleShape(item.sourceTileValue);
+        if (triangle.isTriangle)
         {
             const int color = GetColor(
                 static_cast<int>(std::round(item.tintR * 255.0f)),
                 static_cast<int>(std::round(item.tintG * 255.0f)),
                 static_cast<int>(std::round(item.tintB * 255.0f)));
-            if (item.sourceTileValue == 6)
-            {
-                DrawTriangleAA(drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, drawX + drawWidth, drawY, color, TRUE);
-            }
-            else
-            {
-                DrawTriangleAA(drawX, drawY, drawX, drawY + drawHeight, drawX + drawWidth, drawY + drawHeight, color, TRUE);
-            }
+            DrawTriangleItem(
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                triangle.risesRight,
+                item.flipX,
+                item.rotation,
+                color);
             return;
         }
 
@@ -543,7 +605,7 @@ private:
                     item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
                 }
 
-                // ‚±‚±‚Å•â³Frole ‚ª Solid ‚Ìê‡‚Í•K‚¸ Foreground ‚É‚·‚é
+                // ï¿½ï¿½ï¿½ï¿½ï¿½Å•â³ï¿½Frole ï¿½ï¿½ Solid ï¿½Ìê‡ï¿½Í•Kï¿½ï¿½ Foreground ï¿½É‚ï¿½ï¿½ï¿½
                 if (item.role == PhotoCopyRole::Solid)
                 {
                     item.layer = PhotoCopyLayer::Foreground;
@@ -574,7 +636,7 @@ private:
                         continue;
                     }
 
-                    // •ÏX“_: CSV ‚Å 1 ‚Æ‚µ‚Ä‚¢‚éu’n–Êvƒ^ƒCƒ‹‚ÍB‰e‚µ‚È‚¢
+                    // ï¿½ÏXï¿½_: CSV ï¿½ï¿½ 1 ï¿½Æ‚ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½uï¿½nï¿½Êvï¿½^ï¿½Cï¿½ï¿½ï¿½ÍBï¿½eï¿½ï¿½ï¿½È‚ï¿½
                     if (tileValue == 1)
                     {
                         continue;
@@ -582,10 +644,17 @@ private:
 
                     const float tileX = static_cast<float>(column) * tileSize;
                     const float tileY = static_cast<float>(row) * tileSize;
+                    const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue);
+                    const float boundsWidth = triangle.isTriangle
+                        ? static_cast<float>(triangle.widthTiles) * tileSize
+                        : tileSize;
+                    const float boundsHeight = triangle.isTriangle
+                        ? static_cast<float>(triangle.heightTiles) * tileSize
+                        : tileSize;
                     const float overlapLeft = (std::max)(frameX, tileX);
                     const float overlapTop = (std::max)(frameY, tileY);
-                    const float overlapRight = (std::min)(frameX + frameWidth, tileX + tileSize);
-                    const float overlapBottom = (std::min)(frameY + frameHeight, tileY + tileSize);
+                    const float overlapRight = (std::min)(frameX + frameWidth, tileX + boundsWidth);
+                    const float overlapBottom = (std::min)(frameY + frameHeight, tileY + boundsHeight);
                     const float overlapWidth = (std::max)(0.0f, overlapRight - overlapLeft);
                     const float overlapHeight = (std::max)(0.0f, overlapBottom - overlapTop);
                     if (overlapWidth <= 1.0f || overlapHeight <= 1.0f)
@@ -654,18 +723,18 @@ private:
         const float viewOriginX = GetViewOriginX();
         const float viewOriginY = GetViewOriginY();
 
-        // ƒ}ƒEƒXiƒXƒNƒŠ[ƒ“j‚ğƒ[ƒ‹ƒhÀ•W‚Ö•ÏŠ·iƒJƒƒ‰X‚ğ‰Á‚¦‚éj
+        // ï¿½}ï¿½Eï¿½Xï¿½iï¿½Xï¿½Nï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½jï¿½ï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Wï¿½Ö•ÏŠï¿½ï¿½iï¿½Jï¿½ï¿½ï¿½ï¿½Xï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½j
         const float mouseWorldX = ((static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
         const float mouseWorldY = ((static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale);
 
-        // ‰EƒXƒeƒBƒbƒN—p‚Ì‰¼‘zƒJ[ƒ\ƒ‹iƒ[ƒ‹ƒhÀ•Wj
+        // ï¿½Eï¿½Xï¿½eï¿½Bï¿½bï¿½Nï¿½pï¿½Ì‰ï¿½ï¿½zï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½iï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Wï¿½j
         static float padCursorWorldX = mouseWorldX;
         static float padCursorWorldY = mouseWorldY;
         static int lastMouseX = Input_GetMouseX();
         static int lastMouseY = Input_GetMouseY();
         static unsigned int lastTimeMs = 0;
 
-        // ƒ}ƒEƒX‚ª“®‚¢‚½‚ç‰¼‘zƒJ[ƒ\ƒ‹‚ğ“¯Šú
+        // ï¿½}ï¿½Eï¿½Xï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ç‰¼ï¿½zï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½ğ“¯Šï¿½
         const int curMouseX = Input_GetMouseX();
         const int curMouseY = Input_GetMouseY();
         if (curMouseX != lastMouseX || curMouseY != lastMouseY)
@@ -676,19 +745,19 @@ private:
         lastMouseX = curMouseX;
         lastMouseY = curMouseY;
 
-        // Œo‰ßŠÔ
+        // ï¿½oï¿½ßï¿½ï¿½ï¿½
         const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
         const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
         lastTimeMs = nowMs;
 
-        // ‰EƒXƒeƒBƒbƒN“ü—Í
+        // ï¿½Eï¿½Xï¿½eï¿½Bï¿½bï¿½Nï¿½ï¿½ï¿½ï¿½
         const float rightX = Input_GetRightStickX();
         const float rightY = Input_GetRightStickY();
 
-        // ƒpƒbƒhˆÚ“®E–ß‚è‚Ì‹““®i—v’²®‰Â”\j
+        // ï¿½pï¿½bï¿½hï¿½Ú“ï¿½ï¿½Eï¿½ß‚ï¿½Ì‹ï¿½ï¿½ï¿½ï¿½iï¿½vï¿½ï¿½ï¿½ï¿½ï¿½Â”\ï¿½j
         constexpr float kPadDead = 0.08f;
-        constexpr float kPadCursorSpeed = 800.0f; // ƒ[ƒ‹ƒh’PˆÊ / •b
-        constexpr float kPadReturnLerpSpeed = 8.0f; // ƒXƒeƒBƒbƒN—£’EŒã‚Ì–ß‚è‘¬‚³
+        constexpr float kPadCursorSpeed = 800.0f; // ï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½Pï¿½ï¿½ / ï¿½b
+        constexpr float kPadReturnLerpSpeed = 8.0f; // ï¿½Xï¿½eï¿½Bï¿½bï¿½Nï¿½ï¿½ï¿½Eï¿½ï¿½Ì–ß‚è‘¬ï¿½ï¿½
 
         const bool padActive = Input_IsGamepadConnected() && (std::fabs(rightX) > kPadDead || std::fabs(rightY) > kPadDead);
         if (padActive)
@@ -698,23 +767,23 @@ private:
         }
         else
         {
-            // ŠŠ‚ç‚©‚Éƒ}ƒEƒXˆÊ’u‚Ö•âŠÔ‚µ‚Ä–ß‚·
+            // ï¿½ï¿½ï¿½ç‚©ï¿½Éƒ}ï¿½Eï¿½Xï¿½Ê’uï¿½Ö•ï¿½Ô‚ï¿½ï¿½Ä–ß‚ï¿½
             const float lerpFactor = std::min(1.0f, dt * kPadReturnLerpSpeed);
             padCursorWorldX += (mouseWorldX - padCursorWorldX) * lerpFactor;
             padCursorWorldY += (mouseWorldY - padCursorWorldY) * lerpFactor;
         }
 
-        // ‰¡‚Í§ŒÀ‚¹‚¸Ac‚Ì‚İƒ}ƒbƒv“à‚ÉƒNƒ‰ƒ“ƒv
+        // ï¿½ï¿½ï¿½Íï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Aï¿½cï¿½Ì‚İƒ}ï¿½bï¿½vï¿½ï¿½ÉƒNï¿½ï¿½ï¿½ï¿½ï¿½v
         const float mapWidth = scene.GetMapPixelWidth();
         const float mapHeight = scene.GetMapPixelHeight();
-        (void)mapWidth; // ‰¡§ŒÀ‚ğs‚í‚È‚¢‚Ì‚Å–¢g—piŒx—}§j
+        (void)mapWidth; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½sï¿½ï¿½È‚ï¿½ï¿½Ì‚Å–ï¿½ï¿½gï¿½pï¿½iï¿½xï¿½ï¿½ï¿½}ï¿½ï¿½ï¿½j
         padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
 
-        // ÅI“I‚ÈƒJ[ƒ\ƒ‹iƒ[ƒ‹ƒhÀ•Wj
+        // ï¿½ÅIï¿½Iï¿½ÈƒJï¿½[ï¿½\ï¿½ï¿½ï¿½iï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Wï¿½j
         const float cursorWorldX = padCursorWorldX;
         const float cursorWorldY = padCursorWorldY;
 
-        // ‰¡§ŒÀ‚ğŠO‚µ‚ÄƒvƒŒƒrƒ…[•\¦i”z’uŠm’è‚Í IsPhotoPlacementValid ‚É‚æ‚é”»’èj
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½Äƒvï¿½ï¿½ï¿½rï¿½ï¿½ï¿½[ï¿½\ï¿½ï¿½ï¿½iï¿½zï¿½uï¿½mï¿½ï¿½ï¿½ IsPhotoPlacementValid ï¿½É‚ï¿½é”»ï¿½ï¿½j
         spawnX = cursorWorldX - spawnWidth * 0.5f;
         spawnY = std::clamp(cursorWorldY - spawnHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - spawnHeight));
 
@@ -725,7 +794,7 @@ private:
         scene.m_photo.placement.height = spawnHeight;
         scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
 
-        // ‰¼‘zƒJ[ƒ\ƒ‹‚ÌƒXƒNƒŠ[ƒ“À•W‚ğì¬‚µ‚ÄƒgƒŒƒC”»’è‚Ég‚¤
+        // ï¿½ï¿½ï¿½zï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½ÌƒXï¿½Nï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Wï¿½ï¿½ì¬ï¿½ï¿½ï¿½Äƒgï¿½ï¿½ï¿½Cï¿½ï¿½ï¿½ï¿½Égï¿½ï¿½
         const float cursorScreenX = viewOriginX + (cursorWorldX - scene.m_flow.cameraX) * viewScale;
         const float cursorScreenY = viewOriginY + cursorWorldY * viewScale;
 

@@ -81,9 +81,25 @@ namespace
         }
     }
 
-    bool DrawSlopeTriangle(float x, float y, float width, float height, int tileValue, const TintComponent* tint)
+    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
     {
-        if (!tint || (tileValue != 6 && tileValue != 7))
+        if (std::fabs(rotation) <= 0.0001f)
+        {
+            return;
+        }
+
+        const float localX = x - centerX;
+        const float localY = y - centerY;
+        const float cosTheta = std::cos(rotation);
+        const float sinTheta = std::sin(rotation);
+        x = centerX + (localX * cosTheta - localY * sinTheta);
+        y = centerY + (localX * sinTheta + localY * cosTheta);
+    }
+
+    bool DrawSlopeTriangle(float x, float y, float width, float height, int tileValue, const TintComponent* tint, bool flipX, float rotation)
+    {
+        const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue);
+        if (!tint || !triangle.isTriangle)
         {
             return false;
         }
@@ -92,14 +108,38 @@ namespace
             static_cast<int>(std::round(tint->r * 255.0f)),
             static_cast<int>(std::round(tint->g * 255.0f)),
             static_cast<int>(std::round(tint->b * 255.0f)));
-        if (tileValue == 6)
+        const bool risesRight = flipX ? !triangle.risesRight : triangle.risesRight;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
+        float cx = 0.0f;
+        float cy = 0.0f;
+        if (risesRight)
         {
-            DrawTriangleAA(x, y + height, x + width, y + height, x + width, y, color, TRUE);
+            ax = x;
+            ay = y + height;
+            bx = x + width;
+            by = y + height;
+            cx = x + width;
+            cy = y;
         }
         else
         {
-            DrawTriangleAA(x, y, x, y + height, x + width, y + height, color, TRUE);
+            ax = x;
+            ay = y;
+            bx = x;
+            by = y + height;
+            cx = x + width;
+            cy = y + height;
         }
+
+        const float centerX = x + width * 0.5f;
+        const float centerY = y + height * 0.5f;
+        RotatePoint(centerX, centerY, rotation, ax, ay);
+        RotatePoint(centerX, centerY, rotation, bx, by);
+        RotatePoint(centerX, centerY, rotation, cx, cy);
+        DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
         return true;
     }
 
@@ -361,7 +401,9 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawWidth,
             drawHeight,
             entity.GetComponent<PhotoCopyTileValueComponent>() ? entity.GetComponent<PhotoCopyTileValueComponent>()->tileValue : 0,
-            entity.GetComponent<TintComponent>()))
+            entity.GetComponent<TintComponent>(),
+            sprite->GetFlipX(),
+            transform->rotation))
     {
         SpriteDraw(
             sprite->GetTextureId(),

@@ -4,6 +4,8 @@ using namespace game_scene_detail;
 
 namespace
 {
+    constexpr int kMaxTriangleSpanTiles = 5;
+
     bool UsesSolidCollision(const Entity& entity)
     {
         if (const auto* layer = entity.GetComponent<PhotoCopyLayerComponent>())
@@ -15,29 +17,113 @@ namespace
 
     bool IsSlopeTileValue(int tile)
     {
-        return tile == 6 || tile == 7;
+        return TileMap::GetTriangleShape(tile).isTriangle;
     }
 
-    bool TryGetSlopeSurfaceY(const TileMap& tileMap, int column, int row, float worldX, float& outSurfaceY)
+    bool DoesTriangleOccupyCell(
+        int originColumn,
+        int originRow,
+        const TileTriangleShape& triangle,
+        float tileSize,
+        int column,
+        int row)
     {
-        const int tile = tileMap.GetTile(column, row);
-        if (!IsSlopeTileValue(tile))
+        if (!triangle.isTriangle ||
+            column < originColumn ||
+            row < originRow ||
+            column >= originColumn + triangle.widthTiles ||
+            row >= originRow + triangle.heightTiles)
         {
             return false;
         }
 
-        const float tileSize = tileMap.GetTileSize();
-        const float tileLeft = static_cast<float>(column) * tileSize;
-        const float tileTop = static_cast<float>(row) * tileSize;
-        const float localX = std::clamp(worldX - tileLeft, 0.0f, tileSize);
-        const float normalizedX = localX / tileSize;
-        if (tile == 6)
+        const float localLeft = static_cast<float>(column - originColumn) * tileSize;
+        const float localRight = localLeft + tileSize;
+        const float localBottom = static_cast<float>(row - originRow + 1) * tileSize;
+        const float width = static_cast<float>(triangle.widthTiles) * tileSize;
+        const float height = static_cast<float>(triangle.heightTiles) * tileSize;
+        const float minSurfaceY = triangle.risesRight
+            ? height - (localRight / width) * height
+            : (localLeft / width) * height;
+        return localBottom > minSurfaceY;
+    }
+
+    bool TryComputeSlopeSurfaceY(float left, float top, float width, float height, bool risesRight, float worldX, float& outSurfaceY)
+    {
+        if (width <= 0.0f || height <= 0.0f || worldX < left || worldX > left + width)
         {
-            outSurfaceY = tileTop + tileSize - normalizedX * tileSize;
-            return true;
+            return false;
         }
 
-        outSurfaceY = tileTop + normalizedX * tileSize;
+        const float localX = std::clamp(worldX - left, 0.0f, width);
+        const float normalizedX = width > 0.0f ? localX / width : 0.0f;
+        outSurfaceY = risesRight
+            ? top + height - normalizedX * height
+            : top + normalizedX * height;
+        return true;
+    }
+
+    bool TryGetSlopeSurfaceY(
+        const TileMap& tileMap,
+        int column,
+        int row,
+        float worldX,
+        float& outSurfaceY,
+        TileTriangleShape* outTriangle = nullptr)
+    {
+        const float tileSize = tileMap.GetTileSize();
+        bool foundSurface = false;
+        float bestSurfaceY = 0.0f;
+        TileTriangleShape bestTriangle{};
+        const int originColumnStart = (std::max)(0, column - (kMaxTriangleSpanTiles - 1));
+        const int originRowStart = (std::max)(0, row - (kMaxTriangleSpanTiles - 1));
+        for (int originRow = originRowStart; originRow <= row; ++originRow)
+        {
+            for (int originColumn = originColumnStart; originColumn <= column; ++originColumn)
+            {
+                const TileTriangleShape triangle = TileMap::GetTriangleShape(tileMap.GetTile(originColumn, originRow));
+                if (!triangle.isTriangle)
+                {
+                    continue;
+                }
+
+                if (!DoesTriangleOccupyCell(originColumn, originRow, triangle, tileSize, column, row))
+                {
+                    continue;
+                }
+
+                float surfaceY = 0.0f;
+                if (!TryComputeSlopeSurfaceY(
+                        static_cast<float>(originColumn) * tileSize,
+                        static_cast<float>(originRow) * tileSize,
+                        static_cast<float>(triangle.widthTiles) * tileSize,
+                        static_cast<float>(triangle.heightTiles) * tileSize,
+                        triangle.risesRight,
+                        worldX,
+                        surfaceY))
+                {
+                    continue;
+                }
+
+                if (!foundSurface || surfaceY < bestSurfaceY)
+                {
+                    bestSurfaceY = surfaceY;
+                    bestTriangle = triangle;
+                    foundSurface = true;
+                }
+            }
+        }
+
+        if (!foundSurface)
+        {
+            return false;
+        }
+
+        outSurfaceY = bestSurfaceY;
+        if (outTriangle)
+        {
+            *outTriangle = bestTriangle;
+        }
         return true;
     }
 
@@ -45,23 +131,20 @@ namespace
     {
         const auto* transform = entity.GetComponent<TransformComponent>();
         const auto* tileValue = entity.GetComponent<PhotoCopyTileValueComponent>();
-        if (!transform || !tileValue || (tileValue->tileValue != 6 && tileValue->tileValue != 7))
+        if (!transform || !tileValue)
+        {
+            return false;
+        }
+
+        const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue->tileValue);
+        if (!triangle.isTriangle)
         {
             return false;
         }
 
         const float width = transform->width * transform->scale;
         const float height = transform->height * transform->scale;
-        const float localX = std::clamp(worldX - transform->x, 0.0f, width);
-        const float normalizedX = width > 0.0f ? localX / width : 0.0f;
-        if (tileValue->tileValue == 6)
-        {
-            outSurfaceY = transform->y + height - normalizedX * height;
-            return true;
-        }
-
-        outSurfaceY = transform->y + normalizedX * height;
-        return true;
+        return TryComputeSlopeSurfaceY(transform->x, transform->y, width, height, triangle.risesRight, worldX, outSurfaceY);
     }
 
     void GetGroundProbeXs(const TransformComponent& transform, float outProbeXs[3])
@@ -81,7 +164,91 @@ bool GameScene::IsSolidTile(int column, int row) const
 
 bool GameScene::IsSlopeTile(int column, int row) const
 {
-    return IsSlopeTileValue(m_tileMap.GetTile(column, row));
+    const float tileSize = m_tileMap.GetTileSize();
+    const int originColumnStart = (std::max)(0, column - (kMaxTriangleSpanTiles - 1));
+    const int originRowStart = (std::max)(0, row - (kMaxTriangleSpanTiles - 1));
+    for (int originRow = originRowStart; originRow <= row; ++originRow)
+    {
+        for (int originColumn = originColumnStart; originColumn <= column; ++originColumn)
+        {
+            const TileTriangleShape triangle = TileMap::GetTriangleShape(m_tileMap.GetTile(originColumn, originRow));
+            if (!triangle.isTriangle)
+            {
+                continue;
+            }
+
+            if (DoesTriangleOccupyCell(originColumn, originRow, triangle, tileSize, column, row))
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool GameScene::IsTileBlockingFromLeft(int column, int row) const
+{
+    if (IsSolidTile(column, row))
+    {
+        return true;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    const int originColumnStart = (std::max)(0, column - (kMaxTriangleSpanTiles - 1));
+    const int originRowStart = (std::max)(0, row - (kMaxTriangleSpanTiles - 1));
+    for (int originRow = originRowStart; originRow <= row; ++originRow)
+    {
+        for (int originColumn = originColumnStart; originColumn <= column; ++originColumn)
+        {
+            const TileTriangleShape triangle = TileMap::GetTriangleShape(m_tileMap.GetTile(originColumn, originRow));
+            if (!triangle.isTriangle ||
+                triangle.risesRight ||
+                !DoesTriangleOccupyCell(originColumn, originRow, triangle, tileSize, column, row))
+            {
+                continue;
+            }
+
+            if (column == originColumn)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool GameScene::IsTileBlockingFromRight(int column, int row) const
+{
+    if (IsSolidTile(column, row))
+    {
+        return true;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    const int originColumnStart = (std::max)(0, column - (kMaxTriangleSpanTiles - 1));
+    const int originRowStart = (std::max)(0, row - (kMaxTriangleSpanTiles - 1));
+    for (int originRow = originRowStart; originRow <= row; ++originRow)
+    {
+        for (int originColumn = originColumnStart; originColumn <= column; ++originColumn)
+        {
+            const TileTriangleShape triangle = TileMap::GetTriangleShape(m_tileMap.GetTile(originColumn, originRow));
+            if (!triangle.isTriangle ||
+                !triangle.risesRight ||
+                !DoesTriangleOccupyCell(originColumn, originRow, triangle, tileSize, column, row))
+            {
+                continue;
+            }
+
+            if (column == originColumn + triangle.widthTiles - 1)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 bool GameScene::IsPlatformTile(int column, int row) const
@@ -103,14 +270,14 @@ bool GameScene::IsGoalTile(int column, int row) const
 
 bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 {
-    // プレイヤーの基礎情報
+    // ?v???C???[???b???
     const float width = transform.width * transform.scale;
     const float height = transform.height * transform.scale;
     const float playerBottom = transform.y + height;
     const float playerLeft = transform.x + 6.0f;
     const float playerRight = transform.x + width - 6.0f;
 
-    // --- PhotoSource をすべてチェックするように変更 ---
+    // --- PhotoSource ??????`?F?b?N????????X ---
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, "PhotoSource"))
@@ -134,7 +301,7 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         }
     }
 
-    // 以下は従来どおり PhotoBox / タイル判定
+    // ?????]??????? PhotoBox / ?^?C??????
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
@@ -178,30 +345,33 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         }
     }
 
-    // タイル判定（変更無し）
+    // ?^?C??????i??X?????j
     const float tileSize = m_tileMap.GetTileSize();
     const float width2 = transform.width * transform.scale;
     const float footY = transform.y + transform.height * transform.scale + 2.0f;
-    const int row = static_cast<int>(footY / tileSize);
+    const int rowStart = std::max(0, static_cast<int>((footY - 4.0f) / tileSize));
+    const int rowEnd = std::min(m_tileMap.GetHeight() - 1, static_cast<int>(footY / tileSize));
     const int columnStart = static_cast<int>((transform.x + 6.0f) / tileSize);
     const int columnEnd = static_cast<int>((transform.x + width2 - 6.0f) / tileSize);
-    for (int column = columnStart; column <= columnEnd; ++column)
+    for (int row = rowStart; row <= rowEnd; ++row)
     {
-        if (IsSolidTile(column, row) || IsPlatformTile(column, row))
+        for (int column = columnStart; column <= columnEnd; ++column)
         {
-            return true;
-        }
-
-        float probeXs[3]{};
-        GetGroundProbeXs(transform, probeXs);
-        for (float probeX : probeXs)
-        {
-            float slopeSurfaceY = 0.0f;
-            const float clampedProbeX = std::clamp(probeX, static_cast<float>(column) * tileSize, static_cast<float>(column + 1) * tileSize);
-            if (TryGetSlopeSurfaceY(m_tileMap, column, row, clampedProbeX, slopeSurfaceY) &&
-                std::fabs((transform.y + transform.height * transform.scale) - slopeSurfaceY) <= kSurfaceContactEpsilon + 2.0f)
+            if (IsSolidTile(column, row) || IsPlatformTile(column, row))
             {
                 return true;
+            }
+
+            float probeXs[3]{};
+            GetGroundProbeXs(transform, probeXs);
+            for (float probeX : probeXs)
+            {
+                float slopeSurfaceY = 0.0f;
+                if (TryGetSlopeSurfaceY(m_tileMap, column, row, probeX, slopeSurfaceY) &&
+                    std::fabs((transform.y + transform.height * transform.scale) - slopeSurfaceY) <= kSurfaceContactEpsilon + 2.0f)
+                {
+                    return true;
+                }
             }
         }
     }
@@ -210,13 +380,13 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 
 bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const
 {
-    // マウス／プレイヤー位置等に依存するため、まず基本情報を計算
+    // ?}?E?X?^?v???C???[??u????????????A?????{????v?Z
     const float width = transform.width * transform.scale;
     const float height = transform.height * transform.scale;
     const float left = transform.x + 6.0f;
     const float right = transform.x + width - 6.0f;
 
-    // --- PhotoSource をすべてチェックするように変更 ---
+    // --- PhotoSource ??????`?F?b?N????????X ---
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, "PhotoSource"))
@@ -244,7 +414,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         }
     }
 
-    // 以下は従来どおり PhotoBox ベースの吸い付き判定
+    // ?????]??????? PhotoBox ?x?[?X??z???t??????
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
@@ -279,10 +449,21 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
                 }
 
                 const float slopeCandidateY = photoSlopeSurfaceY - height;
-                if (!foundSlopeProbe || slopeCandidateY < candidateY)
+                const auto* tileValue = entity->GetComponent<PhotoCopyTileValueComponent>();
+                const TileTriangleShape triangle = tileValue
+                    ? TileMap::GetTriangleShape(tileValue->tileValue)
+                    : TileTriangleShape{};
+                if (!foundSlopeProbe)
                 {
                     candidateY = slopeCandidateY;
                     foundSlopeProbe = true;
+                    continue;
+                }
+
+                if ((triangle.risesRight && slopeCandidateY < candidateY) ||
+                    (!triangle.risesRight && slopeCandidateY > candidateY))
+                {
+                    candidateY = slopeCandidateY;
                 }
             }
 
@@ -294,15 +475,17 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         }
     }
 
-    // タイルベースの吸い付き（変更無し）
+    // ?^?C???x?[?X??z???t???i??X?????j
     const float tileSize = m_tileMap.GetTileSize();
     const float width2 = transform.width * transform.scale;
     const float height2 = transform.height * transform.scale;
     const float bottom = transform.y + height2;
     const int columnStart = static_cast<int>((transform.x + 6.0f) / tileSize);
     const int columnEnd = static_cast<int>((transform.x + width2 - 6.0f) / tileSize);
-    const int rowStart = static_cast<int>(bottom / tileSize);
-    const int rowEnd = static_cast<int>((bottom + maxSnapDistance) / tileSize);
+    const int rowStart = std::max(0, static_cast<int>((bottom - maxSnapDistance) / tileSize));
+    const int rowEnd = std::min(
+        m_tileMap.GetHeight() - 1,
+        static_cast<int>((bottom + maxSnapDistance) / tileSize));
 
     float nearestGroundY = 0.0f;
     bool foundGround = false;
@@ -319,11 +502,13 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
 
             if (IsSlopeTile(column, row))
             {
+                bool hasSlopeCandidate = false;
+                float slopeGroundY = 0.0f;
                 for (float probeX : probeXs)
                 {
                     float slopeSurfaceY = 0.0f;
-                    const float clampedProbeX = std::clamp(probeX, static_cast<float>(column) * tileSize, static_cast<float>(column + 1) * tileSize);
-                    if (!TryGetSlopeSurfaceY(m_tileMap, column, row, clampedProbeX, slopeSurfaceY))
+                    TileTriangleShape triangle{};
+                    if (!TryGetSlopeSurfaceY(m_tileMap, column, row, probeX, slopeSurfaceY, &triangle))
                     {
                         continue;
                     }
@@ -334,11 +519,24 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
                         continue;
                     }
 
-                    if (!foundGround || candidateY < nearestGroundY)
+                    if (!hasSlopeCandidate)
                     {
-                        nearestGroundY = candidateY;
-                        foundGround = true;
+                        slopeGroundY = candidateY;
+                        hasSlopeCandidate = true;
+                        continue;
                     }
+
+                    if ((triangle.risesRight && candidateY < slopeGroundY) ||
+                        (!triangle.risesRight && candidateY > slopeGroundY))
+                    {
+                        slopeGroundY = candidateY;
+                    }
+                }
+
+                if (hasSlopeCandidate && (!foundGround || slopeGroundY < nearestGroundY))
+                {
+                    nearestGroundY = slopeGroundY;
+                    foundGround = true;
                 }
                 continue;
             }
@@ -464,7 +662,7 @@ void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
         }
         if (const auto* tileValue = entity->GetComponent<PhotoCopyTileValueComponent>())
         {
-            if (tileValue->tileValue == 6 || tileValue->tileValue == 7)
+            if (TileMap::GetTriangleShape(tileValue->tileValue).isTriangle)
             {
                 continue;
             }

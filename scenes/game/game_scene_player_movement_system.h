@@ -26,6 +26,27 @@ struct PlayerMovementContext
 };
 
 template <typename IsSolidTileFn>
+bool CanOccupyTileSpace(const TransformComponent& transform, const PlayerMovementContext& ctx, IsSolidTileFn&& isSolidTile)
+{
+    const int columnStart = static_cast<int>((transform.x + 6.0f) / ctx.tileSize);
+    const int columnEnd = static_cast<int>((transform.x + ctx.playerWidth - 6.0f) / ctx.tileSize);
+    const int rowStart = static_cast<int>((transform.y + 4.0f) / ctx.tileSize);
+    const int rowEnd = static_cast<int>((transform.y + ctx.playerHeight - 4.0f) / ctx.tileSize);
+    for (int row = rowStart; row <= rowEnd; ++row)
+    {
+        for (int column = columnStart; column <= columnEnd; ++column)
+        {
+            if (isSolidTile(column, row))
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+template <typename IsSolidTileFn>
 void ResolveHorizontalTileCollisions(
     TransformComponent& transform,
     GameScenePlayerState& player,
@@ -33,6 +54,7 @@ void ResolveHorizontalTileCollisions(
     IsSolidTileFn&& isSolidTile)
 {
     transform.x += player.velocityX * ctx.deltaTime;
+    const float maxStepHeight = std::clamp(gGroundStepUpHeight, 0.0f, ctx.tileSize * 0.5f);
     if (player.velocityX > 0.0f)
     {
         const int column = static_cast<int>((transform.x + ctx.playerWidth - 1.0f) / ctx.tileSize);
@@ -42,6 +64,24 @@ void ResolveHorizontalTileCollisions(
         {
             if (isSolidTile(column, row))
             {
+                bool steppedUp = false;
+                if (maxStepHeight > 0.0f)
+                {
+                    TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
+                    stepCandidate.scale = transform.scale;
+                    if (stepCandidate.y >= 0.0f &&
+                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile))
+                    {
+                        transform.y = stepCandidate.y;
+                        steppedUp = true;
+                    }
+                }
+
+                if (steppedUp)
+                {
+                    continue;
+                }
+
                 transform.x = static_cast<float>(column) * ctx.tileSize - ctx.playerWidth;
                 player.velocityX = 0.0f;
                 break;
@@ -57,6 +97,24 @@ void ResolveHorizontalTileCollisions(
         {
             if (isSolidTile(column, row))
             {
+                bool steppedUp = false;
+                if (maxStepHeight > 0.0f)
+                {
+                    TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
+                    stepCandidate.scale = transform.scale;
+                    if (stepCandidate.y >= 0.0f &&
+                        CanOccupyTileSpace(stepCandidate, ctx, isSolidTile))
+                    {
+                        transform.y = stepCandidate.y;
+                        steppedUp = true;
+                    }
+                }
+
+                if (steppedUp)
+                {
+                    continue;
+                }
+
                 transform.x = static_cast<float>(column + 1) * ctx.tileSize;
                 player.velocityX = 0.0f;
                 break;
@@ -131,7 +189,7 @@ inline void ResolveHorizontalObjectCollisions(
     }
 }
 
-template <typename IsSolidTileFn, typename IsPlatformTileFn, typename TrySnapToGroundFn>
+template <typename IsSolidTileFn, typename IsPlatformTileFn, typename IsCeilingTileFn, typename TrySnapToGroundFn>
 void ResolveVerticalMotion(
     TransformComponent& transform,
     GameScenePlayerState& player,
@@ -145,6 +203,7 @@ void ResolveVerticalMotion(
     float photoSourceHeight,
     IsSolidTileFn&& isSolidTile,
     IsPlatformTileFn&& isPlatformTile,
+    IsCeilingTileFn&& isCeilingTile,
     TrySnapToGroundFn&& trySnapToGround)
 {
     player.grounded = false;
@@ -226,7 +285,7 @@ void ResolveVerticalMotion(
                 bool collided = false;
                 for (int column = columnStart; column <= columnEnd; ++column)
                 {
-                    if (isSolidTile(column, row))
+                    if (isCeilingTile(column, row))
                     {
                         transform.y = static_cast<float>(row + 1) * ctx.tileSize;
                         player.velocityY = 0.0f;

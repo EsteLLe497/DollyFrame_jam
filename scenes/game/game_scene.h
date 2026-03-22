@@ -78,6 +78,8 @@ private:
     Entity* FindCaptureTarget(const TransformComponent& playerTransform) const;
     bool IsSolidTile(int column, int row) const;
     bool IsSlopeTile(int column, int row) const;
+    bool IsTileBlockingFromLeft(int column, int row) const;
+    bool IsTileBlockingFromRight(int column, int row) const;
     bool IsPlatformTile(int column, int row) const;
     bool IsHazardTile(int column, int row) const;
     bool IsGoalTile(int column, int row) const;
