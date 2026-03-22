@@ -229,7 +229,9 @@ public:
     float attackTimer = 0.0f;
     float attackCooldown = 3.0f;
     float detectRange = 400.0f;
-    float attackRange = 80.0f;
+    float attackRange = 48.0f;
+    float detectHeight = 96.0f; // 3/21追加(田之上俊)
+    float velocityY = 0.0f;
 
 private:
     EnemyArchetype m_archetype;

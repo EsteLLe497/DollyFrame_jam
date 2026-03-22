@@ -464,7 +464,11 @@
       "enemy": {
         "enabled": true,
         "archetype": "walker",
-        "contactDamage": 1
+        "contactDamage": 1,
+        "detectRange": 192.0,
+        "attackRange": 48.0,
+        "attackCooldown": 3.0,
+        "detectHeight": 96.0
       }
     },
     "sandbox_enemy_ranged": {
@@ -487,7 +491,11 @@
       "enemy": {
         "enabled": true,
         "archetype": "ranged",
-        "contactDamage": 1
+        "contactDamage": 1,
+        "detectRange": 336.0,
+        "attackRange": 336.0,
+        "attackCooldown": 3.0,
+        "detectHeight": 96.0
       }
     }
   }

@@ -1155,3 +1155,62 @@ float GameScene::GetMapPixelHeight() const
 {
     return static_cast<float>(m_tileMap.GetHeight()) * m_tileMap.GetTileSize();
 }
+
+// 3/21追加：敵の地面スナップ(田之上俊)
+bool GameScene::SnapEnemyToGround(TransformComponent& transform) const
+{
+    const float tileSize = m_tileMap.GetTileSize();
+    const float enemyWidth = transform.width * transform.scale;
+    const float enemyHeight = transform.height * transform.scale;
+    const float bottom = transform.y + enemyHeight;
+    const int columnStart = static_cast<int>((transform.x + 4.0f) / tileSize);
+    const int columnEnd = static_cast<int>((transform.x + enemyWidth - 4.0f) / tileSize);
+    const int rowStart = std::max(0, static_cast<int>((bottom - 8.0f) / tileSize));
+    const int rowEnd = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bottom + 48.0f) / tileSize));
+
+    float nearestGroundY = transform.y;
+    bool foundGround = false;
+    const float probeXs[3] = {
+        transform.x + 4.0f,
+        transform.x + enemyWidth * 0.5f,
+        transform.x + enemyWidth - 4.0f
+    };
+
+    for (int row = rowStart; row <= rowEnd; ++row)
+    {
+        for (int column = columnStart; column <= columnEnd; ++column)
+        {
+            if (IsSolidTile(column, row))
+            {
+                const float candidateY = static_cast<float>(row) * tileSize - enemyHeight;
+                if (!foundGround || candidateY < nearestGroundY)
+                {
+                    nearestGroundY = candidateY;
+                    foundGround = true;
+                }
+                continue;
+            }
+
+            for (float probeX : probeXs)
+            {
+                float slopeSurfaceY = 0.0f;
+                if (TryGetSlopeSurfaceYShared(m_tileMap, column, row, probeX, slopeSurfaceY))
+                {
+                    const float candidateY = slopeSurfaceY - enemyHeight;
+                    if (!foundGround || candidateY < nearestGroundY)
+                    {
+                        nearestGroundY = candidateY;
+                        foundGround = true;
+                    }
+                }
+            }
+        }
+    }
+
+    if (foundGround && std::fabs(nearestGroundY - transform.y) <= 48.0f)
+    {
+        transform.y = nearestGroundY;
+        return true; 
+    }
+    return false; 
+}

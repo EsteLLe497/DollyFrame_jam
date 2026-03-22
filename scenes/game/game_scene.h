@@ -45,6 +45,7 @@ private:
     void UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame);
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
+    bool SnapEnemyToGround(TransformComponent& transform) const;
     void UpdateEnemies();
     void UpdateBullets();
     void UpdateCameraMode();
