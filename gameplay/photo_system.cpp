@@ -678,12 +678,16 @@ private:
                 const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr;
                 const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
                 const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
+                const auto* projectile = entity->GetComponent<ProjectileComponent>();
+                const bool capturedProjectile = projectile != nullptr;
                 item.textureId = sprite->GetTextureId();
                 item.role = GetEntityCopyRole(*entity);
                 item.layer = PhotoCopyLayer::Foreground;
                 item.origin = GetEntityCopyOrigin(*entity);
                 item.appliedTheme = scene.m_photo.capture.selectedTheme;
-                item.spawnArchetype = capturedBarrel ? CapturedSpawnArchetype::Barrel : CapturedSpawnArchetype::None;
+                item.spawnArchetype = capturedBarrel
+                    ? CapturedSpawnArchetype::Barrel
+                    : (capturedProjectile ? CapturedSpawnArchetype::Projectile : CapturedSpawnArchetype::None);
                 item.vanishOnCapture = capturedVanishObject;
                 item.relativeX = overlapLeft - frameX;
                 item.relativeY = overlapTop - frameY;

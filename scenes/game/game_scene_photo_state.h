@@ -9,6 +9,7 @@ enum class CapturedSpawnArchetype
 {
     None,
     Barrel,
+    Projectile,
 };
 
 struct CapturedPhotoItem
