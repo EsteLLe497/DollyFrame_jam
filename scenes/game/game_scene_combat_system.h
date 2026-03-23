@@ -134,6 +134,14 @@ inline void UpdateEnemies(
             // 3/21追加：高さ制限を含む感知判定(田之上俊)
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
+            // 3/23追加：プレイヤーを追跡して移動(田之上俊)
+            constexpr float kRangedSpeed = 80.0f; // Walkerより遅い
+            if (inDetectRange)
+            {
+                transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kRangedSpeed * flow.lastDeltaTime;
+                snapToGround(*transform);
+            }
+
             enemy->attackTimer += flow.lastDeltaTime;
 
             if (inDetectRange && enemy->attackTimer >= enemy->attackCooldown)

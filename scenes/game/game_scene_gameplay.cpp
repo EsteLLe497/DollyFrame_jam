@@ -779,7 +779,7 @@ void GameScene::UpdateEnemies()
         m_flow,
         m_photo,
         playerTransform,
-        // 3/21?C???F?n??X?i?b?v?R?[???o?b?N??bool??p???X(?c?V??r)
+        // 3/21�C���F�n�ʃX�i�b�v�R�[���o�b�N��bool�ԋp�ɕύX(�c�V��r)
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
@@ -803,7 +803,7 @@ void GameScene::UpdateBullets()
         {
             HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
         },
-        // 3/21????F?^?C??????????R?[???o?b?N(?c?V??r)
+        // 3/21�ǉ��F�^�C�������蔻��R�[���o�b�N(�c�V��r)
         [this](float x, float y) -> bool
         {
             const float tileSize = m_tileMap.GetTileSize();
