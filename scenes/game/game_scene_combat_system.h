@@ -134,13 +134,6 @@ inline void UpdateEnemies(
             // 3/21’Ç‰ÁF‚‚³§ŒÀ‚ğŠÜ‚ŞŠ´’m”»’è(“c”Vãr)
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // 3/23’Ç‰ÁFƒvƒŒƒCƒ„[‚ğ’ÇÕ‚µ‚ÄˆÚ“®(“c”Vãr)
-            constexpr float kRangedSpeed = 80.0f; // Walker‚æ‚è’x‚¢
-            if (inDetectRange)
-            {
-                transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kRangedSpeed * flow.lastDeltaTime;
-                snapToGround(*transform);
-            }
 
             enemy->attackTimer += flow.lastDeltaTime;
 
