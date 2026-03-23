@@ -49,6 +49,7 @@ private:
     void UpdateEnemies();
     void UpdateBullets();
     void UpdateCameraMode();
+    void HandleEnemyPlayerCollisions(Entity& player);
     void HandleAttackHits();
     void HandlePhotoCapture();
     void HandlePhotoSpawn();
@@ -64,7 +65,7 @@ private:
     void RemoveEntitiesByPointerList(const std::vector<Entity*>& entitiesToRemove);
     void RemoveDefeatedEnemies();
     void RefreshPhotoGroupState();
-    void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage);
+    void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage, int amount = 1);
     void HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amount, const char* logMessage);
     void StartPitRestart(Entity* player, const char* logMessage);
     void SpawnBarrelBreakEffect(float x, float y, float width, float height);
