@@ -285,6 +285,35 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawHeight = animatedHeight;
             alphaMultiplier *= 0.45f + 0.55f * slamT;
             Shader_SetFlash(1.0f, 0.98f, 0.92f, 1.0f, (1.0f - progress) * 0.28f);
+
+            float effectR = 0.32f;
+            float effectG = 0.92f;
+            float effectB = 1.0f;
+            if (const auto* effect = entity.GetComponent<PhotoCopyEffectComponent>())
+            {
+                GetPhotoFilterThemeOverlayColor(effect->GetTheme(), effectR, effectG, effectB);
+            }
+            else
+            {
+                GetPhotoFilterThemeOverlayColor(PhotoFilterTheme::None, effectR, effectG, effectB);
+            }
+
+            const float stampAlpha = (1.0f - slamT) * 0.22f;
+            if (stampAlpha > 0.001f)
+            {
+                Shader_ResetStyle();
+                Shader_SetTint(effectR, effectG, effectB, stampAlpha);
+                SpriteDraw(
+                    m_whiteTexture,
+                    drawX - 8.0f * viewScale,
+                    drawY - 8.0f * viewScale,
+                    drawWidth + 16.0f * viewScale,
+                    drawHeight + 16.0f * viewScale,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    1.0f);
+            }
         }
 
         const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
@@ -403,6 +432,12 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     else if (tag && tag->tag == "Player")
     {
+        float afterimageR = 0.42f;
+        float afterimageG = 0.88f;
+        float afterimageB = 1.0f;
+        GetPhotoFilterThemeOverlayColor(m_photo.capture.selectedTheme, afterimageR, afterimageG, afterimageB);
+        const float outlineBoost = m_photo.capture.selectedTheme == PhotoFilterTheme::None ? 0.0f : 0.08f;
+
         for (size_t index = m_player.afterimages.size(); index > 0; --index)
         {
             const auto& afterimage = m_player.afterimages[index - 1];
@@ -412,8 +447,13 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float afterimageDrawHeight = transform->height * afterimage.scale * viewScale;
             const float alpha = Clamp01(afterimage.life / 0.18f) * 0.32f;
             Shader_ResetStyle();
-            Shader_SetOutline(0.30f, 0.86f, 1.0f, 1.0f, 1.4f);
-            Shader_SetTint(0.42f, 0.88f, 1.0f, alpha);
+            Shader_SetOutline(
+                std::min(1.0f, afterimageR + outlineBoost),
+                std::min(1.0f, afterimageG + outlineBoost),
+                std::min(1.0f, afterimageB + outlineBoost),
+                1.0f,
+                1.4f);
+            Shader_SetTint(afterimageR, afterimageG, afterimageB, alpha);
             SpriteDraw(
                 sprite->GetTextureId(),
                 afterimageDrawX,
@@ -479,13 +519,23 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float clamped = Clamp01(progress);
             const int alpha = static_cast<int>(std::round(std::lerp(220.0f, 80.0f, clamped)));
             const int outlinePad = std::max(2, static_cast<int>(std::round(2.0f * viewScale)));
+            float outlineR = 1.0f;
+            float outlineG = 1.0f;
+            float outlineB = 1.0f;
+            if (const auto* effect = entity.GetComponent<PhotoCopyEffectComponent>())
+            {
+                GetPhotoFilterThemeOverlayColor(effect->GetTheme(), outlineR, outlineG, outlineB);
+            }
             SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
             DrawBox(
                 static_cast<int>(std::round(drawX)) - outlinePad,
                 static_cast<int>(std::round(drawY)) - outlinePad,
                 static_cast<int>(std::round(drawX + drawWidth)) + outlinePad,
                 static_cast<int>(std::round(drawY + drawHeight)) + outlinePad,
-                GetColor(255, 255, 255),
+                GetColor(
+                    static_cast<int>(std::round(outlineR * 255.0f)),
+                    static_cast<int>(std::round(outlineG * 255.0f)),
+                    static_cast<int>(std::round(outlineB * 255.0f))),
                 FALSE);
             SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         }
