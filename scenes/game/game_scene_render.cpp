@@ -217,6 +217,11 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     Shader_ResetStyle();
     float alphaMultiplier = 1.0f;
+    if (const auto* lifetime = entity.GetComponent<PhotoCopyLifetimeComponent>())
+    {
+        const float totalLifetime = std::max(0.001f, lifetime->GetLifetimeSeconds());
+        alphaMultiplier = Clamp01(lifetime->GetRemainingSeconds() / totalLifetime);
+    }
 
     const auto* tag = entity.GetComponent<TagComponent>();
     if (tag && tag->tag == "Goal")
@@ -264,12 +269,6 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
     else if (tag && tag->tag == "PhotoBox")
     {
-        if (const auto* lifetime = entity.GetComponent<PhotoCopyLifetimeComponent>())
-        {
-            const float totalLifetime = std::max(0.001f, lifetime->GetLifetimeSeconds());
-            alphaMultiplier = Clamp01(lifetime->GetRemainingSeconds() / totalLifetime);
-        }
-
         if (const auto* pasteAnimation = entity.GetComponent<PhotoPasteAnimationComponent>())
         {
             const float progress = pasteAnimation->GetNormalizedProgress();
@@ -478,6 +477,26 @@ void GameScene::DrawEntity(const Entity& entity) const
             sprite->GetSourceHeight(),
             sprite->GetFlipX(),
             transform->rotation);
+    }
+
+    if (const auto* pasteAnimation = entity.GetComponent<PhotoPasteAnimationComponent>())
+    {
+        if (!pasteAnimation->IsFinished())
+        {
+            const float progress = pasteAnimation->GetNormalizedProgress();
+            const float clamped = Clamp01(progress);
+            const int alpha = static_cast<int>(std::round(std::lerp(220.0f, 80.0f, clamped)));
+            const int outlinePad = std::max(2, static_cast<int>(std::round(2.0f * viewScale)));
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+            DrawBox(
+                static_cast<int>(std::round(drawX)) - outlinePad,
+                static_cast<int>(std::round(drawY)) - outlinePad,
+                static_cast<int>(std::round(drawX + drawWidth)) + outlinePad,
+                static_cast<int>(std::round(drawY + drawHeight)) + outlinePad,
+                GetColor(255, 255, 255),
+                FALSE);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        }
     }
 
     if (m_debug.showCollisionDebug && (entity.GetComponent<PhotoFilterComponent>() || (tag && (tag->tag == "Player" || tag->tag == "PhotoSource" || tag->tag == "PhotoBox"))))

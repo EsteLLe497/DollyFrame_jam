@@ -11,8 +11,8 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr int kMaxPhotoGroups = 3;
-    constexpr float kPhotoCopyLifetimeSeconds = 30.0f;
-    constexpr float kPhotoPasteAnimationSeconds = 0.24f;
+    constexpr float kDevelopedPhotoPreviewSeconds = 3.2f;
+    constexpr float kArchetypePhotoFrameLifetimeSeconds = 0.45f;
     constexpr float kPlacementRotateSpeed = 2.4f;
     constexpr float kPadDeadZone = 0.18f;
     constexpr float kPadCursorMaxSpeed = 920.0f;
@@ -341,19 +341,18 @@ namespace
         const bool containsArchetype = ContainsSpawnArchetypeItem(capture.items);
         if (containsArchetype)
         {
-            std::vector<CapturedPhotoItem> items = capture.items;
+            // Keep spawn archetype items (e.g. barrels), but still paste them on top of
+            // printed paper/matte so the polaroid frame appears consistently.
             outWidth = (std::max)(1.0f, capture.width);
             outHeight = (std::max)(1.0f, capture.height);
-
-            if (placement.flipX)
-            {
-                for (auto& item : items)
-                {
-                    item.relativeX = outWidth - item.relativeX - item.width;
-                    item.flipX = !item.flipX;
-                }
-            }
-
+            std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
+                capture.items,
+                whiteTexture,
+                capture.capturedTheme,
+                outWidth,
+                outHeight,
+                placement.flipX,
+                false);
             RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
             return items;
         }
@@ -623,9 +622,28 @@ private:
     {
             for (const auto& entity : scene.m_entities)
             {
-                if (!entity || HasTag(*entity, "Player") || HasTag(*entity, "PhotoBox"))
+                if (!entity || HasTag(*entity, "Player"))
                 {
                     continue;
+                }
+
+                const bool isPhotoBox = HasTag(*entity, "PhotoBox");
+                if (isPhotoBox)
+                {
+                    const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
+                    if (!layer || layer->layer != PhotoCopyLayer::Foreground)
+                    {
+                        continue;
+                    }
+
+                    // Avoid immediate re-capture while the paste animation is still settling.
+                    if (const auto* pasteAnimation = entity->GetComponent<PhotoPasteAnimationComponent>())
+                    {
+                        if (!pasteAnimation->IsFinished())
+                        {
+                            continue;
+                        }
+                    }
                 }
 
                 const auto* targetTransform = entity->GetComponent<TransformComponent>();
@@ -695,7 +713,7 @@ private:
                     item.layer = PhotoCopyLayer::Foreground;
                 }
 
-                if (!capturedBarrel)
+                if (!capturedBarrel && !isPhotoBox)
                 {
                     ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
                 }
@@ -800,7 +818,7 @@ private:
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
             scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
-            scene.m_flow.developedPhotoPreviewRemaining = 3.2f;
+            scene.m_flow.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
     }
 
     static bool UpdatePlacementPreview(GameScene& scene, float& spawnX, float& spawnY, float& spawnWidth, float& spawnHeight)
@@ -994,6 +1012,8 @@ private:
                         gBarrelContactDamage,
                         gBarrelBreakMinFallDistance,
                         gBarrelBreakMinImpactSpeed);
+                    spawnedBarrel->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
+                    spawnedBarrel->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
                     if (auto* sprite = spawnedBarrel->GetComponent<SpriteRenderComponent>())
                     {
                         sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
@@ -1019,8 +1039,7 @@ private:
                 ++spawnedPhotoBoxCount;
                 lastSpawnedEntity->AddComponent<TagComponent>("PhotoBox");
                 lastSpawnedEntity->AddComponent<PhotoCopyGroupComponent>(groupId);
-                lastSpawnedEntity->AddComponent<PhotoCopyLifetimeComponent>(kPhotoCopyLifetimeSeconds);
-                lastSpawnedEntity->AddComponent<PhotoPasteAnimationComponent>(kPhotoPasteAnimationSeconds);
+                lastSpawnedEntity->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
                 lastSpawnedEntity->AddComponent<PhotoCopyRoleComponent>(item.role);
                 lastSpawnedEntity->AddComponent<PhotoCopyOriginComponent>(item.origin);
                 if (item.origin == PhotoCopyOrigin::Tile && item.sourceTileValue > 0)
@@ -1033,6 +1052,11 @@ private:
                     item.layer == PhotoCopyLayer::Background ? PhotoCopyLayer::Background :
                     scene.m_photo.placement.layer;
                 lastSpawnedEntity->AddComponent<PhotoCopyLayerComponent>(spawnedLayer);
+                const float lifetimeSeconds =
+                    (spawnedLayer == PhotoCopyLayer::Background)
+                    ? kArchetypePhotoFrameLifetimeSeconds
+                    : gPastedObjectLifetimeSeconds;
+                lastSpawnedEntity->AddComponent<PhotoCopyLifetimeComponent>(lifetimeSeconds);
                 lastSpawnedEntity->AddComponent<TransformComponent>(
                     spawnX + item.relativeX,
                     spawnY + item.relativeY,

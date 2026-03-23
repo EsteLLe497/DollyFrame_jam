@@ -54,6 +54,9 @@ inline float gBarrelGroundFriction = 720.0f;
 inline int gBarrelContactDamage = 1;
 inline float gBarrelBreakMinFallDistance = 99999.0f;
 inline float gBarrelBreakMinImpactSpeed = 99999.0f;
+inline float gBarrelActivationPaddingX = 320.0f;
+inline float gPastedObjectLifetimeSeconds = 30.0f;
+inline float gPastedObjectPasteAnimationSeconds = 0.24f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
 constexpr float kHorizontalCollisionEpsilon = 1.0f;
 

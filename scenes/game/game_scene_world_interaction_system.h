@@ -216,14 +216,13 @@ inline void RemoveDefeatedEnemies(std::vector<std::unique_ptr<Entity>>& entities
                     return true;
                 }
 
-                const auto* tag = entity ? entity->GetComponent<TagComponent>() : nullptr;
-                if (!tag || tag->tag != "PhotoBox")
+                const auto* lifetime = entity ? entity->GetComponent<PhotoCopyLifetimeComponent>() : nullptr;
+                if (!lifetime)
                 {
                     return false;
                 }
 
-                const auto* lifetime = entity->GetComponent<PhotoCopyLifetimeComponent>();
-                return lifetime && lifetime->IsExpired();
+                return lifetime->IsExpired();
             }),
         entities.end());
 }

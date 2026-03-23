@@ -954,9 +954,26 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     float bestDistance = 1000000.0f;
     for (const auto& entity : m_entities)
     {
-        if (HasTag(*entity, "Player") || HasTag(*entity, "PhotoBox"))
+        if (HasTag(*entity, "Player"))
         {
             continue;
+        }
+
+        if (HasTag(*entity, "PhotoBox"))
+        {
+            const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
+            if (!layer || layer->layer != PhotoCopyLayer::Foreground)
+            {
+                continue;
+            }
+
+            if (const auto* pasteAnimation = entity->GetComponent<PhotoPasteAnimationComponent>())
+            {
+                if (!pasteAnimation->IsFinished())
+                {
+                    continue;
+                }
+            }
         }
 
         const auto* transform = entity->GetComponent<TransformComponent>();

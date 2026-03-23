@@ -103,7 +103,7 @@ void GameScene::Update(float deltaTime)
         m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
     }
 
-    const bool blockFilterChange = m_photo.placement.active;
+    const bool blockFilterChange = m_photo.placement.active || m_flow.cameraMode;
     if (!blockFilterChange)
     {
         if (Input_IsRightShoulderPressed())

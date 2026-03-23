@@ -149,6 +149,25 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
 void GameScene::InitializeStageEntities()
 {
     PrefabFactory prefabs(m_assets, m_physicsWorld, m_eventBus);
+    const auto spawnRespawnableBarrel = [&](float x, float y)
+    {
+        Entity& barrel = SpawnStagePrefab(prefabs, "sandbox_barrel", x, y);
+        if (auto* barrelComponent = barrel.GetComponent<BarrelComponent>())
+        {
+            barrelComponent->respawnWhenOffscreen = true;
+            if (auto* transform = barrel.GetComponent<TransformComponent>())
+            {
+                barrelComponent->spawnX = transform->x;
+                barrelComponent->spawnY = transform->y;
+            }
+            else
+            {
+                barrelComponent->spawnX = x;
+                barrelComponent->spawnY = y;
+            }
+        }
+    };
+
     float goalX = GetMapPixelWidth() - 120.0f;
     float goalY = 248.0f;
     const float tileSize = m_tileMap.GetTileSize();
@@ -191,9 +210,7 @@ void GameScene::InitializeStageEntities()
 
     if (!hasBarrelMarker)
     {
-        SpawnStagePrefab(
-            prefabs,
-            "sandbox_barrel",
+        spawnRespawnableBarrel(
             AlignToGrid(432.0f, tileSize),
             AlignToGrid(240.0f, tileSize));
     }
@@ -255,9 +272,7 @@ void GameScene::InitializeStageEntities()
                 continue;
             }
 
-            SpawnStagePrefab(
-                prefabs,
-                "sandbox_barrel",
+            spawnRespawnableBarrel(
                 AlignToGrid(static_cast<float>(column) * tileSize, tileSize),
                 AlignToGrid(static_cast<float>(row) * tileSize, tileSize));
         }
