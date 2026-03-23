@@ -246,6 +246,11 @@ void GameScene::UpdatePlayer(float deltaTime)
     const bool blockPlayerInput = m_flow.cameraMode || m_photo.placement.active;
     const auto controls = game_scene_player_system::SampleControls(blockPlayerInput);
     const float moveAxis = controls.moveAxis;
+    const float tileSize = m_tileMap.GetTileSize();
+    const bool wasGrounded = IsStandingOnGround(*transform);
+    const float dodgeDuration = wasGrounded
+        ? GetPlayerDodgeDuration()
+        : (gPlayerDodgeSpeed > 0.0f ? tileSize / gPlayerDodgeSpeed : 0.0f);
 
     game_scene_player_system::TickDodgeState(m_player, deltaTime);
     UpdatePlayerAfterimages(deltaTime);
@@ -255,7 +260,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     if (controls.dodgePressed && game_scene_player_system::TryBeginDodge(
         m_player,
         moveAxis,
-        GetPlayerDodgeDuration(),
+        dodgeDuration,
         gPlayerDodgeCooldown))
     {
         m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
@@ -269,7 +274,6 @@ void GameScene::UpdatePlayer(float deltaTime)
         gPlayerDodgeSpeed,
         gPlayerMoveSpeed);
 
-    const float tileSize = m_tileMap.GetTileSize();
     const float playerWidth = transform->width * transform->scale;
     const float playerHeight = transform->height * transform->scale;
     const float mapWidth = GetMapPixelWidth();
@@ -277,7 +281,6 @@ void GameScene::UpdatePlayer(float deltaTime)
     const float previousX = transform->x;
     const float previousY = transform->y;
     const float previousBottom = previousY + playerHeight;
-    const bool wasGrounded = IsStandingOnGround(*transform);
     m_player.grounded = wasGrounded;
     if (wasGrounded)
     {
@@ -414,11 +417,11 @@ void GameScene::UpdateBarrels(float deltaTime)
     }
 
     Entity* player = FindEntityByTag("Player");
+    const float tileSize = m_tileMap.GetTileSize();
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
     const float activeLeft = std::max(0.0f, m_flow.cameraX - gBarrelActivationPaddingX);
     const float activeRight = std::min(mapWidth, m_flow.cameraX + gCameraViewWidth + gBarrelActivationPaddingX);
-    const float tileSize = m_tileMap.GetTileSize();
     const float activationDistance = tileSize * 10.0f;
 
     auto setBarrelVisible = [](Entity& barrelEntity, bool visible)
@@ -822,7 +825,7 @@ void GameScene::UpdateEnemies()
         m_flow,
         m_photo,
         playerTransform,
-        // 3/21�C���F�n�ʃX�i�b�v�R�[���o�b�N��bool�ԋp�ɕύX(�c�V��r)
+        // 3/21�E�C�E��E��E�F�E�n�E�ʃX�E�i�E�b�E�v�E�R�E�[�E��E��E�o�E�b�E�N�E��E�bool�E�ԋp�E�ɕύX(�E�c�E�V�E��E�r)
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
@@ -846,7 +849,11 @@ void GameScene::UpdateBullets()
         {
             HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
         },
-        // 3/21�ǉ��F�^�C�������蔻��R�[���o�b�N(�c�V��r)
+        [this](Entity& enemyEntity, Entity* sourceEntity, int amount, const char* logMessage)
+        {
+            HandleEnemyDamage(enemyEntity, sourceEntity, amount, logMessage);
+        },
+        // 3/21�E�ǉ��E�F�E�^�E�C�E��E��E��E��E��E��E�蔻�E��E�R�E�[�E��E��E�o�E�b�E�N(�E�c�E�V�E��E�r)
         [this](float x, float y) -> bool
         {
             const float tileSize = m_tileMap.GetTileSize();
@@ -854,6 +861,147 @@ void GameScene::UpdateBullets()
             const int row = static_cast<int>(y / tileSize);
             return IsSolidTile(column, row);
         });
+}
+
+// 3/21追加：ドロップアイテムの生成(田之上俊)
+void GameScene::SpawnDropItems(float x, float y, int count)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        // 3/21修正：花火のように上方向に強く散らばる(田之上俊)
+        const float angle = (static_cast<float>(i) / static_cast<float>(count)) * 6.28318f
+            + static_cast<float>(rand() % 100) * 0.063f;
+        const float speed = 250.0f + static_cast<float>(rand() % 200);
+        const float velX = std::cos(angle) * speed;
+        const float velY = std::sin(angle) * speed - 350.0f; // 上方向に強く
+
+        auto item = std::make_unique<Entity>();
+        item->AddComponent<TagComponent>("DropItem");
+        item->AddComponent<TransformComponent>(x, y, 10.0f, 10.0f);
+        const float hue = static_cast<float>(rand() % 100) * 0.01f;
+        item->AddComponent<TintComponent>(0.96f, 0.76f + hue * 0.2f, 0.10f + hue * 0.3f, 1.0f);
+        item->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        item->AddComponent<DropItemComponent>(1, velX, velY);
+        m_pendingEntities.push_back(std::move(item));
+    }
+}
+
+// 3/21追加：ドロップアイテムの更新(田之上俊)
+void GameScene::UpdateDropItems()
+{
+    Entity* player = FindEntityByTag("Player");
+    const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+
+    constexpr float kGravity = 1200.0f;
+    constexpr float kMaxFallSpeed = 800.0f;
+    constexpr float kAttractRange = 120.0f;
+    constexpr float kAttractSpeed = 400.0f;
+    constexpr float kCollectRange = 48.0f;
+    constexpr float kFriction = 0.85f; // 3/21追加：摩擦(田之上俊)
+
+    std::vector<Entity*> collected;
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, "DropItem")) continue;
+
+        auto* transform = entity->GetComponent<TransformComponent>();
+        auto* drop = entity->GetComponent<DropItemComponent>();
+        if (!transform || !drop) continue;
+
+        if (playerTransform)
+        {
+            const float dx = (playerTransform->x + playerTransform->width * 0.5f)
+                - (transform->x + transform->width * 0.5f);
+            const float dy = (playerTransform->y + playerTransform->height * 0.5f)
+                - (transform->y + transform->height * 0.5f);
+            const float dist = std::sqrt(dx * dx + dy * dy);
+
+            if (dist < kCollectRange)
+            {
+                collected.push_back(entity.get());
+                continue;
+            }
+
+            if (dist < kAttractRange)
+            {
+                // 3/21修正：引き寄せ速度を距離に応じて加速(田之上俊)
+                drop->SetAttracting(true);
+                const float length = std::max(1.0f, dist);
+                const float attractStrength = kAttractSpeed * (1.0f - dist / kAttractRange) + 200.0f;
+                drop->SetVelocityX(dx / length * attractStrength);
+                drop->SetVelocityY(dy / length * attractStrength);
+            }
+            else
+            {
+                drop->SetAttracting(false);
+            }
+        }
+
+        if (!drop->IsAttracting())
+        {
+            // 重力
+            drop->SetVelocityY(std::min(kMaxFallSpeed, drop->GetVelocityY() + kGravity * m_flow.lastDeltaTime));
+        }
+
+        transform->x += drop->GetVelocityX() * m_flow.lastDeltaTime;
+        transform->y += drop->GetVelocityY() * m_flow.lastDeltaTime;
+
+        // 地面スナップ
+        const float prevY = transform->y;
+        const bool onGround = SnapEnemyToGround(*transform);
+        if (onGround)
+        {
+            // 3/21追加：地面接触時に速度を減衰(田之上俊)
+            drop->SetVelocityY(0.0f);
+            drop->SetVelocityX(drop->GetVelocityX() * kFriction);
+            // 速度が十分小さくなったら止める
+            if (std::fabs(drop->GetVelocityX()) < 5.0f)
+            {
+                drop->SetVelocityX(0.0f);
+            }
+        }
+
+        // 画面外削除
+        const float mapHeight = GetMapPixelHeight();
+        if (transform->y > mapHeight)
+        {
+            collected.push_back(entity.get());
+        }
+    }
+
+    if (!collected.empty())
+    {
+        m_entities.erase(
+            std::remove_if(
+                m_entities.begin(),
+                m_entities.end(),
+                [&](const std::unique_ptr<Entity>& e) -> bool
+                {
+                    if (!e) return false;
+                    for (Entity* ptr : collected)
+                    {
+                        if (e.get() == ptr) return true;
+                    }
+                    return false;
+                }),
+            m_entities.end());
+    }
+}
+
+int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
+{
+    switch (archetype)
+    {
+    case EnemyArchetype::Walker:
+        return 10;
+    case EnemyArchetype::Ranged:
+        return 10;
+    case EnemyArchetype::Turret:
+        return 50;
+    default:
+        return 5;
+    }
 }
 void GameScene::HandleAttackHits()
 {
@@ -1272,20 +1420,36 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     {
         return;
     }
-
     if (auto* health = enemy.GetComponent<HealthComponent>())
     {
         health->ApplyDamage(amount);
         if (health->IsDead())
         {
             enemyComponent->MarkDefeated();
+            // 3/21追加：撃破時にドロップアイテムを生成(田之上俊)
+            if (const auto* transform = enemy.GetComponent<TransformComponent>())
+            {
+                const int dropCount = GetEnemyDropCount(enemyComponent->GetArchetype());
+                SpawnDropItems(
+                    transform->x + transform->width * transform->scale * 0.5f,
+                    transform->y + transform->height * transform->scale * 0.5f,
+                    dropCount);
+            }
         }
     }
     else
     {
         enemyComponent->MarkDefeated();
+        // 3/21追加：撃破時にドロップアイテムを生成(田之上俊)
+        if (const auto* transform = enemy.GetComponent<TransformComponent>())
+        {
+            const int dropCount = GetEnemyDropCount(enemyComponent->GetArchetype());
+            SpawnDropItems(
+                transform->x + transform->width * transform->scale * 0.5f,
+                transform->y + transform->height * transform->scale * 0.5f,
+                dropCount);
+        }
     }
-
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
 }
@@ -1400,4 +1564,3 @@ void GameScene::StartPitRestart(Entity* player, const char* logMessage)
     m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, player, nullptr, logMessage, 0.0f, 0.0f });
 }
-

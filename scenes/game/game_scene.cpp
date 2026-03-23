@@ -45,7 +45,6 @@ void GameScene::OnExit()
 
 void GameScene::Update(float deltaTime)
 {
-    m_flow.lastDeltaTime = deltaTime;
     ZoneScoped;
 
     m_eventBus.Clear();
@@ -183,6 +182,7 @@ void GameScene::Update(float deltaTime)
     const float gameplayDeltaTime = (slowForCapture || slowForPlacement)
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
+    m_flow.lastDeltaTime = gameplayDeltaTime;
 
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - gameplayDeltaTime);
     m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
@@ -201,10 +201,17 @@ void GameScene::Update(float deltaTime)
     UpdateBarrels(gameplayDeltaTime);
     UpdateEnemies();
     UpdateBullets();
+    UpdateDropItems(); // 3/21追加(田之上俊)
     UpdateGoalVisual(gameplayDeltaTime);
     HandleWorldInteractions();
     RemoveDefeatedEnemies();
     UpdateEffects(gameplayDeltaTime);
+    // 3/21追加：保留エンティティをまとめて追加(田之上俊)
+    for (auto& entity : m_pendingEntities)
+    {
+        m_entities.push_back(std::move(entity));
+    }
+    m_pendingEntities.clear();
 }
 void GameScene::Draw()
 {

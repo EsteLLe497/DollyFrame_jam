@@ -63,12 +63,12 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::fabs(dx);
             constexpr float kWalkerSpeed = 120.0f;
-            constexpr float kGravity = 1900.0f; // 3/21’Ç‰Á(“c”Vãr)
-            constexpr float kMaxFallSpeed = 980.0f; // 3/21’Ç‰Á(“c”Vãr)
+            constexpr float kGravity = 1900.0f; // 3/21è¿½åŠ (ç”°ä¹‹ä¸Šä¿Š)
+            constexpr float kMaxFallSpeed = 980.0f; // 3/21è¿½åŠ (ç”°ä¹‹ä¸Šä¿Š)
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // 3/21’Ç‰ÁFd—Íˆ—(“c”Vãr)
+            // 3/21è¿½åŠ ï¼šé‡åŠ›å‡¦ç†(ç”°ä¹‹ä¸Šä¿Š)
             enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
             transform->y += enemy->velocityY * flow.lastDeltaTime;
             const bool onGround = snapToGround(*transform);
@@ -98,7 +98,7 @@ inline void UpdateEnemies(
                 else
                 {
                     transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * flow.lastDeltaTime;
-                    snapToGround(*transform); // 3/21’Ç‰Á(“c”Vãr)
+                    snapToGround(*transform); // 3/21è¿½åŠ (ç”°ä¹‹ä¸Šä¿Š)
                 }
                 break;
             case EnemyComponent::AIState::Attack:
@@ -131,16 +131,10 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            // 3/21’Ç‰ÁF‚‚³§ŒÀ‚ğŠÜ‚ŞŠ´’m”»’è(“c”Vãr)
+            // 3/21è¿½åŠ ï¼šé«˜ã•åˆ¶é™ã‚’å«ã‚€æ„ŸçŸ¥åˆ¤å®š(ç”°ä¹‹ä¸Šä¿Š)
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // 3/23’Ç‰ÁFƒvƒŒƒCƒ„[‚ğ’ÇÕ‚µ‚ÄˆÚ“®(“c”Vãr)
-            constexpr float kRangedSpeed = 80.0f; // Walker‚æ‚è’x‚¢
-            if (inDetectRange)
-            {
-                transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kRangedSpeed * flow.lastDeltaTime;
-                snapToGround(*transform);
-            }
+      
 
             enemy->attackTimer += flow.lastDeltaTime;
 
@@ -149,7 +143,7 @@ inline void UpdateEnemies(
                 enemy->attackTimer = 0.0f;
 
                 constexpr float kBulletSpeed = 300.0f;
-                // 3/21C³F…•½•ûŒü‚Ì‚İ‚É”­Ë(“c”Vãr)
+                // 3/21ä¿®æ­£ï¼šæ°´å¹³æ–¹å‘ã®ã¿ã«ç™ºå°„(ç”°ä¹‹ä¸Šä¿Š)
                 const float velX = (dx > 0.0f ? 1.0f : -1.0f) * kBulletSpeed;
                 const float velY = 0.0f;
 
@@ -158,7 +152,7 @@ inline void UpdateEnemies(
                 bullet->AddComponent<TransformComponent>(
                     transform->x + 24.0f,
                     transform->y + 24.0f,
-                    48.0f, 24.0f); // 3/21C³F‰¡1ƒOƒŠƒbƒh~c0.5ƒOƒŠƒbƒh(“c”Vãr)
+                    48.0f, 24.0f); // 3/21ä¿®æ­£ï¼šæ¨ª1ã‚°ãƒªãƒƒãƒ‰Ã—ç¸¦0.5ã‚°ãƒªãƒƒãƒ‰(ç”°ä¹‹ä¸Šä¿Š)
                 bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
                 bullet->AddComponent<SpriteRenderComponent>(tileTexture);
                 bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
@@ -175,7 +169,7 @@ inline void UpdateEnemies(
     flow.goalUnlocked = photo.groups.hasSpawnedCopy || flow.goalUnlockedBySwitch;
 }
 
-template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename IsSolidTileFn>
+template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename HandleEnemyDamageFn, typename IsSolidTileFn>
 void UpdateBullets(
     std::vector<std::unique_ptr<Entity>>& entities,
     float mapWidth,
@@ -183,8 +177,9 @@ void UpdateBullets(
     float deltaTime,
     Entity* player,
     IntersectsEntityFn&& intersectsEntity,
-    HandlePlayerDamageFn&& handlePlayerDamage,
-    IsSolidTileFn&& isSolidTile) // 3/21’Ç‰Á(“c”Vãr)
+    HandlePlayerDamageFn&& handlePlayerDamage
+    , HandleEnemyDamageFn&& handleEnemyDamage
+    , IsSolidTileFn&& isSolidTile) // 3/21è¿½åŠ (ç”°ä¹‹ä¸Šä¿Š)
 {
     entities.erase(
         std::remove_if(
@@ -215,10 +210,30 @@ void UpdateBullets(
                     return true;
                 }
 
-                if (player && intersectsEntity(*player, *entity))
+                if (projectile->GetOwner() == ProjectileComponent::Owner::Enemy &&
+                    player && intersectsEntity(*player, *entity))
                 {
                     handlePlayerDamage(*player, entity.get(), "GameScene player damaged by bullet");
                     return true;
+                }
+
+                if (projectile->GetOwner() == ProjectileComponent::Owner::Photo)
+                {
+                    for (const auto& target : entities)
+                    {
+                        if (!target || target.get() == entity.get() || !HasTag(*target, "Enemy"))
+                        {
+                            continue;
+                        }
+
+                        if (!intersectsEntity(*target, *entity))
+                        {
+                            continue;
+                        }
+
+                        handleEnemyDamage(*target, entity.get(), projectile->GetDamage(), "Photo bullet hit enemy");
+                        return true;
+                    }
                 }
 
                 return transform->x < 0.0f

@@ -48,6 +48,9 @@ private:
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void UpdateEnemies();
     void UpdateBullets();
+    void SpawnDropItems(float x, float y, int count); // 3/23í«â¡(ìcîVè„èr)
+    void UpdateDropItems();                            // 3/23í«â¡(ìcîVè„èr)
+    int GetEnemyDropCount(EnemyArchetype archetype) const;
     void UpdateCameraMode();
     void HandleEnemyPlayerCollisions(Entity& player);
     void HandleAttackHits();
@@ -121,6 +124,7 @@ private:
     ScriptEngine m_scriptEngine;
     TileMap m_tileMap;
     std::vector<std::unique_ptr<Entity>> m_entities;
+    std::vector<std::unique_ptr<Entity>> m_pendingEntities;
     PhotoState m_photo;
     GameSceneFlowState m_flow;
     GameScenePlayerState m_player;

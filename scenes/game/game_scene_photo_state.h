@@ -36,6 +36,9 @@ struct CapturedPhotoItem
     bool flipX = false;
     bool vanishOnCapture = false;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
+    float projectileVelocityX = 0.0f;
+    float projectileVelocityY = 0.0f;
+    int projectileDamage = 1;
 };
 
 struct PhotoCaptureState

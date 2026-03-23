@@ -259,25 +259,65 @@ private:
     AIState m_aiState = AIState::Idle;
 };
 
+// 3/21追加：ドロップアイテムコンポーネント(田之上俊)
+class DropItemComponent final : public Component
+{
+public:
+    DropItemComponent(int value, float velocityX, float velocityY)
+        : m_value(value)
+        , m_velocityX(velocityX)
+        , m_velocityY(velocityY)
+        , m_attracting(false)
+        , m_attractTimer(0.0f)
+    {
+    }
+
+    int GetValue() const { return m_value; }
+    float GetVelocityX() const { return m_velocityX; }
+    float GetVelocityY() const { return m_velocityY; }
+    void SetVelocityX(float v) { m_velocityX = v; }
+    void SetVelocityY(float v) { m_velocityY = v; }
+    bool IsAttracting() const { return m_attracting; }
+    void SetAttracting(bool v) { m_attracting = v; }
+    float GetAttractTimer() const { return m_attractTimer; }
+    void SetAttractTimer(float v) { m_attractTimer = v; }
+
+private:
+    int m_value;
+    float m_velocityX;
+    float m_velocityY;
+    bool m_attracting;
+    float m_attractTimer;
+};
+
 // 3/19�ǉ��F�������U���̒e�R���|�[�l���g(�c�V��r)
 class ProjectileComponent final : public Component
 {
 public:
-    ProjectileComponent(float velocityX, float velocityY, int damage = 1)
+    enum class Owner
+    {
+        Enemy,
+        Photo
+    };
+
+    ProjectileComponent(float velocityX, float velocityY, int damage = 1, Owner owner = Owner::Enemy)
         : m_velocityX(velocityX)
         , m_velocityY(velocityY)
         , m_damage(damage)
+        , m_owner(owner)
     {
     }
 
     float GetVelocityX() const { return m_velocityX; }
     float GetVelocityY() const { return m_velocityY; }
     int GetDamage() const { return m_damage; }
+    Owner GetOwner() const { return m_owner; }
 
 private:
     float m_velocityX;
     float m_velocityY;
     int m_damage;
+    Owner m_owner;
 };
 
 class GimmickComponent final : public Component
