@@ -1,4 +1,4 @@
-ï»¿#include "game_scene_internal.h"
+#include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
 #include "game_scene_player_system.h"
 #include "game_scene_player_movement_system.h"
@@ -329,8 +329,11 @@ void GameScene::UpdatePlayer(float deltaTime)
 
     std::vector<TransformComponent> photoBoxes;
     GetPhotoBoxBounds(photoBoxes);
-    std::vector<TransformComponent> photoSources;
-    GetEntityBoundsByTag("PhotoSource", photoSources);
+    std::vector<TransformComponent> solidObjects;
+    GetEntityBoundsByTag("PhotoSource", solidObjects);
+    std::vector<TransformComponent> enemyBounds;
+    GetEntityBoundsByTag("Enemy", enemyBounds);
+    solidObjects.insert(solidObjects.end(), enemyBounds.begin(), enemyBounds.end());
     game_scene_player_movement_system::ResolveHorizontalObjectCollisions(
         *transform,
         m_player,
@@ -340,7 +343,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         {
             return IntersectsSolidPhotoBox(candidate);
         },
-        photoSources);
+        solidObjects);
 
     if (m_player.velocityY >= 0.0f && wasGrounded)
     {
@@ -356,7 +359,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         wasGrounded,
         movementContext,
         photoBoxes,
-        photoSources,
+        solidObjects,
         [this](int column, int row)
         {
             return IsSolidTile(column, row);
@@ -776,7 +779,7 @@ void GameScene::UpdateEnemies()
         m_flow,
         m_photo,
         playerTransform,
-        // 3/21C³F’n–ÊƒXƒiƒbƒvƒR[ƒ‹ƒoƒbƒN‚ðbool•Ô‹p‚É•ÏX(“c”Vãr)
+        // 3/21?C???F?n??X?i?b?v?R?[???o?b?N??bool??p???X(?c?V??r)
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
@@ -800,7 +803,7 @@ void GameScene::UpdateBullets()
         {
             HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
         },
-        // 3/21’Ç‰ÁFƒ^ƒCƒ‹“–‚½‚è”»’èƒR[ƒ‹ƒoƒbƒN(“c”Vãr)
+        // 3/21????F?^?C??????????R?[???o?b?N(?c?V??r)
         [this](float x, float y) -> bool
         {
             const float tileSize = m_tileMap.GetTileSize();
@@ -839,6 +842,48 @@ void GameScene::UpdateGoalVisual(float deltaTime)
     }
 }
 
+void GameScene::HandleEnemyPlayerCollisions(Entity& player)
+{
+    const auto* playerTransform = player.GetComponent<TransformComponent>();
+    if (!playerTransform)
+    {
+        return;
+    }
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || entity.get() == &player)
+        {
+            continue;
+        }
+
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        auto* enemyTransform = entity->GetComponent<TransformComponent>();
+        if (!enemy || !enemy->IsEnabled() || enemy->IsDefeated() || !enemyTransform)
+        {
+            continue;
+        }
+
+        TransformComponent expandedBounds(
+            enemyTransform->x - 2.0f,
+            enemyTransform->y - 2.0f,
+            enemyTransform->width + 4.0f,
+            enemyTransform->height + 4.0f);
+        expandedBounds.scale = enemyTransform->scale;
+        if (!IntersectsRect(*playerTransform, expandedBounds))
+        {
+            continue;
+        }
+
+        m_flow.playerTouchingHazard = true;
+        HandlePlayerDamage(
+            player,
+            entity.get(),
+            "GameScene player damaged by enemy",
+            enemy->GetContactDamage());
+    }
+}
+
 void GameScene::HandleWorldInteractions()
 {
     Entity* player = FindEntityByTag("Player");
@@ -858,6 +903,8 @@ void GameScene::HandleWorldInteractions()
             return;
         }
     }
+
+    HandleEnemyPlayerCollisions(*player);
 
     game_scene_world_interaction_system::HandleTileInteractions(
         m_flow,
@@ -1131,8 +1178,7 @@ void GameScene::RefreshPhotoGroupState()
     m_photo.groups.activeGroupCount = static_cast<int>(groups.size());
     m_photo.groups.nextGroupId = std::max(m_photo.groups.nextGroupId, maxGroupId + 1);
 }
-
-void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage)
+void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage, int amount)
 {
     if (game_scene_world_interaction_system::IsPlayerDamageBlocked(
         m_player,
@@ -1158,8 +1204,7 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
     {
         cooldown->Trigger();
     }
-
-    health->ApplyDamage(1);
+    health->ApplyDamage((std::max)(1, amount));
     GameSession_SetCurrentHp(health->GetCurrentHealth());
     m_eventBus.Publish({ EventType::PlaySoundRequest, &player, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &player, sourceEntity, logMessage, 0.0f, 0.0f });
