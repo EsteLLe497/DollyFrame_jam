@@ -821,7 +821,7 @@ void GameScene::UpdateEnemies()
         m_flow,
         m_photo,
         playerTransform,
-        // 3/21ï¿½Cï¿½ï¿½ï¿½Fï¿½nï¿½ÊƒXï¿½iï¿½bï¿½vï¿½Rï¿½[ï¿½ï¿½ï¿½oï¿½bï¿½Nï¿½ï¿½boolï¿½Ô‹pï¿½É•ÏX(ï¿½cï¿½Vï¿½ï¿½r)
+        // 3/21E½CE½E½E½FE½nE½ÊƒXE½iE½bE½vE½RE½[E½E½E½oE½bE½NE½E½boolE½Ô‹pE½É•ÏX(E½cE½VE½E½r)
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
@@ -845,7 +845,11 @@ void GameScene::UpdateBullets()
         {
             HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
         },
-        // 3/21ï¿½Ç‰ï¿½ï¿½Fï¿½^ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è”»ï¿½ï¿½Rï¿½[ï¿½ï¿½ï¿½oï¿½bï¿½N(ï¿½cï¿½Vï¿½ï¿½r)
+        [this](Entity& enemyEntity, Entity* sourceEntity, int amount, const char* logMessage)
+        {
+            HandleEnemyDamage(enemyEntity, sourceEntity, amount, logMessage);
+        },
+        // 3/21E½Ç‰ï¿½E½FE½^E½CE½E½E½E½E½E½E½è”»E½E½RE½[E½E½E½oE½bE½N(E½cE½VE½E½r)
         [this](float x, float y) -> bool
         {
             const float tileSize = m_tileMap.GetTileSize();
