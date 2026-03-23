@@ -34,6 +34,7 @@ struct CapturedPhotoItem
     int sourceTileValue = 0;
     float rotation = 0.0f;
     bool flipX = false;
+    bool vanishOnCapture = false;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
     float projectileVelocityX = 0.0f;
     float projectileVelocityY = 0.0f;
