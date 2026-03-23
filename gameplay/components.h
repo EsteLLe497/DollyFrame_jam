@@ -49,7 +49,7 @@ enum class EnemyArchetype
     Floater,
     Walker,
     Turret,
-    Ranged, // 3/19�ǉ�(�c�V��r)
+    Ranged, 
 };
 
 enum class GimmickType
@@ -241,13 +241,16 @@ public:
     float attackRange = 48.0f;
     float detectHeight = 96.0f; // 3/21追加(田之上俊)
     float velocityY = 0.0f;
+    float spawnX = 0.0f;
+    float spawnY = 0.0f;
+    bool respawnEnabled = true;
 
 private:
     EnemyArchetype m_archetype;
     int m_contactDamage;
     bool m_enabled;
     bool m_defeated;
-    // 3/19�ǉ�(�c�V��r)
+   
     AIState m_aiState = AIState::Idle;
 };
 
