@@ -417,6 +417,12 @@ Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId
         enemyMover->SetOrigin(x, y);
     }
 
+    if (auto* enemy = entityRef.GetComponent<EnemyComponent>())
+    {
+        enemy->spawnX = x;
+        enemy->spawnY = y;
+    }
+
     m_entities.push_back(std::move(entity));
     return entityRef;
 }
