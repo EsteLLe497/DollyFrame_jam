@@ -59,6 +59,7 @@ void BarrelComponent::DrawDebugUI()
     ImGui::Text("Cooldown: %.2f", cooldownRemaining);
     ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
     ImGui::Text("Fall Distance: %.1f", accumulatedFallDistance);
+    ImGui::Text("Respawn Offscreen: %s", respawnWhenOffscreen ? "Yes" : "No");
 }
 
 TransformComponent::TransformComponent(float xValue, float yValue, float widthValue, float heightValue)

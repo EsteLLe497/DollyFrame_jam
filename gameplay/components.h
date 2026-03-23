@@ -96,6 +96,7 @@ public:
     bool cooldownActive = false;
     float cooldownRemaining = 0.0f;
     bool respawnEnabled = true;
+    bool respawnWhenOffscreen = false;
 };
 
 class TransformComponent final : public Component

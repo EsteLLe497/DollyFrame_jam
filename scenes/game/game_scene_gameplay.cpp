@@ -18,6 +18,7 @@ namespace
     constexpr float kCaptureFinderScaleStep = 0.1f;
     constexpr float kBarrelDebrisLifetime = 0.55f;
     constexpr float kPitRestartFadeDuration = 0.45f;
+    constexpr float kBarrelRespawnOffscreenMargin = 64.0f;
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
     constexpr float kTuningPanelWidth = 460.0f;
@@ -196,22 +197,34 @@ void GameScene::UpdatePlayer(float deltaTime)
 {
     if (m_flow.cameraMode)
     {
+        int zoomDirection = 0;
         const int wheelDelta = GetMouseWheelRotVol();
         const bool dpadUpDown = Input_IsDpadUpDown();
         const bool dpadDownDown = Input_IsDpadDownDown();
-        if (wheelDelta != 0 || dpadUpDown || dpadDownDown)
+        if (wheelDelta > 0 || dpadUpDown)
         {
-            float scaleStep = 0.0f;
-            if (wheelDelta > 0 || dpadUpDown)
-            {
-                scaleStep += kCaptureFinderScaleStep;
-            }
-            if (wheelDelta < 0 || dpadDownDown)
-            {
-                scaleStep -= kCaptureFinderScaleStep;
-            }
+            ++zoomDirection;
+        }
+        if (wheelDelta < 0 || dpadDownDown)
+        {
+            --zoomDirection;
+        }
+
+        // Reverse gamepad zoom mapping:
+        // LB = zoom in, RB = zoom out.
+        if (Input_IsLeftShoulderPressed())
+        {
+            ++zoomDirection;
+        }
+        else if (Input_IsRightShoulderPressed())
+        {
+            --zoomDirection;
+        }
+ 
+        if (zoomDirection != 0)
+        {
             m_flow.captureFinderScale = std::clamp(
-                m_flow.captureFinderScale + scaleStep,
+                m_flow.captureFinderScale + static_cast<float>(zoomDirection) * kCaptureFinderScaleStep,
                 kCaptureFinderScaleMin,
                 kCaptureFinderScaleMax);
         }
@@ -400,7 +413,10 @@ void GameScene::UpdateBarrels(float deltaTime)
     }
 
     Entity* player = FindEntityByTag("Player");
+    const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
+    const float activeLeft = std::max(0.0f, m_flow.cameraX - gBarrelActivationPaddingX);
+    const float activeRight = std::min(mapWidth, m_flow.cameraX + gCameraViewWidth + gBarrelActivationPaddingX);
     const float tileSize = m_tileMap.GetTileSize();
     const float activationDistance = tileSize * 10.0f;
 
@@ -529,6 +545,32 @@ void GameScene::UpdateBarrels(float deltaTime)
 
         const float barrelWidth = transform->width * transform->scale;
         const float barrelHeight = transform->height * transform->scale;
+        if (barrel->respawnWhenOffscreen)
+        {
+            const float cameraLeft = m_flow.cameraX - kBarrelRespawnOffscreenMargin;
+            const float cameraRight = m_flow.cameraX + gCameraViewWidth + kBarrelRespawnOffscreenMargin;
+            const float cameraBottom = gCameraViewHeight + kBarrelRespawnOffscreenMargin;
+            const bool isOffscreen =
+                (transform->x + barrelWidth) < cameraLeft ||
+                transform->x > cameraRight ||
+                transform->y > cameraBottom;
+            if (isOffscreen)
+            {
+                transform->x = std::clamp(barrel->spawnX, 0.0f, std::max(0.0f, mapWidth - barrelWidth));
+                transform->y = std::clamp(barrel->spawnY, 0.0f, std::max(0.0f, mapHeight - barrelHeight));
+                barrel->velocityX = 0.0f;
+                barrel->velocityY = 0.0f;
+                barrel->accumulatedFallDistance = 0.0f;
+                barrel->grounded = false;
+                barrel->destroyed = false;
+                continue;
+            }
+        }
+
+        if (transform->x + barrelWidth < activeLeft || transform->x > activeRight)
+        {
+            continue;
+        }
 
         if (barrel->cooldownActive)
         {
