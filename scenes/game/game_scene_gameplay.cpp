@@ -1362,13 +1362,13 @@ void GameScene::RemoveDefeatedEnemies()
         auto* transform = entity->GetComponent<TransformComponent>();
         if (!transform) continue;
 
-        
+        // 撃破時に非表示＆当たり判定無効化＆画面外に移動
         if (auto* tint = entity->GetComponent<TintComponent>())
         {
             tint->a = 0.0f;
         }
         enemy->SetEnabled(false);
-       
+        // 画面外に移動させて当たり判定を回避
         transform->x = -9999.0f;
         transform->y = -9999.0f;
 
