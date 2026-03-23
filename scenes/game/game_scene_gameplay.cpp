@@ -257,7 +257,7 @@ void GameScene::UpdatePlayer(float deltaTime)
 
     game_scene_player_system::UpdateFacingFromMoveAxis(m_player, moveAxis);
 
-    if (controls.dodgePressed && game_scene_player_system::TryBeginDodge(
+    if (controls.dodgePressed &&wasGrounded&& game_scene_player_system::TryBeginDodge(
         m_player,
         moveAxis,
         dodgeDuration,
