@@ -170,8 +170,27 @@ void GameScene::InitializeStageEntities()
 
     float goalX = GetMapPixelWidth() - 120.0f;
     float goalY = 248.0f;
+    bool goalMarkerFound = false;
     const float tileSize = m_tileMap.GetTileSize();
-    const float goalSize = tileSize * 2.0f;
+    const float goalSize = tileSize;
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            if (m_tileMap.GetMarker(column, row) != 'G')
+            {
+                continue;
+            }
+
+            goalX = static_cast<float>(column) * tileSize;
+            goalY = static_cast<float>(row) * tileSize;
+            goalMarkerFound = true;
+        }
+    }
+
+    if (!goalMarkerFound)
+    {
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -187,6 +206,7 @@ void GameScene::InitializeStageEntities()
             break;
         }
     }
+    }
 
     Entity& player = SpawnStagePrefab(
         prefabs,
@@ -194,6 +214,22 @@ void GameScene::InitializeStageEntities()
         AlignToGrid(192.0f, tileSize),
         AlignToGrid(336.0f, tileSize));
     SetEntityTint(player, 0.30f, 0.82f, 0.98f);
+    if (auto* playerTransform = player.GetComponent<TransformComponent>())
+    {
+        m_flow.stageStartX = playerTransform->x;
+        m_flow.stageStartY = playerTransform->y;
+        m_flow.respawnX = playerTransform->x;
+        m_flow.respawnY = playerTransform->y;
+    }
+    else
+    {
+        m_flow.stageStartX = AlignToGrid(192.0f, tileSize);
+        m_flow.stageStartY = AlignToGrid(336.0f, tileSize);
+        m_flow.respawnX = m_flow.stageStartX;
+        m_flow.respawnY = m_flow.stageStartY;
+    }
+    m_flow.hasCheckpoint = false;
+    m_flow.activeCheckpointId = -1;
 
     bool hasBarrelMarker = false;
     for (int row = 0; row < m_tileMap.GetHeight() && !hasBarrelMarker; ++row)
@@ -214,7 +250,7 @@ void GameScene::InitializeStageEntities()
             AlignToGrid(432.0f, tileSize),
             AlignToGrid(240.0f, tileSize));
     }
-    // 3/23’Ç‰ÁFCSVƒ}[ƒJ[‚©‚çWalker/Ranged“G‚ð¶¬(“c”Vãr)
+    // Spawn walker/ranged enemies from CSV markers.
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -278,12 +314,36 @@ void GameScene::InitializeStageEntities()
         }
     }
 
-   Entity& goal = SpawnStagePrefab(
+    int checkpointId = 0;
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            if (m_tileMap.GetMarker(column, row) != 'C')
+            {
+                continue;
+            }
+
+            const float checkpointX = AlignToGrid(static_cast<float>(column) * tileSize, tileSize);
+            const float checkpointY = AlignToGrid(static_cast<float>(row) * tileSize - tileSize, tileSize);
+            Entity& checkpoint = SpawnStagePrefab(
+                prefabs,
+                "sandbox_checkpoint",
+                checkpointX,
+                checkpointY);
+            checkpoint.AddComponent<CheckpointComponent>(checkpointId, checkpointX, checkpointY);
+            ++checkpointId;
+        }
+    }
+
+    Entity& goal = SpawnStagePrefab(
         prefabs,
         "sandbox_goal",
-        AlignToGrid(5500.0f, tileSize),
-        AlignToGrid(240.0f, tileSize));
+        AlignToGrid(goalX, tileSize),
+        AlignToGrid(goalY, tileSize));
     SetEntityTint(goal, 0.62f, 0.30f, 0.24f);
+    m_flow.goalUnlocked = true;
+    m_flow.goalUnlockedBySwitch = true;
 
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
 	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);
@@ -338,3 +398,4 @@ Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId
     m_entities.push_back(std::move(entity));
     return entityRef;
 }
+

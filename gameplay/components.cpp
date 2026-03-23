@@ -189,6 +189,8 @@ namespace
             return "Goal";
         case GimmickType::Pickup:
             return "Pickup";
+        case GimmickType::Checkpoint:
+            return "Checkpoint";
         case GimmickType::PhotoSource:
             return "Photo Source";
         case GimmickType::Filter:
@@ -335,6 +337,22 @@ void GimmickComponent::Restore()
     m_consumed = false;
 }
 
+CheckpointComponent::CheckpointComponent(int checkpointIdValue, float respawnXValue, float respawnYValue)
+    : checkpointId(checkpointIdValue)
+    , respawnX(respawnXValue)
+    , respawnY(respawnYValue)
+    , activated(false)
+{
+}
+
+void CheckpointComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Checkpoint");
+    ImGui::Text("Id: %d", checkpointId);
+    ImGui::Text("Respawn: %.1f, %.1f", respawnX, respawnY);
+    ImGui::Text("Activated: %s", activated ? "Yes" : "No");
+}
+
 PhotoFilterComponent::PhotoFilterComponent(PhotoFilterTheme theme, PhotoCopyRole outputRole, PhotoCopyLayer outputLayer, float tintR, float tintG, float tintB, float tintA)
     : m_theme(theme)
     , m_outputRole(outputRole)
@@ -407,6 +425,16 @@ void HealthComponent::ApplyDamage(int amount)
     m_currentHealth = std::max(0, m_currentHealth - std::max(0, amount));
 }
 
+void HealthComponent::SetCurrentHealth(int value)
+{
+    m_currentHealth = std::clamp(value, 0, m_maxHealth);
+}
+
+void HealthComponent::RestoreToFull()
+{
+    m_currentHealth = m_maxHealth;
+}
+
 int HealthComponent::GetCurrentHealth() const
 {
     return m_currentHealth;
@@ -447,6 +475,11 @@ bool DamageCooldownComponent::CanTakeDamage() const
 void DamageCooldownComponent::Trigger()
 {
     m_remainingSeconds = m_cooldownSeconds;
+}
+
+void DamageCooldownComponent::SetRemainingSeconds(float seconds)
+{
+    m_remainingSeconds = std::max(0.0f, seconds);
 }
 
 float DamageCooldownComponent::GetRemainingSeconds() const

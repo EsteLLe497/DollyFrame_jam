@@ -56,6 +56,7 @@ enum class GimmickType
 {
     Hazard,
     Goal,
+    Checkpoint,
     Pickup,
     PhotoSource,
     Filter,
@@ -301,6 +302,19 @@ private:
     bool m_consumed;
 };
 
+class CheckpointComponent final : public Component
+{
+public:
+    CheckpointComponent(int checkpointId, float respawnX, float respawnY);
+
+    void DrawDebugUI() override;
+
+    int checkpointId;
+    float respawnX;
+    float respawnY;
+    bool activated;
+};
+
 class PhotoFilterComponent final : public Component
 {
 public:
@@ -332,6 +346,8 @@ public:
 
     void DrawDebugUI() override;
     void ApplyDamage(int amount);
+    void SetCurrentHealth(int value);
+    void RestoreToFull();
     int GetCurrentHealth() const;
     int GetMaxHealth() const;
     bool IsDead() const;
@@ -350,6 +366,7 @@ public:
     void DrawDebugUI() override;
     bool CanTakeDamage() const;
     void Trigger();
+    void SetRemainingSeconds(float seconds);
     float GetRemainingSeconds() const;
 
 private:

@@ -288,8 +288,8 @@
       "transform": {
         "x": 0.0,
         "y": 0.0,
-        "width": 96.0,
-        "height": 96.0,
+        "width": 48.0,
+        "height": 48.0,
         "rotation": 0.0,
         "scale": 1.0
       },
@@ -302,6 +302,30 @@
       "gimmick": {
         "enabled": true,
         "type": "goal",
+        "startsEnabled": true,
+        "oneShot": false
+      }
+    },
+    "sandbox_checkpoint": {
+      "tag": "Checkpoint",
+      "texture": "white",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 48.0,
+        "height": 96.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.30,
+        "g": 0.72,
+        "b": 0.96,
+        "a": 0.95
+      },
+      "gimmick": {
+        "enabled": true,
+        "type": "checkpoint",
         "startsEnabled": true,
         "oneShot": false
       }

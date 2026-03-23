@@ -71,6 +71,68 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker)
         return true;
     }
 
+    const auto tryParseMarker = [&](const std::string& token, char& outValue) -> bool
+    {
+        if (token.size() != 1)
+        {
+            return false;
+        }
+        outValue = static_cast<char>(std::toupper(static_cast<unsigned char>(token[0])));
+        return true;
+    };
+
+    const auto tryParseCompositeCell = [&](const std::string& leftToken, const std::string& rightToken) -> bool
+    {
+        const std::string left = Trim(leftToken);
+        const std::string right = Trim(rightToken);
+        int tileValue = 0;
+        char markerValue = '\0';
+        if (tryParseTileValue(left, tileValue) && tryParseMarker(right, markerValue))
+        {
+            outTileValue = tileValue;
+            outMarker = markerValue;
+            return true;
+        }
+        if (tryParseMarker(left, markerValue) && tryParseTileValue(right, tileValue))
+        {
+            outTileValue = tileValue;
+            outMarker = markerValue;
+            return true;
+        }
+        return false;
+    };
+
+    const size_t pipePos = cell.find('|');
+    if (pipePos != std::string::npos)
+    {
+        if (tryParseCompositeCell(cell.substr(0, pipePos), cell.substr(pipePos + 1)))
+        {
+            return true;
+        }
+    }
+
+    const size_t colonPos = cell.find(':');
+    if (colonPos != std::string::npos)
+    {
+        if (tryParseCompositeCell(cell.substr(0, colonPos), cell.substr(colonPos + 1)))
+        {
+            return true;
+        }
+    }
+
+    size_t splitIndex = 0;
+    while (splitIndex < cell.size() && (std::isdigit(static_cast<unsigned char>(cell[splitIndex])) || cell[splitIndex] == '-'))
+    {
+        ++splitIndex;
+    }
+    if (splitIndex > 0 && splitIndex < cell.size())
+    {
+        if (tryParseCompositeCell(cell.substr(0, splitIndex), cell.substr(splitIndex)))
+        {
+            return true;
+        }
+    }
+
     if (cell.size() > 5 && cell.rfind("tile=", 0) == 0)
     {
         const std::string tileToken = Trim(cell.substr(5));

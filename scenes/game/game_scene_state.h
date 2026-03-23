@@ -53,6 +53,12 @@ struct GameSceneFlowState
     int cameraModeSessionId = 0;
     bool pitRestartActive = false;
     float pitRestartTimer = 0.0f;
+    bool hasCheckpoint = false;
+    int activeCheckpointId = -1;
+    float stageStartX = 0.0f;
+    float stageStartY = 0.0f;
+    float respawnX = 0.0f;
+    float respawnY = 0.0f;
 };
 
 struct GameScenePlayerState

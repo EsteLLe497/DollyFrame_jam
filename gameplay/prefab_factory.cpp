@@ -254,6 +254,10 @@ void PrefabFactory::LoadDefinitions()
         {
             definition.gimmickType = GimmickType::Pickup;
         }
+        else if (gimmickType == "checkpoint")
+        {
+            definition.gimmickType = GimmickType::Checkpoint;
+        }
         else if (gimmickType == "photo_source")
         {
             definition.gimmickType = GimmickType::PhotoSource;
