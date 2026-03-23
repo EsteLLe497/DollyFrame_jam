@@ -995,7 +995,7 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     float bestDistance = 1000000.0f;
     for (const auto& entity : m_entities)
     {
-        if (HasTag(*entity, "Player"))
+        if (HasTag(*entity, "Player") || HasTag(*entity, "Enemy"))
         {
             continue;
         }

@@ -392,6 +392,14 @@ namespace
             outWidth = (std::max)(1.0f, capture.width);
             outHeight = (std::max)(1.0f, capture.height);
 
+            std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
+                capture.items,
+                whiteTexture,
+                capture.capturedTheme,
+                outWidth,
+                outHeight,
+                placement.flipX,
+                false);
             if (placement.flipX)
             {
                 for (auto& item : items)
@@ -401,15 +409,6 @@ namespace
                     item.projectileVelocityX = -item.projectileVelocityX;
                 }
             }
-
-            std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
-                capture.items,
-                whiteTexture,
-                capture.capturedTheme,
-                outWidth,
-                outHeight,
-                placement.flipX,
-                false);
             RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
             return items;
         }
@@ -679,7 +678,7 @@ private:
     {
             for (const auto& entity : scene.m_entities)
             {
-                if (!entity || HasTag(*entity, "Player"))
+                if (!entity || HasTag(*entity, "Player") || HasTag(*entity, "Enemy"))
                 {
                     continue;
                 }
