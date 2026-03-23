@@ -859,6 +859,147 @@ void GameScene::UpdateBullets()
             return IsSolidTile(column, row);
         });
 }
+
+// 3/21追加：ドロップアイテムの生成(田之上俊)
+void GameScene::SpawnDropItems(float x, float y, int count)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        // 3/21修正：花火のように上方向に強く散らばる(田之上俊)
+        const float angle = (static_cast<float>(i) / static_cast<float>(count)) * 6.28318f
+            + static_cast<float>(rand() % 100) * 0.063f;
+        const float speed = 250.0f + static_cast<float>(rand() % 200);
+        const float velX = std::cos(angle) * speed;
+        const float velY = std::sin(angle) * speed - 350.0f; // 上方向に強く
+
+        auto item = std::make_unique<Entity>();
+        item->AddComponent<TagComponent>("DropItem");
+        item->AddComponent<TransformComponent>(x, y, 10.0f, 10.0f);
+        const float hue = static_cast<float>(rand() % 100) * 0.01f;
+        item->AddComponent<TintComponent>(0.96f, 0.76f + hue * 0.2f, 0.10f + hue * 0.3f, 1.0f);
+        item->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        item->AddComponent<DropItemComponent>(1, velX, velY);
+        m_pendingEntities.push_back(std::move(item));
+    }
+}
+
+// 3/21追加：ドロップアイテムの更新(田之上俊)
+void GameScene::UpdateDropItems()
+{
+    Entity* player = FindEntityByTag("Player");
+    const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+
+    constexpr float kGravity = 1200.0f;
+    constexpr float kMaxFallSpeed = 800.0f;
+    constexpr float kAttractRange = 120.0f;
+    constexpr float kAttractSpeed = 400.0f;
+    constexpr float kCollectRange = 48.0f;
+    constexpr float kFriction = 0.85f; // 3/21追加：摩擦(田之上俊)
+
+    std::vector<Entity*> collected;
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, "DropItem")) continue;
+
+        auto* transform = entity->GetComponent<TransformComponent>();
+        auto* drop = entity->GetComponent<DropItemComponent>();
+        if (!transform || !drop) continue;
+
+        if (playerTransform)
+        {
+            const float dx = (playerTransform->x + playerTransform->width * 0.5f)
+                - (transform->x + transform->width * 0.5f);
+            const float dy = (playerTransform->y + playerTransform->height * 0.5f)
+                - (transform->y + transform->height * 0.5f);
+            const float dist = std::sqrt(dx * dx + dy * dy);
+
+            if (dist < kCollectRange)
+            {
+                collected.push_back(entity.get());
+                continue;
+            }
+
+            if (dist < kAttractRange)
+            {
+                // 3/21修正：引き寄せ速度を距離に応じて加速(田之上俊)
+                drop->SetAttracting(true);
+                const float length = std::max(1.0f, dist);
+                const float attractStrength = kAttractSpeed * (1.0f - dist / kAttractRange) + 200.0f;
+                drop->SetVelocityX(dx / length * attractStrength);
+                drop->SetVelocityY(dy / length * attractStrength);
+            }
+            else
+            {
+                drop->SetAttracting(false);
+            }
+        }
+
+        if (!drop->IsAttracting())
+        {
+            // 重力
+            drop->SetVelocityY(std::min(kMaxFallSpeed, drop->GetVelocityY() + kGravity * m_flow.lastDeltaTime));
+        }
+
+        transform->x += drop->GetVelocityX() * m_flow.lastDeltaTime;
+        transform->y += drop->GetVelocityY() * m_flow.lastDeltaTime;
+
+        // 地面スナップ
+        const float prevY = transform->y;
+        const bool onGround = SnapEnemyToGround(*transform);
+        if (onGround)
+        {
+            // 3/21追加：地面接触時に速度を減衰(田之上俊)
+            drop->SetVelocityY(0.0f);
+            drop->SetVelocityX(drop->GetVelocityX() * kFriction);
+            // 速度が十分小さくなったら止める
+            if (std::fabs(drop->GetVelocityX()) < 5.0f)
+            {
+                drop->SetVelocityX(0.0f);
+            }
+        }
+
+        // 画面外削除
+        const float mapHeight = GetMapPixelHeight();
+        if (transform->y > mapHeight)
+        {
+            collected.push_back(entity.get());
+        }
+    }
+
+    if (!collected.empty())
+    {
+        m_entities.erase(
+            std::remove_if(
+                m_entities.begin(),
+                m_entities.end(),
+                [&](const std::unique_ptr<Entity>& e) -> bool
+                {
+                    if (!e) return false;
+                    for (Entity* ptr : collected)
+                    {
+                        if (e.get() == ptr) return true;
+                    }
+                    return false;
+                }),
+            m_entities.end());
+    }
+}
+
+int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
+{
+    switch (archetype)
+    {
+    case EnemyArchetype::Walker:
+        return 10;
+    case EnemyArchetype::Ranged:
+        return 10;
+    case EnemyArchetype::Turret:
+        return 50;
+    default:
+        return 5;
+    }
+}
 void GameScene::HandleAttackHits()
 {
     return;
@@ -1276,20 +1417,36 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     {
         return;
     }
-
     if (auto* health = enemy.GetComponent<HealthComponent>())
     {
         health->ApplyDamage(amount);
         if (health->IsDead())
         {
             enemyComponent->MarkDefeated();
+            // 3/21追加：撃破時にドロップアイテムを生成(田之上俊)
+            if (const auto* transform = enemy.GetComponent<TransformComponent>())
+            {
+                const int dropCount = GetEnemyDropCount(enemyComponent->GetArchetype());
+                SpawnDropItems(
+                    transform->x + transform->width * transform->scale * 0.5f,
+                    transform->y + transform->height * transform->scale * 0.5f,
+                    dropCount);
+            }
         }
     }
     else
     {
         enemyComponent->MarkDefeated();
+        // 3/21追加：撃破時にドロップアイテムを生成(田之上俊)
+        if (const auto* transform = enemy.GetComponent<TransformComponent>())
+        {
+            const int dropCount = GetEnemyDropCount(enemyComponent->GetArchetype());
+            SpawnDropItems(
+                transform->x + transform->width * transform->scale * 0.5f,
+                transform->y + transform->height * transform->scale * 0.5f,
+                dropCount);
+        }
     }
-
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
 }

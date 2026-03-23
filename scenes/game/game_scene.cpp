@@ -201,10 +201,17 @@ void GameScene::Update(float deltaTime)
     UpdateBarrels(gameplayDeltaTime);
     UpdateEnemies();
     UpdateBullets();
+    UpdateDropItems(); // 3/21追加(田之上俊)
     UpdateGoalVisual(gameplayDeltaTime);
     HandleWorldInteractions();
     RemoveDefeatedEnemies();
     UpdateEffects(gameplayDeltaTime);
+    // 3/21追加：保留エンティティをまとめて追加(田之上俊)
+    for (auto& entity : m_pendingEntities)
+    {
+        m_entities.push_back(std::move(entity));
+    }
+    m_pendingEntities.clear();
 }
 void GameScene::Draw()
 {
