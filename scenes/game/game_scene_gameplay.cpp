@@ -1362,13 +1362,13 @@ void GameScene::RemoveDefeatedEnemies()
         auto* transform = entity->GetComponent<TransformComponent>();
         if (!transform) continue;
 
-        // Œ‚”jŽž‚É”ñ•\Ž¦•“–‚½‚è”»’è–³Œø‰»•‰æ–ÊŠO‚ÉˆÚ“®
+        
         if (auto* tint = entity->GetComponent<TintComponent>())
         {
             tint->a = 0.0f;
         }
         enemy->SetEnabled(false);
-        // ‰æ–ÊŠO‚ÉˆÚ“®‚³‚¹‚Ä“–‚½‚è”»’è‚ð‰ñ”ð
+       
         transform->x = -9999.0f;
         transform->y = -9999.0f;
 
