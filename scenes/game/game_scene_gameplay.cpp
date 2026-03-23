@@ -1,4 +1,4 @@
-#include "game_scene_internal.h"
+﻿#include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
 #include "game_scene_player_system.h"
 #include "game_scene_player_movement_system.h"
@@ -257,7 +257,7 @@ void GameScene::UpdatePlayer(float deltaTime)
 
     game_scene_player_system::UpdateFacingFromMoveAxis(m_player, moveAxis);
 
-    if (controls.dodgePressed && game_scene_player_system::TryBeginDodge(
+    if (controls.dodgePressed &&wasGrounded&& game_scene_player_system::TryBeginDodge(
         m_player,
         moveAxis,
         dodgeDuration,
@@ -829,6 +829,10 @@ void GameScene::UpdateEnemies()
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
+        },
+        [this](Entity& enemyEntity)
+        {
+            m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, "enemy_gun", 0.0f, 0.0f });
         });
 }
 
@@ -1624,3 +1628,5 @@ void GameScene::StartPitRestart(Entity* player, const char* logMessage)
     m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, player, nullptr, logMessage, 0.0f, 0.0f });
 }
+
+

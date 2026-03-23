@@ -1,4 +1,4 @@
-#include "application.h"
+﻿#include "application.h"
 
 #include <algorithm>
 #include <memory>
@@ -131,6 +131,8 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     Audio_LoadCueFromFile("shutter", "assets/effects/Sound/shutter.wav");
     Audio_LoadCueFromFile("barrel", "assets/effects/Sound/barrel.wav");
     Audio_LoadCueFromFile("cant_paste", "assets/effects/Sound/cantPaste.wav");
+    Audio_LoadCueFromFile("demo_bgm", "assets/effects/Sound/demo.wav");
+    Audio_LoadCueFromFile("enemy_gun", "assets/effects/Sound/EnemyGun.wav");
 
     m_sceneRegistry->Register("title", []()
         {
@@ -401,3 +403,5 @@ LRESULT CALLBACK Application::StaticWndProc(HWND hWnd, UINT message, WPARAM wPar
 {
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
+
+
