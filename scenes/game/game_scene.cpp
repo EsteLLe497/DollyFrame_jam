@@ -45,7 +45,6 @@ void GameScene::OnExit()
 
 void GameScene::Update(float deltaTime)
 {
-    m_flow.lastDeltaTime = deltaTime;
     ZoneScoped;
 
     m_eventBus.Clear();
@@ -174,6 +173,7 @@ void GameScene::Update(float deltaTime)
     const float gameplayDeltaTime = (slowForCapture || slowForPlacement)
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
+    m_flow.lastDeltaTime = gameplayDeltaTime;
 
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - gameplayDeltaTime);
     m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);

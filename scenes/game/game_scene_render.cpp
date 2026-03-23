@@ -379,36 +379,28 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
     else if (tag && tag->tag == "Bullet")
     {
-        // 3/23追加：弾を三角形で描画(田之上俊)
         const auto* projectile = entity.GetComponent<ProjectileComponent>();
         if (projectile)
         {
-            const bool goingRight = projectile->GetVelocityX() >= 0.0f;
+            const float angle = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
             const int color = GetColor(255, 230, 50);
-
-            // 当たり判定の矩形範囲内に三角形を描画
-            if (goingRight)
-            {
-                // 右向き：左辺が底辺、右側が尖る
-                DrawTriangleAA(
-                    drawX, drawY,                          // 左上
-                    drawX, drawY + drawHeight,             // 左下
-                    drawX + drawWidth, drawY + drawHeight * 0.5f, // 右中央（尖り）
-                    color, TRUE);
-            }
-            else
-            {
-                // 左向き：右辺が底辺、左側が尖る
-                DrawTriangleAA(
-                    drawX + drawWidth, drawY,              // 右上
-                    drawX + drawWidth, drawY + drawHeight, // 右下
-                    drawX, drawY + drawHeight * 0.5f,      // 左中央（尖り）
-                    color, TRUE);
-            }
+            float ax = drawX;
+            float ay = drawY;
+            float bx = drawX;
+            float by = drawY + drawHeight;
+            float cx = drawX + drawWidth;
+            float cy = drawY + drawHeight * 0.5f;
+            const float centerX = drawX + drawWidth * 0.5f;
+            const float centerY = drawY + drawHeight * 0.5f;
+            RotatePoint(centerX, centerY, angle, ax, ay);
+            RotatePoint(centerX, centerY, angle, bx, by);
+            RotatePoint(centerX, centerY, angle, cx, cy);
+            DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
             Shader_ResetStyle();
             return;
         }
     }
+
 
     else if (tag && tag->tag == "Player")
     {

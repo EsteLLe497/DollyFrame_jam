@@ -134,13 +134,7 @@ inline void UpdateEnemies(
             // 3/21í«â¡ÅFçÇÇ≥êßå¿Çä‹Çﬁä¥ímîªíË(ìcîVè„èr)
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // 3/23í«â¡ÅFÉvÉåÉCÉÑÅ[Çí«ê’ÇµÇƒà⁄ìÆ(ìcîVè„èr)
-            constexpr float kRangedSpeed = 80.0f; // WalkerÇÊÇËíxÇ¢
-            if (inDetectRange)
-            {
-                transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kRangedSpeed * flow.lastDeltaTime;
-                snapToGround(*transform);
-            }
+      
 
             enemy->attackTimer += flow.lastDeltaTime;
 
@@ -175,7 +169,7 @@ inline void UpdateEnemies(
     flow.goalUnlocked = photo.groups.hasSpawnedCopy || flow.goalUnlockedBySwitch;
 }
 
-template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename IsSolidTileFn>
+template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename HandleEnemyDamageFn, typename IsSolidTileFn>
 void UpdateBullets(
     std::vector<std::unique_ptr<Entity>>& entities,
     float mapWidth,
@@ -183,8 +177,9 @@ void UpdateBullets(
     float deltaTime,
     Entity* player,
     IntersectsEntityFn&& intersectsEntity,
-    HandlePlayerDamageFn&& handlePlayerDamage,
-    IsSolidTileFn&& isSolidTile) // 3/21í«â¡(ìcîVè„èr)
+    HandlePlayerDamageFn&& handlePlayerDamage
+    , HandleEnemyDamageFn&& handleEnemyDamage
+    , IsSolidTileFn&& isSolidTile) // 3/21í«â¡(ìcîVè„èr)
 {
     entities.erase(
         std::remove_if(
@@ -215,10 +210,30 @@ void UpdateBullets(
                     return true;
                 }
 
-                if (player && intersectsEntity(*player, *entity))
+                if (projectile->GetOwner() == ProjectileComponent::Owner::Enemy &&
+                    player && intersectsEntity(*player, *entity))
                 {
                     handlePlayerDamage(*player, entity.get(), "GameScene player damaged by bullet");
                     return true;
+                }
+
+                if (projectile->GetOwner() == ProjectileComponent::Owner::Photo)
+                {
+                    for (const auto& target : entities)
+                    {
+                        if (!target || target.get() == entity.get() || !HasTag(*target, "Enemy"))
+                        {
+                            continue;
+                        }
+
+                        if (!intersectsEntity(*target, *entity))
+                        {
+                            continue;
+                        }
+
+                        handleEnemyDamage(*target, entity.get(), projectile->GetDamage(), "Photo bullet hit enemy");
+                        return true;
+                    }
                 }
 
                 return transform->x < 0.0f

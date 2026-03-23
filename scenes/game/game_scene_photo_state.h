@@ -9,6 +9,7 @@ enum class CapturedSpawnArchetype
 {
     None,
     Barrel,
+    Projectile,
 };
 
 struct CapturedPhotoItem
@@ -34,6 +35,9 @@ struct CapturedPhotoItem
     float rotation = 0.0f;
     bool flipX = false;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
+    float projectileVelocityX = 0.0f;
+    float projectileVelocityY = 0.0f;
+    int projectileDamage = 1;
 };
 
 struct PhotoCaptureState

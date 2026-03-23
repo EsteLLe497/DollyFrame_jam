@@ -102,6 +102,29 @@ namespace
         RotatePoint(centerX, centerY, rotation, cx, cy);
         DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
     }
+    void DrawProjectileItem(
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        bool flipX,
+        float rotation,
+        int color)
+    {
+        float ax = flipX ? drawX + drawWidth : drawX;
+        float ay = drawY;
+        float bx = flipX ? drawX + drawWidth : drawX;
+        float by = drawY + drawHeight;
+        float cx = flipX ? drawX : drawX + drawWidth;
+        float cy = drawY + drawHeight * 0.5f;
+
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        RotatePoint(centerX, centerY, rotation, ax, ay);
+        RotatePoint(centerX, centerY, rotation, bx, by);
+        RotatePoint(centerX, centerY, rotation, cx, cy);
+        DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
+    }
 
     void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width, float& height, float rotation)
     {
@@ -133,6 +156,10 @@ namespace
             item.relativeX = rotatedCenterX - item.width * 0.5f;
             item.relativeY = rotatedCenterY - item.height * 0.5f;
             item.rotation += rotation;
+            const float rotatedVelocityX = item.projectileVelocityX * cosTheta - item.projectileVelocityY * sinTheta;
+            const float rotatedVelocityY = item.projectileVelocityX * sinTheta + item.projectileVelocityY * cosTheta;
+            item.projectileVelocityX = rotatedVelocityX;
+            item.projectileVelocityY = rotatedVelocityY;
 
             minX = (std::min)(minX, item.relativeX);
             minY = (std::min)(minY, item.relativeY);
@@ -161,6 +188,24 @@ namespace
     {
         Shader_ResetStyle();
         Shader_SetTint(item.tintR, item.tintG, item.tintB, alpha);
+        if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
+        {
+            const int color = GetColor(
+                static_cast<int>(std::round(item.tintR * 255.0f)),
+                static_cast<int>(std::round(item.tintG * 255.0f)),
+                static_cast<int>(std::round(item.tintB * 255.0f)));
+            const float projectileAngle = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+            DrawProjectileItem(
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                false,
+                projectileAngle,
+                color);
+            return;
+        }
+
         const TileTriangleShape triangle = TileMap::GetTriangleShape(item.sourceTileValue);
         if (triangle.isTriangle)
         {
@@ -270,6 +315,7 @@ namespace
             {
                 item.relativeX = printedWidth - item.relativeX - item.width;
                 item.flipX = !item.flipX;
+                    item.projectileVelocityX = -item.projectileVelocityX;
             }
         }
 
@@ -351,6 +397,7 @@ namespace
                 {
                     item.relativeX = outWidth - item.relativeX - item.width;
                     item.flipX = !item.flipX;
+                    item.projectileVelocityX = -item.projectileVelocityX;
                 }
             }
 
@@ -623,7 +670,7 @@ private:
     {
             for (const auto& entity : scene.m_entities)
             {
-                if (!entity || HasTag(*entity, "Player") || HasTag(*entity, "PhotoBox"))
+                if (!entity || HasTag(*entity, "Player") || HasTag(*entity, "PhotoBox") || HasTag(*entity, "Enemy"))
                 {
                     continue;
                 }
@@ -657,12 +704,16 @@ private:
 
                 CapturedPhotoItem item;
                 const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr;
+                const auto* projectile = entity->GetComponent<ProjectileComponent>();
+                const bool capturedProjectile = projectile != nullptr;
                 item.textureId = sprite->GetTextureId();
                 item.role = GetEntityCopyRole(*entity);
                 item.layer = PhotoCopyLayer::Foreground;
                 item.origin = GetEntityCopyOrigin(*entity);
                 item.appliedTheme = scene.m_photo.capture.selectedTheme;
-                item.spawnArchetype = capturedBarrel ? CapturedSpawnArchetype::Barrel : CapturedSpawnArchetype::None;
+                item.spawnArchetype = capturedBarrel
+                    ? CapturedSpawnArchetype::Barrel
+                    : (capturedProjectile ? CapturedSpawnArchetype::Projectile : CapturedSpawnArchetype::None);
                 item.relativeX = overlapLeft - frameX;
                 item.relativeY = overlapTop - frameY;
                 item.width = overlapWidth;
@@ -678,7 +729,16 @@ private:
                     item.tintB = tint->b;
                     item.tintA = tint->a;
                 }
-                if (!capturedBarrel)
+                if (capturedProjectile)
+                {
+                    item.role = PhotoCopyRole::Hazard;
+                    item.layer = PhotoCopyLayer::Foreground;
+                    item.projectileVelocityX = projectile->GetVelocityX();
+                    item.projectileVelocityY = projectile->GetVelocityY();
+                    item.projectileDamage = projectile->GetDamage();
+                    item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+                }
+                else if (!capturedBarrel)
                 {
                     item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
                     item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
@@ -689,13 +749,13 @@ private:
                     item.layer = PhotoCopyLayer::Foreground;
                 }
 
-                // ï¿½ï¿½ï¿½ï¿½ï¿½Å•â³ï¿½Frole ï¿½ï¿½ Solid ï¿½Ìê‡ï¿½Í•Kï¿½ï¿½ Foreground ï¿½É‚ï¿½ï¿½ï¿½
+                // E½E½E½E½E½Å•â³E½Frole E½E½ Solid E½Ìê‡E½Í•KE½E½ Foreground E½É‚ï¿½E½E½
                 if (item.role == PhotoCopyRole::Solid)
                 {
                     item.layer = PhotoCopyLayer::Foreground;
                 }
 
-                if (!capturedBarrel)
+                if (!capturedBarrel && !capturedProjectile)
                 {
                     ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
                 }
@@ -723,7 +783,7 @@ private:
                         continue;
                     }
 
-                    // ï¿½ÏXï¿½_: CSV ï¿½ï¿½ 1 ï¿½Æ‚ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½uï¿½nï¿½Êvï¿½^ï¿½Cï¿½ï¿½ï¿½ÍŽBï¿½eï¿½ï¿½ï¿½È‚ï¿½
+                    // E½ÏXE½_: CSV E½E½ 1 E½Æ‚ï¿½E½Ä‚ï¿½E½E½uE½nE½ÊvE½^E½CE½E½E½ÍŽBE½eE½E½E½È‚ï¿½
                     if (tileValue == 1)
                     {
                         continue;
@@ -819,9 +879,9 @@ private:
         const float viewOriginX = GetViewOriginX();
         const float viewOriginY = GetViewOriginY();
 
-        // ï¿½}ï¿½Eï¿½Xï¿½iï¿½Xï¿½Nï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½jï¿½ï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Wï¿½Ö•ÏŠï¿½ï¿½iï¿½Jï¿½ï¿½ï¿½ï¿½Xï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½j
+        // E½}E½EE½XE½iE½XE½NE½E½E½[E½E½E½jE½E½E½E½[E½E½E½hE½E½E½WE½Ö•ÏŠï¿½E½iE½JE½E½E½E½XE½E½E½E½E½E½E½j
 
-        // ï¿½Eï¿½Xï¿½eï¿½Bï¿½bï¿½Nï¿½pï¿½Ì‰ï¿½ï¿½zï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½iï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Wï¿½j
+        // E½EE½XE½eE½BE½bE½NE½pE½Ì‰ï¿½E½zE½JE½[E½\E½E½E½iE½E½E½[E½E½E½hE½E½E½WE½j
         const float mapWidth = scene.GetMapPixelWidth();
         const float mapHeight = scene.GetMapPixelHeight();
         static float padCursorWorldX = 0.0f;
@@ -896,16 +956,16 @@ private:
         padCursorWorldX += padCursorVelocityX * dt;
         padCursorWorldY += padCursorVelocityY * dt;
 
-        // ï¿½ï¿½ï¿½Íï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Aï¿½cï¿½Ì‚Ýƒ}ï¿½bï¿½vï¿½ï¿½ÉƒNï¿½ï¿½ï¿½ï¿½ï¿½v
-        (void)mapWidth; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½sï¿½ï¿½È‚ï¿½ï¿½Ì‚Å–ï¿½ï¿½gï¿½pï¿½iï¿½xï¿½ï¿½ï¿½}ï¿½ï¿½ï¿½j
+        // E½E½E½Íï¿½E½E½E½E½E½E½E½AE½cE½Ì‚Ýƒ}E½bE½vE½E½ÉƒNE½E½E½E½E½v
+        (void)mapWidth; // E½E½E½E½E½E½E½E½sE½E½È‚ï¿½E½Ì‚Å–ï¿½E½gE½pE½iE½xE½E½E½}E½E½E½j
         padCursorWorldX = std::clamp(padCursorWorldX, 0.0f, std::max(0.0f, mapWidth));
         padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
 
-        // ï¿½ÅIï¿½Iï¿½ÈƒJï¿½[ï¿½\ï¿½ï¿½ï¿½iï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Wï¿½j
+        // E½ÅIE½IE½ÈƒJE½[E½\E½E½E½iE½E½E½[E½E½E½hE½E½E½WE½j
         const float cursorWorldX = padCursorWorldX;
         const float cursorWorldY = padCursorWorldY;
 
-        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½Äƒvï¿½ï¿½ï¿½rï¿½ï¿½ï¿½[ï¿½\ï¿½ï¿½ï¿½iï¿½zï¿½uï¿½mï¿½ï¿½ï¿½ IsPhotoPlacementValid ï¿½É‚ï¿½é”»ï¿½ï¿½j
+        // E½E½E½E½E½E½E½E½OE½E½E½ÄƒvE½E½E½rE½E½E½[E½\E½E½E½iE½zE½uE½mE½E½E½ IsPhotoPlacementValid E½É‚ï¿½é”»E½E½j
         spawnX = cursorWorldX - spawnWidth * 0.5f;
         spawnY = std::clamp(cursorWorldY - spawnHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - spawnHeight));
 
@@ -916,7 +976,7 @@ private:
         scene.m_photo.placement.height = spawnHeight;
         scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
 
-        // ï¿½ï¿½ï¿½zï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½ÌƒXï¿½Nï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Wï¿½ï¿½ì¬ï¿½ï¿½ï¿½Äƒgï¿½ï¿½ï¿½Cï¿½ï¿½ï¿½ï¿½ÉŽgï¿½ï¿½
+        // E½E½E½zE½JE½[E½\E½E½E½ÌƒXE½NE½E½E½[E½E½E½E½E½WE½E½E¬E½E½E½ÄƒgE½E½E½CE½E½E½E½ÉŽgE½E½
         const float cursorScreenX = viewOriginX + (cursorWorldX - scene.m_flow.cameraX) * viewScale;
         const float cursorScreenY = viewOriginY + cursorWorldY * viewScale;
         const bool confirmPressed = Input_IsActionPressed(InputAction::ConfirmPlacement);
@@ -1011,6 +1071,33 @@ private:
                         barrel->active = true;
                     }
                     scene.m_entities.push_back(std::move(barrelEntity));
+                    continue;
+                }
+
+                if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
+                {
+                    auto bulletEntity = std::make_unique<Entity>();
+                    Entity* spawnedBullet = bulletEntity.get();
+                    lastSpawnedEntity = spawnedBullet;
+                    spawnedBullet->AddComponent<TagComponent>("Bullet");
+                    spawnedBullet->AddComponent<TransformComponent>(
+                        spawnX + item.relativeX,
+                        spawnY + item.relativeY,
+                        item.width,
+                        item.height);
+                    spawnedBullet->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+                    spawnedBullet->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+                    spawnedBullet->AddComponent<ProjectileComponent>(item.projectileVelocityX, item.projectileVelocityY, item.projectileDamage, ProjectileComponent::Owner::Photo);
+                    if (auto* sprite = spawnedBullet->GetComponent<SpriteRenderComponent>())
+                    {
+                        sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                        sprite->SetFlipX(item.flipX);
+                    }
+                    if (auto* transform = spawnedBullet->GetComponent<TransformComponent>())
+                    {
+                        transform->rotation = item.rotation;
+                    }
+                    scene.m_entities.push_back(std::move(bulletEntity));
                     continue;
                 }
 
