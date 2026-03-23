@@ -56,6 +56,7 @@ enum class GimmickType
 {
     Hazard,
     Goal,
+    Checkpoint,
     Pickup,
     PhotoSource,
     Filter,
@@ -285,21 +286,30 @@ private:
 class ProjectileComponent final : public Component
 {
 public:
-    ProjectileComponent(float velocityX, float velocityY, int damage = 1)
+    enum class Owner
+    {
+        Enemy,
+        Photo
+    };
+
+    ProjectileComponent(float velocityX, float velocityY, int damage = 1, Owner owner = Owner::Enemy)
         : m_velocityX(velocityX)
         , m_velocityY(velocityY)
         , m_damage(damage)
+        , m_owner(owner)
     {
     }
 
     float GetVelocityX() const { return m_velocityX; }
     float GetVelocityY() const { return m_velocityY; }
     int GetDamage() const { return m_damage; }
+    Owner GetOwner() const { return m_owner; }
 
 private:
     float m_velocityX;
     float m_velocityY;
     int m_damage;
+    Owner m_owner;
 };
 
 class GimmickComponent final : public Component
@@ -321,6 +331,19 @@ private:
     bool m_enabled;
     bool m_oneShot;
     bool m_consumed;
+};
+
+class CheckpointComponent final : public Component
+{
+public:
+    CheckpointComponent(int checkpointId, float respawnX, float respawnY);
+
+    void DrawDebugUI() override;
+
+    int checkpointId;
+    float respawnX;
+    float respawnY;
+    bool activated;
 };
 
 class PhotoFilterComponent final : public Component
@@ -354,6 +377,8 @@ public:
 
     void DrawDebugUI() override;
     void ApplyDamage(int amount);
+    void SetCurrentHealth(int value);
+    void RestoreToFull();
     int GetCurrentHealth() const;
     int GetMaxHealth() const;
     bool IsDead() const;
@@ -372,6 +397,7 @@ public:
     void DrawDebugUI() override;
     bool CanTakeDamage() const;
     void Trigger();
+    void SetRemainingSeconds(float seconds);
     float GetRemainingSeconds() const;
 
 private:

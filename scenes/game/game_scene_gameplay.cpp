@@ -19,6 +19,7 @@ namespace
     constexpr float kBarrelDebrisLifetime = 0.55f;
     constexpr float kPitRestartFadeDuration = 0.45f;
     constexpr float kBarrelRespawnOffscreenMargin = 64.0f;
+    constexpr float kRespawnInvulnerabilitySeconds = 0.6f;
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
     constexpr float kTuningPanelWidth = 460.0f;
@@ -821,7 +822,7 @@ void GameScene::UpdateEnemies()
         m_flow,
         m_photo,
         playerTransform,
-        // 3/21ï¿½Cï¿½ï¿½ï¿½Fï¿½nï¿½ÊƒXï¿½iï¿½bï¿½vï¿½Rï¿½[ï¿½ï¿½ï¿½oï¿½bï¿½Nï¿½ï¿½boolï¿½Ô‹pï¿½É•ÏX(ï¿½cï¿½Vï¿½ï¿½r)
+        // 3/21E½CE½E½E½FE½nE½ÊƒXE½iE½bE½vE½RE½[E½E½E½oE½bE½NE½E½boolE½Ô‹pE½É•ÏX(E½cE½VE½E½r)
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
@@ -845,7 +846,11 @@ void GameScene::UpdateBullets()
         {
             HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
         },
-        // 3/21ï¿½Ç‰ï¿½ï¿½Fï¿½^ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è”»ï¿½ï¿½Rï¿½[ï¿½ï¿½ï¿½oï¿½bï¿½N(ï¿½cï¿½Vï¿½ï¿½r)
+        [this](Entity& enemyEntity, Entity* sourceEntity, int amount, const char* logMessage)
+        {
+            HandleEnemyDamage(enemyEntity, sourceEntity, amount, logMessage);
+        },
+        // 3/21E½Ç‰ï¿½E½FE½^E½CE½E½E½E½E½E½E½è”»E½E½RE½[E½E½E½oE½bE½N(E½cE½VE½E½r)
         [this](float x, float y) -> bool
         {
             const float tileSize = m_tileMap.GetTileSize();
@@ -1088,6 +1093,10 @@ void GameScene::HandleWorldInteractions()
     }
 
     HandleEnemyPlayerCollisions(*player);
+    if (m_flow.pitRestartActive || m_flow.resultQueued)
+    {
+        return;
+    }
 
     game_scene_world_interaction_system::HandleTileInteractions(
         m_flow,
@@ -1127,6 +1136,10 @@ void GameScene::HandleWorldInteractions()
         [this](GameEndReason reason)
         {
             QueueResult(reason);
+        },
+        [this](Entity& playerEntity, Entity& checkpointEntity)
+        {
+            ActivateCheckpoint(playerEntity, checkpointEntity);
         },
         m_eventBus);
 
@@ -1393,7 +1406,7 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
     m_eventBus.Publish({ EventType::LogMessage, &player, sourceEntity, logMessage, 0.0f, 0.0f });
     if (health->IsDead() && !m_flow.resultQueued)
     {
-        QueueResult(GameEndReason::HpZero);
+        StartPitRestart(&player, "GameScene player was defeated");
     }
 }
 
@@ -1438,6 +1451,87 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
 }
 
+void GameScene::ActivateCheckpoint(Entity& player, Entity& checkpoint)
+{
+    auto* checkpointData = checkpoint.GetComponent<CheckpointComponent>();
+    if (!checkpointData)
+    {
+        return;
+    }
+
+    if (m_flow.activeCheckpointId == checkpointData->checkpointId)
+    {
+        return;
+    }
+
+    m_flow.hasCheckpoint = true;
+    m_flow.activeCheckpointId = checkpointData->checkpointId;
+    m_flow.respawnX = checkpointData->respawnX;
+    m_flow.respawnY = checkpointData->respawnY;
+    checkpointData->activated = true;
+    if (auto* tint = checkpoint.GetComponent<TintComponent>())
+    {
+        tint->r = 0.80f;
+        tint->g = 0.92f;
+        tint->b = 1.0f;
+        tint->a = 1.0f;
+    }
+
+    m_eventBus.Publish({ EventType::PlaySoundRequest, &player, &checkpoint, "scene_change", 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::LogMessage, &player, &checkpoint, "Checkpoint activated", 0.0f, 0.0f });
+}
+
+void GameScene::RespawnPlayer(Entity& player)
+{
+    auto* transform = player.GetComponent<TransformComponent>();
+    if (!transform)
+    {
+        return;
+    }
+
+    const float spawnX = m_flow.hasCheckpoint ? m_flow.respawnX : m_flow.stageStartX;
+    const float spawnY = m_flow.hasCheckpoint ? m_flow.respawnY : m_flow.stageStartY;
+    transform->x = spawnX;
+    transform->y = spawnY;
+
+    m_player.velocityX = 0.0f;
+    m_player.velocityY = 0.0f;
+    m_player.grounded = false;
+    m_player.coyoteTimeRemaining = 0.0f;
+    m_player.dodgeRemaining = 0.0f;
+    m_player.dodgeCooldownRemaining = 0.0f;
+    m_player.afterimages.clear();
+    m_player.visualOffsetY = 0.0f;
+    m_player.visualRotation = 0.0f;
+    m_player.visualScaleX = 1.0f;
+    m_player.visualScaleY = 1.0f;
+
+    if (auto* health = player.GetComponent<HealthComponent>())
+    {
+        health->RestoreToFull();
+        GameSession_SetCurrentHp(health->GetCurrentHealth());
+    }
+
+    if (auto* cooldown = player.GetComponent<DamageCooldownComponent>())
+    {
+        cooldown->SetRemainingSeconds(kRespawnInvulnerabilitySeconds);
+    }
+
+    m_flow.cameraMode = false;
+    m_flow.captureSlowRemaining = 0.0f;
+    m_flow.placementSlowRemaining = 0.0f;
+    m_photo.placement.active = false;
+    m_flow.playerTouchingHazard = false;
+    m_flow.playerTouchingTarget = false;
+    m_flow.pitRestartActive = false;
+    m_flow.pitRestartTimer = 0.0f;
+
+    const float playerWidth = transform->width * transform->scale;
+    const float mapWidth = GetMapPixelWidth();
+    const float targetCameraX = transform->x - (gCameraViewWidth - playerWidth) * 0.5f;
+    m_flow.cameraX = std::clamp(targetCameraX, 0.0f, std::max(0.0f, mapWidth - gCameraViewWidth));
+}
+
 void GameScene::QueueResult(GameEndReason reason)
 {
     if (m_flow.resultQueued)
@@ -1460,6 +1554,8 @@ void GameScene::StartPitRestart(Entity* player, const char* logMessage)
     m_flow.pitRestartActive = true;
     m_flow.pitRestartTimer = kPitRestartFadeDuration;
     m_flow.cameraMode = false;
+    m_flow.captureSlowRemaining = 0.0f;
+    m_flow.placementSlowRemaining = 0.0f;
     m_photo.placement.active = false;
     m_flow.playerTouchingHazard = true;
     m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "contact_tone", 0.0f, 0.0f });

@@ -70,6 +70,8 @@ private:
     void RefreshPhotoGroupState();
     void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage, int amount = 1);
     void HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amount, const char* logMessage);
+    void ActivateCheckpoint(Entity& player, Entity& checkpoint);
+    void RespawnPlayer(Entity& player);
     void StartPitRestart(Entity* player, const char* logMessage);
     void SpawnBarrelBreakEffect(float x, float y, float width, float height);
     void QueueResult(GameEndReason reason);

@@ -1,4 +1,4 @@
-﻿#include "game_scene_internal.h"
+#include "game_scene_internal.h"
 #include "photo_system.h"
 #include "photo_filter_rules.h"
 
@@ -147,6 +147,29 @@ namespace
         RotatePoint(centerX, centerY, rotation, cx, cy);
         DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
     }
+    void DrawProjectileItem(
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        bool flipX,
+        float rotation,
+        int color)
+    {
+        float ax = flipX ? drawX + drawWidth : drawX;
+        float ay = drawY;
+        float bx = flipX ? drawX + drawWidth : drawX;
+        float by = drawY + drawHeight;
+        float cx = flipX ? drawX : drawX + drawWidth;
+        float cy = drawY + drawHeight * 0.5f;
+
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        RotatePoint(centerX, centerY, rotation, ax, ay);
+        RotatePoint(centerX, centerY, rotation, bx, by);
+        RotatePoint(centerX, centerY, rotation, cx, cy);
+        DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
+    }
 
     const char* GetStageGuideText(float playerX)
     {
@@ -165,6 +188,24 @@ namespace
     {
         Shader_ResetStyle();
         Shader_SetTint(item.tintR, item.tintG, item.tintB, std::min(1.0f, item.tintA) * alpha);
+        if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
+        {
+            const float projectileAngle = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+            const int color = GetColor(
+                static_cast<int>(std::round(item.tintR * 255.0f)),
+                static_cast<int>(std::round(item.tintG * 255.0f)),
+                static_cast<int>(std::round(item.tintB * 255.0f)));
+            DrawProjectileItem(
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                item.flipX,
+                projectileAngle,
+                color);
+            return;
+        }
+
         const TileTriangleShape triangle = TileMap::GetTriangleShape(item.sourceTileValue);
         if (triangle.isTriangle)
         {
@@ -954,7 +995,7 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     float bestDistance = 1000000.0f;
     for (const auto& entity : m_entities)
     {
-        if (HasTag(*entity, "Player"))
+        if (HasTag(*entity, "Player") || HasTag(*entity, "Enemy"))
         {
             continue;
         }
