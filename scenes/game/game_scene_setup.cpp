@@ -314,6 +314,28 @@ void GameScene::InitializeStageEntities()
         }
     }
 
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            if (m_tileMap.GetMarker(column, row) != 'V')
+            {
+                continue;
+            }
+
+            Entity& vanishObject = SpawnStagePrefab(
+                prefabs,
+                "sandbox_vanish_object",
+                AlignToGrid(static_cast<float>(column) * tileSize, tileSize),
+                AlignToGrid(static_cast<float>(row) * tileSize, tileSize));
+            vanishObject.AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+            vanishObject.AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
+            vanishObject.AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
+            vanishObject.AddComponent<PhotoCopyEffectComponent>(PhotoFilterTheme::None);
+            vanishObject.AddComponent<VanishOnCaptureComponent>(true);
+        }
+    }
+
     int checkpointId = 0;
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
