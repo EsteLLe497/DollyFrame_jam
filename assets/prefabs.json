@@ -406,6 +406,24 @@
         "breakMinImpactSpeed": 99999.0
       }
     },
+    "sandbox_vanish_object": {
+      "tag": "PhotoBox",
+      "texture": "white",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 48.0,
+        "height": 48.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.72,
+        "g": 0.26,
+        "b": 0.88,
+        "a": 1.0
+      }
+    },
     "sandbox_enemy_wide": {
       "tag": "Enemy",
       "texture": "enemy",

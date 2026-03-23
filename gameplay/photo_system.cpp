@@ -620,6 +620,7 @@ private:
 
     static void CaptureEntitiesInFrame(GameScene& scene, float frameX, float frameY, float frameWidth, float frameHeight, float& capturedMaxRight, float& capturedMaxBottom)
     {
+            std::vector<Entity*> entitiesToRemove;
             for (const auto& entity : scene.m_entities)
             {
                 if (!entity || HasTag(*entity, "Player"))
@@ -675,12 +676,15 @@ private:
 
                 CapturedPhotoItem item;
                 const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr;
+                const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
+                const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
                 item.textureId = sprite->GetTextureId();
                 item.role = GetEntityCopyRole(*entity);
                 item.layer = PhotoCopyLayer::Foreground;
                 item.origin = GetEntityCopyOrigin(*entity);
                 item.appliedTheme = scene.m_photo.capture.selectedTheme;
                 item.spawnArchetype = capturedBarrel ? CapturedSpawnArchetype::Barrel : CapturedSpawnArchetype::None;
+                item.vanishOnCapture = capturedVanishObject;
                 item.relativeX = overlapLeft - frameX;
                 item.relativeY = overlapTop - frameY;
                 item.width = overlapWidth;
@@ -706,6 +710,12 @@ private:
                     item.role = PhotoCopyRole::Solid;
                     item.layer = PhotoCopyLayer::Foreground;
                 }
+                if (capturedVanishObject)
+                {
+                    item.role = PhotoCopyRole::Solid;
+                    item.layer = PhotoCopyLayer::Foreground;
+                    item.origin = PhotoCopyOrigin::Generic;
+                }
 
                 // �����ŕ␳�Frole �� Solid �̏ꍇ�͕K�� Foreground �ɂ���
                 if (item.role == PhotoCopyRole::Solid)
@@ -713,13 +723,33 @@ private:
                     item.layer = PhotoCopyLayer::Foreground;
                 }
 
-                if (!capturedBarrel && !isPhotoBox)
+                if (!capturedBarrel && !isPhotoBox && !capturedVanishObject)
                 {
                     ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
                 }
                 scene.m_photo.capture.items.push_back(item);
                 capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
                 capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
+                if (capturedVanishObject)
+                {
+                    entitiesToRemove.push_back(entity.get());
+                }
+            }
+            if (!entitiesToRemove.empty())
+            {
+                scene.m_entities.erase(
+                    std::remove_if(
+                        scene.m_entities.begin(),
+                        scene.m_entities.end(),
+                        [&](const std::unique_ptr<Entity>& candidate)
+                        {
+                            if (!candidate)
+                            {
+                                return false;
+                            }
+                            return std::find(entitiesToRemove.begin(), entitiesToRemove.end(), candidate.get()) != entitiesToRemove.end();
+                        }),
+                    scene.m_entities.end());
             }
     }
 
@@ -1042,6 +1072,10 @@ private:
                 lastSpawnedEntity->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
                 lastSpawnedEntity->AddComponent<PhotoCopyRoleComponent>(item.role);
                 lastSpawnedEntity->AddComponent<PhotoCopyOriginComponent>(item.origin);
+                if (item.vanishOnCapture)
+                {
+                    lastSpawnedEntity->AddComponent<VanishOnCaptureComponent>(true);
+                }
                 if (item.origin == PhotoCopyOrigin::Tile && item.sourceTileValue > 0)
                 {
                     lastSpawnedEntity->AddComponent<PhotoCopyTileValueComponent>(item.sourceTileValue);

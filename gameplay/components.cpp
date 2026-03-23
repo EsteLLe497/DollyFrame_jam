@@ -163,6 +163,11 @@ PhotoCopyTileValueComponent::PhotoCopyTileValueComponent(int tileValueValue)
 {
 }
 
+VanishOnCaptureComponent::VanishOnCaptureComponent(bool enabledValue)
+    : enabled(enabledValue)
+{
+}
+
 namespace
 {
     const char* ToEnemyArchetypeLabel(EnemyArchetype archetype)
