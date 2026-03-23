@@ -1,4 +1,4 @@
-#include "game_scene_internal.h"
+﻿#include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
 #include "game_scene_player_system.h"
 #include "game_scene_player_movement_system.h"
@@ -829,6 +829,10 @@ void GameScene::UpdateEnemies()
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
+        },
+        [this](Entity& enemyEntity)
+        {
+            m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, "enemy_gun", 0.0f, 0.0f });
         });
 }
 
@@ -1348,7 +1352,68 @@ void GameScene::RemoveEntitiesByPointerList(const std::vector<Entity*>& entities
 
 void GameScene::RemoveDefeatedEnemies()
 {
-    game_scene_world_interaction_system::RemoveDefeatedEnemies(m_entities);
+    const float cameraLeft = m_flow.cameraX - 48.0f;
+    const float cameraRight = m_flow.cameraX + gCameraViewWidth + 48.0f;
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity) continue;
+
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsDefeated()) continue;
+        if (!enemy->respawnEnabled) continue;
+
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform) continue;
+
+        // ���j���ɔ�\���������蔻�薳��������ʊO�Ɉړ�
+        if (auto* tint = entity->GetComponent<TintComponent>())
+        {
+            tint->a = 0.0f;
+        }
+        enemy->SetEnabled(false);
+        // ��ʊO�Ɉړ������ē����蔻�����
+        transform->x = -9999.0f;
+        transform->y = -9999.0f;
+
+        const float enemyX = transform->x;
+        if (enemy->spawnX < cameraLeft || enemy->spawnX > cameraRight)
+        {
+            transform->x = enemy->spawnX;
+            transform->y = enemy->spawnY - 96.0f;
+            SnapEnemyToGround(*transform);
+            enemy->velocityY = 0.0f;
+            enemy->attackTimer = 0.0f;
+            enemy->SetAIState(EnemyComponent::AIState::Idle);
+            enemy->Restore();
+
+            if (auto* tint = entity->GetComponent<TintComponent>())
+            {
+                tint->a = 1.0f;
+            }
+        }
+    }
+
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
+                if (enemy && enemy->IsDefeated() && !enemy->respawnEnabled)
+                {
+                    return true;
+                }
+                const auto* lifetime = entity ? entity->GetComponent<PhotoCopyLifetimeComponent>() : nullptr;
+                if (!lifetime)
+                {
+                    return false;
+                }
+                return lifetime->IsExpired();
+            }),
+        m_entities.end());
+
     RefreshPhotoGroupState();
 }
 
@@ -1563,3 +1628,5 @@ void GameScene::StartPitRestart(Entity* player, const char* logMessage)
     m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, player, nullptr, logMessage, 0.0f, 0.0f });
 }
+
+

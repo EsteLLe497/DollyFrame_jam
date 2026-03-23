@@ -1,4 +1,5 @@
 #include "game_scene_internal.h"
+#include "audio.h"
 
 using namespace game_scene_detail;
 
@@ -33,6 +34,7 @@ void GameScene::OnEnter(ResourceManager& resources)
     InitializeStageEntities();
 
     GameSession_Reset(3, m_flow.timeLimit);
+    Audio_PlayCue("demo_bgm");
     Logger::Info("GameScene entered as photo sandbox stage");
 }
 

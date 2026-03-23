@@ -18,14 +18,15 @@ inline bool HasTag(const Entity& entity, const char* value)
     return tag && tag->tag == value;
 }
 
-template <typename SnapToGroundFn>
+template <typename SnapToGroundFn, typename PlayEnemyGunFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
     int tileTexture,
     GameSceneFlowState& flow,
     const PhotoState& photo,
     const TransformComponent* playerTransform,
-    SnapToGroundFn&& snapToGround)
+    SnapToGroundFn&& snapToGround,
+    PlayEnemyGunFn&& playEnemyGun)
     
 {
     flow.enemyCount = 0;
@@ -63,12 +64,12 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::fabs(dx);
             constexpr float kWalkerSpeed = 120.0f;
-            constexpr float kGravity = 1900.0f; // 3/21追加(田之上俊)
-            constexpr float kMaxFallSpeed = 980.0f; // 3/21追加(田之上俊)
+            constexpr float kGravity = 1900.0f; // 3/21追加(田之上俁E
+            constexpr float kMaxFallSpeed = 980.0f; // 3/21追加(田之上俁E
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // 3/21追加：重力処理(田之上俊)
+            // 3/21追加�E�重力�E琁E田之上俁E
             enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
             transform->y += enemy->velocityY * flow.lastDeltaTime;
             const bool onGround = snapToGround(*transform);
@@ -98,7 +99,7 @@ inline void UpdateEnemies(
                 else
                 {
                     transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * flow.lastDeltaTime;
-                    snapToGround(*transform); // 3/21追加(田之上俊)
+                    snapToGround(*transform); // 3/21追加(田之上俁E
                 }
                 break;
             case EnemyComponent::AIState::Attack:
@@ -131,7 +132,7 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            // 3/21追加：高さ制限を含む感知判定(田之上俊)
+            // 3/21追加�E�高さ制限を含む感知判宁E田之上俁E
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
       
@@ -143,7 +144,7 @@ inline void UpdateEnemies(
                 enemy->attackTimer = 0.0f;
 
                 constexpr float kBulletSpeed = 300.0f;
-                // 3/21修正：水平方向のみに発射(田之上俊)
+                // 3/21修正�E�水平方向�Eみに発封E田之上俁E
                 const float velX = (dx > 0.0f ? 1.0f : -1.0f) * kBulletSpeed;
                 const float velY = 0.0f;
 
@@ -152,10 +153,11 @@ inline void UpdateEnemies(
                 bullet->AddComponent<TransformComponent>(
                     transform->x + 24.0f,
                     transform->y + 24.0f,
-                    48.0f, 24.0f); // 3/21修正：横1グリッド×縦0.5グリッド(田之上俊)
+                    48.0f, 24.0f); // 3/21修正�E�横1グリチE��×縦0.5グリチE��(田之上俁E
                 bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
                 bullet->AddComponent<SpriteRenderComponent>(tileTexture);
                 bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
+                playEnemyGun(*entity);
                 newBullets.push_back(std::move(bullet));
             }
         }
@@ -179,7 +181,7 @@ void UpdateBullets(
     IntersectsEntityFn&& intersectsEntity,
     HandlePlayerDamageFn&& handlePlayerDamage
     , HandleEnemyDamageFn&& handleEnemyDamage
-    , IsSolidTileFn&& isSolidTile) // 3/21追加(田之上俊)
+    , IsSolidTileFn&& isSolidTile) // 3/21追加(田之上俁E
 {
     entities.erase(
         std::remove_if(
