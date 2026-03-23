@@ -246,6 +246,11 @@ void GameScene::UpdatePlayer(float deltaTime)
     const bool blockPlayerInput = m_flow.cameraMode || m_photo.placement.active;
     const auto controls = game_scene_player_system::SampleControls(blockPlayerInput);
     const float moveAxis = controls.moveAxis;
+    const float tileSize = m_tileMap.GetTileSize();
+    const bool wasGrounded = IsStandingOnGround(*transform);
+    const float dodgeDuration = wasGrounded
+        ? GetPlayerDodgeDuration()
+        : (gPlayerDodgeSpeed > 0.0f ? tileSize / gPlayerDodgeSpeed : 0.0f);
 
     game_scene_player_system::TickDodgeState(m_player, deltaTime);
     UpdatePlayerAfterimages(deltaTime);
@@ -255,7 +260,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     if (controls.dodgePressed && game_scene_player_system::TryBeginDodge(
         m_player,
         moveAxis,
-        GetPlayerDodgeDuration(),
+        dodgeDuration,
         gPlayerDodgeCooldown))
     {
         m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
@@ -269,7 +274,6 @@ void GameScene::UpdatePlayer(float deltaTime)
         gPlayerDodgeSpeed,
         gPlayerMoveSpeed);
 
-    const float tileSize = m_tileMap.GetTileSize();
     const float playerWidth = transform->width * transform->scale;
     const float playerHeight = transform->height * transform->scale;
     const float mapWidth = GetMapPixelWidth();
@@ -277,7 +281,6 @@ void GameScene::UpdatePlayer(float deltaTime)
     const float previousX = transform->x;
     const float previousY = transform->y;
     const float previousBottom = previousY + playerHeight;
-    const bool wasGrounded = IsStandingOnGround(*transform);
     m_player.grounded = wasGrounded;
     if (wasGrounded)
     {
@@ -414,11 +417,11 @@ void GameScene::UpdateBarrels(float deltaTime)
     }
 
     Entity* player = FindEntityByTag("Player");
+    const float tileSize = m_tileMap.GetTileSize();
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
     const float activeLeft = std::max(0.0f, m_flow.cameraX - gBarrelActivationPaddingX);
     const float activeRight = std::min(mapWidth, m_flow.cameraX + gCameraViewWidth + gBarrelActivationPaddingX);
-    const float tileSize = m_tileMap.GetTileSize();
     const float activationDistance = tileSize * 10.0f;
 
     auto setBarrelVisible = [](Entity& barrelEntity, bool visible)
@@ -822,7 +825,7 @@ void GameScene::UpdateEnemies()
         m_flow,
         m_photo,
         playerTransform,
-        // 3/21E½CE½E½E½FE½nE½ÊƒXE½iE½bE½vE½RE½[E½E½E½oE½bE½NE½E½boolE½Ô‹pE½É•ÏX(E½cE½VE½E½r)
+        // 3/21ï¿½Eï¿½Cï¿½Eï¿½ï¿½Eï¿½ï¿½Eï¿½Fï¿½Eï¿½nï¿½Eï¿½ÊƒXï¿½Eï¿½iï¿½Eï¿½bï¿½Eï¿½vï¿½Eï¿½Rï¿½Eï¿½[ï¿½Eï¿½ï¿½Eï¿½ï¿½Eï¿½oï¿½Eï¿½bï¿½Eï¿½Nï¿½Eï¿½ï¿½Eï¿½boolï¿½Eï¿½Ô‹pï¿½Eï¿½É•ÏX(ï¿½Eï¿½cï¿½Eï¿½Vï¿½Eï¿½ï¿½Eï¿½r)
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
@@ -850,7 +853,7 @@ void GameScene::UpdateBullets()
         {
             HandleEnemyDamage(enemyEntity, sourceEntity, amount, logMessage);
         },
-        // 3/21E½Ç‰ï¿½E½FE½^E½CE½E½E½E½E½E½E½è”»E½E½RE½[E½E½E½oE½bE½N(E½cE½VE½E½r)
+        // 3/21ï¿½Eï¿½Ç‰ï¿½ï¿½Eï¿½Fï¿½Eï¿½^ï¿½Eï¿½Cï¿½Eï¿½ï¿½Eï¿½ï¿½Eï¿½ï¿½Eï¿½ï¿½Eï¿½ï¿½Eï¿½ï¿½Eï¿½è”»ï¿½Eï¿½ï¿½Eï¿½Rï¿½Eï¿½[ï¿½Eï¿½ï¿½Eï¿½ï¿½Eï¿½oï¿½Eï¿½bï¿½Eï¿½N(ï¿½Eï¿½cï¿½Eï¿½Vï¿½Eï¿½ï¿½Eï¿½r)
         [this](float x, float y) -> bool
         {
             const float tileSize = m_tileMap.GetTileSize();
@@ -1561,4 +1564,3 @@ void GameScene::StartPitRestart(Entity* player, const char* logMessage)
     m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, player, nullptr, logMessage, 0.0f, 0.0f });
 }
-
