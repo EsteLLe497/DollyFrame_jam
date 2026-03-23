@@ -202,6 +202,14 @@ public:
     int tileValue;
 };
 
+class VanishOnCaptureComponent final : public Component
+{
+public:
+    explicit VanishOnCaptureComponent(bool enabled = true);
+
+    bool enabled;
+};
+
 class PhotoCopyEffectComponent final : public Component
 {
 public:
