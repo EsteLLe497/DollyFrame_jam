@@ -144,7 +144,16 @@ void GameScene::Update(float deltaTime)
         m_flow.pitRestartTimer = std::max(0.0f, m_flow.pitRestartTimer - deltaTime);
         if (m_flow.pitRestartTimer <= 0.0f)
         {
-            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+            Entity* player = FindEntityByTag("Player");
+            if (player)
+            {
+                RespawnPlayer(*player);
+            }
+            else
+            {
+                m_flow.pitRestartActive = false;
+                m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+            }
         }
         return;
     }

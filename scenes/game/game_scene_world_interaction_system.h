@@ -55,7 +55,7 @@ void HandleTileInteractions(
         handlePlayerDamage(player, nullptr, "GameScene player damaged by hazard tile");
     }
 
-    if (flow.goalUnlocked && intersectsGoalTile(*playerTransform))
+    if (flow.goalUnlocked && !flow.pitRestartActive && intersectsGoalTile(*playerTransform))
     {
         flow.playerTouchingTarget = true;
         if (!flow.resultQueued)
@@ -66,7 +66,7 @@ void HandleTileInteractions(
     }
 }
 
-template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename QueueResultFn>
+template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename QueueResultFn, typename ActivateCheckpointFn>
 void HandleEntityInteractions(
     std::vector<std::unique_ptr<Entity>>& entities,
     GameSceneFlowState& flow,
@@ -75,6 +75,7 @@ void HandleEntityInteractions(
     IntersectsEntityFn&& intersectsEntity,
     HandlePlayerDamageFn&& handlePlayerDamage,
     QueueResultFn&& queueResult,
+    ActivateCheckpointFn&& activateCheckpoint,
     EventBus& eventBus)
 {
     for (const auto& entity : entities)
@@ -97,12 +98,15 @@ void HandleEntityInteractions(
             handlePlayerDamage(player, entity.get(), "GameScene player damaged by gimmick hazard");
             break;
         case GimmickType::Goal:
-            if (flow.goalUnlocked && !flow.resultQueued)
+            if (flow.goalUnlocked && !flow.resultQueued && !flow.pitRestartActive)
             {
                 flow.playerTouchingTarget = true;
                 eventBus.Publish({ EventType::PlaySoundRequest, &player, entity.get(), "contact_tone", 0.0f, 0.0f });
                 queueResult(GameEndReason::GoalReached);
             }
+            break;
+        case GimmickType::Checkpoint:
+            activateCheckpoint(player, *entity);
             break;
         case GimmickType::Pickup:
             eventBus.Publish({ EventType::PlaySoundRequest, &player, entity.get(), "scene_change", 0.0f, 0.0f });
@@ -183,7 +187,7 @@ void HandlePhotoBoxInteractions(
             }
             break;
         case PhotoCopyRole::GoalRelay:
-            if (flow.goalUnlocked && !flow.resultQueued)
+            if (flow.goalUnlocked && !flow.resultQueued && !flow.pitRestartActive)
             {
                 flow.playerTouchingTarget = true;
                 eventBus.Publish({ EventType::PlaySoundRequest, &player, entity.get(), "contact_tone", 0.0f, 0.0f });
