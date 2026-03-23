@@ -197,6 +197,30 @@ void GameScene::InitializeStageEntities()
             AlignToGrid(432.0f, tileSize),
             AlignToGrid(240.0f, tileSize));
     }
+    // 3/23追加：CSVマーカーからWalker/Ranged敵を生成(田之上俊)
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = m_tileMap.GetMarker(column, row);
+            if (marker == 'W') // Walker
+            {
+                SpawnStagePrefab(
+                    prefabs,
+                    "sandbox_enemy_walker",
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize);
+            }
+            else if (marker == 'R') // Ranged
+            {
+                SpawnStagePrefab(
+                    prefabs,
+                    "sandbox_enemy_ranged",
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize);
+            }
+        }
+    }
 
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {

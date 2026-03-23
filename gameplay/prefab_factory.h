@@ -59,6 +59,11 @@ struct PrefabDefinition
     float barrelRollSpeed = 220.0f;
     float barrelGroundFriction = 720.0f;
     int barrelContactDamage = 1;
+    // 3/21í«â¡(ìcîVè„èr)
+    float enemyDetectRange = 400.0f;
+    float enemyAttackRange =48.0f;
+    float enemyAttackCooldown = 3.0f;
+    float enemyDetectHeight = 96.0f;
     float barrelBreakMinFallDistance = 99999.0f;
     float barrelBreakMinImpactSpeed = 99999.0f;
     bool hasPhotoFilter = false;

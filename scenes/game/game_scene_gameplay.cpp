@@ -775,7 +775,12 @@ void GameScene::UpdateEnemies()
         m_tileTexture,
         m_flow,
         m_photo,
-        playerTransform);
+        playerTransform,
+        // 3/21修正：地面スナップコールバックをbool返却に変更(田之上俊)
+        [this](TransformComponent& transform) -> bool
+        {
+            return SnapEnemyToGround(transform);
+        });
 }
 
 void GameScene::UpdateBullets()
@@ -794,6 +799,14 @@ void GameScene::UpdateBullets()
         [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)
         {
             HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
+        },
+        // 3/21追加：タイル当たり判定コールバック(田之上俊)
+        [this](float x, float y) -> bool
+        {
+            const float tileSize = m_tileMap.GetTileSize();
+            const int column = static_cast<int>(x / tileSize);
+            const int row = static_cast<int>(y / tileSize);
+            return IsSolidTile(column, row);
         });
 }
 void GameScene::HandleAttackHits()

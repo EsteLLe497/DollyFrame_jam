@@ -218,6 +218,8 @@ void GameScene::Draw()
     DrawPhotoStorageTray();
     DrawPitRestartOverlay();
     DrawTuningPanel();
+    
+   
 }
 
 void GameScene::UpdateEffects(float deltaTime)

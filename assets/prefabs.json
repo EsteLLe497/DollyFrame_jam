@@ -450,8 +450,8 @@
       "transform": {
         "x": 0.0,
         "y": 0.0,
-        "width": 64.0,
-        "height": 80.0,
+        "width": 48.0,
+        "height": 96.0,
         "rotation": 0.0,
         "scale": 1.0
       },
@@ -464,7 +464,11 @@
       "enemy": {
         "enabled": true,
         "archetype": "walker",
-        "contactDamage": 1
+        "contactDamage": 1,
+        "detectRange": 192.0,
+        "attackRange": 48.0,
+        "attackCooldown": 3.0,
+        "detectHeight": 96.0
       }
     },
     "sandbox_enemy_ranged": {
@@ -473,8 +477,8 @@
       "transform": {
         "x": 0.0,
         "y": 0.0,
-        "width": 64.0,
-        "height": 80.0,
+        "width": 48.0,
+        "height": 96.0,
         "rotation": 0.0,
         "scale": 1.0
       },
@@ -487,7 +491,11 @@
       "enemy": {
         "enabled": true,
         "archetype": "ranged",
-        "contactDamage": 1
+        "contactDamage": 1,
+        "detectRange": 336.0,
+        "attackRange": 336.0,
+        "attackCooldown": 3.0,
+        "detectHeight": 96.0
       }
     }
   }

@@ -75,7 +75,12 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
 
     if (definition.hasEnemy)
     {
-        entity->AddComponent<EnemyComponent>(definition.enemyArchetype, definition.enemyContactDamage);
+        auto& enemyComp = entity->AddComponent<EnemyComponent>(definition.enemyArchetype, definition.enemyContactDamage);
+        // 3/21追加(田之上俊)
+        enemyComp.detectRange = definition.enemyDetectRange;
+        enemyComp.attackRange = definition.enemyAttackRange;
+        enemyComp.attackCooldown = definition.enemyAttackCooldown;
+        enemyComp.detectHeight = definition.enemyDetectHeight;
     }
 
     if (definition.hasEnemyMover)
@@ -223,6 +228,12 @@ void PrefabFactory::LoadDefinitions()
             definition.enemyArchetype = EnemyArchetype::Floater;
         }
         definition.enemyContactDamage = enemy.value("contactDamage", 1);
+
+        // 3/21追加(田之上俊)
+        definition.enemyDetectRange = enemy.value("detectRange", 400.0f);
+        definition.enemyAttackRange = enemy.value("attackRange", 80.0f);
+        definition.enemyAttackCooldown = enemy.value("attackCooldown", 3.0f);
+        definition.enemyDetectHeight = enemy.value("detectHeight", 96.0f);
 
         const auto& enemyMover = data.contains("enemyMover") && data["enemyMover"].is_object() ? data["enemyMover"] : nlohmann::json::object();
         definition.hasEnemyMover = enemyMover.value("enabled", false);

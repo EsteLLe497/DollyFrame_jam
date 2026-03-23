@@ -560,3 +560,4 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     Shader_ResetStyle();
 }
+

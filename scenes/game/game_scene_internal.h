@@ -316,6 +316,55 @@ inline float GetViewOriginY()
     return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f);
 }
 
+// 3/21追加：坂タイルの表面Y座標を取得(田之上俊)
+inline bool TryGetSlopeSurfaceYShared(
+    const TileMap& tileMap,
+    int column,
+    int row,
+    float worldX,
+    float& outSurfaceY)
+{
+    const float tileSize = tileMap.GetTileSize();
+    constexpr int kMaxSpan = 5;
+    const int originColumnStart = std::max(0, column - (kMaxSpan - 1));
+    const int originRowStart = std::max(0, row - (kMaxSpan - 1));
+
+    bool foundSurface = false;
+    float bestSurfaceY = 0.0f;
+
+    for (int originRow = originRowStart; originRow <= row; ++originRow)
+    {
+        for (int originColumn = originColumnStart; originColumn <= column; ++originColumn)
+        {
+            const TileTriangleShape triangle = TileMap::GetTriangleShape(tileMap.GetTile(originColumn, originRow));
+            if (!triangle.isTriangle) continue;
+
+            const float left = static_cast<float>(originColumn) * tileSize;
+            const float top = static_cast<float>(originRow) * tileSize;
+            const float width = static_cast<float>(triangle.widthTiles) * tileSize;
+            const float height = static_cast<float>(triangle.heightTiles) * tileSize;
+
+            if (worldX < left || worldX > left + width) continue;
+
+            const float localX = std::clamp(worldX - left, 0.0f, width);
+            const float normalizedX = width > 0.0f ? localX / width : 0.0f;
+            const float surfaceY = triangle.risesRight
+                ? top + height - normalizedX * height
+                : top + normalizedX * height;
+
+            if (!foundSurface || surfaceY < bestSurfaceY)
+            {
+                bestSurfaceY = surfaceY;
+                foundSurface = true;
+            }
+        }
+    }
+
+    if (!foundSurface) return false;
+    outSurfaceY = bestSurfaceY;
+    return true;
+}
+
 void WriteTuningJsonFile();
 void LoadTuningJsonFile();
 }
