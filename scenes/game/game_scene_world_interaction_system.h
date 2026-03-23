@@ -84,15 +84,6 @@ void HandleEntityInteractions(
             continue;
         }
 
-        if (const auto* enemy = entity->GetComponent<EnemyComponent>())
-        {
-            if (enemy->IsEnabled())
-            {
-                flow.playerTouchingHazard = true;
-                handlePlayerDamage(player, entity.get(), "GameScene player damaged by enemy");
-            }
-        }
-
         auto* gimmick = entity->GetComponent<GimmickComponent>();
         if (!gimmick || !gimmick->IsEnabled())
         {

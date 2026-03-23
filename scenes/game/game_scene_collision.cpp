@@ -968,6 +968,10 @@ bool GameScene::FindSpawnPosition(float desiredX, float objectWidth, float objec
     const float mapWidth = GetMapPixelWidth();
     const float desiredCenterX = desiredX + objectWidth * 0.5f;
     const int centerColumn = static_cast<int>(desiredCenterX / tileSize);
+    const int desiredSupportRow = std::clamp(
+        static_cast<int>((outY + objectHeight) / tileSize),
+        0,
+        m_tileMap.GetHeight() - 1);
     const int maxOffset = 6;
 
     for (int offset = 0; offset <= maxOffset; ++offset)
@@ -988,62 +992,71 @@ bool GameScene::FindSpawnPosition(float desiredX, float objectWidth, float objec
                 m_tileMap.GetWidth() - 1,
                 static_cast<int>((candidateX + objectWidth - 1.0f) / tileSize));
 
-            for (int supportRow = 0; supportRow < m_tileMap.GetHeight(); ++supportRow)
+            for (int rowOffset = 0; rowOffset < m_tileMap.GetHeight(); ++rowOffset)
             {
-                bool hasSupport = false;
-                for (int supportColumn = leftColumn; supportColumn <= rightColumn; ++supportColumn)
+                const int supportCandidates[2] = { desiredSupportRow + rowOffset, desiredSupportRow - rowOffset };
+                for (int rowIndex = 0; rowIndex < 2; ++rowIndex)
                 {
-                    if (IsSolidTile(supportColumn, supportRow))
+                    const int supportRow = supportCandidates[rowIndex];
+                    if (supportRow < 0 || supportRow >= m_tileMap.GetHeight())
                     {
-                        hasSupport = true;
-                        break;
+                        continue;
                     }
-                    if (IsSlopeTile(supportColumn, supportRow))
+                    if (rowOffset == 0 && rowIndex == 1)
                     {
-                        hasSupport = true;
-                        break;
+                        continue;
                     }
-                }
 
-                if (!hasSupport)
-                {
-                    continue;
-                }
-
-                const float candidateY = static_cast<float>(supportRow) * tileSize - objectHeight;
-                const int topRow = std::max(0, static_cast<int>(candidateY / tileSize));
-                const int bottomRow = std::min(
-                    m_tileMap.GetHeight() - 1,
-                    static_cast<int>((candidateY + objectHeight - 1.0f) / tileSize));
-
-                bool intersectsSolid = false;
-                for (int testRow = topRow; testRow <= bottomRow && !intersectsSolid; ++testRow)
-                {
-                    for (int testColumn = leftColumn; testColumn <= rightColumn; ++testColumn)
+                    bool hasSupport = false;
+                    for (int supportColumn = leftColumn; supportColumn <= rightColumn; ++supportColumn)
                     {
-                        if (!IsSolidTile(testColumn, testRow) && !IsSlopeTile(testColumn, testRow))
+                        if (IsSolidTile(supportColumn, supportRow) || IsSlopeTile(supportColumn, supportRow))
                         {
-                            continue;
-                        }
-
-                        const float tileX = static_cast<float>(testColumn) * tileSize;
-                        const float tileY = static_cast<float>(testRow) * tileSize;
-                        if (candidateX < tileX + tileSize &&
-                            candidateX + objectWidth > tileX &&
-                            candidateY < tileY + tileSize &&
-                            candidateY + objectHeight > tileY)
-                        {
-                            intersectsSolid = true;
+                            hasSupport = true;
                             break;
                         }
                     }
-                }
 
-                if (!intersectsSolid)
-                {
-                    outX = candidateX;
-                    outY = candidateY;
-                    return true;
+                    if (!hasSupport)
+                    {
+                        continue;
+                    }
+
+                    const float candidateY = static_cast<float>(supportRow) * tileSize - objectHeight;
+                    const int topRow = std::max(0, static_cast<int>(candidateY / tileSize));
+                    const int bottomRow = std::min(
+                        m_tileMap.GetHeight() - 1,
+                        static_cast<int>((candidateY + objectHeight - 1.0f) / tileSize));
+
+                    bool intersectsSolid = false;
+                    for (int testRow = topRow; testRow <= bottomRow && !intersectsSolid; ++testRow)
+                    {
+                        for (int testColumn = leftColumn; testColumn <= rightColumn; ++testColumn)
+                        {
+                            if (!IsSolidTile(testColumn, testRow) && !IsSlopeTile(testColumn, testRow))
+                            {
+                                continue;
+                            }
+
+                            const float tileX = static_cast<float>(testColumn) * tileSize;
+                            const float tileY = static_cast<float>(testRow) * tileSize;
+                            if (candidateX < tileX + tileSize &&
+                                candidateX + objectWidth > tileX &&
+                                candidateY < tileY + tileSize &&
+                                candidateY + objectHeight > tileY)
+                            {
+                                intersectsSolid = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!intersectsSolid)
+                    {
+                        outX = candidateX;
+                        outY = candidateY;
+                        return true;
+                    }
                 }
             }
         }
@@ -1191,11 +1204,23 @@ bool GameScene::SnapEnemyToGround(TransformComponent& transform) const
     const int rowEnd = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bottom + 48.0f) / tileSize));
 
     float nearestGroundY = transform.y;
+    float nearestDistance = 0.0f;
     bool foundGround = false;
     const float probeXs[3] = {
         transform.x + 4.0f,
         transform.x + enemyWidth * 0.5f,
         transform.x + enemyWidth - 4.0f
+    };
+
+    auto considerCandidate = [&](float candidateY)
+    {
+        const float distance = std::fabs(candidateY - transform.y);
+        if (!foundGround || distance < nearestDistance)
+        {
+            nearestGroundY = candidateY;
+            nearestDistance = distance;
+            foundGround = true;
+        }
     };
 
     for (int row = rowStart; row <= rowEnd; ++row)
@@ -1204,12 +1229,7 @@ bool GameScene::SnapEnemyToGround(TransformComponent& transform) const
         {
             if (IsSolidTile(column, row))
             {
-                const float candidateY = static_cast<float>(row) * tileSize - enemyHeight;
-                if (!foundGround || candidateY < nearestGroundY)
-                {
-                    nearestGroundY = candidateY;
-                    foundGround = true;
-                }
+                considerCandidate(static_cast<float>(row) * tileSize - enemyHeight);
                 continue;
             }
 
@@ -1218,21 +1238,16 @@ bool GameScene::SnapEnemyToGround(TransformComponent& transform) const
                 float slopeSurfaceY = 0.0f;
                 if (TryGetSlopeSurfaceYShared(m_tileMap, column, row, probeX, slopeSurfaceY))
                 {
-                    const float candidateY = slopeSurfaceY - enemyHeight;
-                    if (!foundGround || candidateY < nearestGroundY)
-                    {
-                        nearestGroundY = candidateY;
-                        foundGround = true;
-                    }
+                    considerCandidate(slopeSurfaceY - enemyHeight);
                 }
             }
         }
     }
 
-    if (foundGround && std::fabs(nearestGroundY - transform.y) <= 48.0f)
+    if (foundGround && nearestDistance <= 48.0f)
     {
         transform.y = nearestGroundY;
-        return true; 
+        return true;
     }
-    return false; 
+    return false;
 }

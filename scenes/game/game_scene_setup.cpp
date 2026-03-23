@@ -205,19 +205,43 @@ void GameScene::InitializeStageEntities()
             const char marker = m_tileMap.GetMarker(column, row);
             if (marker == 'W') // Walker
             {
-                SpawnStagePrefab(
+                Entity& enemy = SpawnStagePrefab(
                     prefabs,
                     "sandbox_enemy_walker",
                     static_cast<float>(column) * tileSize,
                     static_cast<float>(row) * tileSize);
+                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                {
+                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
+                    float spawnX = transform->x;
+                    float spawnY = transform->y;
+                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
+                    {
+                        transform->x = spawnX;
+                        transform->y = spawnY;
+                    }
+                    SnapEnemyToGround(*transform);
+                }
             }
             else if (marker == 'R') // Ranged
             {
-                SpawnStagePrefab(
+                Entity& enemy = SpawnStagePrefab(
                     prefabs,
                     "sandbox_enemy_ranged",
                     static_cast<float>(column) * tileSize,
                     static_cast<float>(row) * tileSize);
+                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                {
+                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
+                    float spawnX = transform->x;
+                    float spawnY = transform->y;
+                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
+                    {
+                        transform->x = spawnX;
+                        transform->y = spawnY;
+                    }
+                    SnapEnemyToGround(*transform);
+                }
             }
         }
     }
