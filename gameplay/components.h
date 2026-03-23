@@ -228,7 +228,7 @@ class EnemyComponent final : public Component
 public:
     EnemyComponent(EnemyArchetype archetype, int contactDamage = 1);
 
-    // 3/19�ǉ��F�ȒP��AI��ԊǗ��̂��߂̗񋓌^(�c�V��r)
+   
     enum class AIState { Idle, Chase, Attack };
 
     void DrawDebugUI() override;
@@ -240,7 +240,7 @@ public:
     void MarkDefeated();
     void Restore(); 
 
-    // 3/19�ǉ��F�ȒP��AI��ԊǗ��̂��߂̃v���p�e�B�ƃ^�C�}�[(�c�V��r)
+    
     AIState GetAIState() const { return m_aiState; }
     void SetAIState(AIState state) { m_aiState = state; }
     float attackTimer = 0.0f;
@@ -290,7 +290,7 @@ private:
     float m_attractTimer;
 };
 
-// 3/19�ǉ��F�������U���̒e�R���|�[�l���g(�c�V��r)
+
 class ProjectileComponent final : public Component
 {
 public:
