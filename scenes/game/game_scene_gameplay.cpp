@@ -822,7 +822,7 @@ void GameScene::UpdateEnemies()
         m_flow,
         m_photo,
         playerTransform,
-        // 3/21�E�C�E��E��E�F�E�n�E�ʃX�E�i�E�b�E�v�E�R�E�[�E��E��E�o�E�b�E�N�E��E�bool�E�ԋp�E�ɕύX(�E�c�E�V�E��E�r)
+        
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
@@ -850,7 +850,7 @@ void GameScene::UpdateBullets()
         {
             HandleEnemyDamage(enemyEntity, sourceEntity, amount, logMessage);
         },
-        // 3/21�E�ǉ��E�F�E�^�E�C�E��E��E��E��E��E��E�蔻�E��E�R�E�[�E��E��E�o�E�b�E�N(�E�c�E�V�E��E�r)
+        
         [this](float x, float y) -> bool
         {
             const float tileSize = m_tileMap.GetTileSize();
@@ -860,17 +860,17 @@ void GameScene::UpdateBullets()
         });
 }
 
-// 3/21追加：ドロップアイテムの生成(田之上俊)
+
 void GameScene::SpawnDropItems(float x, float y, int count)
 {
     for (int i = 0; i < count; ++i)
     {
-        // 3/21修正：花火のように上方向に強く散らばる(田之上俊)
+        
         const float angle = (static_cast<float>(i) / static_cast<float>(count)) * 6.28318f
             + static_cast<float>(rand() % 100) * 0.063f;
         const float speed = 250.0f + static_cast<float>(rand() % 200);
         const float velX = std::cos(angle) * speed;
-        const float velY = std::sin(angle) * speed - 350.0f; // 上方向に強く
+        const float velY = std::sin(angle) * speed - 350.0f; 
 
         auto item = std::make_unique<Entity>();
         item->AddComponent<TagComponent>("DropItem");
@@ -883,7 +883,6 @@ void GameScene::SpawnDropItems(float x, float y, int count)
     }
 }
 
-// 3/21追加：ドロップアイテムの更新(田之上俊)
 void GameScene::UpdateDropItems()
 {
     Entity* player = FindEntityByTag("Player");
@@ -894,7 +893,7 @@ void GameScene::UpdateDropItems()
     constexpr float kAttractRange = 120.0f;
     constexpr float kAttractSpeed = 400.0f;
     constexpr float kCollectRange = 48.0f;
-    constexpr float kFriction = 0.85f; // 3/21追加：摩擦(田之上俊)
+    constexpr float kFriction = 0.85f; 
 
     std::vector<Entity*> collected;
 
@@ -922,7 +921,7 @@ void GameScene::UpdateDropItems()
 
             if (dist < kAttractRange)
             {
-                // 3/21修正：引き寄せ速度を距離に応じて加速(田之上俊)
+                
                 drop->SetAttracting(true);
                 const float length = std::max(1.0f, dist);
                 const float attractStrength = kAttractSpeed * (1.0f - dist / kAttractRange) + 200.0f;
@@ -937,29 +936,29 @@ void GameScene::UpdateDropItems()
 
         if (!drop->IsAttracting())
         {
-            // 重力
+           
             drop->SetVelocityY(std::min(kMaxFallSpeed, drop->GetVelocityY() + kGravity * m_flow.lastDeltaTime));
         }
 
         transform->x += drop->GetVelocityX() * m_flow.lastDeltaTime;
         transform->y += drop->GetVelocityY() * m_flow.lastDeltaTime;
 
-        // 地面スナップ
+        
         const float prevY = transform->y;
         const bool onGround = SnapEnemyToGround(*transform);
         if (onGround)
         {
-            // 3/21追加：地面接触時に速度を減衰(田之上俊)
+            
             drop->SetVelocityY(0.0f);
             drop->SetVelocityX(drop->GetVelocityX() * kFriction);
-            // 速度が十分小さくなったら止める
+            
             if (std::fabs(drop->GetVelocityX()) < 5.0f)
             {
                 drop->SetVelocityX(0.0f);
             }
         }
 
-        // 画面外削除
+        
         const float mapHeight = GetMapPixelHeight();
         if (transform->y > mapHeight)
         {
@@ -1423,7 +1422,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         if (health->IsDead())
         {
             enemyComponent->MarkDefeated();
-            // 3/21追加：撃破時にドロップアイテムを生成(田之上俊)
+            
             if (const auto* transform = enemy.GetComponent<TransformComponent>())
             {
                 const int dropCount = GetEnemyDropCount(enemyComponent->GetArchetype());
@@ -1437,7 +1436,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     else
     {
         enemyComponent->MarkDefeated();
-        // 3/21追加：撃破時にドロップアイテムを生成(田之上俊)
+        
         if (const auto* transform = enemy.GetComponent<TransformComponent>())
         {
             const int dropCount = GetEnemyDropCount(enemyComponent->GetArchetype());
