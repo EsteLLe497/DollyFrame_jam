@@ -236,7 +236,7 @@ void GameScene::Draw()
     DrawPhotoStorageTray();
     DrawPitRestartOverlay();
     DrawTuningPanel();
-    
+    DrawPlayerHpBar();
    
 }
 
