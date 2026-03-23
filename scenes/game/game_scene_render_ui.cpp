@@ -1036,3 +1036,60 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
 
     return bestTarget;
 }
+
+void GameScene::DrawPlayerHpBar() const
+{
+    const Entity* player = FindEntityByTag("Player");
+    if (!player) return;
+
+    const auto* health = player->GetComponent<HealthComponent>();
+    if (!health) return;
+
+    const int maxHp = health->GetMaxHealth();
+    const int currentHp = health->GetCurrentHealth();
+
+    constexpr float kBarWidth = 240.0f;
+    constexpr float kBarHeight = 24.0f;
+    constexpr float kMarginRight = 32.0f;
+    constexpr float kMarginTop = 32.0f;
+
+    const float barX = static_cast<float>(SCREEN_WIDTH) - kBarWidth - kMarginRight;
+    const float barY = kMarginTop;
+
+    // îwåi
+    DrawBox(
+        static_cast<int>(barX),
+        static_cast<int>(barY),
+        static_cast<int>(barX + kBarWidth),
+        static_cast<int>(barY + kBarHeight),
+        GetColor(40, 40, 40),
+        TRUE);
+
+    // HPïîï™
+    const float hpRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
+    DrawBox(
+        static_cast<int>(barX),
+        static_cast<int>(barY),
+        static_cast<int>(barX + kBarWidth * hpRatio),
+        static_cast<int>(barY + kBarHeight),
+        GetColor(60, 200, 80),
+        TRUE);
+
+    // ògê¸
+    DrawBox(
+        static_cast<int>(barX),
+        static_cast<int>(barY),
+        static_cast<int>(barX + kBarWidth),
+        static_cast<int>(barY + kBarHeight),
+        GetColor(220, 220, 220),
+        FALSE);
+
+    // HPêîíl
+    DrawFormatString(
+        static_cast<int>(barX + kBarWidth * 0.5f) - 16,
+        static_cast<int>(barY + 4.0f),
+        GetColor(255, 255, 255),
+        "HP %d / %d",
+        currentHp,
+        maxHp);
+}
