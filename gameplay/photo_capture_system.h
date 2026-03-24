@@ -1,0 +1,35 @@
+#pragma once
+
+class GameScene;
+class Entity;
+
+class PhotoCaptureSystem
+{
+public:
+    static void HandleCapture(GameScene& scene);
+
+private:
+    static void CaptureEntitiesInFrame(
+        GameScene& scene,
+        float frameX,
+        float frameY,
+        float frameWidth,
+        float frameHeight,
+        float& capturedMaxRight,
+        float& capturedMaxBottom);
+
+    static void CaptureTilesInFrame(
+        GameScene& scene,
+        float frameX,
+        float frameY,
+        float frameWidth,
+        float frameHeight,
+        float& capturedMaxRight,
+        float& capturedMaxBottom);
+
+    static void FinalizeCapturedPhoto(
+        GameScene& scene,
+        Entity& player,
+        float frameWidth,
+        float frameHeight);
+};

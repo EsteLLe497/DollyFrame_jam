@@ -1,0 +1,422 @@
+#include "photo_shared.h"
+
+#include <cfloat>
+
+#include "game_scene_internal.h"
+#include "photo_filter_rules.h"
+#include "DxLib.h"
+
+using namespace game_scene_detail;
+
+namespace
+{
+float GetPrintedPhotoWidth(float contentWidth)
+{
+    return std::max(gPrintedPhotoMinWidth, contentWidth + gPrintedPhotoPaddingX * 2.0f);
+}
+
+float GetPrintedPhotoHeight(float contentHeight)
+{
+    return std::max(gPrintedPhotoMinHeight, contentHeight + gPrintedPhotoPaddingTop + gPrintedPhotoFooterHeight);
+}
+
+float GetRotatedBoundsWidth(float width, float height, float rotation)
+{
+    const float cosTheta = std::fabs(std::cos(rotation));
+    const float sinTheta = std::fabs(std::sin(rotation));
+    return width * cosTheta + height * sinTheta;
+}
+
+float GetRotatedBoundsHeight(float width, float height, float rotation)
+{
+    const float cosTheta = std::fabs(std::cos(rotation));
+    const float sinTheta = std::fabs(std::sin(rotation));
+    return width * sinTheta + height * cosTheta;
+}
+
+void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
+{
+    if (std::fabs(rotation) <= 0.0001f)
+    {
+        return;
+    }
+
+    const float localX = x - centerX;
+    const float localY = y - centerY;
+    const float cosTheta = std::cos(rotation);
+    const float sinTheta = std::sin(rotation);
+    x = centerX + (localX * cosTheta - localY * sinTheta);
+    y = centerY + (localX * sinTheta + localY * cosTheta);
+}
+
+void DrawTriangleItem(
+    float drawX,
+    float drawY,
+    float drawWidth,
+    float drawHeight,
+    bool risesRight,
+    bool flipX,
+    float rotation,
+    int color)
+{
+    const bool finalRisesRight = flipX ? !risesRight : risesRight;
+    float ax = 0.0f;
+    float ay = 0.0f;
+    float bx = 0.0f;
+    float by = 0.0f;
+    float cx = 0.0f;
+    float cy = 0.0f;
+
+    if (finalRisesRight)
+    {
+        ax = drawX;
+        ay = drawY + drawHeight;
+        bx = drawX + drawWidth;
+        by = drawY + drawHeight;
+        cx = drawX + drawWidth;
+        cy = drawY;
+    }
+    else
+    {
+        ax = drawX;
+        ay = drawY;
+        bx = drawX;
+        by = drawY + drawHeight;
+        cx = drawX + drawWidth;
+        cy = drawY + drawHeight;
+    }
+
+    const float centerX = drawX + drawWidth * 0.5f;
+    const float centerY = drawY + drawHeight * 0.5f;
+    RotatePoint(centerX, centerY, rotation, ax, ay);
+    RotatePoint(centerX, centerY, rotation, bx, by);
+    RotatePoint(centerX, centerY, rotation, cx, cy);
+    DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
+}
+
+void DrawProjectileItem(
+    float drawX,
+    float drawY,
+    float drawWidth,
+    float drawHeight,
+    bool flipX,
+    float rotation,
+    int color)
+{
+    float ax = flipX ? drawX + drawWidth : drawX;
+    float ay = drawY;
+    float bx = flipX ? drawX + drawWidth : drawX;
+    float by = drawY + drawHeight;
+    float cx = flipX ? drawX : drawX + drawWidth;
+    float cy = drawY + drawHeight * 0.5f;
+
+    const float centerX = drawX + drawWidth * 0.5f;
+    const float centerY = drawY + drawHeight * 0.5f;
+    RotatePoint(centerX, centerY, rotation, ax, ay);
+    RotatePoint(centerX, centerY, rotation, bx, by);
+    RotatePoint(centerX, centerY, rotation, cx, cy);
+    DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
+}
+
+void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width, float& height, float rotation)
+{
+    if (std::fabs(rotation) <= 0.0001f)
+    {
+        return;
+    }
+
+    const float baseWidth = width;
+    const float baseHeight = height;
+    const float centerX = baseWidth * 0.5f;
+    const float centerY = baseHeight * 0.5f;
+    const float cosTheta = std::cos(rotation);
+    const float sinTheta = std::sin(rotation);
+    float minX = FLT_MAX;
+    float minY = FLT_MAX;
+    float maxX = -FLT_MAX;
+    float maxY = -FLT_MAX;
+
+    for (auto& item : items)
+    {
+        const float itemCenterX = item.relativeX + item.width * 0.5f;
+        const float itemCenterY = item.relativeY + item.height * 0.5f;
+        const float localX = itemCenterX - centerX;
+        const float localY = itemCenterY - centerY;
+        const float rotatedCenterX = centerX + (localX * cosTheta - localY * sinTheta);
+        const float rotatedCenterY = centerY + (localX * sinTheta + localY * cosTheta);
+
+        item.relativeX = rotatedCenterX - item.width * 0.5f;
+        item.relativeY = rotatedCenterY - item.height * 0.5f;
+        item.rotation += rotation;
+        const float rotatedVelocityX = item.projectileVelocityX * cosTheta - item.projectileVelocityY * sinTheta;
+        const float rotatedVelocityY = item.projectileVelocityX * sinTheta + item.projectileVelocityY * cosTheta;
+        item.projectileVelocityX = rotatedVelocityX;
+        item.projectileVelocityY = rotatedVelocityY;
+
+        minX = (std::min)(minX, item.relativeX);
+        minY = (std::min)(minY, item.relativeY);
+        maxX = (std::max)(maxX, item.relativeX + item.width);
+        maxY = (std::max)(maxY, item.relativeY + item.height);
+    }
+
+    for (auto& item : items)
+    {
+        item.relativeX -= minX;
+        item.relativeY -= minY;
+    }
+
+    width = maxX - minX;
+    height = maxY - minY;
+}
+
+std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
+    const std::vector<CapturedPhotoItem>& sourceItems,
+    int paperTextureId,
+    PhotoFilterTheme capturedTheme,
+    float contentWidth,
+    float contentHeight,
+    bool flipX,
+    bool bridgeEnabled)
+{
+    const float printedWidth = GetPrintedPhotoWidth(contentWidth);
+    std::vector<CapturedPhotoItem> printedItems = sourceItems;
+    for (auto& item : printedItems)
+    {
+        item.relativeX += gPrintedPhotoPaddingX;
+        item.relativeY += gPrintedPhotoPaddingTop;
+    }
+
+    if (bridgeEnabled && printedItems.size() >= 2)
+    {
+        const std::vector<CapturedPhotoItem> baseItems = printedItems;
+        constexpr float kSegmentSize = 18.0f;
+        for (size_t index = 1; index < baseItems.size(); ++index)
+        {
+            const auto& a = baseItems[index - 1];
+            const auto& b = baseItems[index];
+            const float ax = a.relativeX + a.width * 0.5f;
+            const float ay = a.relativeY + a.height * 0.5f;
+            const float bx = b.relativeX + b.width * 0.5f;
+            const float by = b.relativeY + b.height * 0.5f;
+            const float length = std::max(std::fabs(bx - ax), std::fabs(by - ay));
+            const int steps = std::max(1, static_cast<int>(length / kSegmentSize));
+            for (int step = 1; step < steps; ++step)
+            {
+                const float t = static_cast<float>(step) / static_cast<float>(steps);
+                CapturedPhotoItem bridge;
+                bridge.textureId = paperTextureId;
+                bridge.role = PhotoCopyRole::Solid;
+                bridge.layer = PhotoCopyLayer::Foreground;
+                bridge.appliedTheme = capturedTheme;
+                bridge.relativeX = std::lerp(ax, bx, t) - kSegmentSize * 0.5f;
+                bridge.relativeY = std::lerp(ay, by, t) - kSegmentSize * 0.5f;
+                bridge.width = kSegmentSize;
+                bridge.height = kSegmentSize;
+                bridge.sourceX = 0.0f;
+                bridge.sourceY = 0.0f;
+                bridge.sourceWidth = 1.0f;
+                bridge.sourceHeight = 1.0f;
+                bridge.tintR = 0.90f;
+                bridge.tintG = 0.96f;
+                bridge.tintB = 1.0f;
+                bridge.tintA = 0.92f;
+                bridge.flipX = flipX;
+                printedItems.push_back(bridge);
+            }
+        }
+    }
+
+    if (flipX)
+    {
+        for (auto& item : printedItems)
+        {
+            item.relativeX = printedWidth - item.relativeX - item.width;
+            item.flipX = !item.flipX;
+            item.projectileVelocityX = -item.projectileVelocityX;
+        }
+    }
+
+    CapturedPhotoItem paper;
+    paper.textureId = paperTextureId;
+    paper.role = PhotoCopyRole::Solid;
+    paper.layer = PhotoCopyLayer::Background;
+    paper.origin = PhotoCopyOrigin::Generic;
+    paper.appliedTheme = PhotoFilterTheme::None;
+    paper.relativeX = 0.0f;
+    paper.relativeY = 0.0f;
+    paper.width = printedWidth;
+    paper.height = GetPrintedPhotoHeight(contentHeight);
+    paper.sourceX = 0.0f;
+    paper.sourceY = 0.0f;
+    paper.sourceWidth = 1.0f;
+    paper.sourceHeight = 1.0f;
+    paper.tintR = 0.98f;
+    paper.tintG = 0.96f;
+    paper.tintB = 0.90f;
+    paper.tintA = 0.94f;
+
+    CapturedPhotoItem matte;
+    matte.textureId = paperTextureId;
+    matte.role = PhotoCopyRole::Solid;
+    matte.layer = PhotoCopyLayer::Background;
+    matte.origin = PhotoCopyOrigin::Tile;
+    matte.appliedTheme = PhotoFilterTheme::None;
+    matte.relativeX = gPrintedPhotoPaddingX - gPrintedPhotoMatteInset;
+    matte.relativeY = gPrintedPhotoPaddingTop - gPrintedPhotoMatteInset;
+    matte.width = contentWidth + gPrintedPhotoMatteInset * 2.0f;
+    matte.height = contentHeight + gPrintedPhotoMatteInset * 2.0f;
+    matte.sourceX = 0.0f;
+    matte.sourceY = 0.0f;
+    matte.sourceWidth = 1.0f;
+    matte.sourceHeight = 1.0f;
+    matte.tintR = 0.10f;
+    matte.tintG = 0.12f;
+    matte.tintB = 0.14f;
+    matte.tintA = 0.92f;
+
+    std::vector<CapturedPhotoItem> result;
+    result.reserve(printedItems.size() + 2);
+    result.push_back(paper);
+    result.push_back(matte);
+    result.insert(result.end(), printedItems.begin(), printedItems.end());
+    return result;
+}
+
+bool ContainsSpawnArchetypeItem(const std::vector<CapturedPhotoItem>& items)
+{
+    for (const auto& item : items)
+    {
+        if (item.spawnArchetype != CapturedSpawnArchetype::None)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+}
+
+namespace photo_shared
+{
+std::vector<CapturedPhotoItem> BuildPlacementItems(
+    const PhotoCaptureState& capture,
+    const PhotoPlacementState& placement,
+    int whiteTexture,
+    float& outWidth,
+    float& outHeight)
+{
+    const bool containsArchetype = ContainsSpawnArchetypeItem(capture.items);
+    if (containsArchetype)
+    {
+        outWidth = (std::max)(1.0f, capture.width);
+        outHeight = (std::max)(1.0f, capture.height);
+
+        std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
+            capture.items,
+            whiteTexture,
+            capture.capturedTheme,
+            outWidth,
+            outHeight,
+            placement.flipX,
+            false);
+        if (placement.flipX)
+        {
+            for (auto& item : items)
+            {
+                item.relativeX = outWidth - item.relativeX - item.width;
+                item.flipX = !item.flipX;
+                item.projectileVelocityX = -item.projectileVelocityX;
+            }
+        }
+        RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
+        return items;
+    }
+
+    outWidth = GetPrintedPhotoWidth(capture.width);
+    outHeight = GetPrintedPhotoHeight(capture.height);
+    std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
+        capture.items,
+        whiteTexture,
+        capture.capturedTheme,
+        capture.width,
+        capture.height,
+        placement.flipX,
+        placement.bridgeEnabled);
+    RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
+    return items;
+}
+
+void ApplyPreviewFilterTheme(CapturedPhotoItem& item)
+{
+    ApplyPhotoFilterThemeToPreviewItem(
+        item.appliedTheme,
+        item.origin,
+        item.role,
+        item.layer,
+        item.tintR,
+        item.tintG,
+        item.tintB,
+        item.tintA);
+}
+
+void DrawCapturedPhotoItem(
+    int fallbackTextureId,
+    const CapturedPhotoItem& item,
+    float drawX,
+    float drawY,
+    float drawWidth,
+    float drawHeight,
+    float alpha)
+{
+    Shader_ResetStyle();
+    Shader_SetTint(item.tintR, item.tintG, item.tintB, alpha);
+    if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
+    {
+        const int color = GetColor(
+            static_cast<int>(std::round(item.tintR * 255.0f)),
+            static_cast<int>(std::round(item.tintG * 255.0f)),
+            static_cast<int>(std::round(item.tintB * 255.0f)));
+        const float projectileAngle = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+        DrawProjectileItem(
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            false,
+            projectileAngle,
+            color);
+        return;
+    }
+
+    const TileTriangleShape triangle = TileMap::GetTriangleShape(item.sourceTileValue);
+    if (triangle.isTriangle)
+    {
+        const int color = GetColor(
+            static_cast<int>(std::round(item.tintR * 255.0f)),
+            static_cast<int>(std::round(item.tintG * 255.0f)),
+            static_cast<int>(std::round(item.tintB * 255.0f)));
+        DrawTriangleItem(
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            triangle.risesRight,
+            item.flipX,
+            item.rotation,
+            color);
+        return;
+    }
+
+    SpriteDraw(
+        item.textureId >= 0 ? item.textureId : fallbackTextureId,
+        drawX,
+        drawY,
+        drawWidth,
+        drawHeight,
+        item.sourceX,
+        item.sourceY,
+        item.sourceWidth,
+        item.sourceHeight,
+        item.flipX,
+        item.rotation);
+}
+}
