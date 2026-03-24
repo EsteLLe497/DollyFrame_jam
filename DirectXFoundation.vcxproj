@@ -104,6 +104,9 @@
     <ClCompile Include="scenes\game\game_scene_render.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui.cpp" />
     <ClCompile Include="scenes\game\game_scene_setup.cpp" />
+    <ClCompile Include="scenes\game\game_scene_enemy_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_gimmick_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_update_domains.cpp" />
     <ClCompile Include="core\game_session.cpp" />
     <ClCompile Include="rendering\imgui_layer.cpp" />
     <ClCompile Include="core\input.cpp" />
@@ -114,6 +117,11 @@
       <ObjectFileName>$(IntDir)foundation_physics_world.obj</ObjectFileName>
     </ClCompile>
     <ClCompile Include="gameplay\photo_filter_rules.cpp" />
+    <ClCompile Include="gameplay\photo_shared.cpp" />
+    <ClCompile Include="gameplay\photo_capture_system.cpp" />
+    <ClCompile Include="gameplay\photo_paste_system.cpp" />
+    <ClCompile Include="gameplay\photo_system_capture.cpp" />
+    <ClCompile Include="gameplay\photo_system_paste.cpp" />
     <ClCompile Include="gameplay\photo_system.cpp" />
     <ClCompile Include="rendering\shader.cpp" />
     <ClCompile Include="rendering\sprite.cpp" />
@@ -291,6 +299,10 @@
     <ClInclude Include="gameplay\prefab_factory.h" />
     <ClInclude Include="physics\physics_world.h" />
     <ClInclude Include="gameplay\photo_filter_rules.h" />
+    <ClInclude Include="gameplay\photo_shared.h" />
+    <ClInclude Include="gameplay\photo_capture_system.h" />
+    <ClInclude Include="gameplay\photo_paste_system.h" />
+    <ClInclude Include="gameplay\photo_system_bridge.h" />
     <ClInclude Include="gameplay\photo_system.h" />
     <ClInclude Include="core\resource_manager.h" />
     <ClInclude Include="scenes\result_scene.h" />
@@ -306,132 +318,8 @@
     <ClInclude Include="scenes\title_scene.h" />
     <ClInclude Include="third_party\imgui\imgui.h" />
   </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="shaders\src\shaderPixel2D_ChromaticAberration.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_ChromaticAberration.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Distortion.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Distortion.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Dissolve.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Dissolve.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Flash.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Flash.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Glitch.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Glitch.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_GradientMap.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_GradientMap.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_HeatOverlay.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_HeatOverlay.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_MaskClip.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_MaskClip.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Grayscale.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Grayscale.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Normal.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Normal.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_NormalMapLighting.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_NormalMapLighting.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Outline.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Outline.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Parallax.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Parallax.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_PaletteSwap.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_PaletteSwap.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Pixelate.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Pixelate.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Posterize.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Posterize.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_RimLight.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_RimLight.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_NoiseReveal.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_NoiseReveal.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_UVScroll.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_UVScroll.cso</ObjectFileOutput>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Wave.hlsl">
-      <ShaderType>Pixel</ShaderType>
-      <ShaderModel>5.0</ShaderModel>
-      <EntryPointName>main</EntryPointName>
-      <ObjectFileOutput>$(ProjectDir)shaders\bin\shaderPixel2D_Wave.cso</ObjectFileOutput>
-    </FxCompile>
-    <None Include="shaders\bin\shaderPixel2D.cso" />
-    <None Include="shaders\src\shaderPixel2D.hlsl" />
-    <None Include="shaders\bin\shaderVertex2D.cso" />
-    <None Include="shaders\src\shaderVertex2D.hlsl" />
-  </ItemGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>
+
+

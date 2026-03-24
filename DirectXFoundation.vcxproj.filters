@@ -114,6 +114,15 @@
     <ClCompile Include="scenes\game\game_scene_setup.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_enemy_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_gimmick_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_update_domains.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
     <ClCompile Include="core\game_session.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -136,6 +145,21 @@
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="gameplay\photo_filter_rules.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="gameplay\photo_shared.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="gameplay\photo_capture_system.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="gameplay\photo_paste_system.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="gameplay\photo_system_capture.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="gameplay\photo_system_paste.cpp">
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="gameplay\photo_system.cpp">
@@ -359,6 +383,18 @@
     <ClInclude Include="gameplay\photo_filter_rules.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
+    <ClInclude Include="gameplay\photo_shared.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
+    <ClInclude Include="gameplay\photo_capture_system.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
+    <ClInclude Include="gameplay\photo_paste_system.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
+    <ClInclude Include="gameplay\photo_system_bridge.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
     <ClInclude Include="gameplay\photo_system.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
@@ -402,78 +438,6 @@
       <Filter>Header Files\Third Party</Filter>
     </ClInclude>
   </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="shaders\src\shaderPixel2D_ChromaticAberration.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Distortion.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Dissolve.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Flash.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Glitch.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_GradientMap.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_HeatOverlay.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_MaskClip.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Grayscale.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Normal.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_NormalMapLighting.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Outline.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Parallax.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_PaletteSwap.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Pixelate.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Posterize.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_RimLight.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_NoiseReveal.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_UVScroll.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\src\shaderPixel2D_Wave.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </FxCompile>
-    <None Include="shaders\bin\shaderPixel2D.cso">
-      <Filter>Shaders\Binary</Filter>
-    </None>
-    <None Include="shaders\src\shaderPixel2D.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </None>
-    <None Include="shaders\bin\shaderVertex2D.cso">
-      <Filter>Shaders\Binary</Filter>
-    </None>
-    <None Include="shaders\src\shaderVertex2D.hlsl">
-      <Filter>Shaders\Source</Filter>
-    </None>
-  </ItemGroup>
-</Project>
+  </Project>
+
+
