@@ -104,11 +104,7 @@ Visual Studio の場合:
 - `scenes/`
   `TitleScene`、`ResultScene`、`DemoScene`、`ShaderShowcaseScene` です。
 - `scenes/game/`
-  `GameScene` 本体です。更新、描画、衝突、内部定数を分割しています。
-- `shaders/src/`
-  `.hlsl` のソースです。
-- `shaders/bin/`
-  ビルドで生成される `.cso` の出力先です。
+  `GameScene` 本体です。更新、描画、衝突、ドメイン分割を含みます。
 
 ### よく触るファイル
 
@@ -139,7 +135,13 @@ Visual Studio の場合:
 - `gameplay/photo_filter_rules.h` / `gameplay/photo_filter_rules.cpp`
   写真フィルターの名称、順序、効果本体です。
 - `gameplay/photo_system.h` / `gameplay/photo_system.cpp`
-  写真の撮影、配置、コピー生成、プレビュー描画です。
+  写真機能のファサードです。実体は capture/paste/shared へ分割されています。
+- `gameplay/photo_capture_system.*`
+  撮影処理本体です。
+- `gameplay/photo_paste_system.*`
+  配置処理本体です。
+- `gameplay/photo_shared.*`
+  capture/paste 共通処理です。
 - `gameplay/prefab_factory.h` / `gameplay/prefab_factory.cpp`
   `assets/prefabs.json` を読み、エンティティを生成します。
 - `rendering/shader.h` / `rendering/shader.cpp`
@@ -271,12 +273,14 @@ Visual Studio の場合:
   このプロジェクト向けのコーディング規約メモ
 - [docs/scene-reference.md](docs/scene-reference.md)
   シーン別の入口と担当範囲
-- [docs/shader-guide.md](docs/shader-guide.md)
-  シェーダ担当向けガイド
+- [docs/rendering-effects-guide.md](docs/rendering-effects-guide.md)
+  レンダリング・演出担当向けガイド
 - [docs/ui-guide.md](docs/ui-guide.md)
   UI担当向けガイド
 - [docs/refactor-candidates.md](docs/refactor-candidates.md)
   今後の改善候補一覧
+- [docs/domain-ownership-guide.md](docs/domain-ownership-guide.md)
+  ドメイン担当境界の固定ルール
 
 ## どこから触るべきか
 
@@ -300,3 +304,4 @@ Visual Studio の場合:
 - 現在の基盤は 2D 前提です。
 - 3D へ進める場合は、カメラ、メッシュ、マテリアル、深度有効描画、シーン定数の再設計が必要です。
 - `third_party` は依存ライブラリです。通常の保守対象としては扱わない前提で構成しています。
+

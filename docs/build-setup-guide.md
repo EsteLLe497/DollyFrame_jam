@@ -68,19 +68,10 @@ README の古い説明だけを見ると `DirectX 11` 単体基盤に見える�
 - `dxlib_support_libs/Debug`
 - `dxlib_support_libs/Release`
 
-## 6. シェーダについて
+## 6. レンダリング資産について
 
-`.hlsl` から `.cso` を生成します。  
-ビルド時に自動コンパイルされるので、通常は手動で `.cso` を作る必要はありません。
-
-対象例:
-
-- `shaders/src/shaderPixel2D_*.hlsl`
-- `shaders/src/shaderVertex2D.hlsl`
-
-生成先:
-
-- `shaders/bin/*.cso`
+シェーダの調整は `rendering/shader.cpp` と `scenes/game/game_scene_render*.cpp` を中心に行います。  
+ビルド成果物ではなく、ソース差分をレビュー対象にします。
 
 ## 7. 初回ビルドで見る場所
 
@@ -113,7 +104,7 @@ README の古い説明だけを見ると `DirectX 11` 単体基盤に見える�
 
 - 生成物をビルド通過確認のたびにコミットしない
 - `dxlib_support_libs/` を動かしたらチームへ共有する
-- `.cso` や `.lib` の差分が出たときは、本当に必要か確認する
+- `.vcxproj` の `ClCompile` 登録と実ファイルの整合を確認する
 
 ## 11. 推奨確認コマンド
 
@@ -140,3 +131,5 @@ Test-Path D:\DollyFrame_jam\build\Debug\DirectXFoundation.exe
 - `docs/programming-guide.md`
 - `docs/team-programming-guide.md`
 - `docs/git-and-artifacts-guide.md`
+
+
