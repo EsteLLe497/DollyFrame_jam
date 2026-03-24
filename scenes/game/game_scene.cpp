@@ -161,7 +161,8 @@ void GameScene::Update(float deltaTime)
 
     UpdateCameraMode();
     const bool placementHeld = !m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
-    const bool showPhotoTray = m_flow.cameraMode || placementHeld || m_photo.placement.active;
+    const bool previewActive = m_flow.developedPhotoPreviewRemaining > 0.0f || m_photo.pendingStore.active;
+    const bool showPhotoTray = m_flow.cameraMode || placementHeld || m_photo.placement.active || previewActive;
     const float trayTarget = showPhotoTray ? 1.0f : 0.0f;
     m_flow.photoTrayReveal += (trayTarget - m_flow.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
     if (m_flow.cameraMode || placementHeld || m_photo.placement.active)
@@ -188,7 +189,12 @@ void GameScene::Update(float deltaTime)
 
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - gameplayDeltaTime);
     m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
+    const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;
     m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
+    if (previewWasActive && m_flow.developedPhotoPreviewRemaining <= 0.0f)
+    {
+        CommitPendingCapturedPhoto();
+    }
     m_flow.pickupPulse += gameplayDeltaTime;
     for (const auto& entity : m_entities)
     {
@@ -232,8 +238,8 @@ void GameScene::Draw()
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
     DrawPhotoPlacementPreview();
     DrawCaptureOverlay();
-    DrawDevelopedPhotoPreview();
     DrawPhotoStorageTray();
+    DrawDevelopedPhotoPreview();
     DrawPitRestartOverlay();
     DrawTuningPanel();
     DrawPlayerHpBar();

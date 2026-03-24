@@ -82,12 +82,20 @@ struct PhotoGroupState
     int activeGroupCount = 0;
 };
 
+struct PendingPhotoStoreState
+{
+    bool active = false;
+    int slotIndex = 0;
+    PhotoCaptureState capture;
+};
+
 struct PhotoState
 {
     PhotoCaptureState capture;
     std::array<PhotoCaptureState, 3> savedCaptures;
     int selectedCaptureSlot = 0;
     int nextCaptureSlot = 0;
+    PendingPhotoStoreState pendingStore;
     PhotoPlacementState placement;
     PhotoGroupState groups;
 };

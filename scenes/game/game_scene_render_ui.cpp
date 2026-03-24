@@ -530,33 +530,31 @@ void GameScene::DrawTuningPanel()
 
 void GameScene::DrawDevelopedPhotoPreview() const
 {
-    if (m_flow.developedPhotoPreviewRemaining <= 0.0f || m_photo.capture.items.empty())
+    if (m_flow.developedPhotoPreviewRemaining <= 0.0f || !m_photo.pendingStore.active || m_photo.pendingStore.capture.items.empty())
     {
         return;
     }
 
+    const PhotoCaptureState& previewCapture = m_photo.pendingStore.capture;
     constexpr float kPreviewLifetime = 3.2f;
-    const float remainingT = Clamp01(m_flow.developedPhotoPreviewRemaining / kPreviewLifetime);
-    const float appearT = Clamp01((kPreviewLifetime - m_flow.developedPhotoPreviewRemaining) / 1.44f);
-    const float fadeT = Clamp01(m_flow.developedPhotoPreviewRemaining / 0.45f);
-    float ejectT = 0.0f;
-    if (appearT < 0.56f)
-    {
-        const float firstPhaseT = appearT / 0.56f;
-        const float easedFirstPhase = firstPhaseT * firstPhaseT * (3.0f - 2.0f * firstPhaseT);
-        ejectT = 0.58f * easedFirstPhase;
-    }
-    else
-    {
-        const float secondPhaseT = (appearT - 0.56f) / 0.44f;
-        const float easedSecondPhase = secondPhaseT * secondPhaseT * (3.0f - 2.0f * secondPhaseT);
-        ejectT = 0.58f + 0.42f * easedSecondPhase;
-    }
-    const float overshootT = std::sin(ejectT * 3.14159265f);
-    const float settleScale = 0.95f + std::sin(ejectT * 1.57079632f) * 0.05f;
-    const float disappearT = 1.0f - fadeT;
-    const float disappearEase = disappearT * disappearT * (3.0f - 2.0f * disappearT);
-    const float alpha = ejectT * fadeT * (1.0f - disappearEase * 0.25f);
+    const float progress = 1.0f - Clamp01(m_flow.developedPhotoPreviewRemaining / kPreviewLifetime);
+    const float cardPhaseT = Clamp01(progress / 0.34f);
+    const float orbPhaseT = Clamp01((progress - 0.14f) / 0.30f);
+    const float orbArriveT = Clamp01((progress - 0.34f) / 0.10f);
+    const float finalFade = Clamp01(m_flow.developedPhotoPreviewRemaining / 0.34f);
+
+    float accentR = 0.32f;
+    float accentG = 0.92f;
+    float accentB = 1.0f;
+    GetPhotoFilterThemeOverlayColor(previewCapture.capturedTheme, accentR, accentG, accentB);
+
+    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
+    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
+    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
+    const float targetSlotX = trayX + m_photo.pendingStore.slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
+    const float targetCenterX = targetSlotX + 54.0f;
+    const float targetCenterY = trayY + 53.0f;
 
     const float photoWidth = 220.0f;
     const float photoHeight = 248.0f;
@@ -564,137 +562,223 @@ void GameScene::DrawDevelopedPhotoPreview() const
     const float imageWidth = photoWidth - frameInset * 2.0f;
     const float imageHeight = 150.0f;
     const float baseX = static_cast<float>(SCREEN_WIDTH) - photoWidth - 42.0f;
-    const float exitSlotY = 34.0f;
     const float startY = static_cast<float>(SCREEN_HEIGHT) + 30.0f;
-    const float pauseSlow = appearT >= 0.44f && appearT <= 0.68f
-        ? std::sin(((appearT - 0.44f) / 0.24f) * 3.14159265f)
+    const float cardExitX = static_cast<float>(SCREEN_WIDTH) - 126.0f;
+    const float cardCruiseY = 34.0f;
+
+    const float cardRiseT = Clamp01(cardPhaseT / 0.56f);
+    const float cardSlideT = Clamp01((cardPhaseT - 0.42f) / 0.58f);
+    const float riseEase = cardRiseT * cardRiseT * (3.0f - 2.0f * cardRiseT);
+    const float slideEase = cardSlideT * cardSlideT * (3.0f - 2.0f * cardSlideT);
+    const float overshootT = std::sin(cardRiseT * 3.14159265f);
+    const float settleScale = 0.95f + std::sin(cardRiseT * 1.57079632f) * 0.05f;
+    const float pauseSlow = cardPhaseT >= 0.44f && cardPhaseT <= 0.68f
+        ? std::sin(((cardPhaseT - 0.44f) / 0.24f) * 3.14159265f)
         : 0.0f;
-    float y = std::lerp(startY, exitSlotY, ejectT) - overshootT * 14.0f + pauseSlow * 10.0f;
-    float x = baseX + (1.0f - ejectT) * 4.0f;
+    const float cardX = baseX + (1.0f - riseEase) * 4.0f;
+    const float cardY = std::lerp(startY, cardCruiseY, riseEase) - overshootT * 14.0f + pauseSlow * 10.0f;
+    const float cardAlpha = Clamp01(1.0f - Clamp01((progress - 0.22f) / 0.12f)) * finalFade;
 
-    float accentR = 0.32f;
-    float accentG = 0.92f;
-    float accentB = 1.0f;
-    GetPhotoFilterThemeOverlayColor(m_photo.capture.capturedTheme, accentR, accentG, accentB);
-
-    const float targetCenterX = 54.0f;
-    const float targetCenterY = static_cast<float>(SCREEN_HEIGHT) - 48.0f;
-    const float liveHeight = photoHeight * settleScale;
-    const float currentCenterX = x + photoWidth * 0.5f;
-    const float currentCenterY = y + liveHeight * 0.5f;
-    const float orbDiameter = 20.0f;
-    const float previewScaleOut = std::lerp(1.0f, 0.08f, disappearEase);
-    const float shrunkWidth = std::lerp(photoWidth, orbDiameter, disappearEase);
-    const float shrunkHeight = std::lerp(liveHeight, orbDiameter, disappearEase);
-    const float movedCenterX = std::lerp(currentCenterX, targetCenterX, disappearEase);
-    const float movedCenterY = std::lerp(currentCenterY, targetCenterY, disappearEase);
-    x = movedCenterX - shrunkWidth * 0.5f;
-    y = movedCenterY - shrunkHeight * 0.5f;
-    const float imageScaleOut = previewScaleOut;
-    const float visibleHeight = shrunkHeight;
-
-    DrawBox(
-        static_cast<int>(std::round(x + 8.0f)),
-        static_cast<int>(std::round(y + 10.0f)),
-        static_cast<int>(std::round(x + shrunkWidth + 8.0f)),
-        static_cast<int>(std::round(y + visibleHeight + 10.0f)),
-        GetColor(16, 18, 24),
-        TRUE);
-
-    Shader_ResetStyle();
-    Shader_SetTint(accentR, accentG, accentB, 0.14f * alpha * (1.0f - disappearEase * 0.5f));
-    SpriteDraw(m_whiteTexture, x - 8.0f, y - 8.0f, shrunkWidth + 16.0f, visibleHeight + 16.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(0.98f, 0.96f, 0.90f, 0.96f * alpha);
-    SpriteDraw(m_whiteTexture, x, y, shrunkWidth, visibleHeight, 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(accentR, accentG, accentB, 0.20f * alpha);
-    SpriteDraw(m_whiteTexture, x, y, shrunkWidth, 20.0f * imageScaleOut, 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(0.92f, 0.88f, 0.74f, 0.12f * alpha);
-    SpriteDraw(m_whiteTexture, x, y + 22.0f * imageScaleOut, shrunkWidth, 10.0f * imageScaleOut, 0.0f, 0.0f, 1.0f, 1.0f);
-
-    const float photoX = x + frameInset * previewScaleOut;
-    const float photoY = y + frameInset * imageScaleOut;
-    Shader_SetTint(0.12f, 0.14f, 0.18f, 0.88f * alpha);
-    SpriteDraw(m_whiteTexture, photoX - 3.0f, photoY - 3.0f, (imageWidth * previewScaleOut) + 6.0f, (imageHeight * imageScaleOut) + 6.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-
-    const float previewScale = std::min(
-        imageWidth / std::max(1.0f, m_photo.capture.width),
-        imageHeight / std::max(1.0f, m_photo.capture.height));
-    const float previewPop = settleScale + overshootT * 0.015f;
-    const float scaledContentWidth = m_photo.capture.width * previewScale * previewPop * previewScaleOut;
-    const float scaledContentHeight = m_photo.capture.height * previewScale * previewPop * imageScaleOut;
-    const float contentAreaWidth = imageWidth * previewScaleOut;
-    const float contentAreaHeight = imageHeight * imageScaleOut;
-    const float contentOffsetX = photoX + (contentAreaWidth - scaledContentWidth) * 0.5f;
-    const float contentOffsetY = photoY + (contentAreaHeight - scaledContentHeight) * 0.5f;
-
-    Shader_SetTint(0.10f, 0.12f, 0.14f, 0.95f * alpha);
-    SpriteDraw(m_whiteTexture, photoX, photoY, contentAreaWidth, contentAreaHeight, 0.0f, 0.0f, 1.0f, 1.0f);
-
-    for (const auto& item : m_photo.capture.items)
+    if (cardAlpha > 0.0f)
     {
-        DrawCapturedPreviewItem(
-            m_tileTexture,
-            item,
-            contentOffsetX + item.relativeX * previewScale * previewPop * previewScaleOut,
-            contentOffsetY + item.relativeY * previewScale * previewPop * imageScaleOut,
-            item.width * previewScale * previewPop * previewScaleOut,
-            item.height * previewScale * previewPop * imageScaleOut,
-            alpha);
-    }
+        const float visibleHeight = photoHeight * settleScale;
+        const float previewScaleOut = 1.0f;
+        const float imageScaleOut = settleScale;
 
-    DrawBox(
-        static_cast<int>(std::round(photoX)),
-        static_cast<int>(std::round(photoY)),
-        static_cast<int>(std::round(photoX + contentAreaWidth)),
-        static_cast<int>(std::round(photoY + contentAreaHeight)),
-        GetColor(215, 205, 180),
-        FALSE);
-    if (disappearEase < 0.75f)
-    {
+        DrawBox(
+            static_cast<int>(std::round(cardX + 8.0f)),
+            static_cast<int>(std::round(cardY + 10.0f)),
+            static_cast<int>(std::round(cardX + photoWidth + 8.0f)),
+            static_cast<int>(std::round(cardY + visibleHeight + 10.0f)),
+            GetColor(16, 18, 24),
+            TRUE);
+
+        Shader_ResetStyle();
+        Shader_SetTint(accentR, accentG, accentB, 0.14f * cardAlpha);
+        SpriteDraw(m_whiteTexture, cardX - 8.0f, cardY - 8.0f, photoWidth + 16.0f, visibleHeight + 16.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+        Shader_SetTint(0.98f, 0.96f, 0.90f, 0.96f * cardAlpha);
+        SpriteDraw(m_whiteTexture, cardX, cardY, photoWidth, visibleHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        Shader_SetTint(accentR, accentG, accentB, 0.20f * cardAlpha);
+        SpriteDraw(m_whiteTexture, cardX, cardY, photoWidth, 20.0f * imageScaleOut, 0.0f, 0.0f, 1.0f, 1.0f);
+        Shader_SetTint(0.92f, 0.88f, 0.74f, 0.12f * cardAlpha);
+        SpriteDraw(m_whiteTexture, cardX, cardY + 22.0f * imageScaleOut, photoWidth, 10.0f * imageScaleOut, 0.0f, 0.0f, 1.0f, 1.0f);
+
+        const float photoX = cardX + frameInset * previewScaleOut;
+        const float photoY = cardY + frameInset * imageScaleOut;
+        Shader_SetTint(0.12f, 0.14f, 0.18f, 0.88f * cardAlpha);
+        SpriteDraw(m_whiteTexture, photoX - 3.0f, photoY - 3.0f, imageWidth + 6.0f, imageHeight * imageScaleOut + 6.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+
+        const float previewScale = std::min(
+            imageWidth / std::max(1.0f, previewCapture.width),
+            imageHeight / std::max(1.0f, previewCapture.height));
+        const float previewPop = settleScale + overshootT * 0.015f;
+        const float scaledContentWidth = previewCapture.width * previewScale * previewPop;
+        const float scaledContentHeight = previewCapture.height * previewScale * previewPop * settleScale;
+        const float contentOffsetX = photoX + (imageWidth - scaledContentWidth) * 0.5f;
+        const float contentOffsetY = photoY + (imageHeight * imageScaleOut - scaledContentHeight) * 0.5f;
+
+        Shader_SetTint(0.10f, 0.12f, 0.14f, 0.95f * cardAlpha);
+        SpriteDraw(m_whiteTexture, photoX, photoY, imageWidth, imageHeight * imageScaleOut, 0.0f, 0.0f, 1.0f, 1.0f);
+
+        for (const auto& item : previewCapture.items)
+        {
+            DrawCapturedPreviewItem(
+                m_tileTexture,
+                item,
+                contentOffsetX + item.relativeX * previewScale * previewPop,
+                contentOffsetY + item.relativeY * previewScale * previewPop * settleScale,
+                item.width * previewScale * previewPop,
+                item.height * previewScale * previewPop * settleScale,
+                cardAlpha);
+        }
+
+        DrawBox(
+            static_cast<int>(std::round(photoX)),
+            static_cast<int>(std::round(photoY)),
+            static_cast<int>(std::round(photoX + imageWidth)),
+            static_cast<int>(std::round(photoY + imageHeight * imageScaleOut)),
+            GetColor(215, 205, 180),
+            FALSE);
         DrawString(
-            static_cast<int>(x + 18.0f),
-            static_cast<int>(y + visibleHeight + 22.0f),
+            static_cast<int>(cardX + 18.0f),
+            static_cast<int>(cardY + visibleHeight + 22.0f),
             "Captured",
             GetColor(62, 56, 48));
         DrawFormatString(
-            static_cast<int>(x + 18.0f),
-            static_cast<int>(y + visibleHeight + 46.0f),
+            static_cast<int>(cardX + 18.0f),
+            static_cast<int>(cardY + visibleHeight + 46.0f),
             GetColor(110, 96, 78),
             "%s  %.0fx%.0f",
-            GetPhotoFilterThemeLabel(m_photo.capture.capturedTheme),
-            m_photo.capture.width,
-            m_photo.capture.height);
+            GetPhotoFilterThemeLabel(previewCapture.capturedTheme),
+            previewCapture.width,
+            previewCapture.height);
+        Shader_ResetStyle();
     }
 
-    if (disappearEase > 0.08f)
+    const float launchX = cardX + photoWidth * 0.5f - 18.0f;
+    const float launchY = cardCruiseY + photoHeight * 0.48f;
+    const float control1X = launchX + 6.0f;
+    const float control1Y = launchY - 172.0f;
+    const float control2X = targetCenterX + 4.0f;
+    const float control2Y = targetCenterY - 138.0f;
+    const float easedTravel = orbPhaseT * orbPhaseT * (3.0f - 2.0f * orbPhaseT);
+    const float invT = 1.0f - easedTravel;
+    const float orbX = invT * invT * invT * launchX
+        + 3.0f * invT * invT * easedTravel * control1X
+        + 3.0f * invT * easedTravel * easedTravel * control2X
+        + easedTravel * easedTravel * easedTravel * targetCenterX;
+    const float orbY = invT * invT * invT * launchY
+        + 3.0f * invT * invT * easedTravel * control1Y
+        + 3.0f * invT * easedTravel * easedTravel * control2Y
+        + easedTravel * easedTravel * easedTravel * targetCenterY;
+
+    const float derivX = 3.0f * invT * invT * (control1X - launchX)
+        + 6.0f * invT * easedTravel * (control2X - control1X)
+        + 3.0f * easedTravel * easedTravel * (targetCenterX - control2X);
+    const float derivY = 3.0f * invT * invT * (control1Y - launchY)
+        + 6.0f * invT * easedTravel * (control2Y - control1Y)
+        + 3.0f * easedTravel * easedTravel * (targetCenterY - control2Y);
+    const float derivLength = std::sqrt(derivX * derivX + derivY * derivY);
+    const float tangentX = derivLength > 0.001f ? derivX / derivLength : 0.0f;
+    const float tangentY = derivLength > 0.001f ? derivY / derivLength : -1.0f;
+    const float normalY = tangentX;
+
+    const float orbAppear = Clamp01((progress - 0.13f) / 0.03f);
+    const float orbAlpha = orbAppear * finalFade;
+    if (orbAlpha <= 0.0f)
     {
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(210.0f * disappearEase)));
-        DrawCircle(
-            static_cast<int>(std::round(movedCenterX)),
-            static_cast<int>(std::round(movedCenterY)),
-            static_cast<int>(std::round(std::lerp(8.0f, 14.0f, disappearEase))),
-            GetColor(
-                static_cast<int>(std::round(accentR * 255.0f)),
-                static_cast<int>(std::round(accentG * 255.0f)),
-                static_cast<int>(std::round(accentB * 255.0f))),
-            TRUE);
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        return;
     }
 
-    const int accent = GetColor(
-        static_cast<int>(std::round((accentR * 180.0f + 40.0f) * remainingT + 24.0f)),
-        static_cast<int>(std::round((accentG * 180.0f + 30.0f) * remainingT + 18.0f)),
-        static_cast<int>(std::round((accentB * 180.0f + 40.0f) * remainingT + 36.0f)));
-    DrawBox(
-        static_cast<int>(std::round(x + photoWidth - 54.0f)),
-        static_cast<int>(std::round(y + 16.0f)),
-        static_cast<int>(std::round(x + photoWidth - 18.0f)),
-        static_cast<int>(std::round(y + 28.0f)),
-        accent,
+    const float pulse = 1.0f + std::sin(progress * 21.0f) * 0.08f;
+    const float orbRadius = std::lerp(14.0f, 7.0f, orbArriveT) * pulse;
+    const int orbColor = GetColor(
+        static_cast<int>(std::round(120.0f + accentR * 135.0f)),
+        static_cast<int>(std::round(118.0f + accentG * 122.0f)),
+        static_cast<int>(std::round(140.0f + accentB * 112.0f)));
+    const int coreColor = GetColor(255, 248, 228);
+    const int sparkColor = GetColor(
+        static_cast<int>(std::round(188.0f + accentR * 67.0f)),
+        static_cast<int>(std::round(186.0f + accentG * 69.0f)),
+        static_cast<int>(std::round(198.0f + accentB * 57.0f)));
+
+    for (int i = 0; i < 8; ++i)
+    {
+        const float sampleT = Clamp01(orbPhaseT - i * 0.060f);
+        const float sampleEase = sampleT * sampleT * (3.0f - 2.0f * sampleT);
+        const float sampleInvT = 1.0f - sampleEase;
+        const float sampleX = sampleInvT * sampleInvT * sampleInvT * launchX
+            + 3.0f * sampleInvT * sampleInvT * sampleEase * control1X
+            + 3.0f * sampleInvT * sampleEase * sampleEase * control2X
+            + sampleEase * sampleEase * sampleEase * targetCenterX;
+        const float sampleY = sampleInvT * sampleInvT * sampleInvT * launchY
+            + 3.0f * sampleInvT * sampleInvT * sampleEase * control1Y
+            + 3.0f * sampleInvT * sampleEase * sampleEase * control2Y
+            + sampleEase * sampleEase * sampleEase * targetCenterY;
+        const float sampleAlpha = orbAlpha * (1.0f - static_cast<float>(i) / 8.5f);
+        const float sampleRadius = orbRadius * (1.6f - i * 0.10f);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(108.0f * sampleAlpha)));
+        DrawCircle(
+            static_cast<int>(std::round(sampleX)),
+            static_cast<int>(std::round(sampleY)),
+            static_cast<int>(std::round(sampleRadius)),
+            orbColor,
+            TRUE);
+    }
+
+    for (int i = 0; i < 20; ++i)
+    {
+        const float orbitT = static_cast<float>(i) / 20.0f;
+        const float angle = progress * 12.0f + orbitT * 6.2831853f;
+        const float orbitRadius = orbRadius * (1.0f + std::sin(progress * 7.0f + orbitT * 11.0f) * 0.26f);
+        const float particleX = orbX + std::cos(angle) * orbitRadius + tangentX * (orbitT - 0.5f) * 15.0f * (1.0f - orbArriveT);
+        const float particleY = orbY + std::sin(angle) * orbitRadius * 0.58f + normalY * (orbitT - 0.5f) * 10.0f;
+        const float particleRadius = std::lerp(3.2f, 1.0f, orbitT) * (1.0f - orbArriveT * 0.35f);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round((122.0f - orbitT * 56.0f) * orbAlpha)));
+        DrawCircle(
+            static_cast<int>(std::round(particleX)),
+            static_cast<int>(std::round(particleY)),
+            static_cast<int>(std::max(1.0f, particleRadius)),
+            sparkColor,
+            TRUE);
+    }
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(164.0f * orbAlpha)));
+    DrawCircle(
+        static_cast<int>(std::round(orbX)),
+        static_cast<int>(std::round(orbY)),
+        static_cast<int>(std::round(orbRadius * 1.9f)),
+        orbColor,
         TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(236.0f * orbAlpha)));
+    DrawCircle(
+        static_cast<int>(std::round(orbX)),
+        static_cast<int>(std::round(orbY)),
+        static_cast<int>(std::round(orbRadius)),
+        coreColor,
+        TRUE);
+    DrawCircle(
+        static_cast<int>(std::round(orbX - orbRadius * 0.34f)),
+        static_cast<int>(std::round(orbY - orbRadius * 0.36f)),
+        static_cast<int>(std::round(orbRadius * 0.34f)),
+        GetColor(255, 255, 255),
+        TRUE);
+
+    if (orbArriveT > 0.0f)
+    {
+        const float ringRadius = std::lerp(10.0f, 24.0f, orbArriveT);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(132.0f * orbAlpha * (1.0f - orbArriveT))));
+        DrawCircle(
+            static_cast<int>(std::round(targetCenterX)),
+            static_cast<int>(std::round(targetCenterY)),
+            static_cast<int>(std::round(ringRadius)),
+            orbColor,
+            FALSE);
+    }
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     Shader_ResetStyle();
 }
-
 bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 {
     if (m_flow.photoTrayReveal <= 0.05f)
@@ -730,7 +814,8 @@ void GameScene::DrawPhotoStorageTray() const
 
     for (int slotIndex = 0; slotIndex < kPhotoTraySlotCount; ++slotIndex)
     {
-        const PhotoCaptureState& storedCapture = m_photo.savedCaptures[slotIndex];
+        const bool slotIsPending = m_photo.pendingStore.active && m_photo.pendingStore.slotIndex == slotIndex;
+        const PhotoCaptureState& storedCapture = slotIsPending ? m_photo.pendingStore.capture : m_photo.savedCaptures[slotIndex];
         const bool selected = slotIndex == m_photo.selectedCaptureSlot;
         const float slotX = trayX + slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
         const float slotY = trayY;
@@ -764,8 +849,8 @@ void GameScene::DrawPhotoStorageTray() const
             DrawString(
                 static_cast<int>(slotX + 50.0f),
                 static_cast<int>(slotY + 42.0f),
-                "EMPTY",
-                GetColor(122, 136, 156));
+                slotIsPending ? "STORING" : "EMPTY",
+                slotIsPending ? GetColor(214, 204, 156) : GetColor(122, 136, 156));
             continue;
         }
 
@@ -799,7 +884,6 @@ void GameScene::DrawPhotoStorageTray() const
                 1.0f);
         }
 
-
         DrawBox(
             static_cast<int>(std::round(previewX)),
             static_cast<int>(std::round(previewY)),
@@ -824,8 +908,9 @@ void GameScene::DrawPhotoStorageTray() const
         DrawFormatString(
             static_cast<int>(slotX + 108.0f),
             static_cast<int>(slotY + 74.0f),
-            GetColor(150, 170, 190),
-            selected ? "Selected" : "Click to select");
+            slotIsPending ? GetColor(230, 214, 158) : GetColor(150, 170, 190),
+            "%s",
+            slotIsPending ? "Storing..." : (selected ? "Selected" : "Click to select"));
     }
 }
 

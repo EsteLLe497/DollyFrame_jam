@@ -729,6 +729,8 @@ void GameScene::HandlePhotoSpawn()
 
 void GameScene::StoreCapturedPhoto()
 {
+    CommitPendingCapturedPhoto();
+
     int slotToStore = -1;
     for (int index = 0; index < static_cast<int>(m_photo.savedCaptures.size()); ++index)
     {
@@ -744,9 +746,23 @@ void GameScene::StoreCapturedPhoto()
         slotToStore = m_photo.nextCaptureSlot;
     }
 
-    m_photo.savedCaptures[slotToStore] = m_photo.capture;
+    m_photo.pendingStore.active = true;
+    m_photo.pendingStore.slotIndex = slotToStore;
+    m_photo.pendingStore.capture = m_photo.capture;
     m_photo.selectedCaptureSlot = slotToStore;
     m_photo.nextCaptureSlot = (slotToStore + 1) % static_cast<int>(m_photo.savedCaptures.size());
+}
+
+void GameScene::CommitPendingCapturedPhoto()
+{
+    if (!m_photo.pendingStore.active)
+    {
+        return;
+    }
+
+    m_photo.savedCaptures[m_photo.pendingStore.slotIndex] = m_photo.pendingStore.capture;
+    m_photo.selectedCaptureSlot = m_photo.pendingStore.slotIndex;
+    m_photo.pendingStore = PendingPhotoStoreState{};
 }
 
 void GameScene::SetSelectedPhotoSlot(int slotIndex)
@@ -770,6 +786,8 @@ void GameScene::SetSelectedPhotoSlot(int slotIndex)
 
 void GameScene::ConsumeSelectedPhotoSlot()
 {
+    CommitPendingCapturedPhoto();
+
     if (m_photo.selectedCaptureSlot < 0 || m_photo.selectedCaptureSlot >= static_cast<int>(m_photo.savedCaptures.size()))
     {
         return;
