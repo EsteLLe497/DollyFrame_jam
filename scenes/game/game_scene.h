@@ -17,6 +17,8 @@
 
 class TransformComponent;
 class PhotoSystem;
+class PhotoCaptureSystem;
+class PhotoPasteSystem;
 class PrefabFactory;
 
 class GameScene final : public Scene
@@ -52,6 +54,10 @@ private:
     void UpdateDropItems();                            // 3/23í«â¡(ìcîVè„èr)
     int GetEnemyDropCount(EnemyArchetype archetype) const;
     void UpdateCameraMode();
+    float UpdatePhotoModes(float deltaTime);
+    void UpdateCaptureFinderZoomInput();
+    void ProcessFilterInput();
+    void RunGameplayFrame(float gameplayDeltaTime);
     void HandleEnemyPlayerCollisions(Entity& player);
     void HandleAttackHits();
     void HandlePhotoCapture();
@@ -117,6 +123,8 @@ private:
     float GetMapPixelHeight() const;
 
     friend class PhotoSystem;
+    friend class PhotoCaptureSystem;
+    friend class PhotoPasteSystem;
 
     AssetManifest m_assets;
     int m_whiteTexture;
