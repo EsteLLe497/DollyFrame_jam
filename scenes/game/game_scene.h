@@ -57,6 +57,7 @@ private:
     void HandlePhotoCapture();
     void HandlePhotoSpawn();
     void StoreCapturedPhoto();
+    void CommitPendingCapturedPhoto();
     void SetSelectedPhotoSlot(int slotIndex);
     void ConsumeSelectedPhotoSlot();
     void UpdatePhotoTraySelection();
