@@ -520,6 +520,12 @@ void GameScene::DrawEntity(const Entity& entity) const
         {
             if (cooldown->GetRemainingSeconds() > 0.0f)
             {
+                const float cooldownSeconds = std::max(0.001f, cooldown->GetCooldownSeconds());
+                const float blinkProgress = 1.0f - Clamp01(cooldown->GetRemainingSeconds() / cooldownSeconds);
+                const float blinkPhase = blinkProgress * 6.0f * 3.14159265f;
+                const float blinkWave = 0.5f + 0.5f * std::sin(blinkPhase);
+                alphaMultiplier *= std::lerp(0.18f, 1.0f, blinkWave);
+
                 const float flash = 0.40f + 0.60f * std::sin(cooldown->GetRemainingSeconds() * 28.0f);
                 Shader_SetFlash(1.0f, 0.30f, 0.22f, 1.0f, Clamp01(flash));
             }
