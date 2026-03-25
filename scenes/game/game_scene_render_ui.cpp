@@ -536,7 +536,7 @@ void GameScene::DrawDevelopedPhotoPreview() const
     }
 
     const PhotoCaptureState& previewCapture = m_photo.pendingStore.capture;
-    constexpr float kPreviewLifetime = 3.2f;
+    constexpr float kPreviewLifetime = 4.2f;
     const float progress = 1.0f - Clamp01(m_flow.developedPhotoPreviewRemaining / kPreviewLifetime);
     const float cardPhaseT = Clamp01(progress / 0.34f);
     const float orbPhaseT = Clamp01((progress - 0.14f) / 0.30f);
@@ -1211,7 +1211,7 @@ void GameScene::DrawPlayerHpBar() const
     const float barX = static_cast<float>(SCREEN_WIDTH) - kBarWidth - kMarginRight;
     const float barY = kMarginTop;
 
-    // îwåi
+    // ËÉåÊôØ
     DrawBox(
         static_cast<int>(barX),
         static_cast<int>(barY),
@@ -1220,7 +1220,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(40, 40, 40),
         TRUE);
 
-    // HPïîï™
+    // HPÈÉ®ÂàÜ
     const float hpRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
     DrawBox(
         static_cast<int>(barX),
@@ -1230,7 +1230,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(60, 200, 80),
         TRUE);
 
-    // ògê¸
+    // Êû†Á∑ö
     DrawBox(
         static_cast<int>(barX),
         static_cast<int>(barY),
@@ -1239,7 +1239,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(220, 220, 220),
         FALSE);
 
-    // HPêîíl
+    // HPÊï∞ÂÄ§
     DrawFormatString(
         static_cast<int>(barX + kBarWidth * 0.5f) - 16,
         static_cast<int>(barY + 4.0f),

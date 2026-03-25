@@ -35,6 +35,10 @@ struct PrefabDefinition
     float colliderDensity = 1.0f;
     float colliderFriction = 0.2f;
     bool colliderSensor = false;
+    bool hasImageOutlineCollider = false;
+    std::string colliderImagePath;
+    int colliderAlphaThreshold = 16;
+    int colliderVertexStride = 4;
     bool hasPlayerController = false;
     bool hasHealth = false;
     int maxHealth = 3;
@@ -59,7 +63,7 @@ struct PrefabDefinition
     float barrelRollSpeed = 220.0f;
     float barrelGroundFriction = 720.0f;
     int barrelContactDamage = 1;
-    // 3/21í«â¡(ìcîVè„èr)
+    // 3/21ËøΩÂä†(Áî∞‰πã‰∏ä‰øä)
     float enemyDetectRange = 400.0f;
     float enemyAttackRange =48.0f;
     float enemyAttackCooldown = 3.0f;

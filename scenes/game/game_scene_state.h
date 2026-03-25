@@ -84,7 +84,7 @@ struct GameScenePlayerState
 
 struct GameSceneDebugState
 {
-    bool showCollisionDebug = false;
+    bool showCollisionDebug = true;
     bool showTuningPanel = false;
     int tuningSelection = 0;
     float tuningReloadTimer = 0.0f;

@@ -33,6 +33,14 @@
       "rgbaA": "FF7E63E6",
       "rgbaB": "FF1D143A",
       "cellSize": 18
+    },
+    "star": {
+      "type": "file",
+      "path": "assets/texture/Star.png"
+    },
+    "apple": {
+      "type": "file",
+      "path": "assets/texture/Apple.png"
     }
   }
 }

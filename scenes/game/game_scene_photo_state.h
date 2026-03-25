@@ -14,6 +14,12 @@ enum class CapturedSpawnArchetype
 
 struct CapturedPhotoItem
 {
+    struct OutlinePoint
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+    };
+
     int textureId = -1;
     PhotoCopyRole role = PhotoCopyRole::Solid;
     PhotoCopyLayer layer = PhotoCopyLayer::Foreground;
@@ -39,6 +45,7 @@ struct CapturedPhotoItem
     float projectileVelocityX = 0.0f;
     float projectileVelocityY = 0.0f;
     int projectileDamage = 1;
+    std::vector<OutlinePoint> collisionOutline;
 };
 
 struct PhotoCaptureState

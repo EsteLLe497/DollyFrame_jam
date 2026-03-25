@@ -58,6 +58,15 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
             definition.colliderSensor);
     }
 
+    if (definition.hasImageOutlineCollider)
+    {
+        entity->AddComponent<ImageOutlineColliderComponent>(
+            definition.colliderImagePath,
+            definition.colliderFriction,
+            definition.colliderAlphaThreshold,
+            definition.colliderVertexStride);
+    }
+
     if (definition.hasPlayerController)
     {
         entity->AddComponent<PlayerControllerComponent>(m_eventBus);
@@ -196,6 +205,10 @@ void PrefabFactory::LoadDefinitions()
         definition.colliderDensity = collider.value("density", 1.0f);
         definition.colliderFriction = collider.value("friction", 0.2f);
         definition.colliderSensor = collider.value("isSensor", false);
+        definition.hasImageOutlineCollider = collider.value("imageEnabled", false);
+        definition.colliderImagePath = collider.value("imagePath", "");
+        definition.colliderAlphaThreshold = collider.value("alphaThreshold", 16);
+        definition.colliderVertexStride = collider.value("vertexStride", 4);
 
         const auto& controller = data.contains("controller") && data["controller"].is_object() ? data["controller"] : nlohmann::json::object();
         definition.hasPlayerController = controller.value("player", false);

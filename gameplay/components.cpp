@@ -9,6 +9,7 @@
 #include "imgui.h"
 #include "input.h"
 #include "physics_world.h"
+#include "image_outline.h"
 #include "photo_filter_rules.h"
 #include "shader.h"
 #include "sprite.h"
@@ -930,4 +931,133 @@ void BoxColliderComponent::DrawDebugUI()
 b2ShapeId BoxColliderComponent::GetShapeId() const
 {
     return m_shapeId;
+}
+
+ImageOutlineColliderComponent::ImageOutlineColliderComponent(std::string imagePath, float friction, int alphaThreshold, int vertexStride)
+    : m_imagePath(std::move(imagePath))
+    , m_friction(friction)
+    , m_alphaThreshold(alphaThreshold)
+    , m_vertexStride(vertexStride)
+    , m_chainId(b2_nullChainId)
+    , m_vertexCount(0)
+{
+}
+
+ImageOutlineColliderComponent::ImageOutlineColliderComponent(std::vector<b2Vec2> normalizedOutline, float friction)
+    : m_imagePath()
+    , m_friction(friction)
+    , m_alphaThreshold(16)
+    , m_vertexStride(1)
+    , m_chainId(b2_nullChainId)
+    , m_vertexCount(0)
+    , m_normalizedOutline(std::move(normalizedOutline))
+{
+}
+
+ImageOutlineColliderComponent::~ImageOutlineColliderComponent()
+{
+    if (b2Chain_IsValid(m_chainId))
+    {
+        b2DestroyChain(m_chainId);
+        m_chainId = b2_nullChainId;
+    }
+}
+
+void ImageOutlineColliderComponent::OnAttach(Entity& owner)
+{
+    Component::OnAttach(owner);
+
+    const auto* transform = owner.GetComponent<TransformComponent>();
+    const auto* rigidBody = owner.GetComponent<RigidBodyComponent>();
+    if (!transform)
+    {
+        return;
+    }
+
+    if (m_normalizedOutline.empty() && !m_imagePath.empty())
+    {
+        std::vector<ImageOutline::Point> outline;
+        int imageWidth = 0;
+        int imageHeight = 0;
+        if (!ImageOutline::BuildOutlineFromAlpha(m_imagePath, m_alphaThreshold, m_vertexStride, outline, imageWidth, imageHeight))
+        {
+            return;
+        }
+
+        if (outline.size() < 3 || imageWidth <= 0 || imageHeight <= 0)
+        {
+            return;
+        }
+
+        m_normalizedOutline.clear();
+        m_normalizedOutline.reserve(outline.size());
+        for (const ImageOutline::Point& point : outline)
+        {
+            const float u = static_cast<float>(point.x) / static_cast<float>(imageWidth);
+            const float v = static_cast<float>(point.y) / static_cast<float>(imageHeight);
+            m_normalizedOutline.push_back({ u, v });
+        }
+    }
+
+    m_vertexCount = static_cast<int>(m_normalizedOutline.size());
+    if (m_normalizedOutline.size() < 3 || !rigidBody || B2_IS_NULL(rigidBody->GetBodyId()))
+    {
+        return;
+    }
+
+    if (rigidBody->GetBodyType() != b2_staticBody)
+    {
+        return;
+    }
+
+    const float worldWidth = transform->width * transform->scale;
+    const float worldHeight = transform->height * transform->scale;
+    const float halfWidth = worldWidth * 0.5f;
+    const float halfHeight = worldHeight * 0.5f;
+    std::vector<b2Vec2> points;
+    points.reserve(m_normalizedOutline.size());
+    for (const b2Vec2& point : m_normalizedOutline)
+    {
+        points.push_back({
+            (point.x * worldWidth - halfWidth) / kPixelsPerMeter,
+            (point.y * worldHeight - halfHeight) / kPixelsPerMeter
+        });
+    }
+
+    if (points.size() < 4)
+    {
+        return;
+    }
+
+    b2SurfaceMaterial material = b2DefaultSurfaceMaterial();
+    material.friction = m_friction;
+
+    b2ChainDef chainDef = b2DefaultChainDef();
+    chainDef.userData = &owner;
+    chainDef.points = points.data();
+    chainDef.count = static_cast<int>(points.size());
+    chainDef.materials = &material;
+    chainDef.materialCount = 1;
+    chainDef.isLoop = true;
+    chainDef.enableSensorEvents = false;
+    m_chainId = b2CreateChain(rigidBody->GetBodyId(), &chainDef);
+}
+
+void ImageOutlineColliderComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Image Outline Collider");
+    ImGui::Text("Image: %s", m_imagePath.c_str());
+    ImGui::Text("Alpha Threshold: %d", m_alphaThreshold);
+    ImGui::Text("Vertex Stride: %d", m_vertexStride);
+    ImGui::Text("Vertices: %d", m_vertexCount);
+}
+
+b2ChainId ImageOutlineColliderComponent::GetChainId() const
+{
+    return m_chainId;
+}
+
+const std::vector<b2Vec2>& ImageOutlineColliderComponent::GetNormalizedOutline() const
+{
+    return m_normalizedOutline;
 }
