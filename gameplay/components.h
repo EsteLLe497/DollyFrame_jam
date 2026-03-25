@@ -410,6 +410,7 @@ public:
     bool CanTakeDamage() const;
     void Trigger();
     void SetRemainingSeconds(float seconds);
+    float GetCooldownSeconds() const;
     float GetRemainingSeconds() const;
 
 private:

@@ -17,6 +17,9 @@ namespace
     constexpr float kPitRestartFadeDuration = 0.45f;
     constexpr float kBarrelRespawnOffscreenMargin = 64.0f;
     constexpr float kRespawnInvulnerabilitySeconds = 0.6f;
+    constexpr float kPlayerDamageHitStopSeconds = 0.06f;
+    constexpr float kPlayerDamageShakeSeconds = 0.22f;
+    constexpr float kPlayerDamageShakeAmplitude = 18.0f;
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
     constexpr float kTuningPanelWidth = 460.0f;
@@ -54,6 +57,14 @@ namespace
     bool IsPointInside(float pointX, float pointY, float x, float y, float width, float height)
     {
         return pointX >= x && pointX <= x + width && pointY >= y && pointY <= y + height;
+    }
+
+    void TriggerPlayerDamageFeedback(GameSceneFlowState& flow)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kPlayerDamageHitStopSeconds);
+        flow.screenShakeRemaining = kPlayerDamageShakeSeconds;
+        flow.screenShakeDuration = kPlayerDamageShakeSeconds;
+        flow.screenShakeAmplitude = kPlayerDamageShakeAmplitude;
     }
 }
 
@@ -894,11 +905,17 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
         return;
     }
 
+    const bool shouldTriggerDamageFeedback = health->GetCurrentHealth() > (std::max)(1, amount);
+
     if (cooldown)
     {
         cooldown->Trigger();
     }
     health->ApplyDamage((std::max)(1, amount));
+    if (shouldTriggerDamageFeedback)
+    {
+        TriggerPlayerDamageFeedback(m_flow);
+    }
     GameSession_SetCurrentHp(health->GetCurrentHealth());
     m_eventBus.Publish({ EventType::PlaySoundRequest, &player, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &player, sourceEntity, logMessage, 0.0f, 0.0f });

@@ -488,6 +488,11 @@ void DamageCooldownComponent::SetRemainingSeconds(float seconds)
     m_remainingSeconds = std::max(0.0f, seconds);
 }
 
+float DamageCooldownComponent::GetCooldownSeconds() const
+{
+    return m_cooldownSeconds;
+}
+
 float DamageCooldownComponent::GetRemainingSeconds() const
 {
     return m_remainingSeconds;
