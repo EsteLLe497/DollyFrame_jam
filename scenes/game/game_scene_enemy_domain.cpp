@@ -2,6 +2,22 @@
 #include "game_scene_combat_system.h"
 
 using namespace game_scene_detail;
+
+namespace
+{
+    constexpr float kEnemyDefeatHitStopSeconds = 0.08f;
+    constexpr float kEnemyDefeatShakeSeconds = 0.18f;
+    constexpr float kEnemyDefeatShakeAmplitude = 14.0f;
+
+    void TriggerEnemyDefeatFeedback(GameSceneFlowState& flow)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kEnemyDefeatHitStopSeconds);
+        flow.screenShakeRemaining = kEnemyDefeatShakeSeconds;
+        flow.screenShakeDuration = kEnemyDefeatShakeSeconds;
+        flow.screenShakeAmplitude = kEnemyDefeatShakeAmplitude;
+    }
+}
+
 void GameScene::UpdateEnemies()
 {
     Entity* player = FindEntityByTag("Player");
@@ -305,16 +321,18 @@ void GameScene::RemoveDefeatedEnemies()
 void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amount, const char* logMessage)
 {
     auto* enemyComponent = enemy.GetComponent<EnemyComponent>();
-    if (!enemyComponent || !enemyComponent->IsEnabled())
+    if (!enemyComponent || !enemyComponent->IsEnabled() || enemyComponent->IsDefeated())
     {
         return;
     }
+    bool defeatedThisHit = false;
     if (auto* health = enemy.GetComponent<HealthComponent>())
     {
         health->ApplyDamage(amount);
         if (health->IsDead())
         {
             enemyComponent->MarkDefeated();
+            defeatedThisHit = true;
             
             if (const auto* transform = enemy.GetComponent<TransformComponent>())
             {
@@ -329,6 +347,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     else
     {
         enemyComponent->MarkDefeated();
+        defeatedThisHit = true;
         
         if (const auto* transform = enemy.GetComponent<TransformComponent>())
         {
@@ -338,6 +357,10 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                 transform->y + transform->height * transform->scale * 0.5f,
                 dropCount);
         }
+    }
+    if (defeatedThisHit)
+    {
+        TriggerEnemyDefeatFeedback(m_flow);
     }
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });

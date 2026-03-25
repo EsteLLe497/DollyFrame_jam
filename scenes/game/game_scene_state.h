@@ -59,6 +59,10 @@ struct GameSceneFlowState
     float stageStartY = 0.0f;
     float respawnX = 0.0f;
     float respawnY = 0.0f;
+    float hitStopRemaining = 0.0f;
+    float screenShakeRemaining = 0.0f;
+    float screenShakeDuration = 0.0f;
+    float screenShakeAmplitude = 0.0f;
 };
 
 struct GameScenePlayerState
