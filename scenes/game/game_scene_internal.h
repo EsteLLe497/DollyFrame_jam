@@ -57,6 +57,8 @@ inline float gBarrelBreakMinImpactSpeed = 99999.0f;
 inline float gBarrelActivationPaddingX = 320.0f;
 inline float gPastedObjectLifetimeSeconds = 10.0f;
 inline float gPastedObjectPasteAnimationSeconds = 0.24f;
+inline float gRenderShakeOffsetX = 0.0f;
+inline float gRenderShakeOffsetY = 0.0f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
 constexpr float kHorizontalCollisionEpsilon = 1.0f;
 
@@ -311,15 +313,15 @@ inline float GetViewHeight()
 
 inline float GetViewOriginX()
 {
-    return std::round((static_cast<float>(SCREEN_WIDTH) - GetViewWidth()) * 0.5f);
+    return std::round((static_cast<float>(SCREEN_WIDTH) - GetViewWidth()) * 0.5f) + gRenderShakeOffsetX;
 }
 
 inline float GetViewOriginY()
 {
-    return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f);
+    return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f) + gRenderShakeOffsetY;
 }
 
-// 3/21’Ç‰ÁFâƒ^ƒCƒ‹‚Ì•\–ÊYÀ•W‚ğæ“¾(“c”Vãr)
+// 3/21ï¿½Ç‰ï¿½ï¿½Fï¿½ï¿½^ï¿½Cï¿½ï¿½ï¿½Ì•\ï¿½ï¿½Yï¿½ï¿½ï¿½Wï¿½ï¿½æ“¾(ï¿½cï¿½Vï¿½ï¿½r)
 inline bool TryGetSlopeSurfaceYShared(
     const TileMap& tileMap,
     int column,

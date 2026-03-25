@@ -103,9 +103,12 @@ void GameScene::Update(float deltaTime)
     }
 
     const float gameplayDeltaTime = UpdatePhotoModes(deltaTime);
-    m_flow.lastDeltaTime = gameplayDeltaTime;
+    m_flow.hitStopRemaining = std::max(0.0f, m_flow.hitStopRemaining - deltaTime);
+    m_flow.screenShakeRemaining = std::max(0.0f, m_flow.screenShakeRemaining - deltaTime);
+    const float effectiveGameplayDeltaTime = m_flow.hitStopRemaining > 0.0f ? 0.0f : gameplayDeltaTime;
+    m_flow.lastDeltaTime = effectiveGameplayDeltaTime;
 
-    m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - gameplayDeltaTime);
+    m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
     m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
     const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;
     m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
@@ -116,14 +119,24 @@ void GameScene::Update(float deltaTime)
     m_flow.pickupPulse += gameplayDeltaTime;
     for (const auto& entity : m_entities)
     {
-        entity->Update(gameplayDeltaTime);
+        entity->Update(effectiveGameplayDeltaTime);
     }
 
     GameSession_SetTimeRemaining(m_flow.timeRemaining);
-    RunGameplayFrame(gameplayDeltaTime);
+    RunGameplayFrame(effectiveGameplayDeltaTime);
 }
 void GameScene::Draw()
 {
+    gRenderShakeOffsetX = 0.0f;
+    gRenderShakeOffsetY = 0.0f;
+    if (m_flow.screenShakeRemaining > 0.0f && m_flow.screenShakeDuration > 0.0f && m_flow.screenShakeAmplitude > 0.0f)
+    {
+        const float elapsed = m_flow.screenShakeDuration - m_flow.screenShakeRemaining;
+        const float intensity = Clamp01(m_flow.screenShakeRemaining / m_flow.screenShakeDuration);
+        gRenderShakeOffsetX = std::sin(elapsed * 91.0f) * m_flow.screenShakeAmplitude * intensity;
+        gRenderShakeOffsetY = std::cos(elapsed * 123.0f) * (m_flow.screenShakeAmplitude * 0.6f) * intensity;
+    }
+
     DrawBackdrop();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Shadow);
@@ -144,7 +157,9 @@ void GameScene::Draw()
     DrawPitRestartOverlay();
     DrawTuningPanel();
     DrawPlayerHpBar();
-   
+
+    gRenderShakeOffsetX = 0.0f;
+    gRenderShakeOffsetY = 0.0f;
 }
 
 void GameScene::UpdateEffects(float deltaTime)
