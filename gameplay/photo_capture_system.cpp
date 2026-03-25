@@ -1,5 +1,9 @@
 #include "photo_capture_system.h"
 
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
 #include "game_scene_internal.h"
 #include "photo_filter_rules.h"
 
@@ -7,7 +11,133 @@ using namespace game_scene_detail;
 
 namespace
 {
-    constexpr float kDevelopedPhotoPreviewSeconds = 3.2f;
+    constexpr float kDevelopedPhotoPreviewSeconds = 4.2f;
+
+    using OutlinePoint = CapturedPhotoItem::OutlinePoint;
+
+    OutlinePoint LerpPoint(const OutlinePoint& a, const OutlinePoint& b, float t)
+    {
+        return {
+            a.x + (b.x - a.x) * t,
+            a.y + (b.y - a.y) * t
+        };
+    }
+
+    void ClipPolygonAgainstEdge(
+        const std::vector<OutlinePoint>& input,
+        std::vector<OutlinePoint>& output,
+        auto&& isInside,
+        auto&& intersect)
+    {
+        output.clear();
+        if (input.empty())
+        {
+            return;
+        }
+
+        OutlinePoint previous = input.back();
+        bool previousInside = isInside(previous);
+        for (const OutlinePoint& current : input)
+        {
+            const bool currentInside = isInside(current);
+            if (currentInside != previousInside)
+            {
+                output.push_back(intersect(previous, current));
+            }
+            if (currentInside)
+            {
+                output.push_back(current);
+            }
+            previous = current;
+            previousInside = currentInside;
+        }
+    }
+
+    bool BuildCapturedOutlineFromEntity(
+        const Entity& entity,
+        float localLeft,
+        float localTop,
+        float localWidth,
+        float localHeight,
+        std::vector<OutlinePoint>& outOutline)
+    {
+        outOutline.clear();
+
+        const auto* imageCollider = entity.GetComponent<ImageOutlineColliderComponent>();
+        if (!imageCollider)
+        {
+            return false;
+        }
+
+        const auto& normalizedOutline = imageCollider->GetNormalizedOutline();
+        if (normalizedOutline.size() < 3 || localWidth <= 0.0001f || localHeight <= 0.0001f)
+        {
+            return false;
+        }
+
+        std::vector<OutlinePoint> clipped;
+        clipped.reserve(normalizedOutline.size());
+        for (const b2Vec2& point : normalizedOutline)
+        {
+            clipped.push_back({ point.x, point.y });
+        }
+
+        std::vector<OutlinePoint> scratch;
+        auto clipVertical = [&](float edgeX, bool keepGreater)
+        {
+            ClipPolygonAgainstEdge(
+                clipped,
+                scratch,
+                [=](const OutlinePoint& point)
+                {
+                    return keepGreater ? point.x >= edgeX : point.x <= edgeX;
+                },
+                [=](const OutlinePoint& a, const OutlinePoint& b)
+                {
+                    const float delta = b.x - a.x;
+                    const float t = std::fabs(delta) <= 0.0001f ? 0.0f : (edgeX - a.x) / delta;
+                    return LerpPoint(a, b, std::clamp(t, 0.0f, 1.0f));
+                });
+            clipped.swap(scratch);
+        };
+        auto clipHorizontal = [&](float edgeY, bool keepGreater)
+        {
+            ClipPolygonAgainstEdge(
+                clipped,
+                scratch,
+                [=](const OutlinePoint& point)
+                {
+                    return keepGreater ? point.y >= edgeY : point.y <= edgeY;
+                },
+                [=](const OutlinePoint& a, const OutlinePoint& b)
+                {
+                    const float delta = b.y - a.y;
+                    const float t = std::fabs(delta) <= 0.0001f ? 0.0f : (edgeY - a.y) / delta;
+                    return LerpPoint(a, b, std::clamp(t, 0.0f, 1.0f));
+                });
+            clipped.swap(scratch);
+        };
+
+        clipVertical(localLeft, true);
+        clipVertical(localLeft + localWidth, false);
+        clipHorizontal(localTop, true);
+        clipHorizontal(localTop + localHeight, false);
+
+        if (clipped.size() < 3)
+        {
+            return false;
+        }
+
+        outOutline.reserve(clipped.size());
+        for (const OutlinePoint& point : clipped)
+        {
+            outOutline.push_back({
+                (point.x - localLeft) / localWidth,
+                (point.y - localTop) / localHeight
+            });
+        }
+        return outOutline.size() >= 3;
+    }
 }
 
 void PhotoCaptureSystem::HandleCapture(GameScene& scene)
@@ -137,6 +267,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         item.sourceY = sprite->GetSourceY() + sprite->GetSourceHeight() * localTop;
         item.sourceWidth = sprite->GetSourceWidth() * localWidth;
         item.sourceHeight = sprite->GetSourceHeight() * localHeight;
+        BuildCapturedOutlineFromEntity(*entity, localLeft, localTop, localWidth, localHeight, item.collisionOutline);
         if (auto* tint = entity->GetComponent<TintComponent>())
         {
             item.tintR = tint->r;

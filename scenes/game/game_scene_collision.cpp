@@ -4,6 +4,8 @@ using namespace game_scene_detail;
 
 namespace
 {
+    constexpr int kGroundProbeCount = 3;
+
     constexpr int kMaxTriangleSpanTiles = 5;
 
     struct CollisionPoint
@@ -78,12 +80,48 @@ namespace
         }
     }
 
-    bool BuildPhotoBoxCollisionPolygon(const Entity& entity, CollisionPolygon& outPolygon)
+    void BuildImageOutlinePolygon(
+        const TransformComponent& transform,
+        const ImageOutlineColliderComponent& collider,
+        CollisionPolygon& outPolygon)
+    {
+        const auto& normalizedOutline = collider.GetNormalizedOutline();
+        outPolygon.clear();
+        outPolygon.reserve(normalizedOutline.size());
+
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        for (const b2Vec2& point : normalizedOutline)
+        {
+            outPolygon.push_back({
+                transform.x + point.x * width,
+                transform.y + point.y * height
+            });
+        }
+
+        const float centerX = transform.x + width * 0.5f;
+        const float centerY = transform.y + height * 0.5f;
+        for (CollisionPoint& point : outPolygon)
+        {
+            RotatePoint(centerX, centerY, transform.rotation, point.x, point.y);
+        }
+    }
+
+    bool BuildEntityCollisionPolygon(const Entity& entity, CollisionPolygon& outPolygon)
     {
         const auto* transform = entity.GetComponent<TransformComponent>();
         if (!transform)
         {
             return false;
+        }
+
+        if (const auto* imageCollider = entity.GetComponent<ImageOutlineColliderComponent>())
+        {
+            if (!imageCollider->GetNormalizedOutline().empty())
+            {
+                BuildImageOutlinePolygon(*transform, *imageCollider, outPolygon);
+                return true;
+            }
         }
 
         const auto* tileValue = entity.GetComponent<PhotoCopyTileValueComponent>();
@@ -139,41 +177,89 @@ namespace
         }
     }
 
+    float Cross2D(const CollisionPoint& a, const CollisionPoint& b, const CollisionPoint& c)
+    {
+        return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    }
+
+    bool OnSegment(const CollisionPoint& a, const CollisionPoint& b, const CollisionPoint& point)
+    {
+        return point.x >= (std::min)(a.x, b.x) - 0.01f &&
+            point.x <= (std::max)(a.x, b.x) + 0.01f &&
+            point.y >= (std::min)(a.y, b.y) - 0.01f &&
+            point.y <= (std::max)(a.y, b.y) + 0.01f;
+    }
+
+    bool SegmentsIntersect(
+        const CollisionPoint& a0,
+        const CollisionPoint& a1,
+        const CollisionPoint& b0,
+        const CollisionPoint& b1)
+    {
+        const float d1 = Cross2D(a0, a1, b0);
+        const float d2 = Cross2D(a0, a1, b1);
+        const float d3 = Cross2D(b0, b1, a0);
+        const float d4 = Cross2D(b0, b1, a1);
+
+        const bool straddlesA = (d1 > 0.0f && d2 < 0.0f) || (d1 < 0.0f && d2 > 0.0f);
+        const bool straddlesB = (d3 > 0.0f && d4 < 0.0f) || (d3 < 0.0f && d4 > 0.0f);
+        if (straddlesA && straddlesB)
+        {
+            return true;
+        }
+
+        if (std::fabs(d1) <= 0.01f && OnSegment(a0, a1, b0)) return true;
+        if (std::fabs(d2) <= 0.01f && OnSegment(a0, a1, b1)) return true;
+        if (std::fabs(d3) <= 0.01f && OnSegment(b0, b1, a0)) return true;
+        if (std::fabs(d4) <= 0.01f && OnSegment(b0, b1, a1)) return true;
+        return false;
+    }
+
+    bool IsPointInsidePolygon(const CollisionPolygon& polygon, const CollisionPoint& point)
+    {
+        bool inside = false;
+        for (size_t index = 0, last = polygon.size() - 1; index < polygon.size(); last = index++)
+        {
+            const CollisionPoint& a = polygon[index];
+            const CollisionPoint& b = polygon[last];
+            const bool intersectsY = (a.y > point.y) != (b.y > point.y);
+            if (!intersectsY)
+            {
+                continue;
+            }
+
+            const float edgeX = (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) + 0.00001f) + a.x;
+            if (point.x < edgeX)
+            {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
     bool PolygonsIntersect(const CollisionPolygon& a, const CollisionPolygon& b)
     {
-        const CollisionPolygon* polygons[2] = { &a, &b };
-        for (const CollisionPolygon* polygon : polygons)
+        if (a.empty() || b.empty())
         {
-            for (size_t index = 0; index < polygon->size(); ++index)
-            {
-                const CollisionPoint& p0 = (*polygon)[index];
-                const CollisionPoint& p1 = (*polygon)[(index + 1) % polygon->size()];
-                const float edgeX = p1.x - p0.x;
-                const float edgeY = p1.y - p0.y;
-                const float axisX = -edgeY;
-                const float axisY = edgeX;
-                const float axisLength = std::sqrt(axisX * axisX + axisY * axisY);
-                if (axisLength <= 0.0001f)
-                {
-                    continue;
-                }
+            return false;
+        }
 
-                const float normalizedAxisX = axisX / axisLength;
-                const float normalizedAxisY = axisY / axisLength;
-                float minA = 0.0f;
-                float maxA = 0.0f;
-                float minB = 0.0f;
-                float maxB = 0.0f;
-                ProjectPolygonOntoAxis(a, normalizedAxisX, normalizedAxisY, minA, maxA);
-                ProjectPolygonOntoAxis(b, normalizedAxisX, normalizedAxisY, minB, maxB);
-                if (maxA < minB || maxB < minA)
+        for (size_t aIndex = 0; aIndex < a.size(); ++aIndex)
+        {
+            const CollisionPoint& a0 = a[aIndex];
+            const CollisionPoint& a1 = a[(aIndex + 1) % a.size()];
+            for (size_t bIndex = 0; bIndex < b.size(); ++bIndex)
+            {
+                const CollisionPoint& b0 = b[bIndex];
+                const CollisionPoint& b1 = b[(bIndex + 1) % b.size()];
+                if (SegmentsIntersect(a0, a1, b0, b1))
                 {
-                    return false;
+                    return true;
                 }
             }
         }
 
-        return true;
+        return IsPointInsidePolygon(a, b.front()) || IsPointInsidePolygon(b, a.front());
     }
 
     bool TryIntersectVerticalLineSegment(float lineX, const CollisionPoint& a, const CollisionPoint& b, float& outY)
@@ -229,6 +315,39 @@ namespace
         return true;
     }
 
+    bool TryInferPolygonSurfaceDirection(
+        const CollisionPolygon& polygon,
+        float minX,
+        float maxX,
+        bool& outRisesRight)
+    {
+        const float width = maxX - minX;
+        if (width <= 1.0f)
+        {
+            return false;
+        }
+
+        const float sampleInset = std::min(width * 0.25f, 8.0f);
+        const float leftSampleX = minX + sampleInset;
+        const float rightSampleX = maxX - sampleInset;
+        if (rightSampleX <= leftSampleX)
+        {
+            return false;
+        }
+
+        float leftY = 0.0f;
+        float rightY = 0.0f;
+        if (!TryGetPolygonSurfaceY(polygon, leftSampleX, leftY) ||
+            !TryGetPolygonSurfaceY(polygon, rightSampleX, rightY) ||
+            std::fabs(leftY - rightY) <= 1.0f)
+        {
+            return false;
+        }
+
+        outRisesRight = rightY < leftY;
+        return true;
+    }
+
     bool UsesSolidCollision(const Entity& entity)
     {
         if (const auto* layer = entity.GetComponent<PhotoCopyLayerComponent>())
@@ -236,6 +355,16 @@ namespace
             return layer->layer == PhotoCopyLayer::Foreground;
         }
         return true;
+    }
+
+    bool IsSolidPolygonEntity(const Entity& entity)
+    {
+        if (entity.GetComponent<ImageOutlineColliderComponent>())
+        {
+            return true;
+        }
+
+        return HasTag(entity, "PhotoBox") && UsesSolidCollision(entity);
     }
 
     bool IsSlopeTileValue(int tile)
@@ -353,14 +482,14 @@ namespace
     bool TryGetPhotoBoxSlopeSurfaceY(const Entity& entity, float worldX, float& outSurfaceY)
     {
         CollisionPolygon polygon;
-        if (!BuildPhotoBoxCollisionPolygon(entity, polygon))
+        if (!BuildEntityCollisionPolygon(entity, polygon))
         {
             return false;
         }
         return TryGetPolygonSurfaceY(polygon, worldX, outSurfaceY);
     }
 
-    void GetGroundProbeXs(const TransformComponent& transform, float outProbeXs[3])
+    void GetGroundProbeXs(const TransformComponent& transform, float outProbeXs[kGroundProbeCount])
     {
         const float width = transform.width * transform.scale;
         outProbeXs[0] = transform.x + 6.0f;
@@ -513,13 +642,12 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
     // ?????]??????? PhotoBox / ?^?C??????
     for (const auto& entity : m_entities)
     {
-        if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
+        if (!entity || !IsSolidPolygonEntity(*entity))
         {
             continue;
         }
 
-        const auto* photoBoxTransform = entity->GetComponent<TransformComponent>();
-        if (!photoBoxTransform)
+        if (!entity->GetComponent<TransformComponent>())
         {
             continue;
         }
@@ -530,7 +658,7 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         const float playerLeft = transform.x + 6.0f;
         const float playerRight = transform.x + width - 6.0f;
         CollisionPolygon polygon;
-        if (!BuildPhotoBoxCollisionPolygon(*entity, polygon))
+        if (!BuildEntityCollisionPolygon(*entity, polygon))
         {
             continue;
         }
@@ -549,7 +677,7 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 
         if (horizontallyOverlapping)
         {
-            float probeXs[3]{};
+            float probeXs[kGroundProbeCount]{};
             GetGroundProbeXs(transform, probeXs);
             for (float probeX : probeXs)
             {
@@ -580,7 +708,7 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
                 return true;
             }
 
-            float probeXs[3]{};
+            float probeXs[kGroundProbeCount]{};
             GetGroundProbeXs(transform, probeXs);
             for (float probeX : probeXs)
             {
@@ -624,13 +752,12 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
     // ?????]??????? PhotoBox ?x?[?X??z???t??????
     for (const auto& entity : m_entities)
     {
-        if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
+        if (!entity || !IsSolidPolygonEntity(*entity))
         {
             continue;
         }
 
-        const auto* photoBoxTransform = entity->GetComponent<TransformComponent>();
-        if (!photoBoxTransform)
+        if (!entity->GetComponent<TransformComponent>())
         {
             continue;
         }
@@ -640,7 +767,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         const float left = transform.x + 6.0f;
         const float right = transform.x + width - 6.0f;
         CollisionPolygon polygon;
-        if (!BuildPhotoBoxCollisionPolygon(*entity, polygon))
+        if (!BuildEntityCollisionPolygon(*entity, polygon))
         {
             continue;
         }
@@ -655,7 +782,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
         if (horizontallyOverlapping)
         {
             float candidateY = photoBoxTop - height;
-            float probeXs[3]{};
+            float probeXs[kGroundProbeCount]{};
             GetGroundProbeXs(transform, probeXs);
             bool foundSlopeProbe = false;
             for (float probeX : probeXs)
@@ -702,7 +829,7 @@ bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDist
 
     float nearestGroundY = 0.0f;
     bool foundGround = false;
-    float probeXs[3]{};
+    float probeXs[kGroundProbeCount]{};
     GetGroundProbeXs(transform, probeXs);
     for (int row = rowStart; row <= rowEnd; ++row)
     {
@@ -863,13 +990,13 @@ bool GameScene::IntersectsSolidPhotoBox(const TransformComponent& transform) con
 
     for (const auto& entity : m_entities)
     {
-        if (!entity || !HasTag(*entity, "PhotoBox") || !UsesSolidCollision(*entity))
+        if (!entity || !IsSolidPolygonEntity(*entity))
         {
             continue;
         }
 
         CollisionPolygon photoPolygon;
-        if (!BuildPhotoBoxCollisionPolygon(*entity, photoPolygon))
+        if (!BuildEntityCollisionPolygon(*entity, photoPolygon))
         {
             continue;
         }
@@ -931,22 +1058,12 @@ void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
     bounds.clear();
     for (const auto& entity : m_entities)
     {
-        if (!entity || !HasTag(*entity, "PhotoBox"))
-        {
-            continue;
-        }
-        if (!UsesSolidCollision(*entity))
-        {
-            continue;
-        }
-
-        const auto* transform = entity->GetComponent<TransformComponent>();
-        if (!transform)
+        if (!entity || !IsSolidPolygonEntity(*entity))
         {
             continue;
         }
         CollisionPolygon polygon;
-        if (!BuildPhotoBoxCollisionPolygon(*entity, polygon))
+        if (!BuildEntityCollisionPolygon(*entity, polygon))
         {
             continue;
         }
@@ -1140,9 +1257,9 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
                 continue;
             }
 
-            if (HasTag(*entity, "PhotoBox"))
+            if (IsSolidPolygonEntity(*entity))
             {
-                if (UsesSolidCollision(*entity) && IntersectsSolidPhotoBox(candidate))
+                if (IntersectsSolidPhotoBox(candidate))
                 {
                     return true;
                 }
@@ -1191,7 +1308,7 @@ float GameScene::GetMapPixelHeight() const
     return static_cast<float>(m_tileMap.GetHeight()) * m_tileMap.GetTileSize();
 }
 
-// 3/21í«â¡ÅFìGÇÃínñ ÉXÉiÉbÉv(ìcîVè„èr)
+// 3/21ËøΩÂä†ÔºöÊïµ„ÅÆÂú∞Èù¢„Çπ„Éä„ÉÉ„Éó(Áî∞‰πã‰∏ä‰øä)
 bool GameScene::SnapEnemyToGround(TransformComponent& transform) const
 {
     return TrySnapToGround(transform, 48.0f);

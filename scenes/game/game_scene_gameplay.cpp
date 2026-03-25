@@ -232,80 +232,17 @@ void GameScene::UpdatePlayer(float deltaTime)
     }
 
     const bool isDodging = m_player.dodgeRemaining > 0.0f;
-    m_player.velocityX = game_scene_player_system::GetHorizontalVelocity(
-        m_player,
-        moveAxis,
-        gPlayerDodgeSpeed,
-        gPlayerMoveSpeed);
-
     const float playerWidth = transform->width * transform->scale;
     const float playerHeight = transform->height * transform->scale;
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
-    const float previousX = transform->x;
-    const float previousY = transform->y;
-    const float previousBottom = previousY + playerHeight;
-    m_player.grounded = wasGrounded;
-    if (wasGrounded)
-    {
-        m_player.coyoteTimeRemaining = gCoyoteTimeSeconds;
-    }
-
-    if (wasGrounded && m_player.velocityY > 0.0f)
-    {
-        m_player.velocityY = 0.0f;
-    }
-
-    const bool canJumpNow = !isDodging && controls.jumpPressed && m_player.coyoteTimeRemaining > 0.0f;
+    const bool canJumpNow = !isDodging && controls.jumpPressed && (wasGrounded || m_player.coyoteTimeRemaining > 0.0f);
     if (canJumpNow)
     {
         m_player.velocityY = gPlayerJumpSpeed;
         m_player.grounded = false;
         m_player.coyoteTimeRemaining = 0.0f;
         m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
-    }
-
-    if (m_player.grounded && !canJumpNow)
-    {
-        m_player.velocityY = 0.0f;
-    }
-    else
-    {
-        m_player.velocityY = std::min(gPlayerMaxFallSpeed, m_player.velocityY + gPlayerGravity * deltaTime);
-    }
-    const float verticalSnapDistance = std::max(gGroundSnapDistance, std::fabs(m_player.velocityY) * deltaTime + 4.0f);
-    const game_scene_player_movement_system::PlayerMovementContext movementContext{
-        deltaTime,
-        tileSize,
-        playerWidth,
-        playerHeight,
-        mapWidth,
-        mapHeight,
-        previousX,
-        previousY,
-        previousBottom,
-        verticalSnapDistance,
-    };
-    const float horizontalVelocity = m_player.velocityX;
-
-    game_scene_player_movement_system::ResolveHorizontalTileCollisions(
-        *transform,
-        m_player,
-        movementContext,
-        [this, horizontalVelocity](int column, int row)
-        {
-            return horizontalVelocity > 0.0f
-                ? IsTileBlockingFromLeft(column, row)
-                : IsTileBlockingFromRight(column, row);
-        },
-        [this](const TransformComponent& candidate)
-        {
-            return IntersectsSolidPhotoBox(candidate);
-        });
-
-    if (isDodging)
-    {
-        TrySpawnPlayerAfterimage(*transform);
     }
 
     std::vector<TransformComponent> photoBoxes;
@@ -315,52 +252,136 @@ void GameScene::UpdatePlayer(float deltaTime)
     std::vector<TransformComponent> enemyBounds;
     GetEntityBoundsByTag("Enemy", enemyBounds);
     solidObjects.insert(solidObjects.end(), enemyBounds.begin(), enemyBounds.end());
-    game_scene_player_movement_system::ResolveHorizontalObjectCollisions(
-        *transform,
-        m_player,
-        movementContext,
-        photoBoxes,
-        [this](const TransformComponent& candidate)
-        {
-            return IntersectsSolidPhotoBox(candidate);
-        },
-        solidObjects);
 
-    if (m_player.velocityY >= 0.0f && wasGrounded)
+    const float targetHorizontalVelocity = game_scene_player_system::GetHorizontalVelocity(
+        m_player,
+        moveAxis,
+        gPlayerDodgeSpeed,
+        gPlayerMoveSpeed);
+    const float estimatedVerticalVelocity = canJumpNow
+        ? gPlayerJumpSpeed
+        : std::min(gPlayerMaxFallSpeed, m_player.velocityY + gPlayerGravity * deltaTime);
+    const float maxDisplacement = std::max(
+        std::fabs(targetHorizontalVelocity) * deltaTime,
+        std::fabs(estimatedVerticalVelocity) * deltaTime);
+    const int subSteps = std::clamp(static_cast<int>(std::ceil(maxDisplacement / 8.0f)), 1, 8);
+    const float stepDeltaTime = deltaTime / static_cast<float>(subSteps);
+
+    bool groundedAtStepStart = wasGrounded;
+    for (int stepIndex = 0; stepIndex < subSteps; ++stepIndex)
     {
-        if (TrySnapToGround(*transform, verticalSnapDistance))
+        m_player.velocityX = targetHorizontalVelocity;
+        m_player.grounded = groundedAtStepStart;
+        if (groundedAtStepStart)
         {
-            m_player.grounded = true;
+            m_player.coyoteTimeRemaining = gCoyoteTimeSeconds;
+        }
+        else
+        {
+            m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - stepDeltaTime);
+        }
+
+        if (groundedAtStepStart && m_player.velocityY > 0.0f)
+        {
+            m_player.velocityY = 0.0f;
+        }
+
+        if (m_player.grounded && !canJumpNow)
+        {
+            m_player.velocityY = 0.0f;
+        }
+        else
+        {
+            m_player.velocityY = std::min(gPlayerMaxFallSpeed, m_player.velocityY + gPlayerGravity * stepDeltaTime);
+        }
+
+        const float previousX = transform->x;
+        const float previousY = transform->y;
+        const float previousBottom = previousY + playerHeight;
+        const float verticalSnapDistance = std::max(gGroundSnapDistance, std::fabs(m_player.velocityY) * stepDeltaTime + 4.0f);
+        const game_scene_player_movement_system::PlayerMovementContext movementContext{
+            stepDeltaTime,
+            tileSize,
+            playerWidth,
+            playerHeight,
+            mapWidth,
+            mapHeight,
+            previousX,
+            previousY,
+            previousBottom,
+            verticalSnapDistance,
+        };
+        const float horizontalVelocity = m_player.velocityX;
+
+        game_scene_player_movement_system::ResolveHorizontalTileCollisions(
+            *transform,
+            m_player,
+            movementContext,
+            [this, horizontalVelocity](int column, int row)
+            {
+                return horizontalVelocity > 0.0f
+                    ? IsTileBlockingFromLeft(column, row)
+                    : IsTileBlockingFromRight(column, row);
+            },
+            [this](const TransformComponent& candidate)
+            {
+                return IntersectsSolidPhotoBox(candidate);
+            });
+
+        game_scene_player_movement_system::ResolveHorizontalObjectCollisions(
+            *transform,
+            m_player,
+            movementContext,
+            photoBoxes,
+            [this](const TransformComponent& candidate)
+            {
+                return IntersectsSolidPhotoBox(candidate);
+            },
+            solidObjects);
+
+        if (m_player.velocityY >= 0.0f && groundedAtStepStart)
+        {
+            if (TrySnapToGround(*transform, verticalSnapDistance))
+            {
+                m_player.grounded = true;
+            }
+        }
+
+        game_scene_player_movement_system::ResolveVerticalMotion(
+            *transform,
+            m_player,
+            groundedAtStepStart,
+            movementContext,
+            photoBoxes,
+            solidObjects,
+            [this](int column, int row)
+            {
+                return IsSolidTile(column, row);
+            },
+            [this](int column, int row)
+            {
+                return IsPlatformTile(column, row);
+            },
+            [this](int column, int row)
+            {
+                return IsSolidTile(column, row) || IsSlopeTile(column, row);
+            },
+            [this](TransformComponent& targetTransform, float snapDistance)
+            {
+                return TrySnapToGround(targetTransform, snapDistance);
+            },
+            [this](const TransformComponent& candidate)
+            {
+                return IntersectsSolidPhotoBox(candidate);
+            });
+
+        groundedAtStepStart = m_player.grounded;
+
+        if (isDodging)
+        {
+            TrySpawnPlayerAfterimage(*transform);
         }
     }
-
-    game_scene_player_movement_system::ResolveVerticalMotion(
-        *transform,
-        m_player,
-        wasGrounded,
-        movementContext,
-        photoBoxes,
-        solidObjects,
-        [this](int column, int row)
-        {
-            return IsSolidTile(column, row);
-        },
-        [this](int column, int row)
-        {
-            return IsPlatformTile(column, row);
-        },
-        [this](int column, int row)
-        {
-            return IsSolidTile(column, row) || IsSlopeTile(column, row);
-        },
-        [this](TransformComponent& targetTransform, float snapDistance)
-        {
-            return TrySnapToGround(targetTransform, snapDistance);
-        },
-        [this](const TransformComponent& candidate)
-        {
-            return IntersectsSolidPhotoBox(candidate);
-        });
 
     const bool landedThisFrame = !wasGrounded && m_player.grounded;
     UpdatePlayerPresentation(*player, deltaTime, moveAxis, wasGrounded, isDodging, landedThisFrame);

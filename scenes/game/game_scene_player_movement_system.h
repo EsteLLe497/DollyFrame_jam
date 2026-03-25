@@ -150,17 +150,34 @@ inline void ResolveHorizontalObjectCollisions(
                 continue;
             }
 
-            const float photoBoxX = photoBoxBounds.x;
-            const float photoBoxWidth = photoBoxBounds.width * photoBoxBounds.scale;
-            if (player.velocityX > 0.0f && ctx.previousX + ctx.playerWidth <= photoBoxX + kHorizontalCollisionEpsilon)
+            float resolvedX = transform.x;
+            float low = ctx.previousX;
+            float high = transform.x;
+            for (int iteration = 0; iteration < 8; ++iteration)
             {
-                transform.x = photoBoxX - ctx.playerWidth;
+                const float mid = (low + high) * 0.5f;
+                TransformComponent probe(mid, transform.y, transform.width, transform.height);
+                probe.scale = transform.scale;
+                if (intersectsSolidObject(probe))
+                {
+                    high = mid;
+                }
+                else
+                {
+                    low = mid;
+                    resolvedX = mid;
+                }
+            }
+
+            if (player.velocityX > 0.0f)
+            {
+                transform.x = resolvedX - 0.5f;
                 player.velocityX = 0.0f;
                 break;
             }
-            if (player.velocityX < 0.0f && ctx.previousX >= photoBoxX + photoBoxWidth - kHorizontalCollisionEpsilon)
+            if (player.velocityX < 0.0f)
             {
-                transform.x = photoBoxX + photoBoxWidth;
+                transform.x = resolvedX + 0.5f;
                 player.velocityX = 0.0f;
                 break;
             }
@@ -253,9 +270,28 @@ void ResolveVerticalMotion(
                     playerBounds.scale = transform.scale;
                     if (IntersectsRect(playerBounds, photoBoxBounds) &&
                         intersectsSolidObject(playerBounds) &&
-                        ctx.previousBottom <= photoBoxBounds.y + kSurfaceContactEpsilon)
+                        ctx.previousBottom <= photoBoxBounds.y + photoBoxBounds.height * photoBoxBounds.scale + kSurfaceContactEpsilon)
                     {
-                        transform.y = photoBoxBounds.y - ctx.playerHeight;
+                        float resolvedY = transform.y;
+                        float low = ctx.previousY;
+                        float high = transform.y;
+                        for (int iteration = 0; iteration < 8; ++iteration)
+                        {
+                            const float mid = (low + high) * 0.5f;
+                            TransformComponent probe(transform.x, mid, transform.width, transform.height);
+                            probe.scale = transform.scale;
+                            if (intersectsSolidObject(probe))
+                            {
+                                high = mid;
+                            }
+                            else
+                            {
+                                low = mid;
+                                resolvedY = mid;
+                            }
+                        }
+
+                        transform.y = resolvedY - 0.5f;
                         player.velocityY = 0.0f;
                         player.grounded = true;
                         break;
@@ -309,12 +345,29 @@ void ResolveVerticalMotion(
             {
                 TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
                 playerBounds.scale = transform.scale;
-                const float photoBoxHeight = photoBoxBounds.height * photoBoxBounds.scale;
                 if (IntersectsRect(playerBounds, photoBoxBounds) &&
-                    intersectsSolidObject(playerBounds) &&
-                    ctx.previousY >= photoBoxBounds.y + photoBoxHeight - kSurfaceContactEpsilon)
+                    intersectsSolidObject(playerBounds))
                 {
-                    transform.y = photoBoxBounds.y + photoBoxHeight;
+                    float resolvedY = transform.y;
+                    float low = transform.y;
+                    float high = ctx.previousY;
+                    for (int iteration = 0; iteration < 8; ++iteration)
+                    {
+                        const float mid = (low + high) * 0.5f;
+                        TransformComponent probe(transform.x, mid, transform.width, transform.height);
+                        probe.scale = transform.scale;
+                        if (intersectsSolidObject(probe))
+                        {
+                            low = mid;
+                        }
+                        else
+                        {
+                            high = mid;
+                            resolvedY = mid;
+                        }
+                    }
+
+                    transform.y = resolvedY + 0.5f;
                     player.velocityY = 0.0f;
                     break;
                 }

@@ -221,8 +221,6 @@ void GameScene::HandlePhotoBoxInteractions(Entity& player, std::vector<Entity*>&
         switch (photoRole->role)
         {
         case PhotoCopyRole::Hazard:
-            m_flow.playerTouchingHazard = true;
-            HandlePlayerDamage(player, entity.get(), "GameScene player damaged by copied hazard");
             break;
         case PhotoCopyRole::Ally:
             for (const auto& enemyEntity : m_entities)

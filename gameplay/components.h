@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <box2d/box2d.h>
 
@@ -526,4 +527,26 @@ private:
     float m_friction;
     bool m_isSensor;
     b2ShapeId m_shapeId;
+};
+
+class ImageOutlineColliderComponent final : public Component
+{
+public:
+    ImageOutlineColliderComponent(std::string imagePath, float friction, int alphaThreshold = 16, int vertexStride = 4);
+    ImageOutlineColliderComponent(std::vector<b2Vec2> normalizedOutline, float friction);
+    ~ImageOutlineColliderComponent() override;
+
+    void OnAttach(Entity& owner) override;
+    void DrawDebugUI() override;
+    b2ChainId GetChainId() const;
+    const std::vector<b2Vec2>& GetNormalizedOutline() const;
+
+private:
+    std::string m_imagePath;
+    float m_friction;
+    int m_alphaThreshold;
+    int m_vertexStride;
+    b2ChainId m_chainId;
+    int m_vertexCount;
+    std::vector<b2Vec2> m_normalizedOutline;
 };

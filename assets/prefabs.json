@@ -148,6 +148,72 @@
         "frequency": 1.6
       }
     },
+    "star_outline": {
+      "tag": "Star",
+      "texture": "star",
+      "transform": {
+        "x": 700.0,
+        "y": 220.0,
+        "width": 196.0,
+        "height": 196.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+      },
+      "rigidBody": {
+        "enabled": true,
+        "type": "static",
+        "fixedRotation": true,
+        "gravityScale": 0.0
+      },
+      "collider": {
+        "enabled": false,
+        "friction": 0.4,
+        "isSensor": false,
+        "imageEnabled": true,
+        "imagePath": "assets/texture/Star.png",
+        "alphaThreshold": 12,
+        "vertexStride": 6
+      }
+    },
+    "apple_outline": {
+      "tag": "Apple",
+      "texture": "apple",
+      "transform": {
+        "x": 920.0,
+        "y": 220.0,
+        "width": 196.0,
+        "height": 196.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+      },
+      "rigidBody": {
+        "enabled": true,
+        "type": "static",
+        "fixedRotation": true,
+        "gravityScale": 0.0
+      },
+      "collider": {
+        "enabled": false,
+        "friction": 0.4,
+        "isSensor": false,
+        "imageEnabled": true,
+        "imagePath": "assets/texture/Apple.png",
+        "alphaThreshold": 12,
+        "vertexStride": 6
+      }
+    },
     "hot_gimmick": {
       "tag": "HotGimmick",
       "texture": "white",

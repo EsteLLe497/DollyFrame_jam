@@ -233,6 +233,10 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
             item.relativeX = printedWidth - item.relativeX - item.width;
             item.flipX = !item.flipX;
             item.projectileVelocityX = -item.projectileVelocityX;
+            for (auto& point : item.collisionOutline)
+            {
+                point.x = 1.0f - point.x;
+            }
         }
     }
 

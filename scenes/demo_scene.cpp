@@ -52,6 +52,15 @@ void DemoScene::OnEnter(ResourceManager& resources)
     {
         m_entities.push_back(std::move(goal));
     }
+    if (auto star = prefabs.Create("star_outline"))
+    {
+        if (auto* transform = star->GetComponent<TransformComponent>())
+        {
+            transform->x = 700.0f;
+            transform->y = 220.0f;
+        }
+        m_entities.push_back(std::move(star));
+    }
     Logger::Info("DemoScene entered");
 }
 

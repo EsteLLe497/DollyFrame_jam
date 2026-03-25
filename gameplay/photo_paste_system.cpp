@@ -438,6 +438,16 @@ void PhotoPasteSystem::SpawnPhotoGroup(
         {
             transform->rotation = item.rotation;
         }
+        if (!item.collisionOutline.empty())
+        {
+            std::vector<b2Vec2> normalizedOutline;
+            normalizedOutline.reserve(item.collisionOutline.size());
+            for (const auto& point : item.collisionOutline)
+            {
+                normalizedOutline.push_back({ point.x, point.y });
+            }
+            lastSpawnedEntity->AddComponent<ImageOutlineColliderComponent>(std::move(normalizedOutline), 0.2f);
+        }
         ApplyPhotoFilterToPhotoBox(*lastSpawnedEntity, item.appliedTheme);
         scene.m_entities.push_back(std::move(entity));
     }

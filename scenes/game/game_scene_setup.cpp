@@ -144,6 +144,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
     m_tileMap.LoadFromCsv("assets/maps/stage01_1.csv", 48.0f);
     m_eventBus.Clear();
+    m_physicsWorld.Initialize(0.0f, 0.0f, m_eventBus);
 }
 
 void GameScene::InitializeStageEntities()
@@ -366,6 +367,20 @@ void GameScene::InitializeStageEntities()
     SetEntityTint(goal, 0.62f, 0.30f, 0.24f);
     m_flow.goalUnlocked = true;
     m_flow.goalUnlockedBySwitch = true;
+
+    Entity& star = SpawnStagePrefab(
+        prefabs,
+        "star_outline",
+        AlignToGrid(720.0f, tileSize),
+        AlignToGrid(240.0f, tileSize));
+    SetEntityTint(star, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    Entity& apple = SpawnStagePrefab(
+        prefabs,
+        "apple_outline",
+        AlignToGrid(940.0f, tileSize),
+        AlignToGrid(240.0f, tileSize));
+    SetEntityTint(apple, 1.0f, 1.0f, 1.0f, 1.0f);
 
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
 	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);

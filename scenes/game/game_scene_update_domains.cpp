@@ -33,7 +33,11 @@ float GameScene::UpdatePhotoModes(float deltaTime)
     UpdateCameraMode();
 
     const bool placementHeld = !m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
-    const bool showPhotoTray = m_flow.cameraMode || placementHeld || m_photo.placement.active;
+    const bool previewActive = m_photo.pendingStore.active && m_flow.developedPhotoPreviewRemaining > 0.0f;
+    const bool previewOrbAttached =
+        previewActive &&
+        m_flow.developedPhotoPreviewRemaining <= 0.34f;
+    const bool showPhotoTray = (previewActive && !previewOrbAttached) || m_flow.cameraMode || placementHeld || m_photo.placement.active;
     const float trayTarget = showPhotoTray ? 1.0f : 0.0f;
     m_flow.photoTrayReveal += (trayTarget - m_flow.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
     if (showPhotoTray)

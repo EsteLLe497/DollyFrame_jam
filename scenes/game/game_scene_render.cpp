@@ -35,6 +35,54 @@ namespace
         DrawBox(left, top, right, bottom, color, FALSE);
     }
 
+    void DrawWorldPolygonOutline(
+        const TransformComponent& transform,
+        const ImageOutlineColliderComponent& collider,
+        float cameraX,
+        unsigned int color)
+    {
+        const auto& normalizedOutline = collider.GetNormalizedOutline();
+        if (normalizedOutline.size() < 2)
+        {
+            return;
+        }
+
+        const float viewScale = GetViewScale();
+        const float viewOriginX = GetViewOriginX();
+        const float viewOriginY = GetViewOriginY();
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        const float centerX = transform.x + width * 0.5f;
+        const float centerY = transform.y + height * 0.5f;
+
+        std::vector<std::pair<int, int>> screenPoints;
+        screenPoints.reserve(normalizedOutline.size());
+        for (const b2Vec2& point : normalizedOutline)
+        {
+            float worldX = transform.x + point.x * width;
+            float worldY = transform.y + point.y * height;
+            if (std::fabs(transform.rotation) > 0.0001f)
+            {
+                const float localX = worldX - centerX;
+                const float localY = worldY - centerY;
+                const float cosTheta = std::cos(transform.rotation);
+                const float sinTheta = std::sin(transform.rotation);
+                worldX = centerX + (localX * cosTheta - localY * sinTheta);
+                worldY = centerY + (localX * sinTheta + localY * cosTheta);
+            }
+            screenPoints.emplace_back(
+                static_cast<int>(std::round(viewOriginX + (worldX - cameraX) * viewScale)),
+                static_cast<int>(std::round(viewOriginY + worldY * viewScale)));
+        }
+
+        for (size_t index = 0; index < screenPoints.size(); ++index)
+        {
+            const auto& a = screenPoints[index];
+            const auto& b = screenPoints[(index + 1) % screenPoints.size()];
+            DrawLine(a.first, a.second, b.first, b.second, color);
+        }
+    }
+
     const char* GetRoleLabel(PhotoCopyRole role)
     {
         switch (role)
@@ -568,6 +616,11 @@ void GameScene::DrawEntity(const Entity& entity) const
             transform->height * transform->scale,
             m_flow.cameraX,
             color);
+
+        if (const auto* imageCollider = entity.GetComponent<ImageOutlineColliderComponent>())
+        {
+            DrawWorldPolygonOutline(*transform, *imageCollider, m_flow.cameraX, color);
+        }
     }
 
     if ((tag && (tag->tag == "PhotoSource" || tag->tag == "Hazard")) || entity.GetComponent<PhotoFilterComponent>())

@@ -91,6 +91,7 @@
     <ClCompile Include="core\audio.cpp" />
     <ClCompile Include="core\application.cpp" />
     <ClCompile Include="core\asset_manifest.cpp" />
+    <ClCompile Include="physics\image_outline.cpp" />
     <ClCompile Include="physics\collision.cpp" />
     <ClCompile Include="core\component.cpp" />
     <ClCompile Include="gameplay\components.cpp" />
@@ -282,6 +283,7 @@
     <ClInclude Include="core\audio.h" />
     <ClInclude Include="core\application.h" />
     <ClInclude Include="core\asset_manifest.h" />
+    <ClInclude Include="physics\image_outline.h" />
     <ClInclude Include="physics\collision.h" />
     <ClInclude Include="core\component.h" />
     <ClInclude Include="gameplay\components.h" />
