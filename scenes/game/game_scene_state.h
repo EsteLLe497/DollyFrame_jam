@@ -63,6 +63,7 @@ struct GameSceneFlowState
     float screenShakeRemaining = 0.0f;
     float screenShakeDuration = 0.0f;
     float screenShakeAmplitude = 0.0f;
+    float captureModeZoomBlend = 0.0f;
 };
 
 struct GameScenePlayerState

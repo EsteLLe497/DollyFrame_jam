@@ -59,6 +59,7 @@ inline float gPastedObjectLifetimeSeconds = 10.0f;
 inline float gPastedObjectPasteAnimationSeconds = 0.24f;
 inline float gRenderShakeOffsetX = 0.0f;
 inline float gRenderShakeOffsetY = 0.0f;
+inline float gRenderViewScaleMultiplier = 1.0f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
 constexpr float kHorizontalCollisionEpsilon = 1.0f;
 
@@ -298,7 +299,7 @@ inline float GetViewScale()
 {
     const float maxWidth = static_cast<float>(SCREEN_WIDTH) - 128.0f;
     const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - 128.0f;
-    return std::max(1.0f, std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight));
+    return std::max(1.0f, std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight)) * gRenderViewScaleMultiplier;
 }
 
 inline float GetViewWidth()

@@ -129,6 +129,7 @@ void GameScene::Draw()
 {
     gRenderShakeOffsetX = 0.0f;
     gRenderShakeOffsetY = 0.0f;
+    gRenderViewScaleMultiplier = 1.0f;
     if (m_flow.screenShakeRemaining > 0.0f && m_flow.screenShakeDuration > 0.0f && m_flow.screenShakeAmplitude > 0.0f)
     {
         const float elapsed = m_flow.screenShakeDuration - m_flow.screenShakeRemaining;
@@ -136,6 +137,8 @@ void GameScene::Draw()
         gRenderShakeOffsetX = std::sin(elapsed * 91.0f) * m_flow.screenShakeAmplitude * intensity;
         gRenderShakeOffsetY = std::cos(elapsed * 123.0f) * (m_flow.screenShakeAmplitude * 0.6f) * intensity;
     }
+    const float zoomBlend = m_flow.captureModeZoomBlend * m_flow.captureModeZoomBlend * (3.0f - 2.0f * m_flow.captureModeZoomBlend);
+    gRenderViewScaleMultiplier = 1.0f + zoomBlend * 0.08f;
 
     DrawBackdrop();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
@@ -160,6 +163,7 @@ void GameScene::Draw()
 
     gRenderShakeOffsetX = 0.0f;
     gRenderShakeOffsetY = 0.0f;
+    gRenderViewScaleMultiplier = 1.0f;
 }
 
 void GameScene::UpdateEffects(float deltaTime)

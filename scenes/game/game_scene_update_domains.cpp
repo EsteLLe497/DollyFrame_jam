@@ -11,6 +11,7 @@ namespace
     constexpr float kCaptureFinderScaleMin = 1.0f;
     constexpr float kCaptureFinderScaleMax = 2.0f;
     constexpr float kCaptureFinderScaleStep = 0.1f;
+    constexpr float kCaptureModeZoomResponse = 7.0f;
 }
 
 void GameScene::UpdateCameraMode()
@@ -33,30 +34,24 @@ float GameScene::UpdatePhotoModes(float deltaTime)
     UpdateCameraMode();
 
     const bool placementHeld = !m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
+    const bool placementActive = placementHeld || m_photo.placement.active;
     const bool previewActive = m_photo.pendingStore.active && m_flow.developedPhotoPreviewRemaining > 0.0f;
     const bool previewOrbAttached =
         previewActive &&
         m_flow.developedPhotoPreviewRemaining <= 0.34f;
-    const bool showPhotoTray = (previewActive && !previewOrbAttached) || m_flow.cameraMode || placementHeld || m_photo.placement.active;
+    const bool showPhotoTray = (previewActive && !previewOrbAttached) || m_flow.cameraMode || placementActive;
     const float trayTarget = showPhotoTray ? 1.0f : 0.0f;
     m_flow.photoTrayReveal += (trayTarget - m_flow.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
     if (showPhotoTray)
     {
         UpdatePhotoTraySelection();
     }
-    if (Input_IsActionPressed(InputAction::HoldCamera))
-    {
-        m_flow.captureSlowRemaining = kCaptureFocusDuration;
-    }
-    if (!m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionPressed(InputAction::HoldPlacement))
-    {
-        m_flow.placementSlowRemaining = kPlacementFocusDuration;
-    }
-
-    m_flow.captureSlowRemaining = std::max(0.0f, m_flow.captureSlowRemaining - deltaTime);
-    m_flow.placementSlowRemaining = std::max(0.0f, m_flow.placementSlowRemaining - deltaTime);
-    const bool slowForCapture = m_flow.cameraMode && m_flow.captureSlowRemaining > 0.0f;
-    const bool slowForPlacement = placementHeld && m_flow.placementSlowRemaining > 0.0f;
+    const float captureZoomTarget = m_flow.cameraMode ? 1.0f : 0.0f;
+    m_flow.captureModeZoomBlend += (captureZoomTarget - m_flow.captureModeZoomBlend) * std::min(1.0f, deltaTime * kCaptureModeZoomResponse);
+    m_flow.captureSlowRemaining = m_flow.cameraMode ? kCaptureFocusDuration : 0.0f;
+    m_flow.placementSlowRemaining = placementActive ? kPlacementFocusDuration : 0.0f;
+    const bool slowForCapture = m_flow.cameraMode;
+    const bool slowForPlacement = placementActive;
     return (slowForCapture || slowForPlacement)
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
