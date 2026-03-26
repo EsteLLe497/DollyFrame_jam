@@ -320,6 +320,8 @@ void GameScene::DrawCaptureOverlay() const
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
+    const float viewWidth = GetViewWidth();
+    const float viewHeight = GetViewHeight();
     const float drawX = viewOriginX + (frameX - m_flow.cameraX) * viewScale;
     const float drawY = viewOriginY + frameY * viewScale;
     const float drawWidth = frameWidth * viewScale;
@@ -348,6 +350,13 @@ void GameScene::DrawCaptureOverlay() const
         static_cast<int>(std::round(overlayG * 200.0f)),
         static_cast<int>(std::round(overlayB * 200.0f)));
 
+    const auto drawVignetteBand = [&](float x, float y, float width, float height, float alpha, float r, float g, float b)
+    {
+        Shader_ResetStyle();
+        Shader_SetTint(r, g, b, alpha);
+        SpriteDraw(m_whiteTexture, x, y, width, height, 0.0f, 0.0f, 1.0f, 1.0f);
+    };
+
     const auto drawFrameBand = [&](float x, float y, float width, float height, float alpha)
     {
         Shader_ResetStyle();
@@ -373,6 +382,35 @@ void GameScene::DrawCaptureOverlay() const
     const int cornerLength = std::max(18, static_cast<int>(std::round(34.0f * viewScale)));
     const int cornerThickness = std::max(2, static_cast<int>(std::round(3.0f + shutterT * 2.0f)));
     const int guideInset = std::max(12, static_cast<int>(std::round(24.0f * viewScale)));
+
+    if (m_flow.cameraMode)
+    {
+        const float vignetteAlpha = 0.15f + shutterT * 0.08f;
+        const float edge0 = 34.0f * viewScale;
+        const float edge1 = 72.0f * viewScale;
+        const float edge2 = 118.0f * viewScale;
+        const float edge3 = 164.0f * viewScale;
+        const float topBottomBoost = 1.22f;
+        drawVignetteBand(viewOriginX, viewOriginY, viewWidth, edge3, vignetteAlpha * topBottomBoost, 0.01f, 0.015f, 0.025f);
+        drawVignetteBand(viewOriginX, viewOriginY + viewHeight - edge3, viewWidth, edge3, vignetteAlpha * topBottomBoost, 0.01f, 0.015f, 0.025f);
+        drawVignetteBand(viewOriginX, viewOriginY, edge3, viewHeight, vignetteAlpha, 0.01f, 0.015f, 0.025f);
+        drawVignetteBand(viewOriginX + viewWidth - edge3, viewOriginY, edge3, viewHeight, vignetteAlpha, 0.01f, 0.015f, 0.025f);
+
+        drawVignetteBand(viewOriginX, viewOriginY, viewWidth, edge2, vignetteAlpha * 0.82f * topBottomBoost, 0.02f, 0.02f, 0.035f);
+        drawVignetteBand(viewOriginX, viewOriginY + viewHeight - edge2, viewWidth, edge2, vignetteAlpha * 0.82f * topBottomBoost, 0.02f, 0.02f, 0.035f);
+        drawVignetteBand(viewOriginX, viewOriginY, edge2, viewHeight, vignetteAlpha * 0.82f, 0.02f, 0.02f, 0.035f);
+        drawVignetteBand(viewOriginX + viewWidth - edge2, viewOriginY, edge2, viewHeight, vignetteAlpha * 0.82f, 0.02f, 0.02f, 0.035f);
+
+        drawVignetteBand(viewOriginX, viewOriginY, viewWidth, edge1, vignetteAlpha * 0.60f * topBottomBoost, 0.03f, 0.028f, 0.05f);
+        drawVignetteBand(viewOriginX, viewOriginY + viewHeight - edge1, viewWidth, edge1, vignetteAlpha * 0.60f * topBottomBoost, 0.03f, 0.028f, 0.05f);
+        drawVignetteBand(viewOriginX, viewOriginY, edge1, viewHeight, vignetteAlpha * 0.60f, 0.03f, 0.028f, 0.05f);
+        drawVignetteBand(viewOriginX + viewWidth - edge1, viewOriginY, edge1, viewHeight, vignetteAlpha * 0.60f, 0.03f, 0.028f, 0.05f);
+
+        drawVignetteBand(viewOriginX, viewOriginY, viewWidth, edge0, vignetteAlpha * 0.38f * topBottomBoost, 0.04f, 0.035f, 0.06f);
+        drawVignetteBand(viewOriginX, viewOriginY + viewHeight - edge0, viewWidth, edge0, vignetteAlpha * 0.38f * topBottomBoost, 0.04f, 0.035f, 0.06f);
+        drawVignetteBand(viewOriginX, viewOriginY, edge0, viewHeight, vignetteAlpha * 0.38f, 0.04f, 0.035f, 0.06f);
+        drawVignetteBand(viewOriginX + viewWidth - edge0, viewOriginY, edge0, viewHeight, vignetteAlpha * 0.38f, 0.04f, 0.035f, 0.06f);
+    }
 
     drawFrameBand(innerX, innerY, innerWidth, innerHeight, 0.10f + shutterT * 0.18f);
     drawFrameBand(drawX, drawY, drawWidth, std::max(4.0f, 8.0f * viewScale), 0.30f + shutterT * 0.16f);
@@ -1054,7 +1092,7 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_flow.captureFinderScale;
 
     const float cursorStartWorldX = m_flow.cameraX + gCameraViewWidth * 0.5f;
-    const float cursorStartWorldY = GetMapPixelHeight() * 0.5f;
+    const float cursorStartWorldY = gCameraViewHeight * 0.5f;
 
     static float padCursorWorldX = cursorStartWorldX;
     static float padCursorWorldY = cursorStartWorldY;
