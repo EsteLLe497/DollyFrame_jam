@@ -134,6 +134,26 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
             definition.filterTintA);
     }
 
+    if (definition.hasFlickerLight)
+    {
+        entity->AddComponent<FlickerLightComponent>(
+            definition.lightRadius,
+            definition.lightIntensity,
+            definition.lightFlickerAmplitude,
+            definition.lightFlickerSpeed,
+            definition.lightOffsetX,
+            definition.lightOffsetY,
+            definition.lightColorR,
+            definition.lightColorG,
+            definition.lightColorB,
+            definition.lightHasGodRay,
+            definition.lightGodRayLength,
+            definition.lightGodRayWidth,
+            definition.lightGodRayIntensity,
+            definition.lightGodRayDriftSpeed,
+            definition.lightGodRaySoftness);
+    }
+
     entity->AddComponent<SpriteRenderComponent>(m_manifest.GetTexture(definition.textureKey));
     return entity;
 }
@@ -364,6 +384,28 @@ void PrefabFactory::LoadDefinitions()
         definition.filterTintG = filterTint.value("g", 1.0f);
         definition.filterTintB = filterTint.value("b", 1.0f);
         definition.filterTintA = filterTint.value("a", 1.0f);
+
+        const auto& light = data.contains("light") && data["light"].is_object() ? data["light"] : nlohmann::json::object();
+        definition.hasFlickerLight = light.value("enabled", false);
+        definition.lightRadius = light.value("radius", definition.lightRadius);
+        definition.lightIntensity = light.value("intensity", definition.lightIntensity);
+        definition.lightFlickerAmplitude = light.value("flickerAmplitude", definition.lightFlickerAmplitude);
+        definition.lightFlickerSpeed = light.value("flickerSpeed", definition.lightFlickerSpeed);
+        definition.lightOffsetX = light.value("offsetX", definition.lightOffsetX);
+        definition.lightOffsetY = light.value("offsetY", definition.lightOffsetY);
+
+        const auto& lightColor = light.contains("color") && light["color"].is_object() ? light["color"] : nlohmann::json::object();
+        definition.lightColorR = lightColor.value("r", definition.lightColorR);
+        definition.lightColorG = lightColor.value("g", definition.lightColorG);
+        definition.lightColorB = lightColor.value("b", definition.lightColorB);
+
+        const auto& godRay = light.contains("godRay") && light["godRay"].is_object() ? light["godRay"] : nlohmann::json::object();
+        definition.lightHasGodRay = godRay.value("enabled", false);
+        definition.lightGodRayLength = godRay.value("length", definition.lightGodRayLength);
+        definition.lightGodRayWidth = godRay.value("width", definition.lightGodRayWidth);
+        definition.lightGodRayIntensity = godRay.value("intensity", definition.lightGodRayIntensity);
+        definition.lightGodRayDriftSpeed = godRay.value("driftSpeed", definition.lightGodRayDriftSpeed);
+        definition.lightGodRaySoftness = godRay.value("softness", definition.lightGodRaySoftness);
 
         m_definitions.emplace(it.key(), std::move(definition));
     }

@@ -150,255 +150,8 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker)
 
     return false;
 }
-}
 
-TileMap::TileMap()
-    : m_width(0)
-    , m_height(0)
-    , m_tileSize(0.0f)
-{
-}
-
-bool TileMap::LoadFromCsv(const std::string& path, float tileSize)
-{
-    Clear();
-    m_tileSize = tileSize;
-
-    std::ifstream stream(path);
-    if (!stream.is_open())
-    {
-        Logger::Error(std::string("TileMap failed to open CSV: ") + path);
-        return false;
-    }
-
-    std::vector<std::vector<int>> rows;
-    std::vector<std::vector<char>> markerRows;
-    std::string line;
-    while (std::getline(stream, line))
-    {
-        const std::string trimmedLine = Trim(line);
-        if (trimmedLine.empty())
-        {
-            continue;
-        }
-
-        std::vector<int> rowValues;
-        std::vector<char> markerValues;
-        std::stringstream lineStream(trimmedLine);
-        std::string cell;
-        while (std::getline(lineStream, cell, ','))
-        {
-            const std::string trimmedCell = Trim(cell);
-            if (trimmedCell.empty())
-            {
-                rowValues.push_back(0);
-                markerValues.push_back('\0');
-                continue;
-            }
-
-            int parsedValue = 0;
-            char parsedMarker = '\0';
-            if (!ParseCsvCell(trimmedCell, parsedValue, parsedMarker))
-            {
-                parsedValue = 0;
-                parsedMarker = '\0';
-            }
-            rowValues.push_back(parsedValue);
-            markerValues.push_back(parsedMarker);
-        }
-
-        if (!rowValues.empty())
-        {
-            rows.push_back(std::move(rowValues));
-            markerRows.push_back(std::move(markerValues));
-        }
-    }
-
-    if (rows.empty())
-    {
-        Logger::Error(std::string("TileMap CSV contained no rows: ") + path);
-        return false;
-    }
-
-    for (const auto& row : rows)
-    {
-        m_width = (std::max)(m_width, static_cast<int>(row.size()));
-    }
-    m_height = static_cast<int>(rows.size());
-    m_tiles.assign(static_cast<size_t>(m_width * m_height), 0);
-    m_markers.assign(static_cast<size_t>(m_width * m_height), '\0');
-
-    for (int row = 0; row < m_height; ++row)
-    {
-        for (int column = 0; column < static_cast<int>(rows[row].size()); ++column)
-        {
-            m_tiles[static_cast<size_t>(row * m_width + column)] = rows[row][column];
-            m_markers[static_cast<size_t>(row * m_width + column)] = markerRows[row][column];
-        }
-    }
-
-    std::ostringstream message;
-    message << "TileMap loaded from CSV: " << path
-            << " (" << m_width << "x" << m_height
-            << ", tileSize=" << std::fixed << std::setprecision(0) << m_tileSize << ")";
-    Logger::Info(message.str());
-    return true;
-}
-
-void TileMap::Clear()
-{
-    m_tiles.clear();
-    m_markers.clear();
-    m_width = 0;
-    m_height = 0;
-    m_tileSize = 0.0f;
-}
-
-void TileMap::Draw(int textureId, float originX, float originY, float scale) const
-{
-    if (textureId < 0  ||m_tiles.empty()||  m_width <= 0 || m_height <= 0)
-    {
-        return;
-    }
-
-    Shader_ResetStyle();
-    for (int row = 0; row < m_height; ++row)
-    {
-        for (int column = 0; column < m_width; ++column)
-        {
-            const int tileValue = GetTile(column, row);
-            if (tileValue <= 0)
-            {
-                continue;
-            }
-
-            float r = 1.0f;
-            float g = 1.0f;
-            float b = 1.0f;
-            float a = 1.0f;
-            GetTileTint(tileValue, r, g, b, a);
-            const float drawX = originX + static_cast<float>(column) * m_tileSize * scale;
-            const float drawY = originY + static_cast<float>(row) * m_tileSize * scale;
-            const TileTriangleShape triangle = GetTriangleShape(tileValue);
-            if (triangle.isTriangle)
-            {
-                const float drawWidth = static_cast<float>(triangle.widthTiles) * m_tileSize * scale;
-                const float drawHeight = static_cast<float>(triangle.heightTiles) * m_tileSize * scale;
-                const int color = GetColor(
-                    static_cast<int>(std::round(r * 255.0f)),
-                    static_cast<int>(std::round(g * 255.0f)),
-                    static_cast<int>(std::round(b * 255.0f)));
-                if (triangle.risesRight)
-                {
-                    DrawTriangleAA(
-                        drawX,
-                        drawY + drawHeight,
-                        drawX + drawWidth,
-                        drawY + drawHeight,
-                        drawX + drawWidth,
-                        drawY,
-                        color,
-                        TRUE);
-                }
-                else
-                {
-                    DrawTriangleAA(
-                        drawX,
-                        drawY,
-                        drawX,
-                        drawY + drawHeight,
-                        drawX + drawWidth,
-                        drawY + drawHeight,
-                        color,
-                        TRUE);
-                }
-                continue;
-            }
-            const float drawSize = m_tileSize * scale;
-            Shader_SetTint(r, g, b, a);
-            SpriteDraw(
-                textureId,
-                drawX,
-                drawY,
-                drawSize,
-                drawSize,
-                0.0f,
-                0.0f,
-                1.0f,
-                1.0f);
-        }
-    }
-    Shader_ResetStyle();
-}
-
-int TileMap::GetWidth() const
-{
-    return m_width;
-}
-
-int TileMap::GetHeight() const
-{
-    return m_height;
-}
-
-float TileMap::GetTileSize() const
-{
-    return m_tileSize;
-}
-
-bool TileMap::IsLoaded() const
-{
-    return !m_tiles.empty() && m_width > 0 && m_height > 0;
-}
-
-int TileMap::GetTile(int column, int row) const
-{
-    if (column < 0 || row < 0 || column >= m_width || row >= m_height)
-    {
-        return 0;
-    }
-
-    return m_tiles[static_cast<size_t>(row * m_width + column)];
-}
-
-char TileMap::GetMarker(int column, int row) const
-{
-    if (column < 0 || row < 0 || column >= m_width || row >= m_height)
-    {
-        return '\0';
-    }
-
-    if (m_markers.empty())
-    {
-        return '\0';
-    }
-
-    return m_markers[static_cast<size_t>(row * m_width + column)];
-}
-
-bool TileMap::IsSolid(int column, int row) const
-{
-    return GetTile(column, row) > 0;
-}
-
-TileTriangleShape TileMap::GetTriangleShape(int tileValue)
-{
-    switch (tileValue)
-    {
-    case 6:
-        return TileTriangleShape{ true, 1, 1, true };
-    case 7:
-        return TileTriangleShape{ true, 1, 1, false };
-    case 8:
-        return TileTriangleShape{ true, 2, 2, true };
-    case 9:
-        return TileTriangleShape{ true, 5, 5, false };
-    default:
-        return TileTriangleShape{};
-    }
-}
-
-void TileMap::GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
+void GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
 {
     a = 1.0f;
     switch (tileValue)
@@ -459,5 +212,270 @@ void TileMap::GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
         g = 0.74f;
         b = 0.82f;
         break;
+    }
+}
+
+class TileMapCsvLoader
+{
+public:
+    static bool Load(const std::string& path, float tileSize, TileMapData& outData)
+    {
+        outData = TileMapData{};
+        outData.tileSize = tileSize;
+
+        std::ifstream stream(path);
+        if (!stream.is_open())
+        {
+            Logger::Error(std::string("TileMap failed to open CSV: ") + path);
+            return false;
+        }
+
+        std::vector<std::vector<int>> rows;
+        std::vector<std::vector<char>> markerRows;
+        std::string line;
+        while (std::getline(stream, line))
+        {
+            const std::string trimmedLine = Trim(line);
+            if (trimmedLine.empty())
+            {
+                continue;
+            }
+
+            std::vector<int> rowValues;
+            std::vector<char> markerValues;
+            std::stringstream lineStream(trimmedLine);
+            std::string cell;
+            while (std::getline(lineStream, cell, ','))
+            {
+                const std::string trimmedCell = Trim(cell);
+                if (trimmedCell.empty())
+                {
+                    rowValues.push_back(0);
+                    markerValues.push_back('\0');
+                    continue;
+                }
+
+                int parsedValue = 0;
+                char parsedMarker = '\0';
+                if (!ParseCsvCell(trimmedCell, parsedValue, parsedMarker))
+                {
+                    parsedValue = 0;
+                    parsedMarker = '\0';
+                }
+                rowValues.push_back(parsedValue);
+                markerValues.push_back(parsedMarker);
+            }
+
+            if (!rowValues.empty())
+            {
+                rows.push_back(std::move(rowValues));
+                markerRows.push_back(std::move(markerValues));
+            }
+        }
+
+        if (rows.empty())
+        {
+            Logger::Error(std::string("TileMap CSV contained no rows: ") + path);
+            return false;
+        }
+
+        for (const auto& row : rows)
+        {
+            outData.width = (std::max)(outData.width, static_cast<int>(row.size()));
+        }
+        outData.height = static_cast<int>(rows.size());
+        outData.tiles.assign(static_cast<size_t>(outData.width * outData.height), 0);
+        outData.markers.assign(static_cast<size_t>(outData.width * outData.height), '\0');
+
+        for (int row = 0; row < outData.height; ++row)
+        {
+            for (int column = 0; column < static_cast<int>(rows[row].size()); ++column)
+            {
+                outData.tiles[static_cast<size_t>(row * outData.width + column)] = rows[row][column];
+                outData.markers[static_cast<size_t>(row * outData.width + column)] = markerRows[row][column];
+            }
+        }
+
+        std::ostringstream message;
+        message << "TileMap loaded from CSV: " << path
+                << " (" << outData.width << "x" << outData.height
+                << ", tileSize=" << std::fixed << std::setprecision(0) << outData.tileSize << ")";
+        Logger::Info(message.str());
+        return true;
+    }
+};
+
+class TileMapRenderer
+{
+public:
+    static void Draw(const TileMapData& data, int textureId, float originX, float originY, float scale)
+    {
+        if (textureId < 0 || data.tiles.empty() || data.width <= 0 || data.height <= 0)
+        {
+            return;
+        }
+
+        Shader_ResetStyle();
+        for (int row = 0; row < data.height; ++row)
+        {
+            for (int column = 0; column < data.width; ++column)
+            {
+                const int tileValue = data.tiles[static_cast<size_t>(row * data.width + column)];
+                if (tileValue <= 0)
+                {
+                    continue;
+                }
+
+                float r = 1.0f;
+                float g = 1.0f;
+                float b = 1.0f;
+                float a = 1.0f;
+                GetTileTint(tileValue, r, g, b, a);
+                const float drawX = originX + static_cast<float>(column) * data.tileSize * scale;
+                const float drawY = originY + static_cast<float>(row) * data.tileSize * scale;
+                const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue);
+                if (triangle.isTriangle)
+                {
+                    const float drawWidth = static_cast<float>(triangle.widthTiles) * data.tileSize * scale;
+                    const float drawHeight = static_cast<float>(triangle.heightTiles) * data.tileSize * scale;
+                    const int color = GetColor(
+                        static_cast<int>(std::round(r * 255.0f)),
+                        static_cast<int>(std::round(g * 255.0f)),
+                        static_cast<int>(std::round(b * 255.0f)));
+                    if (triangle.risesRight)
+                    {
+                        DrawTriangleAA(
+                            drawX,
+                            drawY + drawHeight,
+                            drawX + drawWidth,
+                            drawY + drawHeight,
+                            drawX + drawWidth,
+                            drawY,
+                            color,
+                            TRUE);
+                    }
+                    else
+                    {
+                        DrawTriangleAA(
+                            drawX,
+                            drawY,
+                            drawX,
+                            drawY + drawHeight,
+                            drawX + drawWidth,
+                            drawY + drawHeight,
+                            color,
+                            TRUE);
+                    }
+                    continue;
+                }
+                const float drawSize = data.tileSize * scale;
+                Shader_SetTint(r, g, b, a);
+                SpriteDraw(
+                    textureId,
+                    drawX,
+                    drawY,
+                    drawSize,
+                    drawSize,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    1.0f);
+            }
+        }
+        Shader_ResetStyle();
+    }
+};
+}
+
+TileMap::TileMap()
+{
+}
+
+bool TileMap::LoadFromCsv(const std::string& path, float tileSize)
+{
+    TileMapData loadedData;
+    if (!TileMapCsvLoader::Load(path, tileSize, loadedData))
+    {
+        Clear();
+        return false;
+    }
+    m_data = std::move(loadedData);
+    return true;
+}
+
+void TileMap::Clear()
+{
+    m_data = TileMapData{};
+}
+
+void TileMap::Draw(int textureId, float originX, float originY, float scale) const
+{
+    TileMapRenderer::Draw(m_data, textureId, originX, originY, scale);
+}
+
+int TileMap::GetWidth() const
+{
+    return m_data.width;
+}
+
+int TileMap::GetHeight() const
+{
+    return m_data.height;
+}
+
+float TileMap::GetTileSize() const
+{
+    return m_data.tileSize;
+}
+
+bool TileMap::IsLoaded() const
+{
+    return !m_data.tiles.empty() && m_data.width > 0 && m_data.height > 0;
+}
+
+int TileMap::GetTile(int column, int row) const
+{
+    if (column < 0 || row < 0 || column >= m_data.width || row >= m_data.height)
+    {
+        return 0;
+    }
+
+    return m_data.tiles[static_cast<size_t>(row * m_data.width + column)];
+}
+
+char TileMap::GetMarker(int column, int row) const
+{
+    if (column < 0 || row < 0 || column >= m_data.width || row >= m_data.height)
+    {
+        return '\0';
+    }
+
+    if (m_data.markers.empty())
+    {
+        return '\0';
+    }
+
+    return m_data.markers[static_cast<size_t>(row * m_data.width + column)];
+}
+
+bool TileMap::IsSolid(int column, int row) const
+{
+    return GetTile(column, row) > 0;
+}
+
+TileTriangleShape TileMap::GetTriangleShape(int tileValue)
+{
+    switch (tileValue)
+    {
+    case 6:
+        return TileTriangleShape{ true, 1, 1, true };
+    case 7:
+        return TileTriangleShape{ true, 1, 1, false };
+    case 8:
+        return TileTriangleShape{ true, 2, 2, true };
+    case 9:
+        return TileTriangleShape{ true, 5, 5, false };
+    default:
+        return TileTriangleShape{};
     }
 }

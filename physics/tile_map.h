@@ -11,6 +11,15 @@ struct TileTriangleShape
     bool risesRight = false;
 };
 
+struct TileMapData
+{
+    std::vector<int> tiles;
+    std::vector<char> markers;
+    int width = 0;
+    int height = 0;
+    float tileSize = 0.0f;
+};
+
 class TileMap
 {
 public:
@@ -33,11 +42,5 @@ public:
     static TileTriangleShape GetTriangleShape(int tileValue);
 
 private:
-    static void GetTileTint(int tileValue, float& r, float& g, float& b, float& a);
-
-    std::vector<int> m_tiles;
-    std::vector<char> m_markers;
-    int m_width;
-    int m_height;
-    float m_tileSize;
+    TileMapData m_data;
 };

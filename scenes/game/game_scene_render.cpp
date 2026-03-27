@@ -191,6 +191,203 @@ namespace
         return true;
     }
 
+    float ComputeLightFlicker(float timeSeconds, const TransformComponent& transform, const FlickerLightComponent& light)
+    {
+        const float seed = transform.x * 0.0137f + transform.y * 0.0091f + light.offsetY * 0.17f;
+        const float waveA = std::sin(timeSeconds * light.flickerSpeed + seed);
+        const float waveB = std::sin(timeSeconds * (light.flickerSpeed * 2.17f + 0.35f) + seed * 1.91f);
+        const float waveC = std::cos(timeSeconds * (light.flickerSpeed * 1.37f + 0.22f) + seed * 0.73f);
+        const float composite = waveA * 0.55f + waveB * 0.30f + waveC * 0.15f;
+        return std::max(0.55f, 1.0f + composite * light.flickerAmplitude);
+    }
+
+    float ComputeGodRayPulse(float timeSeconds, const TransformComponent& transform, const FlickerLightComponent& light)
+    {
+        const float seed = transform.x * 0.0061f + transform.y * 0.0037f + light.godRayWidth * 0.011f;
+        const float waveA = std::sin(timeSeconds * (0.8f + light.godRayDriftSpeed * 0.7f) + seed);
+        const float waveB = std::cos(timeSeconds * (1.3f + light.godRayDriftSpeed) + seed * 1.7f);
+        return 0.78f + (waveA * 0.12f + waveB * 0.10f);
+    }
+
+    float LerpFloat(float a, float b, float t)
+    {
+        return a + (b - a) * t;
+    }
+
+    float SmoothStep01(float t)
+    {
+        const float clamped = Clamp01(t);
+        return clamped * clamped * (3.0f - 2.0f * clamped);
+    }
+
+    float Hash01(float value)
+    {
+        const float s = std::sin(value * 127.1f) * 43758.5453f;
+        return s - std::floor(s);
+    }
+
+    float ValueNoise1D(float value)
+    {
+        const float base = std::floor(value);
+        const float fraction = value - base;
+        const float weight = SmoothStep01(fraction);
+        return LerpFloat(Hash01(base), Hash01(base + 1.0f), weight);
+    }
+
+    float ComputeGodRayDensity(float normalizedY, float timeSeconds, const TransformComponent& transform, const FlickerLightComponent& light)
+    {
+        const float seed = transform.x * 0.0043f + transform.y * 0.0021f + light.godRayWidth * 0.017f;
+        const float coarse = ValueNoise1D(normalizedY * 6.5f + timeSeconds * (0.22f + light.godRayDriftSpeed * 0.35f) + seed);
+        const float detail = ValueNoise1D(normalizedY * 17.0f - timeSeconds * (0.55f + light.godRayDriftSpeed * 0.45f) + seed * 1.9f);
+        const float streaks = ValueNoise1D(normalizedY * 29.0f + timeSeconds * 0.18f + seed * 3.7f);
+        const float layeredNoise = coarse * 0.56f + detail * 0.29f + streaks * 0.15f;
+        const float topFade = SmoothStep01(normalizedY * 1.35f);
+        const float bottomFade = 1.0f - SmoothStep01(std::max(0.0f, (normalizedY - 0.72f) / 0.28f));
+        return Clamp01((0.38f + layeredNoise * 0.82f) * topFade * bottomFade);
+    }
+
+    void DrawFlickerLight(
+        const TransformComponent& transform,
+        const FlickerLightComponent& light,
+        float cameraX,
+        float intensityScale)
+    {
+        if (intensityScale <= 0.001f)
+        {
+            return;
+        }
+
+        const float viewScale = GetViewScale();
+        const float viewOriginX = GetViewOriginX();
+        const float viewOriginY = GetViewOriginY();
+        const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+        const float flicker = ComputeLightFlicker(timeSeconds, transform, light);
+        const float radius = light.radius * viewScale * flicker * 0.42f;
+        const float coreRadius = radius * 0.16f;
+        const float emberRadius = radius * 0.08f;
+        const float centerX = viewOriginX + ((transform.x + transform.width * 0.5f + light.offsetX) - cameraX) * viewScale;
+        const float centerY = viewOriginY + (transform.y + transform.height * 0.5f + light.offsetY) * viewScale;
+        const float emberOffsetX = std::sin(timeSeconds * (light.flickerSpeed * 1.9f) + transform.x * 0.021f) * radius * 0.05f;
+        const float emberOffsetY = std::cos(timeSeconds * (light.flickerSpeed * 1.6f) + transform.y * 0.018f) * radius * 0.04f;
+        const int warmColor = GetColor(
+            static_cast<int>(std::round(std::clamp(light.r, 0.0f, 1.0f) * 255.0f)),
+            static_cast<int>(std::round(std::clamp(light.g, 0.0f, 1.0f) * 255.0f)),
+            static_cast<int>(std::round(std::clamp(light.b, 0.0f, 1.0f) * 255.0f)));
+        const int coreColor = GetColor(255, 242, 214);
+        const float alphaScale = light.intensity * intensityScale;
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(56.0f * alphaScale)), 0, 255));
+        DrawCircle(
+            static_cast<int>(std::round(centerX)),
+            static_cast<int>(std::round(centerY)),
+            static_cast<int>(std::round(radius)),
+            warmColor,
+            TRUE);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(34.0f * alphaScale)), 0, 255));
+        DrawCircle(
+            static_cast<int>(std::round(centerX)),
+            static_cast<int>(std::round(centerY - radius * 0.02f)),
+            static_cast<int>(std::round(radius * 0.52f)),
+            warmColor,
+            TRUE);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(142.0f * alphaScale)), 0, 255));
+        DrawCircle(
+            static_cast<int>(std::round(centerX + emberOffsetX)),
+            static_cast<int>(std::round(centerY - radius * 0.18f + emberOffsetY)),
+            static_cast<int>(std::round(coreRadius)),
+            coreColor,
+            TRUE);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(96.0f * alphaScale)), 0, 255));
+        DrawCircle(
+            static_cast<int>(std::round(centerX + emberOffsetX * 0.7f)),
+            static_cast<int>(std::round(centerY - radius * 0.28f + emberOffsetY * 1.4f)),
+            static_cast<int>(std::round(emberRadius)),
+            coreColor,
+            TRUE);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+    }
+
+    void DrawGodRay(
+        const TransformComponent& transform,
+        const FlickerLightComponent& light,
+        float cameraX,
+        float intensityScale)
+    {
+        if (!light.godRayEnabled || light.godRayIntensity <= 0.001f || intensityScale <= 0.001f)
+        {
+            return;
+        }
+
+        const float viewScale = GetViewScale();
+        const float viewOriginX = GetViewOriginX();
+        const float viewOriginY = GetViewOriginY();
+        const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+        const float pulse = ComputeGodRayPulse(timeSeconds, transform, light);
+        const float beamLength = light.godRayLength * viewScale;
+        const float beamWidth = light.godRayWidth * viewScale;
+        const float softnessWidth = beamWidth * (0.42f + (0.82f - 0.42f) * light.godRaySoftness);
+        const float driftX = std::sin(timeSeconds * (0.65f + light.godRayDriftSpeed) + transform.x * 0.014f) * beamWidth * 0.10f;
+        const float sourceX = viewOriginX + ((transform.x + transform.width * 0.5f + light.offsetX) - cameraX) * viewScale + driftX;
+        const float sourceY = viewOriginY + (transform.y + transform.height * 0.5f + light.offsetY) * viewScale - beamLength * 0.05f;
+        const float topY = sourceY - beamLength;
+        const float bottomY = sourceY + beamLength * 0.08f;
+        const float topHalfWidth = softnessWidth * 0.38f;
+        const float bottomHalfWidth = beamWidth;
+        const int beamColor = GetColor(
+            static_cast<int>(std::round(std::clamp(light.r * 0.95f, 0.0f, 1.0f) * 255.0f)),
+            static_cast<int>(std::round(std::clamp(light.g * 0.97f, 0.0f, 1.0f) * 255.0f)),
+            static_cast<int>(std::round(std::clamp(std::min(1.0f, light.b + 0.10f), 0.0f, 1.0f) * 255.0f)));
+        const int innerColor = GetColor(255, 248, 228);
+        const float alphaScale = light.godRayIntensity * intensityScale * pulse;
+
+        constexpr int kSlices = 14;
+        for (int slice = 0; slice < kSlices; ++slice)
+        {
+            const float t0 = static_cast<float>(slice) / static_cast<float>(kSlices);
+            const float t1 = static_cast<float>(slice + 1) / static_cast<float>(kSlices);
+            const float density0 = ComputeGodRayDensity(t0, timeSeconds, transform, light);
+            const float density1 = ComputeGodRayDensity(t1, timeSeconds, transform, light);
+            const float sliceDensity = (density0 + density1) * 0.5f;
+            if (sliceDensity <= 0.01f)
+            {
+                continue;
+            }
+
+            const float wave0 = std::sin(timeSeconds * 0.75f + t0 * 9.0f + transform.x * 0.009f) * beamWidth * 0.035f;
+            const float wave1 = std::sin(timeSeconds * 0.75f + t1 * 9.0f + transform.x * 0.009f) * beamWidth * 0.035f;
+            const float x0 = sourceX + wave0;
+            const float x1 = sourceX + wave1;
+            const float y0 = LerpFloat(topY, bottomY, t0);
+            const float y1 = LerpFloat(topY, bottomY, t1);
+            const float outerHalfWidth0 = LerpFloat(topHalfWidth, bottomHalfWidth, SmoothStep01(t0));
+            const float outerHalfWidth1 = LerpFloat(topHalfWidth, bottomHalfWidth, SmoothStep01(t1));
+            const float innerHalfWidth0 = outerHalfWidth0 * LerpFloat(0.26f, 0.38f, 1.0f - light.godRaySoftness);
+            const float innerHalfWidth1 = outerHalfWidth1 * LerpFloat(0.26f, 0.38f, 1.0f - light.godRaySoftness);
+            const int outerAlpha = std::clamp(static_cast<int>(std::round(32.0f * alphaScale * sliceDensity)), 0, 255);
+            const int innerAlpha = std::clamp(static_cast<int>(std::round(20.0f * alphaScale * sliceDensity)), 0, 255);
+
+            if (outerAlpha > 0)
+            {
+                SetDrawBlendMode(DX_BLENDMODE_ADD, outerAlpha);
+                DrawTriangleAA(x0 - outerHalfWidth0, y0, x1 - outerHalfWidth1, y1, x1 + outerHalfWidth1, y1, beamColor, TRUE);
+                DrawTriangleAA(x0 - outerHalfWidth0, y0, x1 + outerHalfWidth1, y1, x0 + outerHalfWidth0, y0, beamColor, TRUE);
+            }
+
+            if (innerAlpha > 0)
+            {
+                SetDrawBlendMode(DX_BLENDMODE_ADD, innerAlpha);
+                DrawTriangleAA(x0 - innerHalfWidth0, y0, x1 - innerHalfWidth1, y1, x1 + innerHalfWidth1, y1, innerColor, TRUE);
+                DrawTriangleAA(x0 - innerHalfWidth0, y0, x1 + innerHalfWidth1, y1, x0 + innerHalfWidth0, y0, innerColor, TRUE);
+            }
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+    }
+
 }
 
 void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
@@ -218,6 +415,43 @@ void GameScene::DrawEffects() const
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* light = entity->GetComponent<FlickerLightComponent>();
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!light || !transform)
+        {
+            continue;
+        }
+
+        const float centerX = transform->x + transform->width * 0.5f;
+        const float maxRadius = light->radius + std::abs(light->offsetX) + transform->width * 0.5f;
+        const float drawLeft = viewOriginX + (centerX - maxRadius - m_flow.cameraX) * viewScale;
+        const float drawRight = viewOriginX + (centerX + maxRadius - m_flow.cameraX) * viewScale;
+        if (drawRight < viewOriginX || drawLeft > viewOriginX + GetViewWidth())
+        {
+            continue;
+        }
+
+        float intensityScale = 1.0f;
+        if (HasTag(*entity, "Goal") && !m_flow.goalUnlocked)
+        {
+            intensityScale = 0.45f;
+        }
+        if (const auto* checkpoint = entity->GetComponent<CheckpointComponent>())
+        {
+            intensityScale *= checkpoint->activated ? 1.15f : 0.85f;
+        }
+
+        DrawGodRay(*transform, *light, m_flow.cameraX, intensityScale);
+        DrawFlickerLight(*transform, *light, m_flow.cameraX, intensityScale);
+    }
 
     for (const auto& particle : m_effects.barrelDebris)
     {

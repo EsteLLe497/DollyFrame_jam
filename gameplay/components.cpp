@@ -81,6 +81,57 @@ TintComponent::TintComponent(float rValue, float gValue, float bValue, float aVa
 {
 }
 
+FlickerLightComponent::FlickerLightComponent(
+    float radiusValue,
+    float intensityValue,
+    float flickerAmplitudeValue,
+    float flickerSpeedValue,
+    float offsetXValue,
+    float offsetYValue,
+    float rValue,
+    float gValue,
+    float bValue,
+    bool godRayEnabledValue,
+    float godRayLengthValue,
+    float godRayWidthValue,
+    float godRayIntensityValue,
+    float godRayDriftSpeedValue,
+    float godRaySoftnessValue)
+    : radius(std::max(1.0f, radiusValue))
+    , intensity(std::clamp(intensityValue, 0.0f, 1.0f))
+    , flickerAmplitude(std::clamp(flickerAmplitudeValue, 0.0f, 1.0f))
+    , flickerSpeed(std::max(0.0f, flickerSpeedValue))
+    , offsetX(offsetXValue)
+    , offsetY(offsetYValue)
+    , r(std::clamp(rValue, 0.0f, 1.0f))
+    , g(std::clamp(gValue, 0.0f, 1.0f))
+    , b(std::clamp(bValue, 0.0f, 1.0f))
+    , godRayEnabled(godRayEnabledValue)
+    , godRayLength(std::max(1.0f, godRayLengthValue))
+    , godRayWidth(std::max(1.0f, godRayWidthValue))
+    , godRayIntensity(std::clamp(godRayIntensityValue, 0.0f, 1.0f))
+    , godRayDriftSpeed(std::max(0.0f, godRayDriftSpeedValue))
+    , godRaySoftness(std::clamp(godRaySoftnessValue, 0.0f, 1.0f))
+{
+}
+
+void FlickerLightComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Flicker Light");
+    ImGui::Text("Radius: %.1f", radius);
+    ImGui::Text("Intensity: %.2f", intensity);
+    ImGui::Text("Flicker: %.2f @ %.2f", flickerAmplitude, flickerSpeed);
+    ImGui::Text("Offset: %.1f, %.1f", offsetX, offsetY);
+    ImGui::Text("Color: %.2f %.2f %.2f", r, g, b);
+    ImGui::Text("God Ray: %s", godRayEnabled ? "On" : "Off");
+    if (godRayEnabled)
+    {
+        ImGui::Text("Beam: %.1f x %.1f", godRayLength, godRayWidth);
+        ImGui::Text("Beam Intensity: %.2f", godRayIntensity);
+        ImGui::Text("Beam Drift: %.2f  Softness: %.2f", godRayDriftSpeed, godRaySoftness);
+    }
+}
+
 TagComponent::TagComponent(const char* value)
     : tag(value ? value : "")
 {

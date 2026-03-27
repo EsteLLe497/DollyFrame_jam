@@ -370,6 +370,27 @@
         "type": "goal",
         "startsEnabled": true,
         "oneShot": false
+      },
+      "light": {
+        "enabled": true,
+        "radius": 68.0,
+        "intensity": 0.34,
+        "flickerAmplitude": 0.12,
+        "flickerSpeed": 2.1,
+        "offsetY": -8.0,
+        "color": {
+          "r": 1.0,
+          "g": 0.72,
+          "b": 0.30
+        },
+        "godRay": {
+          "enabled": true,
+          "length": 230.0,
+          "width": 54.0,
+          "intensity": 0.32,
+          "driftSpeed": 0.62,
+          "softness": 0.74
+        }
       }
     },
     "sandbox_checkpoint": {
@@ -394,6 +415,27 @@
         "type": "checkpoint",
         "startsEnabled": true,
         "oneShot": false
+      },
+      "light": {
+        "enabled": true,
+        "radius": 62.0,
+        "intensity": 0.38,
+        "flickerAmplitude": 0.20,
+        "flickerSpeed": 2.9,
+        "offsetY": -18.0,
+        "color": {
+          "r": 1.0,
+          "g": 0.76,
+          "b": 0.34
+        },
+        "godRay": {
+          "enabled": true,
+          "length": 260.0,
+          "width": 62.0,
+          "intensity": 0.38,
+          "driftSpeed": 0.88,
+          "softness": 0.70
+        }
       }
     },
     "sandbox_photo_source": {
@@ -418,6 +460,27 @@
         "type": "photo_source",
         "startsEnabled": true,
         "oneShot": false
+      },
+      "light": {
+        "enabled": true,
+        "radius": 56.0,
+        "intensity": 0.33,
+        "flickerAmplitude": 0.18,
+        "flickerSpeed": 2.7,
+        "offsetY": -6.0,
+        "color": {
+          "r": 1.0,
+          "g": 0.72,
+          "b": 0.30
+        },
+        "godRay": {
+          "enabled": true,
+          "length": 208.0,
+          "width": 46.0,
+          "intensity": 0.26,
+          "driftSpeed": 0.76,
+          "softness": 0.68
+        }
       }
     },
     "sandbox_hazard": {
