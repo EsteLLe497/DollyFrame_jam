@@ -78,6 +78,22 @@ struct PrefabDefinition
     float filterTintG = 1.0f;
     float filterTintB = 1.0f;
     float filterTintA = 1.0f;
+    bool hasFlickerLight = false;
+    float lightRadius = 96.0f;
+    float lightIntensity = 0.55f;
+    float lightFlickerAmplitude = 0.18f;
+    float lightFlickerSpeed = 2.8f;
+    float lightOffsetX = 0.0f;
+    float lightOffsetY = 0.0f;
+    float lightColorR = 1.0f;
+    float lightColorG = 0.76f;
+    float lightColorB = 0.36f;
+    bool lightHasGodRay = false;
+    float lightGodRayLength = 240.0f;
+    float lightGodRayWidth = 56.0f;
+    float lightGodRayIntensity = 0.42f;
+    float lightGodRayDriftSpeed = 0.8f;
+    float lightGodRaySoftness = 0.65f;
 };
 
 class PrefabFactory

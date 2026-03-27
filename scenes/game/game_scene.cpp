@@ -45,10 +45,14 @@ void GameScene::Update(float deltaTime)
 {
     ZoneScoped;
 
-    m_eventBus.Clear();
-    m_debug.tuningReloadTimer = std::max(0.0f, m_debug.tuningReloadTimer - deltaTime);
-    if (m_debug.tuningReloadTimer <= 0.0f)
+    auto updateTuningHotReload = [this, deltaTime]()
     {
+        m_debug.tuningReloadTimer = std::max(0.0f, m_debug.tuningReloadTimer - deltaTime);
+        if (m_debug.tuningReloadTimer > 0.0f)
+        {
+            return;
+        }
+
         m_debug.tuningReloadTimer = 0.25f;
         std::error_code ec;
         const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
@@ -58,23 +62,70 @@ void GameScene::Update(float deltaTime)
             m_debug.hasTuningFileWriteTime = true;
             LoadTuningJsonFile();
         }
-    }
-    if (Input_IsActionPressed(InputAction::ReturnToTitle))
+    };
+
+    auto handleGlobalSceneShortcuts = [this]()
     {
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
-    }
-    if (Input_IsActionPressed(InputAction::RestartScene))
+        if (Input_IsActionPressed(InputAction::ReturnToTitle))
+        {
+            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        }
+        if (Input_IsActionPressed(InputAction::RestartScene))
+        {
+            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+        }
+        if (Input_IsActionPressed(InputAction::ToggleTuningPanel))
+        {
+            m_debug.showTuningPanel = !m_debug.showTuningPanel;
+        }
+        if (Input_IsActionPressed(InputAction::ToggleCollisionDebug))
+        {
+            m_debug.showCollisionDebug = !m_debug.showCollisionDebug;
+        }
+    };
+
+    auto updatePitRestartFlow = [this, deltaTime]() -> bool
     {
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
-    }
-    if (Input_IsActionPressed(InputAction::ToggleTuningPanel))
+        if (!m_flow.pitRestartActive)
+        {
+            return false;
+        }
+
+        m_flow.pitRestartTimer = std::max(0.0f, m_flow.pitRestartTimer - deltaTime);
+        if (m_flow.pitRestartTimer > 0.0f)
+        {
+            return true;
+        }
+
+        Entity* player = FindEntityByTag("Player");
+        if (player)
+        {
+            RespawnPlayer(*player);
+        }
+        else
+        {
+            m_flow.pitRestartActive = false;
+            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+        }
+        return true;
+    };
+
+    auto updateFrameTimers = [this, deltaTime](float gameplayDeltaTime, float effectiveGameplayDeltaTime)
     {
-        m_debug.showTuningPanel = !m_debug.showTuningPanel;
-    }
-    if (Input_IsActionPressed(InputAction::ToggleCollisionDebug))
-    {
-        m_debug.showCollisionDebug = !m_debug.showCollisionDebug;
-    }
+        m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
+        m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
+        const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;
+        m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
+        if (previewWasActive && m_flow.developedPhotoPreviewRemaining <= 0.0f)
+        {
+            CommitPendingCapturedPhoto();
+        }
+        m_flow.pickupPulse += gameplayDeltaTime;
+    };
+
+    m_eventBus.Clear();
+    updateTuningHotReload();
+    handleGlobalSceneShortcuts();
     ProcessFilterInput();
 
     UpdateTuningPanel();
@@ -83,22 +134,8 @@ void GameScene::Update(float deltaTime)
         return;
     }
 
-    if (m_flow.pitRestartActive)
+    if (updatePitRestartFlow())
     {
-        m_flow.pitRestartTimer = std::max(0.0f, m_flow.pitRestartTimer - deltaTime);
-        if (m_flow.pitRestartTimer <= 0.0f)
-        {
-            Entity* player = FindEntityByTag("Player");
-            if (player)
-            {
-                RespawnPlayer(*player);
-            }
-            else
-            {
-                m_flow.pitRestartActive = false;
-                m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
-            }
-        }
         return;
     }
 
@@ -108,15 +145,7 @@ void GameScene::Update(float deltaTime)
     const float effectiveGameplayDeltaTime = m_flow.hitStopRemaining > 0.0f ? 0.0f : gameplayDeltaTime;
     m_flow.lastDeltaTime = effectiveGameplayDeltaTime;
 
-    m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
-    m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
-    const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;
-    m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
-    if (previewWasActive && m_flow.developedPhotoPreviewRemaining <= 0.0f)
-    {
-        CommitPendingCapturedPhoto();
-    }
-    m_flow.pickupPulse += gameplayDeltaTime;
+    updateFrameTimers(gameplayDeltaTime, effectiveGameplayDeltaTime);
     for (const auto& entity : m_entities)
     {
         entity->Update(effectiveGameplayDeltaTime);

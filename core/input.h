@@ -12,6 +12,7 @@ enum class InputAction
     RestartScene,
     ReturnToTitle,
     ToggleTuningPanel,
+    TogglePostProcess,
     ToggleCollisionDebug,
     CycleFilter,
     SelectFilterNone,

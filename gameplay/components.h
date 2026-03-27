@@ -125,6 +125,45 @@ public:
     float a;
 };
 
+class FlickerLightComponent final : public Component
+{
+public:
+    FlickerLightComponent(
+        float radius,
+        float intensity,
+        float flickerAmplitude,
+        float flickerSpeed,
+        float offsetX,
+        float offsetY,
+        float r,
+        float g,
+        float b,
+        bool godRayEnabled,
+        float godRayLength,
+        float godRayWidth,
+        float godRayIntensity,
+        float godRayDriftSpeed,
+        float godRaySoftness);
+
+    void DrawDebugUI() override;
+
+    float radius;
+    float intensity;
+    float flickerAmplitude;
+    float flickerSpeed;
+    float offsetX;
+    float offsetY;
+    float r;
+    float g;
+    float b;
+    bool godRayEnabled;
+    float godRayLength;
+    float godRayWidth;
+    float godRayIntensity;
+    float godRayDriftSpeed;
+    float godRaySoftness;
+};
+
 class TagComponent final : public Component
 {
 public:

@@ -186,6 +186,12 @@ void Application::Update(float deltaTime)
     Input_Update();
     Audio_Update();
 
+    if (Input_IsActionPressed(InputAction::TogglePostProcess))
+    {
+        DirectXTogglePostProcess();
+        Logger::Info(DirectXIsPostProcessEnabled() ? "Post process: ON" : "Post process: OFF");
+    }
+
     const bool escapePressed = Input_IsActionPressed(InputAction::Cancel);
     if (!m_exitConfirmationOpen && escapePressed)
     {
@@ -219,8 +225,9 @@ void Application::Update(float deltaTime)
 void Application::Draw()
 {
     ZoneScoped;
-    Clear();
+    DirectXBeginSceneRender();
     m_sceneManager->Draw();
+    DirectXCompositeSceneToBackBuffer(static_cast<float>(GetNowCount()) * 0.001f);
     if (m_sceneTransitionActive)
     {
         DrawSceneTransition();

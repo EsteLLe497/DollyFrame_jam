@@ -4,6 +4,22 @@
 
 namespace
 {
+    using ActionPredicate = bool (*)();
+
+    constexpr int kNoKey = -1;
+    constexpr int kMaxBindingKeys = 4;
+    constexpr int kMaxBindingPredicates = 3;
+
+    struct ActionBinding
+    {
+        InputAction action;
+        int downKeys[kMaxBindingKeys];
+        int pressedKeys[kMaxBindingKeys];
+        bool downFallsBackToPressed;
+        ActionPredicate downPredicates[kMaxBindingPredicates];
+        ActionPredicate pressedPredicates[kMaxBindingPredicates];
+    };
+
     DxLib::XINPUT_STATE g_state{};
     DxLib::XINPUT_STATE g_prevState{};
     bool g_keyState[256]{};
@@ -208,6 +224,83 @@ namespace
         }
         return (g_state.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] != 0) && (g_prevState.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] == 0);
 	}
+
+    bool EvaluateBoundKeys(const int (&keys)[kMaxBindingKeys], bool pressed)
+    {
+        for (int key : keys)
+        {
+            if (key == kNoKey)
+            {
+                continue;
+            }
+            if (pressed ? Input_IsKeyPressed(key) : Input_IsKeyDown(key))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool EvaluatePredicates(const ActionPredicate (&predicates)[kMaxBindingPredicates])
+    {
+        for (ActionPredicate predicate : predicates)
+        {
+            if (predicate != nullptr && predicate())
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    constexpr ActionBinding kActionBindings[] =
+    {
+        { InputAction::Confirm, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_RETURN, VK_SPACE, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadSouthPressed, nullptr, nullptr } },
+        { InputAction::Cancel, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_ESCAPE, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::StartGame, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_RETURN, VK_SPACE, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadSouthPressed, nullptr, nullptr } },
+        { InputAction::OpenDemoScene, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'D', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::OpenShaderShowcase, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'S', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::RestartScene, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'R', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadBackPressed, nullptr, nullptr } },
+        { InputAction::ReturnToTitle, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'T', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::ToggleTuningPanel, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_F1, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::TogglePostProcess, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_F2, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::ToggleCollisionDebug, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_F3, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::CycleFilter, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'C', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::SelectFilterNone, { kNoKey, kNoKey, kNoKey, kNoKey }, { '1', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::SelectFilterHot, { kNoKey, kNoKey, kNoKey, kNoKey }, { '2', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::SelectFilterCold, { kNoKey, kNoKey, kNoKey, kNoKey }, { '3', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::SelectFilterInvert, { kNoKey, kNoKey, kNoKey, kNoKey }, { '4', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::SelectFilterSepia, { kNoKey, kNoKey, kNoKey, kNoKey }, { '5', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::HoldCamera, { VK_RBUTTON, kNoKey, kNoKey, kNoKey }, { VK_RBUTTON, kNoKey, kNoKey, kNoKey }, false, { IsGamepadLeftTriggerDown, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::CapturePhoto, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_LBUTTON, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadRightTriggerPressed, nullptr, nullptr } },
+        { InputAction::HoldPlacement, { 'E', kNoKey, kNoKey, kNoKey }, { 'E', kNoKey, kNoKey, kNoKey }, false, { IsGamepadNorthPressed, nullptr, nullptr }, { IsGamepadNorthPressed, nullptr, nullptr } },
+        { InputAction::ConfirmPlacement, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_LBUTTON, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadRightTriggerPressed, IsGamepadSouthPressed, nullptr } },
+        { InputAction::CyclePlacementLayer, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'Q', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::FlipPlacement, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'F', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::ToggleBridgePlacement, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'B', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::RotatePlacementLeft, { 'Z', kNoKey, kNoKey, kNoKey }, { 'Z', kNoKey, kNoKey, kNoKey }, false, { IsGamepadLeftShoulderDown, nullptr, nullptr }, { IsGamepadLeftShoulderPressed, nullptr, nullptr } },
+        { InputAction::RotatePlacementRight, { 'X', kNoKey, kNoKey, kNoKey }, { 'X', kNoKey, kNoKey, kNoKey }, false, { IsGamepadRightShoulderDown, nullptr, nullptr }, { IsGamepadRightShoulderPressed, nullptr, nullptr } },
+        { InputAction::MoveLeft, { 'A', VK_LEFT, kNoKey, kNoKey }, { 'A', VK_LEFT, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::MoveRight, { 'D', VK_RIGHT, kNoKey, kNoKey }, { 'D', VK_RIGHT, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::MoveUp, { 'W', VK_UP, kNoKey, kNoKey }, { 'W', VK_UP, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::MoveDown, { 'S', VK_DOWN, kNoKey, kNoKey }, { 'S', VK_DOWN, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::Jump, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_SPACE, 'W', VK_UP, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadSouthPressed, nullptr, nullptr } },
+        { InputAction::Dodge, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_LSHIFT, VK_RSHIFT, VK_SHIFT, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadEastPressed, nullptr, nullptr } },
+        { InputAction::ExitPromptYes, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_RETURN, 'Y', kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::ExitPromptNo, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'N', VK_ESCAPE, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+    };
+
+    const ActionBinding* FindBinding(InputAction action)
+    {
+        for (const ActionBinding& binding : kActionBindings)
+        {
+            if (binding.action == action)
+            {
+                return &binding;
+            }
+        }
+        return nullptr;
+    }
 }
 
 bool Input_Initialize()
@@ -241,99 +334,31 @@ void Input_Update()
 
 bool Input_IsActionDown(InputAction action)
 {
-    switch (action)
+    const ActionBinding* binding = FindBinding(action);
+    if (binding == nullptr)
     {
-    case InputAction::HoldCamera:
-        return Input_IsKeyDown(VK_RBUTTON)||IsGamepadLeftTriggerDown();
-    case InputAction::HoldPlacement:
-        return Input_IsKeyDown('E')||IsGamepadNorthPressed();
-    case InputAction::RotatePlacementLeft:
-        return Input_IsKeyDown('Z')||IsGamepadLeftShoulderDown();
-    case InputAction::RotatePlacementRight:
-        return Input_IsKeyDown('X')||IsGamepadRightShoulderDown();
-    case InputAction::MoveLeft:
-        return Input_IsKeyDown('A') || Input_IsKeyDown(VK_LEFT);
-    case InputAction::MoveRight:
-        return Input_IsKeyDown('D') || Input_IsKeyDown(VK_RIGHT);
-    case InputAction::MoveUp:
-        return Input_IsKeyDown('W') || Input_IsKeyDown(VK_UP);
-    case InputAction::MoveDown:
-        return Input_IsKeyDown('S') || Input_IsKeyDown(VK_DOWN);
-    default:
-        return Input_IsActionPressed(action);
+        return false;
     }
+
+    if (EvaluateBoundKeys(binding->downKeys, false) || EvaluatePredicates(binding->downPredicates))
+    {
+        return true;
+    }
+    if (!binding->downFallsBackToPressed)
+    {
+        return false;
+    }
+    return EvaluateBoundKeys(binding->pressedKeys, true) || EvaluatePredicates(binding->pressedPredicates);
 }
 
 bool Input_IsActionPressed(InputAction action)
 {
-    switch (action)
+    const ActionBinding* binding = FindBinding(action);
+    if (binding == nullptr)
     {
-    case InputAction::Confirm:
-    case InputAction::StartGame:
-        return Input_IsKeyPressed(VK_RETURN) || Input_IsKeyPressed(VK_SPACE) || IsGamepadSouthPressed();
-    case InputAction::Cancel:
-        return Input_IsKeyPressed(VK_ESCAPE);
-    case InputAction::OpenDemoScene:
-        return Input_IsKeyPressed('D');
-    case InputAction::OpenShaderShowcase:
-        return Input_IsKeyPressed('S');
-    case InputAction::RestartScene:
-        return Input_IsKeyPressed('R') || IsGamepadBackPressed();
-    case InputAction::ReturnToTitle:
-        return Input_IsKeyPressed('T');
-    case InputAction::ToggleTuningPanel:
-        return Input_IsKeyPressed(VK_F1);
-    case InputAction::ToggleCollisionDebug:
-        return Input_IsKeyPressed(VK_F3);
-    case InputAction::CycleFilter:
-        return Input_IsKeyPressed('C');
-    case InputAction::SelectFilterNone:
-        return Input_IsKeyPressed('1');
-    case InputAction::SelectFilterHot:
-        return Input_IsKeyPressed('2');
-    case InputAction::SelectFilterCold:
-        return Input_IsKeyPressed('3');
-    case InputAction::SelectFilterInvert:
-        return Input_IsKeyPressed('4');
-    case InputAction::SelectFilterSepia:
-        return Input_IsKeyPressed('5');
-    case InputAction::HoldCamera:
-        return Input_IsKeyPressed(VK_RBUTTON);
-    case InputAction::CapturePhoto:
-        return Input_IsMouseLeftPressed() || IsGamepadRightTriggerPressed();
-    case InputAction::ConfirmPlacement:
-        return Input_IsMouseLeftPressed()||IsGamepadRightTriggerPressed()||IsGamepadSouthPressed();
-    case InputAction::HoldPlacement:
-        return Input_IsKeyPressed('E')||IsGamepadNorthPressed();
-    case InputAction::CyclePlacementLayer:
-        return Input_IsKeyPressed('Q');
-    case InputAction::FlipPlacement:
-        return Input_IsKeyPressed('F');
-    case InputAction::ToggleBridgePlacement:
-        return Input_IsKeyPressed('B');
-    case InputAction::RotatePlacementLeft:
-        return Input_IsKeyPressed('Z')||IsGamepadLeftShoulderPressed();
-    case InputAction::RotatePlacementRight:
-        return Input_IsKeyPressed('X')||IsGamepadRightShoulderPressed();
-    case InputAction::MoveLeft:
-        return Input_IsKeyPressed('A') || Input_IsKeyPressed(VK_LEFT);
-    case InputAction::MoveRight:
-        return Input_IsKeyPressed('D') || Input_IsKeyPressed(VK_RIGHT);
-    case InputAction::MoveUp:
-        return Input_IsKeyPressed('W') || Input_IsKeyPressed(VK_UP);
-    case InputAction::MoveDown:
-        return Input_IsKeyPressed('S') || Input_IsKeyPressed(VK_DOWN);
-    case InputAction::Jump:
-        return Input_IsKeyPressed(VK_SPACE) || Input_IsKeyPressed('W') || Input_IsKeyPressed(VK_UP) || IsGamepadSouthPressed();
-    case InputAction::Dodge:
-        return Input_IsKeyPressed(VK_LSHIFT) || Input_IsKeyPressed(VK_RSHIFT) || Input_IsKeyPressed(VK_SHIFT)||IsGamepadEastPressed();
-    case InputAction::ExitPromptYes:
-        return Input_IsKeyPressed(VK_RETURN) || Input_IsKeyPressed('Y');
-    case InputAction::ExitPromptNo:
-        return Input_IsKeyPressed('N') || Input_IsKeyPressed(VK_ESCAPE);
-    default:
         return false;
     }
+    return EvaluateBoundKeys(binding->pressedKeys, true) || EvaluatePredicates(binding->pressedPredicates);
 }
 
 float Input_GetAxis(InputAxis axis)
