@@ -64,18 +64,36 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::fabs(dx);
             constexpr float kWalkerSpeed = 120.0f;
-            constexpr float kGravity = 1900.0f; // 3/21霑ｽ蜉(逕ｰ荵倶ｸ贋ｿ・
-            constexpr float kMaxFallSpeed = 980.0f; // 3/21霑ｽ蜉(逕ｰ荵倶ｸ贋ｿ・
+            constexpr float kGravity = 1900.0f;
+            constexpr float kMaxFallSpeed = 980.0f;
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // 3/21霑ｽ蜉・夐㍾蜉帛・逅・逕ｰ荵倶ｸ贋ｿ・
+            // 重力処理
             enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
             transform->y += enemy->velocityY * flow.lastDeltaTime;
             const bool onGround = snapToGround(*transform);
             if (onGround)
             {
                 enemy->velocityY = 0.0f;
+            }
+
+            // 向き更新
+            if (enemy->GetAIState() != EnemyComponent::AIState::Attack)
+            {
+                enemy->facing = dx > 0.0f
+                    ? EnemyComponent::FacingDirection::Right
+                    : EnemyComponent::FacingDirection::Left;
+            }
+
+            // 攻撃四角の残り時間を更新
+            if (enemy->attackRectActive)
+            {
+                enemy->attackRectRemaining -= flow.lastDeltaTime;
+                if (enemy->attackRectRemaining <= 0.0f)
+                {
+                    enemy->attackRectActive = false;
+                }
             }
 
             switch (enemy->GetAIState())
@@ -89,6 +107,24 @@ inline void UpdateEnemies(
             case EnemyComponent::AIState::Chase:
                 if (dist < enemy->attackRange)
                 {
+                    // 攻撃開始時に向きを固定して攻撃四角を生成
+                    enemy->facing = dx > 0.0f
+                        ? EnemyComponent::FacingDirection::Right
+                        : EnemyComponent::FacingDirection::Left;
+
+                    const float attackWidth = 48.0f;
+                    const float attackHeight = 60.0f;
+                    const float attackOffsetY = transform->height * transform->scale * -0.1f;
+
+                    enemy->attackRectX = enemy->facing == EnemyComponent::FacingDirection::Right
+                        ? transform->x + transform->width * transform->scale
+                        : transform->x - attackWidth;
+                    enemy->attackRectY = transform->y + attackOffsetY;
+                    enemy->attackRectWidth = attackWidth;
+                    enemy->attackRectHeight = attackHeight;
+                    enemy->attackRectRemaining = enemy->attackCooldown;
+                    enemy->attackRectActive = true;
+
                     enemy->attackTimer = 0.0f;
                     enemy->SetAIState(EnemyComponent::AIState::Attack);
                 }
@@ -99,18 +135,21 @@ inline void UpdateEnemies(
                 else
                 {
                     transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * flow.lastDeltaTime;
-                    snapToGround(*transform); // 3/21霑ｽ蜉(逕ｰ荵倶ｸ贋ｿ・
+                    snapToGround(*transform);
                 }
                 break;
             case EnemyComponent::AIState::Attack:
                 enemy->attackTimer += flow.lastDeltaTime;
                 if (dist >= enemy->attackRange)
                 {
+                    enemy->attackRectActive = false;
                     enemy->SetAIState(EnemyComponent::AIState::Chase);
                 }
                 else if (enemy->attackTimer >= enemy->attackCooldown)
                 {
                     enemy->attackTimer = 0.0f;
+                    enemy->attackRectActive = false;
+                    enemy->SetAIState(EnemyComponent::AIState::Chase);
                 }
                 break;
             }
@@ -132,7 +171,7 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            // 3/21霑ｽ蜉・夐ｫ倥＆蛻ｶ髯舌ｒ蜷ｫ繧諢溽衍蛻､螳・逕ｰ荵倶ｸ贋ｿ・
+            
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
       
@@ -144,7 +183,7 @@ inline void UpdateEnemies(
                 enemy->attackTimer = 0.0f;
 
                 constexpr float kBulletSpeed = 300.0f;
-                // 3/21菫ｮ豁｣・壽ｰｴ蟷ｳ譁ｹ蜷代・縺ｿ縺ｫ逋ｺ蟆・逕ｰ荵倶ｸ贋ｿ・
+                
                 const float velX = (dx > 0.0f ? 1.0f : -1.0f) * kBulletSpeed;
                 const float velY = 0.0f;
 
@@ -153,7 +192,7 @@ inline void UpdateEnemies(
                 bullet->AddComponent<TransformComponent>(
                     transform->x + 24.0f,
                     transform->y + 24.0f,
-                    48.0f, 24.0f); // 3/21菫ｮ豁｣・壽ｨｪ1繧ｰ繝ｪ繝・ラﾃ礼ｸｦ0.5繧ｰ繝ｪ繝・ラ(逕ｰ荵倶ｸ贋ｿ・
+                    48.0f, 24.0f); 
                 bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
                 bullet->AddComponent<SpriteRenderComponent>(tileTexture);
                 bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
@@ -181,7 +220,7 @@ void UpdateBullets(
     IntersectsEntityFn&& intersectsEntity,
     HandlePlayerDamageFn&& handlePlayerDamage
     , HandleEnemyDamageFn&& handleEnemyDamage
-    , IsSolidTileFn&& isSolidTile) // 3/21霑ｽ蜉(逕ｰ荵倶ｸ贋ｿ・
+    , IsSolidTileFn&& isSolidTile) 
 {
     entities.erase(
         std::remove_if(

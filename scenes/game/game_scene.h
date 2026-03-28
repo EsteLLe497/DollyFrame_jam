@@ -108,6 +108,7 @@ private:
     void DrawTuningPanel();
     void DrawPitRestartOverlay() const;
     void DrawEffects() const;
+    void DrawEnemyAttackRects() const;
     void DrawCaptureOverlay() const;
     void DrawDevelopedPhotoPreview() const;
     void DrawPhotoStorageTray() const;

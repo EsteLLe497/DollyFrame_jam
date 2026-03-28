@@ -190,6 +190,7 @@ void GameScene::Draw()
     DrawPitRestartOverlay();
     DrawTuningPanel();
     DrawPlayerHpBar();
+    DrawEnemyAttackRects();
 
     gRenderShakeOffsetX = 0.0f;
     gRenderShakeOffsetY = 0.0f;
