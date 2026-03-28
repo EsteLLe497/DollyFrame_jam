@@ -23,15 +23,15 @@ namespace
         return 1.0f + c3 * shifted * shifted * shifted + c1 * shifted * shifted;
     }
 
-    void DrawWorldRectOutline(float worldX, float worldY, float worldWidth, float worldHeight, float cameraX, unsigned int color)
+    void DrawWorldRectOutline(float worldX, float worldY, float worldWidth, float worldHeight, float cameraX, float cameraY, unsigned int color)
     {
         const float viewScale = GetViewScale();
         const float viewOriginX = GetViewOriginX();
         const float viewOriginY = GetViewOriginY();
         const int left = static_cast<int>(std::round(viewOriginX + (worldX - cameraX) * viewScale));
-        const int top = static_cast<int>(std::round(viewOriginY + worldY * viewScale));
+        const int top = static_cast<int>(std::round(viewOriginY + (worldY - cameraY) * viewScale));
         const int right = static_cast<int>(std::round(viewOriginX + (worldX + worldWidth - cameraX) * viewScale));
-        const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + worldHeight) * viewScale));
+        const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + worldHeight - cameraY) * viewScale));
         DrawBox(left, top, right, bottom, color, FALSE);
     }
 
@@ -39,6 +39,7 @@ namespace
         const TransformComponent& transform,
         const ImageOutlineColliderComponent& collider,
         float cameraX,
+        float cameraY,
         unsigned int color)
     {
         const auto& normalizedOutline = collider.GetNormalizedOutline();
@@ -72,7 +73,7 @@ namespace
             }
             screenPoints.emplace_back(
                 static_cast<int>(std::round(viewOriginX + (worldX - cameraX) * viewScale)),
-                static_cast<int>(std::round(viewOriginY + worldY * viewScale)));
+                static_cast<int>(std::round(viewOriginY + (worldY - cameraY) * viewScale)));
         }
 
         for (size_t index = 0; index < screenPoints.size(); ++index)
@@ -250,6 +251,7 @@ namespace
         const TransformComponent& transform,
         const FlickerLightComponent& light,
         float cameraX,
+        float cameraY,
         float intensityScale)
     {
         if (intensityScale <= 0.001f)
@@ -266,7 +268,7 @@ namespace
         const float coreRadius = radius * 0.16f;
         const float emberRadius = radius * 0.08f;
         const float centerX = viewOriginX + ((transform.x + transform.width * 0.5f + light.offsetX) - cameraX) * viewScale;
-        const float centerY = viewOriginY + (transform.y + transform.height * 0.5f + light.offsetY) * viewScale;
+        const float centerY = viewOriginY + ((transform.y + transform.height * 0.5f + light.offsetY) - cameraY) * viewScale;
         const float emberOffsetX = std::sin(timeSeconds * (light.flickerSpeed * 1.9f) + transform.x * 0.021f) * radius * 0.05f;
         const float emberOffsetY = std::cos(timeSeconds * (light.flickerSpeed * 1.6f) + transform.y * 0.018f) * radius * 0.04f;
         const int warmColor = GetColor(
@@ -315,6 +317,7 @@ namespace
         const TransformComponent& transform,
         const FlickerLightComponent& light,
         float cameraX,
+        float cameraY,
         float intensityScale)
     {
         if (!light.godRayEnabled || light.godRayIntensity <= 0.001f || intensityScale <= 0.001f)
@@ -332,7 +335,7 @@ namespace
         const float softnessWidth = beamWidth * (0.42f + (0.82f - 0.42f) * light.godRaySoftness);
         const float driftX = std::sin(timeSeconds * (0.65f + light.godRayDriftSpeed) + transform.x * 0.014f) * beamWidth * 0.10f;
         const float sourceX = viewOriginX + ((transform.x + transform.width * 0.5f + light.offsetX) - cameraX) * viewScale + driftX;
-        const float sourceY = viewOriginY + (transform.y + transform.height * 0.5f + light.offsetY) * viewScale - beamLength * 0.05f;
+        const float sourceY = viewOriginY + ((transform.y + transform.height * 0.5f + light.offsetY) - cameraY) * viewScale - beamLength * 0.05f;
         const float topY = sourceY - beamLength;
         const float bottomY = sourceY + beamLength * 0.08f;
         const float topHalfWidth = softnessWidth * 0.38f;
@@ -449,8 +452,8 @@ void GameScene::DrawEffects() const
             intensityScale *= checkpoint->activated ? 1.15f : 0.85f;
         }
 
-        DrawGodRay(*transform, *light, m_flow.cameraX, intensityScale);
-        DrawFlickerLight(*transform, *light, m_flow.cameraX, intensityScale);
+        DrawGodRay(*transform, *light, m_flow.cameraX, m_flow.cameraY, intensityScale);
+        DrawFlickerLight(*transform, *light, m_flow.cameraX, m_flow.cameraY, intensityScale);
     }
 
     for (const auto& particle : m_effects.barrelDebris)
@@ -461,7 +464,7 @@ void GameScene::DrawEffects() const
         SpriteDraw(
             m_whiteTexture,
             viewOriginX + (particle.x - m_flow.cameraX) * viewScale,
-            viewOriginY + particle.y * viewScale,
+            viewOriginY + (particle.y - m_flow.cameraY) * viewScale,
             particle.size * viewScale,
             particle.size * viewScale,
             0.0f,
@@ -489,7 +492,7 @@ void GameScene::DrawEntity(const Entity& entity) const
     const float viewOriginY = GetViewOriginY();
     const float viewWidth = GetViewWidth();
     float drawX = viewOriginX + (transform->x - m_flow.cameraX) * viewScale;
-    float drawY = viewOriginY + transform->y * viewScale;
+    float drawY = viewOriginY + (transform->y - m_flow.cameraY) * viewScale;
     float drawWidth = transform->width * transform->scale * viewScale;
     float drawHeight = transform->height * transform->scale * viewScale;
     if (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth)
@@ -724,7 +727,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         {
             const auto& afterimage = m_player.afterimages[index - 1];
             const float afterimageDrawX = viewOriginX + (afterimage.x - m_flow.cameraX) * viewScale;
-            const float afterimageDrawY = viewOriginY + afterimage.y * viewScale;
+            const float afterimageDrawY = viewOriginY + (afterimage.y - m_flow.cameraY) * viewScale;
             const float afterimageDrawWidth = transform->width * afterimage.scale * viewScale;
             const float afterimageDrawHeight = transform->height * afterimage.scale * viewScale;
             const float alpha = Clamp01(afterimage.life / 0.18f) * 0.32f;
@@ -855,11 +858,12 @@ void GameScene::DrawEntity(const Entity& entity) const
             transform->width * transform->scale,
             transform->height * transform->scale,
             m_flow.cameraX,
+            m_flow.cameraY,
             color);
 
         if (const auto* imageCollider = entity.GetComponent<ImageOutlineColliderComponent>())
         {
-            DrawWorldPolygonOutline(*transform, *imageCollider, m_flow.cameraX, color);
+            DrawWorldPolygonOutline(*transform, *imageCollider, m_flow.cameraX, m_flow.cameraY, color);
         }
     }
 

@@ -2,8 +2,8 @@
 
 #include "DxLib.h"
 
-int SCREEN_WIDTH = 1280;
-int SCREEN_HEIGHT = 720;
+int SCREEN_WIDTH = 1920;
+int SCREEN_HEIGHT = 1080;
 
 namespace
 {

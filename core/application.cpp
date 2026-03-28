@@ -26,8 +26,39 @@
 namespace
 {
     constexpr int TARGET_FPS = 60;
-    constexpr float SCENE_TRANSITION_DURATION = 0.48f;
-    constexpr float SCENE_TRANSITION_SWAP_TIME = 0.24f;
+    constexpr float SCENE_TRANSITION_DURATION = 0.70f;
+    constexpr float SCENE_TRANSITION_SWAP_TIME = SCENE_TRANSITION_DURATION * 0.5f;
+
+    void ConfigureBorderlessWindow(HWND windowHandle)
+    {
+        if (windowHandle == nullptr)
+        {
+            return;
+        }
+
+        LONG_PTR style = GetWindowLongPtr(windowHandle, GWL_STYLE);
+        style &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
+        style |= WS_POPUP;
+        SetWindowLongPtr(windowHandle, GWL_STYLE, style);
+
+        LONG_PTR exStyle = GetWindowLongPtr(windowHandle, GWL_EXSTYLE);
+        exStyle &= ~(WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE);
+        SetWindowLongPtr(windowHandle, GWL_EXSTYLE, exStyle);
+
+        const int displayWidth = GetSystemMetrics(SM_CXSCREEN);
+        const int displayHeight = GetSystemMetrics(SM_CYSCREEN);
+        const int windowX = (displayWidth - SCREEN_WIDTH) / 2;
+        const int windowY = (displayHeight - SCREEN_HEIGHT) / 2;
+
+        SetWindowPos(
+            windowHandle,
+            HWND_TOP,
+            windowX,
+            windowY,
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT,
+            SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+    }
 }
 
 Application::Application()
@@ -106,13 +137,15 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
 
     SetOutApplicationLogValidFlag(FALSE);
     SetUseCharCodeFormat(DX_CHARCODEFORMAT_UTF8);
-    ChangeWindowMode(FALSE);
+    ChangeWindowMode(TRUE);
     SetGraphMode(SCREEN_WIDTH, SCREEN_HEIGHT, 32, 60);
+    SetWindowSizeChangeEnableFlag(FALSE, FALSE);
     SetAlwaysRunFlag(TRUE);
     if (DxLib_Init() == -1)
     {
         return false;
     }
+    ConfigureBorderlessWindow(GetMainWindowHandle());
     SetMouseDispFlag(TRUE);
 
     DirectXInitialize(nullptr);
@@ -278,17 +311,7 @@ void Application::DrawSceneTransition() const
 
     const int drawAlpha = static_cast<int>(std::clamp(alpha, 0.0f, 1.0f) * 255.0f);
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, drawAlpha);
-    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(4, 8, 14), TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
-
-    const int centerX = SCREEN_WIDTH / 2;
-    const int centerY = SCREEN_HEIGHT / 2;
-    const int lineWidth = 220;
-    const int lineHeight = 6;
-    const int glowAlpha = static_cast<int>(std::clamp(alpha * 0.85f, 0.0f, 1.0f) * 255.0f);
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, glowAlpha);
-    DrawBox(centerX - lineWidth / 2, centerY - 16, centerX + lineWidth / 2, centerY - 16 + lineHeight, GetColor(80, 180, 255), TRUE);
-    DrawBox(centerX - lineWidth / 3, centerY + 10, centerX + lineWidth / 3, centerY + 10 + lineHeight, GetColor(255, 150, 64), TRUE);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
 }
 

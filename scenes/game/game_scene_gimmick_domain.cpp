@@ -329,6 +329,7 @@ void GameScene::StartPitRestart(Entity* player, const char* logMessage)
 
     m_flow.pitRestartActive = true;
     m_flow.pitRestartTimer = kPitRestartFadeDuration;
+    m_flow.pitRestartFadeInTimer = 0.0f;
     m_flow.cameraMode = false;
     m_flow.captureSlowRemaining = 0.0f;
     m_flow.placementSlowRemaining = 0.0f;
