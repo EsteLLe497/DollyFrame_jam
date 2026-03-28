@@ -76,8 +76,11 @@ float3 BuildSunsetRay(float2 uv, float3 light)
 
 float3 BuildWarmBuildingHit(float2 uv, float3 sceneColor, float3 light)
 {
-    float texelX = 1.0 / 1280.0;
-    float texelY = 1.0 / 720.0;
+    uint sceneWidth = 1;
+    uint sceneHeight = 1;
+    sceneTexture.GetDimensions(sceneWidth, sceneHeight);
+    float texelX = 1.0 / max(1.0, (float)sceneWidth);
+    float texelY = 1.0 / max(1.0, (float)sceneHeight);
     float3 right = sceneTexture.Sample(sceneSampler, uv + float2(texelX, 0.0)).rgb;
     float3 left = sceneTexture.Sample(sceneSampler, uv - float2(texelX, 0.0)).rgb;
     float3 up = sceneTexture.Sample(sceneSampler, uv + float2(0.0, texelY)).rgb;
@@ -114,7 +117,11 @@ float4 main(PSInput input) : SV_TARGET
     float vignette = saturate(1.0 - dot(center, center) * 1.55);
     float vignetteMix = lerp(1.0 - gVignetteStrength, 1.0, vignette);
 
-    float grain = Hash21(uv * 720.0 + gTime * 8.0) - 0.5;
+    uint sceneWidth = 1;
+    uint sceneHeight = 1;
+    sceneTexture.GetDimensions(sceneWidth, sceneHeight);
+    float grainScaleBase = min((float)sceneWidth, (float)sceneHeight);
+    float grain = Hash21(uv * (grainScaleBase * 0.67) + gTime * 8.0) - 0.5;
     float grainScale = gGrainStrength * (0.20 + (1.0 - vignette) * 0.16);
 
     float3 color = ApplyEveningGrade(src.rgb) * vignetteMix;

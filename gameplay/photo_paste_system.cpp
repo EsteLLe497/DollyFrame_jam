@@ -106,7 +106,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         CapturedPhotoItem previewItem = item;
         photo_system_bridge::ApplyPreviewFilterThemeBridge(previewItem);
         const float drawX = viewOriginX + ((scene.m_photo.placement.x + item.relativeX) - scene.m_flow.cameraX) * viewScale;
-        const float drawY = viewOriginY + (scene.m_photo.placement.y + item.relativeY) * viewScale;
+        const float drawY = viewOriginY + ((scene.m_photo.placement.y + item.relativeY) - scene.m_flow.cameraY) * viewScale;
         const float drawWidth = item.width * viewScale;
         const float drawHeight = item.height * viewScale;
 
@@ -205,7 +205,7 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
     static int lastMouseY = Input_GetMouseY();
 
     const float cursorStartWorldX = scene.m_flow.cameraX + gCameraViewWidth * 0.5f;
-    const float cursorStartWorldY = mapHeight * 0.5f;
+    const float cursorStartWorldY = scene.m_flow.cameraY + gCameraViewHeight * 0.5f;
 
     if (!initialized)
     {
@@ -236,7 +236,7 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
     if (mouseMoved)
     {
         padCursorWorldX = ((static_cast<float>(mouseX) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
-        padCursorWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale);
+        padCursorWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale) + scene.m_flow.cameraY;
         padCursorVelocityX = 0.0f;
         padCursorVelocityY = 0.0f;
     }
@@ -281,7 +281,7 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
     scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
 
     const float cursorScreenX = viewOriginX + (cursorWorldX - scene.m_flow.cameraX) * viewScale;
-    const float cursorScreenY = viewOriginY + cursorWorldY * viewScale;
+    const float cursorScreenY = viewOriginY + (cursorWorldY - scene.m_flow.cameraY) * viewScale;
     const bool confirmPressed = Input_IsActionPressed(InputAction::ConfirmPlacement);
     const bool blockedByTray = scene.IsPhotoTrayHit(cursorScreenX, cursorScreenY);
 

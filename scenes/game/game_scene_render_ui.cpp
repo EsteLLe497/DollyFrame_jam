@@ -279,13 +279,23 @@ namespace
 
 void GameScene::DrawPitRestartOverlay() const
 {
-    if (!m_flow.pitRestartActive)
+    if (!m_flow.pitRestartActive && m_flow.pitRestartFadeInTimer <= 0.0f)
     {
         return;
     }
 
-    const float progress = Clamp01(1.0f - (m_flow.pitRestartTimer / kPitRestartFadeDuration));
-    const float alpha = 0.35f + progress * 0.65f;
+    float alpha = 0.0f;
+    if (m_flow.pitRestartActive)
+    {
+        const float progress = Clamp01(1.0f - (m_flow.pitRestartTimer / kPitRestartFadeDuration));
+        alpha = 0.35f + progress * 0.65f; // Fade-out to black before respawn.
+    }
+    else
+    {
+        const float progress = Clamp01(m_flow.pitRestartFadeInTimer / kPitRestartFadeDuration);
+        alpha = progress; // Fade-in from black after respawn.
+    }
+
     Shader_ResetStyle();
     Shader_SetTint(0.01f, 0.01f, 0.02f, alpha);
     SpriteDraw(m_whiteTexture, 0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f, 0.0f, 1.0f, 1.0f);
@@ -323,7 +333,7 @@ void GameScene::DrawCaptureOverlay() const
     const float viewWidth = GetViewWidth();
     const float viewHeight = GetViewHeight();
     const float drawX = viewOriginX + (frameX - m_flow.cameraX) * viewScale;
-    const float drawY = viewOriginY + frameY * viewScale;
+    const float drawY = viewOriginY + (frameY - m_flow.cameraY) * viewScale;
     const float drawWidth = frameWidth * viewScale;
     const float drawHeight = frameHeight * viewScale;
     const int left = static_cast<int>(std::round(drawX));
@@ -430,7 +440,7 @@ void GameScene::DrawCaptureOverlay() const
         if (const auto* targetTransform = target->GetComponent<TransformComponent>())
         {
             const float targetDrawX = viewOriginX + (targetTransform->x - m_flow.cameraX) * viewScale;
-            const float targetDrawY = viewOriginY + targetTransform->y * viewScale;
+            const float targetDrawY = viewOriginY + (targetTransform->y - m_flow.cameraY) * viewScale;
             const float targetDrawWidth = targetTransform->width * targetTransform->scale * viewScale;
             const float targetDrawHeight = targetTransform->height * targetTransform->scale * viewScale;
             Shader_SetOutline(0.34f, 1.0f, 0.48f, 1.0f, 1.8f);
@@ -1008,9 +1018,11 @@ void GameScene::DrawBackdrop() const
             }
         }
 
-        for (float worldY = 0.0f; worldY <= gCameraViewHeight; worldY += gridSpacing)
+        const float worldTop = m_flow.cameraY;
+        const float worldBottom = m_flow.cameraY + gCameraViewHeight;
+        for (float worldY = std::floor(worldTop / gridSpacing) * gridSpacing; worldY <= worldBottom; worldY += gridSpacing)
         {
-            const float screenY = viewOriginY + worldY * viewScale;
+            const float screenY = viewOriginY + (worldY - m_flow.cameraY) * viewScale;
             const int y = static_cast<int>(std::round(screenY));
             const bool major = std::fmod(worldY, gridSpacing * 4.0f) < 0.5f ||
                 (gridSpacing * 4.0f - std::fmod(worldY, gridSpacing * 4.0f)) < 0.5f;
@@ -1028,7 +1040,7 @@ void GameScene::DrawBackdrop() const
     SpriteDraw(m_whiteTexture, viewOriginX - 10.0f, viewOriginY, 10.0f, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
     SpriteDraw(m_whiteTexture, panelRight, viewOriginY, 10.0f, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
-    m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY, viewScale);
+    m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY - m_flow.cameraY * viewScale, viewScale);
 
     if (const Entity* player = FindEntityByTag("Player"))
     {
@@ -1092,7 +1104,7 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_flow.captureFinderScale;
 
     const float cursorStartWorldX = m_flow.cameraX + gCameraViewWidth * 0.5f;
-    const float cursorStartWorldY = gCameraViewHeight * 0.5f;
+    const float cursorStartWorldY = m_flow.cameraY + gCameraViewHeight * 0.5f;
 
     static float padCursorWorldX = cursorStartWorldX;
     static float padCursorWorldY = cursorStartWorldY;
@@ -1136,7 +1148,7 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
         const float viewOriginX = GetViewOriginX();
         const float viewOriginY = GetViewOriginY();
         padCursorWorldX = ((static_cast<float>(mouseX) - viewOriginX) / viewScale) + m_flow.cameraX;
-        padCursorWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale);
+        padCursorWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale) + m_flow.cameraY;
         padCursorVelocityX = 0.0f;
         padCursorVelocityY = 0.0f;
     }
