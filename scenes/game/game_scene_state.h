@@ -37,6 +37,7 @@ struct GameSceneFlowState
     float timeLimit = 60.0f;
     float timeRemaining = 60.0f;
     float cameraX = 0.0f;
+    float cameraY = 0.0f;
     float goalPulse = 0.0f;
     float pickupPulse = 0.0f;
     float captureSlowRemaining = 0.0f;
@@ -53,6 +54,7 @@ struct GameSceneFlowState
     int cameraModeSessionId = 0;
     bool pitRestartActive = false;
     float pitRestartTimer = 0.0f;
+    float pitRestartFadeInTimer = 0.0f;
     bool hasCheckpoint = false;
     int activeCheckpointId = -1;
     float stageStartX = 0.0f;

@@ -406,12 +406,36 @@ void ResolveVerticalMotion(
     }
 }
 
-inline void UpdateCameraX(float& cameraX, float playerX, float playerWidth, float mapWidth, float deltaTime)
+inline void UpdateCamera(
+    float& cameraX,
+    float& cameraY,
+    float playerX,
+    float playerY,
+    float playerWidth,
+    float playerHeight,
+    float mapWidth,
+    float mapHeight,
+    float deltaTime,
+    bool followY)
 {
-    const float cameraTarget = std::clamp(
+    const float targetX = std::clamp(
         playerX + playerWidth * 0.5f - gCameraViewWidth * 0.5f,
         0.0f,
         std::max(0.0f, mapWidth - gCameraViewWidth));
-    cameraX += (cameraTarget - cameraX) * std::min(1.0f, deltaTime * 8.0f);
+    const float followX = std::clamp(gCameraFollowSpeedX * deltaTime, 0.0f, 1.0f);
+    cameraX += (targetX - cameraX) * followX;
+
+    if (!followY)
+    {
+        cameraY = 0.0f;
+        return;
+    }
+
+    const float targetY = std::clamp(
+        playerY + playerHeight * 0.5f - gCameraViewHeight * 0.5f,
+        0.0f,
+        std::max(0.0f, mapHeight - gCameraViewHeight));
+    const float followYRate = std::clamp(gCameraFollowSpeedY * deltaTime, 0.0f, 1.0f);
+    cameraY += (targetY - cameraY) * followYRate;
 }
 }

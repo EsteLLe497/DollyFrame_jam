@@ -1,6 +1,7 @@
 #include "game_scene_internal.h"
 
 #include <fstream>
+#include <limits>
 #include <stdexcept>
 
 #include <nlohmann/json.hpp>
@@ -11,6 +12,9 @@ using namespace game_scene_detail;
 
 namespace
 {
+    constexpr float kFloorCameraWidth = 1920.0f;
+    constexpr float kFloorCameraHeight = 1080.0f;
+
     float AlignToGrid(float value, float gridSize)
     {
         return std::round(value / gridSize) * gridSize;
@@ -32,6 +36,9 @@ namespace
         nlohmann::json root;
         root["camera_view_width"] = gCameraViewWidth;
         root["camera_view_height"] = gCameraViewHeight;
+        root["camera_follow_speed_x"] = gCameraFollowSpeedX;
+        root["camera_follow_speed_y"] = gCameraFollowSpeedY;
+        root["camera_follow_y"] = gCameraFollowY >= 0.5f;
         root["move_speed"] = gPlayerMoveSpeed;
         root["jump_speed"] = gPlayerJumpSpeed;
         root["gravity"] = gPlayerGravity;
@@ -55,6 +62,121 @@ namespace
         return root;
     }
 
+}
+
+void GameScene::BuildCameraMarkers()
+{
+    m_cameraTransitionMarkers.clear();
+    m_cameraFixedRanges.clear();
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    struct MarkerPoint
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+    };
+
+    std::vector<MarkerPoint> fixedStarts;
+    std::vector<MarkerPoint> fixedEnds;
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = m_tileMap.GetMarker(column, row);
+            const float x = static_cast<float>(column) * tileSize;
+            const float y = static_cast<float>(row) * tileSize;
+
+            if (marker == 'T')
+            {
+                CameraTransitionMarker transitionMarker;
+                transitionMarker.x = x;
+                transitionMarker.y = y;
+                transitionMarker.column = column;
+                transitionMarker.row = row;
+                transitionMarker.wasInside = false;
+                m_cameraTransitionMarkers.push_back(transitionMarker);
+            }
+            else if (marker == 'S')
+            {
+                fixedStarts.push_back({ x, y });
+            }
+            else if (marker == 'E')
+            {
+                fixedEnds.push_back({ x, y });
+            }
+        }
+    }
+
+    if (fixedStarts.empty() || fixedEnds.empty())
+    {
+        return;
+    }
+
+    auto markerOrder = [](const MarkerPoint& a, const MarkerPoint& b)
+    {
+        if (a.y == b.y)
+        {
+            return a.x < b.x;
+        }
+        return a.y < b.y;
+    };
+    std::sort(fixedStarts.begin(), fixedStarts.end(), markerOrder);
+    std::sort(fixedEnds.begin(), fixedEnds.end(), markerOrder);
+
+    const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth);
+    const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
+    std::vector<bool> endUsed(fixedEnds.size(), false);
+    for (const MarkerPoint& start : fixedStarts)
+    {
+        const int startFloorY = static_cast<int>(std::floor(start.y / kFloorCameraHeight));
+        int matchedEndIndex = -1;
+        float bestDeltaX = std::numeric_limits<float>::max();
+        for (int i = 0; i < static_cast<int>(fixedEnds.size()); ++i)
+        {
+            if (endUsed[static_cast<size_t>(i)])
+            {
+                continue;
+            }
+
+            const MarkerPoint& candidateEnd = fixedEnds[static_cast<size_t>(i)];
+            const int endFloorY = static_cast<int>(std::floor(candidateEnd.y / kFloorCameraHeight));
+            if (endFloorY != startFloorY || candidateEnd.x < start.x)
+            {
+                continue;
+            }
+
+            const float deltaX = candidateEnd.x - start.x;
+            if (deltaX < bestDeltaX)
+            {
+                bestDeltaX = deltaX;
+                matchedEndIndex = i;
+            }
+        }
+        if (matchedEndIndex < 0)
+        {
+            continue;
+        }
+
+        const MarkerPoint& end = fixedEnds[static_cast<size_t>(matchedEndIndex)];
+        CameraFixedRange range;
+        range.startX = (std::min)(start.x, end.x);
+        range.endX = (std::max)(start.x, end.x);
+        const float startCenterX = start.x + tileSize * 0.5f;
+        const float endCenterX = end.x + tileSize * 0.5f;
+        const float segmentCenterX = (startCenterX + endCenterX) * 0.5f;
+        const float snappedCameraX = segmentCenterX - gCameraViewWidth * 0.5f;
+        const float snappedCameraY = std::floor(start.y / kFloorCameraHeight) * kFloorCameraHeight;
+        range.cameraX = std::clamp(snappedCameraX, 0.0f, maxCameraX);
+        range.cameraY = std::clamp(snappedCameraY, 0.0f, maxCameraY);
+        m_cameraFixedRanges.push_back(range);
+        endUsed[static_cast<size_t>(matchedEndIndex)] = true;
+    }
 }
 
 namespace game_scene_detail
@@ -91,6 +213,9 @@ namespace game_scene_detail
 
         gCameraViewWidth = root.value("camera_view_width", gCameraViewWidth);
         gCameraViewHeight = root.value("camera_view_height", gCameraViewHeight);
+        gCameraFollowSpeedX = root.value("camera_follow_speed_x", gCameraFollowSpeedX);
+        gCameraFollowSpeedY = root.value("camera_follow_speed_y", gCameraFollowSpeedY);
+        gCameraFollowY = root.value("camera_follow_y", gCameraFollowY >= 0.5f) ? 1.0f : 0.0f;
         gPlayerMoveSpeed = root.value("move_speed", gPlayerMoveSpeed);
         gPlayerJumpSpeed = root.value("jump_speed", gPlayerJumpSpeed);
         gPlayerGravity = root.value("gravity", gPlayerGravity);
@@ -117,10 +242,28 @@ namespace game_scene_detail
 void GameScene::ResetSceneState()
 {
     m_entities.clear();
+    m_pendingEntities.clear();
     m_photo = PhotoState{};
     m_flow = GameSceneFlowState{};
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
+    m_cameraTransitionMarkers.clear();
+    m_cameraFixedRanges.clear();
+    m_hasPreviousPlayerCameraProbe = false;
+    m_previousPlayerCameraProbeX = 0.0f;
+    m_previousPlayerCameraProbeY = 0.0f;
+    m_floorCameraTransitionActive = false;
+    m_floorCameraTransitionElapsed = 0.0f;
+    m_floorCameraTransitionDuration = 1.10f;
+    m_floorCameraTransitionStartX = 0.0f;
+    m_floorCameraTransitionStartY = 0.0f;
+    m_floorCameraTransitionTargetX = 0.0f;
+    m_floorCameraTransitionTargetY = 0.0f;
+    m_cameraFixedLockActive = false;
+    m_cameraFixedLockStartX = 0.0f;
+    m_cameraFixedLockEndX = 0.0f;
+    m_cameraFixedLockX = 0.0f;
+    m_cameraFixedLockY = 0.0f;
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
 }
@@ -406,6 +549,8 @@ void GameScene::InitializeStageEntities()
     //SpawnStagePrefab(prefabs, "sandbox_enemy_tall", AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize));
     //SpawnStagePrefab(prefabs, "sandbox_enemy_walker", AlignToGrid(500.0f, tileSize), AlignToGrid(352.0f, tileSize));
     //SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", AlignToGrid(900.0f, tileSize), AlignToGrid(352.0f, tileSize));
+
+    BuildCameraMarkers();
 }
 
 Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y)

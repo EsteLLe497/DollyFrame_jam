@@ -26,6 +26,9 @@ inline constexpr const char* kTuningFilePath = "assets/tuning.json";
 constexpr float kPixelsPerMeter = 100.0f;
 inline float gCameraViewWidth = 1120.0f;
 inline float gCameraViewHeight = 630.0f;
+inline float gCameraFollowSpeedX = 14.0f;
+inline float gCameraFollowSpeedY = 10.0f;
+inline float gCameraFollowY = 1.0f;
 inline float gPlayerMoveSpeed = 320.0f;
 inline float gPlayerJumpSpeed = -760.0f;
 inline float gPlayerGravity = 1900.0f;
@@ -86,10 +89,13 @@ inline float GetPlayerDodgeDuration()
 
 inline auto BuildGameSceneTuningEntries()
 {
-    return std::array<GameSceneTuningEntry, 22>
+    return std::array<GameSceneTuningEntry, 25>
     {{
         { "Camera Width", &gCameraViewWidth, 20.0f, 640.0f, 1920.0f },
         { "Camera Height", &gCameraViewHeight, 20.0f, 360.0f, 1080.0f },
+        { "Cam Follow X", &gCameraFollowSpeedX, 0.5f, 1.0f, 40.0f },
+        { "Cam Follow Y", &gCameraFollowSpeedY, 0.5f, 1.0f, 40.0f },
+        { "Cam Y Track", &gCameraFollowY, 1.0f, 0.0f, 1.0f },
         { "Move Speed", &gPlayerMoveSpeed, 10.0f, 80.0f, 960.0f },
         { "Jump Speed", &gPlayerJumpSpeed, 20.0f, -1600.0f, -120.0f },
         { "Gravity", &gPlayerGravity, 50.0f, 200.0f, 4000.0f },
@@ -297,8 +303,10 @@ inline PhotoCopyOrigin GetEntityCopyOrigin(const Entity& entity)
 
 inline float GetViewScale()
 {
-    const float maxWidth = static_cast<float>(SCREEN_WIDTH) - 128.0f;
-    const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - 128.0f;
+    const float marginX = std::clamp(static_cast<float>(SCREEN_WIDTH) * 0.04f, 48.0f, 96.0f);
+    const float marginY = std::clamp(static_cast<float>(SCREEN_HEIGHT) * 0.04f, 36.0f, 72.0f);
+    const float maxWidth = static_cast<float>(SCREEN_WIDTH) - marginX * 2.0f;
+    const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - marginY * 2.0f;
     return std::max(1.0f, std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight)) * gRenderViewScaleMultiplier;
 }
 

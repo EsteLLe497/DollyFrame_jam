@@ -114,6 +114,7 @@ void GameScene::Update(float deltaTime)
     {
         m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
         m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
+        m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
         const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;
         m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
         if (previewWasActive && m_flow.developedPhotoPreviewRemaining <= 0.0f)
@@ -239,6 +240,13 @@ void GameScene::DrawDebugUI()
         m_tileMap.GetHeight(),
         m_tileMap.GetTileSize());
     ImGui::Text("Camera X: %.1f / %.1f", m_flow.cameraX, std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth));
+    ImGui::Text("Camera Y: %.1f / %.1f", m_flow.cameraY, std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight));
+    ImGui::Text("Camera Follow Y: %s", gCameraFollowY >= 0.5f ? "On" : "Off");
+    bool followY = gCameraFollowY >= 0.5f;
+    if (ImGui::Checkbox("Enable Camera Y Follow", &followY))
+    {
+        gCameraFollowY = followY ? 1.0f : 0.0f;
+    }
     ImGui::Text("View Scale: %.2f", GetViewScale());
     ImGui::Text("Time Limit: Off");
     ImGui::Text("Captured Photo: %s", m_photo.capture.hasPhoto ? "Ready" : "Missing");

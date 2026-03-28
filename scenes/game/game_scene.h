@@ -36,10 +36,31 @@ public:
     EventBus* GetEventBus() override;
 
 private:
+    struct CameraTransitionMarker
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        int column = 0;
+        int row = 0;
+        bool wasInside = false;
+    };
+
+    struct CameraFixedRange
+    {
+        float startX = 0.0f;
+        float endX = 0.0f;
+        float cameraX = 0.0f;
+        float cameraY = 0.0f;
+    };
+
     void ResetSceneState();
     void LoadTuningState();
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
+    void BuildCameraMarkers();
+    void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime);
+    bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
+    void StartFloorCameraTransition(int directionX, int directionY);
     Entity& SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y);
     Entity* FindEntityByTag(const char* tag) const;
     void UpdatePlayer(float deltaTime);
@@ -50,8 +71,8 @@ private:
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void UpdateEnemies();
     void UpdateBullets();
-    void SpawnDropItems(float x, float y, int count); // 3/23í«â¡(ìcîVè„èr)
-    void UpdateDropItems();                            // 3/23í«â¡(ìcîVè„èr)
+    void SpawnDropItems(float x, float y, int count); // 3/23???(?c?V??r)
+    void UpdateDropItems();                            // 3/23???(?c?V??r)
     int GetEnemyDropCount(EnemyArchetype archetype) const;
     void UpdateCameraMode();
     float UpdatePhotoModes(float deltaTime);
@@ -140,4 +161,21 @@ private:
     GameScenePlayerState m_player;
     GameSceneDebugState m_debug;
     GameSceneEffectsState m_effects;
+    std::vector<CameraTransitionMarker> m_cameraTransitionMarkers;
+    std::vector<CameraFixedRange> m_cameraFixedRanges;
+    bool m_hasPreviousPlayerCameraProbe = false;
+    float m_previousPlayerCameraProbeX = 0.0f;
+    float m_previousPlayerCameraProbeY = 0.0f;
+    bool m_floorCameraTransitionActive = false;
+    float m_floorCameraTransitionElapsed = 0.0f;
+    float m_floorCameraTransitionDuration = 0.45f;
+    float m_floorCameraTransitionStartX = 0.0f;
+    float m_floorCameraTransitionStartY = 0.0f;
+    float m_floorCameraTransitionTargetX = 0.0f;
+    float m_floorCameraTransitionTargetY = 0.0f;
+    bool m_cameraFixedLockActive = false;
+    float m_cameraFixedLockStartX = 0.0f;
+    float m_cameraFixedLockEndX = 0.0f;
+    float m_cameraFixedLockX = 0.0f;
+    float m_cameraFixedLockY = 0.0f;
 };
