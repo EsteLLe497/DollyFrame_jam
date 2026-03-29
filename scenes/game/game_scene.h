@@ -111,6 +111,7 @@ private:
     void DrawTuningPanel();
     void DrawPitRestartOverlay() const;
     void DrawEffects() const;
+    void DrawEnemyAttackRects() const;
     void DrawCaptureOverlay() const;
     void DrawDevelopedPhotoPreview() const;
     void DrawPhotoStorageTray() const;
@@ -133,6 +134,7 @@ private:
     bool IsStandingOnGround(const TransformComponent& transform) const;
     bool TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const;
     bool IntersectsSolidPhotoBox(const TransformComponent& transform) const;
+    bool IntersectsSolidPhotoBoxForMovement(const TransformComponent& transform) const;
     bool GetSlopeSurfaceY(int column, int row, float worldX, float& outSurfaceY) const;
     bool IntersectsHazardTile(const TransformComponent& transform) const;
     bool IntersectsPitTile(const TransformComponent& transform) const;

@@ -540,6 +540,17 @@ void GameScene::UpdatePlayer(float deltaTime)
             verticalSnapDistance,
         };
         const float horizontalVelocity = m_player.velocityX;
+        const auto intersectsPhotoBoxForHorizontalMove = [this, groundedAtStepStart, tileSize](const TransformComponent& candidate)
+        {
+            if (!groundedAtStepStart)
+            {
+                return IntersectsSolidPhotoBoxForMovement(candidate);
+            }
+
+            TransformComponent liftedCandidate = candidate;
+            liftedCandidate.y -= std::max(2.0f, tileSize * 0.09f);
+            return IntersectsSolidPhotoBoxForMovement(liftedCandidate);
+        };
 
         game_scene_player_movement_system::ResolveHorizontalTileCollisions(
             *transform,
@@ -551,9 +562,9 @@ void GameScene::UpdatePlayer(float deltaTime)
                     ? IsTileBlockingFromLeft(column, row)
                     : IsTileBlockingFromRight(column, row);
             },
-            [this](const TransformComponent& candidate)
+            [&intersectsPhotoBoxForHorizontalMove](const TransformComponent& candidate)
             {
-                return IntersectsSolidPhotoBox(candidate);
+                return intersectsPhotoBoxForHorizontalMove(candidate);
             });
 
         game_scene_player_movement_system::ResolveHorizontalObjectCollisions(
@@ -561,9 +572,9 @@ void GameScene::UpdatePlayer(float deltaTime)
             m_player,
             movementContext,
             photoBoxes,
-            [this](const TransformComponent& candidate)
+            [&intersectsPhotoBoxForHorizontalMove](const TransformComponent& candidate)
             {
-                return IntersectsSolidPhotoBox(candidate);
+                return intersectsPhotoBoxForHorizontalMove(candidate);
             },
             solidObjects);
 
@@ -600,7 +611,7 @@ void GameScene::UpdatePlayer(float deltaTime)
             },
             [this](const TransformComponent& candidate)
             {
-                return IntersectsSolidPhotoBox(candidate);
+                return IntersectsSolidPhotoBoxForMovement(candidate);
             });
 
         groundedAtStepStart = m_player.grounded;
@@ -1054,7 +1065,39 @@ void GameScene::UpdatePhotoTraySelection()
 
 void GameScene::HandleAttackHits()
 {
-    return;
+    Entity* player = FindEntityByTag("Player");
+    if (!player) return;
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity) continue;
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled() || !enemy->attackRectActive) continue;
+
+        const auto* playerTransform = player->GetComponent<TransformComponent>();
+        if (!playerTransform) continue;
+
+        const float playerLeft = playerTransform->x;
+        const float playerRight = playerTransform->x + playerTransform->width * playerTransform->scale;
+        const float playerTop = playerTransform->y;
+        const float playerBottom = playerTransform->y + playerTransform->height * playerTransform->scale;
+
+        const float attackLeft = enemy->attackRectX;
+        const float attackRight = enemy->attackRectX + enemy->attackRectWidth;
+        const float attackTop = enemy->attackRectY;
+        const float attackBottom = enemy->attackRectY + enemy->attackRectHeight;
+
+        const bool intersects =
+            playerLeft < attackRight &&
+            playerRight > attackLeft &&
+            playerTop < attackBottom &&
+            playerBottom > attackTop;
+
+        if (intersects)
+        {
+            HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by melee attack");
+        }
+    }
 }
 
 void GameScene::UpdateGoalVisual(float deltaTime)

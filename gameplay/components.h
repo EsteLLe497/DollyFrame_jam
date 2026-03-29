@@ -270,6 +270,8 @@ public:
 
    
     enum class AIState { Idle, Chase, Attack };
+    enum class FacingDirection { Right, Left };
+    FacingDirection facing = FacingDirection::Right;
 
     void DrawDebugUI() override;
     EnemyArchetype GetArchetype() const;
@@ -292,6 +294,12 @@ public:
     float spawnX = 0.0f;
     float spawnY = 0.0f;
     bool respawnEnabled = true;
+    bool attackRectActive = false;
+    float attackRectX = 0.0f;
+    float attackRectY = 0.0f;
+    float attackRectWidth = 0.0f;
+    float attackRectHeight = 0.0f;
+    float attackRectRemaining = 0.0f;
 
 private:
     EnemyArchetype m_archetype;

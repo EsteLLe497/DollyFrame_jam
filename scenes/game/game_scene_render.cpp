@@ -953,3 +953,26 @@ void GameScene::DrawEntity(const Entity& entity) const
     Shader_ResetStyle();
 }
 
+void GameScene::DrawEnemyAttackRects() const
+{
+    const float viewScale = GetViewScale();
+    const float viewOriginX = GetViewOriginX();
+    const float viewOriginY = GetViewOriginY();
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity) continue;
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->attackRectActive) continue;
+
+        const float screenX = viewOriginX + (enemy->attackRectX - m_flow.cameraX) * viewScale;
+        const float screenY = viewOriginY + enemy->attackRectY * viewScale;
+        const float screenW = enemy->attackRectWidth * viewScale;
+        const float screenH = enemy->attackRectHeight * viewScale;
+
+        DrawBoxAA(
+            screenX, screenY,
+            screenX + screenW, screenY + screenH,
+            GetColor(255, 80, 80), TRUE);
+    }
+}
