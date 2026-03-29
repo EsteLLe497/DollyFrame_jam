@@ -28,7 +28,6 @@ void GameScene::UpdateEnemies()
         m_flow,
         m_photo,
         playerTransform,
-        
         [this](TransformComponent& transform) -> bool
         {
             return SnapEnemyToGround(transform);
@@ -36,6 +35,26 @@ void GameScene::UpdateEnemies()
         [this](Entity& enemyEntity)
         {
             m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, "enemy_gun", 0.0f, 0.0f });
+        },
+        // photoBox衝突チェックコールバック
+        [this](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
+        {
+            for (auto it = m_entities.begin(); it != m_entities.end(); ++it)
+            {
+                if (!*it || !HasTag(**it, "PhotoBox")) continue;
+                const auto* photoTransform = (*it)->GetComponent<TransformComponent>();
+                if (!photoTransform) continue;
+                if (IntersectsRect(bossTransform, *photoTransform))
+                {
+                    it = m_entities.erase(it);
+                    return true;
+                }
+            }
+            return false;
+        },
+        [this](int column, int row) -> bool
+        {
+            return IsSolidTile(column, row);
         });
 }
 
@@ -202,7 +221,7 @@ int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
         return 10;
     case EnemyArchetype::Ranged:
         return 10;
-    case EnemyArchetype::Turret:
+    case EnemyArchetype::ShieldBoss:
         return 50;
     default:
         return 5;

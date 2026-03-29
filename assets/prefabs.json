@@ -668,6 +668,38 @@
         "attackCooldown": 3.0,
         "detectHeight": 96.0
       }
+    },
+    "sandbox_shield_boss": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 144.0,
+        "height": 192.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.8,
+        "g": 0.1,
+        "b": 0.1,
+        "a": 1.0
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "shield_boss",
+        "contactDamage": 1,
+        "detectRange": 600.0,
+        "attackRange": 600.0,
+        "attackCooldown": 3.0,
+        "detectHeight": 192.0,
+        "shieldBoss": true
+      },
+      "health": {
+        "enabled": true,
+        "maxHp": 10
+      }
     }
   }
 }
