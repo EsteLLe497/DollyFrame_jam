@@ -55,6 +55,9 @@ struct GameSceneFlowState
     bool pitRestartActive = false;
     float pitRestartTimer = 0.0f;
     float pitRestartFadeInTimer = 0.0f;
+    bool stageTransitionActive = false;
+    float stageTransitionTimer = 0.0f;
+    float stageTransitionFadeInTimer = 0.0f;
     bool hasCheckpoint = false;
     int activeCheckpointId = -1;
     float stageStartX = 0.0f;

@@ -6,6 +6,8 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #include <tracy/Tracy.hpp>
 
@@ -22,6 +24,18 @@
 
 namespace game_scene_detail
 {
+struct StageTransitionLink
+{
+    std::string sourceMapCsv;
+    char marker = '\0';
+    std::string destinationMapCsv;
+    char spawnMarker = '\0';
+};
+
+inline std::vector<StageTransitionLink> gStageTransitionLinks;
+inline std::string gCurrentMapCsvPath = "assets/maps/stage01_1.csv";
+inline char gLastStageTransitionMarker = '\0';
+
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";
 constexpr float kPixelsPerMeter = 100.0f;
 inline float gCameraViewWidth = 1120.0f;

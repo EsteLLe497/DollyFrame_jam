@@ -6,6 +6,7 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr float kBarrelDebrisGravity = 980.0f;
+    constexpr float kStageTransitionFadeInDuration = 1.10f;
 }
 
 GameScene::GameScene()
@@ -110,11 +111,40 @@ void GameScene::Update(float deltaTime)
         return true;
     };
 
+    auto updateStageTransitionFlow = [this, deltaTime]() -> bool
+    {
+        if (!m_flow.stageTransitionActive)
+        {
+            return false;
+        }
+
+        m_flow.stageTransitionTimer = std::max(0.0f, m_flow.stageTransitionTimer - deltaTime);
+        if (m_flow.stageTransitionTimer > 0.0f)
+        {
+            return true;
+        }
+
+        const bool transitioned = m_hasPendingStageTransition &&
+            ExecuteStageTransition(
+                m_pendingStageTransitionMapCsv,
+                m_pendingStageTransitionSpawnMarker,
+                m_pendingStageTransitionMarker);
+        m_hasPendingStageTransition = false;
+        m_pendingStageTransitionMapCsv.clear();
+        m_pendingStageTransitionSpawnMarker = '\0';
+        m_pendingStageTransitionMarker = '\0';
+        m_flow.stageTransitionActive = false;
+        m_flow.stageTransitionTimer = 0.0f;
+        m_flow.stageTransitionFadeInTimer = transitioned ? kStageTransitionFadeInDuration : 0.0f;
+        return true;
+    };
+
     auto updateFrameTimers = [this, deltaTime](float gameplayDeltaTime, float effectiveGameplayDeltaTime)
     {
         m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
         m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
         m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
+        m_flow.stageTransitionFadeInTimer = std::max(0.0f, m_flow.stageTransitionFadeInTimer - deltaTime);
         const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;
         m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
         if (previewWasActive && m_flow.developedPhotoPreviewRemaining <= 0.0f)
@@ -136,6 +166,10 @@ void GameScene::Update(float deltaTime)
     }
 
     if (updatePitRestartFlow())
+    {
+        return;
+    }
+    if (updateStageTransitionFlow())
     {
         return;
     }
