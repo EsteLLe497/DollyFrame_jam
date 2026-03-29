@@ -1,8 +1,10 @@
 #include "game_scene_internal.h"
 
+#include <cctype>
 #include <fstream>
 #include <limits>
 #include <stdexcept>
+#include <sstream>
 
 #include <nlohmann/json.hpp>
 
@@ -14,6 +16,81 @@ namespace
 {
     constexpr float kFloorCameraWidth = 1920.0f;
     constexpr float kFloorCameraHeight = 1080.0f;
+    constexpr const char* kStageTransitionCsvPath = "assets/maps/stage_transitions.csv";
+
+    std::string Trim(const std::string& value)
+    {
+        const size_t start = value.find_first_not_of(" \t\r\n");
+        if (start == std::string::npos)
+        {
+            return {};
+        }
+        const size_t end = value.find_last_not_of(" \t\r\n");
+        return value.substr(start, end - start + 1);
+    }
+
+    std::vector<std::string> SplitCsvLine(const std::string& line)
+    {
+        std::vector<std::string> parts;
+        std::stringstream stream(line);
+        std::string cell;
+        while (std::getline(stream, cell, ','))
+        {
+            parts.push_back(Trim(cell));
+        }
+        return parts;
+    }
+
+    void LoadStageTransitionLinks()
+    {
+        gStageTransitionLinks.clear();
+
+        std::ifstream stream(kStageTransitionCsvPath, std::ios::binary);
+        if (!stream.is_open())
+        {
+            return;
+        }
+
+        std::string line;
+        while (std::getline(stream, line))
+        {
+            const std::string trimmed = Trim(line);
+            if (trimmed.empty() || trimmed[0] == '#')
+            {
+                continue;
+            }
+
+            const std::vector<std::string> cells = SplitCsvLine(trimmed);
+            if (cells.size() < 3)
+            {
+                continue;
+            }
+
+            StageTransitionLink link;
+            link.sourceMapCsv = cells[0];
+            if (link.sourceMapCsv.empty())
+            {
+                link.sourceMapCsv = "*";
+            }
+
+            if (!cells[1].empty())
+            {
+                link.marker = static_cast<char>(std::toupper(static_cast<unsigned char>(cells[1][0])));
+            }
+            link.destinationMapCsv = cells[2];
+            if (cells.size() >= 4 && !cells[3].empty())
+            {
+                link.spawnMarker = static_cast<char>(std::toupper(static_cast<unsigned char>(cells[3][0])));
+            }
+
+            if (link.marker == '\0' || link.destinationMapCsv.empty())
+            {
+                continue;
+            }
+
+            gStageTransitionLinks.push_back(std::move(link));
+        }
+    }
 
     float AlignToGrid(float value, float gridSize)
     {
@@ -264,6 +341,12 @@ void GameScene::ResetSceneState()
     m_cameraFixedLockEndX = 0.0f;
     m_cameraFixedLockX = 0.0f;
     m_cameraFixedLockY = 0.0f;
+    m_hasPendingStageTransition = false;
+    m_pendingStageTransitionMapCsv.clear();
+    m_pendingStageTransitionSpawnMarker = '\0';
+    m_pendingStageTransitionMarker = '\0';
+    gCurrentMapCsvPath = "assets/maps/stage01_1.csv";
+    gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
 }
@@ -282,10 +365,11 @@ void GameScene::LoadTuningState()
 
 void GameScene::InitializeStageResources(ResourceManager& resources)
 {
+    LoadStageTransitionLinks();
     m_assets.LoadDefaults(resources);
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
-    m_tileMap.LoadFromCsv("assets/maps/stage01_1.csv", 48.0f);
+    m_tileMap.LoadFromCsv(gCurrentMapCsvPath, 48.0f);
     m_eventBus.Clear();
     m_physicsWorld.Initialize(0.0f, 0.0f, m_eventBus);
 }

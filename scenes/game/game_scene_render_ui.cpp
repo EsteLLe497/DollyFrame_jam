@@ -2,6 +2,8 @@
 #include "photo_system.h"
 #include "photo_filter_rules.h"
 
+#include <cctype>
+
 #include "DxLib.h"
 
 using namespace game_scene_detail;
@@ -14,6 +16,16 @@ namespace
     constexpr float kPadCursorDamping = 10.0f;
     constexpr float kPadCursorMouseReturnDelay = 0.28f;
     constexpr float kPitRestartFadeDuration = 0.45f;
+    constexpr float kStageTransitionFadeOutDuration = 0.45f;
+    constexpr float kStageTransitionFadeInDuration = 1.10f;
+
+    std::string GetMapDisplayName(const std::string& path)
+    {
+        const size_t slashPos = path.find_last_of("/\\");
+        const std::string fileName = slashPos == std::string::npos ? path : path.substr(slashPos + 1);
+        const size_t dotPos = fileName.find_last_of('.');
+        return dotPos == std::string::npos ? fileName : fileName.substr(0, dotPos);
+    }
 
     void UpdatePadCursor(
         float mouseWorldX,
@@ -275,26 +287,48 @@ namespace
             label,
             highlighted ? GetColor(18, 18, 22) : GetColor(232, 238, 245));
     }
+
+    float SmoothStep01(float t)
+    {
+        const float x = Clamp01(t);
+        return x * x * (3.0f - 2.0f * x);
+    }
 }
 
 void GameScene::DrawPitRestartOverlay() const
 {
-    if (!m_flow.pitRestartActive && m_flow.pitRestartFadeInTimer <= 0.0f)
+    const bool hasPitFade = m_flow.pitRestartActive || m_flow.pitRestartFadeInTimer > 0.0f;
+    const bool hasStageTransitionFade = m_flow.stageTransitionActive || m_flow.stageTransitionFadeInTimer > 0.0f;
+    if (!hasPitFade && !hasStageTransitionFade)
     {
         return;
     }
 
-    float alpha = 0.0f;
+    float pitAlpha = 0.0f;
     if (m_flow.pitRestartActive)
     {
         const float progress = Clamp01(1.0f - (m_flow.pitRestartTimer / kPitRestartFadeDuration));
-        alpha = 0.35f + progress * 0.65f; // Fade-out to black before respawn.
+        pitAlpha = 0.35f + progress * 0.65f; // Fade-out to black before respawn.
     }
-    else
+    else if (m_flow.pitRestartFadeInTimer > 0.0f)
     {
         const float progress = Clamp01(m_flow.pitRestartFadeInTimer / kPitRestartFadeDuration);
-        alpha = progress; // Fade-in from black after respawn.
+        pitAlpha = progress; // Fade-in from black after respawn.
     }
+
+    float stageTransitionAlpha = 0.0f;
+    if (m_flow.stageTransitionActive)
+    {
+        const float progress = Clamp01(1.0f - (m_flow.stageTransitionTimer / kStageTransitionFadeOutDuration));
+        stageTransitionAlpha = 0.35f + progress * 0.65f;
+    }
+    else if (m_flow.stageTransitionFadeInTimer > 0.0f)
+    {
+        const float elapsed = Clamp01(1.0f - (m_flow.stageTransitionFadeInTimer / kStageTransitionFadeInDuration));
+        stageTransitionAlpha = 1.0f - SmoothStep01(elapsed);
+    }
+
+    const float alpha = std::max(pitAlpha, stageTransitionAlpha);
 
     Shader_ResetStyle();
     Shader_SetTint(0.01f, 0.01f, 0.02f, alpha);
@@ -1041,6 +1075,58 @@ void GameScene::DrawBackdrop() const
     SpriteDraw(m_whiteTexture, panelRight, viewOriginY, 10.0f, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
     m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY - m_flow.cameraY * viewScale, viewScale);
+
+    // Stage-transition marker visualization (A/Z/X etc.) in the current viewport.
+    {
+        const float tileSize = m_tileMap.GetTileSize();
+        if (tileSize > 0.0f)
+        {
+            const int columnStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraX / tileSize)) - 1);
+            const int rowStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraY / tileSize)) - 1);
+            const int columnEnd = std::min(m_tileMap.GetWidth() - 1, static_cast<int>(std::ceil((m_flow.cameraX + gCameraViewWidth) / tileSize)) + 1);
+            const int rowEnd = std::min(m_tileMap.GetHeight() - 1, static_cast<int>(std::ceil((m_flow.cameraY + gCameraViewHeight) / tileSize)) + 1);
+
+            for (int row = rowStart; row <= rowEnd; ++row)
+            {
+                for (int column = columnStart; column <= columnEnd; ++column)
+                {
+                    const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+                    if (marker == '\0')
+                    {
+                        continue;
+                    }
+
+                    const StageTransitionLink* transition = nullptr;
+                    for (const StageTransitionLink& link : gStageTransitionLinks)
+                    {
+                        const bool sourceMatches = link.sourceMapCsv == "*" || link.sourceMapCsv == gCurrentMapCsvPath;
+                        if (sourceMatches && link.marker == marker)
+                        {
+                            transition = &link;
+                            break;
+                        }
+                    }
+                    if (!transition)
+                    {
+                        continue;
+                    }
+
+                    const float worldX = static_cast<float>(column) * tileSize;
+                    const float worldY = static_cast<float>(row) * tileSize;
+                    const int left = static_cast<int>(std::round(viewOriginX + (worldX - m_flow.cameraX) * viewScale));
+                    const int top = static_cast<int>(std::round(viewOriginY + (worldY - m_flow.cameraY) * viewScale));
+                    const int right = static_cast<int>(std::round(viewOriginX + (worldX + tileSize - m_flow.cameraX) * viewScale));
+                    const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + tileSize - m_flow.cameraY) * viewScale));
+
+                    DrawBox(left, top, right, bottom, GetColor(255, 210, 90), FALSE);
+                    DrawFormatString(left + 4, top + 2, GetColor(255, 245, 190), "%c", marker);
+
+                    const std::string destName = GetMapDisplayName(transition->destinationMapCsv);
+                    DrawFormatString(left, top - 16, GetColor(180, 240, 255), "-> %s", destName.c_str());
+                }
+            }
+        }
+    }
 
     if (const Entity* player = FindEntityByTag("Player"))
     {

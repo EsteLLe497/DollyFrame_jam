@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <filesystem>
+#include <string>
 #include <vector>
 
 #include "asset_manifest.h"
@@ -90,6 +91,8 @@ private:
     void UpdatePhotoTraySelection();
     void UpdateGoalVisual(float deltaTime);
     void HandleWorldInteractions();
+    bool TryQueueStageTransition(Entity& player);
+    bool ExecuteStageTransition(const std::string& destinationMapCsv, char spawnMarker, char marker);
     void HandleWorldTileInteractions(Entity& player);
     void HandleWorldEntityInteractions(Entity& player, std::vector<Entity*>& consumedGimmicks);
     void HandlePhotoBoxInteractions(Entity& player, std::vector<Entity*>& consumedPickups, std::vector<Entity*>& defeatedEnemies);
@@ -178,4 +181,8 @@ private:
     float m_cameraFixedLockEndX = 0.0f;
     float m_cameraFixedLockX = 0.0f;
     float m_cameraFixedLockY = 0.0f;
+    bool m_hasPendingStageTransition = false;
+    std::string m_pendingStageTransitionMapCsv;
+    char m_pendingStageTransitionSpawnMarker = '\0';
+    char m_pendingStageTransitionMarker = '\0';
 };
