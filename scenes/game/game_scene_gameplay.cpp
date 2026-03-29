@@ -540,6 +540,17 @@ void GameScene::UpdatePlayer(float deltaTime)
             verticalSnapDistance,
         };
         const float horizontalVelocity = m_player.velocityX;
+        const auto intersectsPhotoBoxForHorizontalMove = [this, groundedAtStepStart, tileSize](const TransformComponent& candidate)
+        {
+            if (!groundedAtStepStart)
+            {
+                return IntersectsSolidPhotoBoxForMovement(candidate);
+            }
+
+            TransformComponent liftedCandidate = candidate;
+            liftedCandidate.y -= std::max(2.0f, tileSize * 0.09f);
+            return IntersectsSolidPhotoBoxForMovement(liftedCandidate);
+        };
 
         game_scene_player_movement_system::ResolveHorizontalTileCollisions(
             *transform,
@@ -551,9 +562,9 @@ void GameScene::UpdatePlayer(float deltaTime)
                     ? IsTileBlockingFromLeft(column, row)
                     : IsTileBlockingFromRight(column, row);
             },
-            [this](const TransformComponent& candidate)
+            [&intersectsPhotoBoxForHorizontalMove](const TransformComponent& candidate)
             {
-                return IntersectsSolidPhotoBox(candidate);
+                return intersectsPhotoBoxForHorizontalMove(candidate);
             });
 
         game_scene_player_movement_system::ResolveHorizontalObjectCollisions(
@@ -561,9 +572,9 @@ void GameScene::UpdatePlayer(float deltaTime)
             m_player,
             movementContext,
             photoBoxes,
-            [this](const TransformComponent& candidate)
+            [&intersectsPhotoBoxForHorizontalMove](const TransformComponent& candidate)
             {
-                return IntersectsSolidPhotoBox(candidate);
+                return intersectsPhotoBoxForHorizontalMove(candidate);
             },
             solidObjects);
 
@@ -600,7 +611,7 @@ void GameScene::UpdatePlayer(float deltaTime)
             },
             [this](const TransformComponent& candidate)
             {
-                return IntersectsSolidPhotoBox(candidate);
+                return IntersectsSolidPhotoBoxForMovement(candidate);
             });
 
         groundedAtStepStart = m_player.grounded;

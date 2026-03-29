@@ -1010,6 +1010,81 @@ bool GameScene::IntersectsSolidPhotoBox(const TransformComponent& transform) con
     return false;
 }
 
+bool GameScene::IntersectsSolidPhotoBoxForMovement(const TransformComponent& transform) const
+{
+    CollisionPolygon candidatePolygon;
+    BuildRotatedRectPolygon(
+        transform.x,
+        transform.y,
+        transform.width * transform.scale,
+        transform.height * transform.scale,
+        transform.rotation,
+        candidatePolygon);
+
+    const float width = transform.width * transform.scale;
+    const float height = transform.height * transform.scale;
+    const float candidateBottom = transform.y + height;
+    const float candidateLeft = transform.x + 6.0f;
+    const float candidateRight = transform.x + width - 6.0f;
+    float probeXs[kGroundProbeCount]{};
+    GetGroundProbeXs(transform, probeXs);
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !IsSolidPolygonEntity(*entity))
+        {
+            continue;
+        }
+
+        CollisionPolygon photoPolygon;
+        if (!BuildEntityCollisionPolygon(*entity, photoPolygon))
+        {
+            continue;
+        }
+
+        if (!PolygonsIntersect(candidatePolygon, photoPolygon))
+        {
+            continue;
+        }
+
+        float boxLeft = 0.0f;
+        float boxTop = 0.0f;
+        float boxRight = 0.0f;
+        float boxBottom = 0.0f;
+        GetPolygonAabb(photoPolygon, boxLeft, boxTop, boxRight, boxBottom);
+        static_cast<void>(boxBottom);
+
+        const bool horizontallyOverlapping = candidateRight > boxLeft && candidateLeft < boxRight;
+        bool restingOnTopSurface = horizontallyOverlapping &&
+            std::fabs(candidateBottom - boxTop) <= kSurfaceContactEpsilon;
+
+        if (!restingOnTopSurface && horizontallyOverlapping)
+        {
+            for (float probeX : probeXs)
+            {
+                float surfaceY = 0.0f;
+                if (!TryGetPhotoBoxSlopeSurfaceY(*entity, probeX, surfaceY))
+                {
+                    continue;
+                }
+
+                if (std::fabs(candidateBottom - surfaceY) <= kSurfaceContactEpsilon + 2.0f)
+                {
+                    restingOnTopSurface = true;
+                    break;
+                }
+            }
+        }
+
+        if (!restingOnTopSurface)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool GameScene::GetEntityBoundsByTag(const char* tag, float& x, float& y, float& width, float& height) const
 {
     Entity* entity = FindEntityByTag(tag);

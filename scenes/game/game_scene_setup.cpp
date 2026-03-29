@@ -515,14 +515,14 @@ void GameScene::InitializeStageEntities()
         prefabs,
         "star_outline",
         AlignToGrid(720.0f, tileSize),
-        AlignToGrid(240.0f, tileSize));
+        AlignToGrid(336.0f, tileSize));
     SetEntityTint(star, 1.0f, 1.0f, 1.0f, 1.0f);
 
     Entity& apple = SpawnStagePrefab(
         prefabs,
         "apple_outline",
         AlignToGrid(940.0f, tileSize),
-        AlignToGrid(240.0f, tileSize));
+        AlignToGrid(336.0f, tileSize));
     SetEntityTint(apple, 1.0f, 1.0f, 1.0f, 1.0f);
 
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
