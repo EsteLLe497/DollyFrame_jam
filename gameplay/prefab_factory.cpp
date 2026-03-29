@@ -92,6 +92,11 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
         enemyComp.detectHeight = definition.enemyDetectHeight;
     }
 
+    if (definition.hasShieldBoss)
+    {
+        entity->AddComponent<ShieldBossComponent>();
+    }
+
     if (definition.hasEnemyMover)
     {
         entity->AddComponent<EnemyMoverComponent>(
@@ -256,6 +261,10 @@ void PrefabFactory::LoadDefinitions()
         {
             definition.enemyArchetype = EnemyArchetype::Ranged;
         }
+        else if (enemyArchetype == "shield_boss")
+        {
+            definition.enemyArchetype = EnemyArchetype::ShieldBoss;
+        }
         else
         {
             definition.enemyArchetype = EnemyArchetype::Floater;
@@ -267,6 +276,8 @@ void PrefabFactory::LoadDefinitions()
         definition.enemyAttackRange = enemy.value("attackRange", 80.0f);
         definition.enemyAttackCooldown = enemy.value("attackCooldown", 3.0f);
         definition.enemyDetectHeight = enemy.value("detectHeight", 96.0f);
+
+        definition.hasShieldBoss = enemy.value("shieldBoss", false);
 
         const auto& enemyMover = data.contains("enemyMover") && data["enemyMover"].is_object() ? data["enemyMover"] : nlohmann::json::object();
         definition.hasEnemyMover = enemyMover.value("enabled", false);
