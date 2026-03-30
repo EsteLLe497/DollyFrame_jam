@@ -962,17 +962,38 @@ void GameScene::DrawEnemyAttackRects() const
     for (const auto& entity : m_entities)
     {
         if (!entity) continue;
+
+        // Walker攻撃判定
         const auto* enemy = entity->GetComponent<EnemyComponent>();
-        if (!enemy || !enemy->attackRectActive) continue;
+        if (enemy && enemy->attackRectActive)
+        {
+            const float screenX = viewOriginX + (enemy->attackRectX - m_flow.cameraX) * viewScale;
+            const float screenY = viewOriginY + (enemy->attackRectY - m_flow.cameraY) * viewScale;
+            const float screenW = enemy->attackRectWidth * viewScale;
+            const float screenH = enemy->attackRectHeight * viewScale;
 
-        const float screenX = viewOriginX + (enemy->attackRectX - m_flow.cameraX) * viewScale;
-        const float screenY = viewOriginY + enemy->attackRectY * viewScale;
-        const float screenW = enemy->attackRectWidth * viewScale;
-        const float screenH = enemy->attackRectHeight * viewScale;
+            DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH,
+                GetColor(255, 80, 80), TRUE);
+        }
 
-        DrawBoxAA(
-            screenX, screenY,
-            screenX + screenW, screenY + screenH,
-            GetColor(255, 80, 80), TRUE);
+        // 中ボス攻撃判定
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        if (boss && boss->attackRectActive)
+        {
+            const float screenX = viewOriginX + (boss->attackRectX - m_flow.cameraX) * viewScale;
+            const float screenY = viewOriginY + (boss->attackRectY - m_flow.cameraY) * viewScale;
+            const float screenW = boss->attackRectWidth * viewScale;
+            const float screenH = boss->attackRectHeight * viewScale;
+
+            const unsigned int color =
+                boss->state == ShieldBossState::Rush
+                ? GetColor(255, 80, 80)    // 突進はオレンジ
+                : boss->state == ShieldBossState::SlamPhase1
+                ? GetColor(255, 140, 0)    // 判定①はオレンジ
+                : GetColor(180, 0, 255);   // 判定②は紫
+
+            DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH,
+                color, TRUE);
+        }
     }
 }

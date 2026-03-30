@@ -1068,34 +1068,66 @@ void GameScene::HandleAttackHits()
     Entity* player = FindEntityByTag("Player");
     if (!player) return;
 
+    const auto* playerTransform = player->GetComponent<TransformComponent>();
+    if (!playerTransform) return;
+
+    const float playerLeft = playerTransform->x;
+    const float playerRight = playerTransform->x + playerTransform->width * playerTransform->scale;
+    const float playerTop = playerTransform->y;
+    const float playerBottom = playerTransform->y + playerTransform->height * playerTransform->scale;
+
     for (const auto& entity : m_entities)
     {
         if (!entity) continue;
+
+        // WalkerUŒ‚”»’è
         const auto* enemy = entity->GetComponent<EnemyComponent>();
-        if (!enemy || !enemy->IsEnabled() || !enemy->attackRectActive) continue;
-
-        const auto* playerTransform = player->GetComponent<TransformComponent>();
-        if (!playerTransform) continue;
-
-        const float playerLeft = playerTransform->x;
-        const float playerRight = playerTransform->x + playerTransform->width * playerTransform->scale;
-        const float playerTop = playerTransform->y;
-        const float playerBottom = playerTransform->y + playerTransform->height * playerTransform->scale;
-
-        const float attackLeft = enemy->attackRectX;
-        const float attackRight = enemy->attackRectX + enemy->attackRectWidth;
-        const float attackTop = enemy->attackRectY;
-        const float attackBottom = enemy->attackRectY + enemy->attackRectHeight;
-
-        const bool intersects =
-            playerLeft < attackRight &&
-            playerRight > attackLeft &&
-            playerTop < attackBottom &&
-            playerBottom > attackTop;
-
-        if (intersects)
+        if (enemy && enemy->IsEnabled() && enemy->attackRectActive)
         {
-            HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by melee attack");
+            const float attackLeft = enemy->attackRectX;
+            const float attackRight = enemy->attackRectX + enemy->attackRectWidth;
+            const float attackTop = enemy->attackRectY;
+            const float attackBottom = enemy->attackRectY + enemy->attackRectHeight;
+
+            const bool intersects =
+                playerLeft < attackRight &&
+                playerRight > attackLeft &&
+                playerTop < attackBottom &&
+                playerBottom > attackTop;
+
+            if (intersects)
+            {
+                HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by melee attack");
+            }
+        }
+
+        // ’†ƒ{ƒXUŒ‚”»’è
+        auto* boss = entity->GetComponent<ShieldBossComponent>();
+        if (boss && boss->attackRectActive)
+        {
+            const float attackLeft = boss->attackRectX;
+            const float attackRight = boss->attackRectX + boss->attackRectWidth;
+            const float attackTop = boss->attackRectY;
+            const float attackBottom = boss->attackRectY + boss->attackRectHeight;
+
+            const bool intersects =
+                playerLeft < attackRight &&
+                playerRight > attackLeft &&
+                playerTop < attackBottom &&
+                playerBottom > attackTop;
+
+            // ‘½’iƒqƒbƒg–hŽ~
+            const bool alreadyHit = std::find(
+                boss->hitEntities.begin(),
+                boss->hitEntities.end(),
+                player) != boss->hitEntities.end();
+
+            if (intersects && !alreadyHit)
+            {
+                HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by boss slam",
+                    static_cast<int>(boss->attackRectDamage));
+                boss->hitEntities.push_back(player);
+            }
         }
     }
 }

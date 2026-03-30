@@ -230,8 +230,10 @@ namespace
             return "Walker";
         case EnemyArchetype::Turret:
             return "Turret";
-        case EnemyArchetype::Ranged: // 3/19�ǉ�(�c�V��r)
+        case EnemyArchetype::Ranged: 
             return "Ranged";
+        case EnemyArchetype::ShieldBoss:
+            return "ShieldBoss";
         case EnemyArchetype::Floater:
         default:
             return "Floater";

@@ -524,6 +524,31 @@ void GameScene::InitializeStageEntities()
                     SnapEnemyToGround(*transform);
                 }
             }
+            else if (marker == 'S') // ’†ƒ{ƒX
+            {
+                Entity& boss = SpawnStagePrefab(
+                    prefabs,
+                    "sandbox_shield_boss",
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize);
+                if (auto* transform = boss.GetComponent<TransformComponent>())
+                {
+                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
+                    float spawnX = transform->x;
+                    float spawnY = transform->y;
+                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
+                    {
+                        transform->x = spawnX;
+                        transform->y = spawnY;
+                    }
+                    SnapEnemyToGround(*transform);
+                    if (auto* enemy = boss.GetComponent<EnemyComponent>())
+                    {
+                        enemy->spawnX = transform->x;
+                        enemy->spawnY = transform->y;
+                    }
+                }
+            }
         }
     }
 

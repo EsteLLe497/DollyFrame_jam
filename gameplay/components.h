@@ -51,6 +51,27 @@ enum class EnemyArchetype
     Walker,
     Turret,
     Ranged, 
+    ShieldBoss,
+};
+
+enum class ShieldBossState
+{
+    Idle,
+    Detect,
+    Rush,          
+    RushCooldown, 
+    Jump,          
+    JumpAscend,    
+    JumpDescend,   
+    SlamPhase1,    
+    SlamPhase2,    
+    Cooldown,      
+};
+
+enum class ShieldBossFacing
+{
+    Right,
+    Left,
 };
 
 enum class GimmickType
@@ -308,6 +329,59 @@ private:
     bool m_defeated;
    
     AIState m_aiState = AIState::Idle;
+};
+
+class ShieldBossComponent final : public Component
+{
+public:
+    ShieldBossComponent() = default;
+
+    
+    ShieldBossState state = ShieldBossState::Idle;
+    ShieldBossFacing facing = ShieldBossFacing::Right;
+
+    
+    float stateTimer = 0.0f;
+
+    
+    int rushCount = 0;         
+    int rushCountMax = 3;       
+
+ 
+    float detectRange = 600.0f;
+    float detectHeight = 192.0f;
+
+    
+    float rushSpeed = 400.0f;
+    float rushDamage = 1.0f;
+    float rushCooldown = 1.0f;
+    float rushDuration = 2.0f;  
+
+   
+    float jumpHeight = 4.0f;    
+    float targetX = 0.0f;
+
+    
+    float slamPhase1Duration = 0.2f;
+    float slamPhase2Duration = 0.2f;
+    float slamDamage1 = 1.0f;
+    float slamDamage2 = 2.0f;
+    float slamCooldown = 3.0f;
+
+    
+    float velocityY = 0.0f;
+    float velocityX = 0.0f;
+
+    
+    bool attackRectActive = false;
+    float attackRectX = 0.0f;
+    float attackRectY = 0.0f;
+    float attackRectWidth = 0.0f;
+    float attackRectHeight = 0.0f;
+    float attackRectDamage = 1.0f;
+
+
+    std::vector<Entity*> hitEntities;
 };
 
 // 3/21追加：ドロップアイテムコンポーネント(田之上俊)
