@@ -1,4 +1,5 @@
 #include "game_scene_internal.h"
+#include "game_scene_player_visual_system.h"
 #include "audio.h"
 
 using namespace game_scene_detail;
@@ -29,6 +30,10 @@ void GameScene::OnEnter(ResourceManager& resources)
     LoadTuningState();
     InitializeStageResources(resources);
     InitializeStageEntities();
+    if (Entity* player = FindEntityByTag("Player"))
+    {
+        game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(*player);
+    }
 
     GameSession_Reset(3, m_flow.timeLimit);
     Audio_PlayCue("demo_bgm");
@@ -188,6 +193,10 @@ void GameScene::Update(float deltaTime)
 
     GameSession_SetTimeRemaining(m_flow.timeRemaining);
     RunGameplayFrame(effectiveGameplayDeltaTime);
+    if (Entity* player = FindEntityByTag("Player"))
+    {
+        game_scene_player_visual_system::UpdateAnimation(m_player, *player, m_player.dodgeRemaining > 0.0f);
+    }
 }
 void GameScene::Draw()
 {
