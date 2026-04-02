@@ -218,7 +218,7 @@ void GameScene::Draw()
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Shadow);
     for (const auto& entity : m_entities)
     {
-        if (entity && HasTag(*entity, "PhotoBox"))
+        if (entity && (HasTag(*entity, "PhotoBox") || entity->GetComponent<PhotoPasteOrderComponent>()))
         {
             continue;
         }
@@ -226,6 +226,7 @@ void GameScene::Draw()
     }
     DrawEffects();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
+    DrawPastedEntitiesFront();
     DrawPhotoPlacementPreview();
     DrawCaptureOverlay();
     DrawPhotoStorageTray();

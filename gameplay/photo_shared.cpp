@@ -208,6 +208,7 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
                 bridge.role = PhotoCopyRole::Solid;
                 bridge.layer = PhotoCopyLayer::Foreground;
                 bridge.appliedTheme = capturedTheme;
+                bridge.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
                 bridge.relativeX = std::lerp(ax, bx, t) - kSegmentSize * 0.5f;
                 bridge.relativeY = std::lerp(ay, by, t) - kSegmentSize * 0.5f;
                 bridge.width = kSegmentSize;
@@ -246,6 +247,7 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
     paper.layer = PhotoCopyLayer::Background;
     paper.origin = PhotoCopyOrigin::Generic;
     paper.appliedTheme = PhotoFilterTheme::None;
+    paper.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
     paper.relativeX = 0.0f;
     paper.relativeY = 0.0f;
     paper.width = printedWidth;
@@ -265,6 +267,7 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
     matte.layer = PhotoCopyLayer::Background;
     matte.origin = PhotoCopyOrigin::Tile;
     matte.appliedTheme = PhotoFilterTheme::None;
+    matte.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
     matte.relativeX = gPrintedPhotoPaddingX - gPrintedPhotoMatteInset;
     matte.relativeY = gPrintedPhotoPaddingTop - gPrintedPhotoMatteInset;
     matte.width = contentWidth + gPrintedPhotoMatteInset * 2.0f;

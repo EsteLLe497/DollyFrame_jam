@@ -333,6 +333,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     }
 
     const int groupId = scene.m_photo.groups.nextGroupId++;
+    const int pasteOrder = scene.m_photo.groups.nextPasteOrder++;
     Entity* lastSpawnedEntity = nullptr;
     int spawnedPhotoBoxCount = 0;
     for (const auto& item : spawnedItems)
@@ -343,6 +344,8 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             Entity* spawnedBarrel = barrelEntity.get();
             lastSpawnedEntity = spawnedBarrel;
             spawnedBarrel->AddComponent<TagComponent>("Barrel");
+            spawnedBarrel->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedBarrel->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
             spawnedBarrel->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
             spawnedBarrel->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
             spawnedBarrel->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
@@ -382,6 +385,8 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             Entity* spawnedBullet = bulletEntity.get();
             lastSpawnedEntity = spawnedBullet;
             spawnedBullet->AddComponent<TagComponent>("Bullet");
+            spawnedBullet->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedBullet->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
             spawnedBullet->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
             spawnedBullet->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
             spawnedBullet->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
@@ -404,6 +409,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
         ++spawnedPhotoBoxCount;
         lastSpawnedEntity->AddComponent<TagComponent>("PhotoBox");
         lastSpawnedEntity->AddComponent<PhotoCopyGroupComponent>(groupId);
+        lastSpawnedEntity->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
         lastSpawnedEntity->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
         lastSpawnedEntity->AddComponent<PhotoCopyRoleComponent>(item.role);
         lastSpawnedEntity->AddComponent<PhotoCopyOriginComponent>(item.origin);

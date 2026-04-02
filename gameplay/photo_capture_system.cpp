@@ -138,6 +138,31 @@ namespace
         }
         return outOutline.size() >= 3;
     }
+
+    PhotoPlacementRuleGroup ResolvePlacementRuleGroupForCapturedEntity(
+        const Entity& entity,
+        bool capturedVanishObject,
+        bool capturedBarrel,
+        bool capturedProjectile)
+    {
+        if (capturedVanishObject)
+        {
+            return PhotoPlacementRuleGroup::Group1;
+        }
+
+        if (capturedBarrel || capturedProjectile)
+        {
+            return PhotoPlacementRuleGroup::Group2;
+        }
+
+        // Mid-boss shield tags are grouped with gravity/projectile restrictions.
+        if (HasTag(entity, "Shield") || HasTag(entity, "Boss1Shield") || HasTag(entity, "MidBoss1Shield"))
+        {
+            return PhotoPlacementRuleGroup::Group2;
+        }
+
+        return PhotoPlacementRuleGroup::Group1;
+    }
 }
 
 void PhotoCaptureSystem::HandleCapture(GameScene& scene)
@@ -258,6 +283,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         item.spawnArchetype = capturedBarrel
             ? CapturedSpawnArchetype::Barrel
             : (capturedProjectile ? CapturedSpawnArchetype::Projectile : CapturedSpawnArchetype::None);
+        item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
+            *entity,
+            capturedVanishObject,
+            capturedBarrel,
+            capturedProjectile);
         item.vanishOnCapture = capturedVanishObject;
         item.relativeX = overlapLeft - frameX;
         item.relativeY = overlapTop - frameY;
@@ -299,6 +329,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
+            item.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
         }
 
         if (item.role == PhotoCopyRole::Solid)
@@ -392,6 +423,7 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = GetTileCopyOrigin(tileValue);
             item.appliedTheme = scene.m_photo.capture.selectedTheme;
+            item.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
             item.relativeX = overlapLeft - frameX;
             item.relativeY = overlapTop - frameY;
             item.width = overlapWidth;

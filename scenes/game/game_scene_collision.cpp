@@ -1267,28 +1267,41 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     }
 
     const float tileSize = m_tileMap.GetTileSize();
-    const bool usesWorldCollision = m_photo.placement.layer == PhotoCopyLayer::Foreground;
-    auto intersectsWorld = [&](const TransformComponent& candidate) -> bool
+    auto intersectsEnemy = [&](const TransformComponent& candidate) -> bool
     {
-        if (!usesWorldCollision)
+        for (const auto& entity : m_entities)
         {
-            for (const auto& entity : m_entities)
+            if (!entity)
             {
-                if (!entity || !HasTag(*entity, "Player"))
+                continue;
+            }
+
+            const bool isEnemyEntity = HasTag(*entity, "Enemy") || entity->GetComponent<EnemyComponent>() != nullptr;
+            if (!isEnemyEntity)
+            {
+                continue;
+            }
+
+            if (const auto* enemy = entity->GetComponent<EnemyComponent>())
+            {
+                if (!enemy->IsEnabled())
                 {
                     continue;
                 }
-
-                const auto* transform = entity->GetComponent<TransformComponent>();
-                if (transform && IntersectsRect(candidate, *transform))
-                {
-                    return true;
-                }
             }
 
-            return false;
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (transform && IntersectsRect(candidate, *transform))
+            {
+                return true;
+            }
         }
 
+        return false;
+    };
+
+    auto intersectsFloorObject = [&](const TransformComponent& candidate) -> bool
+    {
         const int leftColumn = std::max(0, static_cast<int>(candidate.x / tileSize));
         const int rightColumn = std::min(
             m_tileMap.GetWidth() - 1,
@@ -1319,37 +1332,22 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
             }
         }
 
-        for (const auto& entity : m_entities)
+        return IntersectsSolidPhotoBox(candidate);
+    };
+
+    auto violatesPlacementRule = [&](const TransformComponent& candidate, PhotoPlacementRuleGroup group) -> bool
+    {
+        const std::uint8_t forbiddenMask = GetPlacementForbiddenMask(group);
+        if (HasPlacementForbiddenTarget(forbiddenMask, PhotoPlacementForbiddenTarget::Floor) &&
+            intersectsFloorObject(candidate))
         {
-            if (!entity)
-            {
-                continue;
-            }
+            return true;
+        }
 
-            const auto* transform = entity->GetComponent<TransformComponent>();
-            if (!transform)
-            {
-                continue;
-            }
-
-            if (IsSolidPolygonEntity(*entity))
-            {
-                if (IntersectsSolidPhotoBox(candidate))
-                {
-                    return true;
-                }
-                continue;
-            }
-
-            if (!HasTag(*entity, "Player") && !HasTag(*entity, "PhotoSource") && !HasTag(*entity, "Goal"))
-            {
-                continue;
-            }
-
-            if (IntersectsRect(candidate, *transform))
-            {
-                return true;
-            }
+        if (HasPlacementForbiddenTarget(forbiddenMask, PhotoPlacementForbiddenTarget::Enemy) &&
+            intersectsEnemy(candidate))
+        {
+            return true;
         }
 
         return false;
@@ -1358,13 +1356,13 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     if (m_photo.capture.items.empty())
     {
         TransformComponent candidate(x, y, width, height);
-        return !intersectsWorld(candidate);
+        return !violatesPlacementRule(candidate, PhotoPlacementRuleGroup::Group1);
     }
 
     for (const auto& item : m_photo.capture.items)
     {
         TransformComponent candidate(x + item.relativeX, y + item.relativeY, item.width, item.height);
-        if (intersectsWorld(candidate))
+        if (violatesPlacementRule(candidate, item.placementRuleGroup))
         {
             return false;
         }
