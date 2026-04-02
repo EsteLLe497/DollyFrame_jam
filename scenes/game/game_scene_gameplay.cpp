@@ -14,7 +14,6 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr float kFloorCameraWidth = 1920.0f;
-    constexpr float kFloorCameraHeight = 1080.0f;
     constexpr float kFixedLockExitMargin = 24.0f;
     constexpr float kBarrelDebrisLifetime = 0.55f;
     constexpr float kPitRestartFadeDuration = 0.45f;
@@ -101,21 +100,19 @@ bool GameScene::TryGetFixedCameraByPlayerPosition(float playerCenterX, float pla
 
 void GameScene::StartFloorCameraTransition(int directionX, int directionY)
 {
-    if (directionX == 0 && directionY == 0)
+    static_cast<void>(directionY);
+    if (directionX == 0)
     {
         return;
     }
 
     const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth);
-    const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
     const float targetX = std::clamp(
         m_flow.cameraX + static_cast<float>(directionX) * kFloorCameraWidth,
         0.0f,
         maxCameraX);
-    const float targetY = std::clamp(
-        m_flow.cameraY + static_cast<float>(directionY) * kFloorCameraHeight,
-        0.0f,
-        maxCameraY);
+    // T marker transition: keep current Y, move only one floor on X.
+    const float targetY = m_flow.cameraY;
     if (targetX == m_flow.cameraX && targetY == m_flow.cameraY)
     {
         return;
@@ -251,7 +248,6 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         if (tileSize > 0.0f)
         {
             const float dx = playerCenterX - m_previousPlayerCameraProbeX;
-            const float dy = playerCenterY - m_previousPlayerCameraProbeY;
 
             for (CameraTransitionMarker& marker : m_cameraTransitionMarkers)
             {
@@ -264,16 +260,16 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
                 if (inside && !marker.wasInside)
                 {
                     int directionX = 0;
-                    int directionY = 0;
-                    if (std::fabs(dx) >= std::fabs(dy))
+                    if (std::fabs(dx) > 0.001f)
                     {
-                        directionX = dx > 0.0f ? 1 : (dx < 0.0f ? -1 : 0);
+                        directionX = dx > 0.0f ? 1 : -1;
                     }
                     else
                     {
-                        directionY = dy > 0.0f ? 1 : (dy < 0.0f ? -1 : 0);
+                        directionX = m_player.facingRight ? 1 : -1;
                     }
-                    StartFloorCameraTransition(directionX, directionY);
+
+                    StartFloorCameraTransition(directionX, 0);
                 }
 
                 marker.wasInside = inside;
