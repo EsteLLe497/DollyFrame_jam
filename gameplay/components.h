@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <box2d/box2d.h>
@@ -575,6 +576,49 @@ private:
     float m_renderScaleX;
     float m_renderScaleY;
     float m_renderRotationOffset;
+};
+
+class SpriteSheetAnimationComponent final : public Component
+{
+public:
+    struct Clip
+    {
+        int textureId = -1;
+        int columns = 1;
+        int rows = 1;
+        int startFrame = 0;
+        int frameCount = 1;
+        float fps = 1.0f;
+        bool loop = true;
+    };
+
+    SpriteSheetAnimationComponent();
+
+    void Update(float deltaTime) override;
+    void DrawDebugUI() override;
+
+    void DefineClip(
+        const std::string& name,
+        int textureId,
+        int columns,
+        int rows,
+        int startFrame,
+        int frameCount,
+        float fps,
+        bool loop = true);
+    bool HasClip(const std::string& name) const;
+    bool Play(const std::string& name, bool restartIfSame = false);
+    const std::string& GetCurrentClipName() const;
+    int GetCurrentFrameIndex() const;
+    void SetPlaybackSpeed(float speed);
+
+private:
+    void ApplyFrameToSprite();
+
+    std::unordered_map<std::string, Clip> m_clips;
+    std::string m_currentClipName;
+    float m_elapsedSeconds;
+    float m_playbackSpeed;
 };
 
 class PlayerControllerComponent final : public Component

@@ -8,7 +8,7 @@
     },
     "player": {
       "type": "file",
-      "path": "assets/texture/14_Anim.png"
+      "path": "assets/texture/sprite_sheet_1.png"
     },
     "target": {
       "type": "checkerboard",

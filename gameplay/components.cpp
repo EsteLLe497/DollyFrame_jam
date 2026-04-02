@@ -687,6 +687,171 @@ float SpriteRenderComponent::GetRenderRotationOffset() const
     return m_renderRotationOffset;
 }
 
+SpriteSheetAnimationComponent::SpriteSheetAnimationComponent()
+    : m_elapsedSeconds(0.0f)
+    , m_playbackSpeed(1.0f)
+{
+}
+
+void SpriteSheetAnimationComponent::Update(float deltaTime)
+{
+    if (m_currentClipName.empty())
+    {
+        return;
+    }
+
+    const auto found = m_clips.find(m_currentClipName);
+    if (found == m_clips.end())
+    {
+        return;
+    }
+
+    const Clip& clip = found->second;
+    if (clip.frameCount <= 0)
+    {
+        return;
+    }
+
+    m_elapsedSeconds += std::max(0.0f, deltaTime) * std::max(0.0f, m_playbackSpeed);
+    ApplyFrameToSprite();
+}
+
+void SpriteSheetAnimationComponent::DrawDebugUI()
+{
+    if (m_currentClipName.empty())
+    {
+        return;
+    }
+
+    ImGui::SeparatorText("Sprite Sheet Animation");
+    ImGui::Text("Clip: %s", m_currentClipName.c_str());
+    ImGui::Text("Frame: %d", GetCurrentFrameIndex());
+    ImGui::Text("Elapsed: %.2f", m_elapsedSeconds);
+}
+
+void SpriteSheetAnimationComponent::DefineClip(
+    const std::string& name,
+    int textureId,
+    int columns,
+    int rows,
+    int startFrame,
+    int frameCount,
+    float fps,
+    bool loop)
+{
+    if (name.empty())
+    {
+        return;
+    }
+
+    Clip clip;
+    clip.textureId = textureId;
+    clip.columns = (std::max)(1, columns);
+    clip.rows = (std::max)(1, rows);
+    clip.startFrame = (std::max)(0, startFrame);
+    clip.frameCount = (std::max)(1, frameCount);
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    m_clips[name] = clip;
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+bool SpriteSheetAnimationComponent::HasClip(const std::string& name) const
+{
+    return m_clips.find(name) != m_clips.end();
+}
+
+bool SpriteSheetAnimationComponent::Play(const std::string& name, bool restartIfSame)
+{
+    if (!HasClip(name))
+    {
+        return false;
+    }
+
+    if (!restartIfSame && m_currentClipName == name)
+    {
+        return false;
+    }
+
+    m_currentClipName = name;
+    m_elapsedSeconds = 0.0f;
+    ApplyFrameToSprite();
+    return true;
+}
+
+const std::string& SpriteSheetAnimationComponent::GetCurrentClipName() const
+{
+    return m_currentClipName;
+}
+
+int SpriteSheetAnimationComponent::GetCurrentFrameIndex() const
+{
+    const auto found = m_clips.find(m_currentClipName);
+    if (found == m_clips.end())
+    {
+        return 0;
+    }
+
+    const Clip& clip = found->second;
+    if (clip.frameCount <= 1 || clip.fps <= 0.0f)
+    {
+        return clip.startFrame;
+    }
+
+    const float rawFrame = m_elapsedSeconds * clip.fps;
+    const int localFrame = clip.loop
+        ? static_cast<int>(rawFrame) % clip.frameCount
+        : (std::min)(clip.frameCount - 1, static_cast<int>(rawFrame));
+    return clip.startFrame + localFrame;
+}
+
+void SpriteSheetAnimationComponent::SetPlaybackSpeed(float speed)
+{
+    m_playbackSpeed = (std::max)(0.0f, speed);
+}
+
+void SpriteSheetAnimationComponent::ApplyFrameToSprite()
+{
+    if (!m_owner || m_currentClipName.empty())
+    {
+        return;
+    }
+
+    auto* sprite = m_owner->GetComponent<SpriteRenderComponent>();
+    if (!sprite)
+    {
+        return;
+    }
+
+    const auto found = m_clips.find(m_currentClipName);
+    if (found == m_clips.end())
+    {
+        return;
+    }
+
+    const Clip& clip = found->second;
+    const int frameIndex = GetCurrentFrameIndex();
+    const int column = frameIndex % clip.columns;
+    const int row = frameIndex / clip.columns;
+    const float cellWidth = 1.0f / static_cast<float>(clip.columns);
+    const float cellHeight = 1.0f / static_cast<float>(clip.rows);
+
+    if (clip.textureId >= 0)
+    {
+        sprite->SetTextureId(clip.textureId);
+    }
+
+    sprite->SetSourceRect(
+        static_cast<float>(column) * cellWidth,
+        static_cast<float>(row) * cellHeight,
+        cellWidth,
+        cellHeight);
+}
+
 void PlayerControllerComponent::Update(float deltaTime)
 {
     auto* transform = m_owner ? m_owner->GetComponent<TransformComponent>() : nullptr;

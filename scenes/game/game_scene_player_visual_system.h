@@ -18,16 +18,61 @@ inline constexpr float kPlayerVisualSmoothing = 14.0f;
 inline constexpr float kPlayerLandingDecay = 6.5f;
 inline constexpr float kPlayerJumpDecay = 5.0f;
 inline constexpr float kPlayerDodgeDecay = 7.5f;
+inline constexpr int kPlayerSheetColumns = 5;
+inline constexpr int kPlayerSheetRows = 6;
 
-inline void SetSpriteSheetCell1Based(SpriteRenderComponent& sprite, int row, int column, int rows = 4, int columns = 4)
+inline void ConfigurePlayerSpriteAnimation(Entity& player)
 {
-    const float cellWidth = 1.0f / static_cast<float>(columns);
-    const float cellHeight = 1.0f / static_cast<float>(rows);
-    sprite.SetSourceRect(
-        static_cast<float>(column - 1) * cellWidth,
-        static_cast<float>(row - 1) * cellHeight,
-        cellWidth,
-        cellHeight);
+    auto* sprite = player.GetComponent<SpriteRenderComponent>();
+    if (!sprite)
+    {
+        return;
+    }
+
+    auto* animation = player.GetComponent<SpriteSheetAnimationComponent>();
+    if (!animation)
+    {
+        animation = &player.AddComponent<SpriteSheetAnimationComponent>();
+    }
+
+    const int textureId = sprite->GetTextureId();
+    animation->DefineClip("idle", textureId, kPlayerSheetColumns, kPlayerSheetRows, 0, 1, 1.0f, true);
+    animation->DefineClip("run", textureId, kPlayerSheetColumns, kPlayerSheetRows, 0, 30, 30.0f, true);
+    animation->DefineClip("jump", textureId, kPlayerSheetColumns, kPlayerSheetRows, 3, 1, 1.0f, false);
+    animation->DefineClip("fall", textureId, kPlayerSheetColumns, kPlayerSheetRows, 18, 1, 1.0f, false);
+    animation->DefineClip("dodge", textureId, kPlayerSheetColumns, kPlayerSheetRows, 10, 1, 1.0f, false);
+    animation->Play("idle", true);
+}
+
+inline void UpdateAnimation(
+    const GameScenePlayerState& playerState,
+    Entity& player,
+    bool isDodging)
+{
+    auto* sprite = player.GetComponent<SpriteRenderComponent>();
+    auto* animation = player.GetComponent<SpriteSheetAnimationComponent>();
+    if (!sprite || !animation)
+    {
+        return;
+    }
+
+    const char* clipName = "idle";
+    const float horizontalSpeed = std::fabs(playerState.velocityX);
+    if (isDodging)
+    {
+        clipName = "dodge";
+    }
+    else if (!playerState.grounded)
+    {
+        clipName = playerState.velocityY < -40.0f ? "jump" : "fall";
+    }
+    else if (horizontalSpeed > 40.0f)
+    {
+        clipName = "run";
+    }
+
+    animation->Play(clipName);
+    sprite->SetFlipX(playerState.facingRight);
 }
 
 inline void UpdatePresentation(
@@ -44,8 +89,6 @@ inline void UpdatePresentation(
     {
         return;
     }
-
-    sprite->SetFlipX(false);
 
     if (landedThisFrame)
     {
@@ -69,39 +112,6 @@ inline void UpdatePresentation(
     {
         playerState.runAnimationTime += deltaTime * (2.6f + horizontalSpeedRatio * 5.2f);
     }
-
-    int frameRow = 2;
-    int frameColumn = 2;
-    if (isDodging)
-    {
-        frameRow = 3;
-        frameColumn = playerState.facingRight ? 2 : 3;
-    }
-    else if (!playerState.grounded)
-    {
-        if (playerState.velocityY < -40.0f)
-        {
-            frameRow = 1;
-            frameColumn = playerState.facingRight ? 2 : 4;
-        }
-        else
-        {
-            frameRow = 1;
-            frameColumn = playerState.facingRight ? 1 : 3;
-        }
-    }
-    else if (horizontalSpeedRatio > 0.20f)
-    {
-        frameRow = 3;
-        frameColumn = playerState.facingRight ? 1 : 4;
-    }
-    else
-    {
-        frameRow = 2;
-        frameColumn = playerState.facingRight ? 2 : 1;
-    }
-
-    SetSpriteSheetCell1Based(*sprite, frameRow, frameColumn);
 
     float targetScaleX = 1.0f;
     float targetScaleY = 1.0f;
