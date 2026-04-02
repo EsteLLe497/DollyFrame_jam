@@ -218,6 +218,14 @@ public:
     int groupId;
 };
 
+class PhotoPasteOrderComponent final : public Component
+{
+public:
+    explicit PhotoPasteOrderComponent(int orderValue);
+
+    int order;
+};
+
 class PhotoCopyLifetimeComponent final : public Component
 {
 public:

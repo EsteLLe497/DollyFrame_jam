@@ -117,6 +117,7 @@ private:
     void DrawPhotoStorageTray() const;
     void DrawPhotoPlacementPreview() const;
     void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
+    void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
     void DrawEntity(const Entity& entity) const;
     void DrawBackdrop() const;

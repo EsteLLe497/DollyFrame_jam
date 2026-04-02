@@ -152,6 +152,11 @@ PhotoCopyGroupComponent::PhotoCopyGroupComponent(int groupIdValue)
 {
 }
 
+PhotoPasteOrderComponent::PhotoPasteOrderComponent(int orderValue)
+    : order(orderValue)
+{
+}
+
 PhotoCopyLifetimeComponent::PhotoCopyLifetimeComponent(float lifetimeSeconds)
     : m_lifetimeSeconds(std::max(0.0f, lifetimeSeconds))
     , m_remainingSeconds(std::max(0.0f, lifetimeSeconds))

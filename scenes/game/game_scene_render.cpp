@@ -402,6 +402,11 @@ void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
             continue;
         }
 
+        if (entity->GetComponent<PhotoPasteOrderComponent>())
+        {
+            continue;
+        }
+
         const auto* photoLayer = entity->GetComponent<PhotoCopyLayerComponent>();
         const PhotoCopyLayer currentLayer = photoLayer ? photoLayer->layer : PhotoCopyLayer::Foreground;
         if (currentLayer != layer)
@@ -410,6 +415,70 @@ void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
         }
 
         DrawEntity(*entity);
+    }
+}
+
+void GameScene::DrawPastedEntitiesFront() const
+{
+    struct DrawTarget
+    {
+        const Entity* entity = nullptr;
+        int pasteOrder = 0;
+        int layerPriority = 0;
+    };
+
+    std::vector<DrawTarget> drawTargets;
+    drawTargets.reserve(m_entities.size());
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* pasteOrder = entity->GetComponent<PhotoPasteOrderComponent>();
+        if (!pasteOrder)
+        {
+            continue;
+        }
+
+        int layerPriority = 2;
+        if (const auto* photoLayer = entity->GetComponent<PhotoCopyLayerComponent>())
+        {
+            switch (photoLayer->layer)
+            {
+            case PhotoCopyLayer::Background:
+                layerPriority = 0;
+                break;
+            case PhotoCopyLayer::Shadow:
+                layerPriority = 1;
+                break;
+            case PhotoCopyLayer::Foreground:
+            default:
+                layerPriority = 3;
+                break;
+            }
+        }
+
+        drawTargets.push_back({ entity.get(), pasteOrder->order, layerPriority });
+    }
+
+    std::stable_sort(
+        drawTargets.begin(),
+        drawTargets.end(),
+        [](const DrawTarget& a, const DrawTarget& b)
+        {
+            if (a.pasteOrder != b.pasteOrder)
+            {
+                return a.pasteOrder < b.pasteOrder;
+            }
+            return a.layerPriority < b.layerPriority;
+        });
+
+    for (const DrawTarget& target : drawTargets)
+    {
+        DrawEntity(*target.entity);
     }
 }
 

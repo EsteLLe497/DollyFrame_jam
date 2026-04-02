@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <vector>
 
 #include "components.h"
@@ -11,6 +12,42 @@ enum class CapturedSpawnArchetype
     Barrel,
     Projectile,
 };
+
+enum class PhotoPlacementRuleGroup
+{
+    Group1,
+    Group2,
+};
+
+enum class PhotoPlacementForbiddenTarget : std::uint8_t
+{
+    None = 0,
+    Floor = 1 << 0,
+    Enemy = 1 << 1,
+};
+
+inline constexpr std::uint8_t ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget target)
+{
+    return static_cast<std::uint8_t>(target);
+}
+
+inline constexpr bool HasPlacementForbiddenTarget(std::uint8_t mask, PhotoPlacementForbiddenTarget target)
+{
+    return (mask & ToPlacementForbiddenMask(target)) != 0;
+}
+
+inline constexpr std::uint8_t GetPlacementForbiddenMask(PhotoPlacementRuleGroup group)
+{
+    switch (group)
+    {
+    case PhotoPlacementRuleGroup::Group2:
+        return ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Floor) |
+            ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy);
+    case PhotoPlacementRuleGroup::Group1:
+    default:
+        return ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy);
+    }
+}
 
 struct CapturedPhotoItem
 {
@@ -42,6 +79,7 @@ struct CapturedPhotoItem
     bool flipX = false;
     bool vanishOnCapture = false;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
+    PhotoPlacementRuleGroup placementRuleGroup = PhotoPlacementRuleGroup::Group1;
     float projectileVelocityX = 0.0f;
     float projectileVelocityY = 0.0f;
     int projectileDamage = 1;
@@ -87,6 +125,7 @@ struct PhotoGroupState
     bool hasSpawnedCopy = false;
     int nextGroupId = 1;
     int activeGroupCount = 0;
+    int nextPasteOrder = 1;
 };
 
 struct PendingPhotoStoreState
