@@ -8,6 +8,7 @@ namespace
     constexpr float kPhotoFocusTimeScale = 0.22f;
     constexpr float kCaptureFocusDuration = 0.8f;
     constexpr float kPlacementFocusDuration = 1.2f;
+    constexpr float kStageTransitionFadeInDuration = 1.10f;
     constexpr float kCaptureFinderScaleMin = 1.0f;
     constexpr float kCaptureFinderScaleMax = 2.0f;
     constexpr float kCaptureFinderScaleStep = 0.1f;
@@ -33,6 +34,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
 {
     UpdateCameraMode();
 
+    // 3状態（撮影/配置/現像プレビュー）から、トレイ表示とスロー演出を一元決定する。
     const bool placementHeld = !m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
     const bool placementActive = placementHeld || m_photo.placement.active;
     const bool previewActive = m_photo.pendingStore.active && m_flow.developedPhotoPreviewRemaining > 0.0f;
@@ -52,6 +54,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
     m_flow.placementSlowRemaining = placementActive ? kPlacementFocusDuration : 0.0f;
     const bool slowForCapture = m_flow.cameraMode;
     const bool slowForPlacement = placementActive;
+    // フォーカス中だけゲーム全体を減速させる。
     return (slowForCapture || slowForPlacement)
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
@@ -153,6 +156,114 @@ void GameScene::ProcessFilterInput()
             }
         }
     }
+}
+
+void GameScene::UpdateTuningHotReload(float deltaTime)
+{
+    m_debug.tuningReloadTimer = std::max(0.0f, m_debug.tuningReloadTimer - deltaTime);
+    if (m_debug.tuningReloadTimer > 0.0f)
+    {
+        return;
+    }
+
+    m_debug.tuningReloadTimer = 0.25f;
+    std::error_code ec;
+    const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
+    if (!ec && (!m_debug.hasTuningFileWriteTime || writeTime != m_debug.tuningFileWriteTime))
+    {
+        m_debug.tuningFileWriteTime = writeTime;
+        m_debug.hasTuningFileWriteTime = true;
+        LoadTuningJsonFile();
+    }
+}
+
+void GameScene::HandleGlobalSceneShortcuts()
+{
+    if (Input_IsActionPressed(InputAction::ReturnToTitle))
+    {
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+    }
+    if (Input_IsActionPressed(InputAction::RestartScene))
+    {
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+    }
+    if (Input_IsActionPressed(InputAction::ToggleTuningPanel))
+    {
+        m_debug.showTuningPanel = !m_debug.showTuningPanel;
+    }
+    if (Input_IsActionPressed(InputAction::ToggleCollisionDebug))
+    {
+        m_debug.showCollisionDebug = !m_debug.showCollisionDebug;
+    }
+}
+
+bool GameScene::UpdatePitRestartFlow(float deltaTime)
+{
+    if (!m_flow.pitRestartActive)
+    {
+        return false;
+    }
+
+    m_flow.pitRestartTimer = std::max(0.0f, m_flow.pitRestartTimer - deltaTime);
+    if (m_flow.pitRestartTimer > 0.0f)
+    {
+        return true;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    if (player)
+    {
+        RespawnPlayer(*player);
+    }
+    else
+    {
+        m_flow.pitRestartActive = false;
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+    }
+    return true;
+}
+
+bool GameScene::UpdateStageTransitionFlow(float deltaTime)
+{
+    if (!m_flow.stageTransitionActive)
+    {
+        return false;
+    }
+
+    m_flow.stageTransitionTimer = std::max(0.0f, m_flow.stageTransitionTimer - deltaTime);
+    if (m_flow.stageTransitionTimer > 0.0f)
+    {
+        return true;
+    }
+
+    const bool transitioned = m_hasPendingStageTransition &&
+        ExecuteStageTransition(
+            m_pendingStageTransitionMapCsv,
+            m_pendingStageTransitionSpawnMarker,
+            m_pendingStageTransitionMarker);
+    m_hasPendingStageTransition = false;
+    m_pendingStageTransitionMapCsv.clear();
+    m_pendingStageTransitionSpawnMarker = '\0';
+    m_pendingStageTransitionMarker = '\0';
+    m_flow.stageTransitionActive = false;
+    m_flow.stageTransitionTimer = 0.0f;
+    m_flow.stageTransitionFadeInTimer = transitioned ? kStageTransitionFadeInDuration : 0.0f;
+    return true;
+}
+
+void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime)
+{
+    m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
+    m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
+    m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
+    m_flow.stageTransitionFadeInTimer = std::max(0.0f, m_flow.stageTransitionFadeInTimer - deltaTime);
+    const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;
+    m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
+    if (previewWasActive && m_flow.developedPhotoPreviewRemaining <= 0.0f)
+    {
+        CommitPendingCapturedPhoto();
+    }
+    m_flow.pickupPulse += gameplayDeltaTime;
 }
 
 void GameScene::RunGameplayFrame(float gameplayDeltaTime)

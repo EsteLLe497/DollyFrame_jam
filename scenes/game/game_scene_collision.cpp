@@ -364,7 +364,7 @@ namespace
             return true;
         }
 
-        return HasTag(entity, "PhotoBox") && UsesSolidCollision(entity);
+        return HasTag(entity, kTagPhotoBox) && UsesSolidCollision(entity);
     }
 
     bool IsSlopeTileValue(int tile)
@@ -618,7 +618,7 @@ bool GameScene::IsGoalTile(int column, int row) const
 bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 {
     std::vector<TransformComponent> photoSources;
-    GetEntityBoundsByTag("PhotoSource", photoSources);
+    GetEntityBoundsByTag(kTagPhotoSource, photoSources);
     for (const auto& photoSourceBounds : photoSources)
     {
         const float photoSourceX = photoSourceBounds.x;
@@ -727,7 +727,7 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const
 {
     std::vector<TransformComponent> photoSources;
-    GetEntityBoundsByTag("PhotoSource", photoSources);
+    GetEntityBoundsByTag(kTagPhotoSource, photoSources);
     for (const auto& photoSourceBounds : photoSources)
     {
         const float photoSourceX = photoSourceBounds.x;
@@ -1267,6 +1267,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     }
 
     const float tileSize = m_tileMap.GetTileSize();
+    // ‹Ö~‘ÎÛ: EnemyB–³Œø‰»Ï‚İ Enemy ‚ÍÕ“Ë”»’è‚©‚çœŠO‚·‚éB
     auto intersectsEnemy = [&](const TransformComponent& candidate) -> bool
     {
         for (const auto& entity : m_entities)
@@ -1276,7 +1277,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
                 continue;
             }
 
-            const bool isEnemyEntity = HasTag(*entity, "Enemy") || entity->GetComponent<EnemyComponent>() != nullptr;
+            const bool isEnemyEntity = HasTag(*entity, kTagEnemy) || entity->GetComponent<EnemyComponent>() != nullptr;
             if (!isEnemyEntity)
             {
                 continue;
@@ -1300,6 +1301,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
         return false;
     };
 
+    // ‹Ö~‘ÎÛ: FloorBƒ^ƒCƒ‹(°/â)‚ÆŠù‘¶‚ÌŒÅ‘ÌƒtƒHƒgƒ{ƒbƒNƒX‚ğ°ˆµ‚¢‚Å”»’è‚·‚éB
     auto intersectsFloorObject = [&](const TransformComponent& candidate) -> bool
     {
         const int leftColumn = std::max(0, static_cast<int>(candidate.x / tileSize));
@@ -1335,19 +1337,42 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
         return IntersectsSolidPhotoBox(candidate);
     };
 
+    constexpr std::array<PhotoPlacementForbiddenTarget, 2> kPlacementForbiddenTargets = {
+        PhotoPlacementForbiddenTarget::Floor,
+        PhotoPlacementForbiddenTarget::Enemy,
+    };
+
+    auto violatesForbiddenTarget = [&](const TransformComponent& candidate, PhotoPlacementForbiddenTarget target) -> bool
+    {
+        switch (target)
+        {
+        case PhotoPlacementForbiddenTarget::Floor:
+            return intersectsFloorObject(candidate);
+        case PhotoPlacementForbiddenTarget::Enemy:
+            return intersectsEnemy(candidate);
+        case PhotoPlacementForbiddenTarget::None:
+        default:
+            return false;
+        }
+    };
+
     auto violatesPlacementRule = [&](const TransformComponent& candidate, PhotoPlacementRuleGroup group) -> bool
     {
-        const std::uint8_t forbiddenMask = GetPlacementForbiddenMask(group);
-        if (HasPlacementForbiddenTarget(forbiddenMask, PhotoPlacementForbiddenTarget::Floor) &&
-            intersectsFloorObject(candidate))
+        const auto* ruleDefinition = FindPhotoPlacementRuleDefinition(group);
+        const std::uint8_t forbiddenMask = ruleDefinition
+            ? ruleDefinition->forbiddenMask
+            : GetPlacementForbiddenMask(PhotoPlacementRuleGroup::Group1);
+        for (const PhotoPlacementForbiddenTarget target : kPlacementForbiddenTargets)
         {
-            return true;
-        }
+            if (!HasPlacementForbiddenTarget(forbiddenMask, target))
+            {
+                continue;
+            }
 
-        if (HasPlacementForbiddenTarget(forbiddenMask, PhotoPlacementForbiddenTarget::Enemy) &&
-            intersectsEnemy(candidate))
-        {
-            return true;
+            if (violatesForbiddenTarget(candidate, target))
+            {
+                return true;
+            }
         }
 
         return false;
@@ -1355,6 +1380,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
 
     if (m_photo.capture.items.empty())
     {
+        // ‹Œƒf[ƒ^/’P‘Ì“\‚è•t‚¯ŒİŠ·: ƒfƒtƒHƒ‹ƒg‚Í Group1 ‚Æ‚µ‚Äˆµ‚¤B
         TransformComponent candidate(x, y, width, height);
         return !violatesPlacementRule(candidate, PhotoPlacementRuleGroup::Group1);
     }
@@ -1381,7 +1407,7 @@ float GameScene::GetMapPixelHeight() const
     return static_cast<float>(m_tileMap.GetHeight()) * m_tileMap.GetTileSize();
 }
 
-// 3/21è¿½åŠ ï¼šæ•µã®åœ°é¢ã‚¹ãƒŠãƒƒãƒ—(ç”°ä¹‹ä¸Šä¿Š)
+// 3/21è¿½åŠ Ešæ•µã®åœ°é¢ã‚¹ãƒŠãƒƒãƒEç”°ä¹‹ä¸Šä¿E
 bool GameScene::SnapEnemyToGround(TransformComponent& transform) const
 {
     return TrySnapToGround(transform, 48.0f);

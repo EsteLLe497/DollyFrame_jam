@@ -11,6 +11,8 @@
 
 namespace game_scene_world_interaction_system
 {
+inline constexpr const char* kTagPhotoBox = "PhotoBox";
+
 using DefeatedEnemyCallback = void(*)(Entity*);
 
 inline void RemoveEntitiesByPointerList(
@@ -146,7 +148,7 @@ void HandlePhotoBoxInteractions(
         }
 
         const auto* tag = entity->GetComponent<TagComponent>();
-        if (!tag || tag->tag != "PhotoBox")
+        if (!tag || tag->tag != kTagPhotoBox)
         {
             continue;
         }

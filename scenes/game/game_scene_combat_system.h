@@ -12,6 +12,8 @@
 
 namespace game_scene_combat_system
 {
+inline constexpr const char* kTagBullet = "Bullet";
+inline constexpr const char* kTagEnemy = "Enemy";
 inline bool HasTag(const Entity& entity, const char* value)
 {
     const auto* tag = entity.GetComponent<TagComponent>();
@@ -189,7 +191,7 @@ inline void UpdateEnemies(
                 const float velY = 0.0f;
 
                 auto bullet = std::make_unique<Entity>();
-                bullet->AddComponent<TagComponent>("Bullet");
+                bullet->AddComponent<TagComponent>(kTagBullet);
                 bullet->AddComponent<TransformComponent>(
                     transform->x + 24.0f,
                     transform->y + 24.0f,
@@ -475,7 +477,7 @@ void UpdateBullets(
             entities.end(),
             [&](const std::unique_ptr<Entity>& entity) -> bool
             {
-                if (!entity || !HasTag(*entity, "Bullet"))
+                if (!entity || !HasTag(*entity, kTagBullet))
                 {
                     return false;
                 }
@@ -509,7 +511,7 @@ void UpdateBullets(
                 {
                     for (const auto& target : entities)
                     {
-                        if (!target || target.get() == entity.get() || !HasTag(*target, "Enemy"))
+                        if (!target || target.get() == entity.get() || !HasTag(*target, kTagEnemy))
                         {
                             continue;
                         }

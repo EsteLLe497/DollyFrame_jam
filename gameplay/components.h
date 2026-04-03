@@ -11,6 +11,9 @@
 class PhysicsWorld;
 class EventBus;
 
+// ============================================================================
+// Photo System Domain
+// ============================================================================
 enum class PhotoCopyRole
 {
     Solid,
@@ -87,6 +90,9 @@ enum class GimmickType
     Switch,
 };
 
+// ============================================================================
+// Physics / Shared Basics
+// ============================================================================
 class BarrelComponent final : public Component
 {
 public:
@@ -194,6 +200,9 @@ public:
     std::string tag;
 };
 
+// ============================================================================
+// Photo System Components
+// ============================================================================
 class PhotoCopyRoleComponent final : public Component
 {
 public:
@@ -233,6 +242,7 @@ public:
 
     void Update(float deltaTime) override;
     void DrawDebugUI() override;
+    // 残り寿命。0 になると IsExpired が true になる。
     float GetRemainingSeconds() const;
     float GetLifetimeSeconds() const;
     bool IsExpired() const;
@@ -248,6 +258,7 @@ public:
     explicit PhotoPasteAnimationComponent(float durationSeconds);
 
     void Update(float deltaTime) override;
+    // 0.0～1.0 の正規化進捗（ペースト演出用）。
     float GetNormalizedProgress() const;
     bool IsFinished() const;
 
@@ -293,6 +304,9 @@ private:
     PhotoFilterTheme m_theme;
 };
 
+// ============================================================================
+// Enemy / Combat Domain
+// ============================================================================
 class EnemyComponent final : public Component
 {
 public:
@@ -454,6 +468,9 @@ private:
     Owner m_owner;
 };
 
+// ============================================================================
+// Stage Gimmick Domain
+// ============================================================================
 class GimmickComponent final : public Component
 {
 public:
@@ -512,6 +529,9 @@ private:
     float m_tintA;
 };
 
+// ============================================================================
+// Gameplay Common Domain
+// ============================================================================
 class HealthComponent final : public Component
 {
 public:
@@ -548,6 +568,9 @@ private:
     float m_remainingSeconds;
 };
 
+// ============================================================================
+// Rendering / Animation Domain
+// ============================================================================
 class SpriteRenderComponent final : public Component
 {
 public:
@@ -615,6 +638,7 @@ public:
         float fps,
         bool loop = true);
     bool HasClip(const std::string& name) const;
+    // 再生中クリップと同名の場合、restartIfSame=true のときだけ先頭フレームへ戻す。
     bool Play(const std::string& name, bool restartIfSame = false);
     const std::string& GetCurrentClipName() const;
     int GetCurrentFrameIndex() const;
@@ -641,6 +665,9 @@ private:
     EventBus* m_eventBus;
 };
 
+// ============================================================================
+// Movement / Physics Domain
+// ============================================================================
 class EnemyMoverComponent final : public Component
 {
 public:
@@ -671,7 +698,9 @@ public:
 
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
+    // Transform -> Box2D 反映（主に static / kinematic 用）。
     void PushTransformToPhysics();
+    // Box2D -> Transform 反映（主に dynamic の結果取り込み）。
     void PullTransformFromPhysics();
 
     b2BodyId GetBodyId() const;
@@ -713,6 +742,7 @@ public:
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
     b2ChainId GetChainId() const;
+    // [0,1] 正規化頂点。実体生成時に Transform サイズへスケールして使う。
     const std::vector<b2Vec2>& GetNormalizedOutline() const;
 
 private:

@@ -393,11 +393,202 @@ namespace
 
 }
 
+namespace
+{
+    void DrawPlayerAfterimages(
+        const GameScenePlayerState& playerState,
+        PhotoFilterTheme selectedTheme,
+        const SpriteRenderComponent& sprite,
+        const TransformComponent& transform,
+        float viewOriginX,
+        float viewOriginY,
+        float viewScale,
+        float cameraX,
+        float cameraY)
+    {
+        float afterimageR = 0.42f;
+        float afterimageG = 0.88f;
+        float afterimageB = 1.0f;
+        GetPhotoFilterThemeOverlayColor(selectedTheme, afterimageR, afterimageG, afterimageB);
+        const float outlineBoost = selectedTheme == PhotoFilterTheme::None ? 0.0f : 0.08f;
+
+        for (size_t index = playerState.afterimages.size(); index > 0; --index)
+        {
+            const auto& afterimage = playerState.afterimages[index - 1];
+            const float afterimageDrawX = viewOriginX + (afterimage.x - cameraX) * viewScale;
+            const float afterimageDrawY = viewOriginY + (afterimage.y - cameraY) * viewScale;
+            const float afterimageDrawWidth = transform.width * afterimage.scale * viewScale;
+            const float afterimageDrawHeight = transform.height * afterimage.scale * viewScale;
+            const float alpha = Clamp01(afterimage.life / 0.18f) * 0.32f;
+            Shader_ResetStyle();
+            Shader_SetOutline(
+                std::min(1.0f, afterimageR + outlineBoost),
+                std::min(1.0f, afterimageG + outlineBoost),
+                std::min(1.0f, afterimageB + outlineBoost),
+                1.0f,
+                1.4f);
+            Shader_SetTint(afterimageR, afterimageG, afterimageB, alpha);
+            SpriteDraw(
+                sprite.GetTextureId(),
+                afterimageDrawX,
+                afterimageDrawY,
+                afterimageDrawWidth,
+                afterimageDrawHeight,
+                sprite.GetSourceX(),
+                sprite.GetSourceY(),
+                sprite.GetSourceWidth(),
+                sprite.GetSourceHeight(),
+                afterimage.flipX,
+                afterimage.rotation);
+        }
+    }
+
+    void DrawPhotoPasteAnimationOutline(
+        const Entity& entity,
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        float viewScale)
+    {
+        const auto* pasteAnimation = entity.GetComponent<PhotoPasteAnimationComponent>();
+        if (!pasteAnimation || pasteAnimation->IsFinished())
+        {
+            return;
+        }
+
+        const float progress = pasteAnimation->GetNormalizedProgress();
+        const float clamped = Clamp01(progress);
+        const int alpha = static_cast<int>(std::round(std::lerp(220.0f, 80.0f, clamped)));
+        const int outlinePad = std::max(2, static_cast<int>(std::round(2.0f * viewScale)));
+        float outlineR = 1.0f;
+        float outlineG = 1.0f;
+        float outlineB = 1.0f;
+        if (const auto* effect = entity.GetComponent<PhotoCopyEffectComponent>())
+        {
+            GetPhotoFilterThemeOverlayColor(effect->GetTheme(), outlineR, outlineG, outlineB);
+        }
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+        DrawBox(
+            static_cast<int>(std::round(drawX)) - outlinePad,
+            static_cast<int>(std::round(drawY)) - outlinePad,
+            static_cast<int>(std::round(drawX + drawWidth)) + outlinePad,
+            static_cast<int>(std::round(drawY + drawHeight)) + outlinePad,
+            GetColor(
+                static_cast<int>(std::round(outlineR * 255.0f)),
+                static_cast<int>(std::round(outlineG * 255.0f)),
+                static_cast<int>(std::round(outlineB * 255.0f))),
+            FALSE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+    void ApplyPhotoBoxRoleStyle(const PhotoCopyRoleComponent* photoRole)
+    {
+        if (!photoRole)
+        {
+            Shader_SetFlash(0.82f, 0.90f, 1.0f, 1.0f, 0.18f);
+            return;
+        }
+
+        switch (photoRole->role)
+        {
+        case PhotoCopyRole::Hazard:
+            Shader_SetFlash(1.0f, 0.28f, 0.22f, 1.0f, 0.24f);
+            break;
+        case PhotoCopyRole::GoalRelay:
+            Shader_SetOutline(0.96f, 0.88f, 0.22f, 1.0f, 1.6f);
+            break;
+        case PhotoCopyRole::Pickup:
+            Shader_SetOutline(0.18f, 0.90f, 1.0f, 1.0f, 1.6f);
+            break;
+        case PhotoCopyRole::Ally:
+            Shader_SetOutline(0.78f, 0.94f, 0.82f, 1.0f, 1.8f);
+            break;
+        case PhotoCopyRole::Solid:
+        default:
+            Shader_SetFlash(0.82f, 0.90f, 1.0f, 1.0f, 0.18f);
+            break;
+        }
+    }
+
+    void ApplyPhotoBoxLayerStyle(
+        const PhotoCopyLayerComponent* photoLayer,
+        const PhotoCopyOriginComponent* photoOrigin,
+        const TintComponent* tint)
+    {
+        if (!photoLayer)
+        {
+            return;
+        }
+
+        if (photoLayer->layer == PhotoCopyLayer::Background)
+        {
+            const bool looksLikePrintedPhotoPaper =
+                photoOrigin &&
+                photoOrigin->origin == PhotoCopyOrigin::Generic &&
+                tint &&
+                tint->r > 0.9f &&
+                tint->g > 0.9f &&
+                tint->b > 0.85f;
+            if (looksLikePrintedPhotoPaper)
+            {
+                Shader_SetOutline(0.90f, 0.84f, 0.72f, 1.0f, 1.4f);
+                Shader_SetTint(0.98f, 0.96f, 0.90f, 0.92f);
+            }
+            else if (tint && tint->r < 0.2f && tint->g < 0.2f && tint->b < 0.2f)
+            {
+                Shader_SetOutline(0.22f, 0.22f, 0.24f, 1.0f, 1.2f);
+                Shader_SetTint(0.10f, 0.12f, 0.14f, 0.94f);
+            }
+            else
+            {
+                Shader_SetTint(0.64f, 0.72f, 0.84f, 0.44f);
+            }
+        }
+        else if (photoLayer->layer == PhotoCopyLayer::Shadow)
+        {
+            Shader_SetOutline(0.04f, 0.04f, 0.06f, 1.0f, 1.6f);
+            Shader_SetTint(0.02f, 0.02f, 0.03f, 0.72f);
+        }
+    }
+
+    void ApplyPhotoBoxThemeStyle(const PhotoCopyEffectComponent* effect)
+    {
+        if (!effect)
+        {
+            return;
+        }
+
+        switch (effect->GetTheme())
+        {
+        case PhotoFilterTheme::Hot:
+            Shader_SetOutline(1.0f, 0.52f, 0.20f, 1.0f, 2.1f);
+            Shader_SetFlash(1.0f, 0.30f, 0.12f, 1.0f, 0.28f);
+            break;
+        case PhotoFilterTheme::Cold:
+            Shader_SetOutline(0.74f, 0.92f, 1.0f, 1.0f, 2.2f);
+            Shader_SetFlash(0.34f, 0.74f, 1.0f, 1.0f, 0.12f);
+            break;
+        case PhotoFilterTheme::Invert:
+            Shader_SetOutline(0.90f, 0.94f, 0.92f, 1.0f, 2.0f);
+            Shader_SetFlash(0.78f, 0.96f, 0.84f, 1.0f, 0.16f);
+            break;
+        case PhotoFilterTheme::Sepia:
+            Shader_SetOutline(0.92f, 0.72f, 0.44f, 1.0f, 2.0f);
+            Shader_SetFlash(0.82f, 0.64f, 0.34f, 1.0f, 0.14f);
+            break;
+        case PhotoFilterTheme::None:
+        default:
+            break;
+        }
+    }
+
+}
+
 void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
 {
     for (const auto& entity : m_entities)
     {
-        if (!entity || !HasTag(*entity, "PhotoBox"))
+        if (!entity || !HasTag(*entity, kTagPhotoBox))
         {
             continue;
         }
@@ -430,6 +621,7 @@ void GameScene::DrawPastedEntitiesFront() const
     std::vector<DrawTarget> drawTargets;
     drawTargets.reserve(m_entities.size());
 
+    // PhotoPasteOrder を持つエンティティのみを「前面レイヤー対象」として抽出。
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -469,10 +661,12 @@ void GameScene::DrawPastedEntitiesFront() const
         drawTargets.end(),
         [](const DrawTarget& a, const DrawTarget& b)
         {
+            // 昇順で描くことで「後から貼ったものほど前面」を実現する。
             if (a.pasteOrder != b.pasteOrder)
             {
                 return a.pasteOrder < b.pasteOrder;
             }
+            // 同一 order は layerPriority で安定化（BG -> Shadow -> FG）。
             return a.layerPriority < b.layerPriority;
         });
 
@@ -512,7 +706,7 @@ void GameScene::DrawEffects() const
         }
 
         float intensityScale = 1.0f;
-        if (HasTag(*entity, "Goal") && !m_flow.goalUnlocked)
+        if (HasTag(*entity, kTagGoal) && !m_flow.goalUnlocked)
         {
             intensityScale = 0.45f;
         }
@@ -578,7 +772,7 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
 
     const auto* tag = entity.GetComponent<TagComponent>();
-    if (tag && tag->tag == "Goal")
+    if (tag && HasTag(tag, kTagGoal))
     {
         Shader_SetOutline(
             m_flow.goalUnlocked ? 0.28f : 0.92f,
@@ -587,7 +781,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             1.0f,
             1.5f);
     }
-    else if (tag && tag->tag == "PhotoSource")
+    else if (tag && HasTag(tag, kTagPhotoSource))
     {
         Shader_SetOutline(0.18f, 0.90f, 1.0f, 1.0f, 1.4f);
     }
@@ -621,7 +815,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
         }
     }
-    else if (tag && tag->tag == "PhotoBox")
+    else if (tag && HasTag(tag, kTagPhotoBox))
     {
         if (const auto* pasteAnimation = entity.GetComponent<PhotoPasteAnimationComponent>())
         {
@@ -673,93 +867,12 @@ void GameScene::DrawEntity(const Entity& entity) const
         const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
         const auto* photoOrigin = entity.GetComponent<PhotoCopyOriginComponent>();
         const auto* tint = entity.GetComponent<TintComponent>();
-        if (const auto* photoRole = entity.GetComponent<PhotoCopyRoleComponent>())
-        {
-            switch (photoRole->role)
-            {
-            case PhotoCopyRole::Hazard:
-                Shader_SetFlash(1.0f, 0.28f, 0.22f, 1.0f, 0.24f);
-                break;
-            case PhotoCopyRole::GoalRelay:
-                Shader_SetOutline(0.96f, 0.88f, 0.22f, 1.0f, 1.6f);
-                break;
-            case PhotoCopyRole::Pickup:
-                Shader_SetOutline(0.18f, 0.90f, 1.0f, 1.0f, 1.6f);
-                break;
-            case PhotoCopyRole::Ally:
-                Shader_SetOutline(0.78f, 0.94f, 0.82f, 1.0f, 1.8f);
-                break;
-            case PhotoCopyRole::Solid:
-            default:
-                Shader_SetFlash(0.82f, 0.90f, 1.0f, 1.0f, 0.18f);
-                break;
-            }
-        }
-        else
-        {
-            Shader_SetFlash(0.82f, 0.90f, 1.0f, 1.0f, 0.18f);
-        }
 
-        if (photoLayer)
-        {
-            if (photoLayer->layer == PhotoCopyLayer::Background)
-            {
-                const bool looksLikePrintedPhotoPaper =
-                    photoOrigin &&
-                    photoOrigin->origin == PhotoCopyOrigin::Generic &&
-                    tint &&
-                    tint->r > 0.9f &&
-                    tint->g > 0.9f &&
-                    tint->b > 0.85f;
-                if (looksLikePrintedPhotoPaper)
-                {
-                    Shader_SetOutline(0.90f, 0.84f, 0.72f, 1.0f, 1.4f);
-                    Shader_SetTint(0.98f, 0.96f, 0.90f, 0.92f);
-                }
-                else if (tint && tint->r < 0.2f && tint->g < 0.2f && tint->b < 0.2f)
-                {
-                    Shader_SetOutline(0.22f, 0.22f, 0.24f, 1.0f, 1.2f);
-                    Shader_SetTint(0.10f, 0.12f, 0.14f, 0.94f);
-                }
-                else
-                {
-                    Shader_SetTint(0.64f, 0.72f, 0.84f, 0.44f);
-                }
-            }
-            else if (photoLayer->layer == PhotoCopyLayer::Shadow)
-            {
-                Shader_SetOutline(0.04f, 0.04f, 0.06f, 1.0f, 1.6f);
-                Shader_SetTint(0.02f, 0.02f, 0.03f, 0.72f);
-            }
-        }
-
-        if (const auto* effect = entity.GetComponent<PhotoCopyEffectComponent>())
-        {
-            switch (effect->GetTheme())
-            {
-            case PhotoFilterTheme::Hot:
-                Shader_SetOutline(1.0f, 0.52f, 0.20f, 1.0f, 2.1f);
-                Shader_SetFlash(1.0f, 0.30f, 0.12f, 1.0f, 0.28f);
-                break;
-            case PhotoFilterTheme::Cold:
-                Shader_SetOutline(0.74f, 0.92f, 1.0f, 1.0f, 2.2f);
-                Shader_SetFlash(0.34f, 0.74f, 1.0f, 1.0f, 0.12f);
-                break;
-            case PhotoFilterTheme::Invert:
-                Shader_SetOutline(0.90f, 0.94f, 0.92f, 1.0f, 2.0f);
-                Shader_SetFlash(0.78f, 0.96f, 0.84f, 1.0f, 0.16f);
-                break;
-            case PhotoFilterTheme::Sepia:
-                Shader_SetOutline(0.92f, 0.72f, 0.44f, 1.0f, 2.0f);
-                Shader_SetFlash(0.82f, 0.64f, 0.34f, 1.0f, 0.14f);
-                break;
-            case PhotoFilterTheme::None:
-            default:
-                break;
-            }
-        }
+        ApplyPhotoBoxRoleStyle(entity.GetComponent<PhotoCopyRoleComponent>());
+        ApplyPhotoBoxLayerStyle(photoLayer, photoOrigin, tint);
+        ApplyPhotoBoxThemeStyle(entity.GetComponent<PhotoCopyEffectComponent>());
     }
-    else if (tag && tag->tag == "Bullet")
+    else if (tag && HasTag(tag, kTagBullet))
     {
         const auto* projectile = entity.GetComponent<ProjectileComponent>();
         if (projectile)
@@ -784,43 +897,18 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
 
 
-    else if (tag && tag->tag == "Player")
+    else if (tag && HasTag(tag, kTagPlayer))
     {
-        float afterimageR = 0.42f;
-        float afterimageG = 0.88f;
-        float afterimageB = 1.0f;
-        GetPhotoFilterThemeOverlayColor(m_photo.capture.selectedTheme, afterimageR, afterimageG, afterimageB);
-        const float outlineBoost = m_photo.capture.selectedTheme == PhotoFilterTheme::None ? 0.0f : 0.08f;
-
-        for (size_t index = m_player.afterimages.size(); index > 0; --index)
-        {
-            const auto& afterimage = m_player.afterimages[index - 1];
-            const float afterimageDrawX = viewOriginX + (afterimage.x - m_flow.cameraX) * viewScale;
-            const float afterimageDrawY = viewOriginY + (afterimage.y - m_flow.cameraY) * viewScale;
-            const float afterimageDrawWidth = transform->width * afterimage.scale * viewScale;
-            const float afterimageDrawHeight = transform->height * afterimage.scale * viewScale;
-            const float alpha = Clamp01(afterimage.life / 0.18f) * 0.32f;
-            Shader_ResetStyle();
-            Shader_SetOutline(
-                std::min(1.0f, afterimageR + outlineBoost),
-                std::min(1.0f, afterimageG + outlineBoost),
-                std::min(1.0f, afterimageB + outlineBoost),
-                1.0f,
-                1.4f);
-            Shader_SetTint(afterimageR, afterimageG, afterimageB, alpha);
-            SpriteDraw(
-                sprite->GetTextureId(),
-                afterimageDrawX,
-                afterimageDrawY,
-                afterimageDrawWidth,
-                afterimageDrawHeight,
-                sprite->GetSourceX(),
-                sprite->GetSourceY(),
-                sprite->GetSourceWidth(),
-                sprite->GetSourceHeight(),
-                afterimage.flipX,
-                afterimage.rotation);
-        }
+        DrawPlayerAfterimages(
+            m_player,
+            m_photo.capture.selectedTheme,
+            *sprite,
+            *transform,
+            viewOriginX,
+            viewOriginY,
+            viewScale,
+            m_flow.cameraX,
+            m_flow.cameraY);
 
         if (const auto* cooldown = entity.GetComponent<DamageCooldownComponent>())
         {
@@ -871,48 +959,26 @@ void GameScene::DrawEntity(const Entity& entity) const
             transform->rotation);
     }
 
-    if (const auto* pasteAnimation = entity.GetComponent<PhotoPasteAnimationComponent>())
-    {
-        if (!pasteAnimation->IsFinished())
-        {
-            const float progress = pasteAnimation->GetNormalizedProgress();
-            const float clamped = Clamp01(progress);
-            const int alpha = static_cast<int>(std::round(std::lerp(220.0f, 80.0f, clamped)));
-            const int outlinePad = std::max(2, static_cast<int>(std::round(2.0f * viewScale)));
-            float outlineR = 1.0f;
-            float outlineG = 1.0f;
-            float outlineB = 1.0f;
-            if (const auto* effect = entity.GetComponent<PhotoCopyEffectComponent>())
-            {
-                GetPhotoFilterThemeOverlayColor(effect->GetTheme(), outlineR, outlineG, outlineB);
-            }
-            SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
-            DrawBox(
-                static_cast<int>(std::round(drawX)) - outlinePad,
-                static_cast<int>(std::round(drawY)) - outlinePad,
-                static_cast<int>(std::round(drawX + drawWidth)) + outlinePad,
-                static_cast<int>(std::round(drawY + drawHeight)) + outlinePad,
-                GetColor(
-                    static_cast<int>(std::round(outlineR * 255.0f)),
-                    static_cast<int>(std::round(outlineG * 255.0f)),
-                    static_cast<int>(std::round(outlineB * 255.0f))),
-                FALSE);
-            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-        }
-    }
+    DrawPhotoPasteAnimationOutline(
+        entity,
+        drawX,
+        drawY,
+        drawWidth,
+        drawHeight,
+        viewScale);
 
-    if (m_debug.showCollisionDebug && (entity.GetComponent<PhotoFilterComponent>() || (tag && (tag->tag == "Player" || tag->tag == "PhotoSource" || tag->tag == "PhotoBox"))))
+    if (m_debug.showCollisionDebug && (entity.GetComponent<PhotoFilterComponent>() || (tag && (HasTag(tag, kTagPlayer) || HasTag(tag, kTagPhotoSource) || HasTag(tag, kTagPhotoBox)))))
     {
         unsigned int color = GetColor(255, 255, 255);
-        if (tag && tag->tag == "Player")
+        if (tag && HasTag(tag, kTagPlayer))
         {
             color = GetColor(255, 96, 96);
         }
-        else if (tag && tag->tag == "PhotoSource")
+        else if (tag && HasTag(tag, kTagPhotoSource))
         {
             color = GetColor(96, 255, 255);
         }
-        else if (tag && tag->tag == "PhotoBox")
+        else if (tag && HasTag(tag, kTagPhotoBox))
         {
             color = GetColor(255, 220, 96);
         }
@@ -936,12 +1002,12 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
-    if ((tag && (tag->tag == "PhotoSource" || tag->tag == "Hazard")) || entity.GetComponent<PhotoFilterComponent>())
+    if ((tag && (HasTag(tag, kTagPhotoSource) || HasTag(tag, kTagHazard))) || entity.GetComponent<PhotoFilterComponent>())
     {
         const float textX = drawX;
         const float textY = drawY - 18.0f;
         PhotoCopyRole labelRole = PhotoCopyRole::Solid;
-        if (tag && tag->tag == "Hazard")
+        if (tag && HasTag(tag, kTagHazard))
         {
             labelRole = PhotoCopyRole::Hazard;
         }
@@ -1003,7 +1069,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             GetRoleLabel(labelRole),
             GetLayerLabel(labelLayer));
     }
-    else if (tag && tag->tag == "PhotoBox")
+    else if (tag && HasTag(tag, kTagPhotoBox))
     {
         const auto* photoRole = entity.GetComponent<PhotoCopyRoleComponent>();
         const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();

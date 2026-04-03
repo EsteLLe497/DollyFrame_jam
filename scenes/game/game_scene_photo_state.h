@@ -26,6 +26,12 @@ enum class PhotoPlacementForbiddenTarget : std::uint8_t
     Enemy = 1 << 1,
 };
 
+struct PhotoPlacementRuleDefinition
+{
+    PhotoPlacementRuleGroup group = PhotoPlacementRuleGroup::Group1;
+    std::uint8_t forbiddenMask = 0;
+};
+
 inline constexpr std::uint8_t ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget target)
 {
     return static_cast<std::uint8_t>(target);
@@ -36,17 +42,38 @@ inline constexpr bool HasPlacementForbiddenTarget(std::uint8_t mask, PhotoPlacem
     return (mask & ToPlacementForbiddenMask(target)) != 0;
 }
 
+inline constexpr std::array<PhotoPlacementRuleDefinition, 2> kPhotoPlacementRuleDefinitions = {
+    PhotoPlacementRuleDefinition{
+        PhotoPlacementRuleGroup::Group1,
+        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy),
+    },
+    PhotoPlacementRuleDefinition{
+        PhotoPlacementRuleGroup::Group2,
+        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Floor) |
+            ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy),
+    },
+};
+
+inline constexpr const PhotoPlacementRuleDefinition* FindPhotoPlacementRuleDefinition(PhotoPlacementRuleGroup group)
+{
+    for (const auto& definition : kPhotoPlacementRuleDefinitions)
+    {
+        if (definition.group == group)
+        {
+            return &definition;
+        }
+    }
+    return nullptr;
+}
+
 inline constexpr std::uint8_t GetPlacementForbiddenMask(PhotoPlacementRuleGroup group)
 {
-    switch (group)
+    if (const auto* definition = FindPhotoPlacementRuleDefinition(group))
     {
-    case PhotoPlacementRuleGroup::Group2:
-        return ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Floor) |
-            ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy);
-    case PhotoPlacementRuleGroup::Group1:
-    default:
-        return ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy);
+        return definition->forbiddenMask;
     }
+
+    return ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy);
 }
 
 struct CapturedPhotoItem

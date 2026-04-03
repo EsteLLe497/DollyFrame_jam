@@ -77,6 +77,19 @@
 - Capture/Paste 共通の変換・生成ルール: `gameplay/photo_shared.cpp`
 - Enemy/Gimmick 共通の接触ダメージ判定: 共有ヘルパ化して 1 箇所管理
 
+## 4.1 直近で固定した実装ルール
+
+- 写真配置ルール
+  - 判定入口は `scenes/game/game_scene_collision.cpp` の `IsPhotoPlacementValid`
+  - グループ定義は `PhotoPlacementRuleGroup` + 禁止対象ビットマスクで管理
+  - 既定挙動: グループ1は Enemy 禁止、グループ2は Floor + Enemy 禁止
+- ペースト描画順
+  - `scenes/game/game_scene_render.cpp` の `DrawPastedEntitiesFront` で管理
+  - `PhotoPasteOrderComponent` の昇順描画で「後から貼ったものほど前面」を実現
+- `GameScene::Update` の責務
+  - `scenes/game/game_scene.cpp` は更新順制御に集中
+  - 詳細処理は `scenes/game/game_scene_update_domains.cpp` 側の小関数へ委譲
+
 ## 5. 分離を優先するもの
 
 - `game_scene_gameplay.cpp` の混在ロジック  
