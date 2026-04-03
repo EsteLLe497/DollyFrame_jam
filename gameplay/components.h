@@ -129,6 +129,31 @@ public:
     bool respawnWhenOffscreen = false;
 };
 
+class BatteryComponent final : public Component
+{
+public:
+    BatteryComponent(
+        float gravity,
+        float maxFallSpeed,
+        float pushSpeed,
+        float fallDamageSpeed,
+        int contactDamage);
+
+    void OnAttach(Entity& owner) override;
+    void DrawDebugUI() override;
+
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    bool grounded = false;
+    float gravity = 0.0f;
+    float maxFallSpeed = 0.0f;
+    float pushSpeed = 0.0f;
+    float fallDamageSpeed = 0.0f;
+    int contactDamage = 1;
+    float spawnX = 0.0f;
+    float spawnY = 0.0f;
+};
+
 class TransformComponent final : public Component
 {
 public:

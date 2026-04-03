@@ -286,6 +286,7 @@ inline constexpr const char* kTagPhotoSource = "PhotoSource";
 inline constexpr const char* kTagHazard = "Hazard";
 inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagDropItem = "DropItem";
+inline constexpr const char* kTagBattery = "Battery";
 
 inline PhotoCopyRole GetEntityCopyRole(const Entity& entity)
 {

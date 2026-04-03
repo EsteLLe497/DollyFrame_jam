@@ -494,6 +494,38 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             continue;
         }
 
+        if (item.spawnArchetype == CapturedSpawnArchetype::Battery)
+        {
+            auto batteryEntity = std::make_unique<Entity>();
+            Entity* spawnedBattery = batteryEntity.get();
+            lastSpawnedEntity = spawnedBattery;
+            spawnedBattery->AddComponent<TagComponent>(kTagBattery);
+            spawnedBattery->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedBattery->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedBattery->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
+            spawnedBattery->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+            spawnedBattery->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+            spawnedBattery->AddComponent<BatteryComponent>(
+                1900.0f,
+                980.0f,
+                260.0f,
+                320.0f,
+                1);
+            spawnedBattery->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
+            spawnedBattery->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
+            if (auto* sprite = spawnedBattery->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                sprite->SetFlipX(item.flipX);
+            }
+            if (auto* transform = spawnedBattery->GetComponent<TransformComponent>())
+            {
+                transform->rotation = item.rotation;
+            }
+            scene.m_entities.push_back(std::move(batteryEntity));
+            continue;
+        }
+
         if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
         {
             auto bulletEntity = std::make_unique<Entity>();

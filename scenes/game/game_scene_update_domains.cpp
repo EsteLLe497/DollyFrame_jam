@@ -34,7 +34,7 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr int kMarkerPresetCount = 11;
+    constexpr int kMarkerPresetCount = 12;
 
     int MarkerToPresetIndex(char marker)
     {
@@ -60,6 +60,8 @@ namespace
             return 9;
         case 'M':
             return 10;
+        case 'Y':
+            return 11;
         default:
             return 0;
         }
@@ -89,6 +91,8 @@ namespace
             return 'C';
         case 10:
             return 'M';
+        case 11:
+            return 'Y';
         default:
             return '\0';
         }
@@ -443,6 +447,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         {
             m_mapEditor.selectedMarker = 'M';
         }
+        if (Input_IsKeyPressed(VK_F11))
+        {
+            m_mapEditor.selectedMarker = 'Y';
+        }
 
         int markerIndex = MarkerToPresetIndex(m_mapEditor.selectedMarker);
         if (Input_IsKeyPressed('Q'))
@@ -477,6 +485,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         {
             BuildCameraMarkers();
             RefreshEnemiesFromMarkers();
+            RefreshBatteriesFromMarkers();
             m_mapEditor.statusMessage = "CSVを再読み込みしました";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
@@ -498,6 +507,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             gCurrentMapCsvPath = newMapPath;
             BuildCameraMarkers();
             RefreshEnemiesFromMarkers();
+            RefreshBatteriesFromMarkers();
             m_flow.cameraX = 0.0f;
             m_flow.cameraY = 0.0f;
             m_mapEditor.statusMessage = "新規マップを作成: " + newMapPath;
@@ -556,12 +566,21 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             const char before = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
             m_tileMap.SetMarker(column, row, m_mapEditor.selectedMarker);
             const char after = static_cast<char>(std::toupper(static_cast<unsigned char>(m_mapEditor.selectedMarker)));
+            const auto isEnemyMarker = [](char marker)
+            {
+                return marker == 'W' || marker == 'R' || marker == 'M';
+            };
             const bool touchesEnemyMarker =
-                before == 'W' || before == 'R' || before == 'M' ||
-                after == 'W' || after == 'R' || after == 'M';
+                isEnemyMarker(before) || isEnemyMarker(after);
+            const bool touchesBatteryMarker =
+                before == 'Y' || after == 'Y';
             if (touchesEnemyMarker && before != after)
             {
                 RefreshEnemiesFromMarkers();
+            }
+            if (touchesBatteryMarker && before != after)
+            {
+                RefreshBatteriesFromMarkers();
             }
         }
     }
@@ -578,6 +597,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             if (before == 'W' || before == 'R' || before == 'M')
             {
                 RefreshEnemiesFromMarkers();
+            }
+            if (before == 'Y')
+            {
+                RefreshBatteriesFromMarkers();
             }
         }
     }
@@ -659,6 +682,58 @@ void GameScene::RefreshEnemiesFromMarkers()
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
                 placeEnemyAtMarker(boss);
             }
+        }
+    }
+}
+
+void GameScene::RefreshBatteriesFromMarkers()
+{
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity)
+                {
+                    return true;
+                }
+                return entity->GetComponent<BatteryComponent>() != nullptr;
+            }),
+        m_entities.end());
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (marker != 'Y')
+            {
+                continue;
+            }
+
+            auto battery = std::make_unique<Entity>();
+            battery->AddComponent<TagComponent>(kTagBattery);
+            battery->AddComponent<TransformComponent>(
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize,
+                tileSize,
+                tileSize);
+            battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
+            battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            battery->AddComponent<BatteryComponent>(
+                1900.0f,
+                980.0f,
+                260.0f,
+                320.0f,
+                1);
+            m_entities.push_back(std::move(battery));
         }
     }
 }
@@ -828,6 +903,7 @@ void GameScene::RunGameplayFrame(float gameplayDeltaTime)
     HandlePhotoCapture();
     HandlePhotoSpawn();
     UpdateBarrels(gameplayDeltaTime);
+    UpdateBatteries(gameplayDeltaTime);
     UpdateEnemies();
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step

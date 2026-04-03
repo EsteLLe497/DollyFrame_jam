@@ -143,6 +143,7 @@ namespace
         const Entity& entity,
         bool capturedVanishObject,
         bool capturedBarrel,
+        bool capturedBattery,
         bool capturedProjectile)
     {
         if (capturedVanishObject)
@@ -150,7 +151,7 @@ namespace
             return PhotoPlacementRuleGroup::Group1;
         }
 
-        if (capturedBarrel || capturedProjectile)
+        if (capturedBarrel || capturedBattery || capturedProjectile)
         {
             return PhotoPlacementRuleGroup::Group2;
         }
@@ -271,6 +272,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
         CapturedPhotoItem item;
         const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr;
+        const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr;
         const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
         const auto* projectile = entity->GetComponent<ProjectileComponent>();
@@ -282,11 +284,14 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         item.appliedTheme = scene.m_photo.capture.selectedTheme;
         item.spawnArchetype = capturedBarrel
             ? CapturedSpawnArchetype::Barrel
-            : (capturedProjectile ? CapturedSpawnArchetype::Projectile : CapturedSpawnArchetype::None);
+            : (capturedBattery
+                ? CapturedSpawnArchetype::Battery
+                : (capturedProjectile ? CapturedSpawnArchetype::Projectile : CapturedSpawnArchetype::None));
         item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
             *entity,
             capturedVanishObject,
             capturedBarrel,
+            capturedBattery,
             capturedProjectile);
         item.vanishOnCapture = capturedVanishObject;
         item.relativeX = overlapLeft - frameX;
@@ -314,7 +319,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.projectileDamage = projectile->GetDamage();
             item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
         }
-        else if (!capturedBarrel)
+        else if (!capturedBarrel && !capturedBattery)
         {
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
@@ -337,7 +342,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !isPhotoBox && !capturedVanishObject)
+        if (!capturedBarrel && !capturedBattery && !isPhotoBox && !capturedVanishObject)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }
