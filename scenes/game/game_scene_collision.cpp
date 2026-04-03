@@ -1267,7 +1267,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     }
 
     const float tileSize = m_tileMap.GetTileSize();
-    // 禁止対象: Enemy。無効化済み Enemy は衝突判定から除外する。
+    // Forbidden target: Enemy. Disabled enemies are excluded from overlap checks.
     auto intersectsEnemy = [&](const TransformComponent& candidate) -> bool
     {
         for (const auto& entity : m_entities)
@@ -1301,7 +1301,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
         return false;
     };
 
-    // 禁止対象: Floor。タイル(床/坂)と既存の固体フォトボックスを床扱いで判定する。
+    // Forbidden target: Floor. Check solid/slope tiles and solid pasted photo boxes.
     auto intersectsFloorObject = [&](const TransformComponent& candidate) -> bool
     {
         const int leftColumn = std::max(0, static_cast<int>(candidate.x / tileSize));
@@ -1380,7 +1380,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
 
     if (m_photo.capture.items.empty())
     {
-        // 旧データ/単体貼り付け互換: デフォルトは Group1 として扱う。
+        // Backward-compatible fallback: treat as Group1 when no captured items exist.
         TransformComponent candidate(x, y, width, height);
         return !violatesPlacementRule(candidate, PhotoPlacementRuleGroup::Group1);
     }
@@ -1407,7 +1407,7 @@ float GameScene::GetMapPixelHeight() const
     return static_cast<float>(m_tileMap.GetHeight()) * m_tileMap.GetTileSize();
 }
 
-// 3/21霑ｽ蜉・壽雰縺ｮ蝨ｰ髱｢繧ｹ繝翫ャ繝・逕ｰ荵倶ｸ贋ｿ・
+// 3/21 added: snap enemies to ground.
 bool GameScene::SnapEnemyToGround(TransformComponent& transform) const
 {
     return TrySnapToGround(transform, 48.0f);
