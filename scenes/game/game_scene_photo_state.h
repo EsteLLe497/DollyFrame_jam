@@ -145,6 +145,9 @@ struct PhotoPlacementState
     bool bridgeEnabled = false;
     float rotation = 0.0f;
     int sessionId = 0;
+    bool blockedByUi = false;
+    float invalidFlashRemaining = 0.0f;
+    float confirmFlashRemaining = 0.0f;
 };
 
 struct PhotoGroupState

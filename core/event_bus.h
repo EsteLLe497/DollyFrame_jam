@@ -11,6 +11,7 @@ enum class EventType
     ContactEnd,
     PlaySoundRequest,
     SceneChangeRequested,
+    ExitApplicationRequested,
     LogMessage,
 };
 

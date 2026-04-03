@@ -14,5 +14,6 @@ public:
     virtual void Update(float deltaTime) = 0;
     virtual void Draw() = 0;
     virtual void DrawDebugUI() = 0;
+    virtual bool OnCancelAction() { return false; }
     virtual EventBus* GetEventBus() { return nullptr; }
 };

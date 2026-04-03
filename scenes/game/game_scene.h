@@ -34,6 +34,7 @@ public:
     void Update(float deltaTime) override;
     void Draw() override;
     void DrawDebugUI() override;
+    bool OnCancelAction() override;
     EventBus* GetEventBus() override;
 
 private:
@@ -81,6 +82,9 @@ private:
     void ProcessFilterInput();
     void UpdateTuningHotReload(float deltaTime);
     void HandleGlobalSceneShortcuts();
+    void UpdateMapEditorInput(float deltaTime);
+    void RefreshEnemiesFromMarkers();
+    void UpdateEscapeMenuInput();
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);
     void UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime);
@@ -125,6 +129,8 @@ private:
     void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
     void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
+    void DrawEscapeMenuOverlay() const;
+    void DrawMapEditorOverlay() const;
     void DrawEntity(const Entity& entity) const;
     void DrawBackdrop() const;
     bool IsPhotoTrayHit(float screenX, float screenY) const;
@@ -173,6 +179,7 @@ private:
     GameScenePlayerState m_player;
     GameSceneDebugState m_debug;
     GameSceneEffectsState m_effects;
+    GameSceneMapEditorState m_mapEditor;
     std::vector<CameraTransitionMarker> m_cameraTransitionMarkers;
     std::vector<CameraFixedRange> m_cameraFixedRanges;
     bool m_hasPreviousPlayerCameraProbe = false;

@@ -216,6 +216,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_player = GameScenePlayerState{};
     m_flow = GameSceneFlowState{};
     m_effects = GameSceneEffectsState{};
+    m_mapEditor = GameSceneMapEditorState{};
     m_cameraTransitionMarkers.clear();
     m_cameraFixedRanges.clear();
     m_hasPreviousPlayerCameraProbe = false;
