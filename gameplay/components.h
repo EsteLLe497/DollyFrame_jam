@@ -154,6 +154,54 @@ public:
     float spawnY = 0.0f;
 };
 
+class BatterySwitchComponent final : public Component
+{
+public:
+    BatterySwitchComponent(
+        int linkId,
+        int requiredBatteryCount,
+        float pressDepth,
+        float pressSpeed,
+        float releaseSpeed);
+
+    void OnAttach(Entity& owner) override;
+    void DrawDebugUI() override;
+
+    int linkId = 0;
+    int requiredBatteryCount = 1;
+    int insertedBatteryCount = 0;
+    float pressDepth = 8.0f;
+    float pressSpeed = 60.0f;
+    float releaseSpeed = 60.0f;
+    float activationGraceSeconds = 0.20f;
+    float activationGraceRemaining = 0.0f;
+    float baseY = 0.0f;
+    float currentPress = 0.0f;
+    bool isPressed = false;
+};
+
+class ElevatorComponent final : public Component
+{
+public:
+    ElevatorComponent(
+        int linkId,
+        float moveRangeY,
+        float moveSpeed,
+        float topPauseSeconds);
+
+    void OnAttach(Entity& owner) override;
+    void DrawDebugUI() override;
+
+    int linkId = 0;
+    float moveRangeY = 144.0f;
+    float moveSpeed = 140.0f;
+    float topPauseSeconds = 1.0f;
+    float baseY = 0.0f;
+    bool cycleStarted = false;
+    bool movingUp = true;
+    float pauseTimer = 0.0f;
+};
+
 class TransformComponent final : public Component
 {
 public:

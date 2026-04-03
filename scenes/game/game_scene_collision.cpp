@@ -617,9 +617,15 @@ bool GameScene::IsGoalTile(int column, int row) const
 
 bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 {
-    std::vector<TransformComponent> photoSources;
-    GetEntityBoundsByTag(kTagPhotoSource, photoSources);
-    for (const auto& photoSourceBounds : photoSources)
+    std::vector<TransformComponent> groundPlatforms;
+    GetEntityBoundsByTag(kTagPhotoSource, groundPlatforms);
+    std::vector<TransformComponent> switchBounds;
+    GetEntityBoundsByTag(kTagBatterySwitch, switchBounds);
+    groundPlatforms.insert(groundPlatforms.end(), switchBounds.begin(), switchBounds.end());
+    std::vector<TransformComponent> elevatorBounds;
+    GetEntityBoundsByTag(kTagElevator, elevatorBounds);
+    groundPlatforms.insert(groundPlatforms.end(), elevatorBounds.begin(), elevatorBounds.end());
+    for (const auto& photoSourceBounds : groundPlatforms)
     {
         const float photoSourceX = photoSourceBounds.x;
         const float photoSourceY = photoSourceBounds.y;
@@ -726,9 +732,15 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 
 bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const
 {
-    std::vector<TransformComponent> photoSources;
-    GetEntityBoundsByTag(kTagPhotoSource, photoSources);
-    for (const auto& photoSourceBounds : photoSources)
+    std::vector<TransformComponent> groundPlatforms;
+    GetEntityBoundsByTag(kTagPhotoSource, groundPlatforms);
+    std::vector<TransformComponent> switchBounds;
+    GetEntityBoundsByTag(kTagBatterySwitch, switchBounds);
+    groundPlatforms.insert(groundPlatforms.end(), switchBounds.begin(), switchBounds.end());
+    std::vector<TransformComponent> elevatorBounds;
+    GetEntityBoundsByTag(kTagElevator, elevatorBounds);
+    groundPlatforms.insert(groundPlatforms.end(), elevatorBounds.begin(), elevatorBounds.end());
+    for (const auto& photoSourceBounds : groundPlatforms)
     {
         const float photoSourceX = photoSourceBounds.x;
         const float photoSourceY = photoSourceBounds.y;
