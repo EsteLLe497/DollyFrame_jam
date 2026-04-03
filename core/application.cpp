@@ -228,6 +228,12 @@ void Application::Update(float deltaTime)
     const bool escapePressed = Input_IsActionPressed(InputAction::Cancel);
     if (!m_exitConfirmationOpen && escapePressed)
     {
+        Scene* currentScene = m_sceneManager ? m_sceneManager->GetCurrentScene() : nullptr;
+        if (currentScene && currentScene->OnCancelAction())
+        {
+            return;
+        }
+
         m_exitConfirmationOpen = true;
         return;
     }
@@ -350,6 +356,9 @@ void Application::ProcessSceneEvents()
 
         case EventType::SceneChangeRequested:
             requestedSceneId = eventData.name;
+            break;
+        case EventType::ExitApplicationRequested:
+            m_running = false;
             break;
 
         case EventType::ContactBegin:

@@ -28,6 +28,7 @@ public:
     TileMap();
 
     bool LoadFromCsv(const std::string& path, float tileSize);
+    bool SaveToCsv(const std::string& path) const;
     void Clear();
 
     void Draw(int textureId, float originX, float originY, float scale = 1.0f) const;
@@ -38,6 +39,8 @@ public:
     bool IsLoaded() const;
     int GetTile(int column, int row) const;
     char GetMarker(int column, int row) const;
+    bool SetTile(int column, int row, int tileValue);
+    bool SetMarker(int column, int row, char markerValue);
     bool IsSolid(int column, int row) const;
     static TileTriangleShape GetTriangleShape(int tileValue);
 

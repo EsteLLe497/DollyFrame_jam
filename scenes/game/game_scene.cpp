@@ -1,6 +1,7 @@
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
 #include "audio.h"
+#include "DxLib.h"
 
 using namespace game_scene_detail;
 
@@ -52,6 +53,19 @@ void GameScene::Update(float deltaTime)
 
     m_eventBus.Clear();
     UpdateTuningHotReload(deltaTime);
+
+    if (m_debug.showEscapeMenu)
+    {
+        UpdateEscapeMenuInput();
+        return;
+    }
+
+    if (m_mapEditor.active)
+    {
+        UpdateMapEditorInput(deltaTime);
+        return;
+    }
+
     HandleGlobalSceneShortcuts();
     ProcessFilterInput();
 
@@ -123,6 +137,8 @@ void GameScene::Draw()
     DrawPhotoStorageTray();
     DrawDevelopedPhotoPreview();
     DrawPitRestartOverlay();
+    DrawEscapeMenuOverlay();
+    DrawMapEditorOverlay();
     DrawTuningPanel();
     DrawPlayerHpBar();
     DrawEnemyAttackRects();
@@ -199,6 +215,7 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Copy Groups: %d / 3", m_photo.groups.activeGroupCount);
     ImGui::Text("Active Enemies: %d", m_flow.enemyCount);
     ImGui::Text("Placement Mode: %s", m_photo.placement.active ? "On" : "Off");
+    ImGui::Text("Map Editor: %s (F4)", m_mapEditor.active ? "On" : "Off");
     ImGui::Text("Placement Flip: %s", m_photo.placement.flipX ? "On" : "Off");
     ImGui::Text("Bridge: %s", m_photo.placement.bridgeEnabled ? "On" : "Off");
     ImGui::Text("Camera Mode: %s", m_flow.cameraMode ? "On" : "Off");
@@ -243,9 +260,112 @@ void GameScene::DrawDebugUI()
     ImGui::End();
 }
 
+void GameScene::DrawEscapeMenuOverlay() const
+{
+    if (!m_debug.showEscapeMenu)
+    {
+        return;
+    }
+
+    const int panelWidth = 560;
+    const int panelHeight = 360;
+    const int left = (SCREEN_WIDTH - panelWidth) / 2;
+    const int top = (SCREEN_HEIGHT - panelHeight) / 2;
+    const int right = left + panelWidth;
+    const int bottom = top + panelHeight;
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 156);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    DrawBox(left, top, right, bottom, GetColor(18, 24, 30), TRUE);
+    DrawBox(left, top, right, bottom, GetColor(210, 220, 236), FALSE);
+    DrawString(left + 22, top + 18, "一時停止メニュー", GetColor(245, 248, 255));
+    DrawString(left + 22, top + 44, "W/S・十字キー・マウス: 選択  Enter/A/左クリック: 決定  Esc: 閉じる", GetColor(170, 194, 220));
+
+    const int rowStartY = top + 86;
+    const int rowHeight = 38;
+    for (int index = 0; index < 7; ++index)
+    {
+        const int rowTop = rowStartY + index * rowHeight;
+        const int rowBottom = rowTop + rowHeight - 4;
+        const bool selected = (m_debug.escapeMenuSelection == index);
+
+        DrawBox(
+            left + 18,
+            rowTop,
+            right - 18,
+            rowBottom,
+            selected ? GetColor(72, 102, 136) : GetColor(28, 36, 46),
+            TRUE);
+        DrawBox(
+            left + 18,
+            rowTop,
+            right - 18,
+            rowBottom,
+            selected ? GetColor(236, 244, 255) : GetColor(92, 116, 140),
+            FALSE);
+
+        const int textColor = selected ? GetColor(245, 252, 255) : GetColor(204, 218, 232);
+        switch (index)
+        {
+        case 0:
+            DrawString(left + 34, rowTop + 10, "ゲームに戻る", textColor);
+            break;
+        case 1:
+            DrawFormatString(left + 34, rowTop + 10, textColor, "配置プレビュー脈動: %s", m_debug.effectPlacementPulseEnabled ? "ON" : "OFF");
+            break;
+        case 2:
+            DrawFormatString(left + 34, rowTop + 10, textColor, "貼り付きアニメ: %s", m_debug.effectPasteStickEnabled ? "ON" : "OFF");
+            break;
+        case 3:
+            DrawFormatString(left + 34, rowTop + 10, textColor, "貼り付けリング演出: %s", m_debug.effectPasteRingEnabled ? "ON" : "OFF");
+            break;
+        case 4:
+            DrawString(left + 34, rowTop + 10, "シーンをリスタート", textColor);
+            break;
+        case 5:
+            DrawString(left + 34, rowTop + 10, "タイトルに戻る", textColor);
+            break;
+        case 6:
+            DrawString(left + 34, rowTop + 10, "ゲームを終える", textColor);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 EventBus* GameScene::GetEventBus()
 {
     return &m_eventBus;
+}
+
+bool GameScene::OnCancelAction()
+{
+    if (m_mapEditor.active)
+    {
+        m_mapEditor.active = false;
+        return true;
+    }
+
+    if (m_debug.showTuningPanel)
+    {
+        m_debug.showTuningPanel = false;
+        return true;
+    }
+
+    m_debug.showEscapeMenu = !m_debug.showEscapeMenu;
+    if (!m_debug.showEscapeMenu)
+    {
+        return true;
+    }
+
+    m_debug.escapeMenuSelection = 0;
+    m_photo.placement.active = false;
+    m_photo.placement.valid = false;
+    m_photo.placement.blockedByUi = false;
+    return true;
 }
 
 Entity* GameScene::FindEntityByTag(const char* tag) const

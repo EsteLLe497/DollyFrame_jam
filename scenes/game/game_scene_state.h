@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 #include <vector>
 
 struct PlayerAfterimage
@@ -96,6 +97,11 @@ struct GameSceneDebugState
 {
     bool showCollisionDebug = true;
     bool showTuningPanel = false;
+    bool showEscapeMenu = false;
+    int escapeMenuSelection = 0;
+    bool effectPlacementPulseEnabled = true;
+    bool effectPasteStickEnabled = true;
+    bool effectPasteRingEnabled = true;
     int tuningSelection = 0;
     float tuningReloadTimer = 0.0f;
     std::filesystem::file_time_type tuningFileWriteTime{};
@@ -105,4 +111,20 @@ struct GameSceneDebugState
 struct GameSceneEffectsState
 {
     std::vector<BarrelDebrisParticle> barrelDebris;
+};
+
+struct GameSceneMapEditorState
+{
+    enum class BrushTarget
+    {
+        Tile,
+        Marker,
+    };
+
+    bool active = false;
+    BrushTarget brushTarget = BrushTarget::Tile;
+    int selectedTileValue = 1;
+    char selectedMarker = 'G';
+    std::string statusMessage;
+    float statusMessageTimer = 0.0f;
 };

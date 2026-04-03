@@ -4,6 +4,7 @@
 #include "photo_system_bridge.h"
 #include "photo_filter_rules.h"
 #include "DxLib.h"
+#include <cmath>
 
 using namespace game_scene_detail;
 
@@ -16,6 +17,33 @@ namespace
     constexpr float kPadCursorMaxSpeed = 920.0f;
     constexpr float kPadCursorResponse = 14.0f;
     constexpr float kPadCursorDamping = 10.0f;
+    constexpr float kPlacementInvalidFlashSeconds = 0.22f;
+    constexpr float kPlacementConfirmFlashSeconds = 0.14f;
+    constexpr float kValidPreviewPulseHz = 2.2f;
+    constexpr float kValidPreviewOutlineMin = 1.5f;
+    constexpr float kValidPreviewOutlineMax = 2.2f;
+    constexpr float kValidPreviewTintAlphaMin = 0.46f;
+    constexpr float kValidPreviewTintAlphaMax = 0.62f;
+
+    float NormalizeAngleRadians(float radians)
+    {
+        const float twoPi = 6.2831853072f;
+        if (std::isnan(radians) || std::isinf(radians))
+        {
+            return 0.0f;
+        }
+
+        radians = std::fmod(radians, twoPi);
+        if (radians > 3.1415926536f)
+        {
+            radians -= twoPi;
+        }
+        else if (radians < -3.1415926536f)
+        {
+            radians += twoPi;
+        }
+        return radians;
+    }
 }
 
 void PhotoPasteSystem::HandleSpawn(GameScene& scene)
@@ -32,10 +60,24 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
             scene.m_flow.cameraMode = false;
             ++scene.m_photo.placement.sessionId;
         }
+        else
+        {
+            scene.m_photo.placement.valid = false;
+            scene.m_photo.placement.blockedByUi = false;
+        }
     }
 
     if (!scene.m_photo.capture.hasPhoto || !scene.m_photo.placement.active)
     {
+        scene.m_photo.placement.blockedByUi = false;
+        return;
+    }
+
+    if (Input_IsActionPressed(InputAction::Cancel))
+    {
+        scene.m_photo.placement.active = false;
+        scene.m_photo.placement.valid = false;
+        scene.m_photo.placement.blockedByUi = false;
         return;
     }
 
@@ -63,6 +105,8 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
     {
         scene.m_photo.placement.rotation += Input_GetAxis(InputAxis::Rotate) * (kPlacementRotateSpeed / 60.0f);
     }
+
+    scene.m_photo.placement.rotation = NormalizeAngleRadians(scene.m_photo.placement.rotation);
 
     Entity* player = scene.FindEntityByTag("Player");
     if (!player)
@@ -100,6 +144,15 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         scene.m_whiteTexture,
         previewWidth,
         previewHeight);
+    const bool pulseEnabled = scene.m_debug.effectPlacementPulseEnabled;
+    const float timeSeconds = static_cast<float>(GetNowCount()) / 1000.0f;
+    const float pulse01 = pulseEnabled ? (0.5f + 0.5f * std::sin(timeSeconds * 6.2831853072f * kValidPreviewPulseHz)) : 0.5f;
+    const float validOutlineThickness = pulseEnabled
+        ? (kValidPreviewOutlineMin + (kValidPreviewOutlineMax - kValidPreviewOutlineMin) * pulse01)
+        : 1.8f;
+    const float validTintAlpha = pulseEnabled
+        ? (kValidPreviewTintAlphaMin + (kValidPreviewTintAlphaMax - kValidPreviewTintAlphaMin) * pulse01)
+        : 0.55f;
 
     for (const auto& item : previewItems)
     {
@@ -117,8 +170,9 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
             float outlineG = 0.92f;
             float outlineB = 1.0f;
             GetPhotoFilterThemePreviewOutlineColor(previewItem.appliedTheme, outlineR, outlineG, outlineB);
-            Shader_SetOutline(outlineR, outlineG, outlineB, 1.0f, previewItem.appliedTheme == PhotoFilterTheme::None ? 1.6f : 1.8f);
-            Shader_SetTint(previewItem.tintR, previewItem.tintG, previewItem.tintB, 0.55f);
+            const float themeBoost = previewItem.appliedTheme == PhotoFilterTheme::None ? 0.0f : 0.2f;
+            Shader_SetOutline(outlineR, outlineG, outlineB, 1.0f, validOutlineThickness + themeBoost);
+            Shader_SetTint(previewItem.tintR, previewItem.tintG, previewItem.tintB, validTintAlpha);
         }
         else
         {
@@ -152,6 +206,25 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         }
     }
 
+    if (scene.m_photo.placement.valid && pulseEnabled)
+    {
+        const float outerX = viewOriginX + (scene.m_photo.placement.x - scene.m_flow.cameraX) * viewScale;
+        const float outerY = viewOriginY + (scene.m_photo.placement.y - scene.m_flow.cameraY) * viewScale;
+        const float outerW = previewWidth * viewScale;
+        const float outerH = previewHeight * viewScale;
+        const int pad = std::max(2, static_cast<int>(std::round(2.0f + pulse01 * 3.0f)));
+        const int alpha = static_cast<int>(std::round(120.0f + pulse01 * 95.0f));
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+        DrawBox(
+            static_cast<int>(std::round(outerX)) - pad,
+            static_cast<int>(std::round(outerY)) - pad,
+            static_cast<int>(std::round(outerX + outerW)) + pad,
+            static_cast<int>(std::round(outerY + outerH)) + pad,
+            GetColor(128, 245, 190),
+            FALSE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     DrawFormatString(
         static_cast<int>(viewOriginX + 24.0f),
         static_cast<int>(viewOriginY + 24.0f),
@@ -164,9 +237,40 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         static_cast<int>(viewOriginX + 24.0f),
         static_cast<int>(viewOriginY + 48.0f),
         GetColor(190, 220, 255),
-        "Solid in world  Groups:%d/3  Rot:%.0f  Keys:F/B/Z/X",
+        "Solid in world  Groups:%d/3  Rot:%.0f  Keys:F/B/Z/X Esc:Cancel",
         scene.m_photo.groups.activeGroupCount,
         scene.m_photo.placement.rotation * 57.2957795f);
+
+    const float centerWorldX = scene.m_photo.placement.x + previewWidth * 0.5f;
+    const float centerWorldY = scene.m_photo.placement.y + previewHeight * 0.5f;
+    const int centerScreenX = static_cast<int>(std::round(viewOriginX + (centerWorldX - scene.m_flow.cameraX) * viewScale));
+    const int centerScreenY = static_cast<int>(std::round(viewOriginY + (centerWorldY - scene.m_flow.cameraY) * viewScale));
+    const int reticleColor = scene.m_photo.placement.valid ? GetColor(90, 240, 180) : GetColor(255, 100, 100);
+    DrawCircle(centerScreenX, centerScreenY, 8, reticleColor, FALSE);
+    DrawLine(centerScreenX - 12, centerScreenY, centerScreenX + 12, centerScreenY, reticleColor, 1);
+    DrawLine(centerScreenX, centerScreenY - 12, centerScreenX, centerScreenY + 12, reticleColor, 1);
+
+    int statusColor = GetColor(90, 235, 150);
+    const char* statusText = "Place: LMB / RT";
+    if (!scene.m_photo.placement.valid)
+    {
+        statusColor = GetColor(255, 120, 120);
+        statusText = scene.m_photo.placement.blockedByUi ? "Cannot place: cursor is over photo tray" : "Cannot place: blocked by rule";
+    }
+    if (scene.m_photo.placement.invalidFlashRemaining > 0.0f)
+    {
+        statusColor = GetColor(255, 72, 72);
+    }
+    else if (scene.m_photo.placement.confirmFlashRemaining > 0.0f)
+    {
+        statusColor = GetColor(120, 255, 180);
+    }
+    DrawFormatString(
+        static_cast<int>(viewOriginX + 24.0f),
+        static_cast<int>(viewOriginY + 72.0f),
+        statusColor,
+        "%s",
+        statusText);
 
     Shader_ResetStyle();
 }
@@ -226,6 +330,8 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
     const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
     const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
     lastTimeMs = nowMs;
+    scene.m_photo.placement.invalidFlashRemaining = std::max(0.0f, scene.m_photo.placement.invalidFlashRemaining - dt);
+    scene.m_photo.placement.confirmFlashRemaining = std::max(0.0f, scene.m_photo.placement.confirmFlashRemaining - dt);
 
     const int mouseX = Input_GetMouseX();
     const int mouseY = Input_GetMouseY();
@@ -284,13 +390,22 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
     const float cursorScreenY = viewOriginY + (cursorWorldY - scene.m_flow.cameraY) * viewScale;
     const bool confirmPressed = Input_IsActionPressed(InputAction::ConfirmPlacement);
     const bool blockedByTray = scene.IsPhotoTrayHit(cursorScreenX, cursorScreenY);
+    scene.m_photo.placement.blockedByUi = blockedByTray;
 
     if (confirmPressed && (!scene.m_photo.placement.valid || blockedByTray))
     {
+        scene.m_photo.placement.invalidFlashRemaining = kPlacementInvalidFlashSeconds;
         scene.m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "cant_paste", 0.0f, 0.0f });
+        return false;
     }
 
-    return scene.m_photo.placement.valid && !blockedByTray && confirmPressed;
+    if (confirmPressed && scene.m_photo.placement.valid)
+    {
+        scene.m_photo.placement.confirmFlashRemaining = kPlacementConfirmFlashSeconds;
+        return true;
+    }
+
+    return false;
 }
 
 void PhotoPasteSystem::SpawnPhotoGroup(
@@ -466,6 +581,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     scene.ConsumeSelectedPhotoSlot();
     scene.m_photo.placement.active = false;
     scene.m_photo.placement.valid = false;
+    scene.m_photo.placement.blockedByUi = false;
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, lastSpawnedEntity, "test_tone", 0.0f, 0.0f });
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, lastSpawnedEntity, "Spawned filtered reconstruction", 0.0f, 0.0f });
 }

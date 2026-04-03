@@ -823,12 +823,14 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float settleT = EaseOutBack(progress);
             const float slamT = EaseOutCubic(progress);
             const float animationScale = 0.82f + 0.18f * settleT;
+            const float stickT = m_debug.effectPasteStickEnabled ? Clamp01(1.0f - progress / 0.085f) : 0.0f;
+            const float stickEase = stickT * stickT * (3.0f - 2.0f * stickT);
             const float centerX = drawX + drawWidth * 0.5f;
             const float bottomY = drawY + drawHeight;
-            const float animatedWidth = drawWidth * animationScale;
-            const float animatedHeight = drawHeight * (1.12f - 0.12f * slamT);
+            const float animatedWidth = drawWidth * animationScale * (1.0f + 0.18f * stickEase);
+            const float animatedHeight = drawHeight * (1.12f - 0.12f * slamT) * (1.0f - 0.14f * stickEase);
             drawX = centerX - animatedWidth * 0.5f;
-            drawY = bottomY - animatedHeight - (1.0f - slamT) * 18.0f * viewScale;
+            drawY = bottomY - animatedHeight - (1.0f - slamT) * 18.0f * viewScale + stickEase * 5.0f * viewScale;
             drawWidth = animatedWidth;
             drawHeight = animatedHeight;
             alphaMultiplier *= 0.45f + 0.55f * slamT;
@@ -959,13 +961,16 @@ void GameScene::DrawEntity(const Entity& entity) const
             transform->rotation);
     }
 
-    DrawPhotoPasteAnimationOutline(
+    if (m_debug.effectPasteRingEnabled)
+    {
+        DrawPhotoPasteAnimationOutline(
         entity,
         drawX,
         drawY,
         drawWidth,
         drawHeight,
         viewScale);
+    }
 
     if (m_debug.showCollisionDebug && (entity.GetComponent<PhotoFilterComponent>() || (tag && (HasTag(tag, kTagPlayer) || HasTag(tag, kTagPhotoSource) || HasTag(tag, kTagPhotoBox)))))
     {

@@ -151,6 +151,17 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker)
     return false;
 }
 
+std::string FormatCsvCell(int tileValue, char marker)
+{
+    if (marker == '\0')
+    {
+        return std::to_string(tileValue);
+    }
+
+    std::string markerText(1, static_cast<char>(std::toupper(static_cast<unsigned char>(marker))));
+    return std::to_string(tileValue) + "|" + markerText;
+}
+
 void GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
 {
     a = 1.0f;
@@ -403,6 +414,46 @@ bool TileMap::LoadFromCsv(const std::string& path, float tileSize)
     return true;
 }
 
+bool TileMap::SaveToCsv(const std::string& path) const
+{
+    if (!IsLoaded())
+    {
+        Logger::Error("TileMap save failed: map data is empty");
+        return false;
+    }
+
+    std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+    if (!stream.is_open())
+    {
+        Logger::Error(std::string("TileMap failed to save CSV: ") + path);
+        return false;
+    }
+
+    for (int row = 0; row < m_data.height; ++row)
+    {
+        for (int column = 0; column < m_data.width; ++column)
+        {
+            if (column > 0)
+            {
+                stream << ",";
+            }
+
+            const int tileValue = m_data.tiles[static_cast<size_t>(row * m_data.width + column)];
+            const char marker = m_data.markers.empty()
+                ? '\0'
+                : m_data.markers[static_cast<size_t>(row * m_data.width + column)];
+            stream << FormatCsvCell(tileValue, marker);
+        }
+        if (row + 1 < m_data.height)
+        {
+            stream << "\n";
+        }
+    }
+
+    Logger::Info(std::string("TileMap saved to CSV: ") + path);
+    return true;
+}
+
 void TileMap::Clear()
 {
     m_data = TileMapData{};
@@ -456,6 +507,36 @@ char TileMap::GetMarker(int column, int row) const
     }
 
     return m_data.markers[static_cast<size_t>(row * m_data.width + column)];
+}
+
+bool TileMap::SetTile(int column, int row, int tileValue)
+{
+    if (column < 0 || row < 0 || column >= m_data.width || row >= m_data.height)
+    {
+        return false;
+    }
+
+    m_data.tiles[static_cast<size_t>(row * m_data.width + column)] = tileValue;
+    return true;
+}
+
+bool TileMap::SetMarker(int column, int row, char markerValue)
+{
+    if (column < 0 || row < 0 || column >= m_data.width || row >= m_data.height)
+    {
+        return false;
+    }
+
+    if (m_data.markers.empty())
+    {
+        m_data.markers.assign(static_cast<size_t>(m_data.width * m_data.height), '\0');
+    }
+
+    m_data.markers[static_cast<size_t>(row * m_data.width + column)] =
+        markerValue == '\0'
+        ? '\0'
+        : static_cast<char>(std::toupper(static_cast<unsigned char>(markerValue)));
+    return true;
 }
 
 bool TileMap::IsSolid(int column, int row) const

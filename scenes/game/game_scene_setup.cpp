@@ -324,6 +324,7 @@ void GameScene::ResetSceneState()
     m_flow = GameSceneFlowState{};
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
+    m_mapEditor = GameSceneMapEditorState{};
     m_cameraTransitionMarkers.clear();
     m_cameraFixedRanges.clear();
     m_hasPreviousPlayerCameraProbe = false;
@@ -524,7 +525,7 @@ void GameScene::InitializeStageEntities()
                     SnapEnemyToGround(*transform);
                 }
             }
-            else if (marker == 'S') // ’†ƒ{ƒX
+            else if (marker == 'M') // MidBoss
             {
                 Entity& boss = SpawnStagePrefab(
                     prefabs,
@@ -695,4 +696,8 @@ Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId
     m_entities.push_back(std::move(entity));
     return entityRef;
 }
+
+
+
+
 

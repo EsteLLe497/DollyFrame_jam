@@ -48,6 +48,7 @@ namespace
         case 'D': return KEY_INPUT_D;
         case 'E': return KEY_INPUT_E;
         case 'F': return KEY_INPUT_F;
+        case 'M': return KEY_INPUT_M;
         case 'Q': return KEY_INPUT_Q;
         case 'R': return KEY_INPUT_R;
         case 'S': return KEY_INPUT_S;
