@@ -100,6 +100,71 @@ void BatteryComponent::DrawDebugUI()
     ImGui::Text("Fall Damage Speed: %.1f", fallDamageSpeed);
 }
 
+BatterySwitchComponent::BatterySwitchComponent(
+    int linkIdValue,
+    int requiredBatteryCountValue,
+    float pressDepthValue,
+    float pressSpeedValue,
+    float releaseSpeedValue)
+    : linkId((std::max)(0, linkIdValue))
+    , requiredBatteryCount((std::max)(1, requiredBatteryCountValue))
+    , pressDepth((std::max)(0.0f, pressDepthValue))
+    , pressSpeed((std::max)(1.0f, pressSpeedValue))
+    , releaseSpeed((std::max)(1.0f, releaseSpeedValue))
+{
+}
+
+void BatterySwitchComponent::OnAttach(Entity& owner)
+{
+    Component::OnAttach(owner);
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        baseY = transform->y;
+    }
+}
+
+void BatterySwitchComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Battery Switch");
+    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("Battery: %d / %d", insertedBatteryCount, requiredBatteryCount);
+    ImGui::Text("Press: %.1f / %.1f", currentPress, pressDepth);
+    ImGui::Text("Pressed: %s", isPressed ? "Yes" : "No");
+    ImGui::Text("Grace: %.2f", activationGraceRemaining);
+}
+
+ElevatorComponent::ElevatorComponent(
+    int linkIdValue,
+    float moveRangeYValue,
+    float moveSpeedValue,
+    float topPauseSecondsValue)
+    : linkId((std::max)(0, linkIdValue))
+    , moveRangeY((std::max)(0.0f, moveRangeYValue))
+    , moveSpeed((std::max)(1.0f, moveSpeedValue))
+    , topPauseSeconds((std::max)(0.0f, topPauseSecondsValue))
+{
+}
+
+void ElevatorComponent::OnAttach(Entity& owner)
+{
+    Component::OnAttach(owner);
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        baseY = transform->y;
+    }
+}
+
+void ElevatorComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Elevator");
+    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("MoveRangeY: %.1f", moveRangeY);
+    ImGui::Text("MoveSpeed: %.1f", moveSpeed);
+    ImGui::Text("TopPause: %.2f", topPauseSeconds);
+    ImGui::Text("CycleStarted: %s", cycleStarted ? "Yes" : "No");
+    ImGui::Text("MovingUp: %s", movingUp ? "Yes" : "No");
+}
+
 TransformComponent::TransformComponent(float xValue, float yValue, float widthValue, float heightValue)
     : x(xValue)
     , y(yValue)

@@ -68,6 +68,7 @@ private:
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
     void UpdateBatteries(float deltaTime);
+    void UpdateElevatorGimmicks(float deltaTime);
     void UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame);
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
@@ -86,6 +87,7 @@ private:
     void UpdateMapEditorInput(float deltaTime);
     void RefreshEnemiesFromMarkers();
     void RefreshBatteriesFromMarkers();
+    void RefreshElevatorGimmicksFromMarkers();
     void UpdateEscapeMenuInput();
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);

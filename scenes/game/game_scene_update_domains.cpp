@@ -34,7 +34,7 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr int kMarkerPresetCount = 12;
+    constexpr int kMarkerPresetCount = 14;
 
     int MarkerToPresetIndex(char marker)
     {
@@ -62,6 +62,10 @@ namespace
             return 10;
         case 'Y':
             return 11;
+        case 'K':
+            return 12;
+        case 'L':
+            return 13;
         default:
             return 0;
         }
@@ -93,6 +97,10 @@ namespace
             return 'M';
         case 11:
             return 'Y';
+        case 12:
+            return 'K';
+        case 13:
+            return 'L';
         default:
             return '\0';
         }
@@ -451,6 +459,14 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         {
             m_mapEditor.selectedMarker = 'Y';
         }
+        if (Input_IsKeyPressed('K'))
+        {
+            m_mapEditor.selectedMarker = 'K';
+        }
+        if (Input_IsKeyPressed('L'))
+        {
+            m_mapEditor.selectedMarker = 'L';
+        }
 
         int markerIndex = MarkerToPresetIndex(m_mapEditor.selectedMarker);
         if (Input_IsKeyPressed('Q'))
@@ -486,6 +502,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             BuildCameraMarkers();
             RefreshEnemiesFromMarkers();
             RefreshBatteriesFromMarkers();
+            RefreshElevatorGimmicksFromMarkers();
             m_mapEditor.statusMessage = "CSVを再読み込みしました";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
@@ -508,6 +525,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             BuildCameraMarkers();
             RefreshEnemiesFromMarkers();
             RefreshBatteriesFromMarkers();
+            RefreshElevatorGimmicksFromMarkers();
             m_flow.cameraX = 0.0f;
             m_flow.cameraY = 0.0f;
             m_mapEditor.statusMessage = "新規マップを作成: " + newMapPath;
@@ -574,6 +592,8 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
                 isEnemyMarker(before) || isEnemyMarker(after);
             const bool touchesBatteryMarker =
                 before == 'Y' || after == 'Y';
+            const bool touchesElevatorMarker =
+                before == 'K' || before == 'L' || after == 'K' || after == 'L';
             if (touchesEnemyMarker && before != after)
             {
                 RefreshEnemiesFromMarkers();
@@ -581,6 +601,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             if (touchesBatteryMarker && before != after)
             {
                 RefreshBatteriesFromMarkers();
+            }
+            if (touchesElevatorMarker && before != after)
+            {
+                RefreshElevatorGimmicksFromMarkers();
             }
         }
     }
@@ -601,6 +625,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             if (before == 'Y')
             {
                 RefreshBatteriesFromMarkers();
+            }
+            if (before == 'K' || before == 'L')
+            {
+                RefreshElevatorGimmicksFromMarkers();
             }
         }
     }
@@ -734,6 +762,93 @@ void GameScene::RefreshBatteriesFromMarkers()
                 320.0f,
                 1);
             m_entities.push_back(std::move(battery));
+        }
+    }
+}
+
+void GameScene::RefreshElevatorGimmicksFromMarkers()
+{
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity)
+                {
+                    return true;
+                }
+                return entity->GetComponent<BatterySwitchComponent>() != nullptr ||
+                    entity->GetComponent<ElevatorComponent>() != nullptr;
+            }),
+        m_entities.end());
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    std::vector<std::pair<float, float>> switchMarkers;
+    std::vector<std::pair<float, float>> elevatorMarkers;
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            const float markerX = static_cast<float>(column) * tileSize;
+            const float markerY = static_cast<float>(row) * tileSize;
+            if (marker == 'K')
+            {
+                switchMarkers.emplace_back(markerX, markerY + tileSize * 0.5f);
+            }
+            else if (marker == 'L')
+            {
+                elevatorMarkers.emplace_back(markerX, markerY);
+            }
+        }
+    }
+
+    const int pairCount = static_cast<int>((std::max)(switchMarkers.size(), elevatorMarkers.size()));
+    for (int index = 0; index < pairCount; ++index)
+    {
+        if (index < static_cast<int>(switchMarkers.size()))
+        {
+            auto switchEntity = std::make_unique<Entity>();
+            switchEntity->AddComponent<TagComponent>(kTagBatterySwitch);
+            switchEntity->AddComponent<TransformComponent>(
+                switchMarkers[static_cast<size_t>(index)].first,
+                switchMarkers[static_cast<size_t>(index)].second,
+                tileSize,
+                tileSize * 0.5f);
+            switchEntity->AddComponent<TintComponent>(0.92f, 0.26f, 0.20f, 1.0f);
+            switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            switchEntity->AddComponent<BatterySwitchComponent>(
+                index,
+                1,
+                tileSize * 0.22f,
+                12.0f,
+                9.0f);
+            m_entities.push_back(std::move(switchEntity));
+        }
+
+        if (index < static_cast<int>(elevatorMarkers.size()))
+        {
+            auto elevatorEntity = std::make_unique<Entity>();
+            elevatorEntity->AddComponent<TagComponent>(kTagElevator);
+            elevatorEntity->AddComponent<TransformComponent>(
+                elevatorMarkers[static_cast<size_t>(index)].first,
+                elevatorMarkers[static_cast<size_t>(index)].second,
+                tileSize * 5.0f,
+                tileSize);
+            elevatorEntity->AddComponent<TintComponent>(0.42f, 0.46f, 0.52f, 1.0f);
+            elevatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            elevatorEntity->AddComponent<ElevatorComponent>(
+                index,
+                tileSize * 3.0f,
+                tileSize * 2.5f,
+                1.0f);
+            m_entities.push_back(std::move(elevatorEntity));
         }
     }
 }
@@ -949,6 +1064,7 @@ void GameScene::RunGameplayFrame(float gameplayDeltaTime)
     HandlePhotoSpawn();
     UpdateBarrels(gameplayDeltaTime);
     UpdateBatteries(gameplayDeltaTime);
+    UpdateElevatorGimmicks(gameplayDeltaTime);
     UpdateEnemies();
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
