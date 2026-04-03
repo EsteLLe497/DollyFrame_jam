@@ -281,6 +281,8 @@ Visual Studio の場合:
   今後の改善候補一覧
 - [docs/domain-ownership-guide.md](docs/domain-ownership-guide.md)
   ドメイン担当境界の固定ルール
+- [docs/recent-changes.md](docs/recent-changes.md)
+  直近変更の要点サマリ
 
 ## どこから触るべきか
 

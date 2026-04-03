@@ -22,6 +22,9 @@ namespace
     constexpr float kPixelsPerMeter = 100.0f;
 }
 
+// ============================================================================
+// Physics / Shared Basics
+// ============================================================================
 BarrelComponent::BarrelComponent(
     float gravityValue,
     float maxFallSpeedValue,
@@ -137,6 +140,9 @@ TagComponent::TagComponent(const char* value)
 {
 }
 
+// ============================================================================
+// Photo System Components
+// ============================================================================
 PhotoCopyRoleComponent::PhotoCopyRoleComponent(PhotoCopyRole roleValue)
     : role(roleValue)
 {
@@ -165,6 +171,7 @@ PhotoCopyLifetimeComponent::PhotoCopyLifetimeComponent(float lifetimeSeconds)
 
 void PhotoCopyLifetimeComponent::Update(float deltaTime)
 {
+    // マイナス方向へだけ減衰させ、下限は 0 に固定。
     m_remainingSeconds = std::max(0.0f, m_remainingSeconds - deltaTime);
 }
 
@@ -291,6 +298,9 @@ void PhotoCopyEffectComponent::SetTheme(PhotoFilterTheme themeValue)
     m_theme = themeValue;
 }
 
+// ============================================================================
+// Enemy / Combat Domain
+// ============================================================================
 EnemyComponent::EnemyComponent(EnemyArchetype archetype, int contactDamage)
     : m_archetype(archetype)
     , m_contactDamage(std::max(0, contactDamage))
@@ -345,6 +355,9 @@ void EnemyComponent::Restore()
     m_enabled = true;
 }
 
+// ============================================================================
+// Stage Gimmick Domain
+// ============================================================================
 GimmickComponent::GimmickComponent(GimmickType type, bool startsEnabled, bool oneShot)
     : m_type(type)
     , m_enabled(startsEnabled)
@@ -472,6 +485,9 @@ float PhotoFilterComponent::GetTintA() const
     return m_tintA;
 }
 
+// ============================================================================
+// Gameplay Common Domain
+// ============================================================================
 HealthComponent::HealthComponent(int maxHealth)
     : m_maxHealth(std::max(1, maxHealth))
     , m_currentHealth(std::max(1, maxHealth))
@@ -556,6 +572,9 @@ float DamageCooldownComponent::GetRemainingSeconds() const
     return m_remainingSeconds;
 }
 
+// ============================================================================
+// Rendering / Animation Domain
+// ============================================================================
 SpriteRenderComponent::SpriteRenderComponent(int textureId)
     : m_textureId(textureId)
     , m_sourceX(0.0f)
@@ -807,6 +826,7 @@ int SpriteSheetAnimationComponent::GetCurrentFrameIndex() const
         return clip.startFrame;
     }
 
+    // 経過秒をフレームへ変換。loop=false の場合は末尾フレームで停止。
     const float rawFrame = m_elapsedSeconds * clip.fps;
     const int localFrame = clip.loop
         ? static_cast<int>(rawFrame) % clip.frameCount
@@ -840,6 +860,7 @@ void SpriteSheetAnimationComponent::ApplyFrameToSprite()
 
     const Clip& clip = found->second;
     const int frameIndex = GetCurrentFrameIndex();
+    // スプライトシート上のフレーム番号を行列インデックスへ変換。
     const int column = frameIndex % clip.columns;
     const int row = frameIndex / clip.columns;
     const float cellWidth = 1.0f / static_cast<float>(clip.columns);
@@ -923,6 +944,9 @@ PlayerControllerComponent::PlayerControllerComponent(EventBus& eventBus)
 {
 }
 
+// ============================================================================
+// Movement / Physics Domain
+// ============================================================================
 EnemyMoverComponent::EnemyMoverComponent(float originX, float originY, float amplitudeX, float amplitudeY, float frequency)
     : m_originX(originX)
     , m_originY(originY)
@@ -1024,6 +1048,7 @@ void RigidBodyComponent::OnAttach(Entity& owner)
 
     b2BodyDef bodyDef = b2DefaultBodyDef();
     bodyDef.type = m_bodyType;
+    // 描画基準（左上）から物理基準（中心）へ変換して初期配置する。
     bodyDef.position = {
         (transform->x + (transform->width * transform->scale * 0.5f)) / kPixelsPerMeter,
         (transform->y + (transform->height * transform->scale * 0.5f)) / kPixelsPerMeter
@@ -1088,6 +1113,7 @@ void RigidBodyComponent::PullTransformFromPhysics()
     const b2Rot rotation = b2Body_GetRotation(m_bodyId);
     const float width = transform->width * transform->scale;
     const float height = transform->height * transform->scale;
+    // 物理中心座標を描画用の左上座標へ戻す。
     transform->x = position.x * kPixelsPerMeter - (width * 0.5f);
     transform->y = position.y * kPixelsPerMeter - (height * 0.5f);
     transform->rotation = b2Rot_GetAngle(rotation);
@@ -1219,6 +1245,7 @@ void ImageOutlineColliderComponent::OnAttach(Entity& owner)
 
         m_normalizedOutline.clear();
         m_normalizedOutline.reserve(outline.size());
+        // 画像ピクセル座標を [0,1] 正規化で保持し、再利用可能な形にする。
         for (const ImageOutline::Point& point : outline)
         {
             const float u = static_cast<float>(point.x) / static_cast<float>(imageWidth);
@@ -1244,6 +1271,7 @@ void ImageOutlineColliderComponent::OnAttach(Entity& owner)
     const float halfHeight = worldHeight * 0.5f;
     std::vector<b2Vec2> points;
     points.reserve(m_normalizedOutline.size());
+    // 正規化輪郭をワールドメートル座標に展開し、Chain 形状を作る。
     for (const b2Vec2& point : m_normalizedOutline)
     {
         points.push_back({

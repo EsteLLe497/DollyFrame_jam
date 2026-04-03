@@ -343,7 +343,7 @@ void GameScene::DrawCaptureOverlay() const
         return;
     }
 
-    const Entity* player = FindEntityByTag("Player");
+    const Entity* player = FindEntityByTag(kTagPlayer);
     if (!player)
     {
         return;
@@ -1128,7 +1128,7 @@ void GameScene::DrawBackdrop() const
         }
     }
 
-    if (const Entity* player = FindEntityByTag("Player"))
+    if (const Entity* player = FindEntityByTag(kTagPlayer))
     {
         if (const auto* transform = player->GetComponent<TransformComponent>())
         {
@@ -1286,12 +1286,12 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     float bestDistance = 1000000.0f;
     for (const auto& entity : m_entities)
     {
-        if (HasTag(*entity, "Player") || HasTag(*entity, "Enemy"))
+        if (HasTag(*entity, kTagPlayer) || HasTag(*entity, kTagEnemy))
         {
             continue;
         }
 
-        if (HasTag(*entity, "PhotoBox"))
+        if (HasTag(*entity, kTagPhotoBox))
         {
             const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
             if (!layer || layer->layer != PhotoCopyLayer::Foreground)
@@ -1330,7 +1330,7 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
 
 void GameScene::DrawPlayerHpBar() const
 {
-    const Entity* player = FindEntityByTag("Player");
+    const Entity* player = FindEntityByTag(kTagPlayer);
     if (!player) return;
 
     const auto* health = player->GetComponent<HealthComponent>();
@@ -1356,7 +1356,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(40, 40, 40),
         TRUE);
 
-    // HP部分
+    // HP部刁E
     const float hpRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
     DrawBox(
         static_cast<int>(barX),
@@ -1366,7 +1366,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(60, 200, 80),
         TRUE);
 
-    // 枠線
+    // 枠緁E
     DrawBox(
         static_cast<int>(barX),
         static_cast<int>(barY),

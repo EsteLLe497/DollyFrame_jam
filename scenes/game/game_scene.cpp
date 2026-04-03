@@ -7,7 +7,6 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr float kBarrelDebrisGravity = 980.0f;
-    constexpr float kStageTransitionFadeInDuration = 1.10f;
 }
 
 GameScene::GameScene()
@@ -30,7 +29,7 @@ void GameScene::OnEnter(ResourceManager& resources)
     LoadTuningState();
     InitializeStageResources(resources);
     InitializeStageEntities();
-    if (Entity* player = FindEntityByTag("Player"))
+    if (Entity* player = FindEntityByTag(kTagPlayer))
     {
         game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(*player);
     }
@@ -51,117 +50,9 @@ void GameScene::Update(float deltaTime)
 {
     ZoneScoped;
 
-    auto updateTuningHotReload = [this, deltaTime]()
-    {
-        m_debug.tuningReloadTimer = std::max(0.0f, m_debug.tuningReloadTimer - deltaTime);
-        if (m_debug.tuningReloadTimer > 0.0f)
-        {
-            return;
-        }
-
-        m_debug.tuningReloadTimer = 0.25f;
-        std::error_code ec;
-        const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
-        if (!ec && (!m_debug.hasTuningFileWriteTime || writeTime != m_debug.tuningFileWriteTime))
-        {
-            m_debug.tuningFileWriteTime = writeTime;
-            m_debug.hasTuningFileWriteTime = true;
-            LoadTuningJsonFile();
-        }
-    };
-
-    auto handleGlobalSceneShortcuts = [this]()
-    {
-        if (Input_IsActionPressed(InputAction::ReturnToTitle))
-        {
-            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
-        }
-        if (Input_IsActionPressed(InputAction::RestartScene))
-        {
-            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
-        }
-        if (Input_IsActionPressed(InputAction::ToggleTuningPanel))
-        {
-            m_debug.showTuningPanel = !m_debug.showTuningPanel;
-        }
-        if (Input_IsActionPressed(InputAction::ToggleCollisionDebug))
-        {
-            m_debug.showCollisionDebug = !m_debug.showCollisionDebug;
-        }
-    };
-
-    auto updatePitRestartFlow = [this, deltaTime]() -> bool
-    {
-        if (!m_flow.pitRestartActive)
-        {
-            return false;
-        }
-
-        m_flow.pitRestartTimer = std::max(0.0f, m_flow.pitRestartTimer - deltaTime);
-        if (m_flow.pitRestartTimer > 0.0f)
-        {
-            return true;
-        }
-
-        Entity* player = FindEntityByTag("Player");
-        if (player)
-        {
-            RespawnPlayer(*player);
-        }
-        else
-        {
-            m_flow.pitRestartActive = false;
-            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
-        }
-        return true;
-    };
-
-    auto updateStageTransitionFlow = [this, deltaTime]() -> bool
-    {
-        if (!m_flow.stageTransitionActive)
-        {
-            return false;
-        }
-
-        m_flow.stageTransitionTimer = std::max(0.0f, m_flow.stageTransitionTimer - deltaTime);
-        if (m_flow.stageTransitionTimer > 0.0f)
-        {
-            return true;
-        }
-
-        const bool transitioned = m_hasPendingStageTransition &&
-            ExecuteStageTransition(
-                m_pendingStageTransitionMapCsv,
-                m_pendingStageTransitionSpawnMarker,
-                m_pendingStageTransitionMarker);
-        m_hasPendingStageTransition = false;
-        m_pendingStageTransitionMapCsv.clear();
-        m_pendingStageTransitionSpawnMarker = '\0';
-        m_pendingStageTransitionMarker = '\0';
-        m_flow.stageTransitionActive = false;
-        m_flow.stageTransitionTimer = 0.0f;
-        m_flow.stageTransitionFadeInTimer = transitioned ? kStageTransitionFadeInDuration : 0.0f;
-        return true;
-    };
-
-    auto updateFrameTimers = [this, deltaTime](float gameplayDeltaTime, float effectiveGameplayDeltaTime)
-    {
-        m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
-        m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
-        m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
-        m_flow.stageTransitionFadeInTimer = std::max(0.0f, m_flow.stageTransitionFadeInTimer - deltaTime);
-        const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;
-        m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
-        if (previewWasActive && m_flow.developedPhotoPreviewRemaining <= 0.0f)
-        {
-            CommitPendingCapturedPhoto();
-        }
-        m_flow.pickupPulse += gameplayDeltaTime;
-    };
-
     m_eventBus.Clear();
-    updateTuningHotReload();
-    handleGlobalSceneShortcuts();
+    UpdateTuningHotReload(deltaTime);
+    HandleGlobalSceneShortcuts();
     ProcessFilterInput();
 
     UpdateTuningPanel();
@@ -170,11 +61,11 @@ void GameScene::Update(float deltaTime)
         return;
     }
 
-    if (updatePitRestartFlow())
+    if (UpdatePitRestartFlow(deltaTime))
     {
         return;
     }
-    if (updateStageTransitionFlow())
+    if (UpdateStageTransitionFlow(deltaTime))
     {
         return;
     }
@@ -185,7 +76,7 @@ void GameScene::Update(float deltaTime)
     const float effectiveGameplayDeltaTime = m_flow.hitStopRemaining > 0.0f ? 0.0f : gameplayDeltaTime;
     m_flow.lastDeltaTime = effectiveGameplayDeltaTime;
 
-    updateFrameTimers(gameplayDeltaTime, effectiveGameplayDeltaTime);
+    UpdateFrameTimers(deltaTime, gameplayDeltaTime, effectiveGameplayDeltaTime);
     for (const auto& entity : m_entities)
     {
         entity->Update(effectiveGameplayDeltaTime);
@@ -193,7 +84,7 @@ void GameScene::Update(float deltaTime)
 
     GameSession_SetTimeRemaining(m_flow.timeRemaining);
     RunGameplayFrame(effectiveGameplayDeltaTime);
-    if (Entity* player = FindEntityByTag("Player"))
+    if (Entity* player = FindEntityByTag(kTagPlayer))
     {
         game_scene_player_visual_system::UpdateAnimation(m_player, *player, m_player.dodgeRemaining > 0.0f);
     }
@@ -218,7 +109,7 @@ void GameScene::Draw()
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Shadow);
     for (const auto& entity : m_entities)
     {
-        if (entity && (HasTag(*entity, "PhotoBox") || entity->GetComponent<PhotoPasteOrderComponent>()))
+        if (entity && (HasTag(*entity, kTagPhotoBox) || entity->GetComponent<PhotoPasteOrderComponent>()))
         {
             continue;
         }
@@ -319,7 +210,7 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Hazard Contact: %s", m_flow.playerTouchingHazard ? "Hit" : "No Hit");
     ImGui::Checkbox("Show Collision Debug", &m_debug.showCollisionDebug);
 
-    if (auto* player = FindEntityByTag("Player"))
+    if (auto* player = FindEntityByTag(kTagPlayer))
     {
         if (auto* transform = player->GetComponent<TransformComponent>())
         {

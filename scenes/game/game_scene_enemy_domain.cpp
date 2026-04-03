@@ -20,7 +20,7 @@ namespace
 
 void GameScene::UpdateEnemies()
 {
-    Entity* player = FindEntityByTag("Player");
+    Entity* player = FindEntityByTag(kTagPlayer);
     const TransformComponent* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
     game_scene_combat_system::UpdateEnemies(
         m_entities,
@@ -36,12 +36,12 @@ void GameScene::UpdateEnemies()
         {
             m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, "enemy_gun", 0.0f, 0.0f });
         },
-        // photoBox衝突チェックコールバック
+        // photoBox衝突チェチE��コールバック
         [this](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
         {
             for (auto it = m_entities.begin(); it != m_entities.end(); ++it)
             {
-                if (!*it || !HasTag(**it, "PhotoBox")) continue;
+                if (!*it || !HasTag(**it, kTagPhotoBox)) continue;
                 const auto* photoTransform = (*it)->GetComponent<TransformComponent>();
                 if (!photoTransform) continue;
                 if (IntersectsRect(bossTransform, *photoTransform))
@@ -60,7 +60,7 @@ void GameScene::UpdateEnemies()
 
 void GameScene::UpdateBullets()
 {
-    Entity* player = FindEntityByTag("Player");
+    Entity* player = FindEntityByTag(kTagPlayer);
     game_scene_combat_system::UpdateBullets(
         m_entities,
         GetMapPixelWidth(),
@@ -101,7 +101,7 @@ void GameScene::SpawnDropItems(float x, float y, int count)
         const float velY = std::sin(angle) * speed - 350.0f; 
 
         auto item = std::make_unique<Entity>();
-        item->AddComponent<TagComponent>("DropItem");
+        item->AddComponent<TagComponent>(kTagDropItem);
         item->AddComponent<TransformComponent>(x, y, 10.0f, 10.0f);
         const float hue = static_cast<float>(rand() % 100) * 0.01f;
         item->AddComponent<TintComponent>(0.96f, 0.76f + hue * 0.2f, 0.10f + hue * 0.3f, 1.0f);
@@ -113,7 +113,7 @@ void GameScene::SpawnDropItems(float x, float y, int count)
 
 void GameScene::UpdateDropItems()
 {
-    Entity* player = FindEntityByTag("Player");
+    Entity* player = FindEntityByTag(kTagPlayer);
     const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
 
     constexpr float kGravity = 1200.0f;
@@ -127,7 +127,7 @@ void GameScene::UpdateDropItems()
 
     for (const auto& entity : m_entities)
     {
-        if (!entity || !HasTag(*entity, "DropItem")) continue;
+        if (!entity || !HasTag(*entity, kTagDropItem)) continue;
 
         auto* transform = entity->GetComponent<TransformComponent>();
         auto* drop = entity->GetComponent<DropItemComponent>();
@@ -261,8 +261,7 @@ void GameScene::HandleEnemyPlayerCollisions(Entity& player)
             continue;
         }
 
-        m_flow.playerTouchingHazard = true;
-        HandlePlayerDamage(
+        ApplyHazardDamageToPlayer(
             player,
             entity.get(),
             "GameScene player damaged by enemy",
@@ -286,7 +285,7 @@ void GameScene::RemoveDefeatedEnemies()
         auto* transform = entity->GetComponent<TransformComponent>();
         if (!transform) continue;
 
-        // 撃破時に非表示＆当たり判定無効化＆画面外に移動
+        // 撁E��時に非表示�E�E��たり判定無効化！E��面外に移勁E
         if (auto* tint = entity->GetComponent<TintComponent>())
         {
             tint->a = 0.0f;

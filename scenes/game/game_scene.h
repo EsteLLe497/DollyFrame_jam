@@ -79,6 +79,11 @@ private:
     float UpdatePhotoModes(float deltaTime);
     void UpdateCaptureFinderZoomInput();
     void ProcessFilterInput();
+    void UpdateTuningHotReload(float deltaTime);
+    void HandleGlobalSceneShortcuts();
+    bool UpdatePitRestartFlow(float deltaTime);
+    bool UpdateStageTransitionFlow(float deltaTime);
+    void UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime);
     void RunGameplayFrame(float gameplayDeltaTime);
     void HandleEnemyPlayerCollisions(Entity& player);
     void HandleAttackHits();
@@ -99,6 +104,7 @@ private:
     void RemoveEntitiesByPointerList(const std::vector<Entity*>& entitiesToRemove);
     void RemoveDefeatedEnemies();
     void RefreshPhotoGroupState();
+    void ApplyHazardDamageToPlayer(Entity& player, Entity* sourceEntity, const char* logMessage, int amount = 1);
     void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage, int amount = 1);
     void HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amount, const char* logMessage);
     void ActivateCheckpoint(Entity& player, Entity& checkpoint);

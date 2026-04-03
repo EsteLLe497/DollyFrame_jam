@@ -419,7 +419,7 @@ void GameScene::UpdatePlayer(float deltaTime)
 {
     UpdateCaptureFinderZoomInput();
 
-    Entity* player = FindEntityByTag("Player");
+    Entity* player = FindEntityByTag(kTagPlayer);
     if (!player)
     {
         return;
@@ -472,9 +472,9 @@ void GameScene::UpdatePlayer(float deltaTime)
     std::vector<TransformComponent> photoBoxes;
     GetPhotoBoxBounds(photoBoxes);
     std::vector<TransformComponent> solidObjects;
-    GetEntityBoundsByTag("PhotoSource", solidObjects);
+    GetEntityBoundsByTag(kTagPhotoSource, solidObjects);
     std::vector<TransformComponent> enemyBounds;
-    GetEntityBoundsByTag("Enemy", enemyBounds);
+    GetEntityBoundsByTag(kTagEnemy, enemyBounds);
     solidObjects.insert(solidObjects.end(), enemyBounds.begin(), enemyBounds.end());
 
     const float targetHorizontalVelocity = game_scene_player_system::GetHorizontalVelocity(
@@ -642,7 +642,7 @@ void GameScene::UpdateBarrels(float deltaTime)
         return;
     }
 
-    Entity* player = FindEntityByTag("Player");
+    Entity* player = FindEntityByTag(kTagPlayer);
     const float tileSize = m_tileMap.GetTileSize();
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
@@ -691,12 +691,12 @@ void GameScene::UpdateBarrels(float deltaTime)
                 continue;
             }
 
-            if (HasTag(*candidate, "Player") || HasTag(*candidate, "Enemy") || HasTag(*candidate, "Bullet"))
+            if (HasTag(*candidate, kTagPlayer) || HasTag(*candidate, kTagEnemy) || HasTag(*candidate, kTagBullet))
             {
                 continue;
             }
 
-            if (HasTag(*candidate, "PhotoBox"))
+            if (HasTag(*candidate, kTagPhotoBox))
             {
                 const auto* layer = candidate->GetComponent<PhotoCopyLayerComponent>();
                 if (layer && layer->layer != PhotoCopyLayer::Foreground)
@@ -1061,7 +1061,7 @@ void GameScene::UpdatePhotoTraySelection()
 
 void GameScene::HandleAttackHits()
 {
-    Entity* player = FindEntityByTag("Player");
+    Entity* player = FindEntityByTag(kTagPlayer);
     if (!player) return;
 
     const auto* playerTransform = player->GetComponent<TransformComponent>();
@@ -1131,7 +1131,7 @@ void GameScene::HandleAttackHits()
 void GameScene::UpdateGoalVisual(float deltaTime)
 {
     m_flow.goalPulse += deltaTime;
-    if (Entity* goal = FindEntityByTag("Goal"))
+    if (Entity* goal = FindEntityByTag(kTagGoal))
     {
         if (auto* tint = goal->GetComponent<TintComponent>())
         {
@@ -1155,12 +1155,12 @@ void GameScene::UpdateGoalVisual(float deltaTime)
 
 void GameScene::RefreshPhotoGroupState()
 {
-    m_photo.groups.hasSpawnedCopy = FindEntityByTag("PhotoBox") != nullptr;
+    m_photo.groups.hasSpawnedCopy = FindEntityByTag(kTagPhotoBox) != nullptr;
     int maxGroupId = 0;
     std::vector<int> groups;
     for (const auto& entity : m_entities)
     {
-        if (!entity || !HasTag(*entity, "PhotoBox"))
+        if (!entity || !HasTag(*entity, kTagPhotoBox))
         {
             continue;
         }
@@ -1176,6 +1176,11 @@ void GameScene::RefreshPhotoGroupState()
     }
     m_photo.groups.activeGroupCount = static_cast<int>(groups.size());
     m_photo.groups.nextGroupId = std::max(m_photo.groups.nextGroupId, maxGroupId + 1);
+}
+void GameScene::ApplyHazardDamageToPlayer(Entity& player, Entity* sourceEntity, const char* logMessage, int amount)
+{
+    m_flow.playerTouchingHazard = true;
+    HandlePlayerDamage(player, sourceEntity, logMessage, amount);
 }
 void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage, int amount)
 {

@@ -13,7 +13,7 @@ namespace
 
 void GameScene::HandleWorldInteractions()
 {
-    Entity* player = FindEntityByTag("Player");
+    Entity* player = FindEntityByTag(kTagPlayer);
     if (!player)
     {
         return;
@@ -55,7 +55,7 @@ void GameScene::HandleWorldInteractions()
         },
         [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)
         {
-            HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
+            ApplyHazardDamageToPlayer(playerEntity, sourceEntity, logMessage);
         },
         [this](GameEndReason reason)
         {
@@ -75,7 +75,7 @@ void GameScene::HandleWorldInteractions()
         },
         [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)
         {
-            HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
+            ApplyHazardDamageToPlayer(playerEntity, sourceEntity, logMessage);
         },
         [this](GameEndReason reason)
         {
@@ -101,7 +101,7 @@ void GameScene::HandleWorldInteractions()
         },
         [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)
         {
-            HandlePlayerDamage(playerEntity, sourceEntity, logMessage);
+            ApplyHazardDamageToPlayer(playerEntity, sourceEntity, logMessage);
         },
         [this](GameEndReason reason)
         {
@@ -249,7 +249,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
 
     InitializeStageEntities();
 
-    Entity* transitionedPlayer = FindEntityByTag("Player");
+    Entity* transitionedPlayer = FindEntityByTag(kTagPlayer);
     if (transitionedPlayer)
     {
         if (auto* transformed = transitionedPlayer->GetComponent<TransformComponent>())
@@ -308,7 +308,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     }
 
     GameSession_SetTimeRemaining(session.timeRemaining);
-    Entity* currentPlayer = FindEntityByTag("Player");
+    Entity* currentPlayer = FindEntityByTag(kTagPlayer);
     m_eventBus.Publish({ EventType::PlaySoundRequest, currentPlayer, nullptr, "scene_change", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, currentPlayer, nullptr, std::string("Stage transition: ") + gCurrentMapCsvPath, 0.0f, 0.0f });
     return true;
@@ -324,8 +324,7 @@ void GameScene::HandleWorldTileInteractions(Entity& player)
 
     if (IntersectsHazardTile(*playerTransform))
     {
-        m_flow.playerTouchingHazard = true;
-        HandlePlayerDamage(player, nullptr, "GameScene player damaged by hazard tile");
+        ApplyHazardDamageToPlayer(player, nullptr, "GameScene player damaged by hazard tile");
     }
 
     if (IntersectsPitTile(*playerTransform))
@@ -358,8 +357,7 @@ void GameScene::HandleWorldEntityInteractions(Entity& player, std::vector<Entity
         {
             if (enemy->IsEnabled())
             {
-                m_flow.playerTouchingHazard = true;
-                HandlePlayerDamage(player, entity.get(), "GameScene player damaged by enemy");
+                ApplyHazardDamageToPlayer(player, entity.get(), "GameScene player damaged by enemy");
             }
         }
 
@@ -372,8 +370,7 @@ void GameScene::HandleWorldEntityInteractions(Entity& player, std::vector<Entity
         switch (gimmick->GetType())
         {
         case GimmickType::Hazard:
-            m_flow.playerTouchingHazard = true;
-            HandlePlayerDamage(player, entity.get(), "GameScene player damaged by gimmick hazard");
+            ApplyHazardDamageToPlayer(player, entity.get(), "GameScene player damaged by gimmick hazard");
             break;
         case GimmickType::Goal:
             if (m_flow.goalUnlocked && !m_flow.resultQueued)
@@ -405,7 +402,7 @@ void GameScene::HandlePhotoBoxInteractions(Entity& player, std::vector<Entity*>&
 {
     for (const auto& entity : m_entities)
     {
-        if (!entity || !HasTag(*entity, "PhotoBox"))
+        if (!entity || !HasTag(*entity, kTagPhotoBox))
         {
             continue;
         }

@@ -273,17 +273,31 @@ inline bool HasTag(const Entity& entity, const char* value)
     return tag && tag->tag == value;
 }
 
+inline bool HasTag(const TagComponent* tag, const char* value)
+{
+    return tag && tag->tag == value;
+}
+
+inline constexpr const char* kTagPlayer = "Player";
+inline constexpr const char* kTagEnemy = "Enemy";
+inline constexpr const char* kTagPhotoBox = "PhotoBox";
+inline constexpr const char* kTagGoal = "Goal";
+inline constexpr const char* kTagPhotoSource = "PhotoSource";
+inline constexpr const char* kTagHazard = "Hazard";
+inline constexpr const char* kTagBullet = "Bullet";
+inline constexpr const char* kTagDropItem = "DropItem";
+
 inline PhotoCopyRole GetEntityCopyRole(const Entity& entity)
 {
-    if (HasTag(entity, "Goal"))
+    if (HasTag(entity, kTagGoal))
     {
         return PhotoCopyRole::GoalRelay;
     }
-    if (HasTag(entity, "PhotoSource"))
+    if (HasTag(entity, kTagPhotoSource))
     {
         return PhotoCopyRole::Pickup;
     }
-    if (HasTag(entity, "Hazard") || HasTag(entity, "Enemy"))
+    if (HasTag(entity, kTagHazard) || HasTag(entity, kTagEnemy))
     {
         return PhotoCopyRole::Hazard;
     }
@@ -296,19 +310,19 @@ inline PhotoCopyRole GetEntityCopyRole(const Entity& entity)
 
 inline PhotoCopyOrigin GetEntityCopyOrigin(const Entity& entity)
 {
-    if (HasTag(entity, "Enemy"))
+    if (HasTag(entity, kTagEnemy))
     {
         return PhotoCopyOrigin::Enemy;
     }
-    if (HasTag(entity, "Hazard"))
+    if (HasTag(entity, kTagHazard))
     {
         return PhotoCopyOrigin::Hazard;
     }
-    if (HasTag(entity, "Goal"))
+    if (HasTag(entity, kTagGoal))
     {
         return PhotoCopyOrigin::Goal;
     }
-    if (HasTag(entity, "PhotoSource"))
+    if (HasTag(entity, kTagPhotoSource))
     {
         return PhotoCopyOrigin::Pickup;
     }
