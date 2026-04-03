@@ -1484,49 +1484,128 @@ void GameScene::DrawPlayerHpBar() const
     const auto* health = player->GetComponent<HealthComponent>();
     if (!health) return;
 
-    const int maxHp = health->GetMaxHealth();
-    const int currentHp = health->GetCurrentHealth();
+    const int maxHp = (std::max)(1, health->GetMaxHealth());
+    const int currentHp = std::clamp(health->GetCurrentHealth(), 0, maxHp);
 
     constexpr float kBarWidth = 240.0f;
     constexpr float kBarHeight = 24.0f;
+    constexpr float kPanelPadding = 12.0f;
     constexpr float kMarginRight = 32.0f;
     constexpr float kMarginTop = 32.0f;
 
     const float barX = static_cast<float>(SCREEN_WIDTH) - kBarWidth - kMarginRight;
     const float barY = kMarginTop;
+    const float panelX = barX - kPanelPadding;
+    const float panelY = barY - kPanelPadding;
+    const float panelWidth = kBarWidth + kPanelPadding * 2.0f;
+    const float panelHeight = kBarHeight + 38.0f;
 
-    // 背景
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 204);
     DrawBox(
-        static_cast<int>(barX),
-        static_cast<int>(barY),
-        static_cast<int>(barX + kBarWidth),
-        static_cast<int>(barY + kBarHeight),
-        GetColor(40, 40, 40),
+        static_cast<int>(std::round(panelX)),
+        static_cast<int>(std::round(panelY)),
+        static_cast<int>(std::round(panelX + panelWidth)),
+        static_cast<int>(std::round(panelY + panelHeight)),
+        GetColor(14, 20, 28),
         TRUE);
-
-    // HP部刁E
-    const float hpRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     DrawBox(
-        static_cast<int>(barX),
-        static_cast<int>(barY),
-        static_cast<int>(barX + kBarWidth * hpRatio),
-        static_cast<int>(barY + kBarHeight),
-        GetColor(60, 200, 80),
-        TRUE);
-
-    // 枠緁E
-    DrawBox(
-        static_cast<int>(barX),
-        static_cast<int>(barY),
-        static_cast<int>(barX + kBarWidth),
-        static_cast<int>(barY + kBarHeight),
-        GetColor(220, 220, 220),
+        static_cast<int>(std::round(panelX)),
+        static_cast<int>(std::round(panelY)),
+        static_cast<int>(std::round(panelX + panelWidth)),
+        static_cast<int>(std::round(panelY + panelHeight)),
+        GetColor(200, 214, 230),
         FALSE);
 
-    // HP数値
+    const float targetRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
+    const float displayRatio = m_flow.hpUiInitialized ? m_flow.hpDisplayRatio : targetRatio;
+    const float lagRatio = m_flow.hpUiInitialized ? m_flow.hpDamageLagRatio : targetRatio;
+    const float flash = m_flow.hpDamageFlash;
+
+    // バー背景
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth)),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(38, 46, 58),
+        TRUE);
+
+    // 被弾遅延バー（減った量が一瞬残る）
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth * std::clamp(lagRatio, 0.0f, 1.0f))),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(232, 94, 84),
+        TRUE);
+
+    // 現在HPバー（割合で色を変化）
+    const float clampedRatio = std::clamp(displayRatio, 0.0f, 1.0f);
+    const int hpR = static_cast<int>(std::round(230.0f - 160.0f * clampedRatio));
+    const int hpG = static_cast<int>(std::round(76.0f + 144.0f * clampedRatio));
+    const int hpB = static_cast<int>(std::round(72.0f + 46.0f * clampedRatio));
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth * clampedRatio)),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(hpR, hpG, hpB),
+        TRUE);
+
+    // ハイライト
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 84);
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth * clampedRatio)),
+        static_cast<int>(std::round(barY + kBarHeight * 0.45f)),
+        GetColor(255, 255, 255),
+        TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    // 被弾フラッシュ
+    if (flash > 0.0f)
+    {
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(150.0f * flash)));
+        DrawBox(
+            static_cast<int>(std::round(barX)),
+            static_cast<int>(std::round(barY)),
+            static_cast<int>(std::round(barX + kBarWidth)),
+            static_cast<int>(std::round(barY + kBarHeight)),
+            GetColor(255, 246, 238),
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
+    // 目盛り
+    for (int i = 1; i < maxHp; ++i)
+    {
+        const float x = barX + kBarWidth * (static_cast<float>(i) / static_cast<float>(maxHp));
+        DrawLine(
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(barY + 2.0f)),
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(barY + kBarHeight - 2.0f)),
+            GetColor(42, 48, 58));
+    }
+
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth)),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(232, 236, 246),
+        FALSE);
+
+    DrawString(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY - 18.0f)),
+        "LIFE",
+        GetColor(196, 214, 236));
     DrawFormatString(
-        static_cast<int>(barX + kBarWidth * 0.5f) - 16,
-        static_cast<int>(barY + 4.0f),
+        static_cast<int>(std::round(barX + kBarWidth * 0.5f) - 34.0f),
+        static_cast<int>(std::round(barY + 4.0f)),
         GetColor(255, 255, 255),
         "HP %d / %d",
         currentHp,

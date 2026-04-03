@@ -70,6 +70,12 @@ struct GameSceneFlowState
     float screenShakeDuration = 0.0f;
     float screenShakeAmplitude = 0.0f;
     float captureModeZoomBlend = 0.0f;
+    // HPバー演出用: 現在値表示と遅延表示を分離して減少演出を作る。
+    float hpDisplayRatio = 1.0f;
+    float hpDamageLagRatio = 1.0f;
+    float hpDamageFlash = 0.0f;
+    int hpLastRaw = -1;
+    bool hpUiInitialized = false;
 };
 
 struct GameScenePlayerState
