@@ -933,7 +933,217 @@ void GameScene::UpdateBarrels(float deltaTime)
     }
 }
 
-void GameScene::UpdatePlayerAfterimages(float deltaTime)
+
+void GameScene::UpdateBatteries(float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    std::vector<Entity*> enemies;
+    enemies.reserve(m_entities.size());
+    for (const auto& candidate : m_entities)
+    {
+        if (!candidate || !HasTag(*candidate, kTagEnemy))
+        {
+            continue;
+        }
+        if (auto* enemy = candidate->GetComponent<EnemyComponent>())
+        {
+            if (!enemy->IsEnabled() || enemy->IsDefeated())
+            {
+                continue;
+            }
+        }
+        enemies.push_back(candidate.get());
+    }
+
+    auto collidesWithWorld = [&](const TransformComponent& bounds, const Entity* self) -> bool
+    {
+        const float width = bounds.width * bounds.scale;
+        const float height = bounds.height * bounds.scale;
+        const int left = std::max(0, static_cast<int>((bounds.x + 2.0f) / tileSize));
+        const int right = std::min(m_tileMap.GetWidth() - 1, static_cast<int>((bounds.x + width - 2.0f) / tileSize));
+        const int top = std::max(0, static_cast<int>((bounds.y + 2.0f) / tileSize));
+        const int bottom = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bounds.y + height - 2.0f) / tileSize));
+        for (int row = top; row <= bottom; ++row)
+        {
+            for (int column = left; column <= right; ++column)
+            {
+                if (IsSolidTile(column, row))
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (IntersectsSolidPhotoBoxForMovement(bounds))
+        {
+            return true;
+        }
+
+        for (const auto& entity : m_entities)
+        {
+            if (!entity || entity.get() == self)
+            {
+                continue;
+            }
+            if (!(entity->GetComponent<BarrelComponent>() || entity->GetComponent<BatteryComponent>() || HasTag(*entity, kTagPhotoSource)))
+            {
+                continue;
+            }
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (!transform)
+            {
+                continue;
+            }
+            if (IntersectsRect(bounds, *transform))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* battery = entity->GetComponent<BatteryComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!battery || !transform)
+        {
+            continue;
+        }
+
+        const float width = transform->width * transform->scale;
+        const float height = transform->height * transform->scale;
+        const float previousX = transform->x;
+        const float previousY = transform->y;
+
+        const float fallVelocity = std::min(battery->maxFallSpeed, battery->velocityY + battery->gravity * deltaTime);
+        battery->velocityY = fallVelocity;
+        transform->y += battery->velocityY * deltaTime;
+
+        const bool snapped = TrySnapToGround(*transform, gGroundSnapDistance);
+        battery->grounded = snapped;
+        if (snapped && battery->velocityY > 0.0f)
+        {
+            battery->velocityY = 0.0f;
+        }
+
+        const float mapHeight = GetMapPixelHeight();
+        if (transform->y + height > mapHeight)
+        {
+            transform->y = mapHeight - height;
+            battery->grounded = true;
+            battery->velocityY = 0.0f;
+        }
+
+        const bool fallingHitActive = !battery->grounded && fallVelocity >= battery->fallDamageSpeed;
+        bool touchedActor = false;
+
+        if (player && IntersectsEntity(*entity, *player))
+        {
+            touchedActor = true;
+            if (fallingHitActive)
+            {
+                HandlePlayerDamage(*player, entity.get(), "Battery impact damaged player", battery->contactDamage);
+            }
+        }
+
+        for (Entity* enemyEntity : enemies)
+        {
+            if (!enemyEntity || enemyEntity == entity.get())
+            {
+                continue;
+            }
+            if (!IntersectsEntity(*entity, *enemyEntity))
+            {
+                continue;
+            }
+            touchedActor = true;
+            if (fallingHitActive)
+            {
+                HandleEnemyDamage(*enemyEntity, entity.get(), battery->contactDamage, "Battery impact damaged enemy");
+            }
+        }
+
+        if (!fallingHitActive)
+        {
+            float pushDirection = 0.0f;
+            if (player && IntersectsEntity(*entity, *player))
+            {
+                const auto* playerTransform = player->GetComponent<TransformComponent>();
+                if (playerTransform)
+                {
+                    const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+                    const float batteryCenterX = transform->x + width * 0.5f;
+                    pushDirection += (playerCenterX < batteryCenterX) ? -1.0f : 1.0f;
+                }
+            }
+            for (Entity* enemyEntity : enemies)
+            {
+                if (!enemyEntity || !IntersectsEntity(*entity, *enemyEntity))
+                {
+                    continue;
+                }
+                const auto* enemyTransform = enemyEntity->GetComponent<TransformComponent>();
+                if (!enemyTransform)
+                {
+                    continue;
+                }
+                const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
+                const float batteryCenterX = transform->x + width * 0.5f;
+                pushDirection += (enemyCenterX < batteryCenterX) ? -1.0f : 1.0f;
+            }
+
+            if (std::fabs(pushDirection) > 0.1f)
+            {
+                battery->velocityX = (pushDirection < 0.0f ? -1.0f : 1.0f) * battery->pushSpeed;
+            }
+            else if (!touchedActor)
+            {
+                battery->velocityX *= 0.82f;
+                if (std::fabs(battery->velocityX) < 6.0f)
+                {
+                    battery->velocityX = 0.0f;
+                }
+            }
+        }
+        else
+        {
+            battery->velocityX *= 0.90f;
+        }
+
+        transform->x += battery->velocityX * deltaTime;
+        transform->x = std::clamp(transform->x, 0.0f, std::max(0.0f, GetMapPixelWidth() - width));
+
+        if (collidesWithWorld(*transform, entity.get()))
+        {
+            transform->x = previousX;
+            battery->velocityX = 0.0f;
+        }
+
+        if (fallingHitActive && touchedActor)
+        {
+            battery->velocityY = std::max(0.0f, battery->velocityY * 0.35f);
+            transform->y = std::max(previousY, transform->y - tileSize * 0.08f);
+        }
+    }
+}void GameScene::UpdatePlayerAfterimages(float deltaTime)
 {
     game_scene_player_visual_system::UpdateAfterimages(m_player, deltaTime);
 }
@@ -1076,7 +1286,7 @@ void GameScene::HandleAttackHits()
     {
         if (!entity) continue;
 
-        // WalkerUŒ‚”»’è
+        // Walkerï¿½Uï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         const auto* enemy = entity->GetComponent<EnemyComponent>();
         if (enemy && enemy->IsEnabled() && enemy->attackRectActive)
         {
@@ -1097,7 +1307,7 @@ void GameScene::HandleAttackHits()
             }
         }
 
-        // ’†ƒ{ƒXUŒ‚”»’è
+        // ï¿½ï¿½ï¿½{ï¿½Xï¿½Uï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         auto* boss = entity->GetComponent<ShieldBossComponent>();
         if (boss && boss->attackRectActive)
         {
@@ -1112,7 +1322,7 @@ void GameScene::HandleAttackHits()
                 playerTop < attackBottom &&
                 playerBottom > attackTop;
 
-            // ‘½’iƒqƒbƒg–hŽ~
+            // ï¿½ï¿½ï¿½iï¿½qï¿½bï¿½gï¿½hï¿½~
             const bool alreadyHit = std::find(
                 boss->hitEntities.begin(),
                 boss->hitEntities.end(),
@@ -1299,5 +1509,6 @@ void GameScene::RespawnPlayer(Entity& player)
         m_flow.cameraY = 0.0f;
     }
 }
+
 
 

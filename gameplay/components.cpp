@@ -66,6 +66,40 @@ void BarrelComponent::DrawDebugUI()
     ImGui::Text("Respawn Offscreen: %s", respawnWhenOffscreen ? "Yes" : "No");
 }
 
+BatteryComponent::BatteryComponent(
+    float gravityValue,
+    float maxFallSpeedValue,
+    float pushSpeedValue,
+    float fallDamageSpeedValue,
+    int contactDamageValue)
+    : gravity(gravityValue)
+    , maxFallSpeed(maxFallSpeedValue)
+    , pushSpeed(pushSpeedValue)
+    , fallDamageSpeed(fallDamageSpeedValue)
+    , contactDamage(std::max(1, contactDamageValue))
+{
+}
+
+void BatteryComponent::OnAttach(Entity& owner)
+{
+    Component::OnAttach(owner);
+
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        spawnX = transform->x;
+        spawnY = transform->y;
+    }
+}
+
+void BatteryComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Battery");
+    ImGui::Text("Velocity: %.1f, %.1f", velocityX, velocityY);
+    ImGui::Text("Grounded: %s", grounded ? "Yes" : "No");
+    ImGui::Text("Push Speed: %.1f", pushSpeed);
+    ImGui::Text("Fall Damage Speed: %.1f", fallDamageSpeed);
+}
+
 TransformComponent::TransformComponent(float xValue, float yValue, float widthValue, float heightValue)
     : x(xValue)
     , y(yValue)

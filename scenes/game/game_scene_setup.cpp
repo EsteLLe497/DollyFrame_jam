@@ -557,6 +557,34 @@ void GameScene::InitializeStageEntities()
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
         {
+            if (m_tileMap.GetMarker(column, row) != 'Y')
+            {
+                continue;
+            }
+
+            auto battery = std::make_unique<Entity>();
+            battery->AddComponent<TagComponent>(kTagBattery);
+            battery->AddComponent<TransformComponent>(
+                AlignToGrid(static_cast<float>(column) * tileSize, tileSize),
+                AlignToGrid(static_cast<float>(row) * tileSize, tileSize),
+                tileSize,
+                tileSize);
+            battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
+            battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            battery->AddComponent<BatteryComponent>(
+                1900.0f,
+                980.0f,
+                260.0f,
+                320.0f,
+                1);
+            m_entities.push_back(std::move(battery));
+        }
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
             if (m_tileMap.GetMarker(column, row) != 'B')
             {
                 continue;
