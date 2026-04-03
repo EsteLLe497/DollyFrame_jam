@@ -621,7 +621,7 @@ void GameScene::DrawPastedEntitiesFront() const
     std::vector<DrawTarget> drawTargets;
     drawTargets.reserve(m_entities.size());
 
-    // PhotoPasteOrder を持つエンティティのみを「前面レイヤー対象」として抽出。
+    // Only entities with PhotoPasteOrder are drawn in the pasted-front pass.
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -661,12 +661,12 @@ void GameScene::DrawPastedEntitiesFront() const
         drawTargets.end(),
         [](const DrawTarget& a, const DrawTarget& b)
         {
-            // 昇順で描くことで「後から貼ったものほど前面」を実現する。
+            // Draw ascending so later pasted objects appear in front.
             if (a.pasteOrder != b.pasteOrder)
             {
                 return a.pasteOrder < b.pasteOrder;
             }
-            // 同一 order は layerPriority で安定化（BG -> Shadow -> FG）。
+            // If order is equal, stabilize by layer priority (BG -> Shadow -> FG).
             return a.layerPriority < b.layerPriority;
         });
 
