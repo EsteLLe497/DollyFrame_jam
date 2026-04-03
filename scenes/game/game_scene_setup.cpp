@@ -680,8 +680,17 @@ void GameScene::InitializeStageEntities()
     //Entity& flipSourceB = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1300.0f, tileSize), AlignToGrid(352.0f, tileSize));
     ////SetEntityTint(flipSourceB, 0.96f, 0.68f, 0.18f);
 
-    //Entity& hazardSource = SpawnStagePrefab(prefabs, "sandbox_hazard", AlignToGrid(1600.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    //SetEntityTint(hazardSource, 1.0f, 0.28f, 0.24f);
+    Entity& hazardSource = SpawnStagePrefab(prefabs, "sandbox_hazard", AlignToGrid(1600.0f, tileSize), AlignToGrid(320.0f, tileSize));
+    SetEntityTint(hazardSource, 1.0f, 0.0f, 0.0f);
+    if (auto* hazardSprite = hazardSource.GetComponent<SpriteRenderComponent>())
+    {
+        hazardSprite->SetTextureId(m_whiteTexture);
+    }
+    if (auto* hazardTransform = hazardSource.GetComponent<TransformComponent>())
+    {
+        hazardTransform->width = tileSize;
+        hazardTransform->height = tileSize;
+    }
 
    // SpawnStagePrefab(prefabs, "sandbox_enemy_wide", AlignToGrid(760.0f, tileSize), AlignToGrid(248.0f, tileSize));
     //SpawnStagePrefab(prefabs, "sandbox_enemy_tall", AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize));

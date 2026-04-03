@@ -895,6 +895,51 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
         CommitPendingCapturedPhoto();
     }
     m_flow.pickupPulse += gameplayDeltaTime;
+
+    // HPバー演出の更新: 実HPとは別に表示用比率を補間する。
+    if (const Entity* player = FindEntityByTag(kTagPlayer))
+    {
+        if (const auto* health = player->GetComponent<HealthComponent>())
+        {
+            const int maxHp = (std::max)(1, health->GetMaxHealth());
+            const int currentHp = std::clamp(health->GetCurrentHealth(), 0, maxHp);
+            const float targetRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
+
+            if (!m_flow.hpUiInitialized)
+            {
+                m_flow.hpDisplayRatio = targetRatio;
+                m_flow.hpDamageLagRatio = targetRatio;
+                m_flow.hpDamageFlash = 0.0f;
+                m_flow.hpLastRaw = currentHp;
+                m_flow.hpUiInitialized = true;
+            }
+            else
+            {
+                if (m_flow.hpLastRaw >= 0 && currentHp < m_flow.hpLastRaw)
+                {
+                    m_flow.hpDamageFlash = 1.0f;
+                }
+                m_flow.hpLastRaw = currentHp;
+
+                const float displaySpeed = targetRatio < m_flow.hpDisplayRatio ? 10.0f : 14.0f;
+                m_flow.hpDisplayRatio += (targetRatio - m_flow.hpDisplayRatio) * std::min(1.0f, deltaTime * displaySpeed);
+                m_flow.hpDisplayRatio = std::clamp(m_flow.hpDisplayRatio, 0.0f, 1.0f);
+
+                if (m_flow.hpDamageLagRatio < m_flow.hpDisplayRatio)
+                {
+                    m_flow.hpDamageLagRatio = m_flow.hpDisplayRatio;
+                }
+                else
+                {
+                    const float lagSpeed = 2.4f;
+                    m_flow.hpDamageLagRatio += (m_flow.hpDisplayRatio - m_flow.hpDamageLagRatio) * std::min(1.0f, deltaTime * lagSpeed);
+                    m_flow.hpDamageLagRatio = std::clamp(m_flow.hpDamageLagRatio, 0.0f, 1.0f);
+                }
+            }
+        }
+    }
+
+    m_flow.hpDamageFlash = std::max(0.0f, m_flow.hpDamageFlash - deltaTime * 4.5f);
 }
 
 void GameScene::RunGameplayFrame(float gameplayDeltaTime)
