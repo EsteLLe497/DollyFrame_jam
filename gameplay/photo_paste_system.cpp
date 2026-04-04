@@ -453,6 +453,67 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     int spawnedPhotoBoxCount = 0;
     for (const auto& item : spawnedItems)
     {
+        if (item.spawnArchetype == CapturedSpawnArchetype::Log)
+        {
+            auto logEntity = std::make_unique<Entity>();
+            Entity* spawnedLog = logEntity.get();
+            lastSpawnedEntity = spawnedLog;
+            spawnedLog->AddComponent<TagComponent>(kTagLog);
+            spawnedLog->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedLog->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedLog->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
+            spawnedLog->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+            spawnedLog->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+            if (!item.collisionOutline.empty())
+            {
+                std::vector<b2Vec2> normalizedOutline;
+                normalizedOutline.reserve(item.collisionOutline.size());
+                for (const auto& point : item.collisionOutline)
+                {
+                    normalizedOutline.push_back({ point.x, point.y });
+                }
+                spawnedLog->AddComponent<ImageOutlineColliderComponent>(std::move(normalizedOutline), 0.5f);
+            }
+            else
+            {
+                spawnedLog->AddComponent<ImageOutlineColliderComponent>(
+                    std::vector<b2Vec2>{
+                        { 0.0f, 0.0f },
+                        { 1.0f, 0.0f },
+                        { 1.0f, 1.0f },
+                        { 0.0f, 1.0f }},
+                    0.5f);
+            }
+            spawnedLog->AddComponent<BarrelComponent>(
+                gBarrelGravity,
+                gBarrelMaxFallSpeed,
+                0.0f,
+                0.0f,
+                1,
+                99999.0f,
+                99999.0f);
+            spawnedLog->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
+            if (auto* sprite = spawnedLog->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                sprite->SetFlipX(item.flipX);
+            }
+            if (auto* transform = spawnedLog->GetComponent<TransformComponent>())
+            {
+                transform->rotation = item.rotation;
+            }
+            if (auto* barrel = spawnedLog->GetComponent<BarrelComponent>())
+            {
+                barrel->spawnX = spawnX + item.relativeX;
+                barrel->spawnY = spawnY + item.relativeY;
+                barrel->respawnEnabled = false;
+                barrel->respawnWhenOffscreen = false;
+                barrel->active = true;
+            }
+            scene.m_entities.push_back(std::move(logEntity));
+            continue;
+        }
+
         if (item.spawnArchetype == CapturedSpawnArchetype::Barrel)
         {
             auto barrelEntity = std::make_unique<Entity>();

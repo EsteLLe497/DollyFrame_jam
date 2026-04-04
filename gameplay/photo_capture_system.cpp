@@ -271,8 +271,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const float localHeight = overlapHeight / targetHeight;
 
         CapturedPhotoItem item;
-        const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr;
-        const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr;
+        const bool capturedLog = HasTag(*entity, kTagLog);
+        const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr && !capturedLog;
+        const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr && !capturedLog;
         const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
         const auto* tileValueComponent = entity->GetComponent<PhotoCopyTileValueComponent>();
@@ -287,9 +288,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         item.appliedTheme = scene.m_photo.capture.selectedTheme;
         item.spawnArchetype = capturedBarrel
             ? CapturedSpawnArchetype::Barrel
-            : (capturedBattery
+            : (capturedLog
+                ? CapturedSpawnArchetype::Log
+                : (capturedBattery
                 ? CapturedSpawnArchetype::Battery
-                : (capturedProjectile ? CapturedSpawnArchetype::Projectile : CapturedSpawnArchetype::None));
+                : (capturedProjectile ? CapturedSpawnArchetype::Projectile : CapturedSpawnArchetype::None)));
         item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
             *entity,
             capturedVanishObject,
@@ -365,7 +368,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedBattery && !isPhotoBox && !capturedVanishObject)
+        if (!capturedBarrel && !capturedBattery && !capturedLog && !isPhotoBox && !capturedVanishObject)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }

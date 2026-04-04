@@ -34,7 +34,7 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr int kMarkerPresetCount = 16;
+    constexpr int kMarkerPresetCount = 17;
 
     int MarkerToPresetIndex(char marker)
     {
@@ -70,6 +70,8 @@ namespace
             return 14;
         case 'L':
             return 15;
+        case 'N':
+            return 16;
         default:
             return 0;
         }
@@ -109,6 +111,8 @@ namespace
             return 'K';
         case 15:
             return 'L';
+        case 16:
+            return 'N';
         default:
             return '\0';
         }
@@ -467,6 +471,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         {
             m_mapEditor.selectedMarker = 'Y';
         }
+        if (Input_IsKeyPressed(VK_F12))
+        {
+            m_mapEditor.selectedMarker = 'N';
+        }
         if (Input_IsKeyPressed('H'))
         {
             m_mapEditor.selectedMarker = 'H';
@@ -518,6 +526,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             BuildCameraMarkers();
             RefreshEnemiesFromMarkers();
             RefreshBatteriesFromMarkers();
+            RefreshLogsFromMarkers();
             RefreshElevatorGimmicksFromMarkers();
             RefreshDamageFootholdsFromMarkers();
             m_mapEditor.statusMessage = "CSVを再読み込みしました";
@@ -542,6 +551,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             BuildCameraMarkers();
             RefreshEnemiesFromMarkers();
             RefreshBatteriesFromMarkers();
+            RefreshLogsFromMarkers();
             RefreshElevatorGimmicksFromMarkers();
             RefreshDamageFootholdsFromMarkers();
             m_flow.cameraX = 0.0f;
@@ -604,12 +614,14 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             const char after = static_cast<char>(std::toupper(static_cast<unsigned char>(m_mapEditor.selectedMarker)));
             const auto isEnemyMarker = [](char marker)
             {
-                return marker == 'W' || marker == 'R' || marker == 'M';
+                return marker == 'W' || marker == 'R' || marker == 'N';
             };
             const bool touchesEnemyMarker =
                 isEnemyMarker(before) || isEnemyMarker(after);
             const bool touchesBatteryMarker =
                 before == 'Y' || after == 'Y';
+            const bool touchesLogMarker =
+                before == 'M' || after == 'M';
             const bool touchesElevatorMarker =
                 before == 'K' || before == 'L' || after == 'K' || after == 'L';
             const bool touchesDamageFootholdMarker =
@@ -621,6 +633,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             if (touchesBatteryMarker && before != after)
             {
                 RefreshBatteriesFromMarkers();
+            }
+            if (touchesLogMarker && before != after)
+            {
+                RefreshLogsFromMarkers();
             }
             if (touchesElevatorMarker && before != after)
             {
@@ -642,13 +658,17 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         {
             const char before = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
             m_tileMap.SetMarker(column, row, '\0');
-            if (before == 'W' || before == 'R' || before == 'M')
+            if (before == 'W' || before == 'R' || before == 'N')
             {
                 RefreshEnemiesFromMarkers();
             }
             if (before == 'Y')
             {
                 RefreshBatteriesFromMarkers();
+            }
+            if (before == 'M')
+            {
+                RefreshLogsFromMarkers();
             }
             if (before == 'K' || before == 'L')
             {
@@ -733,7 +753,7 @@ void GameScene::RefreshEnemiesFromMarkers()
                 Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", markerX, markerY);
                 placeEnemyAtMarker(enemy);
             }
-            else if (marker == 'M')
+            else if (marker == 'N')
             {
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
                 placeEnemyAtMarker(boss);
@@ -754,7 +774,7 @@ void GameScene::RefreshBatteriesFromMarkers()
                 {
                     return true;
                 }
-                return entity->GetComponent<BatteryComponent>() != nullptr;
+                return HasTag(*entity, kTagBattery);
             }),
         m_entities.end());
 
@@ -790,6 +810,73 @@ void GameScene::RefreshBatteriesFromMarkers()
                 320.0f,
                 1);
             m_entities.push_back(std::move(battery));
+        }
+    }
+}
+
+void GameScene::RefreshLogsFromMarkers()
+{
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity)
+                {
+                    return true;
+                }
+                return HasTag(*entity, kTagLog);
+            }),
+        m_entities.end());
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (marker != 'M')
+            {
+                continue;
+            }
+
+            auto log = std::make_unique<Entity>();
+            log->AddComponent<TagComponent>(kTagLog);
+            log->AddComponent<TransformComponent>(
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize,
+                tileSize * 4.0f,
+                tileSize);
+            log->AddComponent<TintComponent>(0.54f, 0.34f, 0.16f, 1.0f);
+            log->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            log->AddComponent<ImageOutlineColliderComponent>(
+                std::vector<b2Vec2>{
+                    { 0.0f, 0.0f },
+                    { 1.0f, 0.0f },
+                    { 1.0f, 1.0f },
+                    { 0.0f, 1.0f }},
+                0.5f);
+            log->AddComponent<BarrelComponent>(
+                gBarrelGravity,
+                gBarrelMaxFallSpeed,
+                0.0f,
+                0.0f,
+                1,
+                99999.0f,
+                99999.0f);
+            if (auto* barrel = log->GetComponent<BarrelComponent>())
+            {
+                barrel->active = true;
+                barrel->respawnEnabled = false;
+                barrel->respawnWhenOffscreen = false;
+            }
+            m_entities.push_back(std::move(log));
         }
     }
 }
@@ -927,6 +1014,13 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
                 tileSize);
             damagePlatformBase->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
             damagePlatformBase->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            damagePlatformBase->AddComponent<ImageOutlineColliderComponent>(
+                std::vector<b2Vec2>{
+                    { 0.0f, 0.0f },
+                    { 1.0f, 0.0f },
+                    { 1.0f, 1.0f },
+                    { 0.0f, 1.0f }},
+                0.2f);
             damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
             m_entities.push_back(std::move(damagePlatformBase));
 

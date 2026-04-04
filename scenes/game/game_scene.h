@@ -87,6 +87,7 @@ private:
     void UpdateMapEditorInput(float deltaTime);
     void RefreshEnemiesFromMarkers();
     void RefreshBatteriesFromMarkers();
+    void RefreshLogsFromMarkers();
     void RefreshElevatorGimmicksFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
     void UpdateEscapeMenuInput();
