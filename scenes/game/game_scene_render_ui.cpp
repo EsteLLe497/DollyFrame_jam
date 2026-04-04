@@ -1,5 +1,6 @@
 #include "game_scene_internal.h"
 #include "photo_system.h"
+#include "photo_shared.h"
 #include "photo_filter_rules.h"
 
 #include <cctype>
@@ -215,6 +216,28 @@ namespace
                 item.flipX,
                 projectileAngle,
                 color);
+            return;
+        }
+
+        if (photo_shared::DrawDamagePlatformItemPreview(
+                item,
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                std::min(1.0f, item.tintA) * alpha))
+        {
+            return;
+        }
+
+        if (photo_shared::DrawSpikeStripItemPreview(
+                item,
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                std::min(1.0f, item.tintA) * alpha))
+        {
             return;
         }
 
@@ -1057,7 +1080,7 @@ void GameScene::DrawMapEditorOverlay() const
     DrawString(panelLeft + 16, panelTop + 38, "F4: 閉じる  M: タイル/マーカー切替  WASD/十字: カメラ移動", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 58, "左ドラッグ: 塗る  右ドラッグ: 消す", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 78, "タイル: 0-9 / Q,E / F9(10)", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(None),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(M),F11(Y),K,L,Q,E", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(None),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(M),F11(Y),H,I,K,L,Q,E", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 114, "F5: 保存  F6: CSV再読込  F7: 新規作成  F8: 別名保存", GetColor(168, 192, 220));
     DrawFormatString(
         panelLeft + 16,
@@ -1253,6 +1276,8 @@ void GameScene::DrawBackdrop() const
                     case 'C': r = 246; g = 238; b = 122; break;
                     case 'M': r = 255; g = 142; b = 210; break;
                     case 'Y': r = 240; g = 208; b = 90; break;
+                    case 'H': r = 214; g = 124; b = 255; break;
+                    case 'I': r = 188; g = 108; b = 255; break;
                     case 'K': r = 250; g = 112; b = 96; break;
                     case 'L': r = 140; g = 186; b = 230; break;
                     case 'G': r = 255; g = 235; b = 128; break;

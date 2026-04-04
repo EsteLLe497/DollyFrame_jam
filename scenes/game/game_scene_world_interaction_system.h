@@ -167,6 +167,8 @@ void HandlePhotoBoxInteractions(
         switch (photoRole->role)
         {
         case PhotoCopyRole::Hazard:
+            flow.playerTouchingHazard = true;
+            handlePlayerDamage(player, entity.get(), "GameScene player damaged by photo hazard");
             break;
         case PhotoCopyRole::Ally:
             for (const auto& enemyEntity : entities)

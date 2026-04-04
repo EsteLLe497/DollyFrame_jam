@@ -71,6 +71,11 @@ void GameScene::HandleWorldInteractions()
         consumedGimmicks,
         [this](const Entity& a, const Entity& b)
         {
+            const auto* gimmick = b.GetComponent<GimmickComponent>();
+            if (gimmick && gimmick->GetType() == GimmickType::Hazard)
+            {
+                return IntersectsHazardEntity(a, b);
+            }
             return IntersectsEntity(a, b);
         },
         [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)
@@ -97,6 +102,11 @@ void GameScene::HandleWorldInteractions()
         defeatedEnemies,
         [this](const Entity& a, const Entity& b)
         {
+            const auto* role = b.GetComponent<PhotoCopyRoleComponent>();
+            if (role && role->role == PhotoCopyRole::Hazard)
+            {
+                return IntersectsHazardEntity(a, b);
+            }
             return IntersectsEntity(a, b);
         },
         [this](Entity& playerEntity, Entity* sourceEntity, const char* logMessage)

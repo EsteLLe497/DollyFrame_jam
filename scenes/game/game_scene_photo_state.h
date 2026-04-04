@@ -103,6 +103,8 @@ struct CapturedPhotoItem
     float tintB = 1.0f;
     float tintA = 1.0f;
     int sourceTileValue = 0;
+    int damagePlatformTileSpan = 0;
+    int spikeStripTileSpan = 0;
     float rotation = 0.0f;
     bool flipX = false;
     bool vanishOnCapture = false;

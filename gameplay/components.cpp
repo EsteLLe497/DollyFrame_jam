@@ -326,6 +326,16 @@ PhotoCopyTileValueComponent::PhotoCopyTileValueComponent(int tileValueValue)
 {
 }
 
+DamagePlatformComponent::DamagePlatformComponent(int tileSpanValue)
+    : tileSpan(std::max(1, tileSpanValue))
+{
+}
+
+SpikeStripComponent::SpikeStripComponent(int tileSpanValue)
+    : tileSpan(std::max(1, tileSpanValue))
+{
+}
+
 VanishOnCaptureComponent::VanishOnCaptureComponent(bool enabledValue)
     : enabled(enabledValue)
 {

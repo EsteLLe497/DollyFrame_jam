@@ -356,6 +356,22 @@ public:
     int tileValue;
 };
 
+class DamagePlatformComponent final : public Component
+{
+public:
+    explicit DamagePlatformComponent(int tileSpanValue);
+
+    int tileSpan;
+};
+
+class SpikeStripComponent final : public Component
+{
+public:
+    explicit SpikeStripComponent(int tileSpanValue);
+
+    int tileSpan;
+};
+
 class VanishOnCaptureComponent final : public Component
 {
 public:

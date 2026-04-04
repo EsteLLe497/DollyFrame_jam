@@ -663,6 +663,63 @@ void GameScene::InitializeStageEntities()
         AlignToGrid(336.0f, tileSize));
     SetEntityTint(apple, 1.0f, 1.0f, 1.0f, 1.0f);
 
+    bool hasDamageFootholdMarker = false;
+    for (int row = 0; row < m_tileMap.GetHeight() && !hasDamageFootholdMarker; ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = m_tileMap.GetMarker(column, row);
+            if (IsDamagePlatformMarker(marker))
+            {
+                hasDamageFootholdMarker = true;
+                break;
+            }
+        }
+    }
+    RefreshDamageFootholdsFromMarkers();
+    if (!hasDamageFootholdMarker)
+    {
+        const float previewX = AlignToGrid(1600.0f, tileSize);
+        const float previewY = AlignToGrid(272.0f, tileSize);
+        const float preview2X = previewX + tileSize * 4.0f;
+
+        auto base = std::make_unique<Entity>();
+        base->AddComponent<TagComponent>(kTagDamagePlatform);
+        base->AddComponent<TransformComponent>(previewX, previewY + tileSize, tileSize * 3.0f, tileSize);
+        base->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
+        base->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        base->AddComponent<VanishOnCaptureComponent>(true);
+        m_entities.push_back(std::move(base));
+
+        auto spike = std::make_unique<Entity>();
+        spike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
+        spike->AddComponent<TransformComponent>(previewX, previewY, tileSize * 3.0f, tileSize);
+        spike->AddComponent<TintComponent>(0.86f, 0.16f, 0.18f, 1.0f);
+        spike->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        spike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
+        spike->AddComponent<SpikeStripComponent>(3);
+        spike->AddComponent<VanishOnCaptureComponent>(true);
+        m_entities.push_back(std::move(spike));
+
+        auto base2 = std::make_unique<Entity>();
+        base2->AddComponent<TagComponent>(kTagDamagePlatform);
+        base2->AddComponent<TransformComponent>(preview2X, previewY + tileSize, tileSize * 2.0f, tileSize);
+        base2->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
+        base2->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        base2->AddComponent<VanishOnCaptureComponent>(true);
+        m_entities.push_back(std::move(base2));
+
+        auto spike2 = std::make_unique<Entity>();
+        spike2->AddComponent<TagComponent>(kTagDamagePlatformSpike);
+        spike2->AddComponent<TransformComponent>(preview2X, previewY, tileSize * 2.0f, tileSize);
+        spike2->AddComponent<TintComponent>(0.86f, 0.16f, 0.18f, 1.0f);
+        spike2->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        spike2->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
+        spike2->AddComponent<SpikeStripComponent>(2);
+        spike2->AddComponent<VanishOnCaptureComponent>(true);
+        m_entities.push_back(std::move(spike2));
+    }
+
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
 	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);
  //   Entity& photoSourceB= SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1360.0f, tileSize), AlignToGrid(240.0f, tileSize)); 
@@ -679,18 +736,6 @@ void GameScene::InitializeStageEntities()
 
     //Entity& flipSourceB = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1300.0f, tileSize), AlignToGrid(352.0f, tileSize));
     ////SetEntityTint(flipSourceB, 0.96f, 0.68f, 0.18f);
-
-    Entity& hazardSource = SpawnStagePrefab(prefabs, "sandbox_hazard", AlignToGrid(1600.0f, tileSize), AlignToGrid(320.0f, tileSize));
-    SetEntityTint(hazardSource, 1.0f, 0.0f, 0.0f);
-    if (auto* hazardSprite = hazardSource.GetComponent<SpriteRenderComponent>())
-    {
-        hazardSprite->SetTextureId(m_whiteTexture);
-    }
-    if (auto* hazardTransform = hazardSource.GetComponent<TransformComponent>())
-    {
-        hazardTransform->width = tileSize;
-        hazardTransform->height = tileSize;
-    }
 
    // SpawnStagePrefab(prefabs, "sandbox_enemy_wide", AlignToGrid(760.0f, tileSize), AlignToGrid(248.0f, tileSize));
     //SpawnStagePrefab(prefabs, "sandbox_enemy_tall", AlignToGrid(1470.0f, tileSize), AlignToGrid(230.0f, tileSize));
