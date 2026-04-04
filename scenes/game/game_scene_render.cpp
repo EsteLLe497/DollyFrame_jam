@@ -145,7 +145,7 @@ namespace
         y = centerY + (localX * sinTheta + localY * cosTheta);
     }
 
-    bool DrawSlopeTriangle(float x, float y, float width, float height, int tileValue, const TintComponent* tint, bool flipX, float rotation)
+    bool DrawSlopeTriangle(float x, float y, float width, float height, int tileValue, const TintComponent* tint, bool flipX, float rotation, float alpha)
     {
         const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue);
         if (!tint || !triangle.isTriangle)
@@ -188,11 +188,283 @@ namespace
         RotatePoint(centerX, centerY, rotation, ax, ay);
         RotatePoint(centerX, centerY, rotation, bx, by);
         RotatePoint(centerX, centerY, rotation, cx, cy);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f)), 0, 255));
         DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        return true;
+    }
+    void DrawFilledQuad(
+        float ax,
+        float ay,
+        float bx,
+        float by,
+        float cx,
+        float cy,
+        float dx,
+        float dy,
+        int color)
+    {
+        DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
+        DrawTriangleAA(ax, ay, cx, cy, dx, dy, color, TRUE);
+    }
+
+    struct DamagePlatformPoint
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+    };
+
+    void ClipDamagePlatformPolygonAgainstEdge(
+        const std::vector<DamagePlatformPoint>& input,
+        std::vector<DamagePlatformPoint>& output,
+        auto&& isInside,
+        auto&& intersect)
+    {
+        output.clear();
+        if (input.empty())
+        {
+            return;
+        }
+
+        DamagePlatformPoint previous = input.back();
+        bool previousInside = isInside(previous);
+        for (const DamagePlatformPoint& current : input)
+        {
+            const bool currentInside = isInside(current);
+            if (currentInside != previousInside)
+            {
+                output.push_back(intersect(previous, current));
+            }
+            if (currentInside)
+            {
+                output.push_back(current);
+            }
+            previous = current;
+            previousInside = currentInside;
+        }
+    }
+
+    bool ClipDamagePlatformPolygonToCrop(
+        std::vector<DamagePlatformPoint>& polygon,
+        float cropLeft,
+        float cropTop,
+        float cropRight,
+        float cropBottom)
+    {
+        std::vector<DamagePlatformPoint> scratch;
+        auto clipVertical = [&](float edgeX, bool keepGreater)
+        {
+            ClipDamagePlatformPolygonAgainstEdge(
+                polygon,
+                scratch,
+                [=](const DamagePlatformPoint& point)
+                {
+                    return keepGreater ? point.x >= edgeX : point.x <= edgeX;
+                },
+                [=](const DamagePlatformPoint& a, const DamagePlatformPoint& b)
+                {
+                    const float delta = b.x - a.x;
+                    const float t = std::fabs(delta) <= 0.0001f ? 0.0f : (edgeX - a.x) / delta;
+                    return DamagePlatformPoint{
+                        a.x + (b.x - a.x) * std::clamp(t, 0.0f, 1.0f),
+                        a.y + (b.y - a.y) * std::clamp(t, 0.0f, 1.0f)
+                    };
+                });
+            polygon.swap(scratch);
+        };
+        auto clipHorizontal = [&](float edgeY, bool keepGreater)
+        {
+            ClipDamagePlatformPolygonAgainstEdge(
+                polygon,
+                scratch,
+                [=](const DamagePlatformPoint& point)
+                {
+                    return keepGreater ? point.y >= edgeY : point.y <= edgeY;
+                },
+                [=](const DamagePlatformPoint& a, const DamagePlatformPoint& b)
+                {
+                    const float delta = b.y - a.y;
+                    const float t = std::fabs(delta) <= 0.0001f ? 0.0f : (edgeY - a.y) / delta;
+                    return DamagePlatformPoint{
+                        a.x + (b.x - a.x) * std::clamp(t, 0.0f, 1.0f),
+                        a.y + (b.y - a.y) * std::clamp(t, 0.0f, 1.0f)
+                    };
+                });
+            polygon.swap(scratch);
+        };
+
+        clipVertical(cropLeft, true);
+        clipVertical(cropRight, false);
+        clipHorizontal(cropTop, true);
+        clipHorizontal(cropBottom, false);
+        return polygon.size() >= 3;
+    }
+
+    void DrawDamagePlatformPolygon(
+        const std::vector<DamagePlatformPoint>& polygon,
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        float cropLeft,
+        float cropTop,
+        float cropWidth,
+        float cropHeight,
+        float rotation,
+        int color)
+    {
+        if (polygon.size() < 3 || cropWidth <= 0.0001f || cropHeight <= 0.0001f)
+        {
+            return;
+        }
+
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        std::vector<DamagePlatformPoint> transformed;
+        transformed.reserve(polygon.size());
+        for (const DamagePlatformPoint& point : polygon)
+        {
+            float x = drawX + ((point.x - cropLeft) / cropWidth) * drawWidth;
+            float y = drawY + ((point.y - cropTop) / cropHeight) * drawHeight;
+            RotatePoint(centerX, centerY, rotation, x, y);
+            transformed.push_back({ x, y });
+        }
+
+        for (size_t index = 1; index + 1 < transformed.size(); ++index)
+        {
+            DrawTriangleAA(
+                transformed[0].x,
+                transformed[0].y,
+                transformed[index].x,
+                transformed[index].y,
+                transformed[index + 1].x,
+                transformed[index + 1].y,
+                color,
+                TRUE);
+        }
+    }
+
+    bool DrawDamagePlatformShape(
+        float x,
+        float y,
+        float width,
+        float height,
+        const DamagePlatformComponent* damagePlatform,
+        const TintComponent* tint,
+        float sourceX,
+        float sourceY,
+        float sourceWidth,
+        float sourceHeight,
+        float rotation,
+        float alpha)
+    {
+        if (!damagePlatform || !tint)
+        {
+            return false;
+        }
+
+        const int baseColor = GetColor(
+            static_cast<int>(std::round(tint->r * 255.0f)),
+            static_cast<int>(std::round(tint->g * 255.0f)),
+            static_cast<int>(std::round(tint->b * 255.0f)));
+        const int spikeColor = GetColor(235, 26, 26);
+        const float cropLeft = std::clamp(sourceX, 0.0f, 1.0f);
+        const float cropTop = std::clamp(sourceY, 0.0f, 1.0f);
+        const float cropWidth = std::clamp(sourceWidth, 0.0001f, 1.0f);
+        const float cropHeight = std::clamp(sourceHeight, 0.0001f, 1.0f);
+        const float cropRight = std::clamp(cropLeft + cropWidth, 0.0f, 1.0f);
+        const float cropBottom = std::clamp(cropTop + cropHeight, 0.0f, 1.0f);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f)), 0, 255));
+
+        std::vector<DamagePlatformPoint> basePolygon =
+        {
+            { 0.0f, 0.5f },
+            { 1.0f, 0.5f },
+            { 1.0f, 1.0f },
+            { 0.0f, 1.0f }
+        };
+        if (ClipDamagePlatformPolygonToCrop(basePolygon, cropLeft, cropTop, cropRight, cropBottom))
+        {
+            DrawDamagePlatformPolygon(basePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, baseColor);
+        }
+
+        const int spikeCount = (std::max)(1, damagePlatform->tileSpan);
+        const float spikeWidth = 1.0f / static_cast<float>(spikeCount);
+        for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
+        {
+            std::vector<DamagePlatformPoint> spikePolygon =
+            {
+                { static_cast<float>(spikeIndex) * spikeWidth, 0.5f },
+                { static_cast<float>(spikeIndex + 1) * spikeWidth, 0.5f },
+                { (static_cast<float>(spikeIndex) + 0.5f) * spikeWidth, 0.0f }
+            };
+            if (!ClipDamagePlatformPolygonToCrop(spikePolygon, cropLeft, cropTop, cropRight, cropBottom))
+            {
+                continue;
+            }
+
+            DrawDamagePlatformPolygon(spikePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, spikeColor);
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         return true;
     }
 
-    float ComputeLightFlicker(float timeSeconds, const TransformComponent& transform, const FlickerLightComponent& light)
+    bool DrawSpikeStripShape(
+        float x,
+        float y,
+        float width,
+        float height,
+        const SpikeStripComponent* spikeStrip,
+        const TintComponent* tint,
+        float sourceX,
+        float sourceY,
+        float sourceWidth,
+        float sourceHeight,
+        float rotation,
+        float alpha)
+    {
+        if (!spikeStrip || !tint)
+        {
+            return false;
+        }
+
+        const int spikeColor = GetColor(
+            static_cast<int>(std::round(tint->r * 255.0f)),
+            static_cast<int>(std::round(tint->g * 255.0f)),
+            static_cast<int>(std::round(tint->b * 255.0f)));
+        const float cropLeft = std::clamp(sourceX, 0.0f, 1.0f);
+        const float cropTop = std::clamp(sourceY, 0.0f, 1.0f);
+        const float cropWidth = std::clamp(sourceWidth, 0.0001f, 1.0f);
+        const float cropHeight = std::clamp(sourceHeight, 0.0001f, 1.0f);
+        const float cropRight = std::clamp(cropLeft + cropWidth, 0.0f, 1.0f);
+        const float cropBottom = std::clamp(cropTop + cropHeight, 0.0f, 1.0f);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f)), 0, 255));
+
+        const int spikeCount = (std::max)(1, spikeStrip->tileSpan);
+        const float spikeWidth = 1.0f / static_cast<float>(spikeCount);
+        for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
+        {
+            std::vector<DamagePlatformPoint> spikePolygon =
+            {
+                { static_cast<float>(spikeIndex) * spikeWidth, 1.0f },
+                { static_cast<float>(spikeIndex + 1) * spikeWidth, 1.0f },
+                { (static_cast<float>(spikeIndex) + 0.5f) * spikeWidth, 0.0f }
+            };
+            if (!ClipDamagePlatformPolygonToCrop(spikePolygon, cropLeft, cropTop, cropRight, cropBottom))
+            {
+                continue;
+            }
+
+            DrawDamagePlatformPolygon(spikePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, spikeColor);
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        return true;
+    }
+        float ComputeLightFlicker(float timeSeconds, const TransformComponent& transform, const FlickerLightComponent& light)
     {
         const float seed = transform.x * 0.0137f + transform.y * 0.0091f + light.offsetY * 0.17f;
         const float waveA = std::sin(timeSeconds * light.flickerSpeed + seed);
@@ -937,7 +1209,33 @@ void GameScene::DrawEntity(const Entity& entity) const
         Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
     }
 
-    if (!DrawSlopeTriangle(
+    if (!DrawDamagePlatformShape(
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            entity.GetComponent<DamagePlatformComponent>(),
+            entity.GetComponent<TintComponent>(),
+            sprite->GetSourceX(),
+            sprite->GetSourceY(),
+            sprite->GetSourceWidth(),
+            sprite->GetSourceHeight(),
+            transform->rotation,
+            entity.GetComponent<TintComponent>() ? entity.GetComponent<TintComponent>()->a * alphaMultiplier : alphaMultiplier) &&
+        !DrawSpikeStripShape(
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            entity.GetComponent<SpikeStripComponent>(),
+            entity.GetComponent<TintComponent>(),
+            sprite->GetSourceX(),
+            sprite->GetSourceY(),
+            sprite->GetSourceWidth(),
+            sprite->GetSourceHeight(),
+            transform->rotation,
+            entity.GetComponent<TintComponent>() ? entity.GetComponent<TintComponent>()->a * alphaMultiplier : alphaMultiplier) &&
+        !DrawSlopeTriangle(
             drawX,
             drawY,
             drawWidth,
@@ -945,7 +1243,8 @@ void GameScene::DrawEntity(const Entity& entity) const
             entity.GetComponent<PhotoCopyTileValueComponent>() ? entity.GetComponent<PhotoCopyTileValueComponent>()->tileValue : 0,
             entity.GetComponent<TintComponent>(),
             sprite->GetFlipX(),
-            transform->rotation))
+            transform->rotation,
+            entity.GetComponent<TintComponent>() ? entity.GetComponent<TintComponent>()->a * alphaMultiplier : alphaMultiplier))
     {
         SpriteDraw(
             sprite->GetTextureId(),

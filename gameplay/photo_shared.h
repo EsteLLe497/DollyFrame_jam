@@ -15,6 +15,22 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
 
 void ApplyPreviewFilterTheme(CapturedPhotoItem& item);
 
+bool DrawDamagePlatformItemPreview(
+    const CapturedPhotoItem& item,
+    float drawX,
+    float drawY,
+    float drawWidth,
+    float drawHeight,
+    float alpha);
+
+bool DrawSpikeStripItemPreview(
+    const CapturedPhotoItem& item,
+    float drawX,
+    float drawY,
+    float drawWidth,
+    float drawHeight,
+    float alpha);
+
 void DrawCapturedPhotoItem(
     int fallbackTextureId,
     const CapturedPhotoItem& item,

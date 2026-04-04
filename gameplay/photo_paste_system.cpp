@@ -564,9 +564,17 @@ void PhotoPasteSystem::SpawnPhotoGroup(
         {
             lastSpawnedEntity->AddComponent<VanishOnCaptureComponent>(true);
         }
-        if (item.origin == PhotoCopyOrigin::Tile && item.sourceTileValue > 0)
+        if (item.sourceTileValue > 0)
         {
             lastSpawnedEntity->AddComponent<PhotoCopyTileValueComponent>(item.sourceTileValue);
+        }
+        if (item.damagePlatformTileSpan > 0)
+        {
+            lastSpawnedEntity->AddComponent<DamagePlatformComponent>(item.damagePlatformTileSpan);
+        }
+        if (item.spikeStripTileSpan > 0)
+        {
+            lastSpawnedEntity->AddComponent<SpikeStripComponent>(item.spikeStripTileSpan);
         }
         lastSpawnedEntity->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
         const PhotoCopyLayer spawnedLayer =

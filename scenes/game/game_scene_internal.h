@@ -289,6 +289,38 @@ inline constexpr const char* kTagDropItem = "DropItem";
 inline constexpr const char* kTagBattery = "Battery";
 inline constexpr const char* kTagBatterySwitch = "BatterySwitch";
 inline constexpr const char* kTagElevator = "Elevator";
+inline constexpr const char* kTagDamagePlatform = "DamagePlatform";
+inline constexpr const char* kTagDamagePlatformSpike = "DamagePlatformSpike";
+
+inline bool IsDamagePlatformMarker(char marker)
+{
+    const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+    return upper == 'H' || upper == 'I';
+}
+
+inline int GetDamagePlatformTileSpanFromMarker(char marker)
+{
+    const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+    return upper == 'I' ? 2 : 3;
+}
+
+inline std::vector<b2Vec2> BuildDamagePlatformNormalizedOutline(int tileSpan)
+{
+    const int spikeCount = (std::max)(1, tileSpan);
+    std::vector<b2Vec2> outline;
+    outline.reserve(static_cast<size_t>(spikeCount * 2 + 4));
+    outline.push_back({ 0.0f, 0.5f });
+    for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
+    {
+        const float peakX = (static_cast<float>(spikeIndex) + 0.5f) / static_cast<float>(spikeCount);
+        const float valleyX = static_cast<float>(spikeIndex + 1) / static_cast<float>(spikeCount);
+        outline.push_back({ peakX, 0.0f });
+        outline.push_back({ valleyX, 0.5f });
+    }
+    outline.push_back({ 1.0f, 1.0f });
+    outline.push_back({ 0.0f, 1.0f });
+    return outline;
+}
 
 inline PhotoCopyRole GetEntityCopyRole(const Entity& entity)
 {
@@ -299,6 +331,14 @@ inline PhotoCopyRole GetEntityCopyRole(const Entity& entity)
     if (HasTag(entity, kTagPhotoSource))
     {
         return PhotoCopyRole::Pickup;
+    }
+    if (HasTag(entity, kTagDamagePlatformSpike))
+    {
+        return PhotoCopyRole::Hazard;
+    }
+    if (HasTag(entity, kTagDamagePlatform))
+    {
+        return PhotoCopyRole::Solid;
     }
     if (HasTag(entity, kTagHazard) || HasTag(entity, kTagEnemy))
     {
@@ -320,6 +360,14 @@ inline PhotoCopyOrigin GetEntityCopyOrigin(const Entity& entity)
     if (HasTag(entity, kTagHazard))
     {
         return PhotoCopyOrigin::Hazard;
+    }
+    if (HasTag(entity, kTagDamagePlatformSpike))
+    {
+        return PhotoCopyOrigin::Hazard;
+    }
+    if (HasTag(entity, kTagDamagePlatform))
+    {
+        return PhotoCopyOrigin::Generic;
     }
     if (HasTag(entity, kTagGoal))
     {

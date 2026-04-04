@@ -275,6 +275,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr;
         const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
+        const auto* tileValueComponent = entity->GetComponent<PhotoCopyTileValueComponent>();
+        const auto* damagePlatform = entity->GetComponent<DamagePlatformComponent>();
+        const auto* spikeStrip = entity->GetComponent<SpikeStripComponent>();
         const auto* projectile = entity->GetComponent<ProjectileComponent>();
         const bool capturedProjectile = projectile != nullptr;
         item.textureId = sprite->GetTextureId();
@@ -298,11 +301,23 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         item.relativeY = overlapTop - frameY;
         item.width = overlapWidth;
         item.height = overlapHeight;
+        item.rotation = targetTransform->rotation;
         item.sourceX = sprite->GetSourceX() + sprite->GetSourceWidth() * localLeft;
         item.sourceY = sprite->GetSourceY() + sprite->GetSourceHeight() * localTop;
         item.sourceWidth = sprite->GetSourceWidth() * localWidth;
         item.sourceHeight = sprite->GetSourceHeight() * localHeight;
+        item.sourceTileValue = tileValueComponent ? tileValueComponent->tileValue : 0;
         BuildCapturedOutlineFromEntity(*entity, localLeft, localTop, localWidth, localHeight, item.collisionOutline);
+        if (damagePlatform)
+        {
+            item.damagePlatformTileSpan = damagePlatform->tileSpan;
+            item.sourceTileValue = 0;
+        }
+        if (spikeStrip)
+        {
+            item.spikeStripTileSpan = spikeStrip->tileSpan;
+            item.sourceTileValue = 0;
+        }
         if (auto* tint = entity->GetComponent<TintComponent>())
         {
             item.tintR = tint->r;
@@ -319,7 +334,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.projectileDamage = projectile->GetDamage();
             item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
         }
-        else if (!capturedBarrel && !capturedBattery)
+        else if (damagePlatform)
+        {
+            item.role = PhotoCopyRole::Hazard;
+            item.layer = PhotoCopyLayer::Foreground;
+        }
+        else if (spikeStrip)
+        {
+            item.role = PhotoCopyRole::Hazard;
+            item.layer = PhotoCopyLayer::Foreground;
+        }
+        else if (!capturedBarrel && !capturedBattery && !damagePlatform && !spikeStrip)
         {
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
@@ -331,8 +356,6 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         if (capturedVanishObject)
         {
-            item.role = PhotoCopyRole::Solid;
-            item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
             item.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
         }

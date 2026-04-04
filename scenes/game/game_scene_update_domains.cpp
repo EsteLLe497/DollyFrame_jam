@@ -34,7 +34,7 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr int kMarkerPresetCount = 14;
+    constexpr int kMarkerPresetCount = 16;
 
     int MarkerToPresetIndex(char marker)
     {
@@ -62,10 +62,14 @@ namespace
             return 10;
         case 'Y':
             return 11;
-        case 'K':
+        case 'H':
             return 12;
-        case 'L':
+        case 'I':
             return 13;
+        case 'K':
+            return 14;
+        case 'L':
+            return 15;
         default:
             return 0;
         }
@@ -98,8 +102,12 @@ namespace
         case 11:
             return 'Y';
         case 12:
-            return 'K';
+            return 'H';
         case 13:
+            return 'I';
+        case 14:
+            return 'K';
+        case 15:
             return 'L';
         default:
             return '\0';
@@ -459,6 +467,14 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         {
             m_mapEditor.selectedMarker = 'Y';
         }
+        if (Input_IsKeyPressed('H'))
+        {
+            m_mapEditor.selectedMarker = 'H';
+        }
+        if (Input_IsKeyPressed('I'))
+        {
+            m_mapEditor.selectedMarker = 'I';
+        }
         if (Input_IsKeyPressed('K'))
         {
             m_mapEditor.selectedMarker = 'K';
@@ -503,6 +519,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             RefreshEnemiesFromMarkers();
             RefreshBatteriesFromMarkers();
             RefreshElevatorGimmicksFromMarkers();
+            RefreshDamageFootholdsFromMarkers();
             m_mapEditor.statusMessage = "CSVを再読み込みしました";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
@@ -526,6 +543,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             RefreshEnemiesFromMarkers();
             RefreshBatteriesFromMarkers();
             RefreshElevatorGimmicksFromMarkers();
+            RefreshDamageFootholdsFromMarkers();
             m_flow.cameraX = 0.0f;
             m_flow.cameraY = 0.0f;
             m_mapEditor.statusMessage = "新規マップを作成: " + newMapPath;
@@ -594,6 +612,8 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
                 before == 'Y' || after == 'Y';
             const bool touchesElevatorMarker =
                 before == 'K' || before == 'L' || after == 'K' || after == 'L';
+            const bool touchesDamageFootholdMarker =
+                before == 'H' || before == 'I' || after == 'H' || after == 'I';
             if (touchesEnemyMarker && before != after)
             {
                 RefreshEnemiesFromMarkers();
@@ -605,6 +625,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             if (touchesElevatorMarker && before != after)
             {
                 RefreshElevatorGimmicksFromMarkers();
+            }
+            if (touchesDamageFootholdMarker && before != after)
+            {
+                RefreshDamageFootholdsFromMarkers();
             }
         }
     }
@@ -629,6 +653,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             if (before == 'K' || before == 'L')
             {
                 RefreshElevatorGimmicksFromMarkers();
+            }
+            if (before == 'H' || before == 'I')
+            {
+                RefreshDamageFootholdsFromMarkers();
             }
         }
     }
@@ -849,6 +877,72 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
                 tileSize * 2.5f,
                 1.0f);
             m_entities.push_back(std::move(elevatorEntity));
+        }
+    }
+}
+
+void GameScene::RefreshDamageFootholdsFromMarkers()
+{
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity)
+                {
+                    return true;
+                }
+
+                return HasTag(*entity, kTagDamagePlatform) || HasTag(*entity, kTagDamagePlatformSpike);
+            }),
+        m_entities.end());
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (!IsDamagePlatformMarker(marker))
+            {
+                continue;
+            }
+
+            const float markerX = static_cast<float>(column) * tileSize;
+            const float markerY = static_cast<float>(row) * tileSize;
+            const int tileSpan = GetDamagePlatformTileSpanFromMarker(marker);
+
+            auto damagePlatformBase = std::make_unique<Entity>();
+            damagePlatformBase->AddComponent<TagComponent>(kTagDamagePlatform);
+            damagePlatformBase->AddComponent<TransformComponent>(
+                markerX,
+                markerY + tileSize,
+                tileSize * static_cast<float>(tileSpan),
+                tileSize);
+            damagePlatformBase->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
+            damagePlatformBase->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
+            m_entities.push_back(std::move(damagePlatformBase));
+
+            auto damagePlatformSpike = std::make_unique<Entity>();
+            damagePlatformSpike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
+            damagePlatformSpike->AddComponent<TransformComponent>(
+                markerX,
+                markerY,
+                tileSize * static_cast<float>(tileSpan),
+                tileSize);
+            damagePlatformSpike->AddComponent<TintComponent>(0.86f, 0.16f, 0.18f, 1.0f);
+            damagePlatformSpike->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
+            damagePlatformSpike->AddComponent<SpikeStripComponent>(tileSpan);
+            damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
+            m_entities.push_back(std::move(damagePlatformSpike));
         }
     }
 }

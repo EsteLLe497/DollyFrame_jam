@@ -1,4 +1,5 @@
 #include "game_scene_internal.h"
+#include "photo_system_bridge.h"
 
 using namespace game_scene_detail;
 
@@ -78,6 +79,127 @@ namespace
         {
             RotatePoint(centerX, centerY, rotation, point.x, point.y);
         }
+    }
+
+    void BuildDamagePlatformSpikePolygon(
+        const TransformComponent& transform,
+        int tileSpan,
+        int spikeIndex,
+        CollisionPolygon& outPolygon)
+    {
+        const int spikeCount = (std::max)(1, tileSpan);
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        const float spikeWidth = width / static_cast<float>(spikeCount);
+        const float left = transform.x + static_cast<float>(spikeIndex) * spikeWidth;
+        const float top = transform.y;
+        const float centerX = transform.x + width * 0.5f;
+        const float centerY = transform.y + height * 0.5f;
+
+        outPolygon.resize(3);
+        outPolygon[0] = { left, top + height * 0.5f };
+        outPolygon[1] = { left + spikeWidth, top + height * 0.5f };
+        outPolygon[2] = { left + spikeWidth * 0.5f, top };
+
+        for (CollisionPoint& point : outPolygon)
+        {
+            RotatePoint(centerX, centerY, transform.rotation, point.x, point.y);
+        }
+    }
+
+    void BuildDamagePlatformHazardBandPolygon(
+        const TransformComponent& transform,
+        CollisionPolygon& outPolygon)
+    {
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        BuildRotatedRectPolygon(
+            transform.x,
+            transform.y,
+            width,
+            height * 0.5f,
+            transform.rotation,
+            outPolygon);
+    }
+
+    void WorldToDamagePlatformLocal(
+        const TransformComponent& transform,
+        float worldX,
+        float worldY,
+        float& outLocalX,
+        float& outLocalY)
+    {
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        const float centerX = transform.x + width * 0.5f;
+        const float centerY = transform.y + height * 0.5f;
+        const float localX = worldX - centerX;
+        const float localY = worldY - centerY;
+        const float cosTheta = std::cos(-transform.rotation);
+        const float sinTheta = std::sin(-transform.rotation);
+        outLocalX = width * 0.5f + (localX * cosTheta - localY * sinTheta);
+        outLocalY = height * 0.5f + (localX * sinTheta + localY * cosTheta);
+    }
+
+    bool IsPointOnDamagePlatformSpike(
+        const TransformComponent& transform,
+        int tileSpan,
+        float worldX,
+        float worldY,
+        float tolerance)
+    {
+        const int spikeCount = (std::max)(1, tileSpan);
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        const float spikeBandHeight = height * 0.5f;
+        float localX = 0.0f;
+        float localY = 0.0f;
+        WorldToDamagePlatformLocal(transform, worldX, worldY, localX, localY);
+
+        if (localX < -tolerance || localX > width + tolerance ||
+            localY < -tolerance || localY > spikeBandHeight + tolerance)
+        {
+            return false;
+        }
+
+        const float spikeWidth = width / static_cast<float>(spikeCount);
+        for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
+        {
+            const float left = static_cast<float>(spikeIndex) * spikeWidth;
+            const float right = left + spikeWidth;
+            if (localX < left - tolerance || localX > right + tolerance)
+            {
+                continue;
+            }
+
+            const float mid = left + spikeWidth * 0.5f;
+            const float halfWidth = spikeWidth * 0.5f;
+            const float normalizedDistance = std::min(1.0f, std::fabs(localX - mid) / (std::max)(halfWidth, 0.0001f));
+            const float surfaceY = spikeBandHeight * normalizedDistance;
+            if (localY >= surfaceY - tolerance && localY <= spikeBandHeight + tolerance)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool IsPointInDamagePlatformHazardBand(
+        const TransformComponent& transform,
+        float worldX,
+        float worldY,
+        float tolerance)
+    {
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        float localX = 0.0f;
+        float localY = 0.0f;
+        WorldToDamagePlatformLocal(transform, worldX, worldY, localX, localY);
+        return localX >= -tolerance &&
+            localX <= width + tolerance &&
+            localY >= -tolerance &&
+            localY <= height * 0.5f + tolerance;
     }
 
     void BuildImageOutlinePolygon(
@@ -989,6 +1111,104 @@ bool GameScene::IntersectsEntity(const Entity& a, const Entity& b) const
     return IntersectsRect(*transformA, *transformB);
 }
 
+bool GameScene::IntersectsHazardEntity(const Entity& player, const Entity& hazard) const
+{
+    const auto* hazardTransform = hazard.GetComponent<TransformComponent>();
+    const auto* playerTransform = player.GetComponent<TransformComponent>();
+    const auto* damagePlatform = hazard.GetComponent<DamagePlatformComponent>();
+    const auto* tileValue = hazard.GetComponent<PhotoCopyTileValueComponent>();
+    const auto* imageCollider = hazard.GetComponent<ImageOutlineColliderComponent>();
+    if (hazardTransform && playerTransform && damagePlatform)
+    {
+        CollisionPolygon playerPolygon;
+        BuildRotatedRectPolygon(
+            playerTransform->x,
+            playerTransform->y,
+            playerTransform->width * playerTransform->scale,
+            playerTransform->height * playerTransform->scale,
+            playerTransform->rotation,
+            playerPolygon);
+
+        CollisionPolygon hazardBandPolygon;
+        BuildDamagePlatformHazardBandPolygon(*hazardTransform, hazardBandPolygon);
+        if (PolygonsIntersect(playerPolygon, hazardBandPolygon))
+        {
+            return true;
+        }
+
+        const float playerWidth = playerTransform->width * playerTransform->scale;
+        const float playerHeight = playerTransform->height * playerTransform->scale;
+        const float footSampleY = playerTransform->y + playerHeight + 2.0f;
+        const float footSampleXs[] =
+        {
+            playerTransform->x + 6.0f,
+            playerTransform->x + playerWidth * 0.5f,
+            playerTransform->x + playerWidth - 6.0f
+        };
+        for (const float footSampleX : footSampleXs)
+        {
+            if (IsPointInDamagePlatformHazardBand(*hazardTransform, footSampleX, footSampleY, 3.0f))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (!IntersectsEntity(player, hazard))
+    {
+        return false;
+    }
+
+    if (!hazardTransform || !playerTransform || !tileValue)
+    {
+        if (!hazardTransform || !playerTransform || !imageCollider)
+        {
+            return true;
+        }
+    }
+
+    const TileTriangleShape triangle = tileValue ? TileMap::GetTriangleShape(tileValue->tileValue) : TileTriangleShape{};
+    if ((!triangle.isTriangle && !imageCollider) || !m_player.grounded)
+    {
+        return true;
+    }
+
+    CollisionPolygon hazardPolygon;
+    if (!BuildEntityCollisionPolygon(hazard, hazardPolygon))
+    {
+        return true;
+    }
+
+    const float playerWidth = playerTransform->width * playerTransform->scale;
+    const float playerHeight = playerTransform->height * playerTransform->scale;
+    const float playerBottom = playerTransform->y + playerHeight;
+    const float playerTop = playerTransform->y;
+    const float probeXs[] =
+    {
+        playerTransform->x + 6.0f,
+        playerTransform->x + playerWidth * 0.5f,
+        playerTransform->x + playerWidth - 6.0f,
+    };
+
+    for (const float probeX : probeXs)
+    {
+        float surfaceY = 0.0f;
+        if (!TryGetPolygonSurfaceY(hazardPolygon, probeX, surfaceY))
+        {
+            continue;
+        }
+
+        if (playerTop < surfaceY - 2.0f &&
+            std::fabs(playerBottom - surfaceY) <= kSurfaceContactEpsilon + 3.0f)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool GameScene::IntersectsSolidPhotoBox(const TransformComponent& transform) const
 {
     CollisionPolygon candidatePolygon;
@@ -1279,9 +1499,21 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     }
 
     const float tileSize = m_tileMap.GetTileSize();
+    auto buildCandidatePolygon = [](const TransformComponent& candidate, CollisionPolygon& outPolygon)
+    {
+        BuildRotatedRectPolygon(
+            candidate.x,
+            candidate.y,
+            candidate.width * candidate.scale,
+            candidate.height * candidate.scale,
+            candidate.rotation,
+            outPolygon);
+    };
     // Forbidden target: Enemy. Disabled enemies are excluded from overlap checks.
     auto intersectsEnemy = [&](const TransformComponent& candidate) -> bool
     {
+        CollisionPolygon candidatePolygon;
+        buildCandidatePolygon(candidate, candidatePolygon);
         for (const auto& entity : m_entities)
         {
             if (!entity)
@@ -1304,7 +1536,8 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
             }
 
             const auto* transform = entity->GetComponent<TransformComponent>();
-            if (transform && IntersectsRect(candidate, *transform))
+            CollisionPolygon entityPolygon;
+            if (transform && BuildEntityCollisionPolygon(*entity, entityPolygon) && PolygonsIntersect(candidatePolygon, entityPolygon))
             {
                 return true;
             }
@@ -1316,6 +1549,8 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     // Forbidden target: Floor. Check solid/slope tiles and solid pasted photo boxes.
     auto intersectsFloorObject = [&](const TransformComponent& candidate) -> bool
     {
+        CollisionPolygon candidatePolygon;
+        buildCandidatePolygon(candidate, candidatePolygon);
         const int leftColumn = std::max(0, static_cast<int>(candidate.x / tileSize));
         const int rightColumn = std::min(
             m_tileMap.GetWidth() - 1,
@@ -1339,7 +1574,9 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
                     static_cast<float>(row) * tileSize,
                     tileSize,
                     tileSize);
-                if (IntersectsRect(candidate, tileRect))
+                CollisionPolygon tilePolygon;
+                BuildRotatedRectPolygon(tileRect.x, tileRect.y, tileRect.width, tileRect.height, 0.0f, tilePolygon);
+                if (PolygonsIntersect(candidatePolygon, tilePolygon))
                 {
                     return true;
                 }
@@ -1397,9 +1634,19 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
         return !violatesPlacementRule(candidate, PhotoPlacementRuleGroup::Group1);
     }
 
-    for (const auto& item : m_photo.capture.items)
+    float placementWidth = 0.0f;
+    float placementHeight = 0.0f;
+    const std::vector<CapturedPhotoItem> placementItems = photo_system_bridge::BuildPlacementItemsBridge(
+        m_photo.capture,
+        m_photo.placement,
+        m_whiteTexture,
+        placementWidth,
+        placementHeight);
+
+    for (const auto& item : placementItems)
     {
         TransformComponent candidate(x + item.relativeX, y + item.relativeY, item.width, item.height);
+        candidate.rotation = item.rotation;
         if (violatesPlacementRule(candidate, item.placementRuleGroup))
         {
             return false;

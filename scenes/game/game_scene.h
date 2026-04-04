@@ -88,6 +88,7 @@ private:
     void RefreshEnemiesFromMarkers();
     void RefreshBatteriesFromMarkers();
     void RefreshElevatorGimmicksFromMarkers();
+    void RefreshDamageFootholdsFromMarkers();
     void UpdateEscapeMenuInput();
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);
@@ -157,6 +158,7 @@ private:
     bool IntersectsPitTile(const TransformComponent& transform) const;
     bool IntersectsGoalTile(const TransformComponent& transform) const;
     bool IntersectsEntity(const Entity& a, const Entity& b) const;
+    bool IntersectsHazardEntity(const Entity& player, const Entity& hazard) const;
     bool GetEntityBoundsByTag(const char* tag, float& x, float& y, float& width, float& height) const;
     void GetEntityBoundsByTag(const char* tag, std::vector<TransformComponent>& bounds) const;
     void GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const;
