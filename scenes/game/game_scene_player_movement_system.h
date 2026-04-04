@@ -139,6 +139,19 @@ inline void ResolveHorizontalObjectCollisions(
     IntersectsSolidObjectFn&& intersectsSolidObject,
     const std::vector<TransformComponent>& photoSources)
 {
+    const float maxStepHeight = std::max(0.0f, ctx.tileSize * 0.5f);
+    auto intersectsAnyPhotoSource = [&](const TransformComponent& candidate) -> bool
+    {
+        for (const auto& sourceBounds : photoSources)
+        {
+            if (IntersectsRect(candidate, sourceBounds))
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
     if (!photoBoxes.empty())
     {
         for (const auto& photoBoxBounds : photoBoxes)
@@ -197,12 +210,48 @@ inline void ResolveHorizontalObjectCollisions(
         const float sourceWidth = photoSourceBounds.width * photoSourceBounds.scale;
         if (player.velocityX > 0.0f && ctx.previousX + ctx.playerWidth <= sourceX + kHorizontalCollisionEpsilon)
         {
+            bool steppedUp = false;
+            if (player.grounded && maxStepHeight > 0.0f)
+            {
+                TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
+                stepCandidate.scale = transform.scale;
+                if (stepCandidate.y >= 0.0f &&
+                    !intersectsSolidObject(stepCandidate) &&
+                    !intersectsAnyPhotoSource(stepCandidate))
+                {
+                    transform.y = stepCandidate.y;
+                    steppedUp = true;
+                }
+            }
+            if (steppedUp)
+            {
+                continue;
+            }
+
             transform.x = sourceX - ctx.playerWidth;
             player.velocityX = 0.0f;
             break;
         }
         if (player.velocityX < 0.0f && ctx.previousX >= sourceX + sourceWidth - kHorizontalCollisionEpsilon)
         {
+            bool steppedUp = false;
+            if (player.grounded && maxStepHeight > 0.0f)
+            {
+                TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
+                stepCandidate.scale = transform.scale;
+                if (stepCandidate.y >= 0.0f &&
+                    !intersectsSolidObject(stepCandidate) &&
+                    !intersectsAnyPhotoSource(stepCandidate))
+                {
+                    transform.y = stepCandidate.y;
+                    steppedUp = true;
+                }
+            }
+            if (steppedUp)
+            {
+                continue;
+            }
+
             transform.x = sourceX + sourceWidth;
             player.velocityX = 0.0f;
             break;
