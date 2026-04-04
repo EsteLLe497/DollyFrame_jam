@@ -9,6 +9,7 @@
 enum class CapturedSpawnArchetype
 {
     None,
+    Log,
     Barrel,
     Battery,
     Projectile,

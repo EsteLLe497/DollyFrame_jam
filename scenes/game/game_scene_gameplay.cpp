@@ -775,6 +775,8 @@ void GameScene::UpdateBarrels(float deltaTime)
             continue;
         }
 
+        const bool isLog = HasTag(*entity, kTagLog);
+
         if (barrel->destroyed)
         {
             setBarrelVisible(*entity, false);
@@ -805,7 +807,7 @@ void GameScene::UpdateBarrels(float deltaTime)
             }
         }
 
-        if (transform->x + barrelWidth < activeLeft || transform->x > activeRight)
+        if (!isLog && (transform->x + barrelWidth < activeLeft || transform->x > activeRight))
         {
             continue;
         }
@@ -863,9 +865,37 @@ void GameScene::UpdateBarrels(float deltaTime)
             continue;
         }
 
+        const float previousY = transform->y;
         barrel->velocityY = std::min(barrel->maxFallSpeed, barrel->velocityY + barrel->gravity * deltaTime);
         transform->y += barrel->velocityY * deltaTime;
         const bool canCollideAfterDrop = transform->y >= barrel->spawnY + std::max(8.0f, tileSize * 0.25f);
+
+        if (isLog)
+        {
+            const bool snapped = TrySnapToGround(*transform, std::max(gGroundSnapDistance, std::fabs(barrel->velocityY) * deltaTime + 4.0f));
+            barrel->grounded = snapped;
+            if (snapped)
+            {
+                barrel->velocityY = 0.0f;
+            }
+
+            if (transform->y + barrelHeight > mapHeight)
+            {
+                transform->y = mapHeight - barrelHeight;
+                barrel->velocityY = 0.0f;
+                barrel->grounded = true;
+            }
+
+            Entity* hitObject = nullptr;
+            if (!barrel->grounded && isBarrelObjectCollision(*entity, *transform, hitObject))
+            {
+                transform->y = previousY;
+                barrel->velocityY = 0.0f;
+                barrel->grounded = TrySnapToGround(*transform, tileSize * 0.5f);
+            }
+
+            continue;
+        }
 
         if (transform->y + barrelHeight >= mapHeight)
         {

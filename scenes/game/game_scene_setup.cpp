@@ -346,7 +346,7 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionMapCsv.clear();
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
-    gCurrentMapCsvPath = "assets/maps/stage01_1.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/forest.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -378,6 +378,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
 void GameScene::InitializeStageEntities()
 {
     PrefabFactory prefabs(m_assets, m_physicsWorld, m_eventBus);
+    const bool isDebugStageMap = gCurrentMapCsvPath == "assets/maps/stage01_1.csv";
     const auto spawnRespawnableBarrel = [&](float x, float y)
     {
         Entity& barrel = SpawnStagePrefab(prefabs, "sandbox_barrel", x, y);
@@ -473,7 +474,7 @@ void GameScene::InitializeStageEntities()
         }
     }
 
-    if (!hasBarrelMarker)
+    if (isDebugStageMap && !hasBarrelMarker)
     {
         spawnRespawnableBarrel(
             AlignToGrid(432.0f, tileSize),
@@ -525,7 +526,7 @@ void GameScene::InitializeStageEntities()
                     SnapEnemyToGround(*transform);
                 }
             }
-            else if (marker == 'M') // MidBoss
+            else if (marker == 'N') // MidBoss
             {
                 Entity& boss = SpawnStagePrefab(
                     prefabs,
@@ -596,6 +597,8 @@ void GameScene::InitializeStageEntities()
         }
     }
 
+    RefreshLogsFromMarkers();
+
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -649,19 +652,22 @@ void GameScene::InitializeStageEntities()
     m_flow.goalUnlocked = true;
     m_flow.goalUnlockedBySwitch = true;
 
-    Entity& star = SpawnStagePrefab(
-        prefabs,
-        "star_outline",
-        AlignToGrid(720.0f, tileSize),
-        AlignToGrid(336.0f, tileSize));
-    SetEntityTint(star, 1.0f, 1.0f, 1.0f, 1.0f);
+    if (isDebugStageMap)
+    {
+        Entity& star = SpawnStagePrefab(
+            prefabs,
+            "star_outline",
+            AlignToGrid(720.0f, tileSize),
+            AlignToGrid(336.0f, tileSize));
+        SetEntityTint(star, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    Entity& apple = SpawnStagePrefab(
-        prefabs,
-        "apple_outline",
-        AlignToGrid(940.0f, tileSize),
-        AlignToGrid(336.0f, tileSize));
-    SetEntityTint(apple, 1.0f, 1.0f, 1.0f, 1.0f);
+        Entity& apple = SpawnStagePrefab(
+            prefabs,
+            "apple_outline",
+            AlignToGrid(940.0f, tileSize),
+            AlignToGrid(336.0f, tileSize));
+        SetEntityTint(apple, 1.0f, 1.0f, 1.0f, 1.0f);
+    }
 
     bool hasDamageFootholdMarker = false;
     for (int row = 0; row < m_tileMap.GetHeight() && !hasDamageFootholdMarker; ++row)
@@ -677,49 +683,6 @@ void GameScene::InitializeStageEntities()
         }
     }
     RefreshDamageFootholdsFromMarkers();
-    if (!hasDamageFootholdMarker)
-    {
-        const float previewX = AlignToGrid(1600.0f, tileSize);
-        const float previewY = AlignToGrid(272.0f, tileSize);
-        const float preview2X = previewX + tileSize * 4.0f;
-
-        auto base = std::make_unique<Entity>();
-        base->AddComponent<TagComponent>(kTagDamagePlatform);
-        base->AddComponent<TransformComponent>(previewX, previewY + tileSize, tileSize * 3.0f, tileSize);
-        base->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
-        base->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        base->AddComponent<VanishOnCaptureComponent>(true);
-        m_entities.push_back(std::move(base));
-
-        auto spike = std::make_unique<Entity>();
-        spike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
-        spike->AddComponent<TransformComponent>(previewX, previewY, tileSize * 3.0f, tileSize);
-        spike->AddComponent<TintComponent>(0.86f, 0.16f, 0.18f, 1.0f);
-        spike->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        spike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
-        spike->AddComponent<SpikeStripComponent>(3);
-        spike->AddComponent<VanishOnCaptureComponent>(true);
-        m_entities.push_back(std::move(spike));
-
-        auto base2 = std::make_unique<Entity>();
-        base2->AddComponent<TagComponent>(kTagDamagePlatform);
-        base2->AddComponent<TransformComponent>(preview2X, previewY + tileSize, tileSize * 2.0f, tileSize);
-        base2->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
-        base2->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        base2->AddComponent<VanishOnCaptureComponent>(true);
-        m_entities.push_back(std::move(base2));
-
-        auto spike2 = std::make_unique<Entity>();
-        spike2->AddComponent<TagComponent>(kTagDamagePlatformSpike);
-        spike2->AddComponent<TransformComponent>(preview2X, previewY, tileSize * 2.0f, tileSize);
-        spike2->AddComponent<TintComponent>(0.86f, 0.16f, 0.18f, 1.0f);
-        spike2->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        spike2->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
-        spike2->AddComponent<SpikeStripComponent>(2);
-        spike2->AddComponent<VanishOnCaptureComponent>(true);
-        m_entities.push_back(std::move(spike2));
-    }
-
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
 	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);
  //   Entity& photoSourceB= SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1360.0f, tileSize), AlignToGrid(240.0f, tileSize)); 

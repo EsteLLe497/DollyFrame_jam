@@ -44,7 +44,7 @@ inline float gCameraFollowSpeedX = 14.0f;
 inline float gCameraFollowSpeedY = 10.0f;
 inline float gCameraFollowY = 1.0f;
 inline float gPlayerMoveSpeed = 320.0f;
-inline float gPlayerJumpSpeed = -760.0f;
+inline float gPlayerJumpSpeed = -1048.0f;
 inline float gPlayerGravity = 1900.0f;
 inline float gPlayerMaxFallSpeed = 980.0f;
 inline float gPlayerDodgeSpeed = 780.0f;
@@ -287,6 +287,7 @@ inline constexpr const char* kTagHazard = "Hazard";
 inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagDropItem = "DropItem";
 inline constexpr const char* kTagBattery = "Battery";
+inline constexpr const char* kTagLog = "Log";
 inline constexpr const char* kTagBatterySwitch = "BatterySwitch";
 inline constexpr const char* kTagElevator = "Elevator";
 inline constexpr const char* kTagDamagePlatform = "DamagePlatform";
@@ -332,6 +333,10 @@ inline PhotoCopyRole GetEntityCopyRole(const Entity& entity)
     {
         return PhotoCopyRole::Pickup;
     }
+    if (HasTag(entity, kTagLog))
+    {
+        return PhotoCopyRole::Solid;
+    }
     if (HasTag(entity, kTagDamagePlatformSpike))
     {
         return PhotoCopyRole::Hazard;
@@ -360,6 +365,10 @@ inline PhotoCopyOrigin GetEntityCopyOrigin(const Entity& entity)
     if (HasTag(entity, kTagHazard))
     {
         return PhotoCopyOrigin::Hazard;
+    }
+    if (HasTag(entity, kTagLog))
+    {
+        return PhotoCopyOrigin::Generic;
     }
     if (HasTag(entity, kTagDamagePlatformSpike))
     {
