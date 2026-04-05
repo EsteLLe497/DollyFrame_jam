@@ -84,38 +84,6 @@ namespace
         }
     }
 
-    const char* GetRoleLabel(PhotoCopyRole role)
-    {
-        switch (role)
-        {
-        case PhotoCopyRole::Hazard:
-            return "Hazard";
-        case PhotoCopyRole::GoalRelay:
-            return "Goal";
-        case PhotoCopyRole::Pickup:
-            return "Pickup";
-        case PhotoCopyRole::Ally:
-            return "Ally";
-        case PhotoCopyRole::Solid:
-        default:
-            return "Solid";
-        }
-    }
-
-    const char* GetLayerLabel(PhotoCopyLayer layer)
-    {
-        switch (layer)
-        {
-        case PhotoCopyLayer::Background:
-            return "Background";
-        case PhotoCopyLayer::Shadow:
-            return "Shadow";
-        case PhotoCopyLayer::Foreground:
-        default:
-            return "Foreground";
-        }
-    }
-
     const char* GetLayerEffectText(PhotoCopyLayer layer)
     {
         switch (layer)
@@ -1306,90 +1274,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
-    if ((tag && (HasTag(tag, kTagPhotoSource) || HasTag(tag, kTagHazard))) || entity.GetComponent<PhotoFilterComponent>())
-    {
-        const float textX = drawX;
-        const float textY = drawY - 18.0f;
-        PhotoCopyRole labelRole = PhotoCopyRole::Solid;
-        if (tag && HasTag(tag, kTagHazard))
-        {
-            labelRole = PhotoCopyRole::Hazard;
-        }
-        else if (entity.GetComponent<PhotoFilterComponent>())
-        {
-            if (const auto* filter = entity.GetComponent<PhotoFilterComponent>())
-            {
-                labelRole = filter->GetOutputRole();
-            }
-        }
-        else if (const auto* tint = entity.GetComponent<TintComponent>())
-        {
-            labelRole = GetRoleFromTint(tint->r, tint->g, tint->b);
-        }
-
-        PhotoCopyLayer labelLayer = PhotoCopyLayer::Foreground;
-        if (entity.GetComponent<PhotoFilterComponent>())
-        {
-            if (const auto* filter = entity.GetComponent<PhotoFilterComponent>())
-            {
-                labelLayer = filter->GetOutputLayer();
-            }
-        }
-        else if (const auto* tint = entity.GetComponent<TintComponent>())
-        {
-            labelLayer = GetLayerFromTint(tint->r, tint->g, tint->b);
-        }
-
-        const char* header = "Filter";
-        if (const auto* filter = entity.GetComponent<PhotoFilterComponent>())
-        {
-            switch (filter->GetTheme())
-            {
-            case PhotoFilterTheme::Hot:
-                header = "Hot";
-                break;
-            case PhotoFilterTheme::Cold:
-                header = "Cold";
-                break;
-            case PhotoFilterTheme::Invert:
-                header = "Invert";
-                break;
-            case PhotoFilterTheme::Sepia:
-                header = "Sepia";
-                break;
-            case PhotoFilterTheme::None:
-            default:
-                header = "Filter";
-                break;
-            }
-        }
-
-        DrawFormatString(
-            static_cast<int>(textX),
-            static_cast<int>(textY),
-            GetColor(245, 248, 255),
-            "%s : %s / %s",
-            header,
-            GetRoleLabel(labelRole),
-            GetLayerLabel(labelLayer));
-    }
-    else if (tag && HasTag(tag, kTagPhotoBox))
-    {
-        const auto* photoRole = entity.GetComponent<PhotoCopyRoleComponent>();
-        const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
-        const auto* photoEffect = entity.GetComponent<PhotoCopyEffectComponent>();
-        DrawFormatString(
-            static_cast<int>(drawX),
-            static_cast<int>(drawY - 18.0f),
-            GetColor(255, 248, 220),
-            "%s / %s / %s",
-            photoRole ? GetRoleLabel(photoRole->role) : "Solid",
-            photoLayer ? GetLayerLabel(photoLayer->layer) : "Foreground",
-            photoEffect ? GetPhotoFilterThemeLabel(photoEffect->GetTheme()) : "None");
-    }
-
-
-    Shader_ResetStyle();
+        Shader_ResetStyle();
 }
 
 void GameScene::DrawEnemyAttackRects() const

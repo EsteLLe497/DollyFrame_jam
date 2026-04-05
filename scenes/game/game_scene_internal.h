@@ -85,6 +85,14 @@ inline float Clamp01(float value)
     return std::clamp(value, 0.0f, 1.0f);
 }
 
+inline std::string GetMapDisplayName(const std::string& path)
+{
+    const size_t slashPos = path.find_last_of("/\\");
+    const std::string fileName = slashPos == std::string::npos ? path : path.substr(slashPos + 1);
+    const size_t dotPos = fileName.find_last_of('.');
+    return dotPos == std::string::npos ? fileName : fileName.substr(0, dotPos);
+}
+
 struct GameSceneTuningEntry
 {
     const char* label;

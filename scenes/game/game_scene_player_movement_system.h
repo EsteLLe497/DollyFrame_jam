@@ -151,6 +151,27 @@ inline void ResolveHorizontalObjectCollisions(
         }
         return false;
     };
+    auto tryStepUpOverObject = [&]() -> bool
+    {
+        if (!player.grounded || maxStepHeight <= 0.0f)
+        {
+            return false;
+        }
+
+        TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
+        stepCandidate.scale = transform.scale;
+        if (stepCandidate.y < 0.0f)
+        {
+            return false;
+        }
+        if (intersectsSolidObject(stepCandidate) || intersectsAnyPhotoSource(stepCandidate))
+        {
+            return false;
+        }
+
+        transform.y = stepCandidate.y;
+        return true;
+    };
 
     if (!photoBoxes.empty())
     {
@@ -210,20 +231,7 @@ inline void ResolveHorizontalObjectCollisions(
         const float sourceWidth = photoSourceBounds.width * photoSourceBounds.scale;
         if (player.velocityX > 0.0f && ctx.previousX + ctx.playerWidth <= sourceX + kHorizontalCollisionEpsilon)
         {
-            bool steppedUp = false;
-            if (player.grounded && maxStepHeight > 0.0f)
-            {
-                TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
-                stepCandidate.scale = transform.scale;
-                if (stepCandidate.y >= 0.0f &&
-                    !intersectsSolidObject(stepCandidate) &&
-                    !intersectsAnyPhotoSource(stepCandidate))
-                {
-                    transform.y = stepCandidate.y;
-                    steppedUp = true;
-                }
-            }
-            if (steppedUp)
+            if (tryStepUpOverObject())
             {
                 continue;
             }
@@ -234,20 +242,7 @@ inline void ResolveHorizontalObjectCollisions(
         }
         if (player.velocityX < 0.0f && ctx.previousX >= sourceX + sourceWidth - kHorizontalCollisionEpsilon)
         {
-            bool steppedUp = false;
-            if (player.grounded && maxStepHeight > 0.0f)
-            {
-                TransformComponent stepCandidate(transform.x, transform.y - maxStepHeight, transform.width, transform.height);
-                stepCandidate.scale = transform.scale;
-                if (stepCandidate.y >= 0.0f &&
-                    !intersectsSolidObject(stepCandidate) &&
-                    !intersectsAnyPhotoSource(stepCandidate))
-                {
-                    transform.y = stepCandidate.y;
-                    steppedUp = true;
-                }
-            }
-            if (steppedUp)
+            if (tryStepUpOverObject())
             {
                 continue;
             }

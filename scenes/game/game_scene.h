@@ -68,6 +68,18 @@ private:
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
     void UpdateBatteries(float deltaTime);
+    void UpdateSingleBattery(
+        Entity& batteryEntity,
+        Entity* player,
+        const std::vector<Entity*>& enemies,
+        const std::vector<TransformComponent>& groundPlatforms,
+        float deltaTime,
+        float tileSize);
+    bool IsBatteryCollidingWithWorld(const TransformComponent& bounds, const Entity* self, float tileSize) const;
+    bool IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bounds, const Entity* self, float tileSize) const;
+    bool SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, const Entity* self, float tileSize) const;
+    float GetBatteryPushDirectionFromPlayer(const TransformComponent& playerTransform, const TransformComponent& batteryTransform) const;
+    void BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bounds) const;
     void UpdateElevatorGimmicks(float deltaTime);
     void UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame);
     void UpdatePlayerAfterimages(float deltaTime);
@@ -85,11 +97,19 @@ private:
     void UpdateTuningHotReload(float deltaTime);
     void HandleGlobalSceneShortcuts();
     void UpdateMapEditorInput(float deltaTime);
+    void UpdateMapEditorStatusMessage(float deltaTime);
+    bool HandleMapEditorModeShortcuts();
+    void UpdateMapEditorCameraPan(float deltaTime);
+    void UpdateMapEditorBrushSelection();
+    void HandleMapEditorFileShortcuts(float tileSize);
+    void ApplyMapEditorMousePaint(float tileSize);
     void RefreshEnemiesFromMarkers();
     void RefreshBatteriesFromMarkers();
     void RefreshLogsFromMarkers();
     void RefreshElevatorGimmicksFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
+    void RefreshMarkerDrivenSystems();
+    void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);
@@ -140,6 +160,13 @@ private:
     void DrawMapEditorOverlay() const;
     void DrawEntity(const Entity& entity) const;
     void DrawBackdrop() const;
+    void DrawBackdropBaseInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const;
+    void DrawBackdropGridInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const;
+    void DrawBackdropFrameInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight) const;
+    void DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
+    void DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
+    void DrawStageGuideInView(float viewOriginX, float viewOriginY) const;
+    void DrawPhotoFilterPanelInView(float viewOriginX, float viewOriginY) const;
     bool IsPhotoTrayHit(float screenX, float screenY) const;
     void GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const;
     Entity* FindCaptureTarget(const TransformComponent& playerTransform) const;
@@ -152,6 +179,10 @@ private:
     bool IsPitTile(int column, int row) const;
     bool IsGoalTile(int column, int row) const;
     bool IsStandingOnGround(const TransformComponent& transform) const;
+    bool TrySnapToGroundUsingPlatforms(
+        TransformComponent& transform,
+        float maxSnapDistance,
+        const std::vector<TransformComponent>& groundPlatforms) const;
     bool TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const;
     bool IntersectsSolidPhotoBox(const TransformComponent& transform) const;
     bool IntersectsSolidPhotoBoxForMovement(const TransformComponent& transform) const;
@@ -163,6 +194,8 @@ private:
     bool IntersectsHazardEntity(const Entity& player, const Entity& hazard) const;
     bool GetEntityBoundsByTag(const char* tag, float& x, float& y, float& width, float& height) const;
     void GetEntityBoundsByTag(const char* tag, std::vector<TransformComponent>& bounds) const;
+    bool IsGroundPlatformEntity(const Entity& entity) const;
+    void GetGroundPlatformBounds(std::vector<TransformComponent>& bounds) const;
     void GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const;
     bool FindSpawnPosition(float desiredX, float objectWidth, float objectHeight, float& outX, float& outY) const;
     bool IsPhotoPlacementValid(float x, float y, float width, float height) const;
