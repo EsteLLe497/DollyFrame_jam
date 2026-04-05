@@ -1,4 +1,5 @@
 #include "game_scene_internal.h"
+#include "audio.h"
 #include "DxLib.h"
 
 #include <chrono>
@@ -21,9 +22,9 @@ namespace
     constexpr float kCaptureFinderScaleMax = 2.0f;
     constexpr float kCaptureFinderScaleStep = 0.1f;
     constexpr float kCaptureModeZoomResponse = 7.0f;
-    constexpr int kEscapeMenuItemCount = 7;
+    constexpr int kEscapeMenuItemCount = 8;
     constexpr int kEscapeMenuPanelWidth = 560;
-    constexpr int kEscapeMenuPanelHeight = 360;
+    constexpr int kEscapeMenuPanelHeight = 420;
     constexpr int kEscapeMenuRowStartOffset = 86;
     constexpr int kEscapeMenuRowHeight = 38;
     constexpr int kEscapeMenuRowPaddingX = 18;
@@ -1145,6 +1146,9 @@ void GameScene::UpdateEscapeMenuInput()
         case 3:
             m_debug.effectPasteRingEnabled = !m_debug.effectPasteRingEnabled;
             break;
+        case 4:
+            ToggleEscapeMenuBgm();
+            break;
         default:
             break;
         }
@@ -1174,20 +1178,42 @@ void GameScene::UpdateEscapeMenuInput()
         m_debug.effectPasteRingEnabled = !m_debug.effectPasteRingEnabled;
         break;
     case 4:
-        m_debug.showEscapeMenu = false;
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+        ToggleEscapeMenuBgm();
         break;
     case 5:
         m_debug.showEscapeMenu = false;
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
         break;
     case 6:
+        m_debug.showEscapeMenu = false;
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        break;
+    case 7:
         m_debug.showEscapeMenu = false;
         m_eventBus.Publish({ EventType::ExitApplicationRequested, nullptr, nullptr, "", 0.0f, 0.0f });
         break;
     default:
         break;
     }
+}
+
+void GameScene::ToggleEscapeMenuBgm()
+{
+    if (m_debug.bgmEnabled)
+    {
+        const float currentVolume = Audio_GetMasterVolume();
+        if (currentVolume > 0.001f)
+        {
+            m_debug.bgmRestoreVolume = currentVolume;
+        }
+        Audio_SetMasterVolume(0.0f);
+        m_debug.bgmEnabled = false;
+        return;
+    }
+
+    const float restoreVolume = m_debug.bgmRestoreVolume > 0.001f ? m_debug.bgmRestoreVolume : 0.6f;
+    Audio_SetMasterVolume(restoreVolume);
+    m_debug.bgmEnabled = true;
 }
 
 bool GameScene::UpdatePitRestartFlow(float deltaTime)

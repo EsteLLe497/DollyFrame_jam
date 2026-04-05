@@ -17,6 +17,7 @@ namespace
     constexpr float kPadCursorMaxSpeed = 920.0f;
     constexpr float kPadCursorResponse = 14.0f;
     constexpr float kPadCursorDamping = 10.0f;
+    constexpr float kPadCursorMouseReturnDelay = 0.28f;
     constexpr float kPlacementInvalidFlashSeconds = 0.22f;
     constexpr float kPlacementConfirmFlashSeconds = 0.14f;
     constexpr float kValidPreviewPulseHz = 2.2f;
@@ -24,6 +25,7 @@ namespace
     constexpr float kValidPreviewOutlineMax = 2.2f;
     constexpr float kValidPreviewTintAlphaMin = 0.46f;
     constexpr float kValidPreviewTintAlphaMax = 0.62f;
+    constexpr float kZoomTargetTilesX = 23.0f;
 
     float NormalizeAngleRadians(float radians)
     {
@@ -43,6 +45,62 @@ namespace
             radians += twoPi;
         }
         return radians;
+    }
+
+    void UpdatePlacementPadCursor(
+        float mouseWorldX,
+        float mouseWorldY,
+        bool mouseMoved,
+        float rightX,
+        float rightY,
+        float dt,
+        float& cursorWorldX,
+        float& cursorWorldY,
+        float& velocityX,
+        float& velocityY,
+        float& lastPadInputSeconds,
+        float nowSeconds)
+    {
+        if (mouseMoved)
+        {
+            cursorWorldX = mouseWorldX;
+            cursorWorldY = mouseWorldY;
+            velocityX = 0.0f;
+            velocityY = 0.0f;
+            lastPadInputSeconds = -1000.0f;
+            return;
+        }
+
+        const float magnitude = std::sqrt(rightX * rightX + rightY * rightY);
+        const bool padActive = Input_IsGamepadConnected() && magnitude > kPadDeadZone;
+        if (padActive)
+        {
+            const float normalizedMagnitude = std::clamp((magnitude - kPadDeadZone) / (1.0f - kPadDeadZone), 0.0f, 1.0f);
+            const float curvedMagnitude = normalizedMagnitude * normalizedMagnitude;
+            const float scale = curvedMagnitude / magnitude;
+            const float desiredVelocityX = rightX * scale * kPadCursorMaxSpeed;
+            const float desiredVelocityY = rightY * scale * kPadCursorMaxSpeed;
+            const float response = std::min(1.0f, dt * kPadCursorResponse);
+            velocityX += (desiredVelocityX - velocityX) * response;
+            velocityY += (desiredVelocityY - velocityY) * response;
+            lastPadInputSeconds = nowSeconds;
+        }
+        else
+        {
+            const float damping = std::max(0.0f, 1.0f - dt * kPadCursorDamping);
+            velocityX *= damping;
+            velocityY *= damping;
+
+            if (nowSeconds - lastPadInputSeconds >= kPadCursorMouseReturnDelay)
+            {
+                const float returnFactor = std::min(1.0f, dt * 6.0f);
+                cursorWorldX += (mouseWorldX - cursorWorldX) * returnFactor;
+                cursorWorldY += (mouseWorldY - cursorWorldY) * returnFactor;
+            }
+        }
+
+        cursorWorldX += velocityX * dt;
+        cursorWorldY += velocityY * dt;
     }
 }
 
@@ -153,6 +211,38 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
     const float validTintAlpha = pulseEnabled
         ? (kValidPreviewTintAlphaMin + (kValidPreviewTintAlphaMax - kValidPreviewTintAlphaMin) * pulse01)
         : 0.55f;
+    const float outerX = viewOriginX + (scene.m_photo.placement.x - scene.m_flow.cameraX) * viewScale;
+    const float outerY = viewOriginY + (scene.m_photo.placement.y - scene.m_flow.cameraY) * viewScale;
+    const float outerW = previewWidth * viewScale;
+    const float outerH = previewHeight * viewScale;
+    const float framePad = std::max(8.0f, 10.0f * viewScale);
+    const float filmPad = std::max(6.0f, 7.0f * viewScale);
+    const float polaroidBottomPad = std::max(14.0f, 18.0f * viewScale);
+
+    // Polaroid-like paper frame for placement mode (restores tactile visual guidance).
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, scene.m_photo.placement.valid ? 188 : 170);
+    DrawBox(
+        static_cast<int>(std::round(outerX - framePad)),
+        static_cast<int>(std::round(outerY - framePad)),
+        static_cast<int>(std::round(outerX + outerW + framePad)),
+        static_cast<int>(std::round(outerY + outerH + framePad + polaroidBottomPad)),
+        scene.m_photo.placement.valid ? GetColor(244, 242, 234) : GetColor(236, 220, 220),
+        TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawBox(
+        static_cast<int>(std::round(outerX - framePad)),
+        static_cast<int>(std::round(outerY - framePad)),
+        static_cast<int>(std::round(outerX + outerW + framePad)),
+        static_cast<int>(std::round(outerY + outerH + framePad + polaroidBottomPad)),
+        scene.m_photo.placement.valid ? GetColor(222, 214, 196) : GetColor(215, 170, 170),
+        FALSE);
+    DrawBox(
+        static_cast<int>(std::round(outerX - filmPad)),
+        static_cast<int>(std::round(outerY - filmPad)),
+        static_cast<int>(std::round(outerX + outerW + filmPad)),
+        static_cast<int>(std::round(outerY + outerH + filmPad)),
+        scene.m_photo.placement.valid ? GetColor(48, 58, 70) : GetColor(84, 50, 52),
+        TRUE);
 
     for (const auto& item : previewItems)
     {
@@ -208,10 +298,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
 
     if (scene.m_photo.placement.valid && pulseEnabled)
     {
-        const float outerX = viewOriginX + (scene.m_photo.placement.x - scene.m_flow.cameraX) * viewScale;
-        const float outerY = viewOriginY + (scene.m_photo.placement.y - scene.m_flow.cameraY) * viewScale;
-        const float outerW = previewWidth * viewScale;
-        const float outerH = previewHeight * viewScale;
         const int pad = std::max(2, static_cast<int>(std::round(2.0f + pulse01 * 3.0f)));
         const int alpha = static_cast<int>(std::round(120.0f + pulse01 * 95.0f));
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
@@ -272,6 +358,33 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         "%s",
         statusText);
 
+    if (scene.m_photo.placement.confirmFlashRemaining > 0.0f)
+    {
+        const float flashT = Clamp01(scene.m_photo.placement.confirmFlashRemaining / kPlacementConfirmFlashSeconds);
+        const float ease = flashT * flashT * (3.0f - 2.0f * flashT);
+        const int flashAlpha = static_cast<int>(std::round(220.0f * ease));
+        const int glowAlpha = static_cast<int>(std::round(150.0f * ease));
+        const float expand = (1.0f - ease) * std::max(8.0f, 12.0f * viewScale);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, glowAlpha);
+        DrawBox(
+            static_cast<int>(std::round(outerX - framePad - expand)),
+            static_cast<int>(std::round(outerY - framePad - expand)),
+            static_cast<int>(std::round(outerX + outerW + framePad + expand)),
+            static_cast<int>(std::round(outerY + outerH + framePad + polaroidBottomPad + expand)),
+            GetColor(255, 248, 228),
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, flashAlpha);
+        DrawBox(
+            static_cast<int>(std::round(outerX - framePad)),
+            static_cast<int>(std::round(outerY - framePad)),
+            static_cast<int>(std::round(outerX + outerW + framePad)),
+            static_cast<int>(std::round(outerY + outerH + framePad + polaroidBottomPad)),
+            GetColor(255, 255, 242),
+            FALSE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     Shader_ResetStyle();
 }
 
@@ -292,9 +405,72 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
         placementHeight));
     spawnWidth = placementWidth;
     spawnHeight = placementHeight;
-    const float viewScale = GetViewScale();
-    const float viewOriginX = GetViewOriginX();
-    const float viewOriginY = GetViewOriginY();
+    const auto computePlacementViewTransform = [&scene](float& outScale, float& outOriginX, float& outOriginY)
+    {
+        const float marginX = std::clamp(static_cast<float>(SCREEN_WIDTH) * 0.04f, 48.0f, 96.0f);
+        const float marginY = std::clamp(static_cast<float>(SCREEN_HEIGHT) * 0.04f, 36.0f, 72.0f);
+        const float maxWidth = static_cast<float>(SCREEN_WIDTH) - marginX * 2.0f;
+        const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - marginY * 2.0f;
+        const float containScale = std::max(1.0f, std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight));
+
+        float baseCameraZoomMultiplier = 1.0f;
+        const float tileSize = scene.m_tileMap.GetTileSize();
+        if (tileSize > 0.0f)
+        {
+            const float targetWorldWidth = tileSize * kZoomTargetTilesX;
+            if (targetWorldWidth > 0.0f)
+            {
+                baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
+            }
+        }
+
+        const float preMultiplier = scene.m_mapEditor.active ? 1.0f : baseCameraZoomMultiplier;
+        const float preScale = containScale * preMultiplier;
+        const float preWidth = gCameraViewWidth * preScale;
+        const float preHeight = gCameraViewHeight * preScale;
+        const float preOriginX = preWidth >= static_cast<float>(SCREEN_WIDTH)
+            ? 0.0f
+            : std::round((static_cast<float>(SCREEN_WIDTH) - preWidth) * 0.5f);
+        const float preOriginY = preHeight >= static_cast<float>(SCREEN_HEIGHT)
+            ? 0.0f
+            : std::round((static_cast<float>(SCREEN_HEIGHT) - preHeight) * 0.5f);
+        const float anchorX = preOriginX + preWidth * 0.5f;
+        const float anchorY = preOriginY + preHeight * 0.5f;
+
+        const float zoomBlend = scene.m_flow.captureModeZoomBlend * scene.m_flow.captureModeZoomBlend *
+            (3.0f - 2.0f * scene.m_flow.captureModeZoomBlend);
+        const float finalMultiplier = scene.m_mapEditor.active ? 1.0f : (baseCameraZoomMultiplier + zoomBlend * 0.08f);
+        outScale = containScale * finalMultiplier;
+        const float finalWidth = gCameraViewWidth * outScale;
+        const float finalHeight = gCameraViewHeight * outScale;
+
+        if (finalWidth >= static_cast<float>(SCREEN_WIDTH))
+        {
+            outOriginX = (scene.m_flow.cameraMode && !scene.m_mapEditor.active)
+                ? std::round(anchorX - finalWidth * 0.5f)
+                : 0.0f;
+        }
+        else
+        {
+            outOriginX = std::round((static_cast<float>(SCREEN_WIDTH) - finalWidth) * 0.5f);
+        }
+
+        if (finalHeight >= static_cast<float>(SCREEN_HEIGHT))
+        {
+            outOriginY = (scene.m_flow.cameraMode && !scene.m_mapEditor.active)
+                ? std::round(anchorY - finalHeight * 0.5f)
+                : 0.0f;
+        }
+        else
+        {
+            outOriginY = std::round((static_cast<float>(SCREEN_HEIGHT) - finalHeight) * 0.5f);
+        }
+    };
+
+    float viewScale = 1.0f;
+    float viewOriginX = 0.0f;
+    float viewOriginY = 0.0f;
+    computePlacementViewTransform(viewScale, viewOriginX, viewOriginY);
 
     const float mapWidth = scene.GetMapPixelWidth();
     const float mapHeight = scene.GetMapPixelHeight();
@@ -305,6 +481,7 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
     static unsigned int lastTimeMs = 0;
     static bool initialized = false;
     static int lastSessionId = -1;
+    static float lastPadInputSeconds = -1000.0f;
     static int lastMouseX = Input_GetMouseX();
     static int lastMouseY = Input_GetMouseY();
 
@@ -324,6 +501,7 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
         padCursorWorldY = cursorStartWorldY;
         padCursorVelocityX = 0.0f;
         padCursorVelocityY = 0.0f;
+        lastPadInputSeconds = -1000.0f;
         lastSessionId = scene.m_photo.placement.sessionId;
     }
 
@@ -338,39 +516,23 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
     const bool mouseMoved = mouseX != lastMouseX || mouseY != lastMouseY;
     lastMouseX = mouseX;
     lastMouseY = mouseY;
-
-    if (mouseMoved)
-    {
-        padCursorWorldX = ((static_cast<float>(mouseX) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
-        padCursorWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale) + scene.m_flow.cameraY;
-        padCursorVelocityX = 0.0f;
-        padCursorVelocityY = 0.0f;
-    }
-
+    const float mouseWorldX = ((static_cast<float>(mouseX) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
+    const float mouseWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale) + scene.m_flow.cameraY;
     const float rightX = Input_GetRightStickX();
     const float rightY = Input_GetRightStickY();
-    const float magnitude = std::sqrt(rightX * rightX + rightY * rightY);
-    const bool padActive = Input_IsGamepadConnected() && magnitude > kPadDeadZone;
-    if (padActive)
-    {
-        const float normalizedMagnitude = std::clamp((magnitude - kPadDeadZone) / (1.0f - kPadDeadZone), 0.0f, 1.0f);
-        const float curvedMagnitude = normalizedMagnitude * normalizedMagnitude;
-        const float scale = curvedMagnitude / magnitude;
-        const float desiredVelocityX = rightX * scale * kPadCursorMaxSpeed;
-        const float desiredVelocityY = rightY * scale * kPadCursorMaxSpeed;
-        const float response = std::min(1.0f, dt * kPadCursorResponse);
-        padCursorVelocityX += (desiredVelocityX - padCursorVelocityX) * response;
-        padCursorVelocityY += (desiredVelocityY - padCursorVelocityY) * response;
-    }
-    else
-    {
-        const float damping = std::max(0.0f, 1.0f - dt * kPadCursorDamping);
-        padCursorVelocityX *= damping;
-        padCursorVelocityY *= damping;
-    }
-
-    padCursorWorldX += padCursorVelocityX * dt;
-    padCursorWorldY += padCursorVelocityY * dt;
+    UpdatePlacementPadCursor(
+        mouseWorldX,
+        mouseWorldY,
+        mouseMoved,
+        rightX,
+        rightY,
+        dt,
+        padCursorWorldX,
+        padCursorWorldY,
+        padCursorVelocityX,
+        padCursorVelocityY,
+        lastPadInputSeconds,
+        static_cast<float>(nowMs) / 1000.0f);
     padCursorWorldX = std::clamp(padCursorWorldX, 0.0f, std::max(0.0f, mapWidth));
     padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
 

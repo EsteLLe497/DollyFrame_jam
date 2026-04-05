@@ -77,6 +77,9 @@ inline float gPastedObjectPasteAnimationSeconds = 0.24f;
 inline float gRenderShakeOffsetX = 0.0f;
 inline float gRenderShakeOffsetY = 0.0f;
 inline float gRenderViewScaleMultiplier = 1.0f;
+inline bool gRenderZoomAnchorScreenCenter = false;
+inline float gRenderZoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
+inline float gRenderZoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
 constexpr float kHorizontalCollisionEpsilon = 1.0f;
 
@@ -418,11 +421,29 @@ inline float GetViewHeight()
 
 inline float GetViewOriginX()
 {
+    if (GetViewWidth() >= static_cast<float>(SCREEN_WIDTH))
+    {
+        if (gRenderZoomAnchorScreenCenter)
+        {
+            return std::round(gRenderZoomAnchorX - GetViewWidth() * 0.5f) + gRenderShakeOffsetX;
+        }
+        return gRenderShakeOffsetX;
+    }
+
     return std::round((static_cast<float>(SCREEN_WIDTH) - GetViewWidth()) * 0.5f) + gRenderShakeOffsetX;
 }
 
 inline float GetViewOriginY()
 {
+    if (GetViewHeight() >= static_cast<float>(SCREEN_HEIGHT))
+    {
+        if (gRenderZoomAnchorScreenCenter)
+        {
+            return std::round(gRenderZoomAnchorY - GetViewHeight() * 0.5f) + gRenderShakeOffsetY;
+        }
+        return gRenderShakeOffsetY;
+    }
+
     return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f) + gRenderShakeOffsetY;
 }
 

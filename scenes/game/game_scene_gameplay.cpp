@@ -16,6 +16,8 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr float kFloorCameraWidth = 1920.0f;
+    constexpr float kCameraFollowTargetTilesX = 23.0f;
+    constexpr float kCameraOffsetTilesY = -2.0f;
     constexpr float kFixedLockExitMargin = 24.0f;
     constexpr float kBarrelDebrisLifetime = 0.55f;
     constexpr float kPitRestartFadeDuration = 0.45f;
@@ -82,6 +84,30 @@ namespace
         const float f = -2.0f * clamped + 2.0f;
         return 1.0f - (f * f * f) * 0.5f;
     }
+
+    float GetCameraFollowSpanX(const TileMap& tileMap)
+    {
+        const float tileSize = tileMap.GetTileSize();
+        if (tileSize <= 0.0f)
+        {
+            return gCameraViewWidth;
+        }
+
+        return std::min(gCameraViewWidth, tileSize * kCameraFollowTargetTilesX);
+    }
+
+    float GetCameraFollowOffsetY(const TileMap& tileMap)
+    {
+        return std::max(0.0f, tileMap.GetTileSize()) * kCameraOffsetTilesY;
+    }
+
+    float GetCameraVisibleHeight(const TileMap& tileMap)
+    {
+        const float visibleWidth = GetCameraFollowSpanX(tileMap);
+        const float safeViewWidth = std::max(1.0f, gCameraViewWidth);
+        const float aspect = gCameraViewHeight / safeViewWidth;
+        return std::max(1.0f, visibleWidth * aspect);
+    }
 }
 
 bool GameScene::TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const
@@ -134,6 +160,8 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     const float playerHeight = playerTransform.height * playerTransform.scale;
     const float playerCenterX = playerTransform.x + playerWidth * 0.5f;
     const float playerCenterY = playerTransform.y + playerHeight * 0.5f;
+    const float followSpanX = GetCameraFollowSpanX(m_tileMap);
+    const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
 
     if (!m_hasPreviousPlayerCameraProbe)
     {
@@ -164,7 +192,7 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         m_floorCameraTransitionStartX = m_flow.cameraX;
         m_floorCameraTransitionStartY = m_flow.cameraY;
         m_floorCameraTransitionTargetX = m_cameraFixedLockX;
-        m_floorCameraTransitionTargetY = m_cameraFixedLockY;
+        m_floorCameraTransitionTargetY = m_flow.cameraY;
     }
 
     if (m_cameraFixedLockActive)
@@ -183,15 +211,15 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
             const float mapWidth = GetMapPixelWidth();
             const float mapHeight = GetMapPixelHeight();
             m_floorCameraTransitionTargetX = std::clamp(
-                playerCenterX - gCameraViewWidth * 0.5f,
+                playerCenterX - followSpanX * 0.5f,
                 0.0f,
-                std::max(0.0f, mapWidth - gCameraViewWidth));
+                std::max(0.0f, mapWidth - followSpanX));
             if (gCameraFollowY >= 0.5f)
             {
                 m_floorCameraTransitionTargetY = std::clamp(
-                    playerCenterY - gCameraViewHeight * 0.5f,
+                    playerCenterY - visibleHeight * 0.5f + GetCameraFollowOffsetY(m_tileMap),
                     0.0f,
-                    std::max(0.0f, mapHeight - gCameraViewHeight));
+                    std::max(0.0f, mapHeight - visibleHeight));
             }
             else
             {
@@ -207,19 +235,16 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
                 const float t = Clamp01(m_floorCameraTransitionElapsed / duration);
                 const float easedT = EaseInOutCubic(t);
                 m_flow.cameraX = std::lerp(m_floorCameraTransitionStartX, m_floorCameraTransitionTargetX, easedT);
-                m_flow.cameraY = std::lerp(m_floorCameraTransitionStartY, m_floorCameraTransitionTargetY, easedT);
                 if (t >= 1.0f)
                 {
                     m_floorCameraTransitionActive = false;
                     m_floorCameraTransitionElapsed = 0.0f;
                     m_flow.cameraX = m_cameraFixedLockX;
-                    m_flow.cameraY = m_cameraFixedLockY;
                 }
             }
             else
             {
                 m_flow.cameraX = m_cameraFixedLockX;
-                m_flow.cameraY = m_cameraFixedLockY;
             }
 
             m_previousPlayerCameraProbeX = playerCenterX;
@@ -235,13 +260,11 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         const float t = Clamp01(m_floorCameraTransitionElapsed / duration);
         const float easedT = EaseInOutCubic(t);
         m_flow.cameraX = std::lerp(m_floorCameraTransitionStartX, m_floorCameraTransitionTargetX, easedT);
-        m_flow.cameraY = std::lerp(m_floorCameraTransitionStartY, m_floorCameraTransitionTargetY, easedT);
         if (t >= 1.0f)
         {
             m_floorCameraTransitionActive = false;
             m_floorCameraTransitionElapsed = 0.0f;
             m_flow.cameraX = m_floorCameraTransitionTargetX;
-            m_flow.cameraY = m_floorCameraTransitionTargetY;
         }
     }
     else
@@ -629,11 +652,41 @@ void GameScene::UpdatePlayer(float deltaTime)
         transform->y,
         playerWidth,
         playerHeight,
+        GetCameraFollowSpanX(m_tileMap),
+        GetCameraVisibleHeight(m_tileMap),
         mapWidth,
         mapHeight,
+        GetCameraFollowOffsetY(m_tileMap),
         deltaTime,
         gCameraFollowY >= 0.5f);
     UpdateCameraByMarkers(*transform, deltaTime);
+
+    // Safety clamp: keep the player inside the vertical camera view even when marker/fixed-lock
+    // transitions are active, so the player never drops out of frame.
+    if (gCameraFollowY >= 0.5f)
+    {
+        const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
+        const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
+        const float tileSizeForMargin = std::max(1.0f, m_tileMap.GetTileSize());
+        const float topMargin = tileSizeForMargin * 1.0f;
+        const float bottomMargin = tileSizeForMargin * 1.5f;
+        const float playerTop = transform->y;
+        const float playerBottom = transform->y + playerHeight;
+
+        // Hard catch-up for downward movement: if the player is close to leaving the lower edge,
+        // snap camera Y enough to keep them inside a stable margin.
+        const float lowerLimitY = m_flow.cameraY + visibleHeight - bottomMargin;
+        if (playerBottom > lowerLimitY)
+        {
+            const float requiredCameraY = playerBottom - (visibleHeight - bottomMargin);
+            m_flow.cameraY = std::max(m_flow.cameraY, requiredCameraY);
+        }
+
+        const float minAllowedCameraY = playerBottom - (visibleHeight - bottomMargin);
+        const float maxAllowedCameraY = playerTop - topMargin;
+        const float clampedToPlayerY = std::clamp(m_flow.cameraY, minAllowedCameraY, maxAllowedCameraY);
+        m_flow.cameraY = std::clamp(clampedToPlayerY, 0.0f, maxCameraY);
+    }
 }
 
 void GameScene::BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bounds) const

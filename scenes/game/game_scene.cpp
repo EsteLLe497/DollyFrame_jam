@@ -8,6 +8,7 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr float kBarrelDebrisGravity = 980.0f;
+    constexpr float kZoomTargetTilesX = 23.0f;
 }
 
 GameScene::GameScene()
@@ -36,6 +37,9 @@ void GameScene::OnEnter(ResourceManager& resources)
     }
 
     GameSession_Reset(3, m_flow.timeLimit);
+    const float initialMasterVolume = Audio_GetMasterVolume();
+    m_debug.bgmRestoreVolume = initialMasterVolume > 0.001f ? initialMasterVolume : 0.6f;
+    m_debug.bgmEnabled = initialMasterVolume > 0.001f;
     Audio_PlayCue("demo_bgm");
     Logger::Info("GameScene entered as photo sandbox stage");
 }
@@ -107,7 +111,20 @@ void GameScene::Draw()
 {
     gRenderShakeOffsetX = 0.0f;
     gRenderShakeOffsetY = 0.0f;
-    gRenderViewScaleMultiplier = 1.0f;
+    gRenderZoomAnchorScreenCenter = false;
+    gRenderZoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
+    gRenderZoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;
+    float baseCameraZoomMultiplier = 1.0f;
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize > 0.0f)
+    {
+        const float targetWorldWidth = tileSize * kZoomTargetTilesX;
+        if (targetWorldWidth > 0.0f)
+        {
+            baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
+        }
+    }
+    gRenderViewScaleMultiplier = m_mapEditor.active ? 1.0f : baseCameraZoomMultiplier;
     if (m_flow.screenShakeRemaining > 0.0f && m_flow.screenShakeDuration > 0.0f && m_flow.screenShakeAmplitude > 0.0f)
     {
         const float elapsed = m_flow.screenShakeDuration - m_flow.screenShakeRemaining;
@@ -116,7 +133,16 @@ void GameScene::Draw()
         gRenderShakeOffsetY = std::cos(elapsed * 123.0f) * (m_flow.screenShakeAmplitude * 0.6f) * intensity;
     }
     const float zoomBlend = m_flow.captureModeZoomBlend * m_flow.captureModeZoomBlend * (3.0f - 2.0f * m_flow.captureModeZoomBlend);
-    gRenderViewScaleMultiplier = 1.0f + zoomBlend * 0.08f;
+
+    // Capture zoom uses the currently rendered camera-center as pivot.
+    gRenderZoomAnchorX = GetViewOriginX() + GetViewWidth() * 0.5f;
+    gRenderZoomAnchorY = GetViewOriginY() + GetViewHeight() * 0.5f;
+
+    if (!m_mapEditor.active)
+    {
+        gRenderViewScaleMultiplier = baseCameraZoomMultiplier + zoomBlend * 0.08f;
+        gRenderZoomAnchorScreenCenter = m_flow.cameraMode;
+    }
 
     DrawBackdrop();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
@@ -148,6 +174,9 @@ void GameScene::Draw()
     gRenderShakeOffsetX = 0.0f;
     gRenderShakeOffsetY = 0.0f;
     gRenderViewScaleMultiplier = 1.0f;
+    gRenderZoomAnchorScreenCenter = false;
+    gRenderZoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
+    gRenderZoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;
 }
 
 void GameScene::UpdateEffects(float deltaTime)
@@ -270,7 +299,7 @@ void GameScene::DrawEscapeMenuOverlay() const
     }
 
     const int panelWidth = 560;
-    const int panelHeight = 360;
+    const int panelHeight = 420;
     const int left = (SCREEN_WIDTH - panelWidth) / 2;
     const int top = (SCREEN_HEIGHT - panelHeight) / 2;
     const int right = left + panelWidth;
@@ -287,7 +316,7 @@ void GameScene::DrawEscapeMenuOverlay() const
 
     const int rowStartY = top + 86;
     const int rowHeight = 38;
-    for (int index = 0; index < 7; ++index)
+    for (int index = 0; index < 8; ++index)
     {
         const int rowTop = rowStartY + index * rowHeight;
         const int rowBottom = rowTop + rowHeight - 4;
@@ -324,12 +353,15 @@ void GameScene::DrawEscapeMenuOverlay() const
             DrawFormatString(left + 34, rowTop + 10, textColor, "貼り付けリング演出: %s", m_debug.effectPasteRingEnabled ? "ON" : "OFF");
             break;
         case 4:
-            DrawString(left + 34, rowTop + 10, "シーンをリスタート", textColor);
+            DrawFormatString(left + 34, rowTop + 10, textColor, "BGM: %s", m_debug.bgmEnabled ? "ON" : "OFF");
             break;
         case 5:
-            DrawString(left + 34, rowTop + 10, "タイトルに戻る", textColor);
+            DrawString(left + 34, rowTop + 10, "シーンをリスタート", textColor);
             break;
         case 6:
+            DrawString(left + 34, rowTop + 10, "タイトルに戻る", textColor);
+            break;
+        case 7:
             DrawString(left + 34, rowTop + 10, "ゲームを終える", textColor);
             break;
         default:
