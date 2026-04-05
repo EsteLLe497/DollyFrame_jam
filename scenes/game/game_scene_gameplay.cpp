@@ -1382,6 +1382,24 @@ void GameScene::UpdateElevatorGimmicks(float deltaTime)
         return std::fabs(playerBottom - platform.y) <= topTolerance;
     };
 
+    auto isPlayerTouchingPlatform = [&](const TransformComponent& platform, float tolerance) -> bool
+    {
+        if (!playerTransform)
+        {
+            return false;
+        }
+
+        const float playerWidth = playerTransform->width * playerTransform->scale;
+        const float playerHeight = playerTransform->height * playerTransform->scale;
+        const float platformWidth = platform.width * platform.scale;
+        const float platformHeight = platform.height * platform.scale;
+
+        return playerTransform->x + playerWidth > platform.x - tolerance &&
+            playerTransform->x < platform.x + platformWidth + tolerance &&
+            playerTransform->y + playerHeight > platform.y - tolerance &&
+            playerTransform->y < platform.y + platformHeight + tolerance;
+    };
+
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -1543,38 +1561,36 @@ void GameScene::UpdateElevatorGimmicks(float deltaTime)
         const bool powered = linkPowered[elevator->linkId];
         if (!powered)
         {
-            const float distance = elevator->baseY - transform->y;
-            const float step = std::clamp(distance, -elevator->moveSpeed * deltaTime, elevator->moveSpeed * deltaTime);
-            transform->y += step;
             elevator->cycleStarted = false;
-            elevator->movingUp = true;
             elevator->pauseTimer = 0.0f;
+            elevator->wasPlayerTouching = false;
+            elevator->wasPowered = false;
         }
         else
         {
-            const bool playerOnElevator = isPlayerOnTopOfPlatform(*transform, std::max(10.0f, tileSize * 0.24f));
-            if (!elevator->cycleStarted && playerOnElevator)
+            const bool playerTouchingElevator =
+                isPlayerTouchingPlatform(*transform, std::max(10.0f, tileSize * 0.18f)) ||
+                isPlayerOnTopOfPlatform(*transform, std::max(12.0f, tileSize * 0.28f));
+            const bool touchTriggeredThisFrame =
+                playerTouchingElevator &&
+                (!elevator->wasPlayerTouching || !elevator->wasPowered);
+            if (!elevator->cycleStarted && touchTriggeredThisFrame)
             {
                 elevator->cycleStarted = true;
-                elevator->movingUp = true;
                 elevator->pauseTimer = 0.0f;
             }
 
             if (elevator->cycleStarted)
             {
-                if (elevator->pauseTimer > 0.0f)
-                {
-                    elevator->pauseTimer = std::max(0.0f, elevator->pauseTimer - deltaTime);
-                }
-                else if (elevator->movingUp)
+                if (elevator->movingUp)
                 {
                     const float topY = elevator->baseY - elevator->moveRangeY;
                     transform->y = std::max(topY, transform->y - elevator->moveSpeed * deltaTime);
                     if (transform->y <= topY + 0.5f)
                     {
                         transform->y = topY;
-                        elevator->pauseTimer = elevator->topPauseSeconds;
                         elevator->movingUp = false;
+                        elevator->cycleStarted = false;
                     }
                 }
                 else
@@ -1584,9 +1600,13 @@ void GameScene::UpdateElevatorGimmicks(float deltaTime)
                     {
                         transform->y = elevator->baseY;
                         elevator->movingUp = true;
+                        elevator->cycleStarted = false;
                     }
                 }
             }
+
+            elevator->wasPlayerTouching = playerTouchingElevator;
+            elevator->wasPowered = true;
         }
 
         const float deltaY = transform->y - previousY;

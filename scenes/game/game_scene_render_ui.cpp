@@ -1638,3 +1638,60 @@ void GameScene::DrawPlayerHpBar() const
         currentHp,
         maxHp);
 }
+
+void GameScene::DrawBatterySwitchCounters() const
+{
+    const float viewScale = GetViewScale();
+    const float viewOriginX = GetViewOriginX();
+    const float viewOriginY = GetViewOriginY();
+    const float tileOffsetY = m_tileMap.GetTileSize() * 2.0f * viewScale;
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, kTagBatterySwitch))
+        {
+            continue;
+        }
+
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        const auto* batterySwitch = entity->GetComponent<BatterySwitchComponent>();
+        if (!transform || !batterySwitch)
+        {
+            continue;
+        }
+
+        const float drawX = viewOriginX + (transform->x - m_flow.cameraX) * viewScale;
+        const float drawY = viewOriginY + (transform->y - m_flow.cameraY) * viewScale;
+        const float drawWidth = transform->width * transform->scale * viewScale;
+        const float panelWidth = 58.0f;
+        const float panelHeight = 22.0f;
+        const float panelX = drawX + drawWidth * 0.5f - panelWidth * 0.5f;
+        const float panelY = drawY - tileOffsetY - 26.0f;
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 208);
+        DrawBox(
+            static_cast<int>(std::round(panelX)),
+            static_cast<int>(std::round(panelY)),
+            static_cast<int>(std::round(panelX + panelWidth)),
+            static_cast<int>(std::round(panelY + panelHeight)),
+            GetColor(18, 20, 24),
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+        DrawBox(
+            static_cast<int>(std::round(panelX)),
+            static_cast<int>(std::round(panelY)),
+            static_cast<int>(std::round(panelX + panelWidth)),
+            static_cast<int>(std::round(panelY + panelHeight)),
+            batterySwitch->isPressed ? GetColor(180, 255, 196) : GetColor(242, 226, 190),
+            FALSE);
+
+        DrawFormatString(
+            static_cast<int>(std::round(panelX + 10.0f)),
+            static_cast<int>(std::round(panelY + 4.0f)),
+            batterySwitch->isPressed ? GetColor(220, 255, 228) : GetColor(255, 244, 220),
+            "%d/%d",
+            batterySwitch->insertedBatteryCount,
+            batterySwitch->requiredBatteryCount);
+    }
+}

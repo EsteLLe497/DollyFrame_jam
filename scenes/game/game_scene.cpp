@@ -140,6 +140,7 @@ void GameScene::Draw()
     DrawEscapeMenuOverlay();
     DrawMapEditorOverlay();
     DrawTuningPanel();
+    DrawBatterySwitchCounters();
     DrawPlayerHpBar();
     DrawEnemyAttackRects();
 

@@ -243,6 +243,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             }
         }
 
+        if (HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator))
+        {
+            continue;
+        }
+
         const auto* targetTransform = entity->GetComponent<TransformComponent>();
         const auto* sprite = entity->GetComponent<SpriteRenderComponent>();
         if (!targetTransform || !sprite)

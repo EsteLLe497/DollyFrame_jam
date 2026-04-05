@@ -135,6 +135,7 @@ private:
     void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
     void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
+    void DrawBatterySwitchCounters() const;
     void DrawEscapeMenuOverlay() const;
     void DrawMapEditorOverlay() const;
     void DrawEntity(const Entity& entity) const;
