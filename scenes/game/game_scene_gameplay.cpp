@@ -473,20 +473,10 @@ void GameScene::UpdatePlayer(float deltaTime)
 
     std::vector<TransformComponent> photoBoxes;
     GetPhotoBoxBounds(photoBoxes);
+    std::vector<TransformComponent> groundPlatformsForSnap;
+    GetGroundPlatformBounds(groundPlatformsForSnap);
     std::vector<TransformComponent> solidObjects;
-    GetEntityBoundsByTag(kTagPhotoSource, solidObjects);
-    std::vector<TransformComponent> batteryBounds;
-    GetEntityBoundsByTag(kTagBattery, batteryBounds);
-    solidObjects.insert(solidObjects.end(), batteryBounds.begin(), batteryBounds.end());
-    std::vector<TransformComponent> switchBounds;
-    GetEntityBoundsByTag(kTagBatterySwitch, switchBounds);
-    solidObjects.insert(solidObjects.end(), switchBounds.begin(), switchBounds.end());
-    std::vector<TransformComponent> elevatorBounds;
-    GetEntityBoundsByTag(kTagElevator, elevatorBounds);
-    solidObjects.insert(solidObjects.end(), elevatorBounds.begin(), elevatorBounds.end());
-    std::vector<TransformComponent> enemyBounds;
-    GetEntityBoundsByTag(kTagEnemy, enemyBounds);
-    solidObjects.insert(solidObjects.end(), enemyBounds.begin(), enemyBounds.end());
+    BuildPlayerSolidObjectBounds(solidObjects);
 
     const float targetHorizontalVelocity = game_scene_player_system::GetHorizontalVelocity(
         m_player,
@@ -587,7 +577,7 @@ void GameScene::UpdatePlayer(float deltaTime)
 
         if (m_player.velocityY >= 0.0f && groundedAtStepStart)
         {
-            if (TrySnapToGround(*transform, verticalSnapDistance))
+            if (TrySnapToGroundUsingPlatforms(*transform, verticalSnapDistance, groundPlatformsForSnap))
             {
                 m_player.grounded = true;
             }
@@ -612,9 +602,9 @@ void GameScene::UpdatePlayer(float deltaTime)
             {
                 return IsSolidTile(column, row) || IsSlopeTile(column, row);
             },
-            [this](TransformComponent& targetTransform, float snapDistance)
+            [this, &groundPlatformsForSnap](TransformComponent& targetTransform, float snapDistance)
             {
-                return TrySnapToGround(targetTransform, snapDistance);
+                return TrySnapToGroundUsingPlatforms(targetTransform, snapDistance, groundPlatformsForSnap);
             },
             [this](const TransformComponent& candidate)
             {
@@ -644,6 +634,21 @@ void GameScene::UpdatePlayer(float deltaTime)
         deltaTime,
         gCameraFollowY >= 0.5f);
     UpdateCameraByMarkers(*transform, deltaTime);
+}
+
+void GameScene::BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bounds) const
+{
+    bounds.clear();
+
+    GetGroundPlatformBounds(bounds);
+
+    std::vector<TransformComponent> batteryBounds;
+    GetEntityBoundsByTag(kTagBattery, batteryBounds);
+    bounds.insert(bounds.end(), batteryBounds.begin(), batteryBounds.end());
+
+    std::vector<TransformComponent> enemyBounds;
+    GetEntityBoundsByTag(kTagEnemy, enemyBounds);
+    bounds.insert(bounds.end(), enemyBounds.begin(), enemyBounds.end());
 }
 
 void GameScene::UpdateBarrels(float deltaTime)
@@ -1006,199 +1011,8 @@ void GameScene::UpdateBatteries(float deltaTime)
         }
         enemies.push_back(candidate.get());
     }
-
-    auto collidesWithWorld = [&](const TransformComponent& bounds, const Entity* self) -> bool
-    {
-        const float width = bounds.width * bounds.scale;
-        const float height = bounds.height * bounds.scale;
-        const int left = std::max(0, static_cast<int>((bounds.x + 2.0f) / tileSize));
-        const int right = std::min(m_tileMap.GetWidth() - 1, static_cast<int>((bounds.x + width - 2.0f) / tileSize));
-        const int top = std::max(0, static_cast<int>((bounds.y + 2.0f) / tileSize));
-        const int bottom = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bounds.y + height - 2.0f) / tileSize));
-        for (int row = top; row <= bottom; ++row)
-        {
-            for (int column = left; column <= right; ++column)
-            {
-                if (IsSolidTile(column, row))
-                {
-                    return true;
-                }
-            }
-        }
-
-        if (IntersectsSolidPhotoBoxForMovement(bounds))
-        {
-            return true;
-        }
-
-        for (const auto& entity : m_entities)
-        {
-            if (!entity || entity.get() == self)
-            {
-                continue;
-            }
-            if (!(entity->GetComponent<BarrelComponent>() ||
-                entity->GetComponent<BatteryComponent>() ||
-                HasTag(*entity, kTagPhotoSource) ||
-                HasTag(*entity, kTagBatterySwitch) ||
-                HasTag(*entity, kTagElevator)))
-            {
-                continue;
-            }
-            const auto* transform = entity->GetComponent<TransformComponent>();
-            if (!transform)
-            {
-                continue;
-            }
-
-            // スイッチ/エレベーターの天面上に乗っているときは横衝突扱いにしない。
-            // これにより、天面接触中に 0.5 段差上りが誤発火して跳ねるのを防ぐ。
-            const bool isDynamicPlatform = HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator);
-            if (isDynamicPlatform)
-            {
-                const float boundsBottom = bounds.y + height;
-                const float platformTop = transform->y;
-                const float topTolerance = std::max(6.0f, tileSize * 0.22f);
-                if (boundsBottom <= platformTop + topTolerance)
-                {
-                    continue;
-                }
-            }
-
-            if (IntersectsRect(bounds, *transform))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    };
-
-    auto isOnTopOfSwitchOrElevator = [&](const TransformComponent& bounds, const Entity* self) -> bool
-    {
-        const float boundsWidth = bounds.width * bounds.scale;
-        const float boundsHeight = bounds.height * bounds.scale;
-        const float boundsLeft = bounds.x + 2.0f;
-        const float boundsRight = bounds.x + boundsWidth - 2.0f;
-        const float boundsBottom = bounds.y + boundsHeight;
-        const float topTolerance = std::max(6.0f, tileSize * 0.22f);
-
-        for (const auto& other : m_entities)
-        {
-            if (!other || other.get() == self)
-            {
-                continue;
-            }
-            if (!(HasTag(*other, kTagBatterySwitch) || HasTag(*other, kTagElevator)))
-            {
-                continue;
-            }
-
-            const auto* otherTransform = other->GetComponent<TransformComponent>();
-            if (!otherTransform)
-            {
-                continue;
-            }
-
-            const float platformWidth = otherTransform->width * otherTransform->scale;
-            const float platformLeft = otherTransform->x;
-            const float platformRight = otherTransform->x + platformWidth;
-            const bool overlapX = boundsRight > platformLeft && boundsLeft < platformRight;
-            const bool onTop = std::fabs(boundsBottom - otherTransform->y) <= topTolerance;
-            if (overlapX && onTop)
-            {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    auto snapToSwitchOrElevatorTop = [&](TransformComponent& bounds, const Entity* self) -> bool
-    {
-        const float width = bounds.width * bounds.scale;
-        const float height = bounds.height * bounds.scale;
-        const float left = bounds.x + 2.0f;
-        const float right = bounds.x + width - 2.0f;
-        const float bottom = bounds.y + height;
-        const float topTolerance = std::max(8.0f, tileSize * 0.28f);
-
-        for (const auto& other : m_entities)
-        {
-            if (!other || other.get() == self)
-            {
-                continue;
-            }
-            if (!(HasTag(*other, kTagBatterySwitch) || HasTag(*other, kTagElevator)))
-            {
-                continue;
-            }
-
-            const auto* otherTransform = other->GetComponent<TransformComponent>();
-            if (!otherTransform)
-            {
-                continue;
-            }
-
-            const float platformWidth = otherTransform->width * otherTransform->scale;
-            const float platformLeft = otherTransform->x;
-            const float platformRight = otherTransform->x + platformWidth;
-            const bool overlapX = right > platformLeft && left < platformRight;
-            if (!overlapX)
-            {
-                continue;
-            }
-
-            if (std::fabs(bottom - otherTransform->y) <= topTolerance)
-            {
-                bounds.y = otherTransform->y - height;
-                return true;
-            }
-        }
-
-        return false;
-    };
-
-    auto isSidePushContact = [](const TransformComponent& actor, const TransformComponent& battery) -> bool
-    {
-        const float actorHeight = actor.height * actor.scale;
-        const float batteryHeight = battery.height * battery.scale;
-        const float actorTop = actor.y;
-        const float actorBottom = actor.y + actorHeight;
-        const float batteryTop = battery.y;
-        const float batteryBottom = battery.y + batteryHeight;
-        const float verticalTolerance = 4.0f;
-        return actorBottom > batteryTop + verticalTolerance
-            && actorTop < batteryBottom - verticalTolerance;
-    };
-
-    auto getPlayerSidePushDirection = [&](const TransformComponent& playerTransform, const TransformComponent& batteryTransform) -> float
-    {
-        if (!isSidePushContact(playerTransform, batteryTransform))
-        {
-            return 0.0f;
-        }
-
-        const float playerWidth = playerTransform.width * playerTransform.scale;
-        const float batteryWidth = batteryTransform.width * batteryTransform.scale;
-        const float playerLeft = playerTransform.x;
-        const float playerRight = playerTransform.x + playerWidth;
-        const float batteryLeft = batteryTransform.x;
-        const float batteryRight = batteryTransform.x + batteryWidth;
-        const float sideTolerance = 6.0f;
-
-        const bool touchingLeftSide = std::fabs(playerRight - batteryLeft) <= sideTolerance;
-        const bool touchingRightSide = std::fabs(playerLeft - batteryRight) <= sideTolerance;
-        if (touchingLeftSide)
-        {
-            return 1.0f;
-        }
-        if (touchingRightSide)
-        {
-            return -1.0f;
-        }
-
-        return 0.0f;
-    };
+    std::vector<TransformComponent> groundPlatformsForSnap;
+    GetGroundPlatformBounds(groundPlatformsForSnap);
 
     for (const auto& entity : m_entities)
     {
@@ -1206,142 +1020,338 @@ void GameScene::UpdateBatteries(float deltaTime)
         {
             continue;
         }
+        UpdateSingleBattery(*entity, player, enemies, groundPlatformsForSnap, deltaTime, tileSize);
+    }
+}
 
-        auto* battery = entity->GetComponent<BatteryComponent>();
-        auto* transform = entity->GetComponent<TransformComponent>();
-        if (!battery || !transform)
+bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, const Entity* self, float tileSize) const
+{
+    const float width = bounds.width * bounds.scale;
+    const float height = bounds.height * bounds.scale;
+    const int left = std::max(0, static_cast<int>((bounds.x + 2.0f) / tileSize));
+    const int right = std::min(m_tileMap.GetWidth() - 1, static_cast<int>((bounds.x + width - 2.0f) / tileSize));
+    const int top = std::max(0, static_cast<int>((bounds.y + 2.0f) / tileSize));
+    const int bottom = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bounds.y + height - 2.0f) / tileSize));
+    for (int row = top; row <= bottom; ++row)
+    {
+        for (int column = left; column <= right; ++column)
+        {
+            if (IsSolidTile(column, row))
+            {
+                return true;
+            }
+        }
+    }
+
+    if (IntersectsSolidPhotoBoxForMovement(bounds))
+    {
+        return true;
+    }
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || entity.get() == self)
+        {
+            continue;
+        }
+        if (!(entity->GetComponent<BarrelComponent>() ||
+            entity->GetComponent<BatteryComponent>() ||
+            IsGroundPlatformEntity(*entity)))
+        {
+            continue;
+        }
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform)
         {
             continue;
         }
 
-        const float width = transform->width * transform->scale;
-        const float height = transform->height * transform->scale;
-        const float previousX = transform->x;
-        const float previousY = transform->y;
-
-        const float fallVelocity = std::min(battery->maxFallSpeed, battery->velocityY + battery->gravity * deltaTime);
-        battery->velocityY = fallVelocity;
-        transform->y += battery->velocityY * deltaTime;
-
-        const bool snapped = TrySnapToGround(*transform, gGroundSnapDistance);
-        battery->grounded = snapped;
-        if (snapped && battery->velocityY > 0.0f)
+        // スイッチ/エレベーターの天面上に乗っているときは横衝突扱いにしない。
+        const bool isDynamicPlatform = HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator);
+        if (isDynamicPlatform)
         {
-            battery->velocityY = 0.0f;
+            const float boundsBottom = bounds.y + height;
+            const float platformTop = transform->y;
+            const float topTolerance = std::max(6.0f, tileSize * 0.22f);
+            if (boundsBottom <= platformTop + topTolerance)
+            {
+                continue;
+            }
         }
 
-        const float mapHeight = GetMapPixelHeight();
-        if (transform->y + height > mapHeight)
+        if (IntersectsRect(bounds, *transform))
         {
-            transform->y = mapHeight - height;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool GameScene::IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bounds, const Entity* self, float tileSize) const
+{
+    const float boundsWidth = bounds.width * bounds.scale;
+    const float boundsHeight = bounds.height * bounds.scale;
+    const float boundsLeft = bounds.x + 2.0f;
+    const float boundsRight = bounds.x + boundsWidth - 2.0f;
+    const float boundsBottom = bounds.y + boundsHeight;
+    const float topTolerance = std::max(6.0f, tileSize * 0.22f);
+
+    for (const auto& other : m_entities)
+    {
+        if (!other || other.get() == self)
+        {
+            continue;
+        }
+        if (!(HasTag(*other, kTagBatterySwitch) || HasTag(*other, kTagElevator)))
+        {
+            continue;
+        }
+
+        const auto* otherTransform = other->GetComponent<TransformComponent>();
+        if (!otherTransform)
+        {
+            continue;
+        }
+
+        const float platformWidth = otherTransform->width * otherTransform->scale;
+        const float platformLeft = otherTransform->x;
+        const float platformRight = otherTransform->x + platformWidth;
+        const bool overlapX = boundsRight > platformLeft && boundsLeft < platformRight;
+        const bool onTop = std::fabs(boundsBottom - otherTransform->y) <= topTolerance;
+        if (overlapX && onTop)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool GameScene::SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, const Entity* self, float tileSize) const
+{
+    const float width = bounds.width * bounds.scale;
+    const float height = bounds.height * bounds.scale;
+    const float left = bounds.x + 2.0f;
+    const float right = bounds.x + width - 2.0f;
+    const float bottom = bounds.y + height;
+    const float topTolerance = std::max(8.0f, tileSize * 0.28f);
+
+    for (const auto& other : m_entities)
+    {
+        if (!other || other.get() == self)
+        {
+            continue;
+        }
+        if (!(HasTag(*other, kTagBatterySwitch) || HasTag(*other, kTagElevator)))
+        {
+            continue;
+        }
+
+        const auto* otherTransform = other->GetComponent<TransformComponent>();
+        if (!otherTransform)
+        {
+            continue;
+        }
+
+        const float platformWidth = otherTransform->width * otherTransform->scale;
+        const float platformLeft = otherTransform->x;
+        const float platformRight = otherTransform->x + platformWidth;
+        const bool overlapX = right > platformLeft && left < platformRight;
+        if (!overlapX)
+        {
+            continue;
+        }
+
+        if (std::fabs(bottom - otherTransform->y) <= topTolerance)
+        {
+            bounds.y = otherTransform->y - height;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+float GameScene::GetBatteryPushDirectionFromPlayer(const TransformComponent& playerTransform, const TransformComponent& batteryTransform) const
+{
+    const float actorHeight = playerTransform.height * playerTransform.scale;
+    const float batteryHeight = batteryTransform.height * batteryTransform.scale;
+    const float actorTop = playerTransform.y;
+    const float actorBottom = playerTransform.y + actorHeight;
+    const float batteryTop = batteryTransform.y;
+    const float batteryBottom = batteryTransform.y + batteryHeight;
+    const float verticalTolerance = 4.0f;
+    const bool isSidePushContact = actorBottom > batteryTop + verticalTolerance
+        && actorTop < batteryBottom - verticalTolerance;
+    if (!isSidePushContact)
+    {
+        return 0.0f;
+    }
+
+    const float playerWidth = playerTransform.width * playerTransform.scale;
+    const float batteryWidth = batteryTransform.width * batteryTransform.scale;
+    const float playerLeft = playerTransform.x;
+    const float playerRight = playerTransform.x + playerWidth;
+    const float batteryLeft = batteryTransform.x;
+    const float batteryRight = batteryTransform.x + batteryWidth;
+    const float sideTolerance = 6.0f;
+
+    const bool touchingLeftSide = std::fabs(playerRight - batteryLeft) <= sideTolerance;
+    const bool touchingRightSide = std::fabs(playerLeft - batteryRight) <= sideTolerance;
+    if (touchingLeftSide)
+    {
+        return 1.0f;
+    }
+    if (touchingRightSide)
+    {
+        return -1.0f;
+    }
+
+    return 0.0f;
+}
+
+void GameScene::UpdateSingleBattery(
+    Entity& batteryEntity,
+    Entity* player,
+    const std::vector<Entity*>& enemies,
+    const std::vector<TransformComponent>& groundPlatforms,
+    float deltaTime,
+    float tileSize)
+{
+    auto* battery = batteryEntity.GetComponent<BatteryComponent>();
+    auto* transform = batteryEntity.GetComponent<TransformComponent>();
+    if (!battery || !transform)
+    {
+        return;
+    }
+
+    const float width = transform->width * transform->scale;
+    const float height = transform->height * transform->scale;
+    const float previousX = transform->x;
+    const float previousY = transform->y;
+
+    const float fallVelocity = std::min(battery->maxFallSpeed, battery->velocityY + battery->gravity * deltaTime);
+    battery->velocityY = fallVelocity;
+    transform->y += battery->velocityY * deltaTime;
+
+    const bool snapped = TrySnapToGroundUsingPlatforms(*transform, gGroundSnapDistance, groundPlatforms);
+    battery->grounded = snapped;
+    if (snapped && battery->velocityY > 0.0f)
+    {
+        battery->velocityY = 0.0f;
+    }
+
+    const float mapHeight = GetMapPixelHeight();
+    if (transform->y + height > mapHeight)
+    {
+        transform->y = mapHeight - height;
+        battery->grounded = true;
+        battery->velocityY = 0.0f;
+    }
+
+    const bool fallingHitActive = !battery->grounded && fallVelocity >= battery->fallDamageSpeed;
+    bool touchedActor = false;
+
+    if (player && IntersectsEntity(batteryEntity, *player))
+    {
+        touchedActor = true;
+        if (fallingHitActive)
+        {
+            HandlePlayerDamage(*player, &batteryEntity, "Battery impact damaged player", battery->contactDamage);
+        }
+    }
+
+    for (Entity* enemyEntity : enemies)
+    {
+        if (!enemyEntity || enemyEntity == &batteryEntity)
+        {
+            continue;
+        }
+        if (!IntersectsEntity(batteryEntity, *enemyEntity))
+        {
+            continue;
+        }
+        touchedActor = true;
+        if (fallingHitActive)
+        {
+            HandleEnemyDamage(*enemyEntity, &batteryEntity, battery->contactDamage, "Battery impact damaged enemy");
+        }
+    }
+
+    if (!fallingHitActive)
+    {
+        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrElevator(*transform, &batteryEntity, tileSize);
+        if (onTopOfSwitchOrElevator)
+        {
             battery->grounded = true;
             battery->velocityY = 0.0f;
+            SnapBatteryToSwitchOrElevatorTop(*transform, &batteryEntity, tileSize);
         }
 
-        const bool fallingHitActive = !battery->grounded && fallVelocity >= battery->fallDamageSpeed;
-        bool touchedActor = false;
-
-        if (player && IntersectsEntity(*entity, *player))
+        float pushDirection = 0.0f;
+        if (player)
         {
-            touchedActor = true;
-            if (fallingHitActive)
+            const auto* playerTransform = player->GetComponent<TransformComponent>();
+            if (playerTransform)
             {
-                HandlePlayerDamage(*player, entity.get(), "Battery impact damaged player", battery->contactDamage);
-            }
-        }
-
-        for (Entity* enemyEntity : enemies)
-        {
-            if (!enemyEntity || enemyEntity == entity.get())
-            {
-                continue;
-            }
-            if (!IntersectsEntity(*entity, *enemyEntity))
-            {
-                continue;
-            }
-            touchedActor = true;
-            if (fallingHitActive)
-            {
-                HandleEnemyDamage(*enemyEntity, entity.get(), battery->contactDamage, "Battery impact damaged enemy");
+                pushDirection = GetBatteryPushDirectionFromPlayer(*playerTransform, *transform);
             }
         }
 
-        if (!fallingHitActive)
+        if (std::fabs(pushDirection) > 0.1f)
         {
-            const bool onTopOfSwitchOrElevator = isOnTopOfSwitchOrElevator(*transform, entity.get());
-            if (onTopOfSwitchOrElevator)
-            {
-                battery->grounded = true;
-                battery->velocityY = 0.0f;
-                snapToSwitchOrElevatorTop(*transform, entity.get());
-            }
-
-            float pushDirection = 0.0f;
-            if (player)
-            {
-                const auto* playerTransform = player->GetComponent<TransformComponent>();
-                if (playerTransform)
-                {
-                    pushDirection = getPlayerSidePushDirection(*playerTransform, *transform);
-                }
-            }
-
-            if (std::fabs(pushDirection) > 0.1f)
-            {
-                battery->velocityX = pushDirection * battery->pushSpeed;
-            }
-            else
-            {
-                battery->velocityX *= 0.82f;
-                if (std::fabs(battery->velocityX) < 6.0f)
-                {
-                    battery->velocityX = 0.0f;
-                }
-            }
+            battery->velocityX = pushDirection * battery->pushSpeed;
         }
         else
         {
-            battery->velocityX *= 0.90f;
-        }
-
-        transform->x += battery->velocityX * deltaTime;
-        transform->x = std::clamp(transform->x, 0.0f, std::max(0.0f, GetMapPixelWidth() - width));
-
-        if (collidesWithWorld(*transform, entity.get()))
-        {
-            bool steppedUp = false;
-            const float maxStepHeight = tileSize * 0.5f;
-            const bool onTopOfSwitchOrElevator = isOnTopOfSwitchOrElevator(*transform, entity.get());
-            if (battery->grounded && maxStepHeight > 0.0f && !onTopOfSwitchOrElevator)
+            battery->velocityX *= 0.82f;
+            if (std::fabs(battery->velocityX) < 6.0f)
             {
-                TransformComponent stepCandidate = *transform;
-                stepCandidate.y = std::max(0.0f, stepCandidate.y - maxStepHeight);
-                if (!collidesWithWorld(stepCandidate, entity.get()))
-                {
-                    transform->y = stepCandidate.y;
-                    steppedUp = true;
-                }
-            }
-
-            if (!steppedUp)
-            {
-                transform->x = previousX;
                 battery->velocityX = 0.0f;
             }
         }
+    }
+    else
+    {
+        battery->velocityX *= 0.90f;
+    }
 
-        if (fallingHitActive && touchedActor)
+    transform->x += battery->velocityX * deltaTime;
+    transform->x = std::clamp(transform->x, 0.0f, std::max(0.0f, GetMapPixelWidth() - width));
+
+    if (IsBatteryCollidingWithWorld(*transform, &batteryEntity, tileSize))
+    {
+        bool steppedUp = false;
+        const float maxStepHeight = tileSize * 0.5f;
+        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrElevator(*transform, &batteryEntity, tileSize);
+        if (battery->grounded && maxStepHeight > 0.0f && !onTopOfSwitchOrElevator)
         {
-            battery->velocityY = std::max(0.0f, battery->velocityY * 0.35f);
-            transform->y = std::max(previousY, transform->y - tileSize * 0.08f);
+            TransformComponent stepCandidate = *transform;
+            stepCandidate.y = std::max(0.0f, stepCandidate.y - maxStepHeight);
+            if (!IsBatteryCollidingWithWorld(stepCandidate, &batteryEntity, tileSize))
+            {
+                transform->y = stepCandidate.y;
+                steppedUp = true;
+            }
         }
 
-        if (snapToSwitchOrElevatorTop(*transform, entity.get()))
+        if (!steppedUp)
         {
-            battery->grounded = true;
-            battery->velocityY = 0.0f;
+            transform->x = previousX;
+            battery->velocityX = 0.0f;
         }
+    }
+
+    if (fallingHitActive && touchedActor)
+    {
+        battery->velocityY = std::max(0.0f, battery->velocityY * 0.35f);
+        transform->y = std::max(previousY, transform->y - tileSize * 0.08f);
+    }
+
+    if (SnapBatteryToSwitchOrElevatorTop(*transform, &batteryEntity, tileSize))
+    {
+        battery->grounded = true;
+        battery->velocityY = 0.0f;
     }
 }
 

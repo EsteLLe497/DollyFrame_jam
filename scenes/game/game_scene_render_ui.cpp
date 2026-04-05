@@ -11,6 +11,38 @@ using namespace game_scene_detail;
 
 namespace
 {
+    struct RgbColor
+    {
+        int r;
+        int g;
+        int b;
+    };
+
+    RgbColor GetEditorMarkerColor(char marker)
+    {
+        switch (marker)
+        {
+        case 'W': return { 120, 212, 255 };
+        case 'R': return { 255, 128, 128 };
+        case 'S': return { 255, 176, 88 };
+        case 'B': return { 172, 142, 255 };
+        case 'V': return { 146, 255, 170 };
+        case 'C': return { 246, 238, 122 };
+        case 'M': return { 255, 142, 210 };
+        case 'Y': return { 240, 208, 90 };
+        case 'H': return { 214, 124, 255 };
+        case 'I': return { 188, 108, 255 };
+        case 'K': return { 250, 112, 96 };
+        case 'L': return { 140, 186, 230 };
+        case 'G': return { 255, 235, 128 };
+        case 'T': return { 122, 230, 255 };
+        case 'E': return { 180, 255, 196 };
+        default: break;
+        }
+
+        return { 236, 236, 236 };
+    }
+
     constexpr float kPadDeadZone = 0.18f;
     constexpr float kPadCursorMaxSpeed = 920.0f;
     constexpr float kPadCursorResponse = 14.0f;
@@ -19,14 +51,6 @@ namespace
     constexpr float kPitRestartFadeDuration = 0.45f;
     constexpr float kStageTransitionFadeOutDuration = 0.45f;
     constexpr float kStageTransitionFadeInDuration = 1.10f;
-
-    std::string GetMapDisplayName(const std::string& path)
-    {
-        const size_t slashPos = path.find_last_of("/\\");
-        const std::string fileName = slashPos == std::string::npos ? path : path.substr(slashPos + 1);
-        const size_t dotPos = fileName.find_last_of('.');
-        return dotPos == std::string::npos ? fileName : fileName.substr(0, dotPos);
-    }
 
     void UpdatePadCursor(
         float mouseWorldX,
@@ -1024,98 +1048,6 @@ void GameScene::DrawPhotoPlacementPreview() const
     photo_system::DrawPlacementPreview(*this);
 }
 
-void GameScene::DrawMapEditorOverlay() const
-{
-    if (!m_mapEditor.active)
-    {
-        return;
-    }
-
-    const float viewScale = GetViewScale();
-    const float tileSize = m_tileMap.GetTileSize();
-    if (viewScale <= 0.0f || tileSize <= 0.0f)
-    {
-        return;
-    }
-
-    const int mouseX = Input_GetMouseX();
-    const int mouseY = Input_GetMouseY();
-    const float worldX = m_flow.cameraX + (static_cast<float>(mouseX) - GetViewOriginX()) / viewScale;
-    const float worldY = m_flow.cameraY + (static_cast<float>(mouseY) - GetViewOriginY()) / viewScale;
-    const int column = static_cast<int>(std::floor(worldX / tileSize));
-    const int row = static_cast<int>(std::floor(worldY / tileSize));
-    int hoveredTileValue = 0;
-    char hoveredMarkerValue = '\0';
-    const bool markerMode = m_mapEditor.brushTarget == GameSceneMapEditorState::BrushTarget::Marker;
-    const int cursorOuterColor = markerMode ? GetColor(116, 220, 255) : GetColor(255, 225, 120);
-    const int cursorInnerColor = markerMode ? GetColor(72, 168, 255) : GetColor(255, 170, 80);
-    if (column >= 0 && row >= 0 && column < m_tileMap.GetWidth() && row < m_tileMap.GetHeight())
-    {
-        hoveredTileValue = m_tileMap.GetTile(column, row);
-        hoveredMarkerValue = m_tileMap.GetMarker(column, row);
-        const int left = static_cast<int>(std::round(GetViewOriginX() + (static_cast<float>(column) * tileSize - m_flow.cameraX) * viewScale));
-        const int top = static_cast<int>(std::round(GetViewOriginY() + (static_cast<float>(row) * tileSize - m_flow.cameraY) * viewScale));
-        const int right = static_cast<int>(std::round(GetViewOriginX() + ((static_cast<float>(column) + 1.0f) * tileSize - m_flow.cameraX) * viewScale));
-        const int bottom = static_cast<int>(std::round(GetViewOriginY() + ((static_cast<float>(row) + 1.0f) * tileSize - m_flow.cameraY) * viewScale));
-        DrawBox(left, top, right, bottom, cursorOuterColor, FALSE);
-        DrawBox(left + 1, top + 1, right - 1, bottom - 1, cursorInnerColor, FALSE);
-    }
-
-    const int panelLeft = 22;
-    const int panelTop = 22;
-    const int panelRight = 560;
-    const int panelBottom = 244;
-    const char selectedMarker = m_mapEditor.selectedMarker;
-    const char markerLabel = selectedMarker == '\0' ? '-' : selectedMarker;
-    const char hoveredMarkerLabel = hoveredMarkerValue == '\0' ? '-' : static_cast<char>(std::toupper(static_cast<unsigned char>(hoveredMarkerValue)));
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 206);
-    DrawBox(panelLeft, panelTop, panelRight, panelBottom, GetColor(16, 22, 30), TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    DrawBox(panelLeft, panelTop, panelRight, panelBottom, GetColor(198, 214, 232), FALSE);
-
-    DrawString(panelLeft + 16, panelTop + 14, "マップエディター", GetColor(244, 250, 255));
-    DrawBox(panelLeft + 330, panelTop + 10, panelRight - 14, panelTop + 34, markerMode ? GetColor(28, 78, 134) : GetColor(96, 72, 24), TRUE);
-    DrawBox(panelLeft + 330, panelTop + 10, panelRight - 14, panelTop + 34, markerMode ? GetColor(116, 220, 255) : GetColor(255, 220, 120), FALSE);
-    DrawString(panelLeft + 342, panelTop + 15, markerMode ? "MARKER MODE" : "TILE MODE", GetColor(244, 250, 255));
-    DrawString(panelLeft + 16, panelTop + 38, "F4: 閉じる  M: タイル/マーカー切替  WASD/十字: カメラ移動", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 58, "左ドラッグ: 塗る  右ドラッグ: 消す", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 78, "タイル: 0-9 / Q,E / F9(10)", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(None),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(M Log),F11(Y),F12(N Boss),H,I,K,L,Q,E", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 114, "F5: 保存  F6: CSV再読込  F7: 新規作成  F8: 別名保存", GetColor(168, 192, 220));
-    DrawFormatString(
-        panelLeft + 16,
-        panelTop + 138,
-        markerMode ? GetColor(180, 238, 255) : GetColor(255, 236, 160),
-        "編集モード: %s",
-        markerMode ? "マーカー" : "タイル");
-    DrawFormatString(
-        panelLeft + 16,
-        panelTop + 158,
-        GetColor(255, 236, 160),
-        "選択タイル: %d  /  選択マーカー: %c",
-        m_mapEditor.selectedTileValue,
-        markerLabel);
-    DrawFormatString(
-        panelLeft + 16,
-        panelTop + 178,
-        GetColor(255, 236, 160),
-        "カーソル: (%d,%d)  tile=%d marker=%c",
-        column,
-        row,
-        hoveredTileValue,
-        hoveredMarkerLabel);
-    DrawFormatString(
-        panelLeft + 16,
-        panelTop + 198,
-        GetColor(220, 230, 244),
-        "現在マップ: %s",
-        GetMapDisplayName(gCurrentMapCsvPath).c_str());
-    if (!m_mapEditor.statusMessage.empty())
-    {
-        DrawString(panelLeft + 16, panelTop + 222, m_mapEditor.statusMessage.c_str(), GetColor(142, 236, 166));
-    }
-}
-
 void GameScene::DrawBackdrop() const
 {
     const float viewScale = GetViewScale();
@@ -1123,9 +1055,28 @@ void GameScene::DrawBackdrop() const
     const float viewOriginY = GetViewOriginY();
     const float viewWidth = GetViewWidth();
     const float viewHeight = GetViewHeight();
-    const float panelRight = viewOriginX + viewWidth;
-    const float panelBottom = viewOriginY + viewHeight;
 
+    DrawBackdropBaseInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
+
+    DrawBackdropGridInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
+
+    DrawBackdropFrameInView(viewOriginX, viewOriginY, viewWidth, viewHeight);
+
+    m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY - m_flow.cameraY * viewScale, viewScale);
+
+    DrawStageTransitionMarkersInView(viewOriginX, viewOriginY, viewScale);
+
+    DrawMapEditorMarkersInView(viewOriginX, viewOriginY, viewScale);
+
+    DrawStageGuideInView(viewOriginX, viewOriginY);
+
+    DrawPhotoFilterPanelInView(viewOriginX, viewOriginY);
+
+    Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+void GameScene::DrawBackdropBaseInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const
+{
     Shader_ResetStyle();
     Shader_SetTint(0.02f, 0.02f, 0.03f, 1.0f);
     SpriteDraw(m_whiteTexture, 0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f, 0.0f, 1.0f, 1.0f);
@@ -1146,163 +1097,161 @@ void GameScene::DrawBackdrop() const
         Shader_SetTint(filterR, filterG, filterB, 0.07f);
         SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
     }
+}
 
+void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const
+{
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
     {
-        const float worldLeft = m_flow.cameraX;
-        const float worldRight = m_flow.cameraX + gCameraViewWidth;
-        const float gridSpacing = m_tileMap.GetTileSize();
-        const unsigned int majorColor = GetColor(72, 188, 128);
-        const unsigned int minorColor = GetColor(38, 112, 82);
+        return;
+    }
 
-        for (float worldX = std::floor(worldLeft / gridSpacing) * gridSpacing; worldX <= worldRight; worldX += gridSpacing)
+    const int columnStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraX / tileSize)) - 1);
+    const int rowStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraY / tileSize)) - 1);
+    const int columnEnd = std::min(m_tileMap.GetWidth() - 1, static_cast<int>(std::ceil((m_flow.cameraX + gCameraViewWidth) / tileSize)) + 1);
+    const int rowEnd = std::min(m_tileMap.GetHeight() - 1, static_cast<int>(std::ceil((m_flow.cameraY + gCameraViewHeight) / tileSize)) + 1);
+
+    for (int row = rowStart; row <= rowEnd; ++row)
+    {
+        for (int column = columnStart; column <= columnEnd; ++column)
         {
-            const float screenX = viewOriginX + (worldX - m_flow.cameraX) * viewScale;
-            const int x = static_cast<int>(std::round(screenX));
-            const bool major = std::fmod(std::fabs(worldX), gridSpacing * 4.0f) < 0.5f ||
-                (gridSpacing * 4.0f - std::fmod(std::fabs(worldX), gridSpacing * 4.0f)) < 0.5f;
-            DrawLine(x, static_cast<int>(viewOriginY), x, static_cast<int>(viewOriginY + viewHeight), major ? majorColor : minorColor);
-            if (!major)
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (marker == '\0')
             {
-                DrawLine(x + 1, static_cast<int>(viewOriginY), x + 1, static_cast<int>(viewOriginY + viewHeight), GetColor(22, 56, 40));
+                continue;
             }
+
+            const StageTransitionLink* transition = nullptr;
+            for (const StageTransitionLink& link : gStageTransitionLinks)
+            {
+                const bool sourceMatches = link.sourceMapCsv == "*" || link.sourceMapCsv == gCurrentMapCsvPath;
+                if (sourceMatches && link.marker == marker)
+                {
+                    transition = &link;
+                    break;
+                }
+            }
+            if (!transition)
+            {
+                continue;
+            }
+
+            const float worldX = static_cast<float>(column) * tileSize;
+            const float worldY = static_cast<float>(row) * tileSize;
+            const int left = static_cast<int>(std::round(viewOriginX + (worldX - m_flow.cameraX) * viewScale));
+            const int top = static_cast<int>(std::round(viewOriginY + (worldY - m_flow.cameraY) * viewScale));
+            const int right = static_cast<int>(std::round(viewOriginX + (worldX + tileSize - m_flow.cameraX) * viewScale));
+            const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + tileSize - m_flow.cameraY) * viewScale));
+
+            DrawBox(left, top, right, bottom, GetColor(255, 210, 90), FALSE);
+
+            const std::string destName = GetMapDisplayName(transition->destinationMapCsv);
+            DrawFormatString(left, top - 16, GetColor(180, 240, 255), "-> %s", destName.c_str());
         }
+    }
+}
 
-        const float worldTop = m_flow.cameraY;
-        const float worldBottom = m_flow.cameraY + gCameraViewHeight;
-        for (float worldY = std::floor(worldTop / gridSpacing) * gridSpacing; worldY <= worldBottom; worldY += gridSpacing)
+void GameScene::DrawBackdropGridInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const
+{
+    const float worldLeft = m_flow.cameraX;
+    const float worldRight = m_flow.cameraX + gCameraViewWidth;
+    const float gridSpacing = m_tileMap.GetTileSize();
+    if (gridSpacing <= 0.0f)
+    {
+        return;
+    }
+
+    const unsigned int majorColor = GetColor(72, 188, 128);
+    const unsigned int minorColor = GetColor(38, 112, 82);
+
+    for (float worldX = std::floor(worldLeft / gridSpacing) * gridSpacing; worldX <= worldRight; worldX += gridSpacing)
+    {
+        const float screenX = viewOriginX + (worldX - m_flow.cameraX) * viewScale;
+        const int x = static_cast<int>(std::round(screenX));
+        const bool major = std::fmod(std::fabs(worldX), gridSpacing * 4.0f) < 0.5f ||
+            (gridSpacing * 4.0f - std::fmod(std::fabs(worldX), gridSpacing * 4.0f)) < 0.5f;
+        DrawLine(x, static_cast<int>(viewOriginY), x, static_cast<int>(viewOriginY + viewHeight), major ? majorColor : minorColor);
+        if (!major)
         {
-            const float screenY = viewOriginY + (worldY - m_flow.cameraY) * viewScale;
-            const int y = static_cast<int>(std::round(screenY));
-            const bool major = std::fmod(worldY, gridSpacing * 4.0f) < 0.5f ||
-                (gridSpacing * 4.0f - std::fmod(worldY, gridSpacing * 4.0f)) < 0.5f;
-            DrawLine(static_cast<int>(viewOriginX), y, static_cast<int>(viewOriginX + viewWidth), y, major ? majorColor : minorColor);
-            if (!major)
-            {
-                DrawLine(static_cast<int>(viewOriginX), y + 1, static_cast<int>(viewOriginX + viewWidth), y + 1, GetColor(22, 56, 40));
-            }
+            DrawLine(x + 1, static_cast<int>(viewOriginY), x + 1, static_cast<int>(viewOriginY + viewHeight), GetColor(22, 56, 40));
         }
     }
 
+    const float worldTop = m_flow.cameraY;
+    const float worldBottom = m_flow.cameraY + gCameraViewHeight;
+    for (float worldY = std::floor(worldTop / gridSpacing) * gridSpacing; worldY <= worldBottom; worldY += gridSpacing)
+    {
+        const float screenY = viewOriginY + (worldY - m_flow.cameraY) * viewScale;
+        const int y = static_cast<int>(std::round(screenY));
+        const bool major = std::fmod(worldY, gridSpacing * 4.0f) < 0.5f ||
+            (gridSpacing * 4.0f - std::fmod(worldY, gridSpacing * 4.0f)) < 0.5f;
+        DrawLine(static_cast<int>(viewOriginX), y, static_cast<int>(viewOriginX + viewWidth), y, major ? majorColor : minorColor);
+        if (!major)
+        {
+            DrawLine(static_cast<int>(viewOriginX), y + 1, static_cast<int>(viewOriginX + viewWidth), y + 1, GetColor(22, 56, 40));
+        }
+    }
+}
+
+void GameScene::DrawBackdropFrameInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight) const
+{
+    const float panelRight = viewOriginX + viewWidth;
+    const float panelBottom = viewOriginY + viewHeight;
     Shader_SetTint(0.18f, 0.18f, 0.22f, 1.0f);
     SpriteDraw(m_whiteTexture, viewOriginX - 10.0f, viewOriginY - 10.0f, viewWidth + 20.0f, 10.0f, 0.0f, 0.0f, 1.0f, 1.0f);
     SpriteDraw(m_whiteTexture, viewOriginX - 10.0f, panelBottom, viewWidth + 20.0f, 10.0f, 0.0f, 0.0f, 1.0f, 1.0f);
     SpriteDraw(m_whiteTexture, viewOriginX - 10.0f, viewOriginY, 10.0f, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
     SpriteDraw(m_whiteTexture, panelRight, viewOriginY, 10.0f, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+}
 
-    m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY - m_flow.cameraY * viewScale, viewScale);
-
-    // Stage-transition marker visualization (A/Z/X etc.) in the current viewport.
+void GameScene::DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const
+{
+    if (!m_mapEditor.active)
     {
-        const float tileSize = m_tileMap.GetTileSize();
-        if (tileSize > 0.0f)
-        {
-            const int columnStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraX / tileSize)) - 1);
-            const int rowStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraY / tileSize)) - 1);
-            const int columnEnd = std::min(m_tileMap.GetWidth() - 1, static_cast<int>(std::ceil((m_flow.cameraX + gCameraViewWidth) / tileSize)) + 1);
-            const int rowEnd = std::min(m_tileMap.GetHeight() - 1, static_cast<int>(std::ceil((m_flow.cameraY + gCameraViewHeight) / tileSize)) + 1);
-
-            for (int row = rowStart; row <= rowEnd; ++row)
-            {
-                for (int column = columnStart; column <= columnEnd; ++column)
-                {
-                    const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-                    if (marker == '\0')
-                    {
-                        continue;
-                    }
-
-                    const StageTransitionLink* transition = nullptr;
-                    for (const StageTransitionLink& link : gStageTransitionLinks)
-                    {
-                        const bool sourceMatches = link.sourceMapCsv == "*" || link.sourceMapCsv == gCurrentMapCsvPath;
-                        if (sourceMatches && link.marker == marker)
-                        {
-                            transition = &link;
-                            break;
-                        }
-                    }
-                    if (!transition)
-                    {
-                        continue;
-                    }
-
-                    const float worldX = static_cast<float>(column) * tileSize;
-                    const float worldY = static_cast<float>(row) * tileSize;
-                    const int left = static_cast<int>(std::round(viewOriginX + (worldX - m_flow.cameraX) * viewScale));
-                    const int top = static_cast<int>(std::round(viewOriginY + (worldY - m_flow.cameraY) * viewScale));
-                    const int right = static_cast<int>(std::round(viewOriginX + (worldX + tileSize - m_flow.cameraX) * viewScale));
-                    const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + tileSize - m_flow.cameraY) * viewScale));
-
-                    DrawBox(left, top, right, bottom, GetColor(255, 210, 90), FALSE);
-                    DrawFormatString(left + 4, top + 2, GetColor(255, 245, 190), "%c", marker);
-
-                    const std::string destName = GetMapDisplayName(transition->destinationMapCsv);
-                    DrawFormatString(left, top - 16, GetColor(180, 240, 255), "-> %s", destName.c_str());
-                }
-            }
-        }
+        return;
     }
 
-    if (m_mapEditor.active)
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
     {
-        const float tileSize = m_tileMap.GetTileSize();
-        if (tileSize > 0.0f)
-        {
-            const int columnStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraX / tileSize)) - 1);
-            const int rowStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraY / tileSize)) - 1);
-            const int columnEnd = std::min(m_tileMap.GetWidth() - 1, static_cast<int>(std::ceil((m_flow.cameraX + gCameraViewWidth) / tileSize)) + 1);
-            const int rowEnd = std::min(m_tileMap.GetHeight() - 1, static_cast<int>(std::ceil((m_flow.cameraY + gCameraViewHeight) / tileSize)) + 1);
-
-            for (int row = rowStart; row <= rowEnd; ++row)
-            {
-                for (int column = columnStart; column <= columnEnd; ++column)
-                {
-                    const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-                    if (marker == '\0')
-                    {
-                        continue;
-                    }
-
-                    int r = 236;
-                    int g = 236;
-                    int b = 236;
-                    switch (marker)
-                    {
-                    case 'W': r = 120; g = 212; b = 255; break;
-                    case 'R': r = 255; g = 128; b = 128; break;
-                    case 'S': r = 255; g = 176; b = 88; break;
-                    case 'B': r = 172; g = 142; b = 255; break;
-                    case 'V': r = 146; g = 255; b = 170; break;
-                    case 'C': r = 246; g = 238; b = 122; break;
-                    case 'M': r = 255; g = 142; b = 210; break;
-                    case 'Y': r = 240; g = 208; b = 90; break;
-                    case 'H': r = 214; g = 124; b = 255; break;
-                    case 'I': r = 188; g = 108; b = 255; break;
-                    case 'K': r = 250; g = 112; b = 96; break;
-                    case 'L': r = 140; g = 186; b = 230; break;
-                    case 'G': r = 255; g = 235; b = 128; break;
-                    case 'T': r = 122; g = 230; b = 255; break;
-                    case 'E': r = 180; g = 255; b = 196; break;
-                    default: break;
-                    }
-
-                    const float worldX = static_cast<float>(column) * tileSize;
-                    const float worldY = static_cast<float>(row) * tileSize;
-                    const int left = static_cast<int>(std::round(viewOriginX + (worldX - m_flow.cameraX) * viewScale));
-                    const int top = static_cast<int>(std::round(viewOriginY + (worldY - m_flow.cameraY) * viewScale));
-                    const int right = static_cast<int>(std::round(viewOriginX + (worldX + tileSize - m_flow.cameraX) * viewScale));
-                    const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + tileSize - m_flow.cameraY) * viewScale));
-
-                    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 88);
-                    DrawBox(left, top, right, bottom, GetColor(r, g, b), TRUE);
-                    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-                    DrawBox(left, top, right, bottom, GetColor(r, g, b), FALSE);
-                    DrawFormatString(left + 4, top + 2, GetColor(20, 28, 36), "%c", marker);
-                }
-            }
-        }
+        return;
     }
 
+    const int columnStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraX / tileSize)) - 1);
+    const int rowStart = std::max(0, static_cast<int>(std::floor(m_flow.cameraY / tileSize)) - 1);
+    const int columnEnd = std::min(m_tileMap.GetWidth() - 1, static_cast<int>(std::ceil((m_flow.cameraX + gCameraViewWidth) / tileSize)) + 1);
+    const int rowEnd = std::min(m_tileMap.GetHeight() - 1, static_cast<int>(std::ceil((m_flow.cameraY + gCameraViewHeight) / tileSize)) + 1);
+
+    for (int row = rowStart; row <= rowEnd; ++row)
+    {
+        for (int column = columnStart; column <= columnEnd; ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (marker == '\0')
+            {
+                continue;
+            }
+
+            const RgbColor color = GetEditorMarkerColor(marker);
+
+            const float worldX = static_cast<float>(column) * tileSize;
+            const float worldY = static_cast<float>(row) * tileSize;
+            const int left = static_cast<int>(std::round(viewOriginX + (worldX - m_flow.cameraX) * viewScale));
+            const int top = static_cast<int>(std::round(viewOriginY + (worldY - m_flow.cameraY) * viewScale));
+            const int right = static_cast<int>(std::round(viewOriginX + (worldX + tileSize - m_flow.cameraX) * viewScale));
+            const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + tileSize - m_flow.cameraY) * viewScale));
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, 88);
+            DrawBox(left, top, right, bottom, GetColor(color.r, color.g, color.b), TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            DrawBox(left, top, right, bottom, GetColor(color.r, color.g, color.b), FALSE);
+        }
+    }
+}
+
+void GameScene::DrawStageGuideInView(float viewOriginX, float viewOriginY) const
+{
     if (const Entity* player = FindEntityByTag(kTagPlayer))
     {
         if (const auto* transform = player->GetComponent<TransformComponent>())
@@ -1314,48 +1263,48 @@ void GameScene::DrawBackdrop() const
                 GetColor(238, 244, 255));
         }
     }
+}
 
-    {
-        float filterR = 1.0f;
-        float filterG = 1.0f;
-        float filterB = 1.0f;
-        GetPhotoFilterThemeOverlayColor(m_photo.capture.selectedTheme, filterR, filterG, filterB);
-        const int panelX = static_cast<int>(viewOriginX + 22.0f);
-        const int panelY = static_cast<int>(viewOriginY + 18.0f);
-        const int panelWidth = 308;
-        const int panelHeight = 78;
-        DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(14, 18, 24), TRUE);
-        DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(220, 228, 236), FALSE);
-        DrawBox(
-            panelX + 10,
-            panelY + 10,
-            panelX + 44,
-            panelY + 44,
-            GetColor(
-                static_cast<int>(filterR * 255.0f),
-                static_cast<int>(filterG * 255.0f),
-                static_cast<int>(filterB * 255.0f)),
-            TRUE);
-        DrawFormatString(
-            panelX + 56,
-            panelY + 10,
-            GetColor(245, 248, 255),
-            "Filter: %s",
-            GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));
-        DrawFormatString(
-            panelX + 56,
-            panelY + 32,
-            GetColor(180, 210, 235),
-            "%s",
-            GetPhotoFilterThemeEffectText(m_photo.capture.selectedTheme));
-        DrawFormatString(
-            panelX + 12,
-            panelY + 54,
-            GetColor(205, 220, 235),
-            "C cycle  1 None  2 Hot  3 Cold  4 Invert  5 Sepia");
-    }
+void GameScene::DrawPhotoFilterPanelInView(float viewOriginX, float viewOriginY) const
+{
+    float filterR = 1.0f;
+    float filterG = 1.0f;
+    float filterB = 1.0f;
+    GetPhotoFilterThemeOverlayColor(m_photo.capture.selectedTheme, filterR, filterG, filterB);
 
-    Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+    const int panelX = static_cast<int>(viewOriginX + 22.0f);
+    const int panelY = static_cast<int>(viewOriginY + 18.0f);
+    const int panelWidth = 308;
+    const int panelHeight = 78;
+    DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(14, 18, 24), TRUE);
+    DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(220, 228, 236), FALSE);
+    DrawBox(
+        panelX + 10,
+        panelY + 10,
+        panelX + 44,
+        panelY + 44,
+        GetColor(
+            static_cast<int>(filterR * 255.0f),
+            static_cast<int>(filterG * 255.0f),
+            static_cast<int>(filterB * 255.0f)),
+        TRUE);
+    DrawFormatString(
+        panelX + 56,
+        panelY + 10,
+        GetColor(245, 248, 255),
+        "Filter: %s",
+        GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));
+    DrawFormatString(
+        panelX + 56,
+        panelY + 32,
+        GetColor(180, 210, 235),
+        "%s",
+        GetPhotoFilterThemeEffectText(m_photo.capture.selectedTheme));
+    DrawFormatString(
+        panelX + 12,
+        panelY + 54,
+        GetColor(205, 220, 235),
+        "C cycle  1 None  2 Hot  3 Cold  4 Invert  5 Sepia");
 }
 
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
@@ -1501,142 +1450,6 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     }
 
     return bestTarget;
-}
-
-void GameScene::DrawPlayerHpBar() const
-{
-    const Entity* player = FindEntityByTag(kTagPlayer);
-    if (!player) return;
-
-    const auto* health = player->GetComponent<HealthComponent>();
-    if (!health) return;
-
-    const int maxHp = (std::max)(1, health->GetMaxHealth());
-    const int currentHp = std::clamp(health->GetCurrentHealth(), 0, maxHp);
-
-    constexpr float kBarWidth = 240.0f;
-    constexpr float kBarHeight = 24.0f;
-    constexpr float kPanelPadding = 12.0f;
-    constexpr float kMarginRight = 32.0f;
-    constexpr float kMarginTop = 32.0f;
-
-    const float barX = static_cast<float>(SCREEN_WIDTH) - kBarWidth - kMarginRight;
-    const float barY = kMarginTop;
-    const float panelX = barX - kPanelPadding;
-    const float panelY = barY - kPanelPadding;
-    const float panelWidth = kBarWidth + kPanelPadding * 2.0f;
-    const float panelHeight = kBarHeight + 38.0f;
-
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 204);
-    DrawBox(
-        static_cast<int>(std::round(panelX)),
-        static_cast<int>(std::round(panelY)),
-        static_cast<int>(std::round(panelX + panelWidth)),
-        static_cast<int>(std::round(panelY + panelHeight)),
-        GetColor(14, 20, 28),
-        TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    DrawBox(
-        static_cast<int>(std::round(panelX)),
-        static_cast<int>(std::round(panelY)),
-        static_cast<int>(std::round(panelX + panelWidth)),
-        static_cast<int>(std::round(panelY + panelHeight)),
-        GetColor(200, 214, 230),
-        FALSE);
-
-    const float targetRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
-    const float displayRatio = m_flow.hpUiInitialized ? m_flow.hpDisplayRatio : targetRatio;
-    const float lagRatio = m_flow.hpUiInitialized ? m_flow.hpDamageLagRatio : targetRatio;
-    const float flash = m_flow.hpDamageFlash;
-
-    // バー背景
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth)),
-        static_cast<int>(std::round(barY + kBarHeight)),
-        GetColor(38, 46, 58),
-        TRUE);
-
-    // 被弾遅延バー（減った量が一瞬残る）
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth * std::clamp(lagRatio, 0.0f, 1.0f))),
-        static_cast<int>(std::round(barY + kBarHeight)),
-        GetColor(232, 94, 84),
-        TRUE);
-
-    // 現在HPバー（割合で色を変化）
-    const float clampedRatio = std::clamp(displayRatio, 0.0f, 1.0f);
-    const int hpR = static_cast<int>(std::round(230.0f - 160.0f * clampedRatio));
-    const int hpG = static_cast<int>(std::round(76.0f + 144.0f * clampedRatio));
-    const int hpB = static_cast<int>(std::round(72.0f + 46.0f * clampedRatio));
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth * clampedRatio)),
-        static_cast<int>(std::round(barY + kBarHeight)),
-        GetColor(hpR, hpG, hpB),
-        TRUE);
-
-    // ハイライト
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 84);
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth * clampedRatio)),
-        static_cast<int>(std::round(barY + kBarHeight * 0.45f)),
-        GetColor(255, 255, 255),
-        TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-
-    // 被弾フラッシュ
-    if (flash > 0.0f)
-    {
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(150.0f * flash)));
-        DrawBox(
-            static_cast<int>(std::round(barX)),
-            static_cast<int>(std::round(barY)),
-            static_cast<int>(std::round(barX + kBarWidth)),
-            static_cast<int>(std::round(barY + kBarHeight)),
-            GetColor(255, 246, 238),
-            TRUE);
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    }
-
-    // 目盛り
-    for (int i = 1; i < maxHp; ++i)
-    {
-        const float x = barX + kBarWidth * (static_cast<float>(i) / static_cast<float>(maxHp));
-        DrawLine(
-            static_cast<int>(std::round(x)),
-            static_cast<int>(std::round(barY + 2.0f)),
-            static_cast<int>(std::round(x)),
-            static_cast<int>(std::round(barY + kBarHeight - 2.0f)),
-            GetColor(42, 48, 58));
-    }
-
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth)),
-        static_cast<int>(std::round(barY + kBarHeight)),
-        GetColor(232, 236, 246),
-        FALSE);
-
-    DrawString(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY - 18.0f)),
-        "LIFE",
-        GetColor(196, 214, 236));
-    DrawFormatString(
-        static_cast<int>(std::round(barX + kBarWidth * 0.5f) - 34.0f),
-        static_cast<int>(std::round(barY + 4.0f)),
-        GetColor(255, 255, 255),
-        "HP %d / %d",
-        currentHp,
-        maxHp);
 }
 
 void GameScene::DrawBatterySwitchCounters() const

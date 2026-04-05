@@ -118,6 +118,34 @@ namespace
         }
     }
 
+    bool IsEnemyMarker(char marker)
+    {
+        const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+        return normalized == 'W' || normalized == 'R' || normalized == 'N';
+    }
+
+    bool IsBatteryMarker(char marker)
+    {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(marker))) == 'Y';
+    }
+
+    bool IsLogMarker(char marker)
+    {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(marker))) == 'M';
+    }
+
+    bool IsElevatorMarker(char marker)
+    {
+        const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+        return normalized == 'K' || normalized == 'L';
+    }
+
+    bool IsDamageFootholdMarker(char marker)
+    {
+        const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+        return normalized == 'H' || normalized == 'I';
+    }
+
     std::string BuildEditorMapFilePath(const char* prefix)
     {
         const auto now = std::chrono::system_clock::now();
@@ -369,16 +397,44 @@ void GameScene::HandleGlobalSceneShortcuts()
 
 void GameScene::UpdateMapEditorInput(float deltaTime)
 {
+    UpdateMapEditorStatusMessage(deltaTime);
+    if (!HandleMapEditorModeShortcuts())
+    {
+        return;
+    }
+
+    if (!m_tileMap.IsLoaded())
+    {
+        return;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    UpdateMapEditorCameraPan(deltaTime);
+    UpdateMapEditorBrushSelection();
+    HandleMapEditorFileShortcuts(tileSize);
+    ApplyMapEditorMousePaint(tileSize);
+}
+
+void GameScene::UpdateMapEditorStatusMessage(float deltaTime)
+{
     m_mapEditor.statusMessageTimer = std::max(0.0f, m_mapEditor.statusMessageTimer - deltaTime);
     if (m_mapEditor.statusMessageTimer <= 0.0f)
     {
         m_mapEditor.statusMessage.clear();
     }
+}
 
+bool GameScene::HandleMapEditorModeShortcuts()
+{
     if (Input_IsKeyPressed(VK_F4))
     {
         m_mapEditor.active = false;
-        return;
+        return false;
     }
 
     if (Input_IsKeyPressed('M'))
@@ -394,19 +450,11 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         m_mapEditor.statusMessageTimer = 1.8f;
     }
 
-    if (!m_tileMap.IsLoaded())
-    {
-        return;
-    }
+    return true;
+}
 
-    const float tileSize = m_tileMap.GetTileSize();
-    if (tileSize <= 0.0f)
-    {
-        return;
-    }
-
-    // エディターモード中はカメラを直接パンして編集対象を移動する。
-    // キーボード（WASD/矢印）とゲームパッド軸の両方を扱う。
+void GameScene::UpdateMapEditorCameraPan(float deltaTime)
+{
     float panX = Input_GetAxis(InputAxis::MoveX);
     float panY = Input_GetAxis(InputAxis::MoveY);
     if (Input_IsActionDown(InputAction::MoveLeft))
@@ -431,7 +479,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
     const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
     m_flow.cameraX = std::clamp(m_flow.cameraX + panX * kEditorCameraPanSpeed * deltaTime, 0.0f, maxCameraX);
     m_flow.cameraY = std::clamp(m_flow.cameraY + panY * kEditorCameraPanSpeed * deltaTime, 0.0f, maxCameraY);
+}
 
+void GameScene::UpdateMapEditorBrushSelection()
+{
     if (m_mapEditor.brushTarget == GameSceneMapEditorState::BrushTarget::Tile)
     {
         for (int digit = 0; digit <= 9; ++digit)
@@ -453,58 +504,60 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         {
             m_mapEditor.selectedTileValue = std::min(kEditorTileMaxValue, m_mapEditor.selectedTileValue + 1);
         }
+        return;
     }
-    else
+
+    for (int digit = 0; digit <= 9; ++digit)
     {
-        for (int digit = 0; digit <= 9; ++digit)
+        if (Input_IsKeyPressed('0' + digit))
         {
-            if (Input_IsKeyPressed('0' + digit))
-            {
-                m_mapEditor.selectedMarker = PresetIndexToMarker(digit);
-            }
-        }
-        if (Input_IsKeyPressed(VK_F10))
-        {
-            m_mapEditor.selectedMarker = 'M';
-        }
-        if (Input_IsKeyPressed(VK_F11))
-        {
-            m_mapEditor.selectedMarker = 'Y';
-        }
-        if (Input_IsKeyPressed(VK_F12))
-        {
-            m_mapEditor.selectedMarker = 'N';
-        }
-        if (Input_IsKeyPressed('H'))
-        {
-            m_mapEditor.selectedMarker = 'H';
-        }
-        if (Input_IsKeyPressed('I'))
-        {
-            m_mapEditor.selectedMarker = 'I';
-        }
-        if (Input_IsKeyPressed('K'))
-        {
-            m_mapEditor.selectedMarker = 'K';
-        }
-        if (Input_IsKeyPressed('L'))
-        {
-            m_mapEditor.selectedMarker = 'L';
-        }
-
-        int markerIndex = MarkerToPresetIndex(m_mapEditor.selectedMarker);
-        if (Input_IsKeyPressed('Q'))
-        {
-            markerIndex = (markerIndex + kMarkerPresetCount - 1) % kMarkerPresetCount;
-            m_mapEditor.selectedMarker = PresetIndexToMarker(markerIndex);
-        }
-        if (Input_IsKeyPressed('E'))
-        {
-            markerIndex = (markerIndex + 1) % kMarkerPresetCount;
-            m_mapEditor.selectedMarker = PresetIndexToMarker(markerIndex);
+            m_mapEditor.selectedMarker = PresetIndexToMarker(digit);
         }
     }
+    if (Input_IsKeyPressed(VK_F10))
+    {
+        m_mapEditor.selectedMarker = 'M';
+    }
+    if (Input_IsKeyPressed(VK_F11))
+    {
+        m_mapEditor.selectedMarker = 'Y';
+    }
+    if (Input_IsKeyPressed(VK_F12))
+    {
+        m_mapEditor.selectedMarker = 'N';
+    }
+    if (Input_IsKeyPressed('H'))
+    {
+        m_mapEditor.selectedMarker = 'H';
+    }
+    if (Input_IsKeyPressed('I'))
+    {
+        m_mapEditor.selectedMarker = 'I';
+    }
+    if (Input_IsKeyPressed('K'))
+    {
+        m_mapEditor.selectedMarker = 'K';
+    }
+    if (Input_IsKeyPressed('L'))
+    {
+        m_mapEditor.selectedMarker = 'L';
+    }
 
+    int markerIndex = MarkerToPresetIndex(m_mapEditor.selectedMarker);
+    if (Input_IsKeyPressed('Q'))
+    {
+        markerIndex = (markerIndex + kMarkerPresetCount - 1) % kMarkerPresetCount;
+        m_mapEditor.selectedMarker = PresetIndexToMarker(markerIndex);
+    }
+    if (Input_IsKeyPressed('E'))
+    {
+        markerIndex = (markerIndex + 1) % kMarkerPresetCount;
+        m_mapEditor.selectedMarker = PresetIndexToMarker(markerIndex);
+    }
+}
+
+void GameScene::HandleMapEditorFileShortcuts(float tileSize)
+{
     if (Input_IsKeyPressed(VK_F5))
     {
         if (m_tileMap.SaveToCsv(gCurrentMapCsvPath))
@@ -524,11 +577,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         if (m_tileMap.LoadFromCsv(gCurrentMapCsvPath, tileSize))
         {
             BuildCameraMarkers();
-            RefreshEnemiesFromMarkers();
-            RefreshBatteriesFromMarkers();
-            RefreshLogsFromMarkers();
-            RefreshElevatorGimmicksFromMarkers();
-            RefreshDamageFootholdsFromMarkers();
+            RefreshMarkerDrivenSystems();
             m_mapEditor.statusMessage = "CSVを再読み込みしました";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
@@ -549,11 +598,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         {
             gCurrentMapCsvPath = newMapPath;
             BuildCameraMarkers();
-            RefreshEnemiesFromMarkers();
-            RefreshBatteriesFromMarkers();
-            RefreshLogsFromMarkers();
-            RefreshElevatorGimmicksFromMarkers();
-            RefreshDamageFootholdsFromMarkers();
+            RefreshMarkerDrivenSystems();
             m_flow.cameraX = 0.0f;
             m_flow.cameraY = 0.0f;
             m_mapEditor.statusMessage = "新規マップを作成: " + newMapPath;
@@ -582,7 +627,10 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
+}
 
+void GameScene::ApplyMapEditorMousePaint(float tileSize)
+{
     const int mouseX = Input_GetMouseX();
     const int mouseY = Input_GetMouseY();
     const float viewScale = GetViewScale();
@@ -612,40 +660,7 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
             const char before = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
             m_tileMap.SetMarker(column, row, m_mapEditor.selectedMarker);
             const char after = static_cast<char>(std::toupper(static_cast<unsigned char>(m_mapEditor.selectedMarker)));
-            const auto isEnemyMarker = [](char marker)
-            {
-                return marker == 'W' || marker == 'R' || marker == 'N';
-            };
-            const bool touchesEnemyMarker =
-                isEnemyMarker(before) || isEnemyMarker(after);
-            const bool touchesBatteryMarker =
-                before == 'Y' || after == 'Y';
-            const bool touchesLogMarker =
-                before == 'M' || after == 'M';
-            const bool touchesElevatorMarker =
-                before == 'K' || before == 'L' || after == 'K' || after == 'L';
-            const bool touchesDamageFootholdMarker =
-                before == 'H' || before == 'I' || after == 'H' || after == 'I';
-            if (touchesEnemyMarker && before != after)
-            {
-                RefreshEnemiesFromMarkers();
-            }
-            if (touchesBatteryMarker && before != after)
-            {
-                RefreshBatteriesFromMarkers();
-            }
-            if (touchesLogMarker && before != after)
-            {
-                RefreshLogsFromMarkers();
-            }
-            if (touchesElevatorMarker && before != after)
-            {
-                RefreshElevatorGimmicksFromMarkers();
-            }
-            if (touchesDamageFootholdMarker && before != after)
-            {
-                RefreshDamageFootholdsFromMarkers();
-            }
+            RefreshMarkerDrivenSystemsByMarkerChange(before, after);
         }
     }
     if ((mouseButtons & MOUSE_INPUT_RIGHT) != 0)
@@ -658,27 +673,48 @@ void GameScene::UpdateMapEditorInput(float deltaTime)
         {
             const char before = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
             m_tileMap.SetMarker(column, row, '\0');
-            if (before == 'W' || before == 'R' || before == 'N')
-            {
-                RefreshEnemiesFromMarkers();
-            }
-            if (before == 'Y')
-            {
-                RefreshBatteriesFromMarkers();
-            }
-            if (before == 'M')
-            {
-                RefreshLogsFromMarkers();
-            }
-            if (before == 'K' || before == 'L')
-            {
-                RefreshElevatorGimmicksFromMarkers();
-            }
-            if (before == 'H' || before == 'I')
-            {
-                RefreshDamageFootholdsFromMarkers();
-            }
+            RefreshMarkerDrivenSystemsByMarkerChange(before, '\0');
         }
+    }
+}
+
+void GameScene::RefreshMarkerDrivenSystems()
+{
+    RefreshEnemiesFromMarkers();
+    RefreshBatteriesFromMarkers();
+    RefreshLogsFromMarkers();
+    RefreshElevatorGimmicksFromMarkers();
+    RefreshDamageFootholdsFromMarkers();
+}
+
+void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after)
+{
+    const char normalizedBefore = static_cast<char>(std::toupper(static_cast<unsigned char>(before)));
+    const char normalizedAfter = static_cast<char>(std::toupper(static_cast<unsigned char>(after)));
+    if (normalizedBefore == normalizedAfter)
+    {
+        return;
+    }
+
+    if (IsEnemyMarker(normalizedBefore) || IsEnemyMarker(normalizedAfter))
+    {
+        RefreshEnemiesFromMarkers();
+    }
+    if (IsBatteryMarker(normalizedBefore) || IsBatteryMarker(normalizedAfter))
+    {
+        RefreshBatteriesFromMarkers();
+    }
+    if (IsLogMarker(normalizedBefore) || IsLogMarker(normalizedAfter))
+    {
+        RefreshLogsFromMarkers();
+    }
+    if (IsElevatorMarker(normalizedBefore) || IsElevatorMarker(normalizedAfter))
+    {
+        RefreshElevatorGimmicksFromMarkers();
+    }
+    if (IsDamageFootholdMarker(normalizedBefore) || IsDamageFootholdMarker(normalizedAfter))
+    {
+        RefreshDamageFootholdsFromMarkers();
     }
 }
 

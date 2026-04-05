@@ -104,6 +104,8 @@
     <ClCompile Include="scenes\game\game_scene_gameplay.cpp" />
     <ClCompile Include="scenes\game\game_scene_render.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui.cpp" />
+    <ClCompile Include="scenes\game\game_scene_render_ui_editor.cpp" />
+    <ClCompile Include="scenes\game\game_scene_render_ui_status.cpp" />
     <ClCompile Include="scenes\game\game_scene_setup.cpp" />
     <ClCompile Include="scenes\game\game_scene_enemy_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_gimmick_domain.cpp" />

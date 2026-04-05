@@ -740,13 +740,7 @@ bool GameScene::IsGoalTile(int column, int row) const
 bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
 {
     std::vector<TransformComponent> groundPlatforms;
-    GetEntityBoundsByTag(kTagPhotoSource, groundPlatforms);
-    std::vector<TransformComponent> switchBounds;
-    GetEntityBoundsByTag(kTagBatterySwitch, switchBounds);
-    groundPlatforms.insert(groundPlatforms.end(), switchBounds.begin(), switchBounds.end());
-    std::vector<TransformComponent> elevatorBounds;
-    GetEntityBoundsByTag(kTagElevator, elevatorBounds);
-    groundPlatforms.insert(groundPlatforms.end(), elevatorBounds.begin(), elevatorBounds.end());
+    GetGroundPlatformBounds(groundPlatforms);
     for (const auto& photoSourceBounds : groundPlatforms)
     {
         const float photoSourceX = photoSourceBounds.x;
@@ -852,16 +846,11 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
     return false;
 }
 
-bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const
+bool GameScene::TrySnapToGroundUsingPlatforms(
+    TransformComponent& transform,
+    float maxSnapDistance,
+    const std::vector<TransformComponent>& groundPlatforms) const
 {
-    std::vector<TransformComponent> groundPlatforms;
-    GetEntityBoundsByTag(kTagPhotoSource, groundPlatforms);
-    std::vector<TransformComponent> switchBounds;
-    GetEntityBoundsByTag(kTagBatterySwitch, switchBounds);
-    groundPlatforms.insert(groundPlatforms.end(), switchBounds.begin(), switchBounds.end());
-    std::vector<TransformComponent> elevatorBounds;
-    GetEntityBoundsByTag(kTagElevator, elevatorBounds);
-    groundPlatforms.insert(groundPlatforms.end(), elevatorBounds.begin(), elevatorBounds.end());
     for (const auto& photoSourceBounds : groundPlatforms)
     {
         const float photoSourceX = photoSourceBounds.x;
@@ -1058,6 +1047,13 @@ bool GameScene::IntersectsHazardTile(const TransformComponent& transform) const
         }
     }
     return false;
+}
+
+bool GameScene::TrySnapToGround(TransformComponent& transform, float maxSnapDistance) const
+{
+    std::vector<TransformComponent> groundPlatforms;
+    GetGroundPlatformBounds(groundPlatforms);
+    return TrySnapToGroundUsingPlatforms(transform, maxSnapDistance, groundPlatforms);
 }
 
 bool GameScene::IntersectsPitTile(const TransformComponent& transform) const
@@ -1344,6 +1340,35 @@ void GameScene::GetEntityBoundsByTag(const char* tag, std::vector<TransformCompo
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, tag))
+        {
+            continue;
+        }
+
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform)
+        {
+            continue;
+        }
+
+        TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
+        rect.scale = transform->scale;
+        bounds.push_back(rect);
+    }
+}
+
+bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
+{
+    return HasTag(entity, kTagPhotoSource) ||
+        HasTag(entity, kTagBatterySwitch) ||
+        HasTag(entity, kTagElevator);
+}
+
+void GameScene::GetGroundPlatformBounds(std::vector<TransformComponent>& bounds) const
+{
+    bounds.clear();
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !IsGroundPlatformEntity(*entity))
         {
             continue;
         }
