@@ -342,6 +342,150 @@ namespace
     }
 }
 
+void GameScene::DrawStageDarknessOverlay() const
+{
+    if (!m_darknessStageEnabled)
+    {
+        return;
+    }
+
+    const float viewOriginX = GetViewOriginX();
+    const float viewOriginY = GetViewOriginY();
+    const float viewWidth = GetViewWidth();
+    const float viewHeight = GetViewHeight();
+    const int left = static_cast<int>(std::floor(viewOriginX));
+    const int top = static_cast<int>(std::floor(viewOriginY));
+    const int right = static_cast<int>(std::ceil(viewOriginX + viewWidth));
+    const int bottom = static_cast<int>(std::ceil(viewOriginY + viewHeight));
+    constexpr int kDarkColorR = 2;
+    constexpr int kDarkColorG = 2;
+    constexpr int kDarkColorB = 4;
+    constexpr int kBaseDarknessAlpha = 252;
+
+    const auto drawDarkRect = [&](float x0, float y0, float x1, float y1, int alpha)
+    {
+        const int rectLeft = static_cast<int>(std::floor((std::min)(x0, x1)));
+        const int rectTop = static_cast<int>(std::floor((std::min)(y0, y1)));
+        const int rectRight = static_cast<int>(std::ceil((std::max)(x0, x1)));
+        const int rectBottom = static_cast<int>(std::ceil((std::max)(y0, y1)));
+        if (rectRight <= rectLeft || rectBottom <= rectTop || alpha <= 0)
+        {
+            return;
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(alpha, 0, 255));
+        DrawBox(rectLeft, rectTop, rectRight, rectBottom, GetColor(kDarkColorR, kDarkColorG, kDarkColorB), TRUE);
+    };
+
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* transform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    if (!transform)
+    {
+        drawDarkRect(static_cast<float>(left), static_cast<float>(top), static_cast<float>(right), static_cast<float>(bottom), kBaseDarknessAlpha);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        return;
+    }
+
+    const float viewScale = GetViewScale();
+    const float lightCenterWorldX = transform->x + transform->width * transform->scale * 0.5f;
+    const float lightCenterWorldY = transform->y + transform->height * transform->scale * 0.5f;
+    float innerRadius = 74.0f * viewScale;
+    float outerRadius = 170.0f * viewScale;
+    int maxDarknessAlpha = kBaseDarknessAlpha;
+
+    if (m_flow.cameraFlash.enabled && m_flow.cameraFlash.pulseRemaining > 0.0f && m_flow.cameraFlash.pulseDuration > 0.0f)
+    {
+        const float flashT = Clamp01(m_flow.cameraFlash.pulseRemaining / m_flow.cameraFlash.pulseDuration);
+        const float flashEase = flashT * flashT * (3.0f - 2.0f * flashT);
+        maxDarknessAlpha = static_cast<int>(std::round(std::lerp(228.0f, 160.0f, flashEase)));
+    }
+
+    const float lightCenterX = viewOriginX + (lightCenterWorldX - m_flow.cameraX) * viewScale;
+    const float lightCenterY = viewOriginY + (lightCenterWorldY - m_flow.cameraY) * viewScale - 16.0f * viewScale;
+
+    if (DirectXHasDarknessOverlay())
+    {
+        DarknessOverlayParams params;
+        params.enabled = true;
+        params.lightCount = 1;
+        params.lights[0].centerX = lightCenterX;
+        params.lights[0].centerY = lightCenterY;
+        params.lights[0].innerRadius = innerRadius;
+        params.lights[0].outerRadius = outerRadius;
+        params.lights[0].intensity = 1.0f;
+        params.darknessOpacity = static_cast<float>(maxDarknessAlpha) / 255.0f;
+        params.viewLeft = static_cast<float>(left);
+        params.viewTop = static_cast<float>(top);
+        params.viewRight = static_cast<float>(right);
+        params.viewBottom = static_cast<float>(bottom);
+        params.colorR = static_cast<float>(kDarkColorR) / 255.0f;
+        params.colorG = static_cast<float>(kDarkColorG) / 255.0f;
+        params.colorB = static_cast<float>(kDarkColorB) / 255.0f;
+        DirectXSetDarknessOverlay(params);
+        DirectXDrawDarknessOverlay();
+        return;
+    }
+
+    const float outerRadiusSq = outerRadius * outerRadius;
+    const float innerRadiusSq = innerRadius * innerRadius;
+    constexpr int kStripeHeight = 2;
+    constexpr int kSoftBandSegments = 18;
+
+    drawDarkRect(static_cast<float>(left), static_cast<float>(top), static_cast<float>(right), lightCenterY - outerRadius, maxDarknessAlpha);
+    drawDarkRect(static_cast<float>(left), lightCenterY + outerRadius, static_cast<float>(right), static_cast<float>(bottom), maxDarknessAlpha);
+
+    const int bandStartY = (std::max)(top, static_cast<int>(std::floor(lightCenterY - outerRadius)));
+    const int bandEndY = (std::min)(bottom, static_cast<int>(std::ceil(lightCenterY + outerRadius)));
+    for (int bandTop = bandStartY; bandTop < bandEndY; bandTop += kStripeHeight)
+    {
+        const int bandBottom = (std::min)(bandEndY, bandTop + kStripeHeight);
+        const float bandCenterY = (static_cast<float>(bandTop) + static_cast<float>(bandBottom)) * 0.5f;
+        const float dy = std::fabs(bandCenterY - lightCenterY);
+        if (dy >= outerRadius)
+        {
+            drawDarkRect(static_cast<float>(left), static_cast<float>(bandTop), static_cast<float>(right), static_cast<float>(bandBottom), maxDarknessAlpha);
+            continue;
+        }
+
+        const float outerDx = std::sqrt((std::max)(0.0f, outerRadiusSq - dy * dy));
+        const float innerDx = dy < innerRadius
+            ? std::sqrt((std::max)(0.0f, innerRadiusSq - dy * dy))
+            : 0.0f;
+
+        drawDarkRect(static_cast<float>(left), static_cast<float>(bandTop), lightCenterX - outerDx, static_cast<float>(bandBottom), maxDarknessAlpha);
+        drawDarkRect(lightCenterX + outerDx, static_cast<float>(bandTop), static_cast<float>(right), static_cast<float>(bandBottom), maxDarknessAlpha);
+
+        const float softWidth = (std::max)(0.0f, outerDx - innerDx);
+        if (softWidth <= 0.5f)
+        {
+            continue;
+        }
+
+        for (int segmentIndex = 0; segmentIndex < kSoftBandSegments; ++segmentIndex)
+        {
+            const float t0 = static_cast<float>(segmentIndex) / static_cast<float>(kSoftBandSegments);
+            const float t1 = static_cast<float>(segmentIndex + 1) / static_cast<float>(kSoftBandSegments);
+            const float dx0 = innerDx + softWidth * t0;
+            const float dx1 = innerDx + softWidth * t1;
+            const float dxMid = (dx0 + dx1) * 0.5f;
+            const float radiusAtMid = std::sqrt(dxMid * dxMid + dy * dy);
+            const float normalized = Clamp01((radiusAtMid - innerRadius) / (outerRadius - innerRadius));
+            const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
+            const float edgeWeighted = eased * eased;
+            const int alpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha)));
+            if (alpha <= 0)
+            {
+                continue;
+            }
+
+            drawDarkRect(lightCenterX - dx1, static_cast<float>(bandTop), lightCenterX - dx0, static_cast<float>(bandBottom), alpha);
+            drawDarkRect(lightCenterX + dx0, static_cast<float>(bandTop), lightCenterX + dx1, static_cast<float>(bandBottom), alpha);
+        }
+    }
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+}
+
 void GameScene::DrawPitRestartOverlay() const
 {
     const bool hasPitFade = m_flow.pitRestartActive || m_flow.pitRestartFadeInTimer > 0.0f;

@@ -30,6 +30,16 @@ struct BarrelDebrisParticle
     float b = 1.0f;
 };
 
+struct CameraFlashState
+{
+    //bool unlocked = true;
+    //bool enabled = true;
+    bool unlocked = false;
+    bool enabled = false;
+    float pulseRemaining = 0.0f;
+    float pulseDuration = 0.0f;
+};
+
 struct GameSceneFlowState
 {
     bool playerTouchingTarget = false;
@@ -70,6 +80,7 @@ struct GameSceneFlowState
     float screenShakeDuration = 0.0f;
     float screenShakeAmplitude = 0.0f;
     float captureModeZoomBlend = 0.0f;
+    CameraFlashState cameraFlash;
     // HPバー演出用: 現在値表示と遅延表示を分離して減少演出を作る。
     float hpDisplayRatio = 1.0f;
     float hpDamageLagRatio = 1.0f;

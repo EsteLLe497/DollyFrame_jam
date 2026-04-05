@@ -12,6 +12,7 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr float kDevelopedPhotoPreviewSeconds = 4.2f;
+    constexpr float kUnlockedCameraFlashPulseSeconds = 0.28f;
 
     using OutlinePoint = CapturedPhotoItem::OutlinePoint;
 
@@ -164,6 +165,7 @@ namespace
 
         return PhotoPlacementRuleGroup::Group1;
     }
+
 }
 
 void PhotoCaptureSystem::HandleCapture(GameScene& scene)
@@ -188,6 +190,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     {
         return;
     }
+    const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
 
     float frameX = 0.0f;
     float frameY = 0.0f;
@@ -202,6 +205,12 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     CaptureTilesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
     if (scene.m_photo.capture.items.empty())
     {
+        if (flashEnabled)
+        {
+            scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
+            scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
+            scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
+        }
         return;
     }
 
@@ -497,8 +506,13 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     scene.m_photo.capture.tintA = scene.m_photo.capture.items.front().tintA;
     scene.StoreCapturedPhoto();
 
+    const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
-    scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
     scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
+    if (flashEnabled)
+    {
+        scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
+    }
+    scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
     scene.m_flow.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
 }

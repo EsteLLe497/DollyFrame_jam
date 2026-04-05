@@ -18,6 +18,22 @@ namespace
     constexpr float kFloorCameraHeight = 1080.0f;
     constexpr const char* kStageTransitionCsvPath = "assets/maps/stage_transitions.csv";
 
+    bool IsDarknessStageMapPath(const std::string& mapPath)
+    {
+        std::error_code ec;
+        std::filesystem::path path(mapPath);
+        std::string stem = path.stem().string();
+        std::transform(
+            stem.begin(),
+            stem.end(),
+            stem.begin(),
+            [](unsigned char ch)
+            {
+                return static_cast<char>(std::tolower(ch));
+            });
+        return stem == "under";
+    }
+
     std::string Trim(const std::string& value)
     {
         const size_t start = value.find_first_not_of(" \t\r\n");
@@ -158,6 +174,11 @@ namespace
         return root;
     }
 
+}
+
+void GameScene::RefreshStageRenderProfile()
+{
+    m_darknessStageEnabled = IsDarknessStageMapPath(gCurrentMapCsvPath);
 }
 
 void GameScene::BuildCameraMarkers()
@@ -368,7 +389,8 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionMapCsv.clear();
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
-    gCurrentMapCsvPath = "assets/maps/stages/forest.csv";
+    m_darknessStageEnabled = false;
+    gCurrentMapCsvPath = "assets/maps/stages/under.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;

@@ -1274,6 +1274,7 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
 {
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
     m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
+    m_flow.cameraFlash.pulseRemaining = std::max(0.0f, m_flow.cameraFlash.pulseRemaining - deltaTime);
     m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
     m_flow.stageTransitionFadeInTimer = std::max(0.0f, m_flow.stageTransitionFadeInTimer - deltaTime);
     const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;

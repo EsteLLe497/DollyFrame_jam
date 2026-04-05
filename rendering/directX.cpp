@@ -2,6 +2,8 @@
 
 #include "DxLib.h"
 
+#include <algorithm>
+
 int SCREEN_WIDTH = 1920;
 int SCREEN_HEIGHT = 1080;
 
@@ -18,8 +20,11 @@ namespace
     int g_lightBlurHPixelShader = -1;
     int g_postProcessPixelShader = -1;
     int g_postProcessConstantBuffer = -1;
+    int g_darknessOverlayPixelShader = -1;
+    int g_darknessOverlayConstantBuffer = -1;
     bool g_postProcessReady = false;
     bool g_postProcessEnabled = true;
+    DarknessOverlayParams g_darknessOverlayParams = {};
 
     struct PostProcessParams
     {
@@ -27,6 +32,28 @@ namespace
         float param1;
         float param2;
         float param3;
+    };
+
+    struct DarknessOverlayShaderParams
+    {
+        float screenWidth;
+        float screenHeight;
+        float pad0;
+        float pad1;
+        float viewLeft;
+        float viewTop;
+        float viewRight;
+        float viewBottom;
+        float darknessOpacity;
+        float lightCount;
+        float pad2;
+        float pad3;
+        float colorR;
+        float colorG;
+        float colorB;
+        float pad4;
+        float lightParams[kMaxDarknessOverlayLights * 4];
+        float lightIntensityPack[8];
     };
 
     void ReleasePostProcessResources()
@@ -55,6 +82,16 @@ namespace
         {
             DeleteShaderConstantBuffer(g_postProcessConstantBuffer);
             g_postProcessConstantBuffer = -1;
+        }
+        if (g_darknessOverlayPixelShader >= 0)
+        {
+            DeleteShader(g_darknessOverlayPixelShader);
+            g_darknessOverlayPixelShader = -1;
+        }
+        if (g_darknessOverlayConstantBuffer >= 0)
+        {
+            DeleteShaderConstantBuffer(g_darknessOverlayConstantBuffer);
+            g_darknessOverlayConstantBuffer = -1;
         }
         if (g_sceneRenderTarget >= 0)
         {
@@ -120,8 +157,20 @@ namespace
             return;
         }
 
-        g_postProcessConstantBuffer = CreateShaderConstantBuffer(16);
+        g_postProcessConstantBuffer = CreateShaderConstantBuffer(sizeof(PostProcessParams));
         if (g_postProcessConstantBuffer < 0)
+        {
+            return;
+        }
+
+        g_darknessOverlayPixelShader = LoadPixelShader("assets/shaders/darkness_overlay_ps.cso");
+        if (g_darknessOverlayPixelShader < 0)
+        {
+            return;
+        }
+
+        g_darknessOverlayConstantBuffer = CreateShaderConstantBuffer(sizeof(DarknessOverlayShaderParams));
+        if (g_darknessOverlayConstantBuffer < 0)
         {
             return;
         }
@@ -219,6 +268,7 @@ void Clear(void)
 
 void DirectXBeginSceneRender(void)
 {
+    DirectXResetDarknessOverlay();
     if (g_postProcessEnabled && g_postProcessReady && g_sceneRenderTarget >= 0)
     {
         SetDrawScreen(g_sceneRenderTarget);
@@ -344,6 +394,88 @@ void DirectXTogglePostProcess(void)
 bool DirectXIsPostProcessEnabled(void)
 {
     return g_postProcessEnabled;
+}
+
+bool DirectXHasDarknessOverlay(void)
+{
+    return g_darknessOverlayPixelShader >= 0 && g_darknessOverlayConstantBuffer >= 0;
+}
+
+void DirectXResetDarknessOverlay(void)
+{
+    g_darknessOverlayParams = {};
+}
+
+void DirectXSetDarknessOverlay(const DarknessOverlayParams& params)
+{
+    g_darknessOverlayParams = params;
+}
+
+void DirectXDrawDarknessOverlay(void)
+{
+    if (!g_darknessOverlayParams.enabled ||
+        g_darknessOverlayPixelShader < 0 ||
+        g_darknessOverlayConstantBuffer < 0)
+    {
+        return;
+    }
+
+    auto* buffer = static_cast<DarknessOverlayShaderParams*>(GetBufferShaderConstantBuffer(g_darknessOverlayConstantBuffer));
+    if (!buffer)
+    {
+        return;
+    }
+
+    buffer->screenWidth = static_cast<float>(SCREEN_WIDTH);
+    buffer->screenHeight = static_cast<float>(SCREEN_HEIGHT);
+    buffer->pad0 = 0.0f;
+    buffer->pad1 = 0.0f;
+    buffer->viewLeft = g_darknessOverlayParams.viewLeft;
+    buffer->viewTop = g_darknessOverlayParams.viewTop;
+    buffer->viewRight = g_darknessOverlayParams.viewRight;
+    buffer->viewBottom = g_darknessOverlayParams.viewBottom;
+    buffer->darknessOpacity = std::clamp(g_darknessOverlayParams.darknessOpacity, 0.0f, 1.0f);
+    buffer->lightCount = static_cast<float>(std::clamp(g_darknessOverlayParams.lightCount, 0, kMaxDarknessOverlayLights));
+    buffer->pad2 = 0.0f;
+    buffer->pad3 = 0.0f;
+    buffer->colorR = std::clamp(g_darknessOverlayParams.colorR, 0.0f, 1.0f);
+    buffer->colorG = std::clamp(g_darknessOverlayParams.colorG, 0.0f, 1.0f);
+    buffer->colorB = std::clamp(g_darknessOverlayParams.colorB, 0.0f, 1.0f);
+    buffer->pad4 = 0.0f;
+    for (int i = 0; i < kMaxDarknessOverlayLights * 4; ++i)
+    {
+        buffer->lightParams[i] = 0.0f;
+    }
+    for (int i = 0; i < 8; ++i)
+    {
+        buffer->lightIntensityPack[i] = 0.0f;
+    }
+
+    const int lightCount = std::clamp(g_darknessOverlayParams.lightCount, 0, kMaxDarknessOverlayLights);
+    for (int lightIndex = 0; lightIndex < lightCount; ++lightIndex)
+    {
+        const DarknessOverlayLight& light = g_darknessOverlayParams.lights[lightIndex];
+        const int baseIndex = lightIndex * 4;
+        buffer->lightParams[baseIndex + 0] = light.centerX;
+        buffer->lightParams[baseIndex + 1] = light.centerY;
+        buffer->lightParams[baseIndex + 2] = light.innerRadius;
+        buffer->lightParams[baseIndex + 3] = (std::max)(light.outerRadius, light.innerRadius + 0.001f);
+        buffer->lightIntensityPack[lightIndex] = std::clamp(light.intensity, 0.0f, 1.0f);
+    }
+    UpdateShaderConstantBuffer(g_darknessOverlayConstantBuffer);
+    SetShaderConstantBuffer(g_darknessOverlayConstantBuffer, DX_SHADERTYPE_PIXEL, 0);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+    SetUseTextureToShader(0, -1);
+    SetUseTextureToShader(1, -1);
+    SetUsePixelShader(g_darknessOverlayPixelShader);
+    SetUseVertexShader(-1);
+    DrawFullscreenCompositeQuad();
+
+    SetUsePixelShader(-1);
+    SetUseTextureToShader(0, -1);
+    SetUseTextureToShader(1, -1);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
 
 void Present(void)
