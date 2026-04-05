@@ -1,4 +1,5 @@
 #include "game_scene_internal.h"
+#include "game_scene_player_visual_system.h"
 #include "game_scene_world_interaction_system.h"
 
 #include <cctype>
@@ -263,6 +264,8 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     Entity* transitionedPlayer = FindEntityByTag(kTagPlayer);
     if (transitionedPlayer)
     {
+        game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(*transitionedPlayer);
+
         if (auto* transformed = transitionedPlayer->GetComponent<TransformComponent>())
         {
             if (spawnMarker != '\0')

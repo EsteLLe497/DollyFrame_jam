@@ -111,6 +111,7 @@ private:
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();
+    void ToggleEscapeMenuBgm();
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);
     void UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime);
@@ -163,10 +164,11 @@ private:
     void DrawBackdropBaseInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const;
     void DrawBackdropGridInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const;
     void DrawBackdropFrameInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight) const;
+    void DrawCameraWorldInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
-    void DrawStageGuideInView(float viewOriginX, float viewOriginY) const;
-    void DrawPhotoFilterPanelInView(float viewOriginX, float viewOriginY) const;
+    void DrawStageGuideInView() const;
+    void DrawPhotoFilterPanelInView() const;
     bool IsPhotoTrayHit(float screenX, float screenY) const;
     void GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const;
     Entity* FindCaptureTarget(const TransformComponent& playerTransform) const;

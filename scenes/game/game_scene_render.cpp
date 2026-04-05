@@ -1011,6 +1011,56 @@ void GameScene::DrawEntity(const Entity& entity) const
         alphaMultiplier = Clamp01(lifetime->GetRemainingSeconds() / totalLifetime);
     }
 
+    const auto* pasteAnimation = entity.GetComponent<PhotoPasteAnimationComponent>();
+    if (pasteAnimation && !pasteAnimation->IsFinished())
+    {
+        const float progress = pasteAnimation->GetNormalizedProgress();
+        const float settleT = EaseOutBack(progress);
+        const float slamT = EaseOutCubic(progress);
+        const float stickT = m_debug.effectPasteStickEnabled ? Clamp01(1.0f - progress / 0.085f) : 0.0f;
+        const float stickEase = stickT * stickT * (3.0f - 2.0f * stickT);
+        const float animationScale = 0.82f + 0.18f * settleT;
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float bottomY = drawY + drawHeight;
+        const float animatedWidth = drawWidth * animationScale * (1.0f + 0.18f * stickEase);
+        const float animatedHeight = drawHeight * (1.12f - 0.12f * slamT) * (1.0f - 0.14f * stickEase);
+        drawX = centerX - animatedWidth * 0.5f;
+        drawY = bottomY - animatedHeight - (1.0f - slamT) * 18.0f * viewScale + stickEase * 5.0f * viewScale;
+        drawWidth = animatedWidth;
+        drawHeight = animatedHeight;
+        alphaMultiplier *= 0.45f + 0.55f * slamT;
+        Shader_SetFlash(1.0f, 0.98f, 0.92f, 1.0f, (1.0f - progress) * 0.28f);
+
+        float effectR = 0.32f;
+        float effectG = 0.92f;
+        float effectB = 1.0f;
+        if (const auto* effect = entity.GetComponent<PhotoCopyEffectComponent>())
+        {
+            GetPhotoFilterThemeOverlayColor(effect->GetTheme(), effectR, effectG, effectB);
+        }
+        else
+        {
+            GetPhotoFilterThemeOverlayColor(PhotoFilterTheme::None, effectR, effectG, effectB);
+        }
+
+        const float stampAlpha = (1.0f - slamT) * 0.22f;
+        if (stampAlpha > 0.001f)
+        {
+            Shader_ResetStyle();
+            Shader_SetTint(effectR, effectG, effectB, stampAlpha);
+            SpriteDraw(
+                m_whiteTexture,
+                drawX - 8.0f * viewScale,
+                drawY - 8.0f * viewScale,
+                drawWidth + 16.0f * viewScale,
+                drawHeight + 16.0f * viewScale,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f);
+        }
+    }
+
     const auto* tag = entity.GetComponent<TagComponent>();
     if (tag && HasTag(tag, kTagGoal))
     {
@@ -1057,55 +1107,6 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
     else if (tag && HasTag(tag, kTagPhotoBox))
     {
-        if (const auto* pasteAnimation = entity.GetComponent<PhotoPasteAnimationComponent>())
-        {
-            const float progress = pasteAnimation->GetNormalizedProgress();
-            const float settleT = EaseOutBack(progress);
-            const float slamT = EaseOutCubic(progress);
-            const float animationScale = 0.82f + 0.18f * settleT;
-            const float stickT = m_debug.effectPasteStickEnabled ? Clamp01(1.0f - progress / 0.085f) : 0.0f;
-            const float stickEase = stickT * stickT * (3.0f - 2.0f * stickT);
-            const float centerX = drawX + drawWidth * 0.5f;
-            const float bottomY = drawY + drawHeight;
-            const float animatedWidth = drawWidth * animationScale * (1.0f + 0.18f * stickEase);
-            const float animatedHeight = drawHeight * (1.12f - 0.12f * slamT) * (1.0f - 0.14f * stickEase);
-            drawX = centerX - animatedWidth * 0.5f;
-            drawY = bottomY - animatedHeight - (1.0f - slamT) * 18.0f * viewScale + stickEase * 5.0f * viewScale;
-            drawWidth = animatedWidth;
-            drawHeight = animatedHeight;
-            alphaMultiplier *= 0.45f + 0.55f * slamT;
-            Shader_SetFlash(1.0f, 0.98f, 0.92f, 1.0f, (1.0f - progress) * 0.28f);
-
-            float effectR = 0.32f;
-            float effectG = 0.92f;
-            float effectB = 1.0f;
-            if (const auto* effect = entity.GetComponent<PhotoCopyEffectComponent>())
-            {
-                GetPhotoFilterThemeOverlayColor(effect->GetTheme(), effectR, effectG, effectB);
-            }
-            else
-            {
-                GetPhotoFilterThemeOverlayColor(PhotoFilterTheme::None, effectR, effectG, effectB);
-            }
-
-            const float stampAlpha = (1.0f - slamT) * 0.22f;
-            if (stampAlpha > 0.001f)
-            {
-                Shader_ResetStyle();
-                Shader_SetTint(effectR, effectG, effectB, stampAlpha);
-                SpriteDraw(
-                    m_whiteTexture,
-                    drawX - 8.0f * viewScale,
-                    drawY - 8.0f * viewScale,
-                    drawWidth + 16.0f * viewScale,
-                    drawHeight + 16.0f * viewScale,
-                    0.0f,
-                    0.0f,
-                    1.0f,
-                    1.0f);
-            }
-        }
-
         const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
         const auto* photoOrigin = entity.GetComponent<PhotoCopyOriginComponent>();
         const auto* tint = entity.GetComponent<TintComponent>();

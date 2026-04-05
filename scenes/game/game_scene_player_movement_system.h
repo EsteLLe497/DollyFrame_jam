@@ -457,15 +457,18 @@ inline void UpdateCamera(
     float playerY,
     float playerWidth,
     float playerHeight,
+    float cameraVisibleWidth,
+    float cameraVisibleHeight,
     float mapWidth,
     float mapHeight,
+    float cameraYOffsetY,
     float deltaTime,
     bool followY)
 {
     const float targetX = std::clamp(
-        playerX + playerWidth * 0.5f - gCameraViewWidth * 0.5f,
+        playerX + playerWidth * 0.5f - cameraVisibleWidth * 0.5f,
         0.0f,
-        std::max(0.0f, mapWidth - gCameraViewWidth));
+        std::max(0.0f, mapWidth - cameraVisibleWidth));
     const float followX = std::clamp(gCameraFollowSpeedX * deltaTime, 0.0f, 1.0f);
     cameraX += (targetX - cameraX) * followX;
 
@@ -476,10 +479,13 @@ inline void UpdateCamera(
     }
 
     const float targetY = std::clamp(
-        playerY + playerHeight * 0.5f - gCameraViewHeight * 0.5f,
+        playerY + playerHeight * 0.5f - cameraVisibleHeight * 0.5f + cameraYOffsetY,
         0.0f,
-        std::max(0.0f, mapHeight - gCameraViewHeight));
-    const float followYRate = std::clamp(gCameraFollowSpeedY * deltaTime, 0.0f, 1.0f);
+        std::max(0.0f, mapHeight - cameraVisibleHeight));
+    // Downward follow tends to feel laggy, so apply a stronger rate only when camera moves down.
+    const bool movingCameraDown = targetY > cameraY;
+    const float downFollowBoost = movingCameraDown ? 1.8f : 1.0f;
+    const float followYRate = std::clamp(gCameraFollowSpeedY * downFollowBoost * deltaTime, 0.0f, 1.0f);
     cameraY += (targetY - cameraY) * followYRate;
 }
 }

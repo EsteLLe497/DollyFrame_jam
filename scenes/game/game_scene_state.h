@@ -108,6 +108,8 @@ struct GameSceneDebugState
     bool effectPlacementPulseEnabled = true;
     bool effectPasteStickEnabled = true;
     bool effectPasteRingEnabled = true;
+    bool bgmEnabled = true;
+    float bgmRestoreVolume = 0.6f;
     int tuningSelection = 0;
     float tuningReloadTimer = 0.0f;
     std::filesystem::file_time_type tuningFileWriteTime{};

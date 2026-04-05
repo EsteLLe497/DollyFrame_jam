@@ -5,3 +5,4 @@ assets/maps/stage01_1.csv,A,assets/maps/stages/stage_a.csv,P
 assets/maps/stage01_1.csv,Z,assets/maps/boss/boss_a.csv,P
 assets/maps/stages/stage_a.csv,X,assets/maps/stage01_1.csv,P
 assets/maps/boss/boss_a.csv,X,assets/maps/stage01_1.csv,P
+assets/maps/stages/forest.csv,J,assets/maps/stages/forest_boss.csv,P

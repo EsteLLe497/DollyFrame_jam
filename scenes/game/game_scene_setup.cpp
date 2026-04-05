@@ -41,6 +41,12 @@ namespace
         return parts;
     }
 
+    bool IsEnemySpawnMarker(char marker)
+    {
+        const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+        return upper == 'W' || upper == 'R' || upper == 'N';
+    }
+
     void LoadStageTransitionLinks()
     {
         gStageTransitionLinks.clear();
@@ -85,6 +91,19 @@ namespace
 
             if (link.marker == '\0' || link.destinationMapCsv.empty())
             {
+                continue;
+            }
+            if (IsEnemySpawnMarker(link.marker))
+            {
+                std::ostringstream warning;
+                warning
+                    << "Stage transition marker '" << link.marker
+                    << "' is reserved for enemy spawn. source='"
+                    << link.sourceMapCsv
+                    << "' destination='"
+                    << link.destinationMapCsv
+                    << "'";
+                Logger::Warn(warning.str());
                 continue;
             }
 
@@ -248,7 +267,7 @@ void GameScene::BuildCameraMarkers()
         const float endCenterX = end.x + tileSize * 0.5f;
         const float segmentCenterX = (startCenterX + endCenterX) * 0.5f;
         const float snappedCameraX = segmentCenterX - gCameraViewWidth * 0.5f;
-        const float snappedCameraY = std::floor(start.y / kFloorCameraHeight) * kFloorCameraHeight;
+        const float snappedCameraY = std::floor(start.y / kFloorCameraHeight) * kFloorCameraHeight + tileSize * 4.0f;
         range.cameraX = std::clamp(snappedCameraX, 0.0f, maxCameraX);
         range.cameraY = std::clamp(snappedCameraY, 0.0f, maxCameraY);
         m_cameraFixedRanges.push_back(range);
@@ -258,6 +277,9 @@ void GameScene::BuildCameraMarkers()
 
 namespace game_scene_detail
 {
+    constexpr float kDefaultCameraViewWidth = 1920.0f;
+    constexpr float kDefaultCameraViewHeight = 1080.0f;
+
     void WriteTuningJsonFile()
     {
         std::ofstream stream(kTuningFilePath, std::ios::binary | std::ios::trunc);
@@ -371,6 +393,8 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
     m_tileMap.LoadFromCsv(gCurrentMapCsvPath, 48.0f);
+    gCameraViewWidth = kDefaultCameraViewWidth;
+    gCameraViewHeight = kDefaultCameraViewHeight;
     m_eventBus.Clear();
     m_physicsWorld.Initialize(0.0f, 0.0f, m_eventBus);
 }
