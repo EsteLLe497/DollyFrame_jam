@@ -378,6 +378,30 @@ void GameScene::DrawStageDarknessOverlay() const
 
     const float lightCenterX = viewOriginX + (lightCenterWorldX - m_flow.cameraX) * viewScale;
     const float lightCenterY = viewOriginY + (lightCenterWorldY - m_flow.cameraY) * viewScale - 16.0f * viewScale;
+
+    if (DirectXHasDarknessOverlay())
+    {
+        DarknessOverlayParams params;
+        params.enabled = true;
+        params.lightCount = 1;
+        params.lights[0].centerX = lightCenterX;
+        params.lights[0].centerY = lightCenterY;
+        params.lights[0].innerRadius = innerRadius;
+        params.lights[0].outerRadius = outerRadius;
+        params.lights[0].intensity = 1.0f;
+        params.darknessOpacity = static_cast<float>(maxDarknessAlpha) / 255.0f;
+        params.viewLeft = static_cast<float>(left);
+        params.viewTop = static_cast<float>(top);
+        params.viewRight = static_cast<float>(right);
+        params.viewBottom = static_cast<float>(bottom);
+        params.colorR = static_cast<float>(kDarkColorR) / 255.0f;
+        params.colorG = static_cast<float>(kDarkColorG) / 255.0f;
+        params.colorB = static_cast<float>(kDarkColorB) / 255.0f;
+        DirectXSetDarknessOverlay(params);
+        DirectXDrawDarknessOverlay();
+        return;
+    }
+
     const float outerRadiusSq = outerRadius * outerRadius;
     const float innerRadiusSq = innerRadius * innerRadius;
     constexpr int kStripeHeight = 2;
