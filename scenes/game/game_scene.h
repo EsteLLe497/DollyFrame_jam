@@ -57,6 +57,7 @@ private:
 
     void ResetSceneState();
     void LoadTuningState();
+    void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
     void BuildCameraMarkers();
@@ -114,6 +115,7 @@ private:
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);
     void UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime);
+    void StartCameraFlashPulse(float durationSeconds);
     void RunGameplayFrame(float gameplayDeltaTime);
     void HandleEnemyPlayerCollisions(Entity& player);
     void HandleAttackHits();
@@ -146,6 +148,7 @@ private:
     void UpdateTuningPanel();
     void DrawTuningPanel();
     void DrawPitRestartOverlay() const;
+    void DrawStageDarknessOverlay() const;
     void DrawEffects() const;
     void DrawEnemyAttackRects() const;
     void DrawCaptureOverlay() const;
@@ -242,4 +245,5 @@ private:
     std::string m_pendingStageTransitionMapCsv;
     char m_pendingStageTransitionSpawnMarker = '\0';
     char m_pendingStageTransitionMarker = '\0';
+    bool m_darknessStageEnabled = false;
 };

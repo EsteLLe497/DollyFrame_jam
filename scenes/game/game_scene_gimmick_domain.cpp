@@ -219,6 +219,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     const GameSessionState session = GameSession_Get();
     gCurrentMapCsvPath = destinationMapCsv;
     gLastStageTransitionMarker = marker;
+    RefreshStageRenderProfile();
 
     m_entities.clear();
     m_pendingEntities.clear();
