@@ -29,10 +29,11 @@ std::string Trim(const std::string& value)
     return value.substr(start, end - start + 1);
 }
 
-bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker)
+bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker, int& outMarkerParameter)
 {
     outTileValue = 0;
     outMarker = '\0';
+    outMarkerParameter = 0;
     if (cell.empty())
     {
         return true;
@@ -71,13 +72,35 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker)
         return true;
     }
 
-    const auto tryParseMarker = [&](const std::string& token, char& outValue) -> bool
+    const auto tryParseMarker = [&](const std::string& token, char& outValue, int& outParameter) -> bool
     {
-        if (token.size() != 1)
+        if (token.empty())
         {
             return false;
         }
-        outValue = static_cast<char>(std::toupper(static_cast<unsigned char>(token[0])));
+
+        const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(token[0])));
+        if (!std::isalpha(static_cast<unsigned char>(marker)))
+        {
+            return false;
+        }
+
+        int parameter = 0;
+        if (token.size() > 1)
+        {
+            const std::string parameterToken = token.substr(1);
+            const auto parseResult = std::from_chars(
+                parameterToken.data(),
+                parameterToken.data() + parameterToken.size(),
+                parameter);
+            if (parseResult.ec != std::errc() || parseResult.ptr != parameterToken.data() + parameterToken.size())
+            {
+                return false;
+            }
+        }
+
+        outValue = marker;
+        outParameter = parameter;
         return true;
     };
 
@@ -87,16 +110,19 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker)
         const std::string right = Trim(rightToken);
         int tileValue = 0;
         char markerValue = '\0';
-        if (tryParseTileValue(left, tileValue) && tryParseMarker(right, markerValue))
+        int markerParameter = 0;
+        if (tryParseTileValue(left, tileValue) && tryParseMarker(right, markerValue, markerParameter))
         {
             outTileValue = tileValue;
             outMarker = markerValue;
+            outMarkerParameter = markerParameter;
             return true;
         }
-        if (tryParseMarker(left, markerValue) && tryParseTileValue(right, tileValue))
+        if (tryParseMarker(left, markerValue, markerParameter) && tryParseTileValue(right, tileValue))
         {
             outTileValue = tileValue;
             outMarker = markerValue;
+            outMarkerParameter = markerParameter;
             return true;
         }
         return false;
@@ -148,18 +174,46 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker)
         return true;
     }
 
+    int markerParameter = 0;
+    if (tryParseMarker(cell, outMarker, markerParameter))
+    {
+        outMarkerParameter = markerParameter;
+        return true;
+    }
+
     return false;
 }
 
-std::string FormatCsvCell(int tileValue, char marker)
+std::string FormatCsvCell(int tileValue, char marker, int markerParameter)
 {
+    constexpr int kCsvCellVisualWidth = 2;
+
+    auto padCell = [](std::string value)
+    {
+        if (static_cast<int>(value.size()) < kCsvCellVisualWidth)
+        {
+            value.insert(value.begin(), static_cast<size_t>(kCsvCellVisualWidth - static_cast<int>(value.size())), ' ');
+        }
+        return value;
+    };
+
     if (marker == '\0')
     {
-        return std::to_string(tileValue);
+        return padCell(std::to_string(tileValue));
     }
 
     std::string markerText(1, static_cast<char>(std::toupper(static_cast<unsigned char>(marker))));
-    return std::to_string(tileValue) + "|" + markerText;
+    if (markerParameter > 0)
+    {
+        markerText += std::to_string(markerParameter);
+    }
+
+    if (tileValue == 0)
+    {
+        return padCell(markerText);
+    }
+
+    return padCell(std::to_string(tileValue) + "|" + markerText);
 }
 
 void GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
@@ -243,6 +297,7 @@ public:
 
         std::vector<std::vector<int>> rows;
         std::vector<std::vector<char>> markerRows;
+        std::vector<std::vector<int>> markerParameterRows;
         std::string line;
         while (std::getline(stream, line))
         {
@@ -254,6 +309,7 @@ public:
 
             std::vector<int> rowValues;
             std::vector<char> markerValues;
+            std::vector<int> markerParameterValues;
             std::stringstream lineStream(trimmedLine);
             std::string cell;
             while (std::getline(lineStream, cell, ','))
@@ -263,24 +319,29 @@ public:
                 {
                     rowValues.push_back(0);
                     markerValues.push_back('\0');
+                    markerParameterValues.push_back(0);
                     continue;
                 }
 
                 int parsedValue = 0;
                 char parsedMarker = '\0';
-                if (!ParseCsvCell(trimmedCell, parsedValue, parsedMarker))
+                int parsedMarkerParameter = 0;
+                if (!ParseCsvCell(trimmedCell, parsedValue, parsedMarker, parsedMarkerParameter))
                 {
                     parsedValue = 0;
                     parsedMarker = '\0';
+                    parsedMarkerParameter = 0;
                 }
                 rowValues.push_back(parsedValue);
                 markerValues.push_back(parsedMarker);
+                markerParameterValues.push_back(parsedMarkerParameter);
             }
 
             if (!rowValues.empty())
             {
                 rows.push_back(std::move(rowValues));
                 markerRows.push_back(std::move(markerValues));
+                markerParameterRows.push_back(std::move(markerParameterValues));
             }
         }
 
@@ -297,6 +358,7 @@ public:
         outData.height = static_cast<int>(rows.size());
         outData.tiles.assign(static_cast<size_t>(outData.width * outData.height), 0);
         outData.markers.assign(static_cast<size_t>(outData.width * outData.height), '\0');
+        outData.markerParameters.assign(static_cast<size_t>(outData.width * outData.height), 0);
 
         for (int row = 0; row < outData.height; ++row)
         {
@@ -304,6 +366,7 @@ public:
             {
                 outData.tiles[static_cast<size_t>(row * outData.width + column)] = rows[row][column];
                 outData.markers[static_cast<size_t>(row * outData.width + column)] = markerRows[row][column];
+                outData.markerParameters[static_cast<size_t>(row * outData.width + column)] = markerParameterRows[row][column];
             }
         }
 
@@ -442,7 +505,10 @@ bool TileMap::SaveToCsv(const std::string& path) const
             const char marker = m_data.markers.empty()
                 ? '\0'
                 : m_data.markers[static_cast<size_t>(row * m_data.width + column)];
-            stream << FormatCsvCell(tileValue, marker);
+            const int markerParameter = m_data.markerParameters.empty()
+                ? 0
+                : m_data.markerParameters[static_cast<size_t>(row * m_data.width + column)];
+            stream << FormatCsvCell(tileValue, marker, markerParameter);
         }
         if (row + 1 < m_data.height)
         {
@@ -509,6 +575,21 @@ char TileMap::GetMarker(int column, int row) const
     return m_data.markers[static_cast<size_t>(row * m_data.width + column)];
 }
 
+int TileMap::GetMarkerParameter(int column, int row) const
+{
+    if (column < 0 || row < 0 || column >= m_data.width || row >= m_data.height)
+    {
+        return 0;
+    }
+
+    if (m_data.markerParameters.empty())
+    {
+        return 0;
+    }
+
+    return m_data.markerParameters[static_cast<size_t>(row * m_data.width + column)];
+}
+
 bool TileMap::SetTile(int column, int row, int tileValue)
 {
     if (column < 0 || row < 0 || column >= m_data.width || row >= m_data.height)
@@ -531,11 +612,16 @@ bool TileMap::SetMarker(int column, int row, char markerValue)
     {
         m_data.markers.assign(static_cast<size_t>(m_data.width * m_data.height), '\0');
     }
+    if (m_data.markerParameters.empty())
+    {
+        m_data.markerParameters.assign(static_cast<size_t>(m_data.width * m_data.height), 0);
+    }
 
     m_data.markers[static_cast<size_t>(row * m_data.width + column)] =
         markerValue == '\0'
         ? '\0'
         : static_cast<char>(std::toupper(static_cast<unsigned char>(markerValue)));
+    m_data.markerParameters[static_cast<size_t>(row * m_data.width + column)] = 0;
     return true;
 }
 

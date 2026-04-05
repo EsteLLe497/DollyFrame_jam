@@ -904,8 +904,22 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
         return;
     }
 
-    std::vector<std::pair<float, float>> switchMarkers;
-    std::vector<std::pair<float, float>> elevatorMarkers;
+    struct SwitchMarker
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        int requiredBatteryCount = 1;
+    };
+
+    struct ElevatorMarker
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        int moveRangeTiles = 3;
+    };
+
+    std::vector<SwitchMarker> switchMarkers;
+    std::vector<ElevatorMarker> elevatorMarkers;
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -915,11 +929,18 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
             const float markerY = static_cast<float>(row) * tileSize;
             if (marker == 'K')
             {
-                switchMarkers.emplace_back(markerX, markerY + tileSize * 0.5f);
+                switchMarkers.push_back(SwitchMarker{
+                    markerX,
+                    markerY + tileSize * 0.5f,
+                    (std::max)(1, m_tileMap.GetMarkerParameter(column, row)) });
             }
             else if (marker == 'L')
             {
-                elevatorMarkers.emplace_back(markerX, markerY);
+                const int markerParameter = m_tileMap.GetMarkerParameter(column, row);
+                elevatorMarkers.push_back(ElevatorMarker{
+                    markerX,
+                    markerY,
+                    markerParameter > 0 ? markerParameter : 3 });
             }
         }
     }
@@ -929,18 +950,19 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
     {
         if (index < static_cast<int>(switchMarkers.size()))
         {
+            const SwitchMarker& switchMarker = switchMarkers[static_cast<size_t>(index)];
             auto switchEntity = std::make_unique<Entity>();
             switchEntity->AddComponent<TagComponent>(kTagBatterySwitch);
             switchEntity->AddComponent<TransformComponent>(
-                switchMarkers[static_cast<size_t>(index)].first,
-                switchMarkers[static_cast<size_t>(index)].second,
-                tileSize,
+                switchMarker.x,
+                switchMarker.y,
+                tileSize * 3.0f,
                 tileSize * 0.5f);
             switchEntity->AddComponent<TintComponent>(0.92f, 0.26f, 0.20f, 1.0f);
             switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
             switchEntity->AddComponent<BatterySwitchComponent>(
                 index,
-                1,
+                switchMarker.requiredBatteryCount,
                 tileSize * 0.22f,
                 12.0f,
                 9.0f);
@@ -949,18 +971,19 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
 
         if (index < static_cast<int>(elevatorMarkers.size()))
         {
+            const ElevatorMarker& elevatorMarker = elevatorMarkers[static_cast<size_t>(index)];
             auto elevatorEntity = std::make_unique<Entity>();
             elevatorEntity->AddComponent<TagComponent>(kTagElevator);
             elevatorEntity->AddComponent<TransformComponent>(
-                elevatorMarkers[static_cast<size_t>(index)].first,
-                elevatorMarkers[static_cast<size_t>(index)].second,
+                elevatorMarker.x,
+                elevatorMarker.y,
                 tileSize * 5.0f,
                 tileSize);
             elevatorEntity->AddComponent<TintComponent>(0.42f, 0.46f, 0.52f, 1.0f);
             elevatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
             elevatorEntity->AddComponent<ElevatorComponent>(
                 index,
-                tileSize * 3.0f,
+                tileSize * static_cast<float>(elevatorMarker.moveRangeTiles),
                 tileSize * 2.5f,
                 1.0f);
             m_entities.push_back(std::move(elevatorEntity));

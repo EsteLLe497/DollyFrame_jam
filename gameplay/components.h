@@ -200,6 +200,8 @@ public:
     bool cycleStarted = false;
     bool movingUp = true;
     float pauseTimer = 0.0f;
+    bool wasPlayerTouching = false;
+    bool wasPowered = false;
 };
 
 class TransformComponent final : public Component
