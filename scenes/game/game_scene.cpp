@@ -133,6 +133,7 @@ void GameScene::Draw()
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
     DrawPastedEntitiesFront();
     DrawPhotoPlacementPreview();
+    DrawStageDarknessOverlay();
     DrawCaptureOverlay();
     DrawPhotoStorageTray();
     DrawDevelopedPhotoPreview();

@@ -1673,6 +1673,17 @@ void GameScene::HandlePhotoSpawn()
     photo_system::HandleSpawn(*this);
 }
 
+void GameScene::StartCameraFlashPulse(float durationSeconds)
+{
+    if (durationSeconds <= 0.0f)
+    {
+        return;
+    }
+
+    m_flow.cameraFlash.pulseDuration = (std::max)(m_flow.cameraFlash.pulseDuration, durationSeconds);
+    m_flow.cameraFlash.pulseRemaining = (std::max)(m_flow.cameraFlash.pulseRemaining, durationSeconds);
+}
+
 void GameScene::StoreCapturedPhoto()
 {
     CommitPendingCapturedPhoto();
