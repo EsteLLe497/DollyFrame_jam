@@ -13,6 +13,7 @@ enum class CapturedSpawnArchetype
     Barrel,
     Battery,
     Projectile,
+    LaserTurret,
 };
 
 enum class PhotoPlacementRuleGroup

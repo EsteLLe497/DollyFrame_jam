@@ -34,6 +34,9 @@ namespace
         case 'I': return { 188, 108, 255 };
         case 'K': return { 250, 112, 96 };
         case 'L': return { 140, 186, 230 };
+        case 'J': return { 154, 162, 178 };
+        case 'O': return { 255, 214, 72 };
+        case 'U': return { 255, 104, 104 };
         case 'G': return { 255, 235, 128 };
         case 'T': return { 122, 230, 255 };
         case 'E': return { 180, 255, 196 };
@@ -1610,7 +1613,13 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     float bestDistance = 1000000.0f;
     for (const auto& entity : m_entities)
     {
-        if (HasTag(*entity, kTagPlayer) || HasTag(*entity, kTagEnemy))
+        if (HasTag(*entity, kTagPlayer) ||
+            HasTag(*entity, kTagEnemy) ||
+            HasTag(*entity, kTagBatterySwitch) ||
+            HasTag(*entity, kTagElevator) ||
+            HasTag(*entity, kTagLaserSwitch) ||
+            HasTag(*entity, kTagShutter) ||
+            HasTag(*entity, kTagLaserBeam))
         {
             continue;
         }

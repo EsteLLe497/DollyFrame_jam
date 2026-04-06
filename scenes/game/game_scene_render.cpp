@@ -978,6 +978,29 @@ void GameScene::DrawEffects() const
             particle.rotation);
     }
 
+
+    for (const auto& spark : m_effects.laserSparks)
+    {
+        const float lifeT = Clamp01(spark.life / std::max(0.001f, spark.maxLife));
+        const float size = (2.0f + 3.0f * lifeT) * viewScale;
+        const float drawX = viewOriginX + (spark.x - m_flow.cameraX) * viewScale;
+        const float drawY = viewOriginY + (spark.y - m_flow.cameraY) * viewScale;
+        Shader_ResetStyle();
+        Shader_SetTint(1.0f, 0.76f, 0.28f, lifeT);
+        SpriteDraw(
+            m_whiteTexture,
+            drawX - size * 0.5f,
+            drawY - size * 0.5f,
+            size,
+            size,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f,
+            false,
+            0.0f);
+    }
+
     Shader_ResetStyle();
 }
 
@@ -1140,6 +1163,52 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
 
 
+    else if (tag && HasTag(tag, kTagLaserSwitch))
+    {
+        const int baseColor = GetColor(236, 204, 46);
+        const int borderColor = GetColor(168, 132, 24);
+        const int textColor = GetColor(48, 42, 18);
+        const int left = static_cast<int>(std::round(drawX));
+        const int top = static_cast<int>(std::round(drawY));
+        const int right = static_cast<int>(std::round(drawX + drawWidth));
+        const int bottom = static_cast<int>(std::round(drawY + drawHeight));
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(220.0f * alphaMultiplier)));
+        DrawBox(left, top, right, bottom, baseColor, TRUE);
+        DrawBox(left, top, right, bottom, borderColor, FALSE);
+
+        const int centerX = static_cast<int>(std::round(drawX + drawWidth * 0.5f));
+        const int topY = static_cast<int>(std::round(drawY + drawHeight * 0.24f));
+        const int bottomY = static_cast<int>(std::round(drawY + drawHeight * 0.62f));
+        DrawString(centerX - 4, topY, "L", textColor);
+        DrawString(centerX - 4, bottomY, "S", textColor);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        Shader_ResetStyle();
+        return;
+    }
+
+
+    else if (tag && HasTag(tag, kTagLaserBeam))
+    {
+        const int outerColor = GetColor(255, 86, 86);
+        const int coreColor = GetColor(255, 224, 196);
+        const int outerLeft = static_cast<int>(std::round(drawX));
+        const int outerTop = static_cast<int>(std::round(drawY));
+        const int outerRight = static_cast<int>(std::round(drawX + drawWidth));
+        const int outerBottom = static_cast<int>(std::round(drawY + drawHeight));
+        const float coreInsetY = drawHeight * 0.28f;
+        const int coreTop = static_cast<int>(std::round(drawY + coreInsetY));
+        const int coreBottom = static_cast<int>(std::round(drawY + drawHeight - coreInsetY));
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(196.0f * alphaMultiplier)));
+        DrawBox(outerLeft, outerTop, outerRight, outerBottom, outerColor, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(238.0f * alphaMultiplier)));
+        DrawBox(outerLeft, coreTop, outerRight, coreBottom, coreColor, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        Shader_ResetStyle();
+        return;
+    }
+
+
     else if (tag && HasTag(tag, kTagPlayer))
     {
         DrawPlayerAfterimages(
@@ -1288,7 +1357,7 @@ void GameScene::DrawEnemyAttackRects() const
     {
         if (!entity) continue;
 
-        // WalkerUŒ‚”»’è
+        // Walkerï¿½Uï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         const auto* enemy = entity->GetComponent<EnemyComponent>();
         if (enemy && enemy->attackRectActive)
         {
@@ -1301,7 +1370,7 @@ void GameScene::DrawEnemyAttackRects() const
                 GetColor(255, 80, 80), TRUE);
         }
 
-        // ’†ƒ{ƒXUŒ‚”»’è
+        // ï¿½ï¿½ï¿½{ï¿½Xï¿½Uï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         const auto* boss = entity->GetComponent<ShieldBossComponent>();
         if (boss && boss->attackRectActive)
         {
@@ -1312,10 +1381,10 @@ void GameScene::DrawEnemyAttackRects() const
 
             const unsigned int color =
                 boss->state == ShieldBossState::Rush
-                ? GetColor(255, 80, 80)    // “Ëi‚ÍƒIƒŒƒ“ƒW
+                ? GetColor(255, 80, 80)    // ï¿½Ëiï¿½ÍƒIï¿½ï¿½ï¿½ï¿½ï¿½W
                 : boss->state == ShieldBossState::SlamPhase1
-                ? GetColor(255, 140, 0)    // ”»’è‡@‚ÍƒIƒŒƒ“ƒW
-                : GetColor(180, 0, 255);   // ”»’è‡A‚ÍŽ‡
+                ? GetColor(255, 140, 0)    // ï¿½ï¿½ï¿½ï¿½@ï¿½ÍƒIï¿½ï¿½ï¿½ï¿½ï¿½W
+                : GetColor(180, 0, 255);   // ï¿½ï¿½ï¿½ï¿½Aï¿½ÍŽï¿½
 
             DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH,
                 color, TRUE);

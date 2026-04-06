@@ -189,6 +189,13 @@ void GameScene::UpdateEffects(float deltaTime)
         particle.velocityY += kBarrelDebrisGravity * deltaTime;
         particle.rotation += particle.rotationSpeed * deltaTime;
     }
+    for (auto& spark : m_effects.laserSparks)
+    {
+        spark.life = std::max(0.0f, spark.life - deltaTime);
+        spark.x += spark.velocityX * deltaTime;
+        spark.y += spark.velocityY * deltaTime;
+        spark.velocityY += kBarrelDebrisGravity * deltaTime * 0.35f;
+    }
 
     m_effects.barrelDebris.erase(
         std::remove_if(
@@ -199,6 +206,15 @@ void GameScene::UpdateEffects(float deltaTime)
                 return particle.life <= 0.0f;
             }),
         m_effects.barrelDebris.end());
+    m_effects.laserSparks.erase(
+        std::remove_if(
+            m_effects.laserSparks.begin(),
+            m_effects.laserSparks.end(),
+            [](const LaserSparkParticle& spark)
+            {
+                return spark.life <= 0.0f;
+            }),
+        m_effects.laserSparks.end());
 }
 
 void GameScene::DrawDebugUI()

@@ -752,6 +752,7 @@ void GameScene::InitializeStageEntities()
     //SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", AlignToGrid(900.0f, tileSize), AlignToGrid(352.0f, tileSize));
 
     RefreshElevatorGimmicksFromMarkers();
+    RefreshLaserTurretsFromMarkers();
     BuildCameraMarkers();
 }
 

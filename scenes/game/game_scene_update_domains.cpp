@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 
 #include "prefab_factory.h"
@@ -35,7 +36,7 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr int kMarkerPresetCount = 17;
+    constexpr int kMarkerPresetCount = 20;
 
     int MarkerToPresetIndex(char marker)
     {
@@ -73,6 +74,12 @@ namespace
             return 15;
         case 'N':
             return 16;
+        case 'U':
+            return 17;
+        case 'J':
+            return 18;
+        case 'O':
+            return 19;
         default:
             return 0;
         }
@@ -114,6 +121,12 @@ namespace
             return 'L';
         case 16:
             return 'N';
+        case 17:
+            return 'U';
+        case 18:
+            return 'J';
+        case 19:
+            return 'O';
         default:
             return '\0';
         }
@@ -145,6 +158,17 @@ namespace
     {
         const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
         return normalized == 'H' || normalized == 'I';
+    }
+
+    bool IsLaserTurretMarker(char marker)
+    {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(marker))) == 'U';
+    }
+
+    bool IsShutterOrLaserSwitchMarker(char marker)
+    {
+        const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+        return normalized == 'J' || normalized == 'O';
     }
 
     std::string BuildEditorMapFilePath(const char* prefix)
@@ -543,6 +567,18 @@ void GameScene::UpdateMapEditorBrushSelection()
     {
         m_mapEditor.selectedMarker = 'L';
     }
+    if (Input_IsKeyPressed('J'))
+    {
+        m_mapEditor.selectedMarker = 'J';
+    }
+    if (Input_IsKeyPressed('O'))
+    {
+        m_mapEditor.selectedMarker = 'O';
+    }
+    if (Input_IsKeyPressed('U'))
+    {
+        m_mapEditor.selectedMarker = 'U';
+    }
 
     int markerIndex = MarkerToPresetIndex(m_mapEditor.selectedMarker);
     if (Input_IsKeyPressed('Q'))
@@ -684,6 +720,7 @@ void GameScene::RefreshMarkerDrivenSystems()
     RefreshEnemiesFromMarkers();
     RefreshBatteriesFromMarkers();
     RefreshLogsFromMarkers();
+    RefreshLaserTurretsFromMarkers();
     RefreshElevatorGimmicksFromMarkers();
     RefreshDamageFootholdsFromMarkers();
 }
@@ -708,6 +745,14 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     if (IsLogMarker(normalizedBefore) || IsLogMarker(normalizedAfter))
     {
         RefreshLogsFromMarkers();
+    }
+    if (IsShutterOrLaserSwitchMarker(normalizedBefore) || IsShutterOrLaserSwitchMarker(normalizedAfter))
+    {
+        RefreshElevatorGimmicksFromMarkers();
+    }
+    if (IsLaserTurretMarker(normalizedBefore) || IsLaserTurretMarker(normalizedAfter))
+    {
+        RefreshLaserTurretsFromMarkers();
     }
     if (IsElevatorMarker(normalizedBefore) || IsElevatorMarker(normalizedAfter))
     {
@@ -918,6 +963,68 @@ void GameScene::RefreshLogsFromMarkers()
     }
 }
 
+void GameScene::RefreshLaserTurretsFromMarkers()
+{
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity)
+                {
+                    return true;
+                }
+
+                return HasTag(*entity, kTagLaserTurret) || HasTag(*entity, kTagLaserBeam);
+            }),
+        m_entities.end());
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (marker != 'U')
+            {
+                continue;
+            }
+
+            const float turretX = static_cast<float>(column) * tileSize;
+            const float turretY = static_cast<float>(row) * tileSize;
+            const float turretWidth = tileSize * 3.0f;
+            const float turretHeight = tileSize;
+            const float beamHeight = tileSize * 0.2f;
+
+            auto turret = std::make_unique<Entity>();
+            turret->AddComponent<TagComponent>(kTagLaserTurret);
+            turret->AddComponent<TransformComponent>(turretX, turretY, turretWidth, turretHeight);
+            turret->AddComponent<TintComponent>(0.40f, 0.44f, 0.50f, 1.0f);
+            turret->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            turret->AddComponent<LaserTurretComponent>(beamHeight, 1.0f);
+            m_entities.push_back(std::move(turret));
+
+            auto beam = std::make_unique<Entity>();
+            beam->AddComponent<TagComponent>(kTagLaserBeam);
+            beam->AddComponent<TransformComponent>(
+                turretX + turretWidth,
+                turretY + (turretHeight - beamHeight) * 0.5f,
+                0.0f,
+                beamHeight);
+            beam->AddComponent<TintComponent>(1.0f, 0.24f, 0.24f, 0.86f);
+            beam->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            beam->AddComponent<LaserBeamComponent>();
+            m_entities.push_back(std::move(beam));
+        }
+    }
+}
+
 void GameScene::RefreshElevatorGimmicksFromMarkers()
 {
     m_entities.erase(
@@ -931,7 +1038,9 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
                     return true;
                 }
                 return entity->GetComponent<BatterySwitchComponent>() != nullptr ||
-                    entity->GetComponent<ElevatorComponent>() != nullptr;
+                    entity->GetComponent<ElevatorComponent>() != nullptr ||
+                    entity->GetComponent<LaserSwitchComponent>() != nullptr ||
+                    entity->GetComponent<ShutterComponent>() != nullptr;
             }),
         m_entities.end());
 
@@ -954,9 +1063,25 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
         float y = 0.0f;
         int moveRangeTiles = 3;
     };
+    struct LaserSwitchMarker
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        int linkIdOverride = -1;
+    };
+    struct ShutterMarker
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        int moveRangeTiles = 3;
+        int linkIdOverride = -1;
+        bool useBossDefeatSignal = false;
+    };
 
     std::vector<SwitchMarker> switchMarkers;
     std::vector<ElevatorMarker> elevatorMarkers;
+    std::vector<LaserSwitchMarker> laserSwitchMarkers;
+    std::vector<ShutterMarker> shutterMarkers;
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -978,6 +1103,38 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
                     markerX,
                     markerY,
                     markerParameter > 0 ? markerParameter : 3 });
+            }
+            else if (marker == 'O')
+            {
+                const int markerParameter = m_tileMap.GetMarkerParameter(column, row);
+                laserSwitchMarkers.push_back(LaserSwitchMarker{
+                    markerX,
+                    markerY,
+                    markerParameter > 0 ? markerParameter : -1 });
+            }
+            else if (marker == 'J')
+            {
+                const int markerParameter = m_tileMap.GetMarkerParameter(column, row);
+                ShutterMarker shutterMarker{};
+                shutterMarker.x = markerX;
+                shutterMarker.y = markerY;
+                // J marker parameter:
+                //   >0  : move range tile count
+                //   <0  : link id override (absolute value)
+                //   99  : boss defeat trigger enabled (link signal OR boss defeat)
+                if (markerParameter == 99)
+                {
+                    shutterMarker.useBossDefeatSignal = true;
+                }
+                else if (markerParameter < 0)
+                {
+                    shutterMarker.linkIdOverride = -markerParameter;
+                }
+                else if (markerParameter > 0)
+                {
+                    shutterMarker.moveRangeTiles = markerParameter;
+                }
+                shutterMarkers.push_back(shutterMarker);
             }
         }
     }
@@ -1025,6 +1182,70 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
                 1.0f);
             m_entities.push_back(std::move(elevatorEntity));
         }
+    }
+
+    for (int index = 0; index < static_cast<int>(laserSwitchMarkers.size()); ++index)
+    {
+        const LaserSwitchMarker& marker = laserSwitchMarkers[static_cast<size_t>(index)];
+        auto switchEntity = std::make_unique<Entity>();
+        const int linkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : index;
+        switchEntity->AddComponent<TagComponent>(kTagLaserSwitch);
+        switchEntity->AddComponent<TransformComponent>(
+            marker.x,
+            marker.y,
+            tileSize,
+            tileSize * 2.0f);
+        switchEntity->AddComponent<TintComponent>(0.96f, 0.86f, 0.20f, 1.0f);
+        switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        switchEntity->AddComponent<LaserSwitchComponent>(linkId);
+        m_entities.push_back(std::move(switchEntity));
+    }
+
+    std::vector<int> laserSwitchLinkIds;
+    laserSwitchLinkIds.reserve(laserSwitchMarkers.size());
+    for (int index = 0; index < static_cast<int>(laserSwitchMarkers.size()); ++index)
+    {
+        const LaserSwitchMarker& marker = laserSwitchMarkers[static_cast<size_t>(index)];
+        laserSwitchLinkIds.push_back(marker.linkIdOverride >= 0 ? marker.linkIdOverride : index);
+    }
+
+    for (int index = 0; index < static_cast<int>(shutterMarkers.size()); ++index)
+    {
+        const ShutterMarker& marker = shutterMarkers[static_cast<size_t>(index)];
+        int linkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : index;
+        if (marker.linkIdOverride < 0 && !laserSwitchMarkers.empty())
+        {
+            int nearestIndex = 0;
+            float nearestDistSq = std::numeric_limits<float>::max();
+            for (int switchIndex = 0; switchIndex < static_cast<int>(laserSwitchMarkers.size()); ++switchIndex)
+            {
+                const LaserSwitchMarker& switchMarker = laserSwitchMarkers[static_cast<size_t>(switchIndex)];
+                const float dx = switchMarker.x - marker.x;
+                const float dy = switchMarker.y - marker.y;
+                const float distSq = dx * dx + dy * dy;
+                if (distSq < nearestDistSq)
+                {
+                    nearestDistSq = distSq;
+                    nearestIndex = switchIndex;
+                }
+            }
+            linkId = laserSwitchLinkIds[static_cast<size_t>(nearestIndex)];
+        }
+        auto shutterEntity = std::make_unique<Entity>();
+        shutterEntity->AddComponent<TagComponent>(kTagShutter);
+        shutterEntity->AddComponent<TransformComponent>(
+            marker.x,
+            marker.y,
+            tileSize,
+            tileSize * 3.0f);
+        shutterEntity->AddComponent<TintComponent>(0.46f, 0.50f, 0.56f, 1.0f);
+        shutterEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        shutterEntity->AddComponent<ShutterComponent>(
+            linkId,
+            tileSize * static_cast<float>((std::max)(1, marker.moveRangeTiles)),
+            tileSize * 3.2f,
+            marker.useBossDefeatSignal);
+        m_entities.push_back(std::move(shutterEntity));
     }
 }
 
@@ -1374,6 +1595,7 @@ void GameScene::RunGameplayFrame(float gameplayDeltaTime)
     HandlePhotoSpawn();
     UpdateBarrels(gameplayDeltaTime);
     UpdateBatteries(gameplayDeltaTime);
+    UpdateLaserTurrets(gameplayDeltaTime);
     UpdateElevatorGimmicks(gameplayDeltaTime);
     UpdateEnemies();
     UpdateBullets();

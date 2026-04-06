@@ -204,6 +204,59 @@ public:
     bool wasPowered = false;
 };
 
+class LaserSwitchComponent final : public Component
+{
+public:
+    explicit LaserSwitchComponent(int linkId);
+
+    void DrawDebugUI() override;
+
+    int linkId = 0;
+    bool isOn = false;
+};
+
+class ShutterComponent final : public Component
+{
+public:
+    ShutterComponent(
+        int linkId,
+        float moveRangeY,
+        float moveSpeed,
+        bool useBossDefeatSignal);
+
+    void OnAttach(Entity& owner) override;
+    void DrawDebugUI() override;
+
+    int linkId = 0;
+    float moveRangeY = 144.0f;
+    float moveSpeed = 240.0f;
+    float baseY = 0.0f;
+    bool isOpen = false;
+    bool useBossDefeatSignal = false;
+};
+
+class LaserTurretComponent final : public Component
+{
+public:
+    LaserTurretComponent(
+        float beamThickness,
+        float damagePerSecond);
+
+    void DrawDebugUI() override;
+
+    float beamThickness = 8.0f;
+    float damagePerSecond = 1.0f;
+    float playerDamageTimer = 0.0f;
+    std::unordered_map<const Entity*, float> enemyDamageTimers;
+    float sparkTimer = 0.0f;
+};
+
+class LaserBeamComponent final : public Component
+{
+public:
+    LaserBeamComponent() = default;
+};
+
 class TransformComponent final : public Component
 {
 public:
