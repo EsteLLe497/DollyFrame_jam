@@ -1,10 +1,11 @@
 #include "audio.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <vector>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "DxLib.h"
 
@@ -22,10 +23,37 @@ namespace
     CueData g_contactCue;
     CueData g_sceneCue;
     WAVEFORMATEX g_waveFormat{};
-    float g_masterVolume = 0.6f;
 
-    // 外部ファイル（LoadSoundMem）で作るハンドルを保持するマップ
+    float g_masterVolume = 0.6f;
+    float g_seVolume = 1.0f;
+
+    // Loaded file cue handles by cue name.
     std::unordered_map<std::string, int> g_fileCues;
+
+    float Clamp01(float value)
+    {
+        return std::clamp(value, 0.0f, 1.0f);
+    }
+
+    bool IsBgmCueName(const std::string& cueName)
+    {
+        return cueName.find("bgm") != std::string::npos || cueName.find("BGM") != std::string::npos;
+    }
+
+    float ResolveCueVolume(const std::string& cueName)
+    {
+        const float categoryVolume = IsBgmCueName(cueName) ? 1.0f : g_seVolume;
+        return Clamp01(g_masterVolume * categoryVolume);
+    }
+
+    void ApplyCueVolume(int handle, const std::string& cueName)
+    {
+        if (handle < 0)
+        {
+            return;
+        }
+        SetVolumeSoundMem(static_cast<int>(ResolveCueVolume(cueName) * 10000.0f), handle);
+    }
 
     void BuildTone(CueData& cue, float durationSec, float frequency, float amplitude)
     {
@@ -42,7 +70,7 @@ namespace
         }
     }
 
-    bool CreateCueHandle(CueData& cue)
+    bool CreateCueHandle(CueData& cue, const std::string& cueName)
     {
         cue.handle = LoadSoundMemByMemImage2(
             cue.pcm.data(),
@@ -54,7 +82,7 @@ namespace
             return false;
         }
 
-        SetVolumeSoundMem(static_cast<int>(g_masterVolume * 10000.0f), cue.handle);
+        ApplyCueVolume(cue.handle, cueName);
         return true;
     }
 
@@ -63,6 +91,18 @@ namespace
         if (handle >= 0)
         {
             PlaySoundMem(handle, DX_PLAYTYPE_BACK, TRUE);
+        }
+    }
+
+    void RefreshAllVolumes()
+    {
+        ApplyCueVolume(g_testCue.handle, "test_tone");
+        ApplyCueVolume(g_contactCue.handle, "contact_tone");
+        ApplyCueVolume(g_sceneCue.handle, "scene_change");
+
+        for (const auto& kv : g_fileCues)
+        {
+            ApplyCueVolume(kv.second, kv.first);
         }
     }
 }
@@ -80,9 +120,9 @@ bool Audio_Initialize()
     BuildTone(g_contactCue, 0.12f, 880.0f, 10000.0f);
     BuildTone(g_sceneCue, 0.20f, 520.0f, 11000.0f);
 
-    return CreateCueHandle(g_testCue) &&
-        CreateCueHandle(g_contactCue) &&
-        CreateCueHandle(g_sceneCue);
+    return CreateCueHandle(g_testCue, "test_tone") &&
+        CreateCueHandle(g_contactCue, "contact_tone") &&
+        CreateCueHandle(g_sceneCue, "scene_change");
 }
 
 void Audio_Shutdown()
@@ -103,7 +143,6 @@ void Audio_Shutdown()
         g_sceneCue.handle = -1;
     }
 
-    // 登録された外部ファイルハンドルを削除
     for (auto& kv : g_fileCues)
     {
         if (kv.second >= 0)
@@ -120,6 +159,7 @@ void Audio_Update()
 
 void Audio_PlayTestTone()
 {
+    ApplyCueVolume(g_testCue.handle, "test_tone");
     PlayHandle(g_testCue.handle);
 }
 
@@ -130,25 +170,29 @@ void Audio_PlayCue(const char* cueName)
         return;
     }
 
-    // まず外部登録済みのキューを探す
-    auto it = g_fileCues.find(cueName);
+    const std::string cue(cueName);
+
+    auto it = g_fileCues.find(cue);
     if (it != g_fileCues.end() && it->second >= 0)
     {
+        ApplyCueVolume(it->second, cue);
         PlayHandle(it->second);
         return;
     }
 
-    // 既存の組み込みキュー
-    if (std::strcmp(cueName, "test_tone") == 0)
+    if (cue == "test_tone")
     {
+        ApplyCueVolume(g_testCue.handle, cue);
         PlayHandle(g_testCue.handle);
     }
-    else if (std::strcmp(cueName, "contact_tone") == 0)
+    else if (cue == "contact_tone")
     {
+        ApplyCueVolume(g_contactCue.handle, cue);
         PlayHandle(g_contactCue.handle);
     }
-    else if (std::strcmp(cueName, "scene_change") == 0)
+    else if (cue == "scene_change")
     {
+        ApplyCueVolume(g_sceneCue.handle, cue);
         PlayHandle(g_sceneCue.handle);
     }
 }
@@ -163,7 +207,6 @@ bool Audio_LoadCueFromFile(const char* cueName, const char* filePath)
     const std::string name(cueName);
     if (g_fileCues.find(name) != g_fileCues.end())
     {
-        // 既に登録済み
         return true;
     }
 
@@ -172,8 +215,9 @@ bool Audio_LoadCueFromFile(const char* cueName, const char* filePath)
     {
         return false;
     }
-    SetVolumeSoundMem(static_cast<int>(g_masterVolume * 10000.0f), handle);
+
     g_fileCues.emplace(name, handle);
+    ApplyCueVolume(handle, name);
     return true;
 }
 
@@ -183,11 +227,13 @@ void Audio_UnloadCue(const char* cueName)
     {
         return;
     }
+
     auto it = g_fileCues.find(cueName);
     if (it == g_fileCues.end())
     {
         return;
     }
+
     if (it->second >= 0)
     {
         DeleteSoundMem(it->second);
@@ -197,31 +243,22 @@ void Audio_UnloadCue(const char* cueName)
 
 void Audio_SetMasterVolume(float volume)
 {
-    g_masterVolume = volume;
-    if (g_testCue.handle >= 0)
-    {
-        SetVolumeSoundMem(static_cast<int>(g_masterVolume * 10000.0f), g_testCue.handle);
-    }
-    if (g_contactCue.handle >= 0)
-    {
-        SetVolumeSoundMem(static_cast<int>(g_masterVolume * 10000.0f), g_contactCue.handle);
-    }
-    if (g_sceneCue.handle >= 0)
-    {
-        SetVolumeSoundMem(static_cast<int>(g_masterVolume * 10000.0f), g_sceneCue.handle);
-    }
-
-    // 外部ファイルにも反映
-    for (auto& kv : g_fileCues)
-    {
-        if (kv.second >= 0)
-        {
-            SetVolumeSoundMem(static_cast<int>(g_masterVolume * 10000.0f), kv.second);
-        }
-    }
+    g_masterVolume = Clamp01(volume);
+    RefreshAllVolumes();
 }
 
 float Audio_GetMasterVolume()
 {
     return g_masterVolume;
+}
+
+void Audio_SetSeVolume(float volume)
+{
+    g_seVolume = Clamp01(volume);
+    RefreshAllVolumes();
+}
+
+float Audio_GetSeVolume()
+{
+    return g_seVolume;
 }

@@ -65,12 +65,21 @@ namespace
         return pointX >= x && pointX <= x + width && pointY >= y && pointY <= y + height;
     }
 
-    void TriggerPlayerDamageFeedback(GameSceneFlowState& flow)
+    void TriggerPlayerDamageFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
     {
         flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kPlayerDamageHitStopSeconds);
-        flow.screenShakeRemaining = kPlayerDamageShakeSeconds;
-        flow.screenShakeDuration = kPlayerDamageShakeSeconds;
-        flow.screenShakeAmplitude = kPlayerDamageShakeAmplitude;
+        if (screenShakeEnabled)
+        {
+            flow.screenShakeRemaining = kPlayerDamageShakeSeconds;
+            flow.screenShakeDuration = kPlayerDamageShakeSeconds;
+            flow.screenShakeAmplitude = kPlayerDamageShakeAmplitude;
+        }
+        else
+        {
+            flow.screenShakeRemaining = 0.0f;
+            flow.screenShakeDuration = 0.0f;
+            flow.screenShakeAmplitude = 0.0f;
+        }
     }
 
     float EaseInOutCubic(float t)
@@ -2007,7 +2016,7 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
     health->ApplyDamage((std::max)(1, amount));
     if (shouldTriggerDamageFeedback)
     {
-        TriggerPlayerDamageFeedback(m_flow);
+        TriggerPlayerDamageFeedback(m_flow, m_debug.screenShakeEnabled);
     }
     GameSession_SetCurrentHp(health->GetCurrentHealth());
     m_eventBus.Publish({ EventType::PlaySoundRequest, &player, sourceEntity, "contact_tone", 0.0f, 0.0f });

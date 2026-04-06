@@ -299,7 +299,7 @@ void GameScene::DrawEscapeMenuOverlay() const
     }
 
     const int panelWidth = 560;
-    const int panelHeight = 420;
+    const int panelHeight = 540;
     const int left = (SCREEN_WIDTH - panelWidth) / 2;
     const int top = (SCREEN_HEIGHT - panelHeight) / 2;
     const int right = left + panelWidth;
@@ -312,11 +312,11 @@ void GameScene::DrawEscapeMenuOverlay() const
     DrawBox(left, top, right, bottom, GetColor(18, 24, 30), TRUE);
     DrawBox(left, top, right, bottom, GetColor(210, 220, 236), FALSE);
     DrawString(left + 22, top + 18, "一時停止メニュー", GetColor(245, 248, 255));
-    DrawString(left + 22, top + 44, "W/S・十字キー・マウス: 選択  Enter/A/左クリック: 決定  Esc: 閉じる", GetColor(170, 194, 220));
+    DrawString(left + 22, top + 44, "W/S・十字キー・マウス: 選択  A/D・左右キー: 調整  Enter/A/左クリック: 決定  Esc: 閉じる", GetColor(170, 194, 220));
 
     const int rowStartY = top + 86;
     const int rowHeight = 38;
-    for (int index = 0; index < 8; ++index)
+    for (int index = 0; index < 11; ++index)
     {
         const int rowTop = rowStartY + index * rowHeight;
         const int rowBottom = rowTop + rowHeight - 4;
@@ -356,12 +356,21 @@ void GameScene::DrawEscapeMenuOverlay() const
             DrawFormatString(left + 34, rowTop + 10, textColor, "BGM: %s", m_debug.bgmEnabled ? "ON" : "OFF");
             break;
         case 5:
-            DrawString(left + 34, rowTop + 10, "シーンをリスタート", textColor);
+            DrawFormatString(left + 34, rowTop + 10, textColor, "マスター音量: %d%%", static_cast<int>(std::round(Audio_GetMasterVolume() * 100.0f)));
             break;
         case 6:
-            DrawString(left + 34, rowTop + 10, "タイトルに戻る", textColor);
+            DrawFormatString(left + 34, rowTop + 10, textColor, "SE音量: %d%%", static_cast<int>(std::round(Audio_GetSeVolume() * 100.0f)));
             break;
         case 7:
+            DrawFormatString(left + 34, rowTop + 10, textColor, "画面揺れ: %s", m_debug.screenShakeEnabled ? "ON" : "OFF");
+            break;
+        case 8:
+            DrawString(left + 34, rowTop + 10, "シーンをリスタート", textColor);
+            break;
+        case 9:
+            DrawString(left + 34, rowTop + 10, "タイトルに戻る", textColor);
+            break;
+        case 10:
             DrawString(left + 34, rowTop + 10, "ゲームを終える", textColor);
             break;
         default:

@@ -121,6 +121,7 @@ struct GameSceneDebugState
     bool effectPasteRingEnabled = true;
     bool bgmEnabled = true;
     float bgmRestoreVolume = 0.6f;
+    bool screenShakeEnabled = true;
     int tuningSelection = 0;
     float tuningReloadTimer = 0.0f;
     std::filesystem::file_time_type tuningFileWriteTime{};
