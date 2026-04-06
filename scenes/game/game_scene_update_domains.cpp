@@ -22,9 +22,9 @@ namespace
     constexpr float kCaptureFinderScaleMax = 2.0f;
     constexpr float kCaptureFinderScaleStep = 0.1f;
     constexpr float kCaptureModeZoomResponse = 7.0f;
-    constexpr int kEscapeMenuItemCount = 8;
+    constexpr int kEscapeMenuItemCount = 11;
     constexpr int kEscapeMenuPanelWidth = 560;
-    constexpr int kEscapeMenuPanelHeight = 420;
+    constexpr int kEscapeMenuPanelHeight = 540;
     constexpr int kEscapeMenuRowStartOffset = 86;
     constexpr int kEscapeMenuRowHeight = 38;
     constexpr int kEscapeMenuRowPaddingX = 18;
@@ -1131,6 +1131,24 @@ void GameScene::UpdateEscapeMenuInput()
         m_debug.escapeMenuSelection = (m_debug.escapeMenuSelection + 1) % kEscapeMenuItemCount;
     }
 
+    const auto adjustMasterVolume = [&](float delta)
+    {
+        const float currentVolume = Audio_GetMasterVolume();
+        const float nextVolume = std::clamp(currentVolume + delta, 0.0f, 1.0f);
+        Audio_SetMasterVolume(nextVolume);
+        m_debug.bgmEnabled = nextVolume > 0.001f;
+        if (nextVolume > 0.001f)
+        {
+            m_debug.bgmRestoreVolume = nextVolume;
+        }
+    };
+    const auto adjustSeVolume = [&](float delta)
+    {
+        const float currentVolume = Audio_GetSeVolume();
+        const float nextVolume = std::clamp(currentVolume + delta, 0.0f, 1.0f);
+        Audio_SetSeVolume(nextVolume);
+    };
+
     const bool toggleLeft = Input_IsActionPressed(InputAction::MoveLeft);
     const bool toggleRight = Input_IsActionPressed(InputAction::MoveRight);
     if (toggleLeft || toggleRight)
@@ -1148,6 +1166,15 @@ void GameScene::UpdateEscapeMenuInput()
             break;
         case 4:
             ToggleEscapeMenuBgm();
+            break;
+        case 5:
+            adjustMasterVolume(toggleRight ? 0.05f : -0.05f);
+            break;
+        case 6:
+            adjustSeVolume(toggleRight ? 0.05f : -0.05f);
+            break;
+        case 7:
+            m_debug.screenShakeEnabled = !m_debug.screenShakeEnabled;
             break;
         default:
             break;
@@ -1181,14 +1208,23 @@ void GameScene::UpdateEscapeMenuInput()
         ToggleEscapeMenuBgm();
         break;
     case 5:
+        adjustMasterVolume(0.05f);
+        break;
+    case 6:
+        adjustSeVolume(0.05f);
+        break;
+    case 7:
+        m_debug.screenShakeEnabled = !m_debug.screenShakeEnabled;
+        break;
+    case 8:
         m_debug.showEscapeMenu = false;
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
         break;
-    case 6:
+    case 9:
         m_debug.showEscapeMenu = false;
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
         break;
-    case 7:
+    case 10:
         m_debug.showEscapeMenu = false;
         m_eventBus.Publish({ EventType::ExitApplicationRequested, nullptr, nullptr, "", 0.0f, 0.0f });
         break;

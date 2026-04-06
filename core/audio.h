@@ -7,7 +7,9 @@ void Audio_PlayTestTone();
 void Audio_PlayCue(const char* cueName);
 void Audio_SetMasterVolume(float volume);
 float Audio_GetMasterVolume();
+void Audio_SetSeVolume(float volume);
+float Audio_GetSeVolume();
 
-// 外部ファイルを登録して名前で再生できるようにする
+// Register external file cues and play by cue name.
 bool Audio_LoadCueFromFile(const char* cueName, const char* filePath);
 void Audio_UnloadCue(const char* cueName);
