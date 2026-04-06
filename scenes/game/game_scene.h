@@ -69,6 +69,7 @@ private:
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
     void UpdateBatteries(float deltaTime);
+    void UpdateLaserTurrets(float deltaTime);
     void UpdateSingleBattery(
         Entity& batteryEntity,
         Entity* player,
@@ -107,6 +108,7 @@ private:
     void RefreshEnemiesFromMarkers();
     void RefreshBatteriesFromMarkers();
     void RefreshLogsFromMarkers();
+    void RefreshLaserTurretsFromMarkers();
     void RefreshElevatorGimmicksFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
     void RefreshMarkerDrivenSystems();

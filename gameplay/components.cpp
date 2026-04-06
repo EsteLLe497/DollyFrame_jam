@@ -165,6 +165,65 @@ void ElevatorComponent::DrawDebugUI()
     ImGui::Text("MovingUp: %s", movingUp ? "Yes" : "No");
 }
 
+LaserSwitchComponent::LaserSwitchComponent(int linkIdValue)
+    : linkId((std::max)(0, linkIdValue))
+{
+}
+
+void LaserSwitchComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Laser Switch");
+    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("Is On: %s", isOn ? "Yes" : "No");
+}
+
+ShutterComponent::ShutterComponent(
+    int linkIdValue,
+    float moveRangeYValue,
+    float moveSpeedValue,
+    bool useBossDefeatSignalValue)
+    : linkId((std::max)(0, linkIdValue))
+    , moveRangeY((std::max)(0.0f, moveRangeYValue))
+    , moveSpeed((std::max)(1.0f, moveSpeedValue))
+    , useBossDefeatSignal(useBossDefeatSignalValue)
+{
+}
+
+void ShutterComponent::OnAttach(Entity& owner)
+{
+    Component::OnAttach(owner);
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        baseY = transform->y;
+    }
+}
+
+void ShutterComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Shutter");
+    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("MoveRangeY: %.1f", moveRangeY);
+    ImGui::Text("MoveSpeed: %.1f", moveSpeed);
+    ImGui::Text("Open: %s", isOpen ? "Yes" : "No");
+    ImGui::Text("Boss Trigger: %s", useBossDefeatSignal ? "Yes" : "No");
+}
+
+LaserTurretComponent::LaserTurretComponent(
+    float beamThicknessValue,
+    float damagePerSecondValue)
+    : beamThickness((std::max)(1.0f, beamThicknessValue))
+    , damagePerSecond((std::max)(0.1f, damagePerSecondValue))
+{
+}
+
+void LaserTurretComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Laser Turret");
+    ImGui::Text("Beam Thickness: %.1f", beamThickness);
+    ImGui::Text("Damage / sec: %.2f", damagePerSecond);
+    ImGui::Text("Player Damage Timer: %.2f", playerDamageTimer);
+}
+
 TransformComponent::TransformComponent(float xValue, float yValue, float widthValue, float heightValue)
     : x(xValue)
     , y(yValue)

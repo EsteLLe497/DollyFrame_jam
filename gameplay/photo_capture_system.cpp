@@ -145,7 +145,8 @@ namespace
         bool capturedVanishObject,
         bool capturedBarrel,
         bool capturedBattery,
-        bool capturedProjectile)
+        bool capturedProjectile,
+        bool capturedLaserTurret)
     {
         if (capturedVanishObject)
         {
@@ -155,6 +156,11 @@ namespace
         if (capturedBarrel || capturedBattery || capturedProjectile)
         {
             return PhotoPlacementRuleGroup::Group2;
+        }
+
+        if (capturedLaserTurret)
+        {
+            return PhotoPlacementRuleGroup::Group1;
         }
 
         // Mid-boss shield tags are grouped with gravity/projectile restrictions.
@@ -233,6 +239,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             continue;
         }
+        if (HasTag(*entity, kTagLaserBeam))
+        {
+            continue;
+        }
 
         const bool isPhotoBox = HasTag(*entity, "PhotoBox");
         if (isPhotoBox)
@@ -252,7 +262,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             }
         }
 
-        if (HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator))
+        if (HasTag(*entity, kTagBatterySwitch) ||
+            HasTag(*entity, kTagElevator) ||
+            HasTag(*entity, kTagLaserSwitch) ||
+            HasTag(*entity, kTagShutter))
         {
             continue;
         }
@@ -288,6 +301,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedLog = HasTag(*entity, kTagLog);
         const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr && !capturedLog;
         const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr && !capturedLog;
+        const bool capturedLaserTurret = HasTag(*entity, kTagLaserTurret);
         const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
         const auto* tileValueComponent = entity->GetComponent<PhotoCopyTileValueComponent>();
@@ -306,13 +320,16 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 ? CapturedSpawnArchetype::Log
                 : (capturedBattery
                 ? CapturedSpawnArchetype::Battery
-                : (capturedProjectile ? CapturedSpawnArchetype::Projectile : CapturedSpawnArchetype::None)));
+                : (capturedProjectile
+                ? CapturedSpawnArchetype::Projectile
+                : (capturedLaserTurret ? CapturedSpawnArchetype::LaserTurret : CapturedSpawnArchetype::None))));
         item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
             *entity,
             capturedVanishObject,
             capturedBarrel,
             capturedBattery,
-            capturedProjectile);
+            capturedProjectile,
+            capturedLaserTurret);
         item.vanishOnCapture = capturedVanishObject;
         item.relativeX = overlapLeft - frameX;
         item.relativeY = overlapTop - frameY;
@@ -361,7 +378,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
         }
-        else if (!capturedBarrel && !capturedBattery && !damagePlatform && !spikeStrip)
+        else if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !damagePlatform && !spikeStrip)
         {
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
@@ -382,7 +399,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedBattery && !capturedLog && !isPhotoBox && !capturedVanishObject)
+        if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedLog && !isPhotoBox && !capturedVanishObject)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }
