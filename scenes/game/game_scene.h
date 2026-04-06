@@ -82,7 +82,7 @@ private:
     bool SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, const Entity* self, float tileSize) const;
     float GetBatteryPushDirectionFromPlayer(const TransformComponent& playerTransform, const TransformComponent& batteryTransform) const;
     void BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bounds) const;
-    void UpdateElevatorGimmicks(float deltaTime);
+    void UpdateLinkedGimmicks(float deltaTime);
     void UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame);
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
@@ -109,7 +109,7 @@ private:
     void RefreshBatteriesFromMarkers();
     void RefreshLogsFromMarkers();
     void RefreshLaserTurretsFromMarkers();
-    void RefreshElevatorGimmicksFromMarkers();
+    void RefreshLinkedGimmicksFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);

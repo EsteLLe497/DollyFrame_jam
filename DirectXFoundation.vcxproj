@@ -109,6 +109,9 @@
     <ClCompile Include="scenes\game\game_scene_setup.cpp" />
     <ClCompile Include="scenes\game\game_scene_enemy_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_gimmick_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_menu_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_map_editor_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_marker_spawn_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_update_domains.cpp" />
     <ClCompile Include="core\game_session.cpp" />
     <ClCompile Include="rendering\imgui_layer.cpp" />

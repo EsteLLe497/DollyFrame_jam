@@ -751,7 +751,7 @@ void GameScene::InitializeStageEntities()
     //SpawnStagePrefab(prefabs, "sandbox_enemy_walker", AlignToGrid(500.0f, tileSize), AlignToGrid(352.0f, tileSize));
     //SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", AlignToGrid(900.0f, tileSize), AlignToGrid(352.0f, tileSize));
 
-    RefreshElevatorGimmicksFromMarkers();
+    RefreshLinkedGimmicksFromMarkers();
     RefreshLaserTurretsFromMarkers();
     BuildCameraMarkers();
 }
@@ -789,8 +789,4 @@ Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId
     m_entities.push_back(std::move(entity));
     return entityRef;
 }
-
-
-
-
 
