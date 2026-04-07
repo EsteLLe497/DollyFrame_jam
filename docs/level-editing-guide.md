@@ -9,7 +9,7 @@
 今は次の 2 つが混在しています。
 
 - CSV / JSON で持っている部分
-- `game_scene.cpp` に直書きしている部分
+- `game_scene_setup.cpp` / 各ドメインに直書きしている部分
 
 そのため、レベル編集は
 
@@ -22,7 +22,8 @@
 
 - `assets/maps/side_scroll_stage01.csv`
 - `assets/prefabs.json`
-- `game_scene.cpp`
+- `game_scene_setup.cpp`
+- `scenes/game/game_scene_map_editor_domain.cpp`
 - `assets/tuning.json`
 
 ## 3. `side_scroll_stage01.csv`
@@ -96,7 +97,6 @@
 
 注意:
 
-- マーカー編集は `G / S / E / T / W / R / B / V / C / M / Y / K / L` をサポートしています。
 - マーカー編集は `G / S / E / T / W / R / B / V / C / M / Y / H / I / J / K / L / O / U / N` をサポートしています。
 - 敵マーカー（`W / R / N`）、バッテリーマーカー（`Y`）、エレベーター系マーカー（`K / L`）は、エディター中に置いた瞬間に配置へ反映されます。
 - レーザー/シャッター系マーカー（`U / O / J`）も、エディター中に置いた瞬間に配置へ反映されます。
@@ -168,7 +168,7 @@
 
 必要なら見る場所:
 
-- `game_scene.cpp`
+- `game_scene_setup.cpp`
 
 ### 敵の数や置き場所を変えたい
 

@@ -121,11 +121,41 @@ Visual Studio の場合:
 - `scenes/game/game_scene.h`
   `GameScene` の状態と宣言です。
 - `scenes/game/game_scene.cpp`
-  全体更新、シーン制御、デバッグ UI です。
+  `GameScene` コンストラクタ実装です。
+- `scenes/game/game_scene_entry_domain.cpp`
+  `GetSceneId`、`Update`、`Draw`、`GetEventBus` の入口です。
+- `scenes/game/game_scene_lifecycle_domain.cpp`
+  `OnEnter`、`OnExit` のライフサイクルです。
+- `scenes/game/game_scene_facade_domain.cpp`
+  フレーム進行のフェーズ制御です。
+- `scenes/game/game_scene_flow_domain.cpp`
+  リスタート、シーン遷移、フレームタイマー更新です。
+- `scenes/game/game_scene_photo_control_domain.cpp`
+  カメラモード、撮影時スロー、フィルター入力です。
+- `scenes/game/game_scene_control_domain.cpp`
+  全体ショートカット、キャンセル操作、tuningホットリロードです。
+- `scenes/game/game_scene_gameplay_pipeline_domain.cpp`
+  `RunGameplayFrame` の更新パイプラインです。
 - `scenes/game/game_scene_setup.cpp`
   ステージ初期化、prefab 配置、チューニング入出力です。
 - `scenes/game/game_scene_gameplay.cpp`
-  プレイヤー、敵、ワールド相互作用です。
+  プレイヤー、バッテリー、写真操作の中核更新です。
+- `scenes/game/game_scene_enemy_domain.cpp`
+  敵更新ドメインです。
+- `scenes/game/game_scene_gimmick_domain.cpp`
+  ギミック更新ドメインです。
+- `scenes/game/game_scene_marker_spawn_domain.cpp`
+  マーカー駆動の再生成です。
+- `scenes/game/game_scene_map_editor_domain.cpp`
+  マップエディタ入力と保存/新規作成です。
+- `scenes/game/game_scene_menu_domain.cpp`
+  Escape メニュー入力と描画です。
+- `scenes/game/game_scene_effects_domain.cpp`
+  エフェクト更新です。
+- `scenes/game/game_scene_debug_domain.cpp`
+  デバッグUIです。
+- `scenes/game/game_scene_entity_query_domain.cpp`
+  エンティティ検索クエリです。
 - `scenes/game/game_scene_render.cpp`
   エンティティ描画とワールド側の見た目です。
 - `scenes/game/game_scene_render_ui.cpp`
