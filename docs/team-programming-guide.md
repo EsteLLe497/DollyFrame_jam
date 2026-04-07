@@ -23,10 +23,19 @@
 ## 3. よく触るファイル
 
 - `scenes/game/game_scene.cpp`
-- `scenes/game/game_scene_update_domains.cpp`
+- `scenes/game/game_scene_entry_domain.cpp`
+- `scenes/game/game_scene_lifecycle_domain.cpp`
+- `scenes/game/game_scene_facade_domain.cpp`
+- `scenes/game/game_scene_flow_domain.cpp`
+- `scenes/game/game_scene_photo_control_domain.cpp`
+- `scenes/game/game_scene_control_domain.cpp`
+- `scenes/game/game_scene_gameplay_pipeline_domain.cpp`
 - `scenes/game/game_scene_gameplay.cpp`
 - `scenes/game/game_scene_enemy_domain.cpp`
 - `scenes/game/game_scene_gimmick_domain.cpp`
+- `scenes/game/game_scene_map_editor_domain.cpp`
+- `scenes/game/game_scene_marker_spawn_domain.cpp`
+- `scenes/game/game_scene_menu_domain.cpp`
 - `scenes/game/game_scene_render.cpp`
 - `scenes/game/game_scene_render_ui.cpp`
 - `gameplay/components.*`
@@ -50,6 +59,8 @@
 ## 5. 競合しやすい場所
 
 - `game_scene.cpp`
+- `game_scene_entry_domain.cpp`
+- `game_scene_control_domain.cpp`
 - `game_scene_gameplay.cpp`
 - `components.*`
 - `DirectXFoundation.vcxproj`

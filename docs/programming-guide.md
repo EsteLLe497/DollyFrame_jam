@@ -41,15 +41,39 @@
 ### `GameScene`
 
 - `scenes/game/game_scene.cpp`  
-  シーン更新の入口
-- `scenes/game/game_scene_update_domains.cpp`  
-  更新順制御とモード入力
+  `GameScene` コンストラクタのみ
+- `scenes/game/game_scene_entry_domain.cpp`  
+  `GetSceneId` / `Update` / `Draw` / `GetEventBus`
+- `scenes/game/game_scene_lifecycle_domain.cpp`  
+  `OnEnter` / `OnExit`
+- `scenes/game/game_scene_facade_domain.cpp`  
+  フレーム進行のフェーズ制御
+- `scenes/game/game_scene_flow_domain.cpp`  
+  `UpdatePitRestartFlow` / `UpdateStageTransitionFlow` / `UpdateFrameTimers`
+- `scenes/game/game_scene_photo_control_domain.cpp`  
+  `UpdatePhotoModes` / カメラ操作 / フィルター入力
+- `scenes/game/game_scene_control_domain.cpp`  
+  全体ショートカット / `OnCancelAction` / tuning ホットリロード
+- `scenes/game/game_scene_gameplay_pipeline_domain.cpp`  
+  `RunGameplayFrame` と更新パイプライン
 - `scenes/game/game_scene_gameplay.cpp`  
-  呼び出しオーケストレーション
+  Player / Battery / Photo 実装の中核
 - `scenes/game/game_scene_enemy_domain.cpp`  
   敵ドメイン更新
 - `scenes/game/game_scene_gimmick_domain.cpp`  
   ギミックドメイン更新
+- `scenes/game/game_scene_marker_spawn_domain.cpp`  
+  マーカー駆動の再生成
+- `scenes/game/game_scene_map_editor_domain.cpp`  
+  マップエディタ入力と保存系
+- `scenes/game/game_scene_menu_domain.cpp`  
+  Escape メニュー入力と描画
+- `scenes/game/game_scene_effects_domain.cpp`  
+  エフェクト更新
+- `scenes/game/game_scene_debug_domain.cpp`  
+  デバッグUI
+- `scenes/game/game_scene_entity_query_domain.cpp`  
+  エンティティ検索クエリ
 - `scenes/game/game_scene_world_interaction_system.h`  
   接触・被弾判定ヘルパ
 - `scenes/game/game_scene_render.cpp`
@@ -87,8 +111,8 @@
   - `scenes/game/game_scene_render.cpp` の `DrawPastedEntitiesFront` で管理
   - `PhotoPasteOrderComponent` の昇順描画で「後から貼ったものほど前面」を実現
 - `GameScene::Update` の責務
-  - `scenes/game/game_scene.cpp` は更新順制御に集中
-  - 詳細処理は `scenes/game/game_scene_update_domains.cpp` 側の小関数へ委譲
+  - `scenes/game/game_scene_entry_domain.cpp` は入口オーケストレーションに集中
+  - 詳細処理は `facade / flow / photo_control / gameplay_pipeline / control` に委譲
 
 ## 5. 分離を優先するもの
 
@@ -96,8 +120,8 @@
   `Player/Enemy/Gimmick` へ分離
 - `photo_system.cpp` の混在ロジック  
   `photo_capture_system.cpp` / `photo_paste_system.cpp` / `photo_shared.cpp` へ分離
-- `game_scene.cpp` の入力・分岐  
-  各ドメインの関数へ移譲
+- `game_scene_gameplay.cpp` の処理塊  
+  `player / battery / photo / world` ごとの関数群へ段階分割
 
 ## 6. よくある改修の入口
 
@@ -107,6 +131,8 @@
 - 共通の写真生成ルールを変える: `gameplay/photo_shared.cpp`
 - 敵の挙動を変える: `scenes/game/game_scene_enemy_domain.cpp`
 - ギミック挙動を変える: `scenes/game/game_scene_gimmick_domain.cpp`
+- マップマーカー再生成を変える: `scenes/game/game_scene_marker_spawn_domain.cpp`
+- エディタ操作を変える: `scenes/game/game_scene_map_editor_domain.cpp`
 - HUD/オーバーレイを変える: `scenes/game/game_scene_render_ui.cpp`
 
 ## 7. ビルド
