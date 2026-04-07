@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -38,6 +37,7 @@ public:
     EventBus* GetEventBus() override;
 
 private:
+    // Camera marker data
     struct CameraTransitionMarker
     {
         float x = 0.0f;
@@ -55,7 +55,18 @@ private:
         float cameraY = 0.0f;
     };
 
+    // Core lifecycle / facade
     void ResetSceneState();
+    void BeginFrameUpdate(float deltaTime);
+    bool TryHandleModalUpdates(float deltaTime);
+    float PrepareGameplayDeltaTime(float deltaTime);
+    void TickEntities(float effectiveGameplayDeltaTime);
+    void FinalizeGameplayFrame(float effectiveGameplayDeltaTime);
+    void PrepareFrameRendering();
+    void DrawWorldAndUiLayers();
+    void ResetFrameRendering();
+
+    // Lifecycle / setup
     void LoadTuningState();
     void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
@@ -64,8 +75,12 @@ private:
     void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime);
     bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
     void StartFloorCameraTransition(int directionX, int directionY);
+
+    // Entity query / spawn
     Entity& SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y);
     Entity* FindEntityByTag(const char* tag) const;
+
+    // Gameplay pipeline
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
     void UpdateBatteries(float deltaTime);
@@ -120,6 +135,11 @@ private:
     void UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime);
     void StartCameraFlashPulse(float durationSeconds);
     void RunGameplayFrame(float gameplayDeltaTime);
+    void UpdateGameplayActors(float gameplayDeltaTime);
+    void ResolveGameplayOutcomes(float gameplayDeltaTime);
+    void FlushPendingEntities();
+
+    // Photo control / photo runtime
     void HandleEnemyPlayerCollisions(Entity& player);
     void HandleAttackHits();
     void HandlePhotoCapture();
@@ -129,6 +149,8 @@ private:
     void SetSelectedPhotoSlot(int slotIndex);
     void ConsumeSelectedPhotoSlot();
     void UpdatePhotoTraySelection();
+
+    // World flow / result / damage
     void UpdateGoalVisual(float deltaTime);
     void HandleWorldInteractions();
     bool TryQueueStageTransition(Entity& player);
@@ -147,6 +169,8 @@ private:
     void StartPitRestart(Entity* player, const char* logMessage);
     void SpawnBarrelBreakEffect(float x, float y, float width, float height);
     void QueueResult(GameEndReason reason);
+
+    // Effects / UI overlays
     void UpdateEffects(float deltaTime);
     void UpdateTuningPanel();
     void DrawTuningPanel();
@@ -174,6 +198,8 @@ private:
     void DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawStageGuideInView() const;
     void DrawPhotoFilterPanelInView() const;
+
+    // Collision / map query helpers
     bool IsPhotoTrayHit(float screenX, float screenY) const;
     void GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const;
     Entity* FindCaptureTarget(const TransformComponent& playerTransform) const;
@@ -213,6 +239,7 @@ private:
     friend class PhotoCaptureSystem;
     friend class PhotoPasteSystem;
 
+    // Runtime state
     AssetManifest m_assets;
     int m_whiteTexture;
     int m_tileTexture;

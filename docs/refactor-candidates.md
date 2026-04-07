@@ -1,6 +1,6 @@
 # リファクタ候補一覧
 
-最終更新: 2026-04-07
+最終更新: 2026-04-08
 
 ## 完了（今回反映済み）
 
@@ -30,6 +30,40 @@
 - 大きめリファクタ（影響が広い）
   - Escapeメニュー更新処理を `game_scene_menu_domain.cpp` へ分割
   - `update_domains` からメニュー関連定数/処理を切り離し
+- 大きめリファクタ（影響が広い）
+  - `GameScene` を Facade 化する下地として、`Update/Draw` のフェーズ関数を導入
+  - フェーズ実装を `game_scene_facade_domain.cpp` へ分割
+- 大きめリファクタ（影響が広い）
+  - フロー制御 (`UpdatePitRestartFlow` / `UpdateStageTransitionFlow` / `UpdateFrameTimers`) を `game_scene_flow_domain.cpp` へ分割
+  - `update_domains` からフロー責務を切り離し
+- 大きめリファクタ（影響が広い）
+  - `RunGameplayFrame` を `game_scene_gameplay_pipeline_domain.cpp` へ分割
+  - ゲーム更新パイプラインを `UpdateGameplayActors` / `ResolveGameplayOutcomes` / `FlushPendingEntities` に整理
+- 大きめリファクタ（影響が広い）
+  - `PhotoControl` 系 (`UpdateCameraMode` / `UpdatePhotoModes` / `UpdateCaptureFinderZoomInput` / `ProcessFilterInput`) を `game_scene_photo_control_domain.cpp` へ分割
+  - `update_domains` から写真操作責務を切り離し
+- 大きめリファクタ（影響が広い）
+  - `SceneControl` 系 (`UpdateTuningHotReload` / `HandleGlobalSceneShortcuts`) を `game_scene_control_domain.cpp` へ分割
+  - `game_scene_update_domains.cpp` を廃止（責務移管完了）
+- 大きめリファクタ（影響が広い）
+  - `UpdateEffects` を `game_scene_effects_domain.cpp` へ分割
+  - `DrawDebugUI` を `game_scene_debug_domain.cpp` へ分割
+  - `DrawEscapeMenuOverlay` を `game_scene_menu_domain.cpp` へ移管
+- 大きめリファクタ（影響が広い）
+  - `OnCancelAction` を `game_scene_control_domain.cpp` へ移管
+  - `game_scene.cpp` をエントリーファイル寄りに整理
+- 大きめリファクタ（影響が広い）
+  - `FindEntityByTag` を `game_scene_entity_query_domain.cpp` へ分割
+  - `game_scene.cpp` からエンティティ検索責務を分離
+- 大きめリファクタ（影響が広い）
+  - `OnEnter` / `OnExit` を `game_scene_lifecycle_domain.cpp` へ分割
+  - `game_scene.cpp` をライフサイクル責務から分離
+- 大きめリファクタ（影響が広い）
+  - `GetSceneId` / `Update` / `Draw` / `GetEventBus` を `game_scene_entry_domain.cpp` へ分割
+  - `game_scene.cpp` をコンストラクタ実装のみに整理
+- 大きめリファクタ（影響が広い）
+  - `game_scene.h` の宣言を責務セクションで整理
+  - 不要な `<filesystem>` include を削除
 
 ## 優先度高（残り）
 
