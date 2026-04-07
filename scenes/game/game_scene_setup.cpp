@@ -489,7 +489,7 @@ void GameScene::InitializeStageEntities()
         "sandbox_player",
         AlignToGrid(192.0f, tileSize),
         AlignToGrid(336.0f, tileSize));
-    SetEntityTint(player, 0.30f, 0.82f, 0.98f);
+    SetEntityTint(player, 1.0f, 1.0f, 1.0f, 1.0f);
     if (auto* playerTransform = player.GetComponent<TransformComponent>())
     {
         m_flow.stageStartX = playerTransform->x;
