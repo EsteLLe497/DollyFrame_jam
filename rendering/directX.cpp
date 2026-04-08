@@ -54,6 +54,8 @@ namespace
         float pad4;
         float lightParams[kMaxDarknessOverlayLights * 4];
         float lightIntensityPack[8];
+        float lightColors[kMaxDarknessOverlayLights * 4];
+        float lightShapeData[kMaxDarknessOverlayLights * 4];
     };
 
     void ReleasePostProcessResources()
@@ -450,6 +452,11 @@ void DirectXDrawDarknessOverlay(void)
     {
         buffer->lightIntensityPack[i] = 0.0f;
     }
+    for (int i = 0; i < kMaxDarknessOverlayLights * 4; ++i)
+    {
+        buffer->lightColors[i] = 0.0f;
+        buffer->lightShapeData[i] = 0.0f;
+    }
 
     const int lightCount = std::clamp(g_darknessOverlayParams.lightCount, 0, kMaxDarknessOverlayLights);
     for (int lightIndex = 0; lightIndex < lightCount; ++lightIndex)
@@ -461,6 +468,14 @@ void DirectXDrawDarknessOverlay(void)
         buffer->lightParams[baseIndex + 2] = light.innerRadius;
         buffer->lightParams[baseIndex + 3] = (std::max)(light.outerRadius, light.innerRadius + 0.001f);
         buffer->lightIntensityPack[lightIndex] = std::clamp(light.intensity, 0.0f, 1.0f);
+        buffer->lightColors[baseIndex + 0] = std::clamp(light.colorR, 0.0f, 1.0f);
+        buffer->lightColors[baseIndex + 1] = std::clamp(light.colorG, 0.0f, 1.0f);
+        buffer->lightColors[baseIndex + 2] = std::clamp(light.colorB, 0.0f, 1.0f);
+        buffer->lightColors[baseIndex + 3] = 0.0f;
+        buffer->lightShapeData[baseIndex + 0] = light.shapeType;
+        buffer->lightShapeData[baseIndex + 1] = light.extentX;
+        buffer->lightShapeData[baseIndex + 2] = light.extentY;
+        buffer->lightShapeData[baseIndex + 3] = light.outerRadius;
     }
     UpdateShaderConstantBuffer(g_darknessOverlayConstantBuffer);
     SetShaderConstantBuffer(g_darknessOverlayConstantBuffer, DX_SHADERTYPE_PIXEL, 0);

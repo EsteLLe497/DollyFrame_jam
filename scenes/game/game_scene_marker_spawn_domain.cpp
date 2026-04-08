@@ -11,6 +11,26 @@ using namespace game_scene_detail;
 
 namespace
 {
+    void AddUnderBatteryGlow(Entity& battery)
+    {
+        battery.AddComponent<FlickerLightComponent>(
+            56.0f,
+            0.42f,
+            0.08f,
+            3.2f,
+            0.0f,
+            0.0f,
+            0.34f,
+            0.88f,
+            1.0f,
+            false,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f);
+    }
+
     bool IsMarkerInSet(char marker, std::string_view set)
     {
         const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
@@ -406,6 +426,10 @@ void GameScene::RefreshBatteriesFromMarkers()
                 260.0f,
                 320.0f,
                 1);
+            if (m_darknessStageEnabled)
+            {
+                AddUnderBatteryGlow(*battery);
+            }
             m_entities.push_back(std::move(battery));
         }
     }
