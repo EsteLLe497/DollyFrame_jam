@@ -490,7 +490,7 @@ void GameScene::InitializeStageEntities()
         "sandbox_player",
         AlignToGrid(192.0f, tileSize),
         AlignToGrid(336.0f, tileSize));
-    SetEntityTint(player, 0.30f, 0.82f, 0.98f);
+    SetEntityTint(player, 1.0f, 1.0f, 1.0f, 1.0f);
     if (auto* playerTransform = player.GetComponent<TransformComponent>())
     {
         m_flow.stageStartX = playerTransform->x;
@@ -645,6 +645,7 @@ void GameScene::InitializeStageEntities()
     }
 
     RefreshLogsFromMarkers();
+    RefreshMarkerLightsFromMarkers();
 
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
@@ -752,7 +753,8 @@ void GameScene::InitializeStageEntities()
     //SpawnStagePrefab(prefabs, "sandbox_enemy_walker", AlignToGrid(500.0f, tileSize), AlignToGrid(352.0f, tileSize));
     //SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", AlignToGrid(900.0f, tileSize), AlignToGrid(352.0f, tileSize));
 
-    RefreshElevatorGimmicksFromMarkers();
+    RefreshLinkedGimmicksFromMarkers();
+    RefreshLaserTurretsFromMarkers();
     BuildCameraMarkers();
 }
 
@@ -789,8 +791,4 @@ Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId
     m_entities.push_back(std::move(entity));
     return entityRef;
 }
-
-
-
-
 

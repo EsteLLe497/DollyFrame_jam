@@ -303,6 +303,11 @@ inline constexpr const char* kTagBatterySwitch = "BatterySwitch";
 inline constexpr const char* kTagElevator = "Elevator";
 inline constexpr const char* kTagDamagePlatform = "DamagePlatform";
 inline constexpr const char* kTagDamagePlatformSpike = "DamagePlatformSpike";
+inline constexpr const char* kTagLaserSwitch = "LaserSwitch";
+inline constexpr const char* kTagShutter = "Shutter";
+inline constexpr const char* kTagLaserTurret = "LaserTurret";
+inline constexpr const char* kTagLaserBeam = "LaserBeam";
+inline constexpr const char* kTagMarkerLight = "MarkerLight";
 
 inline bool IsDamagePlatformMarker(char marker)
 {
@@ -356,6 +361,18 @@ inline PhotoCopyRole GetEntityCopyRole(const Entity& entity)
     {
         return PhotoCopyRole::Solid;
     }
+    if (HasTag(entity, kTagLaserSwitch) || HasTag(entity, kTagShutter))
+    {
+        return PhotoCopyRole::Solid;
+    }
+    if (HasTag(entity, kTagLaserTurret))
+    {
+        return PhotoCopyRole::Solid;
+    }
+    if (HasTag(entity, kTagMarkerLight))
+    {
+        return PhotoCopyRole::Solid;
+    }
     if (HasTag(entity, kTagHazard) || HasTag(entity, kTagEnemy))
     {
         return PhotoCopyRole::Hazard;
@@ -386,6 +403,14 @@ inline PhotoCopyOrigin GetEntityCopyOrigin(const Entity& entity)
         return PhotoCopyOrigin::Hazard;
     }
     if (HasTag(entity, kTagDamagePlatform))
+    {
+        return PhotoCopyOrigin::Generic;
+    }
+    if (HasTag(entity, kTagLaserSwitch) || HasTag(entity, kTagShutter))
+    {
+        return PhotoCopyOrigin::Generic;
+    }
+    if (HasTag(entity, kTagLaserTurret))
     {
         return PhotoCopyOrigin::Generic;
     }

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string_view>
 
 #include "components.h"
 #include "game_scene_internal.h"
@@ -20,8 +21,12 @@ inline constexpr float kPlayerJumpDecay = 5.0f;
 inline constexpr float kPlayerDodgeDecay = 7.5f;
 inline constexpr int kPlayerSheetColumns = 5;
 inline constexpr int kPlayerSheetRows = 6;
+inline constexpr int kPlayerIdleSheetColumns = 5;
+inline constexpr int kPlayerIdleSheetRows = 8;
+inline constexpr int kPlayerIdleFrameCount = 40;
+inline constexpr float kPlayerIdleFps = 12.0f;
 
-inline void ConfigurePlayerSpriteAnimation(Entity& player)
+inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -1)
 {
     auto* sprite = player.GetComponent<SpriteRenderComponent>();
     if (!sprite)
@@ -36,7 +41,8 @@ inline void ConfigurePlayerSpriteAnimation(Entity& player)
     }
 
     const int textureId = sprite->GetTextureId();
-    animation->DefineClip("idle", textureId, kPlayerSheetColumns, kPlayerSheetRows, 0, 1, 1.0f, true);
+    const int resolvedIdleTextureId = idleTextureId >= 0 ? idleTextureId : textureId;
+    animation->DefineClip("idle", resolvedIdleTextureId, kPlayerIdleSheetColumns, kPlayerIdleSheetRows, 0, kPlayerIdleFrameCount, kPlayerIdleFps, true);
     animation->DefineClip("run", textureId, kPlayerSheetColumns, kPlayerSheetRows, 0, 30, 30.0f, true);
     animation->DefineClip("jump", textureId, kPlayerSheetColumns, kPlayerSheetRows, 3, 1, 1.0f, false);
     animation->DefineClip("fall", textureId, kPlayerSheetColumns, kPlayerSheetRows, 18, 1, 1.0f, false);
@@ -72,7 +78,8 @@ inline void UpdateAnimation(
     }
 
     animation->Play(clipName);
-    sprite->SetFlipX(playerState.facingRight);
+    const bool isIdleClip = std::string_view(clipName) == "idle";
+    sprite->SetFlipX(isIdleClip ? !playerState.facingRight : playerState.facingRight);
 }
 
 inline void UpdatePresentation(

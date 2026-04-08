@@ -1360,7 +1360,10 @@ bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
 {
     return HasTag(entity, kTagPhotoSource) ||
         HasTag(entity, kTagBatterySwitch) ||
-        HasTag(entity, kTagElevator);
+        HasTag(entity, kTagElevator) ||
+        HasTag(entity, kTagLaserSwitch) ||
+        HasTag(entity, kTagShutter) ||
+        HasTag(entity, kTagLaserTurret);
 }
 
 void GameScene::GetGroundPlatformBounds(std::vector<TransformComponent>& bounds) const

@@ -151,7 +151,8 @@
 
 - `components.h`
 - `components.cpp`
-- `game_scene.cpp`
+- `game_scene_photo_control_domain.cpp`
+- `game_scene_control_domain.cpp`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
 

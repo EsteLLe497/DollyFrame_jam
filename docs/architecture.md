@@ -52,7 +52,22 @@
 - `game_scene_photo_state.h`
 - `game_scene_state.h`
 - `game_scene.cpp`
+- `game_scene_entry_domain.cpp`
+- `game_scene_lifecycle_domain.cpp`
+- `game_scene_facade_domain.cpp`
+- `game_scene_flow_domain.cpp`
+- `game_scene_photo_control_domain.cpp`
+- `game_scene_control_domain.cpp`
+- `game_scene_gameplay_pipeline_domain.cpp`
 - `game_scene_gameplay.cpp`
+- `game_scene_enemy_domain.cpp`
+- `game_scene_gimmick_domain.cpp`
+- `game_scene_marker_spawn_domain.cpp`
+- `game_scene_map_editor_domain.cpp`
+- `game_scene_menu_domain.cpp`
+- `game_scene_effects_domain.cpp`
+- `game_scene_debug_domain.cpp`
+- `game_scene_entity_query_domain.cpp`
 - `game_scene_photo_tray_system.h`
 - `game_scene_combat_system.h`
 - `game_scene_player_system.h`
@@ -69,6 +84,7 @@
 - ルール
 - 描画
 - 当たり判定
+- 入口オーケストレーション
 
 を分けて保つのが今の保守上かなり重要です。
 

@@ -128,7 +128,7 @@ public:
 
 1. `components.h` の `PhotoFilterTheme` に追加する
 2. `photo_filter_rules.cpp` のテーマ名表示とサイクル順を更新する
-3. `game_scene.cpp` の入力切り替えを更新する
+3. `game_scene_photo_control_domain.cpp` の入力切り替えを更新する
 4. `photo_filter_rules.cpp` の
    - `ApplyPhotoFilterToPhotoBox()`
    - `ApplyPhotoFilterToCapturedTarget()`

@@ -13,6 +13,7 @@ enum class CapturedSpawnArchetype
     Barrel,
     Battery,
     Projectile,
+    LaserTurret,
 };
 
 enum class PhotoPlacementRuleGroup
@@ -114,6 +115,8 @@ struct CapturedPhotoItem
     float projectileVelocityX = 0.0f;
     float projectileVelocityY = 0.0f;
     int projectileDamage = 1;
+    float lightRadius = 0.0f;
+    float lightIntensity = 0.0f;
     std::vector<OutlinePoint> collisionOutline;
 };
 

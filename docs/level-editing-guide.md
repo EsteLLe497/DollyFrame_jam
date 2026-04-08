@@ -9,7 +9,7 @@
 今は次の 2 つが混在しています。
 
 - CSV / JSON で持っている部分
-- `game_scene.cpp` に直書きしている部分
+- `game_scene_setup.cpp` / 各ドメインに直書きしている部分
 
 そのため、レベル編集は
 
@@ -22,7 +22,8 @@
 
 - `assets/maps/side_scroll_stage01.csv`
 - `assets/prefabs.json`
-- `game_scene.cpp`
+- `game_scene_setup.cpp`
+- `scenes/game/game_scene_map_editor_domain.cpp`
 - `assets/tuning.json`
 
 ## 3. `side_scroll_stage01.csv`
@@ -79,10 +80,15 @@
 - `7`: `B`
 - `8`: `V`
 - `9`: `C`
-- `F10`: `M`（中ボス）
+- `F10`: `M`（丸太）
 - `F11`: `Y`（バッテリー）
+- `F12`: `N`（中ボス）
+- `H / I`: ダメージ足場
+- `J`: シャッター
 - `K`: バッテリースイッチ
 - `L`: エレベーター
+- `O`: レーザースイッチ
+- `U`: レーザー砲台
 - `Q / E`: マーカー候補を前後に切替
 - `F5`: 現在の CSV へ保存
 - `F6`: CSV を再読込（破棄して読み直し）
@@ -91,8 +97,10 @@
 
 注意:
 
-- マーカー編集は `G / S / E / T / W / R / B / V / C / M / Y / K / L` をサポートしています。
-- 敵マーカー（`W / R / M`）、バッテリーマーカー（`Y`）、エレベーター系マーカー（`K / L`）は、エディター中に置いた瞬間に配置へ反映されます。
+- マーカー編集は `G / S / E / T / W / R / B / V / C / M / Y / H / I / J / K / L / O / U / N` をサポートしています。
+- 敵マーカー（`W / R / N`）、バッテリーマーカー（`Y`）、エレベーター系マーカー（`K / L`）は、エディター中に置いた瞬間に配置へ反映されます。
+- レーザー/シャッター系マーカー（`U / O / J`）も、エディター中に置いた瞬間に配置へ反映されます。
+- ギミックの詳細配置ルールは `docs/gimmick-csv-placement-guide.md` を参照してください。
 - 保存先は現在読み込んでいるマップ (`gCurrentMapCsvPath`) です。
 - `F7` / `F8` で作成されるファイルは `assets/maps/stages` 配下に `new_map_YYYYMMDD_HHMMSS.csv` / `copy_map_...` 形式で出力されます。
 
@@ -160,7 +168,7 @@
 
 必要なら見る場所:
 
-- `game_scene.cpp`
+- `game_scene_setup.cpp`
 
 ### 敵の数や置き場所を変えたい
 

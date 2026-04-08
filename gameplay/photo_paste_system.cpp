@@ -774,6 +774,50 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             continue;
         }
 
+        if (item.spawnArchetype == CapturedSpawnArchetype::LaserTurret)
+        {
+            auto turretEntity = std::make_unique<Entity>();
+            Entity* spawnedTurret = turretEntity.get();
+            lastSpawnedEntity = spawnedTurret;
+            spawnedTurret->AddComponent<TagComponent>(kTagLaserTurret);
+            spawnedTurret->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedTurret->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedTurret->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
+            spawnedTurret->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+            spawnedTurret->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+            spawnedTurret->AddComponent<LaserTurretComponent>(item.height * 0.2f, 1.0f);
+            spawnedTurret->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
+            spawnedTurret->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
+            if (auto* sprite = spawnedTurret->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                sprite->SetFlipX(item.flipX);
+            }
+            if (auto* transform = spawnedTurret->GetComponent<TransformComponent>())
+            {
+                transform->rotation = item.rotation;
+            }
+            scene.m_entities.push_back(std::move(turretEntity));
+
+            auto beamEntity = std::make_unique<Entity>();
+            Entity* spawnedBeam = beamEntity.get();
+            spawnedBeam->AddComponent<TagComponent>(kTagLaserBeam);
+            spawnedBeam->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedBeam->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedBeam->AddComponent<TransformComponent>(
+                spawnX + item.relativeX + item.width,
+                spawnY + item.relativeY + item.height * 0.4f,
+                0.0f,
+                item.height * 0.2f);
+            spawnedBeam->AddComponent<TintComponent>(1.0f, 0.24f, 0.24f, 0.86f);
+            spawnedBeam->AddComponent<SpriteRenderComponent>(scene.m_whiteTexture);
+            spawnedBeam->AddComponent<LaserBeamComponent>();
+            spawnedBeam->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
+            scene.m_entities.push_back(std::move(beamEntity));
+            lastSpawnedEntity = spawnedBeam;
+            continue;
+        }
+
         auto entity = std::make_unique<Entity>();
         lastSpawnedEntity = entity.get();
         ++spawnedPhotoBoxCount;
@@ -821,6 +865,25 @@ void PhotoPasteSystem::SpawnPhotoGroup(
         if (auto* transform = lastSpawnedEntity->GetComponent<TransformComponent>())
         {
             transform->rotation = item.rotation;
+        }
+        if (item.lightRadius > 0.0f)
+        {
+            lastSpawnedEntity->AddComponent<FlickerLightComponent>(
+                item.lightRadius,
+                item.lightIntensity > 0.0f ? item.lightIntensity : 1.0f,
+                0.0f,
+                0.0f,
+                0.0f,
+                0.0f,
+                1.0f,
+                0.90f,
+                0.24f,
+                false,
+                1.0f,
+                1.0f,
+                0.0f,
+                0.0f,
+                0.0f);
         }
         if (!item.collisionOutline.empty())
         {

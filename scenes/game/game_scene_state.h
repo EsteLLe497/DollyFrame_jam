@@ -30,6 +30,16 @@ struct BarrelDebrisParticle
     float b = 1.0f;
 };
 
+struct LaserSparkParticle
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    float life = 0.0f;
+    float maxLife = 0.0f;
+};
+
 struct CameraFlashState
 {
     bool unlocked = true;
@@ -121,6 +131,7 @@ struct GameSceneDebugState
     bool effectPasteRingEnabled = true;
     bool bgmEnabled = true;
     float bgmRestoreVolume = 0.6f;
+    bool screenShakeEnabled = true;
     int tuningSelection = 0;
     float tuningReloadTimer = 0.0f;
     std::filesystem::file_time_type tuningFileWriteTime{};
@@ -130,6 +141,7 @@ struct GameSceneDebugState
 struct GameSceneEffectsState
 {
     std::vector<BarrelDebrisParticle> barrelDebris;
+    std::vector<LaserSparkParticle> laserSparks;
 };
 
 struct GameSceneMapEditorState

@@ -47,7 +47,7 @@
 
 - `gameplay/components.h`
 - `gameplay/photo_filter_rules.cpp`
-- `scenes/game/game_scene_update_domains.cpp`
+- `scenes/game/game_scene_photo_control_domain.cpp`
 - `scenes/game/game_scene_render_ui.cpp`
 - `docs/filter-spec.md`
 

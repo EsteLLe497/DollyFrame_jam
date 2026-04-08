@@ -10,6 +10,10 @@
       "type": "file",
       "path": "assets/texture/sprite_sheet_1.png"
     },
+    "player_idle": {
+      "type": "file",
+      "path": "assets/texture/sprite_sheet_2.png"
+    },
     "target": {
       "type": "checkerboard",
       "width": 192,

@@ -22,9 +22,13 @@
 
 ### まず見る場所
 
-- `game_scene.cpp`
+- `game_scene.cpp`（コンストラクタ中心）
 - `game_scene_setup.cpp`
 - `game_scene.h`
+- `game_scene_entry_domain.cpp`
+- `game_scene_control_domain.cpp`
+- `game_scene_photo_control_domain.cpp`
+- `game_scene_gameplay_pipeline_domain.cpp`
 - `game_scene_gameplay.cpp`
 - `game_scene_render.cpp`
 - `game_scene_render_ui.cpp`
@@ -40,7 +44,7 @@
 
 ### 注意
 
-`GameScene` は責務が集中しているので、変更の影響範囲が大きいです。
+`GameScene` はドメイン分割済みです。変更時は対象ドメインを先に特定してから触ると安全です。
 
 ## Result
 

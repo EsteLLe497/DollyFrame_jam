@@ -65,12 +65,21 @@ namespace
         return pointX >= x && pointX <= x + width && pointY >= y && pointY <= y + height;
     }
 
-    void TriggerPlayerDamageFeedback(GameSceneFlowState& flow)
+    void TriggerPlayerDamageFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
     {
         flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kPlayerDamageHitStopSeconds);
-        flow.screenShakeRemaining = kPlayerDamageShakeSeconds;
-        flow.screenShakeDuration = kPlayerDamageShakeSeconds;
-        flow.screenShakeAmplitude = kPlayerDamageShakeAmplitude;
+        if (screenShakeEnabled)
+        {
+            flow.screenShakeRemaining = kPlayerDamageShakeSeconds;
+            flow.screenShakeDuration = kPlayerDamageShakeSeconds;
+            flow.screenShakeAmplitude = kPlayerDamageShakeAmplitude;
+        }
+        else
+        {
+            flow.screenShakeRemaining = 0.0f;
+            flow.screenShakeDuration = 0.0f;
+            flow.screenShakeAmplitude = 0.0f;
+        }
     }
 
     float EaseInOutCubic(float t)
@@ -1077,6 +1086,242 @@ void GameScene::UpdateBatteries(float deltaTime)
     }
 }
 
+void GameScene::UpdateLaserTurrets(float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    const float mapWidth = GetMapPixelWidth();
+    Entity* player = FindEntityByTag(kTagPlayer);
+    auto intersectsRect = [](const TransformComponent& a, const TransformComponent& b) -> bool
+    {
+        const float aWidth = a.width * a.scale;
+        const float aHeight = a.height * a.scale;
+        const float bWidth = b.width * b.scale;
+        const float bHeight = b.height * b.scale;
+        return a.x < b.x + bWidth &&
+            a.x + aWidth > b.x &&
+            a.y < b.y + bHeight &&
+            a.y + aHeight > b.y;
+    };
+
+    std::vector<Entity*> enemyEntities;
+    enemyEntities.reserve(m_entities.size());
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !entity->GetComponent<EnemyComponent>())
+        {
+            continue;
+        }
+        enemyEntities.push_back(entity.get());
+    }
+
+    for (auto& turretCandidate : m_entities)
+    {
+        if (!turretCandidate || !HasTag(*turretCandidate, kTagLaserTurret))
+        {
+            continue;
+        }
+
+        auto* turretTransform = turretCandidate->GetComponent<TransformComponent>();
+        auto* turret = turretCandidate->GetComponent<LaserTurretComponent>();
+        if (!turretTransform || !turret)
+        {
+            continue;
+        }
+
+        Entity* beamEntity = nullptr;
+        for (const auto& beamCandidate : m_entities)
+        {
+            if (!beamCandidate || !HasTag(*beamCandidate, kTagLaserBeam))
+            {
+                continue;
+            }
+
+            auto* beamTransform = beamCandidate->GetComponent<TransformComponent>();
+            if (!beamTransform)
+            {
+                continue;
+            }
+
+            const float beamCenterY = beamTransform->y + beamTransform->height * beamTransform->scale * 0.5f;
+            const float turretCenterY = turretTransform->y + turretTransform->height * turretTransform->scale * 0.5f;
+            if (std::fabs(beamCenterY - turretCenterY) <= tileSize * 0.25f &&
+                beamTransform->x >= turretTransform->x)
+            {
+                beamEntity = beamCandidate.get();
+                break;
+            }
+        }
+
+        if (!beamEntity)
+        {
+            continue;
+        }
+
+        auto* beamTransform = beamEntity->GetComponent<TransformComponent>();
+        if (!beamTransform)
+        {
+            continue;
+        }
+
+        const float turretWidth = turretTransform->width * turretTransform->scale;
+        const float turretHeight = turretTransform->height * turretTransform->scale;
+        const float beamThickness = (std::max)(1.0f, turret->beamThickness);
+        const float damageInterval = 1.0f / (std::max)(0.1f, turret->damagePerSecond);
+        const float beamStartX = turretTransform->x + turretWidth;
+        const float beamY = turretTransform->y + (turretHeight - beamThickness) * 0.5f;
+        float hitX = mapWidth;
+
+        const int rowTop = std::max(0, static_cast<int>(std::floor(beamY / tileSize)));
+        const int rowBottom = std::min(
+            m_tileMap.GetHeight() - 1,
+            static_cast<int>(std::floor((beamY + beamThickness - 1.0f) / tileSize)));
+        for (int column = std::max(0, static_cast<int>(std::floor(beamStartX / tileSize))); column < m_tileMap.GetWidth(); ++column)
+        {
+            bool blocked = false;
+            for (int row = rowTop; row <= rowBottom; ++row)
+            {
+                if (!IsSolidTile(column, row) && !IsSlopeTile(column, row))
+                {
+                    continue;
+                }
+
+                hitX = std::min(hitX, static_cast<float>(column) * tileSize);
+                blocked = true;
+                break;
+            }
+            if (blocked)
+            {
+                break;
+            }
+        }
+
+        TransformComponent beamAabb(beamStartX, beamY, std::max(0.0f, mapWidth - beamStartX), beamThickness);
+        for (const auto& entity : m_entities)
+        {
+            if (!entity || entity.get() == turretCandidate.get() || entity.get() == beamEntity)
+            {
+                continue;
+            }
+            if (HasTag(*entity, kTagPlayer) || entity->GetComponent<EnemyComponent>())
+            {
+                continue;
+            }
+            if (!(entity->GetComponent<BarrelComponent>() ||
+                entity->GetComponent<BatteryComponent>() ||
+                IsGroundPlatformEntity(*entity) ||
+                HasTag(*entity, kTagPhotoBox)))
+            {
+                continue;
+            }
+
+            auto* transform = entity->GetComponent<TransformComponent>();
+            if (!transform)
+            {
+                continue;
+            }
+
+            const float objectWidth = transform->width * transform->scale;
+            const float objectHeight = transform->height * transform->scale;
+            if (transform->x + objectWidth <= beamStartX)
+            {
+                continue;
+            }
+            if (!intersectsRect(beamAabb, *transform))
+            {
+                continue;
+            }
+
+            hitX = std::min(hitX, transform->x);
+        }
+
+        const float beamLength = std::max(0.0f, hitX - beamStartX);
+        beamTransform->x = beamStartX;
+        beamTransform->y = beamY;
+        beamTransform->width = beamLength;
+        beamTransform->height = beamThickness;
+
+        TransformComponent activeBeam(beamStartX, beamY, beamLength, beamThickness);
+        if (player)
+        {
+            if (auto* playerTransform = player->GetComponent<TransformComponent>())
+            {
+                if (beamLength > 0.0f && intersectsRect(activeBeam, *playerTransform))
+                {
+                    turret->playerDamageTimer += deltaTime;
+                    m_flow.playerTouchingHazard = true;
+                    while (turret->playerDamageTimer >= damageInterval)
+                    {
+                        HandlePlayerDamage(*player, turretCandidate.get(), "Laser damaged player", 1);
+                        turret->playerDamageTimer -= damageInterval;
+                    }
+                }
+                else
+                {
+                    turret->playerDamageTimer = 0.0f;
+                }
+            }
+        }
+
+        std::unordered_map<const Entity*, float> nextEnemyDamageTimers;
+        nextEnemyDamageTimers.reserve(enemyEntities.size());
+        for (Entity* enemyEntity : enemyEntities)
+        {
+            if (!enemyEntity)
+            {
+                continue;
+            }
+
+            auto* enemyTransform = enemyEntity->GetComponent<TransformComponent>();
+            if (!enemyTransform || beamLength <= 0.0f || !intersectsRect(activeBeam, *enemyTransform))
+            {
+                continue;
+            }
+
+            float timer = deltaTime;
+            auto timerIt = turret->enemyDamageTimers.find(enemyEntity);
+            if (timerIt != turret->enemyDamageTimers.end())
+            {
+                timer = timerIt->second + deltaTime;
+            }
+            while (timer >= damageInterval)
+            {
+                HandleEnemyDamage(*enemyEntity, turretCandidate.get(), 1, "Laser damaged enemy");
+                timer -= damageInterval;
+            }
+            nextEnemyDamageTimers[enemyEntity] = timer;
+        }
+        turret->enemyDamageTimers.swap(nextEnemyDamageTimers);
+
+        const bool blocked = hitX < mapWidth - 0.1f;
+        turret->sparkTimer -= deltaTime;
+        if (blocked && turret->sparkTimer <= 0.0f)
+        {
+            turret->sparkTimer = 0.08f;
+            for (int index = 0; index < 2; ++index)
+            {
+                LaserSparkParticle spark;
+                spark.x = hitX;
+                spark.y = beamY + beamThickness * 0.5f;
+                spark.velocityX = -60.0f - static_cast<float>(GetRand(140));
+                spark.velocityY = -90.0f + static_cast<float>(GetRand(180));
+                spark.life = 0.18f;
+                spark.maxLife = 0.18f;
+                m_effects.laserSparks.push_back(spark);
+            }
+        }
+    }
+}
+
 bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, const Entity* self, float tileSize) const
 {
     const float width = bounds.width * bounds.scale;
@@ -1408,313 +1653,6 @@ void GameScene::UpdateSingleBattery(
     }
 }
 
-void GameScene::UpdateElevatorGimmicks(float deltaTime)
-{
-    if (deltaTime <= 0.0f)
-    {
-        return;
-    }
-
-    Entity* player = FindEntityByTag(kTagPlayer);
-    auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
-    const float tileSize = m_tileMap.GetTileSize();
-
-    std::unordered_map<int, bool> linkPowered;
-
-    auto isPlayerOnTopOfPlatform = [&](const TransformComponent& platform, float topTolerance) -> bool
-    {
-        if (!playerTransform)
-        {
-            return false;
-        }
-
-        const float playerWidth = playerTransform->width * playerTransform->scale;
-        const float playerHeight = playerTransform->height * playerTransform->scale;
-        const float playerLeft = playerTransform->x + 6.0f;
-        const float playerRight = playerTransform->x + playerWidth - 6.0f;
-        const float playerBottom = playerTransform->y + playerHeight;
-        const float platformWidth = platform.width * platform.scale;
-        const float platformLeft = platform.x;
-        const float platformRight = platform.x + platformWidth;
-        const bool overlapX = playerRight > platformLeft && playerLeft < platformRight;
-        if (!overlapX)
-        {
-            return false;
-        }
-
-        return std::fabs(playerBottom - platform.y) <= topTolerance;
-    };
-
-    auto isPlayerTouchingPlatform = [&](const TransformComponent& platform, float tolerance) -> bool
-    {
-        if (!playerTransform)
-        {
-            return false;
-        }
-
-        const float playerWidth = playerTransform->width * playerTransform->scale;
-        const float playerHeight = playerTransform->height * playerTransform->scale;
-        const float platformWidth = platform.width * platform.scale;
-        const float platformHeight = platform.height * platform.scale;
-
-        return playerTransform->x + playerWidth > platform.x - tolerance &&
-            playerTransform->x < platform.x + platformWidth + tolerance &&
-            playerTransform->y + playerHeight > platform.y - tolerance &&
-            playerTransform->y < platform.y + platformHeight + tolerance;
-    };
-
-    for (const auto& entity : m_entities)
-    {
-        if (!entity)
-        {
-            continue;
-        }
-
-        auto* switchComponent = entity->GetComponent<BatterySwitchComponent>();
-        auto* transform = entity->GetComponent<TransformComponent>();
-        if (!switchComponent || !transform)
-        {
-            continue;
-        }
-
-        const float previousY = transform->y;
-        const float switchWidth = transform->width * transform->scale;
-        const float switchHeight = transform->height * transform->scale;
-        const float batteryTopTolerance = std::max(8.0f, switchHeight * 0.7f);
-        auto isBatteryOnSwitchTop = [&](const TransformComponent& batteryTransform, float switchTopY) -> bool
-        {
-            const float batteryWidth = batteryTransform.width * batteryTransform.scale;
-            const float batteryHeight = batteryTransform.height * batteryTransform.scale;
-            const float batteryLeft = batteryTransform.x + 2.0f;
-            const float batteryRight = batteryTransform.x + batteryWidth - 2.0f;
-            const float batteryBottom = batteryTransform.y + batteryHeight;
-            const float platformLeft = transform->x;
-            const float platformRight = transform->x + switchWidth;
-            const bool overlapX = batteryRight > platformLeft && batteryLeft < platformRight;
-            const bool onTop = batteryBottom >= switchTopY - batteryTopTolerance
-                && batteryBottom <= switchTopY + batteryTopTolerance;
-            return overlapX && onTop;
-        };
-
-        int batteriesOnTop = 0;
-        for (const auto& batteryEntity : m_entities)
-        {
-            if (!batteryEntity)
-            {
-                continue;
-            }
-
-            auto* battery = batteryEntity->GetComponent<BatteryComponent>();
-            auto* batteryTransform = batteryEntity->GetComponent<TransformComponent>();
-            if (!battery || !batteryTransform)
-            {
-                continue;
-            }
-
-            if (isBatteryOnSwitchTop(*batteryTransform, transform->y))
-            {
-                ++batteriesOnTop;
-            }
-        }
-
-        // 個数判定が一瞬途切れてもチラつかないよう、短い保持時間を設ける。
-        switchComponent->insertedBatteryCount = batteriesOnTop;
-        const bool hasRequiredBatteries = switchComponent->insertedBatteryCount >= switchComponent->requiredBatteryCount;
-        if (hasRequiredBatteries)
-        {
-            switchComponent->activationGraceRemaining = switchComponent->activationGraceSeconds;
-        }
-        else
-        {
-            switchComponent->activationGraceRemaining = std::max(
-                0.0f,
-                switchComponent->activationGraceRemaining - deltaTime);
-        }
-        switchComponent->isPressed = hasRequiredBatteries || switchComponent->activationGraceRemaining > 0.0f;
-        const float targetPress = switchComponent->isPressed ? switchComponent->pressDepth : 0.0f;
-        const float responseSpeed = switchComponent->isPressed ? switchComponent->pressSpeed : switchComponent->releaseSpeed;
-        switchComponent->currentPress += (targetPress - switchComponent->currentPress) * std::min(1.0f, deltaTime * responseSpeed);
-        switchComponent->currentPress = std::clamp(switchComponent->currentPress, 0.0f, switchComponent->pressDepth);
-        transform->y = switchComponent->baseY + switchComponent->currentPress;
-        const float switchDeltaY = transform->y - previousY;
-        if (playerTransform && std::fabs(switchDeltaY) > 0.001f)
-        {
-            const float playerWidth = playerTransform->width * playerTransform->scale;
-            const float playerHeight = playerTransform->height * playerTransform->scale;
-            const float playerLeft = playerTransform->x + 6.0f;
-            const float playerRight = playerTransform->x + playerWidth - 6.0f;
-            const float platformLeft = transform->x;
-            const float platformRight = transform->x + switchWidth;
-            const bool overlapX = playerRight > platformLeft && playerLeft < platformRight;
-            const float playerBottom = playerTransform->y + playerHeight;
-            const bool stoodOnPreviousTop = overlapX && std::fabs(playerBottom - previousY) <= std::max(8.0f, switchHeight * 0.7f);
-            const bool stoodOnCurrentTop = overlapX && std::fabs(playerBottom - transform->y) <= std::max(8.0f, switchHeight * 0.7f);
-            if (stoodOnPreviousTop || stoodOnCurrentTop)
-            {
-                playerTransform->y += switchDeltaY;
-                m_player.velocityY = 0.0f;
-                m_player.grounded = true;
-            }
-        }
-        if (std::fabs(switchDeltaY) > 0.001f)
-        {
-            for (const auto& batteryEntity : m_entities)
-            {
-                if (!batteryEntity)
-                {
-                    continue;
-                }
-
-                auto* battery = batteryEntity->GetComponent<BatteryComponent>();
-                auto* batteryTransform = batteryEntity->GetComponent<TransformComponent>();
-                if (!battery || !batteryTransform)
-                {
-                    continue;
-                }
-
-                const bool wasOnTop = isBatteryOnSwitchTop(*batteryTransform, previousY);
-                const bool isOnTop = isBatteryOnSwitchTop(*batteryTransform, transform->y);
-                if (!wasOnTop && !isOnTop)
-                {
-                    continue;
-                }
-
-                batteryTransform->y += switchDeltaY;
-                battery->velocityY = 0.0f;
-                battery->grounded = true;
-            }
-        }
-
-        const bool powered = switchComponent->isPressed;
-        linkPowered[switchComponent->linkId] = linkPowered[switchComponent->linkId] || powered;
-
-        if (auto* tint = entity->GetComponent<TintComponent>())
-        {
-            if (powered)
-            {
-                tint->r = 0.22f;
-                tint->g = 0.90f;
-                tint->b = 0.40f;
-            }
-            else
-            {
-                tint->r = 0.92f;
-                tint->g = 0.26f;
-                tint->b = 0.20f;
-            }
-            tint->a = 1.0f;
-        }
-    }
-
-    for (const auto& entity : m_entities)
-    {
-        if (!entity)
-        {
-            continue;
-        }
-
-        auto* elevator = entity->GetComponent<ElevatorComponent>();
-        auto* transform = entity->GetComponent<TransformComponent>();
-        if (!elevator || !transform)
-        {
-            continue;
-        }
-
-        const float previousY = transform->y;
-        const bool powered = linkPowered[elevator->linkId];
-        if (!powered)
-        {
-            elevator->cycleStarted = false;
-            elevator->pauseTimer = 0.0f;
-            elevator->wasPlayerTouching = false;
-            elevator->wasPowered = false;
-        }
-        else
-        {
-            const bool playerTouchingElevator =
-                isPlayerTouchingPlatform(*transform, std::max(10.0f, tileSize * 0.18f)) ||
-                isPlayerOnTopOfPlatform(*transform, std::max(12.0f, tileSize * 0.28f));
-            const bool touchTriggeredThisFrame =
-                playerTouchingElevator &&
-                (!elevator->wasPlayerTouching || !elevator->wasPowered);
-            if (!elevator->cycleStarted && touchTriggeredThisFrame)
-            {
-                elevator->cycleStarted = true;
-                elevator->pauseTimer = 0.0f;
-            }
-
-            if (elevator->cycleStarted)
-            {
-                if (elevator->movingUp)
-                {
-                    const float topY = elevator->baseY - elevator->moveRangeY;
-                    transform->y = std::max(topY, transform->y - elevator->moveSpeed * deltaTime);
-                    if (transform->y <= topY + 0.5f)
-                    {
-                        transform->y = topY;
-                        elevator->movingUp = false;
-                        elevator->cycleStarted = false;
-                    }
-                }
-                else
-                {
-                    transform->y = std::min(elevator->baseY, transform->y + elevator->moveSpeed * deltaTime);
-                    if (transform->y >= elevator->baseY - 0.5f)
-                    {
-                        transform->y = elevator->baseY;
-                        elevator->movingUp = true;
-                        elevator->cycleStarted = false;
-                    }
-                }
-            }
-
-            elevator->wasPlayerTouching = playerTouchingElevator;
-            elevator->wasPowered = true;
-        }
-
-        const float deltaY = transform->y - previousY;
-        if (playerTransform && std::fabs(deltaY) > 0.001f)
-        {
-            const float elevatorWidth = transform->width * transform->scale;
-            const float playerWidth = playerTransform->width * playerTransform->scale;
-            const float playerHeight = playerTransform->height * playerTransform->scale;
-            const float playerLeft = playerTransform->x + 6.0f;
-            const float playerRight = playerTransform->x + playerWidth - 6.0f;
-            const float platformLeft = transform->x;
-            const float platformRight = transform->x + elevatorWidth;
-            const bool overlapX = playerRight > platformLeft && playerLeft < platformRight;
-            const float previousTop = previousY;
-            const float currentTop = transform->y;
-            const float playerBottom = playerTransform->y + playerHeight;
-            const bool stoodOnPreviousTop = overlapX && std::fabs(playerBottom - previousTop) <= std::max(10.0f, tileSize * 0.24f);
-            const bool stoodOnCurrentTop = overlapX && std::fabs(playerBottom - currentTop) <= std::max(10.0f, tileSize * 0.24f);
-            if (stoodOnPreviousTop || stoodOnCurrentTop)
-            {
-                playerTransform->y += deltaY;
-                m_player.velocityY = 0.0f;
-                m_player.grounded = true;
-            }
-        }
-
-        if (auto* tint = entity->GetComponent<TintComponent>())
-        {
-            if (powered)
-            {
-                tint->r = 0.74f;
-                tint->g = 0.86f;
-                tint->b = 0.98f;
-            }
-            else
-            {
-                tint->r = 0.42f;
-                tint->g = 0.46f;
-                tint->b = 0.52f;
-            }
-            tint->a = 1.0f;
-        }
-    }
-
-}
 
 void GameScene::UpdatePlayerAfterimages(float deltaTime)
 {
@@ -2007,7 +1945,7 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
     health->ApplyDamage((std::max)(1, amount));
     if (shouldTriggerDamageFeedback)
     {
-        TriggerPlayerDamageFeedback(m_flow);
+        TriggerPlayerDamageFeedback(m_flow, m_debug.screenShakeEnabled);
     }
     GameSession_SetCurrentHp(health->GetCurrentHealth());
     m_eventBus.Publish({ EventType::PlaySoundRequest, &player, sourceEntity, "contact_tone", 0.0f, 0.0f });
@@ -2093,6 +2031,4 @@ void GameScene::RespawnPlayer(Entity& player)
         m_flow.cameraY = 0.0f;
     }
 }
-
-
 
