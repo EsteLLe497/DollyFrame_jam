@@ -577,6 +577,7 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
     {
         if (m_tileMap.LoadFromCsv(gCurrentMapCsvPath, tileSize))
         {
+            RefreshStageRenderProfile();
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
             m_mapEditor.statusMessage = "CSVを再読み込みしました";
@@ -598,6 +599,7 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
             m_tileMap.LoadFromCsv(newMapPath, tileSize))
         {
             gCurrentMapCsvPath = newMapPath;
+            RefreshStageRenderProfile();
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
             m_flow.cameraX = 0.0f;
@@ -619,6 +621,7 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
         if (m_tileMap.SaveToCsv(duplicatedMapPath))
         {
             gCurrentMapCsvPath = duplicatedMapPath;
+            RefreshStageRenderProfile();
             m_mapEditor.statusMessage = "別名保存しました: " + duplicatedMapPath;
             m_mapEditor.statusMessageTimer = 3.0f;
         }

@@ -415,6 +415,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
     m_tileMap.LoadFromCsv(gCurrentMapCsvPath, 48.0f);
+    RefreshStageRenderProfile();
     gCameraViewWidth = kDefaultCameraViewWidth;
     gCameraViewHeight = kDefaultCameraViewHeight;
     m_eventBus.Clear();

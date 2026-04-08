@@ -32,10 +32,10 @@ struct BarrelDebrisParticle
 
 struct CameraFlashState
 {
-    //bool unlocked = true;
-    //bool enabled = true;
-    bool unlocked = false;
-    bool enabled = false;
+    bool unlocked = true;
+    bool enabled = true;
+    //bool unlocked = false;
+    //bool enabled = false;
     float pulseRemaining = 0.0f;
     float pulseDuration = 0.0f;
 };
