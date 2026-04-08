@@ -320,6 +320,18 @@ public:
     float godRaySoftness;
 };
 
+class MarkerLightComponent final : public Component
+{
+public:
+    MarkerLightComponent(float radius, float intensity);
+
+    void DrawDebugUI() override;
+
+    float radius;
+    float intensity;
+    bool activated = false;
+};
+
 class TagComponent final : public Component
 {
 public:

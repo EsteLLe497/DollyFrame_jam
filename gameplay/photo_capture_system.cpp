@@ -243,7 +243,6 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             continue;
         }
-
         const bool isPhotoBox = HasTag(*entity, "PhotoBox");
         if (isPhotoBox)
         {
@@ -308,6 +307,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const auto* damagePlatform = entity->GetComponent<DamagePlatformComponent>();
         const auto* spikeStrip = entity->GetComponent<SpikeStripComponent>();
         const auto* projectile = entity->GetComponent<ProjectileComponent>();
+        auto* markerLight = entity->GetComponent<MarkerLightComponent>();
         const bool capturedProjectile = projectile != nullptr;
         item.textureId = sprite->GetTextureId();
         item.role = GetEntityCopyRole(*entity);
@@ -358,6 +358,14 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.tintG = tint->g;
             item.tintB = tint->b;
             item.tintA = tint->a;
+        }
+        if (markerLight)
+        {
+            if (scene.m_flow.cameraFlash.unlocked)
+            {
+                markerLight->activated = true;
+            }
+            continue;
         }
         if (capturedProjectile)
         {

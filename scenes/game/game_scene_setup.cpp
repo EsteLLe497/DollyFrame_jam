@@ -415,6 +415,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
     m_tileMap.LoadFromCsv(gCurrentMapCsvPath, 48.0f);
+    RefreshStageRenderProfile();
     gCameraViewWidth = kDefaultCameraViewWidth;
     gCameraViewHeight = kDefaultCameraViewHeight;
     m_eventBus.Clear();
@@ -644,6 +645,7 @@ void GameScene::InitializeStageEntities()
     }
 
     RefreshLogsFromMarkers();
+    RefreshMarkerLightsFromMarkers();
 
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {

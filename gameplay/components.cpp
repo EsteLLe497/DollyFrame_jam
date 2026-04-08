@@ -293,6 +293,20 @@ void FlickerLightComponent::DrawDebugUI()
     }
 }
 
+MarkerLightComponent::MarkerLightComponent(float radiusValue, float intensityValue)
+    : radius(std::max(1.0f, radiusValue))
+    , intensity(std::clamp(intensityValue, 0.0f, 1.0f))
+{
+}
+
+void MarkerLightComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Marker Light");
+    ImGui::Text("Radius: %.1f", radius);
+    ImGui::Text("Intensity: %.2f", intensity);
+    ImGui::Text("Activated: %s", activated ? "On" : "Off");
+}
+
 TagComponent::TagComponent(const char* value)
     : tag(value ? value : "")
 {

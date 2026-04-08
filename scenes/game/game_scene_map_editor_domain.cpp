@@ -23,8 +23,8 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr std::array<char, 20> kMarkerPresets = {
-        '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'N', 'U', 'J', 'O'
+    constexpr std::array<char, 21> kMarkerPresets = {
+        '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'N', 'U', 'J', 'O', 'P'
     };
     constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -232,7 +232,7 @@ void GameScene::UpdateMapEditorBrushSelection()
             m_mapEditor.selectedMarker = marker;
         }
     };
-    constexpr std::array<std::pair<int, char>, 10> kMarkerHotkeys = {{
+    constexpr std::array<std::pair<int, char>, 11> kMarkerHotkeys = {{
         { VK_F10, 'M' },
         { VK_F11, 'Y' },
         { VK_F12, 'N' },
@@ -242,6 +242,7 @@ void GameScene::UpdateMapEditorBrushSelection()
         { 'K', 'K' },
         { 'L', 'L' },
         { 'O', 'O' },
+        { 'P', 'P' },
         { 'U', 'U' },
     }};
     for (const auto& [keyCode, marker] : kMarkerHotkeys)
