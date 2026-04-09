@@ -598,6 +598,50 @@ void GameScene::InitializeStageEntities()
                     }
                 }
             }
+
+            else if (marker == 'A') // ゴースト
+            {
+                Entity& enemy = SpawnStagePrefab(
+                    prefabs,
+                    "sandbox_enemy_ghost",
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize);
+                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                {
+                    if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
+                    {
+                        enemyComp->spawnX = transform->x;
+                        enemyComp->spawnY = transform->y;
+                    }
+                }
+            }
+            else if (marker == 'D') // ブラロボ
+            {
+                Entity& enemy = SpawnStagePrefab(
+                    prefabs,
+                    "sandbox_enemy_blaster_robot",
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize);
+                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                {
+                    // FindSpawnPositionを使わずCSVの座標をそのまま使う
+                    transform->x = static_cast<float>(column) * tileSize;
+                    transform->y = static_cast<float>(row) * tileSize;
+                    if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
+                    {
+                        enemyComp->spawnX = transform->x;
+                        enemyComp->spawnY = transform->y;
+                    }
+                    if (auto* blasterRobot = enemy.GetComponent<BlasterRobotComponent>())
+                    {
+                        // 天井判定：マーカーの上のタイルが壁なら天井設置
+                        if (row > 0 && m_tileMap.GetTile(column, row - 1) > 0)
+                        {
+                            blasterRobot->mountedOnCeiling = true;
+                        }
+                    }
+                }
+            }
         }
     }
 

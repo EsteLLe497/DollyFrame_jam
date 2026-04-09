@@ -36,7 +36,7 @@ void GameScene::UpdateEnemies()
         {
             m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, "enemy_gun", 0.0f, 0.0f });
         },
-        // photoBox衝突チェチE��コールバック
+        
         [this](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
         {
             for (auto it = m_entities.begin(); it != m_entities.end(); ++it)
@@ -58,9 +58,24 @@ void GameScene::UpdateEnemies()
         });
 }
 
+void GameScene::HandleFlashKillGhosts()
+{
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, kTagEnemy)) continue;
+
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled()) continue;
+        if (enemy->GetArchetype() != EnemyArchetype::Ghost) continue;
+
+        HandleEnemyDamage(*entity, nullptr, 999, "Ghost killed by flash");
+    }
+}
+
 void GameScene::UpdateBullets()
 {
     Entity* player = FindEntityByTag(kTagPlayer);
+    
     game_scene_combat_system::UpdateBullets(
         m_entities,
         GetMapPixelWidth(),

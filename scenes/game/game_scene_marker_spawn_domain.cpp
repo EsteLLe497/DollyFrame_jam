@@ -375,6 +375,16 @@ void GameScene::RefreshEnemiesFromMarkers()
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
                 placeEnemyAtMarker(boss);
             }
+			else if (marker == 'A')
+            {
+                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ghost", markerX, markerY);
+                placeEnemyAtMarker(enemy);
+            }
+            else if (marker == 'D')
+            {
+                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_blaster_robot", markerX, markerY);
+                placeEnemyAtMarker(enemy);
+            }
         }
     }
 }

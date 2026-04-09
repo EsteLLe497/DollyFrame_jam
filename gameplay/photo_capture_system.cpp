@@ -216,6 +216,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
             scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
+            scene.HandleFlashKillGhosts();
         }
         return;
     }
@@ -537,6 +538,7 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     if (flashEnabled)
     {
         scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
+        scene.HandleFlashKillGhosts();
     }
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
     scene.m_flow.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;

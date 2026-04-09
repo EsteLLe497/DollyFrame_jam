@@ -103,9 +103,10 @@ private:
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void UpdateEnemies();
+    void HandleFlashKillGhosts(); 
     void UpdateBullets();
-    void SpawnDropItems(float x, float y, int count); // 3/23???(?c?V??r)
-    void UpdateDropItems();                            // 3/23???(?c?V??r)
+    void SpawnDropItems(float x, float y, int count); 
+    void UpdateDropItems();                            
     int GetEnemyDropCount(EnemyArchetype archetype) const;
     void UpdateCameraMode();
     float UpdatePhotoModes(float deltaTime);
