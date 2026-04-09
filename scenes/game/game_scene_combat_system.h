@@ -203,6 +203,75 @@ inline void UpdateEnemies(
                 newBullets.push_back(std::move(bullet));
             }
         }
+
+        else if (enemy->GetArchetype() == EnemyArchetype::Ghost)
+        {
+            auto* ghost = entity->GetComponent<GhostComponent>();
+            if (!ghost) continue;
+
+            const float dx = playerTransform->x - transform->x;
+            const float dy = playerTransform->y - transform->y;
+            const float dist = std::sqrt(dx * dx + dy * dy);
+
+            // 検知範囲内なら追従（地形無視で直進）
+            if (dist < ghost->detectRange)
+            {
+                const float length = std::max(1.0f, dist);
+                transform->x += (dx / length) * ghost->moveSpeed * flow.lastDeltaTime;
+                transform->y += (dy / length) * ghost->moveSpeed * flow.lastDeltaTime;
+            }
+        }
+
+        else if (enemy->GetArchetype() == EnemyArchetype::BlasterRobot)
+        {
+            auto* blaster = entity->GetComponent<BlasterRobotComponent>();
+            if (!blaster) continue;
+
+            const float dx = playerTransform->x - transform->x;
+            const float dy = playerTransform->y - transform->y;
+            const float dist = std::sqrt(dx * dx + dy * dy);
+
+            blaster->facingRight = dx > 0.0f;
+
+            blaster->cooldownTimer += flow.lastDeltaTime;
+            blaster->burstTimer += flow.lastDeltaTime;
+
+            // 検知範囲内でクールダウン終了したら連射開始
+            if (dist < blaster->detectRange && blaster->shotsRemaining == 0
+                && blaster->cooldownTimer >= blaster->cooldown)
+            {
+                blaster->shotsRemaining = blaster->burstCount;
+                blaster->burstTimer = 0.0f;
+                blaster->cooldownTimer = 0.0f;
+            }
+
+            // 連射処理
+            if (blaster->shotsRemaining > 0 && blaster->burstTimer >= blaster->burstInterval)
+            {
+                blaster->burstTimer = 0.0f;
+                blaster->shotsRemaining--;
+
+                constexpr float kBulletSpeed = 350.0f;
+                const float length = std::max(1.0f, dist);
+                const float velX = (dx / length) * kBulletSpeed;
+                const float velY = (dy / length) * kBulletSpeed;
+
+                auto bullet = std::make_unique<Entity>();
+                bullet->AddComponent<TagComponent>("Bullet");
+                bullet->AddComponent<TransformComponent>(
+                    transform->x + transform->width * transform->scale * 0.5f - 12.0f,
+                    transform->y + transform->height * transform->scale * 0.5f - 12.0f,
+                    24.0f, 24.0f);
+                bullet->AddComponent<TintComponent>(0.2f, 1.0f, 0.4f, 1.0f);
+                bullet->AddComponent<SpriteRenderComponent>(tileTexture);
+                auto& proj = bullet->AddComponent<ProjectileComponent>(velX, velY, 1, ProjectileComponent::Owner::BlasterRobot);
+                proj.pierceRemaining = 2;
+                proj.maxEnemyHits = 2;
+                proj.sourceEntity = entity.get();
+                newBullets.push_back(std::move(bullet));
+            }
+        }
+
         else if (enemy->GetArchetype() == EnemyArchetype::ShieldBoss)
         {
             auto* boss = entity->GetComponent<ShieldBossComponent>();
@@ -526,6 +595,41 @@ void UpdateBullets(
                     }
                 }
 
+                if (projectile->GetOwner() == ProjectileComponent::Owner::BlasterRobot)
+                {
+                    if (player && intersectsEntity(*player, *entity))
+                    {
+                        handlePlayerDamage(*player, entity.get(), "GameScene player damaged by blaster");
+                        return true;
+                    }
+
+                    bool hitEnemy = false;
+                    for (const auto& target : entities)
+                    {
+                        if (!target || target.get() == entity.get() || !HasTag(*target, kTagEnemy))
+                        {
+                            continue;
+                        }
+                        if (target.get() == projectile->sourceEntity)
+                        {
+                            continue;
+                        }
+                        auto* targetEnemy = target->GetComponent<EnemyComponent>();
+                        if (!targetEnemy || !targetEnemy->IsEnabled()) continue;
+                        if (!intersectsEntity(*target, *entity)) continue;
+
+                        handleEnemyDamage(*target, entity.get(), projectile->GetDamage(), "Blaster bullet hit enemy");
+                        projectile->pierceRemaining--;
+                        hitEnemy = true;
+
+                        if (projectile->pierceRemaining <= 0)
+                        {
+                            return true;
+                        }
+                        break;
+                    }
+                }
+                
                 return transform->x < 0.0f
                     || transform->x > mapWidth
                     || transform->y < 0.0f

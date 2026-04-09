@@ -428,6 +428,10 @@ namespace
             return "Ranged";
         case EnemyArchetype::ShieldBoss:
             return "ShieldBoss";
+        case EnemyArchetype::Ghost:
+            return "Ghost";
+        case EnemyArchetype::BlasterRobot:
+            return "BlasterRobot";
         case EnemyArchetype::Floater:
         default:
             return "Floater";

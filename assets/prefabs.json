@@ -700,6 +700,58 @@
         "enabled": true,
         "maxHp": 10
       }
+    },
+    "sandbox_enemy_ghost": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 48.0,
+        "height": 48.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.7,
+        "g": 0.7,
+        "b": 1.0,
+        "a": 0.3
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "ghost",
+        "contactDamage": 1,
+        "ghost": true
+      }
+    },
+    "sandbox_enemy_blaster_robot": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 48.0,
+        "height": 48.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.2,
+        "g": 0.8,
+        "b": 0.4,
+        "a": 1.0
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "blaster_robot",
+        "contactDamage": 0,
+        "blasterRobot": true
+      },
+      "health": {
+        "enabled": true,
+        "maxHp": 1
+      }
     }
   }
 }
