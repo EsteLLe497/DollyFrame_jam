@@ -9,7 +9,7 @@ using namespace game_scene_detail;
 
 namespace
 {
-    constexpr int kEscapeMenuItemCount = 11;
+    constexpr int kEscapeMenuItemCount = 12;
     constexpr int kEscapeMenuPanelWidth = 560;
     constexpr int kEscapeMenuPanelHeight = 540;
     constexpr int kEscapeMenuRowStartOffset = 86;
@@ -93,6 +93,9 @@ void GameScene::UpdateEscapeMenuInput()
         case 7:
             m_debug.screenShakeEnabled = !m_debug.screenShakeEnabled;
             break;
+        case 8:
+            m_darknessStageEnabled = !m_darknessStageEnabled;
+            break;
         default:
             break;
         }
@@ -134,14 +137,17 @@ void GameScene::UpdateEscapeMenuInput()
         m_debug.screenShakeEnabled = !m_debug.screenShakeEnabled;
         break;
     case 8:
-        m_debug.showEscapeMenu = false;
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+        m_darknessStageEnabled = !m_darknessStageEnabled;
         break;
     case 9:
         m_debug.showEscapeMenu = false;
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
         break;
     case 10:
+        m_debug.showEscapeMenu = false;
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        break;
+    case 11:
         m_debug.showEscapeMenu = false;
         m_eventBus.Publish({ EventType::ExitApplicationRequested, nullptr, nullptr, "", 0.0f, 0.0f });
         break;
@@ -194,7 +200,7 @@ void GameScene::DrawEscapeMenuOverlay() const
 
     const int rowStartY = top + 86;
     const int rowHeight = 38;
-    for (int index = 0; index < 11; ++index)
+    for (int index = 0; index < kEscapeMenuItemCount; ++index)
     {
         const int rowTop = rowStartY + index * rowHeight;
         const int rowBottom = rowTop + rowHeight - 4;
@@ -243,12 +249,15 @@ void GameScene::DrawEscapeMenuOverlay() const
             DrawFormatString(left + 34, rowTop + 10, textColor, "画面揺れ: %s", m_debug.screenShakeEnabled ? "ON" : "OFF");
             break;
         case 8:
-            DrawString(left + 34, rowTop + 10, "シーンをリスタート", textColor);
+            DrawFormatString(left + 34, rowTop + 10, textColor, "暗闇エフェクト: %s", m_darknessStageEnabled ? "ON" : "OFF");
             break;
         case 9:
-            DrawString(left + 34, rowTop + 10, "タイトルに戻る", textColor);
+            DrawString(left + 34, rowTop + 10, "シーンをリスタート", textColor);
             break;
         case 10:
+            DrawString(left + 34, rowTop + 10, "タイトルに戻る", textColor);
+            break;
+        case 11:
             DrawString(left + 34, rowTop + 10, "ゲームを終える", textColor);
             break;
         default:

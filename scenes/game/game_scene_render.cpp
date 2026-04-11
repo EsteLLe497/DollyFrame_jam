@@ -1031,7 +1031,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
         if (animation && animation->GetCurrentClipName() == "idle")
         {
-            constexpr float kIdleFrameAspect = 500.0f / 708.0f;
+            constexpr float kIdleFrameAspect = 800.0f / 1132.0f;
             const float centerX = drawX + drawWidth * 0.5f;
             drawWidth = drawHeight * kIdleFrameAspect;
             drawX = centerX - drawWidth * 0.5f;
