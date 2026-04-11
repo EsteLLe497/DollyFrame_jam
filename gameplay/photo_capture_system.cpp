@@ -216,6 +216,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
             scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
+            scene.HandleFlashKillGhosts();
         }
         return;
     }
@@ -243,7 +244,6 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             continue;
         }
-
         const bool isPhotoBox = HasTag(*entity, "PhotoBox");
         if (isPhotoBox)
         {
@@ -308,6 +308,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const auto* damagePlatform = entity->GetComponent<DamagePlatformComponent>();
         const auto* spikeStrip = entity->GetComponent<SpikeStripComponent>();
         const auto* projectile = entity->GetComponent<ProjectileComponent>();
+        auto* markerLight = entity->GetComponent<MarkerLightComponent>();
         const bool capturedProjectile = projectile != nullptr;
         item.textureId = sprite->GetTextureId();
         item.role = GetEntityCopyRole(*entity);
@@ -358,6 +359,14 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.tintG = tint->g;
             item.tintB = tint->b;
             item.tintA = tint->a;
+        }
+        if (markerLight)
+        {
+            if (scene.m_flow.cameraFlash.unlocked)
+            {
+                markerLight->activated = true;
+            }
+            continue;
         }
         if (capturedProjectile)
         {
@@ -529,6 +538,7 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     if (flashEnabled)
     {
         scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
+        scene.HandleFlashKillGhosts();
     }
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
     scene.m_flow.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;

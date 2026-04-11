@@ -11,6 +11,26 @@ using namespace game_scene_detail;
 
 namespace
 {
+    void AddUnderBatteryGlow(Entity& battery)
+    {
+        battery.AddComponent<FlickerLightComponent>(
+            56.0f,
+            0.42f,
+            0.08f,
+            3.2f,
+            0.0f,
+            0.0f,
+            0.34f,
+            0.88f,
+            1.0f,
+            false,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f);
+    }
+
     bool IsMarkerInSet(char marker, std::string_view set)
     {
         const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
@@ -30,6 +50,11 @@ namespace
     bool IsLogMarker(char marker)
     {
         return IsMarkerInSet(marker, "M");
+    }
+
+    bool IsMarkerLightMarker(char marker)
+    {
+        return IsMarkerInSet(marker, "P");
     }
 
     bool IsElevatorMarker(char marker)
@@ -236,6 +261,7 @@ void GameScene::RefreshMarkerDrivenSystems()
     RefreshEnemiesFromMarkers();
     RefreshBatteriesFromMarkers();
     RefreshLogsFromMarkers();
+    RefreshMarkerLightsFromMarkers();
     RefreshLaserTurretsFromMarkers();
     RefreshLinkedGimmicksFromMarkers();
     RefreshDamageFootholdsFromMarkers();
@@ -257,6 +283,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     const bool enemyChanged = markerChanged(IsEnemyMarker);
     const bool batteryChanged = markerChanged(IsBatteryMarker);
     const bool logChanged = markerChanged(IsLogMarker);
+    const bool markerLightChanged = markerChanged(IsMarkerLightMarker);
     const bool linkedGimmickMarkerChanged =
         markerChanged(IsShutterOrLaserSwitchMarker) ||
         markerChanged(IsElevatorMarker);
@@ -266,6 +293,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     if (enemyChanged) RefreshEnemiesFromMarkers();
     if (batteryChanged) RefreshBatteriesFromMarkers();
     if (logChanged) RefreshLogsFromMarkers();
+    if (markerLightChanged) RefreshMarkerLightsFromMarkers();
     if (linkedGimmickMarkerChanged) RefreshLinkedGimmicksFromMarkers();
     if (laserTurretChanged) RefreshLaserTurretsFromMarkers();
     if (damageFootholdChanged) RefreshDamageFootholdsFromMarkers();
@@ -347,6 +375,16 @@ void GameScene::RefreshEnemiesFromMarkers()
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
                 placeEnemyAtMarker(boss);
             }
+			else if (marker == 'A')
+            {
+                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ghost", markerX, markerY);
+                placeEnemyAtMarker(enemy);
+            }
+            else if (marker == 'D')
+            {
+                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_blaster_robot", markerX, markerY);
+                placeEnemyAtMarker(enemy);
+            }
         }
     }
 }
@@ -398,6 +436,10 @@ void GameScene::RefreshBatteriesFromMarkers()
                 260.0f,
                 320.0f,
                 1);
+            if (m_darknessStageEnabled)
+            {
+                AddUnderBatteryGlow(*battery);
+            }
             m_entities.push_back(std::move(battery));
         }
     }
@@ -466,6 +508,68 @@ void GameScene::RefreshLogsFromMarkers()
                 barrel->respawnWhenOffscreen = false;
             }
             m_entities.push_back(std::move(log));
+        }
+    }
+}
+
+void GameScene::RefreshMarkerLightsFromMarkers()
+{
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity)
+                {
+                    return true;
+                }
+                return HasTag(*entity, kTagMarkerLight);
+            }),
+        m_entities.end());
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    constexpr float kDefaultRadiusTiles = 3.0f;
+            constexpr float kIntensity = 1.0f;
+            constexpr float kLightSizeRatio = 0.72f;
+            constexpr float kRotationRadians = 0.78539816339f;
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (marker != 'P')
+            {
+                continue;
+            }
+
+            const int markerParameter = m_tileMap.GetMarkerParameter(column, row);
+            const float radiusTiles = markerParameter > 0
+                ? static_cast<float>(markerParameter)
+                : kDefaultRadiusTiles;
+            const float objectSize = tileSize * kLightSizeRatio;
+            const float objectOffset = (tileSize - objectSize) * 0.5f;
+
+            auto light = std::make_unique<Entity>();
+            light->AddComponent<TagComponent>(kTagMarkerLight);
+            auto& transform = light->AddComponent<TransformComponent>(
+                static_cast<float>(column) * tileSize + objectOffset,
+                static_cast<float>(row) * tileSize + objectOffset,
+                objectSize,
+                objectSize);
+            transform.rotation = kRotationRadians;
+            light->AddComponent<TintComponent>(1.0f, 0.92f, 0.24f, 1.0f);
+            light->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            light->AddComponent<MarkerLightComponent>(
+                tileSize * radiusTiles,
+                kIntensity);
+            m_entities.push_back(std::move(light));
         }
     }
 }

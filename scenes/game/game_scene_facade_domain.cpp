@@ -141,6 +141,7 @@ void GameScene::DrawWorldAndUiLayers()
     DrawPastedEntitiesFront();
     DrawPhotoPlacementPreview();
     DrawStageDarknessOverlay();
+    DrawMarkerLightOutlines();
     DrawCaptureOverlay();
     DrawPhotoStorageTray();
     DrawDevelopedPhotoPreview();

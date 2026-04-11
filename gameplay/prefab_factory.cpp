@@ -97,6 +97,16 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
         entity->AddComponent<ShieldBossComponent>();
     }
 
+    if (definition.hasGhost)
+    {
+        entity->AddComponent<GhostComponent>();
+    }
+
+    if (definition.hasBlasterRobot)
+    {
+        entity->AddComponent<BlasterRobotComponent>();
+    }
+
     if (definition.hasEnemyMover)
     {
         entity->AddComponent<EnemyMoverComponent>(
@@ -265,6 +275,14 @@ void PrefabFactory::LoadDefinitions()
         {
             definition.enemyArchetype = EnemyArchetype::ShieldBoss;
         }
+        else if (enemyArchetype == "ghost")
+        {
+            definition.enemyArchetype = EnemyArchetype::Ghost;
+        }
+        else if (enemyArchetype == "blaster_robot")
+        {
+            definition.enemyArchetype = EnemyArchetype::BlasterRobot;
+        }
         else
         {
             definition.enemyArchetype = EnemyArchetype::Floater;
@@ -278,6 +296,9 @@ void PrefabFactory::LoadDefinitions()
         definition.enemyDetectHeight = enemy.value("detectHeight", 96.0f);
 
         definition.hasShieldBoss = enemy.value("shieldBoss", false);
+
+        definition.hasGhost = enemy.value("ghost", false);
+        definition.hasBlasterRobot = enemy.value("blasterRobot", false);
 
         const auto& enemyMover = data.contains("enemyMover") && data["enemyMover"].is_object() ? data["enemyMover"] : nlohmann::json::object();
         definition.hasEnemyMover = enemyMover.value("enabled", false);

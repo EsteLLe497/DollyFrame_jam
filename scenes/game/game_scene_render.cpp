@@ -935,6 +935,10 @@ void GameScene::DrawEffects() const
         {
             continue;
         }
+        if (HasTag(*entity, kTagPhotoBox) || HasTag(*entity, kTagMarkerLight))
+        {
+            continue;
+        }
 
         const float centerX = transform->x + transform->width * 0.5f;
         const float maxRadius = light->radius + std::abs(light->offsetX) + transform->width * 0.5f;

@@ -17,9 +17,15 @@ struct DarknessOverlayLight
 {
     float centerX = 0.0f;
     float centerY = 0.0f;
+    float shapeType = 0.0f;
     float innerRadius = 0.0f;
     float outerRadius = 0.0f;
+    float extentX = 0.0f;
+    float extentY = 0.0f;
     float intensity = 1.0f;
+    float colorR = 1.0f;
+    float colorG = 1.0f;
+    float colorB = 1.0f;
 };
 
 struct DarknessOverlayParams

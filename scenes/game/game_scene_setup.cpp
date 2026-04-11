@@ -415,6 +415,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
     m_tileMap.LoadFromCsv(gCurrentMapCsvPath, 48.0f);
+    RefreshStageRenderProfile();
     gCameraViewWidth = kDefaultCameraViewWidth;
     gCameraViewHeight = kDefaultCameraViewHeight;
     m_eventBus.Clear();
@@ -597,6 +598,50 @@ void GameScene::InitializeStageEntities()
                     }
                 }
             }
+
+            else if (marker == 'A') // ゴースト
+            {
+                Entity& enemy = SpawnStagePrefab(
+                    prefabs,
+                    "sandbox_enemy_ghost",
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize);
+                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                {
+                    if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
+                    {
+                        enemyComp->spawnX = transform->x;
+                        enemyComp->spawnY = transform->y;
+                    }
+                }
+            }
+            else if (marker == 'D') // ブラロボ
+            {
+                Entity& enemy = SpawnStagePrefab(
+                    prefabs,
+                    "sandbox_enemy_blaster_robot",
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize);
+                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                {
+                    // FindSpawnPositionを使わずCSVの座標をそのまま使う
+                    transform->x = static_cast<float>(column) * tileSize;
+                    transform->y = static_cast<float>(row) * tileSize;
+                    if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
+                    {
+                        enemyComp->spawnX = transform->x;
+                        enemyComp->spawnY = transform->y;
+                    }
+                    if (auto* blasterRobot = enemy.GetComponent<BlasterRobotComponent>())
+                    {
+                        // 天井判定：マーカーの上のタイルが壁なら天井設置
+                        if (row > 0 && m_tileMap.GetTile(column, row - 1) > 0)
+                        {
+                            blasterRobot->mountedOnCeiling = true;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -624,6 +669,25 @@ void GameScene::InitializeStageEntities()
                 260.0f,
                 320.0f,
                 1);
+            if (m_darknessStageEnabled)
+            {
+                battery->AddComponent<FlickerLightComponent>(
+                    56.0f,
+                    0.42f,
+                    0.08f,
+                    3.2f,
+                    0.0f,
+                    0.0f,
+                    0.34f,
+                    0.88f,
+                    1.0f,
+                    false,
+                    0.0f,
+                    0.0f,
+                    0.0f,
+                    0.0f,
+                    0.0f);
+            }
             m_entities.push_back(std::move(battery));
         }
     }
@@ -644,6 +708,7 @@ void GameScene::InitializeStageEntities()
     }
 
     RefreshLogsFromMarkers();
+    RefreshMarkerLightsFromMarkers();
 
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {

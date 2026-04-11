@@ -866,6 +866,25 @@ void PhotoPasteSystem::SpawnPhotoGroup(
         {
             transform->rotation = item.rotation;
         }
+        if (item.lightRadius > 0.0f)
+        {
+            lastSpawnedEntity->AddComponent<FlickerLightComponent>(
+                item.lightRadius,
+                item.lightIntensity > 0.0f ? item.lightIntensity : 1.0f,
+                0.0f,
+                0.0f,
+                0.0f,
+                0.0f,
+                1.0f,
+                0.90f,
+                0.24f,
+                false,
+                1.0f,
+                1.0f,
+                0.0f,
+                0.0f,
+                0.0f);
+        }
         if (!item.collisionOutline.empty())
         {
             std::vector<b2Vec2> normalizedOutline;

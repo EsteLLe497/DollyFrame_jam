@@ -56,6 +56,8 @@ enum class EnemyArchetype
     Turret,
     Ranged, 
     ShieldBoss,
+    Ghost,        
+    BlasterRobot, 
 };
 
 enum class ShieldBossState
@@ -320,6 +322,18 @@ public:
     float godRaySoftness;
 };
 
+class MarkerLightComponent final : public Component
+{
+public:
+    MarkerLightComponent(float radius, float intensity);
+
+    void DrawDebugUI() override;
+
+    float radius;
+    float intensity;
+    bool activated = false;
+};
+
 class TagComponent final : public Component
 {
 public:
@@ -551,6 +565,35 @@ public:
     std::vector<Entity*> hitEntities;
 };
 
+class GhostComponent final : public Component
+{
+public:
+    GhostComponent() = default;
+
+    float detectRange = 6.0f * 48.0f;
+    float moveSpeed = 80.0f;
+    float visibilityAlpha = 0.3f;
+    float targetAlpha = 0.3f;
+    int dropMin = 10;
+    int dropMax = 30;
+};
+
+class BlasterRobotComponent final : public Component
+{
+public:
+    BlasterRobotComponent() = default;
+
+    float detectRange = 5.0f * 48.0f;
+    int burstCount = 3;
+    float burstInterval = 0.15f;
+    float cooldown = 3.0f;
+    int shotsRemaining = 0;
+    float burstTimer = 0.0f;
+    float cooldownTimer = 0.0f;
+    bool mountedOnCeiling = false;
+    bool facingRight = true;
+};
+
 // 3/21追加：ドロップアイテムコンポーネント(田之上俊)
 class DropItemComponent final : public Component
 {
@@ -589,7 +632,8 @@ public:
     enum class Owner
     {
         Enemy,
-        Photo
+        Photo,
+        BlasterRobot,
     };
 
     ProjectileComponent(float velocityX, float velocityY, int damage = 1, Owner owner = Owner::Enemy)
@@ -604,6 +648,9 @@ public:
     float GetVelocityY() const { return m_velocityY; }
     int GetDamage() const { return m_damage; }
     Owner GetOwner() const { return m_owner; }
+    int pierceRemaining = 0;    
+    int maxEnemyHits = 0;    
+    Entity* sourceEntity = nullptr; 
 
 private:
     float m_velocityX;

@@ -307,6 +307,7 @@ inline constexpr const char* kTagLaserSwitch = "LaserSwitch";
 inline constexpr const char* kTagShutter = "Shutter";
 inline constexpr const char* kTagLaserTurret = "LaserTurret";
 inline constexpr const char* kTagLaserBeam = "LaserBeam";
+inline constexpr const char* kTagMarkerLight = "MarkerLight";
 
 inline bool IsDamagePlatformMarker(char marker)
 {
@@ -365,6 +366,10 @@ inline PhotoCopyRole GetEntityCopyRole(const Entity& entity)
         return PhotoCopyRole::Solid;
     }
     if (HasTag(entity, kTagLaserTurret))
+    {
+        return PhotoCopyRole::Solid;
+    }
+    if (HasTag(entity, kTagMarkerLight))
     {
         return PhotoCopyRole::Solid;
     }

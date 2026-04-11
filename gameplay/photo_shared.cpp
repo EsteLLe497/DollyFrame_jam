@@ -592,7 +592,7 @@ bool ContainsShapePreservingItem(const std::vector<CapturedPhotoItem>& items)
 {
     for (const auto& item : items)
     {
-        if (item.sourceTileValue > 0 || !item.collisionOutline.empty())
+        if (item.sourceTileValue > 0 || !item.collisionOutline.empty() || item.lightRadius > 0.0f)
         {
             return true;
         }

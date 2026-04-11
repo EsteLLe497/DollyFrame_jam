@@ -103,9 +103,10 @@ private:
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void UpdateEnemies();
+    void HandleFlashKillGhosts(); 
     void UpdateBullets();
-    void SpawnDropItems(float x, float y, int count); // 3/23???(?c?V??r)
-    void UpdateDropItems();                            // 3/23???(?c?V??r)
+    void SpawnDropItems(float x, float y, int count); 
+    void UpdateDropItems();                            
     int GetEnemyDropCount(EnemyArchetype archetype) const;
     void UpdateCameraMode();
     float UpdatePhotoModes(float deltaTime);
@@ -123,6 +124,7 @@ private:
     void RefreshEnemiesFromMarkers();
     void RefreshBatteriesFromMarkers();
     void RefreshLogsFromMarkers();
+    void RefreshMarkerLightsFromMarkers();
     void RefreshLaserTurretsFromMarkers();
     void RefreshLinkedGimmicksFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
@@ -176,6 +178,7 @@ private:
     void DrawTuningPanel();
     void DrawPitRestartOverlay() const;
     void DrawStageDarknessOverlay() const;
+    void DrawMarkerLightOutlines() const;
     void DrawEffects() const;
     void DrawEnemyAttackRects() const;
     void DrawCaptureOverlay() const;
