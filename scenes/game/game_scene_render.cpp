@@ -1021,6 +1021,18 @@ void GameScene::DrawEntity(const Entity& entity) const
     float drawY = viewOriginY + (transform->y - m_flow.cameraY) * viewScale;
     float drawWidth = transform->width * transform->scale * viewScale;
     float drawHeight = transform->height * transform->scale * viewScale;
+    const auto* tag = entity.GetComponent<TagComponent>();
+    if (tag && HasTag(tag, kTagPlayer))
+    {
+        const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
+        if (animation && animation->GetCurrentClipName() == "idle")
+        {
+            constexpr float kIdleFrameAspect = 500.0f / 708.0f;
+            const float centerX = drawX + drawWidth * 0.5f;
+            drawWidth = drawHeight * kIdleFrameAspect;
+            drawX = centerX - drawWidth * 0.5f;
+        }
+    }
     if (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth)
     {
         return;
@@ -1084,7 +1096,6 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
-    const auto* tag = entity.GetComponent<TagComponent>();
     if (tag && HasTag(tag, kTagGoal))
     {
         Shader_SetOutline(
