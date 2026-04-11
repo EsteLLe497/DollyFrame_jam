@@ -22,8 +22,8 @@ inline constexpr float kPlayerDodgeDecay = 7.5f;
 inline constexpr int kPlayerSheetColumns = 5;
 inline constexpr int kPlayerSheetRows = 6;
 inline constexpr int kPlayerIdleSheetColumns = 5;
-inline constexpr int kPlayerIdleSheetRows = 8;
-inline constexpr int kPlayerIdleFrameCount = 40;
+inline constexpr int kPlayerIdleSheetRows = 9;
+inline constexpr int kPlayerIdleFrameCount = 45;
 inline constexpr float kPlayerIdleFps = 12.0f;
 
 inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -1)
