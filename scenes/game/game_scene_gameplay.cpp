@@ -2014,6 +2014,39 @@ void GameScene::RespawnPlayer(Entity& player)
         marker.wasInside = false;
     }
 
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        auto* enemyTransform = entity->GetComponent<TransformComponent>();
+        if (!enemy || !enemyTransform || enemy->GetArchetype() != EnemyArchetype::Ghost)
+        {
+            continue;
+        }
+
+        enemyTransform->x = enemy->spawnX;
+        enemyTransform->y = enemy->spawnY;
+        enemy->velocityY = 0.0f;
+        enemy->attackTimer = 0.0f;
+        enemy->attackRectActive = false;
+        enemy->attackRectRemaining = 0.0f;
+        enemy->SetAIState(EnemyComponent::AIState::Idle);
+        enemy->Restore();
+
+        if (auto* tint = entity->GetComponent<TintComponent>())
+        {
+            tint->a = 1.0f;
+        }
+        if (auto* ghost = entity->GetComponent<GhostComponent>())
+        {
+            ghost->targetAlpha = ghost->visibilityAlpha;
+        }
+    }
+
     const float playerWidth = transform->width * transform->scale;
     const float playerHeight = transform->height * transform->scale;
     const float mapWidth = GetMapPixelWidth();

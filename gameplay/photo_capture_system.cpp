@@ -203,6 +203,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float frameWidth = 0.0f;
     float frameHeight = 0.0f;
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
+    const bool defeatedGhostInFinder = scene.HandleFinderDefeatGhosts(frameX, frameY, frameWidth, frameHeight) > 0;
 
     scene.m_photo.capture.items.clear();
     float capturedMaxRight = 0.0f;
@@ -211,12 +212,14 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     CaptureTilesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
     if (scene.m_photo.capture.items.empty())
     {
-        if (flashEnabled)
+        if (flashEnabled || defeatedGhostInFinder)
         {
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
-            scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
-            scene.HandleFlashKillGhosts();
+            if (flashEnabled)
+            {
+                scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
+            }
         }
         return;
     }
@@ -532,13 +535,11 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     scene.m_photo.capture.tintA = scene.m_photo.capture.items.front().tintA;
     scene.StoreCapturedPhoto();
 
-    const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
     scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
-    if (flashEnabled)
+    if (scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled)
     {
         scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
-        scene.HandleFlashKillGhosts();
     }
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
     scene.m_flow.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
