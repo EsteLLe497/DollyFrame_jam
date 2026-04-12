@@ -103,7 +103,7 @@ private:
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void UpdateEnemies();
-    void HandleFlashKillGhosts(); 
+    int HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight);
     void UpdateBullets();
     void SpawnDropItems(float x, float y, int count); 
     void UpdateDropItems();                            

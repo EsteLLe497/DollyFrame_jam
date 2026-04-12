@@ -58,8 +58,11 @@ void GameScene::UpdateEnemies()
         });
 }
 
-void GameScene::HandleFlashKillGhosts()
+int GameScene::HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight)
 {
+    TransformComponent finderBounds(frameX, frameY, frameWidth, frameHeight);
+    int defeatedGhostCount = 0;
+
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, kTagEnemy)) continue;
@@ -68,9 +71,16 @@ void GameScene::HandleFlashKillGhosts()
         if (!enemy || !enemy->IsEnabled()) continue;
         if (enemy->GetArchetype() != EnemyArchetype::Ghost) continue;
 
-        HandleEnemyDamage(*entity, nullptr, 999, "Ghost killed by flash");
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform || !IntersectsRect(*transform, finderBounds)) continue;
+
+        HandleEnemyDamage(*entity, nullptr, 999, "Ghost defeated in finder");
+        ++defeatedGhostCount;
     }
+
+    return defeatedGhostCount;
 }
+
 
 void GameScene::UpdateBullets()
 {
