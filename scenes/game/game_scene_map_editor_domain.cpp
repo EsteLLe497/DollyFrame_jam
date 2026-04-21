@@ -188,7 +188,7 @@ void GameScene::UpdateMapEditorCameraPan(float deltaTime)
     panX = std::clamp(panX, -1.0f, 1.0f);
     panY = std::clamp(panY, -1.0f, 1.0f);
     const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth);
-    const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
+    const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight+ 48.0f * 5);
     m_flow.cameraX = std::clamp(m_flow.cameraX + panX * kEditorCameraPanSpeed * deltaTime, 0.0f, maxCameraX);
     m_flow.cameraY = std::clamp(m_flow.cameraY + panY * kEditorCameraPanSpeed * deltaTime, 0.0f, maxCameraY);
 }
