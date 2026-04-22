@@ -46,3 +46,5 @@ int ResourceManager::CreateDiscTexture(int width, int height, unsigned int rgbaI
 {
     return TextureCreateDisc(width, height, rgbaInner, rgbaOuter, innerRatio);
 }
+
+//ss
