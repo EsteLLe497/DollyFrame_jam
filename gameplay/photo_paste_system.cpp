@@ -818,6 +818,30 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             continue;
         }
 
+        if (item.spawnArchetype == CapturedSpawnArchetype::WalkerMelee)
+        {
+            constexpr float kWalkerMeleeWidth = 48.0f;
+            constexpr float kWalkerMeleeHeight = 60.0f;
+            constexpr float kWalkerMeleeDuration = 0.4f;
+
+            auto meleeEntity = std::make_unique<Entity>();
+            Entity* spawnedMelee = meleeEntity.get();
+            lastSpawnedEntity = spawnedMelee;
+            spawnedMelee->AddComponent<TagComponent>("WalkerMeleeAttack");
+            spawnedMelee->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedMelee->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedMelee->AddComponent<TransformComponent>(
+                spawnX + item.relativeX,
+                spawnY + item.relativeY,
+                kWalkerMeleeWidth,
+                kWalkerMeleeHeight);
+            spawnedMelee->AddComponent<TintComponent>(1.0f, 0.55f, 0.15f, 0.72f);
+            spawnedMelee->AddComponent<SpriteRenderComponent>(scene.m_whiteTexture);
+            spawnedMelee->AddComponent<PhotoCopyLifetimeComponent>(kWalkerMeleeDuration);
+            scene.m_entities.push_back(std::move(meleeEntity));
+            continue;
+        }
+
         auto entity = std::make_unique<Entity>();
         lastSpawnedEntity = entity.get();
         ++spawnedPhotoBoxCount;

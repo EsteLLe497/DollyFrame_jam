@@ -143,6 +143,7 @@ private:
 
     // Photo control / photo runtime
     void HandleEnemyPlayerCollisions(Entity& player);
+    void HandleWalkerMeleeAttackCollisions(Entity& player);
     void HandleAttackHits();
     void HandlePhotoCapture();
     void HandlePhotoSpawn();
