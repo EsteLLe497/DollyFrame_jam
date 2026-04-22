@@ -463,7 +463,8 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
     float contentWidth,
     float contentHeight,
     bool flipX,
-    bool bridgeEnabled)
+    bool bridgeEnabled,
+    PhotoPlacementRuleGroup paperRuleGroup = PhotoPlacementRuleGroup::Group1)
 {
     const float printedWidth = GetPrintedPhotoWidth(contentWidth);
     std::vector<CapturedPhotoItem> printedItems = sourceItems;
@@ -534,7 +535,7 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
     paper.layer = PhotoCopyLayer::Background;
     paper.origin = PhotoCopyOrigin::Generic;
     paper.appliedTheme = PhotoFilterTheme::None;
-    paper.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
+    paper.placementRuleGroup = paperRuleGroup;
     paper.relativeX = 0.0f;
     paper.relativeY = 0.0f;
     paper.width = printedWidth;
@@ -554,7 +555,7 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
     matte.layer = PhotoCopyLayer::Background;
     matte.origin = PhotoCopyOrigin::Tile;
     matte.appliedTheme = PhotoFilterTheme::None;
-    matte.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
+    matte.placementRuleGroup = paperRuleGroup;
     matte.relativeX = gPrintedPhotoPaddingX - gPrintedPhotoMatteInset;
     matte.relativeY = gPrintedPhotoPaddingTop - gPrintedPhotoMatteInset;
     matte.width = contentWidth + gPrintedPhotoMatteInset * 2.0f;
@@ -724,6 +725,16 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
         outWidth = (std::max)(1.0f, capture.width);
         outHeight = (std::max)(1.0f, capture.height);
 
+        PhotoPlacementRuleGroup paperRuleGroup = PhotoPlacementRuleGroup::Group1;
+        for (const auto& item : capture.items)
+        {
+            if (item.spawnArchetype == CapturedSpawnArchetype::WalkerMelee)
+            {
+                paperRuleGroup = PhotoPlacementRuleGroup::Group3;
+                break;
+            }
+        }
+
         std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
             capture.items,
             whiteTexture,
@@ -731,7 +742,8 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
             outWidth,
             outHeight,
             placement.flipX,
-            false);
+            false,
+            paperRuleGroup);
         if (placement.flipX)
         {
             for (auto& item : items)
