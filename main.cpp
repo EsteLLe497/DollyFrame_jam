@@ -7,3 +7,5 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     //test
 }
 }//aaaa
+
+// aaaaaa
