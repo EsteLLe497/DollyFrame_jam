@@ -13,7 +13,6 @@ namespace
 
 void GameScene::BeginFrameUpdate(float deltaTime)
 {
-    m_eventBus.Clear();
     UpdateTuningHotReload(deltaTime);
 }
 

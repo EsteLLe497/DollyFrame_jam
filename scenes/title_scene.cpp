@@ -49,7 +49,6 @@ void TitleScene::OnEnter(ResourceManager& resources)
 void TitleScene::Update(float deltaTime)
 {
     ZoneScoped;
-    m_eventBus.Clear();
     m_blinkTimer += deltaTime;
     m_sceneTime += deltaTime;
     if (m_blinkTimer >= 0.5f)
