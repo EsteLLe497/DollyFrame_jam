@@ -6,6 +6,3 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     return app.Run(hInstance, nCmdShow);
     //test
 }
-}//aaaa
-
-// aaaaaa
