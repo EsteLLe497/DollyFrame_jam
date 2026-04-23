@@ -26,6 +26,7 @@ private:
     void Draw();
     void DrawExitConfirmation() const;
     void DrawSceneTransition() const;
+    void ClearCurrentSceneEvents();
     void ProcessSceneEvents();
     void UpdateSceneTransition(float deltaTime);
     bool RequestSceneChange(const std::string& sceneId);

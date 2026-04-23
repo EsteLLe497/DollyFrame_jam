@@ -74,7 +74,6 @@ void DemoScene::OnExit()
 void DemoScene::Update(float deltaTime)
 {
     ZoneScoped;
-    m_eventBus.Clear();
     for (const auto& entity : m_entities)
     {
         entity->Update(deltaTime);

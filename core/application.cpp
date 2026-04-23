@@ -225,6 +225,8 @@ void Application::Update(float deltaTime)
         Logger::Info(DirectXIsPostProcessEnabled() ? "Post process: ON" : "Post process: OFF");
     }
 
+    ClearCurrentSceneEvents();
+
     const bool escapePressed = Input_IsActionPressed(InputAction::Cancel);
     if (!m_exitConfirmationOpen && escapePressed)
     {
@@ -325,6 +327,23 @@ bool Application::InitializeMiddleware()
 {
     Input_Initialize();
     return Audio_Initialize();
+}
+
+void Application::ClearCurrentSceneEvents()
+{
+    Scene* currentScene = m_sceneManager ? m_sceneManager->GetCurrentScene() : nullptr;
+    if (!currentScene)
+    {
+        return;
+    }
+
+    EventBus* eventBus = currentScene->GetEventBus();
+    if (!eventBus)
+    {
+        return;
+    }
+
+    eventBus->Clear();
 }
 
 void Application::ProcessSceneEvents()

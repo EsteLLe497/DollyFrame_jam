@@ -72,7 +72,6 @@ void ShaderShowcaseScene::OnEnter(ResourceManager& resources)
 void ShaderShowcaseScene::Update(float deltaTime)
 {
     ZoneScoped;
-    m_eventBus.Clear();
     m_time += deltaTime;
 
     if (Input_IsKeyPressed('T'))
