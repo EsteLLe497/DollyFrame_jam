@@ -161,6 +161,30 @@ namespace
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         return true;
     }
+
+    void DrawProjectileGlowTriangle(
+        float centerX,
+        float centerY,
+        float width,
+        float height,
+        float angle,
+        unsigned int color,
+        int alpha)
+    {
+        float ax = centerX - width * 0.5f;
+        float ay = centerY - height * 0.5f;
+        float bx = centerX - width * 0.5f;
+        float by = centerY + height * 0.5f;
+        float cx = centerX + width * 0.5f;
+        float cy = centerY;
+        RotatePoint(centerX, centerY, angle, ax, ay);
+        RotatePoint(centerX, centerY, angle, bx, by);
+        RotatePoint(centerX, centerY, angle, cx, cy);
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(alpha, 0, 255));
+        DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     void DrawFilledQuad(
         float ax,
         float ay,
@@ -1159,7 +1183,18 @@ void GameScene::DrawEntity(const Entity& entity) const
         if (projectile)
         {
             const float angle = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
-            const int color = GetColor(255, 230, 50);
+            int color = GetColor(255, 230, 50);
+            if (projectile->GetOwner() == ProjectileComponent::Owner::BlasterRobot)
+            {
+                const float centerX = drawX + drawWidth * 0.5f;
+                const float centerY = drawY + drawHeight * 0.5f;
+                const unsigned int outerGlowColor = GetColor(60, 255, 150);
+                const unsigned int innerGlowColor = GetColor(180, 255, 220);
+                DrawProjectileGlowTriangle(centerX, centerY, drawWidth * 2.4f, drawHeight * 2.4f, angle, outerGlowColor, 72);
+                DrawProjectileGlowTriangle(centerX, centerY, drawWidth * 1.8f, drawHeight * 1.8f, angle, innerGlowColor, 116);
+                DrawProjectileGlowTriangle(centerX, centerY, drawWidth * 1.3f, drawHeight * 1.3f, angle, GetColor(235, 255, 245), 148);
+                color = GetColor(110, 255, 170);
+            }
             float ax = drawX;
             float ay = drawY;
             float bx = drawX;

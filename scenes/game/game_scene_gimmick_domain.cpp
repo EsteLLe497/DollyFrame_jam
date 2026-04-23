@@ -501,6 +501,7 @@ void GameScene::HandleWorldInteractions()
     }
 
     HandleEnemyPlayerCollisions(*player);
+    HandleWalkerMeleeAttackCollisions(*player);
     if (m_flow.pitRestartActive || m_flow.resultQueued)
     {
         return;

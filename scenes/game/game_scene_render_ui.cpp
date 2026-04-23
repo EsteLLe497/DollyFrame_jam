@@ -545,6 +545,41 @@ void GameScene::DrawStageDarknessOverlay() const
                 0.22f,
                 0.18f });
         }
+
+        const float blasterBulletOuterRadius = tileSize * viewScale * 0.9f;
+        for (const auto& entity : m_entities)
+        {
+            if (!entity || !HasTag(*entity, kTagBullet))
+            {
+                continue;
+            }
+            if (overlayLights.size() >= static_cast<size_t>(kMaxDarknessOverlayLights))
+            {
+                break;
+            }
+
+            const auto* projectile = entity->GetComponent<ProjectileComponent>();
+            const auto* bulletTransform = entity->GetComponent<TransformComponent>();
+            if (!projectile || !bulletTransform || projectile->GetOwner() != ProjectileComponent::Owner::BlasterRobot)
+            {
+                continue;
+            }
+
+            const float bulletCenterWorldX = bulletTransform->x + bulletTransform->width * bulletTransform->scale * 0.5f;
+            const float bulletCenterWorldY = bulletTransform->y + bulletTransform->height * bulletTransform->scale * 0.5f;
+            overlayLights.push_back({
+                viewOriginX + (bulletCenterWorldX - m_flow.cameraX) * viewScale,
+                viewOriginY + (bulletCenterWorldY - m_flow.cameraY) * viewScale,
+                0.0f,
+                blasterBulletOuterRadius * 0.22f,
+                blasterBulletOuterRadius,
+                0.0f,
+                0.0f,
+                0.92f,
+                0.34f,
+                1.0f,
+                0.66f });
+        }
     }
 
     if (DirectXHasDarknessOverlay())

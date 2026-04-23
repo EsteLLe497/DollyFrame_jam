@@ -146,11 +146,17 @@ namespace
         bool capturedBarrel,
         bool capturedBattery,
         bool capturedProjectile,
-        bool capturedLaserTurret)
+        bool capturedLaserTurret,
+        bool capturedWalker)
     {
         if (capturedVanishObject)
         {
             return PhotoPlacementRuleGroup::Group1;
+        }
+
+        if (capturedWalker)  
+        {
+            return PhotoPlacementRuleGroup::Group3;
         }
 
         if (capturedBarrel || capturedBattery || capturedProjectile)
@@ -203,6 +209,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float frameWidth = 0.0f;
     float frameHeight = 0.0f;
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
+    const bool defeatedGhostInFinder = scene.HandleFinderDefeatGhosts(frameX, frameY, frameWidth, frameHeight) > 0;
 
     scene.m_photo.capture.items.clear();
     float capturedMaxRight = 0.0f;
@@ -211,12 +218,14 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     CaptureTilesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
     if (scene.m_photo.capture.items.empty())
     {
-        if (flashEnabled)
+        if (flashEnabled || defeatedGhostInFinder)
         {
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
-            scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
-            scene.HandleFlashKillGhosts();
+            if (flashEnabled)
+            {
+                scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
+            }
         }
         return;
     }
@@ -236,9 +245,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     std::vector<Entity*> entitiesToRemove;
     for (const auto& entity : scene.m_entities)
     {
-        if (!entity || HasTag(*entity, "Player") || HasTag(*entity, "Enemy"))
+        if (!entity || HasTag(*entity, "Player"))
         {
             continue;
+        }
+        if (HasTag(*entity, "Enemy"))
+        {
+            const auto* enemyComp = entity->GetComponent<EnemyComponent>();
+            if (!enemyComp || enemyComp->GetArchetype() != EnemyArchetype::Walker)
+            {
+                continue;
+            }
         }
         if (HasTag(*entity, kTagLaserBeam))
         {
@@ -310,6 +327,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const auto* projectile = entity->GetComponent<ProjectileComponent>();
         auto* markerLight = entity->GetComponent<MarkerLightComponent>();
         const bool capturedProjectile = projectile != nullptr;
+        const auto* enemyComp = entity->GetComponent<EnemyComponent>();
+        const bool capturedWalker = enemyComp && enemyComp->GetArchetype() == EnemyArchetype::Walker;
         item.textureId = sprite->GetTextureId();
         item.role = GetEntityCopyRole(*entity);
         item.layer = PhotoCopyLayer::Foreground;
@@ -320,17 +339,20 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             : (capturedLog
                 ? CapturedSpawnArchetype::Log
                 : (capturedBattery
-                ? CapturedSpawnArchetype::Battery
-                : (capturedProjectile
-                ? CapturedSpawnArchetype::Projectile
-                : (capturedLaserTurret ? CapturedSpawnArchetype::LaserTurret : CapturedSpawnArchetype::None))));
+                    ? CapturedSpawnArchetype::Battery
+                    : (capturedProjectile
+                        ? CapturedSpawnArchetype::Projectile
+                        : (capturedLaserTurret
+                            ? CapturedSpawnArchetype::LaserTurret
+                            : (capturedWalker ? CapturedSpawnArchetype::WalkerMelee : CapturedSpawnArchetype::None)))));
         item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
             *entity,
             capturedVanishObject,
             capturedBarrel,
             capturedBattery,
             capturedProjectile,
-            capturedLaserTurret);
+            capturedLaserTurret,
+            capturedWalker);
         item.vanishOnCapture = capturedVanishObject;
         item.relativeX = overlapLeft - frameX;
         item.relativeY = overlapTop - frameY;
@@ -377,6 +399,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.projectileDamage = projectile->GetDamage();
             item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
         }
+        else if (capturedWalker)  
+        {
+            item.role = PhotoCopyRole::Hazard;
+            item.layer = PhotoCopyLayer::Foreground;
+        }
         else if (damagePlatform)
         {
             item.role = PhotoCopyRole::Hazard;
@@ -408,7 +435,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedLog && !isPhotoBox && !capturedVanishObject)
+        if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedLog && !isPhotoBox && !capturedVanishObject && !capturedWalker)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }
@@ -532,13 +559,11 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     scene.m_photo.capture.tintA = scene.m_photo.capture.items.front().tintA;
     scene.StoreCapturedPhoto();
 
-    const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
     scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
-    if (flashEnabled)
+    if (scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled)
     {
         scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
-        scene.HandleFlashKillGhosts();
     }
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
     scene.m_flow.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;

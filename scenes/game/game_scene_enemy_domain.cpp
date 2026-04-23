@@ -58,8 +58,11 @@ void GameScene::UpdateEnemies()
         });
 }
 
-void GameScene::HandleFlashKillGhosts()
+int GameScene::HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight)
 {
+    TransformComponent finderBounds(frameX, frameY, frameWidth, frameHeight);
+    int defeatedGhostCount = 0;
+
     for (const auto& entity : m_entities)
     {
         if (!entity || !HasTag(*entity, kTagEnemy)) continue;
@@ -68,9 +71,16 @@ void GameScene::HandleFlashKillGhosts()
         if (!enemy || !enemy->IsEnabled()) continue;
         if (enemy->GetArchetype() != EnemyArchetype::Ghost) continue;
 
-        HandleEnemyDamage(*entity, nullptr, 999, "Ghost killed by flash");
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform || !IntersectsRect(*transform, finderBounds)) continue;
+
+        HandleEnemyDamage(*entity, nullptr, 999, "Ghost defeated in finder");
+        ++defeatedGhostCount;
     }
+
+    return defeatedGhostCount;
 }
+
 
 void GameScene::UpdateBullets()
 {
@@ -284,6 +294,48 @@ void GameScene::HandleEnemyPlayerCollisions(Entity& player)
     }
 }
 
+void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
+{
+    const auto* playerTransform = player.GetComponent<TransformComponent>();
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity) continue;
+
+        const auto* tag = entity->GetComponent<TagComponent>();
+        if (!tag || tag->tag != "WalkerMeleeAttack") continue;
+
+        const auto* meleeTransform = entity->GetComponent<TransformComponent>();
+        if (!meleeTransform) continue;
+
+        // プレイヤーへのダメージ
+        if (playerTransform && IntersectsRect(*playerTransform, *meleeTransform))
+        {
+            ApplyHazardDamageToPlayer(
+                player,
+                entity.get(),
+                "GameScene player damaged by WalkerMeleeAttack",
+                1);
+        }
+
+        // 敵へのダメージ
+        for (const auto& target : m_entities)
+        {
+            if (!target) continue;
+
+            auto* enemy = target->GetComponent<EnemyComponent>();
+            if (!enemy || !enemy->IsEnabled() || enemy->IsDefeated()) continue;
+
+            const auto* enemyTransform = target->GetComponent<TransformComponent>();
+            if (!enemyTransform) continue;
+
+            if (!IntersectsRect(*meleeTransform, *enemyTransform)) continue;
+
+            HandleEnemyDamage(*target, entity.get(), 1, "WalkerMeleeAttack hit enemy");
+        }
+    }
+}
+
 void GameScene::RemoveDefeatedEnemies()
 {
     const float cameraLeft = m_flow.cameraX - 48.0f;
@@ -300,13 +352,13 @@ void GameScene::RemoveDefeatedEnemies()
         auto* transform = entity->GetComponent<TransformComponent>();
         if (!transform) continue;
 
-        // 謦・ｴ譎ゅ↓髱櫁｡ｨ遉ｺ・・ｽ薙◆繧雁愛螳夂┌蜉ｹ蛹厄ｼ・判髱｢螟悶↓遘ｻ蜍・
+        
         if (auto* tint = entity->GetComponent<TintComponent>())
         {
             tint->a = 0.0f;
         }
         enemy->SetEnabled(false);
-        // 逕ｻ髱｢螟悶↓遘ｻ蜍輔＆縺帙※蠖薙◆繧雁愛螳壹ｒ蝗樣∩
+       
         transform->x = -9999.0f;
         transform->y = -9999.0f;
 

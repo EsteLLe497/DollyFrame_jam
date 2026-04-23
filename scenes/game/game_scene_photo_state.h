@@ -14,12 +14,14 @@ enum class CapturedSpawnArchetype
     Battery,
     Projectile,
     LaserTurret,
+    WalkerMelee,
 };
 
 enum class PhotoPlacementRuleGroup
 {
     Group1,
     Group2,
+    Group3,
 };
 
 enum class PhotoPlacementForbiddenTarget : std::uint8_t
@@ -45,7 +47,7 @@ inline constexpr bool HasPlacementForbiddenTarget(std::uint8_t mask, PhotoPlacem
     return (mask & ToPlacementForbiddenMask(target)) != 0;
 }
 
-inline constexpr std::array<PhotoPlacementRuleDefinition, 2> kPhotoPlacementRuleDefinitions = {
+inline constexpr std::array<PhotoPlacementRuleDefinition, 3> kPhotoPlacementRuleDefinitions = {
     PhotoPlacementRuleDefinition{
         PhotoPlacementRuleGroup::Group1,
         ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy),
@@ -54,6 +56,10 @@ inline constexpr std::array<PhotoPlacementRuleDefinition, 2> kPhotoPlacementRule
         PhotoPlacementRuleGroup::Group2,
         ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Floor) |
             ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy),
+    },
+    PhotoPlacementRuleDefinition{
+        PhotoPlacementRuleGroup::Group3,
+        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // êßå¿Ç»Çµ
     },
 };
 
