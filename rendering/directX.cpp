@@ -3,16 +3,24 @@
 #include "DxLib.h"
 
 #include <algorithm>
+#include <cmath>
 
-int SCREEN_WIDTH = 1920;
-int SCREEN_HEIGHT = 1080;
+int SCREEN_WIDTH = kVirtualScreenWidth;
+int SCREEN_HEIGHT = kVirtualScreenHeight;
 
 namespace
 {
-    int g_BackBufferW = SCREEN_WIDTH;
-    int g_BackBufferH = SCREEN_HEIGHT;
+    int g_OutputWidth = kVirtualScreenWidth;
+    int g_OutputHeight = kVirtualScreenHeight;
+    int g_BackBufferW = kVirtualScreenWidth;
+    int g_BackBufferH = kVirtualScreenHeight;
+    int g_PresentationX = 0;
+    int g_PresentationY = 0;
+    int g_PresentationW = kVirtualScreenWidth;
+    int g_PresentationH = kVirtualScreenHeight;
     BlendMode2D g_blendMode = BlendMode2D::Alpha;
     int g_sceneRenderTarget = -1;
+    int g_compositeRenderTarget = -1;
     int g_lightMaskRenderTarget = -1;
     int g_lightBlurRenderTarget = -1;
     int g_lightExtractPixelShader = -1;
@@ -58,6 +66,69 @@ namespace
         float lightShapeData[kMaxDarknessOverlayLights * 4];
     };
 
+    void UpdatePresentationRect();
+
+    void RefreshOutputMetrics(HWND windowHandle)
+    {
+        int drawScreenWidth = 0;
+        int drawScreenHeight = 0;
+        GetDrawScreenSize(&drawScreenWidth, &drawScreenHeight);
+        if (drawScreenWidth > 0 && drawScreenHeight > 0)
+        {
+            g_OutputWidth = (std::max)(1, drawScreenWidth);
+            g_OutputHeight = (std::max)(1, drawScreenHeight);
+            UpdatePresentationRect();
+            return;
+        }
+
+        if (windowHandle != nullptr)
+        {
+            RECT clientRect = {};
+            if (GetClientRect(windowHandle, &clientRect))
+            {
+                g_OutputWidth = (std::max)(1, static_cast<int>(clientRect.right - clientRect.left));
+                g_OutputHeight = (std::max)(1, static_cast<int>(clientRect.bottom - clientRect.top));
+                UpdatePresentationRect();
+                return;
+            }
+        }
+
+        g_OutputWidth = kVirtualScreenWidth;
+        g_OutputHeight = kVirtualScreenHeight;
+        UpdatePresentationRect();
+    }
+
+    void UpdatePresentationRect()
+    {
+        const float scale = std::min(
+            static_cast<float>(g_OutputWidth) / static_cast<float>(kVirtualScreenWidth),
+            static_cast<float>(g_OutputHeight) / static_cast<float>(kVirtualScreenHeight));
+        const float clampedScale = std::max(scale, 0.0f);
+        g_PresentationW = std::max(1, static_cast<int>(std::round(static_cast<float>(kVirtualScreenWidth) * clampedScale)));
+        g_PresentationH = std::max(1, static_cast<int>(std::round(static_cast<float>(kVirtualScreenHeight) * clampedScale)));
+        g_PresentationX = (g_OutputWidth - g_PresentationW) / 2;
+        g_PresentationY = (g_OutputHeight - g_PresentationH) / 2;
+    }
+
+    void DrawPresentationGraph(int sourceHandle)
+    {
+        if (sourceHandle < 0)
+        {
+            return;
+        }
+
+        const int previousDrawMode = GetDrawMode();
+        SetDrawMode(DX_DRAWMODE_NEAREST);
+        DrawExtendGraph(
+            g_PresentationX,
+            g_PresentationY,
+            g_PresentationX + g_PresentationW,
+            g_PresentationY + g_PresentationH,
+            sourceHandle,
+            FALSE);
+        SetDrawMode(previousDrawMode);
+    }
+
     void ReleasePostProcessResources()
     {
         if (g_lightExtractPixelShader >= 0)
@@ -100,6 +171,11 @@ namespace
             DeleteGraph(g_sceneRenderTarget);
             g_sceneRenderTarget = -1;
         }
+        if (g_compositeRenderTarget >= 0)
+        {
+            DeleteGraph(g_compositeRenderTarget);
+            g_compositeRenderTarget = -1;
+        }
         if (g_lightMaskRenderTarget >= 0)
         {
             DeleteGraph(g_lightMaskRenderTarget);
@@ -117,19 +193,25 @@ namespace
     {
         ReleasePostProcessResources();
 
-        g_sceneRenderTarget = MakeScreen(SCREEN_WIDTH, SCREEN_HEIGHT, TRUE);
+        g_sceneRenderTarget = MakeScreen(kVirtualScreenWidth, kVirtualScreenHeight, TRUE);
         if (g_sceneRenderTarget < 0)
         {
             return;
         }
 
-        g_lightMaskRenderTarget = MakeScreen(SCREEN_WIDTH, SCREEN_HEIGHT, TRUE);
+        g_compositeRenderTarget = MakeScreen(kVirtualScreenWidth, kVirtualScreenHeight, TRUE);
+        if (g_compositeRenderTarget < 0)
+        {
+            return;
+        }
+
+        g_lightMaskRenderTarget = MakeScreen(kVirtualScreenWidth, kVirtualScreenHeight, TRUE);
         if (g_lightMaskRenderTarget < 0)
         {
             return;
         }
 
-        g_lightBlurRenderTarget = MakeScreen(SCREEN_WIDTH, SCREEN_HEIGHT, TRUE);
+        g_lightBlurRenderTarget = MakeScreen(kVirtualScreenWidth, kVirtualScreenHeight, TRUE);
         if (g_lightBlurRenderTarget < 0)
         {
             return;
@@ -192,21 +274,21 @@ namespace
         vertices[0].u = 0.0f;
         vertices[0].v = 0.0f;
 
-        vertices[1].pos = VGet(static_cast<float>(SCREEN_WIDTH), 0.0f, 0.0f);
+        vertices[1].pos = VGet(static_cast<float>(kVirtualScreenWidth), 0.0f, 0.0f);
         vertices[1].rhw = 1.0f;
         vertices[1].dif = white;
         vertices[1].spc = white;
         vertices[1].u = 1.0f;
         vertices[1].v = 0.0f;
 
-        vertices[2].pos = VGet(0.0f, static_cast<float>(SCREEN_HEIGHT), 0.0f);
+        vertices[2].pos = VGet(0.0f, static_cast<float>(kVirtualScreenHeight), 0.0f);
         vertices[2].rhw = 1.0f;
         vertices[2].dif = white;
         vertices[2].spc = white;
         vertices[2].u = 0.0f;
         vertices[2].v = 1.0f;
 
-        vertices[3].pos = VGet(static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f);
+        vertices[3].pos = VGet(static_cast<float>(kVirtualScreenWidth), static_cast<float>(kVirtualScreenHeight), 0.0f);
         vertices[3].rhw = 1.0f;
         vertices[3].dif = white;
         vertices[3].spc = white;
@@ -224,11 +306,13 @@ void* DirectXGetSwapChain(void)
 
 void DirectXInitialize(HWND hWnd)
 {
-    static_cast<void>(hWnd);
+    SCREEN_WIDTH = kVirtualScreenWidth;
+    SCREEN_HEIGHT = kVirtualScreenHeight;
+    RefreshOutputMetrics(hWnd);
     g_BackBufferW = SCREEN_WIDTH;
     g_BackBufferH = SCREEN_HEIGHT;
     CreatePostProcessResources();
-    SetDrawScreen(DX_SCREEN_BACK);
+    SetDrawScreen(g_sceneRenderTarget >= 0 ? g_sceneRenderTarget : DX_SCREEN_BACK);
     ClearDrawScreen();
 }
 
@@ -239,18 +323,14 @@ void DirectXFinalaize(void)
 
 void DirectXResize(int width, int height)
 {
-    if (width > 0)
+    if (width <= 0 || height <= 0)
     {
-        SCREEN_WIDTH = width;
-        g_BackBufferW = width;
-    }
-    if (height > 0)
-    {
-        SCREEN_HEIGHT = height;
-        g_BackBufferH = height;
+        return;
     }
 
-    CreatePostProcessResources();
+    g_OutputWidth = width;
+    g_OutputHeight = height;
+    UpdatePresentationRect();
 }
 
 void* DirectXGetDevice(void)
@@ -271,26 +351,21 @@ void Clear(void)
 void DirectXBeginSceneRender(void)
 {
     DirectXResetDarknessOverlay();
-    if (g_postProcessEnabled && g_postProcessReady && g_sceneRenderTarget >= 0)
-    {
-        SetDrawScreen(g_sceneRenderTarget);
-    }
-    else
-    {
-        SetDrawScreen(DX_SCREEN_BACK);
-    }
+    SetDrawScreen(g_sceneRenderTarget >= 0 ? g_sceneRenderTarget : DX_SCREEN_BACK);
     ClearDrawScreen();
 }
 
 void DirectXCompositeSceneToBackBuffer(float timeSeconds)
 {
-    if (!g_postProcessEnabled)
+    if (g_sceneRenderTarget < 0)
     {
+        SetDrawScreen(DX_SCREEN_BACK);
         return;
     }
 
-    if (!g_postProcessReady ||
-        g_sceneRenderTarget < 0 ||
+    if (!g_postProcessEnabled ||
+        g_compositeRenderTarget < 0 ||
+        !g_postProcessReady ||
         g_lightMaskRenderTarget < 0 ||
         g_lightBlurRenderTarget < 0 ||
         g_lightExtractPixelShader < 0 ||
@@ -299,7 +374,13 @@ void DirectXCompositeSceneToBackBuffer(float timeSeconds)
         g_postProcessPixelShader < 0 ||
         g_postProcessConstantBuffer < 0)
     {
-        SetDrawScreen(DX_SCREEN_BACK);
+        if (g_compositeRenderTarget >= 0)
+        {
+            SetDrawScreen(g_compositeRenderTarget);
+            ClearDrawScreen();
+            DrawExtendGraph(0, 0, kVirtualScreenWidth, kVirtualScreenHeight, g_sceneRenderTarget, FALSE);
+        }
+        SetDrawScreen(g_compositeRenderTarget >= 0 ? g_compositeRenderTarget : g_sceneRenderTarget);
         return;
     }
 
@@ -327,7 +408,7 @@ void DirectXCompositeSceneToBackBuffer(float timeSeconds)
     ClearDrawScreen();
     if (buffer)
     {
-        buffer->param0 = 1.0f / static_cast<float>(SCREEN_HEIGHT);
+        buffer->param0 = 1.0f / static_cast<float>(kVirtualScreenHeight);
         buffer->param1 = 0.90f;
         buffer->param2 = 0.0f;
         buffer->param3 = 0.0f;
@@ -343,7 +424,7 @@ void DirectXCompositeSceneToBackBuffer(float timeSeconds)
     ClearDrawScreen();
     if (buffer)
     {
-        buffer->param0 = 1.0f / static_cast<float>(SCREEN_WIDTH);
+        buffer->param0 = 1.0f / static_cast<float>(kVirtualScreenWidth);
         buffer->param1 = 0.86f;
         buffer->param2 = 0.0f;
         buffer->param3 = 0.0f;
@@ -355,7 +436,7 @@ void DirectXCompositeSceneToBackBuffer(float timeSeconds)
     SetUsePixelShader(g_lightBlurHPixelShader);
     DrawFullscreenCompositeQuad();
 
-    SetDrawScreen(DX_SCREEN_BACK);
+    SetDrawScreen(g_compositeRenderTarget);
     ClearDrawScreen();
     if (buffer)
     {
@@ -428,8 +509,8 @@ void DirectXDrawDarknessOverlay(void)
         return;
     }
 
-    buffer->screenWidth = static_cast<float>(SCREEN_WIDTH);
-    buffer->screenHeight = static_cast<float>(SCREEN_HEIGHT);
+    buffer->screenWidth = static_cast<float>(kVirtualScreenWidth);
+    buffer->screenHeight = static_cast<float>(kVirtualScreenHeight);
     buffer->pad0 = 0.0f;
     buffer->pad1 = 0.0f;
     buffer->viewLeft = g_darknessOverlayParams.viewLeft;
@@ -495,7 +576,11 @@ void DirectXDrawDarknessOverlay(void)
 
 void Present(void)
 {
+    RefreshOutputMetrics(GetMainWindowHandle());
     SetDrawScreen(DX_SCREEN_BACK);
+    ClearDrawScreen();
+    const int sourceHandle = g_compositeRenderTarget >= 0 ? g_compositeRenderTarget : g_sceneRenderTarget;
+    DrawPresentationGraph(sourceHandle);
     ScreenFlip();
 }
 
@@ -510,4 +595,42 @@ void DirectXGetBackbufferSize(int& w, int& h)
 {
     w = g_BackBufferW;
     h = g_BackBufferH;
+}
+
+void DirectXGetOutputSize(int& w, int& h)
+{
+    w = g_OutputWidth;
+    h = g_OutputHeight;
+}
+
+void DirectXGetPresentationRect(int& x, int& y, int& w, int& h)
+{
+    x = g_PresentationX;
+    y = g_PresentationY;
+    w = g_PresentationW;
+    h = g_PresentationH;
+}
+
+int DirectXMapWindowToVirtualX(int x)
+{
+    if (g_PresentationW <= 0)
+    {
+        return 0;
+    }
+
+    const float normalized = static_cast<float>(x - g_PresentationX) / static_cast<float>(g_PresentationW);
+    const float virtualX = normalized * static_cast<float>(SCREEN_WIDTH);
+    return static_cast<int>(std::round(std::clamp(virtualX, 0.0f, static_cast<float>(SCREEN_WIDTH))));
+}
+
+int DirectXMapWindowToVirtualY(int y)
+{
+    if (g_PresentationH <= 0)
+    {
+        return 0;
+    }
+
+    const float normalized = static_cast<float>(y - g_PresentationY) / static_cast<float>(g_PresentationH);
+    const float virtualY = normalized * static_cast<float>(SCREEN_HEIGHT);
+    return static_cast<int>(std::round(std::clamp(virtualY, 0.0f, static_cast<float>(SCREEN_HEIGHT))));
 }
