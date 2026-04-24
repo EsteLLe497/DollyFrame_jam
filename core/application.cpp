@@ -1,6 +1,7 @@
 ﻿#include "application.h"
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <string>
 
@@ -29,36 +30,35 @@ namespace
     constexpr float SCENE_TRANSITION_DURATION = 0.70f;
     constexpr float SCENE_TRANSITION_SWAP_TIME = SCENE_TRANSITION_DURATION * 0.5f;
 
-    void ConfigureBorderlessWindow(HWND windowHandle)
+    void ConfigureDpiAwareness()
     {
-        if (windowHandle == nullptr)
+        HMODULE user32 = GetModuleHandleA("user32.dll");
+        if (user32 != nullptr)
         {
-            return;
+            using SetProcessDpiAwarenessContextFn = BOOL(WINAPI*)(HANDLE);
+            auto* setProcessDpiAwarenessContext =
+                reinterpret_cast<SetProcessDpiAwarenessContextFn>(
+                    GetProcAddress(user32, "SetProcessDpiAwarenessContext"));
+            if (setProcessDpiAwarenessContext != nullptr)
+            {
+                const HANDLE kPerMonitorAwareV2 = reinterpret_cast<HANDLE>(-4);
+                if (setProcessDpiAwarenessContext(kPerMonitorAwareV2))
+                {
+                    return;
+                }
+            }
+
+            using SetProcessDPIAwareFn = BOOL(WINAPI*)();
+            auto* setProcessDPIAware =
+                reinterpret_cast<SetProcessDPIAwareFn>(
+                    GetProcAddress(user32, "SetProcessDPIAware"));
+            if (setProcessDPIAware != nullptr)
+            {
+                setProcessDPIAware();
+            }
         }
-
-        LONG_PTR style = GetWindowLongPtr(windowHandle, GWL_STYLE);
-        style &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
-        style |= WS_POPUP;
-        SetWindowLongPtr(windowHandle, GWL_STYLE, style);
-
-        LONG_PTR exStyle = GetWindowLongPtr(windowHandle, GWL_EXSTYLE);
-        exStyle &= ~(WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE);
-        SetWindowLongPtr(windowHandle, GWL_EXSTYLE, exStyle);
-
-        const int displayWidth = GetSystemMetrics(SM_CXSCREEN);
-        const int displayHeight = GetSystemMetrics(SM_CYSCREEN);
-        const int windowX = (displayWidth - SCREEN_WIDTH) / 2;
-        const int windowY = (displayHeight - SCREEN_HEIGHT) / 2;
-
-        SetWindowPos(
-            windowHandle,
-            HWND_TOP,
-            windowX,
-            windowY,
-            SCREEN_WIDTH,
-            SCREEN_HEIGHT,
-            SWP_FRAMECHANGED | SWP_SHOWWINDOW);
     }
+
 }
 
 Application::Application()
@@ -135,20 +135,22 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     Logger::Initialize();
     Logger::Info("Application initialization started");
 
+    ConfigureDpiAwareness();
     SetOutApplicationLogValidFlag(FALSE);
     SetUseCharCodeFormat(DX_CHARCODEFORMAT_UTF8);
-    ChangeWindowMode(TRUE);
-    SetGraphMode(SCREEN_WIDTH, SCREEN_HEIGHT, 32, 60);
+    ChangeWindowMode(FALSE);
+    SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_DESKTOP);
+    SetFullScreenScalingMode(DX_FSSCALINGMODE_NEAREST, TRUE);
+    SetGraphMode(kVirtualScreenWidth, kVirtualScreenHeight, 32, 60);
     SetWindowSizeChangeEnableFlag(FALSE, FALSE);
     SetAlwaysRunFlag(TRUE);
     if (DxLib_Init() == -1)
     {
         return false;
     }
-    ConfigureBorderlessWindow(GetMainWindowHandle());
     SetMouseDispFlag(TRUE);
 
-    DirectXInitialize(nullptr);
+    DirectXInitialize(GetMainWindowHandle());
     if (!Shader_Initialize(nullptr, nullptr))
     {
         return false;

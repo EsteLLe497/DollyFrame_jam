@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 
 #include "DxLib.h"
+#include "directX.h"
 #include "logger.h"
 
 namespace
@@ -979,7 +980,7 @@ int Input_GetMouseX()
     int x = 0;
     int y = 0;
     GetMousePoint(&x, &y);
-    return x;
+    return DirectXMapWindowToVirtualX(x);
 }
 
 int Input_GetMouseY()
@@ -987,7 +988,7 @@ int Input_GetMouseY()
     int x = 0;
     int y = 0;
     GetMousePoint(&x, &y);
-    return y;
+    return DirectXMapWindowToVirtualY(y);
 }
 
 bool Input_IsDpadUpPressed()
