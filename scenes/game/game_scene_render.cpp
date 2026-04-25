@@ -1124,6 +1124,42 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
+    if (tag && HasTag(tag, kTagBatterySwitch))
+    {
+        const auto* batterySwitch = entity.GetComponent<BatterySwitchComponent>();
+        const bool laserSwitch = batterySwitch && batterySwitch->controlsLaserPower;
+        const bool pressed = batterySwitch && batterySwitch->isPressed;
+        const int left = static_cast<int>(std::round(drawX));
+        const int top = static_cast<int>(std::round(drawY));
+        const int right = static_cast<int>(std::round(drawX + drawWidth));
+        const int bottom = static_cast<int>(std::round(drawY + drawHeight));
+        const int width = std::max(1, right - left);
+        const int height = std::max(1, bottom - top);
+        const int bevel = std::max(2, height / 4);
+        const int faceTop = top - std::max(2, height / 2);
+        const int faceBottom = top + std::max(3, height / 3);
+        const int rimColor = laserSwitch ? GetColor(112, 38, 28) : GetColor(96, 44, 36);
+        const int sideColor = laserSwitch ? GetColor(116, 52, 42) : GetColor(112, 58, 46);
+        const int baseColor = laserSwitch ? GetColor(60, 62, 72) : GetColor(68, 62, 56);
+        const int faceColor = pressed
+            ? (laserSwitch ? GetColor(255, 92, 56) : GetColor(78, 228, 112))
+            : (laserSwitch ? GetColor(214, 72, 48) : GetColor(224, 54, 42));
+        const int highlightColor = pressed
+            ? (laserSwitch ? GetColor(255, 174, 112) : GetColor(182, 255, 190))
+            : (laserSwitch ? GetColor(255, 138, 84) : GetColor(255, 116, 96));
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(220.0f * alphaMultiplier)));
+        DrawBox(left, top, right, bottom, baseColor, TRUE);
+        DrawBox(left, top, right, bottom, rimColor, FALSE);
+        DrawBox(left + bevel, faceBottom, right - bevel, bottom, sideColor, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(245.0f * alphaMultiplier)));
+        DrawBox(left + bevel, faceTop, right - bevel, faceBottom, faceColor, TRUE);
+        DrawBox(left + bevel, faceTop, right - bevel, faceBottom, rimColor, FALSE);
+        DrawBox(left + bevel * 2, faceTop + 2, right - bevel * 2, faceTop + std::max(3, height / 5), highlightColor, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        Shader_ResetStyle();
+        return;
+    }
+
     if (tag && HasTag(tag, kTagGoal))
     {
         Shader_SetOutline(
@@ -1241,18 +1277,45 @@ void GameScene::DrawEntity(const Entity& entity) const
     {
         const int outerColor = GetColor(255, 86, 86);
         const int coreColor = GetColor(255, 224, 196);
+        const int glowColor = GetColor(255, 48, 42);
         const int outerLeft = static_cast<int>(std::round(drawX));
         const int outerTop = static_cast<int>(std::round(drawY));
         const int outerRight = static_cast<int>(std::round(drawX + drawWidth));
         const int outerBottom = static_cast<int>(std::round(drawY + drawHeight));
-        const float coreInsetY = drawHeight * 0.28f;
-        const int coreTop = static_cast<int>(std::round(drawY + coreInsetY));
-        const int coreBottom = static_cast<int>(std::round(drawY + drawHeight - coreInsetY));
+        const bool verticalBeam = drawHeight > drawWidth;
+        const float coreInset = (verticalBeam ? drawWidth : drawHeight) * 0.28f;
+        const float shortSize = std::max(1.0f, verticalBeam ? drawWidth : drawHeight);
+        const float broadGlow = std::max(6.0f, shortSize * 2.8f);
+        const float tightGlow = std::max(3.0f, shortSize * 1.35f);
+        const float broadPadX = verticalBeam ? broadGlow : tightGlow;
+        const float broadPadY = verticalBeam ? tightGlow : broadGlow;
+        const float tightPadX = verticalBeam ? tightGlow : shortSize * 0.55f;
+        const float tightPadY = verticalBeam ? shortSize * 0.55f : tightGlow;
+        const int coreLeft = static_cast<int>(std::round(drawX + (verticalBeam ? coreInset : 0.0f)));
+        const int coreTop = static_cast<int>(std::round(drawY + (verticalBeam ? 0.0f : coreInset)));
+        const int coreRight = static_cast<int>(std::round(drawX + drawWidth - (verticalBeam ? coreInset : 0.0f)));
+        const int coreBottom = static_cast<int>(std::round(drawY + drawHeight - (verticalBeam ? 0.0f : coreInset)));
 
+        SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(48.0f * alphaMultiplier)));
+        DrawBoxAA(
+            drawX - broadPadX,
+            drawY - broadPadY,
+            drawX + drawWidth + broadPadX,
+            drawY + drawHeight + broadPadY,
+            glowColor,
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(86.0f * alphaMultiplier)));
+        DrawBoxAA(
+            drawX - tightPadX,
+            drawY - tightPadY,
+            drawX + drawWidth + tightPadX,
+            drawY + drawHeight + tightPadY,
+            outerColor,
+            TRUE);
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(196.0f * alphaMultiplier)));
         DrawBox(outerLeft, outerTop, outerRight, outerBottom, outerColor, TRUE);
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(238.0f * alphaMultiplier)));
-        DrawBox(outerLeft, coreTop, outerRight, coreBottom, coreColor, TRUE);
+        DrawBox(coreLeft, coreTop, coreRight, coreBottom, coreColor, TRUE);
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         Shader_ResetStyle();
         return;

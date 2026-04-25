@@ -105,12 +105,14 @@ BatterySwitchComponent::BatterySwitchComponent(
     int requiredBatteryCountValue,
     float pressDepthValue,
     float pressSpeedValue,
-    float releaseSpeedValue)
+    float releaseSpeedValue,
+    bool controlsLaserPowerValue)
     : linkId((std::max)(0, linkIdValue))
     , requiredBatteryCount((std::max)(1, requiredBatteryCountValue))
     , pressDepth((std::max)(0.0f, pressDepthValue))
     , pressSpeed((std::max)(1.0f, pressSpeedValue))
     , releaseSpeed((std::max)(1.0f, releaseSpeedValue))
+    , controlsLaserPower(controlsLaserPowerValue)
 {
 }
 
@@ -127,6 +129,7 @@ void BatterySwitchComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Battery Switch");
     ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("Target: %s", controlsLaserPower ? "Laser Power" : "Linked Gimmick");
     ImGui::Text("Battery: %d / %d", insertedBatteryCount, requiredBatteryCount);
     ImGui::Text("Press: %.1f / %.1f", currentPress, pressDepth);
     ImGui::Text("Pressed: %s", isPressed ? "Yes" : "No");
@@ -181,11 +184,13 @@ ShutterComponent::ShutterComponent(
     int linkIdValue,
     float moveRangeYValue,
     float moveSpeedValue,
-    bool useBossDefeatSignalValue)
+    bool useBossDefeatSignalValue,
+    bool opensWhenUnpoweredValue)
     : linkId((std::max)(0, linkIdValue))
     , moveRangeY((std::max)(0.0f, moveRangeYValue))
     , moveSpeed((std::max)(1.0f, moveSpeedValue))
     , useBossDefeatSignal(useBossDefeatSignalValue)
+    , opensWhenUnpowered(opensWhenUnpoweredValue)
 {
 }
 
@@ -206,13 +211,20 @@ void ShutterComponent::DrawDebugUI()
     ImGui::Text("MoveSpeed: %.1f", moveSpeed);
     ImGui::Text("Open: %s", isOpen ? "Yes" : "No");
     ImGui::Text("Boss Trigger: %s", useBossDefeatSignal ? "Yes" : "No");
+    ImGui::Text("Open When Off: %s", opensWhenUnpowered ? "Yes" : "No");
 }
 
 LaserTurretComponent::LaserTurretComponent(
     float beamThicknessValue,
-    float damagePerSecondValue)
+    float damagePerSecondValue,
+    bool verticalValue,
+    bool shootsLeftValue,
+    bool requiresLaserPowerValue)
     : beamThickness((std::max)(1.0f, beamThicknessValue))
     , damagePerSecond((std::max)(0.1f, damagePerSecondValue))
+    , vertical(verticalValue)
+    , shootsLeft(shootsLeftValue)
+    , requiresLaserPower(requiresLaserPowerValue)
 {
 }
 
@@ -221,6 +233,8 @@ void LaserTurretComponent::DrawDebugUI()
     ImGui::SeparatorText("Laser Turret");
     ImGui::Text("Beam Thickness: %.1f", beamThickness);
     ImGui::Text("Damage / sec: %.2f", damagePerSecond);
+    ImGui::Text("Direction: %s", vertical ? "Down" : (shootsLeft ? "Left" : "Right"));
+    ImGui::Text("Needs X Switch: %s", requiresLaserPower ? "Yes" : "No");
     ImGui::Text("Player Damage Timer: %.2f", playerDamageTimer);
 }
 

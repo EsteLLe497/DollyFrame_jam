@@ -61,7 +61,7 @@ namespace
         float colorB;
         float pad4;
         float lightParams[kMaxDarknessOverlayLights * 4];
-        float lightIntensityPack[8];
+        float lightIntensityPack[kMaxDarknessOverlayLights];
         float lightColors[kMaxDarknessOverlayLights * 4];
         float lightShapeData[kMaxDarknessOverlayLights * 4];
     };
@@ -529,7 +529,7 @@ void DirectXDrawDarknessOverlay(void)
     {
         buffer->lightParams[i] = 0.0f;
     }
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < kMaxDarknessOverlayLights; ++i)
     {
         buffer->lightIntensityPack[i] = 0.0f;
     }
@@ -552,7 +552,7 @@ void DirectXDrawDarknessOverlay(void)
         buffer->lightColors[baseIndex + 0] = std::clamp(light.colorR, 0.0f, 1.0f);
         buffer->lightColors[baseIndex + 1] = std::clamp(light.colorG, 0.0f, 1.0f);
         buffer->lightColors[baseIndex + 2] = std::clamp(light.colorB, 0.0f, 1.0f);
-        buffer->lightColors[baseIndex + 3] = 0.0f;
+        buffer->lightColors[baseIndex + 3] = std::clamp(light.intensity, 0.0f, 1.0f);
         buffer->lightShapeData[baseIndex + 0] = light.shapeType;
         buffer->lightShapeData[baseIndex + 1] = light.extentX;
         buffer->lightShapeData[baseIndex + 2] = light.extentY;

@@ -60,6 +60,7 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Goal Contact: %s", m_flow.playerTouchingTarget ? "Hit" : "No Hit");
     ImGui::Text("Hazard Contact: %s", m_flow.playerTouchingHazard ? "Hit" : "No Hit");
     ImGui::Checkbox("Show Collision Debug", &m_debug.showCollisionDebug);
+    ImGui::Checkbox("Enable HP Damage", &m_debug.playerHealthDamageEnabled);
 
     if (auto* player = FindEntityByTag(kTagPlayer))
     {

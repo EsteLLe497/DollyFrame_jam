@@ -39,7 +39,7 @@ namespace
 
     bool IsEnemyMarker(char marker)
     {
-        return IsMarkerInSet(marker, "WRN");
+        return IsMarkerInSet(marker, "WRNAD");
     }
 
     bool IsBatteryMarker(char marker)
@@ -54,12 +54,12 @@ namespace
 
     bool IsMarkerLightMarker(char marker)
     {
-        return IsMarkerInSet(marker, "P");
+        return IsMarkerInSet(marker, "PF");
     }
 
     bool IsElevatorMarker(char marker)
     {
-        return IsMarkerInSet(marker, "KL");
+        return IsMarkerInSet(marker, "KLQ");
     }
 
     bool IsDamageFootholdMarker(char marker)
@@ -69,12 +69,12 @@ namespace
 
     bool IsLaserTurretMarker(char marker)
     {
-        return IsMarkerInSet(marker, "U");
+        return IsMarkerInSet(marker, "UZ");
     }
 
     bool IsShutterOrLaserSwitchMarker(char marker)
     {
-        return IsMarkerInSet(marker, "JO");
+        return IsMarkerInSet(marker, "JOX");
     }
 
     struct SwitchMarker
@@ -82,6 +82,7 @@ namespace
         float x = 0.0f;
         float y = 0.0f;
         int requiredBatteryCount = 1;
+        bool controlsLaserPower = false;
     };
 
     struct ElevatorMarker
@@ -89,6 +90,7 @@ namespace
         float x = 0.0f;
         float y = 0.0f;
         int moveRangeTiles = 3;
+        float widthTiles = 5.0f;
     };
 
     struct LaserSwitchMarker
@@ -105,6 +107,7 @@ namespace
         int moveRangeTiles = 3;
         int linkIdOverride = -1;
         bool useBossDefeatSignal = false;
+        bool opensWhenUnpowered = false;
     };
 
     struct LinkedGimmickColor
@@ -163,7 +166,8 @@ namespace
                     outSwitchMarkers.push_back(SwitchMarker{
                         markerX,
                         markerY + tileSize * 0.5f,
-                        (std::max)(1, tileMap.GetMarkerParameter(column, row)) });
+                        (std::max)(1, tileMap.GetMarkerParameter(column, row)),
+                        false });
                 }
                 else if (marker == 'L')
                 {
@@ -171,7 +175,17 @@ namespace
                     outElevatorMarkers.push_back(ElevatorMarker{
                         markerX,
                         markerY,
-                        markerParameter > 0 ? markerParameter : 3 });
+                        markerParameter > 0 ? markerParameter : 3,
+                        kLinkedGimmickSpawnConfig.elevatorWidthTiles });
+                }
+                else if (marker == 'Q')
+                {
+                    const int markerParameter = tileMap.GetMarkerParameter(column, row);
+                    outElevatorMarkers.push_back(ElevatorMarker{
+                        markerX,
+                        markerY,
+                        markerParameter > 0 ? markerParameter : 3,
+                        4.0f });
                 }
                 else if (marker == 'O')
                 {
@@ -181,6 +195,15 @@ namespace
                         markerY,
                         markerParameter > 0 ? markerParameter : -1 });
                 }
+                else if (marker == 'X')
+                {
+                    const int markerParameter = tileMap.GetMarkerParameter(column, row);
+                    outSwitchMarkers.push_back(SwitchMarker{
+                        markerX,
+                        markerY + tileSize * 0.5f,
+                        (std::max)(1, markerParameter),
+                        true });
+                }
                 else if (marker == 'J')
                 {
                     const int markerParameter = tileMap.GetMarkerParameter(column, row);
@@ -188,8 +211,8 @@ namespace
                     shutterMarker.x = markerX;
                     shutterMarker.y = markerY;
                     // J marker parameter:
-                    //   >0  : move range tile count
-                    //   <0  : link id override (absolute value)
+                    //   >0  : link id override. Pair with O using the same number (O1 -> J1).
+                    //   <0  : inverse shutter. Pair with O using the absolute value (O1 -> J-1).
                     //   99  : boss defeat trigger enabled (link signal OR boss defeat)
                     if (markerParameter == 99)
                     {
@@ -198,10 +221,11 @@ namespace
                     else if (markerParameter < 0)
                     {
                         shutterMarker.linkIdOverride = -markerParameter;
+                        shutterMarker.opensWhenUnpowered = true;
                     }
                     else if (markerParameter > 0)
                     {
-                        shutterMarker.moveRangeTiles = markerParameter;
+                        shutterMarker.linkIdOverride = markerParameter;
                     }
                     outShutterMarkers.push_back(shutterMarker);
                 }
@@ -544,7 +568,7 @@ void GameScene::RefreshMarkerLightsFromMarkers()
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
         {
             const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-            if (marker != 'P')
+            if (marker != 'P' && marker != 'F')
             {
                 continue;
             }
@@ -566,9 +590,10 @@ void GameScene::RefreshMarkerLightsFromMarkers()
             transform.rotation = kRotationRadians;
             light->AddComponent<TintComponent>(1.0f, 0.92f, 0.24f, 1.0f);
             light->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            light->AddComponent<MarkerLightComponent>(
+            auto& markerLight = light->AddComponent<MarkerLightComponent>(
                 tileSize * radiusTiles,
                 kIntensity);
+            markerLight.activated = marker == 'F';
             m_entities.push_back(std::move(light));
         }
     }
@@ -602,32 +627,43 @@ void GameScene::RefreshLaserTurretsFromMarkers()
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
         {
             const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-            if (marker != 'U')
+            if (marker != 'U' && marker != 'Z')
             {
                 continue;
             }
 
+            const int markerParameter = m_tileMap.GetMarkerParameter(column, row);
+            const bool vertical = marker == 'Z';
+            const bool shootsLeft = marker == 'U' && markerParameter < 0;
+            const bool requiresLaserPower = vertical
+                ? markerParameter > 0
+                : (markerParameter > 0 || markerParameter <= -2);
             const float turretX = static_cast<float>(column) * tileSize;
             const float turretY = static_cast<float>(row) * tileSize;
-            const float turretWidth = tileSize * 3.0f;
-            const float turretHeight = tileSize;
-            const float beamHeight = tileSize * 0.2f;
+            const float turretWidth = vertical ? tileSize : tileSize * 3.0f;
+            const float turretHeight = vertical ? tileSize * 3.0f : tileSize;
+            const float beamThickness = tileSize * 0.2f;
 
             auto turret = std::make_unique<Entity>();
             turret->AddComponent<TagComponent>(kTagLaserTurret);
             turret->AddComponent<TransformComponent>(turretX, turretY, turretWidth, turretHeight);
             turret->AddComponent<TintComponent>(0.40f, 0.44f, 0.50f, 1.0f);
             turret->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            turret->AddComponent<LaserTurretComponent>(beamHeight, 1.0f);
+            turret->AddComponent<LaserTurretComponent>(
+                beamThickness,
+                1.0f,
+                vertical,
+                shootsLeft,
+                requiresLaserPower);
             m_entities.push_back(std::move(turret));
 
             auto beam = std::make_unique<Entity>();
             beam->AddComponent<TagComponent>(kTagLaserBeam);
             beam->AddComponent<TransformComponent>(
-                turretX + turretWidth,
-                turretY + (turretHeight - beamHeight) * 0.5f,
-                0.0f,
-                beamHeight);
+                vertical ? turretX + (turretWidth - beamThickness) * 0.5f : (shootsLeft ? turretX : turretX + turretWidth),
+                vertical ? turretY + turretHeight : turretY + (turretHeight - beamThickness) * 0.5f,
+                vertical ? beamThickness : 0.0f,
+                vertical ? 0.0f : beamThickness);
             beam->AddComponent<TintComponent>(1.0f, 0.24f, 0.24f, 0.86f);
             beam->AddComponent<SpriteRenderComponent>(m_whiteTexture);
             beam->AddComponent<LaserBeamComponent>();
@@ -694,7 +730,8 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             marker.requiredBatteryCount,
             tileSize * cfg.batterySwitchPressDepthRatio,
             cfg.batterySwitchPressSpeed,
-            cfg.batterySwitchReleaseSpeed);
+            cfg.batterySwitchReleaseSpeed,
+            marker.controlsLaserPower);
         m_entities.push_back(std::move(switchEntity));
     };
 
@@ -705,7 +742,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         elevatorEntity->AddComponent<TransformComponent>(
             marker.x,
             marker.y,
-            tileSize * cfg.elevatorWidthTiles,
+            tileSize * marker.widthTiles,
             tileSize * cfg.elevatorHeightTiles);
         elevatorEntity->AddComponent<TintComponent>(
             cfg.elevatorColor.r,
@@ -760,7 +797,8 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             linkId,
             tileSize * static_cast<float>(moveRangeTiles),
             tileSize * cfg.shutterSpeedTilesPerSec,
-            marker.useBossDefeatSignal);
+            marker.useBossDefeatSignal,
+            marker.opensWhenUnpowered);
         m_entities.push_back(std::move(shutterEntity));
     };
 
