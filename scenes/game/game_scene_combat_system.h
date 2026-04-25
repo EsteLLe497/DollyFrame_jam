@@ -69,6 +69,7 @@ inline void UpdateEnemies(
             constexpr float kWalkerSpeed = 120.0f;
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
+            constexpr float kWalkerAttackActiveSeconds = 0.18f;
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
@@ -117,7 +118,7 @@ inline void UpdateEnemies(
 
                     const float attackWidth = 48.0f;
                     const float attackHeight = 60.0f;
-                    const float attackOffsetY = transform->height * transform->scale * -3.3f;
+                    const float attackOffsetY = transform->height * transform->scale * -0.1f;
 
                     enemy->attackRectX = enemy->facing == EnemyComponent::FacingDirection::Right
                         ? transform->x + transform->width * transform->scale
@@ -125,7 +126,7 @@ inline void UpdateEnemies(
                     enemy->attackRectY = transform->y + attackOffsetY;
                     enemy->attackRectWidth = attackWidth;
                     enemy->attackRectHeight = attackHeight;
-                    enemy->attackRectRemaining = enemy->attackCooldown;
+                    enemy->attackRectRemaining = kWalkerAttackActiveSeconds;
                     enemy->attackRectActive = true;
 
                     enemy->attackTimer = 0.0f;

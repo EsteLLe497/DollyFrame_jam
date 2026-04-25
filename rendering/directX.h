@@ -11,7 +11,7 @@ enum class BlendMode2D
     Additive,
 };
 
-constexpr int kMaxDarknessOverlayLights = 8;
+constexpr int kMaxDarknessOverlayLights = 16;
 
 struct DarknessOverlayLight
 {

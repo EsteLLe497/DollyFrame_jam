@@ -8,10 +8,10 @@ cbuffer DarknessOverlayParams : register(b0)
     float2 gPadding1;
     float3 gDarknessColor;
     float gPadding2;
-    float4 gLightParams[8];
-    float4 gLightIntensityPack[2];
-    float4 gLightColors[8];
-    float4 gLightShapeData[8];
+    float4 gLightParams[16];
+    float4 gLightIntensityPack[4];
+    float4 gLightColors[16];
+    float4 gLightShapeData[16];
 };
 
 struct PSInput
@@ -41,8 +41,8 @@ float4 main(PSInput input) : SV_TARGET
     float3 lightColorAccum = 0.0;
     float lightContributionSum = 0.0;
 
-    [unroll]
-    for (int lightIndex = 0; lightIndex < 8; ++lightIndex)
+    [loop]
+    for (int lightIndex = 0; lightIndex < 16; ++lightIndex)
     {
         if ((float)lightIndex >= gLightCount)
         {
@@ -50,9 +50,8 @@ float4 main(PSInput input) : SV_TARGET
         }
 
         float4 light = gLightParams[lightIndex];
-        float intensity = lightIndex < 4
-            ? gLightIntensityPack[0][lightIndex]
-            : gLightIntensityPack[1][lightIndex - 4];
+        float4 lightColor = gLightColors[lightIndex];
+        float intensity = lightColor.a;
         float contribution = 0.0;
         if (gLightShapeData[lightIndex].x < 0.5)
         {
@@ -74,7 +73,7 @@ float4 main(PSInput input) : SV_TARGET
             contribution = (1.0 - edgeFade) * intensity;
         }
         visibility = max(visibility, contribution);
-        lightColorAccum += gLightColors[lightIndex].rgb * contribution;
+        lightColorAccum += lightColor.rgb * contribution;
         lightContributionSum += contribution;
     }
 

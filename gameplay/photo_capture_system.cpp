@@ -257,7 +257,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 continue;
             }
         }
-        if (HasTag(*entity, kTagLaserBeam))
+        if (HasTag(*entity, kTagLaserBeam) || HasTag(*entity, kTagLaserTurret))
         {
             continue;
         }

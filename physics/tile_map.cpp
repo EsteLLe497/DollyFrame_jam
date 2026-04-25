@@ -203,7 +203,7 @@ std::string FormatCsvCell(int tileValue, char marker, int markerParameter)
     }
 
     std::string markerText(1, static_cast<char>(std::toupper(static_cast<unsigned char>(marker))));
-    if (markerParameter > 0)
+    if (markerParameter != 0)
     {
         markerText += std::to_string(markerParameter);
     }

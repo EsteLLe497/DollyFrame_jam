@@ -23,8 +23,8 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr std::array<char, 21> kMarkerPresets = {
-        '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'N', 'U', 'J', 'O', 'P'
+    constexpr std::array<char, 27> kMarkerPresets = {
+        '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', 'N', 'U', 'Z', 'J', 'O', 'X', 'P', 'F'
     };
     constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 

@@ -164,7 +164,8 @@ public:
         int requiredBatteryCount,
         float pressDepth,
         float pressSpeed,
-        float releaseSpeed);
+        float releaseSpeed,
+        bool controlsLaserPower = false);
 
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
@@ -180,6 +181,7 @@ public:
     float baseY = 0.0f;
     float currentPress = 0.0f;
     bool isPressed = false;
+    bool controlsLaserPower = false;
 };
 
 class ElevatorComponent final : public Component
@@ -224,7 +226,8 @@ public:
         int linkId,
         float moveRangeY,
         float moveSpeed,
-        bool useBossDefeatSignal);
+        bool useBossDefeatSignal,
+        bool opensWhenUnpowered = false);
 
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
@@ -235,6 +238,7 @@ public:
     float baseY = 0.0f;
     bool isOpen = false;
     bool useBossDefeatSignal = false;
+    bool opensWhenUnpowered = false;
 };
 
 class LaserTurretComponent final : public Component
@@ -242,12 +246,18 @@ class LaserTurretComponent final : public Component
 public:
     LaserTurretComponent(
         float beamThickness,
-        float damagePerSecond);
+        float damagePerSecond,
+        bool vertical = false,
+        bool shootsLeft = false,
+        bool requiresLaserPower = false);
 
     void DrawDebugUI() override;
 
     float beamThickness = 8.0f;
     float damagePerSecond = 1.0f;
+    bool vertical = false;
+    bool shootsLeft = false;
+    bool requiresLaserPower = false;
     float playerDamageTimer = 0.0f;
     std::unordered_map<const Entity*, float> enemyDamageTimers;
     float sparkTimer = 0.0f;

@@ -282,9 +282,19 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             kPlatformBatteryInsetX);
 
         const bool powered = switchComponent->isPressed;
-        setLinkPowered(switchComponent->linkId, powered);
+        if (!switchComponent->controlsLaserPower)
+        {
+            setLinkPowered(switchComponent->linkId, powered);
+        }
 
-        setEntityTint(*entity, powered ? 0.22f : 0.92f, powered ? 0.90f : 0.26f, powered ? 0.40f : 0.20f);
+        if (switchComponent->controlsLaserPower)
+        {
+            setEntityTint(*entity, powered ? 1.0f : 0.40f, powered ? 0.42f : 0.44f, powered ? 0.28f : 0.50f);
+        }
+        else
+        {
+            setEntityTint(*entity, powered ? 0.22f : 0.92f, powered ? 0.90f : 0.26f, powered ? 0.40f : 0.20f);
+        }
     }
 
     for (const auto& entity : m_entities)
@@ -325,8 +335,11 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
                 continue;
             }
             TransformComponent beamSense = *beamTransform;
-            // Beam may terminate exactly at the switch edge; keep a tiny overlap margin.
-            beamSense.width += 2.0f;
+            // Beam may terminate exactly at the switch edge from either direction; keep a tiny overlap margin.
+            beamSense.x -= 2.0f;
+            beamSense.y -= 2.0f;
+            beamSense.width += 4.0f;
+            beamSense.height += 4.0f;
             if (IntersectsRect(switchBounds, beamSense))
             {
                 isLaserHit = true;
@@ -433,9 +446,12 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
 
         const bool poweredByLink = linkPowered[shutter->linkId];
-        const bool powered = poweredByLink || (shutter->useBossDefeatSignal && shieldBossDefeated);
+        const bool linkActive = poweredByLink || (shutter->useBossDefeatSignal && shieldBossDefeated);
+        const bool open = shutter->opensWhenUnpowered
+            ? !linkActive
+            : linkActive;
         const float previousY = transform->y;
-        const float targetY = powered
+        const float targetY = open
             ? shutter->baseY - shutter->moveRangeY
             : shutter->baseY;
         const float maxStep = shutter->moveSpeed * deltaTime;
@@ -448,7 +464,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         {
             transform->y += (deltaToTarget > 0.0f ? maxStep : -maxStep);
         }
-        shutter->isOpen = powered;
+        shutter->isOpen = open;
 
         const float deltaY = transform->y - previousY;
         if (std::fabs(deltaY) <= 0.001f)
