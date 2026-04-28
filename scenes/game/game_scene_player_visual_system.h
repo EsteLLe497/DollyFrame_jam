@@ -21,12 +21,16 @@ inline constexpr float kPlayerJumpDecay = 5.0f;
 inline constexpr float kPlayerDodgeDecay = 7.5f;
 inline constexpr int kPlayerSheetColumns = 5;
 inline constexpr int kPlayerSheetRows = 6;
+inline constexpr int kPlayerMoveSheetColumns = 4;
+inline constexpr int kPlayerMoveSheetRows = 3;
+inline constexpr int kPlayerMoveFrameCount = 12;
+inline constexpr float kPlayerMoveFps = 18.0f;
 inline constexpr int kPlayerIdleSheetColumns = 5;
 inline constexpr int kPlayerIdleSheetRows = 9;
 inline constexpr int kPlayerIdleFrameCount = 45;
 inline constexpr float kPlayerIdleFps = 12.0f;
 
-inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -1)
+inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -1, int moveTextureId = -1)
 {
     auto* sprite = player.GetComponent<SpriteRenderComponent>();
     if (!sprite)
@@ -42,8 +46,9 @@ inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -
 
     const int textureId = sprite->GetTextureId();
     const int resolvedIdleTextureId = idleTextureId >= 0 ? idleTextureId : textureId;
+    const int resolvedMoveTextureId = moveTextureId >= 0 ? moveTextureId : textureId;
     animation->DefineClip("idle", resolvedIdleTextureId, kPlayerIdleSheetColumns, kPlayerIdleSheetRows, 0, kPlayerIdleFrameCount, kPlayerIdleFps, true);
-    animation->DefineClip("run", textureId, kPlayerSheetColumns, kPlayerSheetRows, 0, 30, 30.0f, true);
+    animation->DefineClip("run", resolvedMoveTextureId, kPlayerMoveSheetColumns, kPlayerMoveSheetRows, 0, kPlayerMoveFrameCount, kPlayerMoveFps, true);
     animation->DefineClip("jump", textureId, kPlayerSheetColumns, kPlayerSheetRows, 3, 1, 1.0f, false);
     animation->DefineClip("fall", textureId, kPlayerSheetColumns, kPlayerSheetRows, 18, 1, 1.0f, false);
     animation->DefineClip("dodge", textureId, kPlayerSheetColumns, kPlayerSheetRows, 10, 1, 1.0f, false);
@@ -78,8 +83,9 @@ inline void UpdateAnimation(
     }
 
     animation->Play(clipName);
-    const bool isIdleClip = std::string_view(clipName) == "idle";
-    sprite->SetFlipX(isIdleClip ? !playerState.facingRight : playerState.facingRight);
+    const std::string_view currentClip(clipName);
+    const bool usesNewMoveSheet = currentClip == "idle" || currentClip == "run";
+    sprite->SetFlipX(usesNewMoveSheet ? !playerState.facingRight : playerState.facingRight);
 }
 
 inline void UpdatePresentation(

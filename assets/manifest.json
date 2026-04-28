@@ -14,6 +14,10 @@
       "type": "file",
       "path": "assets/texture/sprite_sheet (4).png"
     },
+    "player_move": {
+      "type": "file",
+      "path": "assets/texture/chara_move.png"
+    },
     "target": {
       "type": "checkerboard",
       "width": 192,

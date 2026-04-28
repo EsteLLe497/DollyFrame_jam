@@ -1053,11 +1053,11 @@ void GameScene::DrawEntity(const Entity& entity) const
     if (tag && HasTag(tag, kTagPlayer))
     {
         const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
-        if (animation && animation->GetCurrentClipName() == "idle")
+        if (animation)
         {
-            constexpr float kIdleFrameAspect = 800.0f / 1132.0f;
+            constexpr float kPlayerFrameAspect = 800.0f / 1132.0f;
             const float centerX = drawX + drawWidth * 0.5f;
-            drawWidth = drawHeight * kIdleFrameAspect;
+            drawWidth = drawHeight * kPlayerFrameAspect;
             drawX = centerX - drawWidth * 0.5f;
         }
     }
