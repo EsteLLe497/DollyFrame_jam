@@ -14,7 +14,10 @@ void GameScene::OnEnter(ResourceManager& resources)
     InitializeStageEntities();
     if (Entity* player = FindEntityByTag(kTagPlayer))
     {
-        game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(*player, m_assets.GetTexture("player_idle"));
+        game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(
+            *player,
+            m_assets.GetTexture("player_idle"),
+            m_assets.GetTexture("player_move"));
     }
 
     GameSession_Reset(3, m_flow.timeLimit);

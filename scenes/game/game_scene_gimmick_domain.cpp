@@ -745,7 +745,10 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     Entity* transitionedPlayer = FindEntityByTag(kTagPlayer);
     if (transitionedPlayer)
     {
-        game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(*transitionedPlayer);
+        game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(
+            *transitionedPlayer,
+            m_assets.GetTexture("player_idle"),
+            m_assets.GetTexture("player_move"));
 
         if (auto* transformed = transitionedPlayer->GetComponent<TransformComponent>())
         {
