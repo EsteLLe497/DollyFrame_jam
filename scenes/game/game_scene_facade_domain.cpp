@@ -76,7 +76,7 @@ void GameScene::FinalizeGameplayFrame(float effectiveGameplayDeltaTime)
     RunGameplayFrame(effectiveGameplayDeltaTime);
     if (Entity* player = FindEntityByTag(kTagPlayer))
     {
-        game_scene_player_visual_system::UpdateAnimation(m_player, *player, m_player.dodgeRemaining > 0.0f);
+        game_scene_player_visual_system::UpdateAnimation(m_player, m_flow, *player, m_player.dodgeRemaining > 0.0f);
     }
 }
 

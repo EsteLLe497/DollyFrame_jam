@@ -748,7 +748,9 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
         game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(
             *transitionedPlayer,
             m_assets.GetTexture("player_idle"),
-            m_assets.GetTexture("player_move"));
+            m_assets.GetTexture("player_move"),
+            m_assets.GetTexture("player_jump"),
+            m_assets.GetTexture("player_capture"));
 
         if (auto* transformed = transitionedPlayer->GetComponent<TransformComponent>())
         {

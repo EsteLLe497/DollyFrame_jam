@@ -186,6 +186,12 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     {
         return;
     }
+
+    if (scene.m_player.captureAnimationActive && !scene.m_player.captureAnimationReleased)
+    {
+        scene.m_player.captureAnimationReleased = true;
+    }
+
     if (scene.IsPhotoTrayHit(static_cast<float>(Input_GetMouseX()), static_cast<float>(Input_GetMouseY())))
     {
         return;
@@ -202,6 +208,9 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     {
         return;
     }
+
+    scene.m_flow.cameraMode = false;
+
     const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
 
     float frameX = 0.0f;

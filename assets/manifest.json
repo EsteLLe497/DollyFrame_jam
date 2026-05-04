@@ -18,6 +18,14 @@
       "type": "file",
       "path": "assets/texture/chara_move.png"
     },
+    "player_jump": {
+      "type": "file",
+      "path": "assets/texture/chara_jump.png"
+    },
+    "player_capture": {
+      "type": "file",
+      "path": "assets/texture/chara_capture.png"
+    },
     "target": {
       "type": "checkerboard",
       "width": 192,

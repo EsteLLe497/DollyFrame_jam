@@ -117,6 +117,8 @@ struct GameScenePlayerState
     float landingImpact = 0.0f;
     float jumpStretch = 0.0f;
     float dodgeStretch = 0.0f;
+    bool captureAnimationActive = false;
+    bool captureAnimationReleased = false;
     std::vector<PlayerAfterimage> afterimages;
 };
 

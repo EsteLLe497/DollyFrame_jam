@@ -17,7 +17,9 @@ void GameScene::OnEnter(ResourceManager& resources)
         game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(
             *player,
             m_assets.GetTexture("player_idle"),
-            m_assets.GetTexture("player_move"));
+            m_assets.GetTexture("player_move"),
+            m_assets.GetTexture("player_jump"),
+            m_assets.GetTexture("player_capture"));
     }
 
     GameSession_Reset(3, m_flow.timeLimit);
