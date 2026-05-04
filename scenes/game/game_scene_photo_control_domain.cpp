@@ -19,7 +19,9 @@ namespace
 void GameScene::UpdateCameraMode()
 {
     const bool wasCameraMode = m_flow.cameraMode;
-    m_flow.cameraMode = Input_IsActionDown(InputAction::HoldCamera);
+    const bool holdCameraDown = Input_IsActionDown(InputAction::HoldCamera);
+    const bool captureReleasePlaying = m_player.captureAnimationActive && m_player.captureAnimationReleased;
+    m_flow.cameraMode = captureReleasePlaying ? false : holdCameraDown;
     if (m_flow.cameraMode)
     {
         m_photo.placement.active = false;
@@ -27,7 +29,16 @@ void GameScene::UpdateCameraMode()
     }
     if (m_flow.cameraMode && !wasCameraMode)
     {
+        m_player.captureAnimationActive = true;
+        m_player.captureAnimationReleased = false;
         ++m_flow.cameraModeSessionId;
+    }
+    else if (!m_flow.cameraMode &&
+        wasCameraMode &&
+        !(m_player.captureAnimationActive && m_player.captureAnimationReleased))
+    {
+        m_player.captureAnimationActive = false;
+        m_player.captureAnimationReleased = false;
     }
 }
 
@@ -53,7 +64,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
     m_flow.captureModeZoomBlend += (captureZoomTarget - m_flow.captureModeZoomBlend) * std::min(1.0f, deltaTime * kCaptureModeZoomResponse);
     m_flow.captureSlowRemaining = m_flow.cameraMode ? kCaptureFocusDuration : 0.0f;
     m_flow.placementSlowRemaining = placementActive ? kPlacementFocusDuration : 0.0f;
-    const bool slowForCapture = m_flow.cameraMode;
+    const bool slowForCapture = m_flow.cameraMode && !m_player.captureAnimationActive;
     const bool slowForPlacement = placementActive;
     // フォーカス中だけゲーム全体を減速させる。
     return (slowForCapture || slowForPlacement)

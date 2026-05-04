@@ -25,12 +25,29 @@ inline constexpr int kPlayerMoveSheetColumns = 4;
 inline constexpr int kPlayerMoveSheetRows = 3;
 inline constexpr int kPlayerMoveFrameCount = 12;
 inline constexpr float kPlayerMoveFps = 18.0f;
+inline constexpr int kPlayerJumpSheetColumns = 5;
+inline constexpr int kPlayerJumpSheetRows = 4;
+inline constexpr int kPlayerJumpAscentStartFrame = 0;
+inline constexpr int kPlayerJumpAscentFrameCount = 12;
+inline constexpr float kPlayerJumpAscentFps = 22.0f;
+inline constexpr int kPlayerJumpFallStartFrame = 12;
+inline constexpr int kPlayerJumpFallFrameCount = 8;
+inline constexpr float kPlayerJumpFallFps = 14.0f;
+inline constexpr int kPlayerCaptureSheetColumns = 7;
+inline constexpr int kPlayerCaptureSheetRows = 3;
+inline constexpr int kPlayerCaptureTotalFrames = 21;
+inline constexpr int kPlayerCaptureHoldLastFrame = 10;
+inline constexpr int kPlayerCaptureHoldFrameCount = kPlayerCaptureHoldLastFrame + 1;
+inline constexpr float kPlayerCaptureHoldFps = 18.0f;
+inline constexpr int kPlayerCaptureReleaseStartFrame = kPlayerCaptureHoldLastFrame + 1;
+inline constexpr int kPlayerCaptureReleaseFrameCount = kPlayerCaptureTotalFrames - kPlayerCaptureReleaseStartFrame;
+inline constexpr float kPlayerCaptureReleaseFps = 18.0f;
 inline constexpr int kPlayerIdleSheetColumns = 5;
 inline constexpr int kPlayerIdleSheetRows = 9;
 inline constexpr int kPlayerIdleFrameCount = 45;
 inline constexpr float kPlayerIdleFps = 12.0f;
 
-inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -1, int moveTextureId = -1)
+inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -1, int moveTextureId = -1, int jumpTextureId = -1, int captureTextureId = -1)
 {
     auto* sprite = player.GetComponent<SpriteRenderComponent>();
     if (!sprite)
@@ -47,16 +64,21 @@ inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -
     const int textureId = sprite->GetTextureId();
     const int resolvedIdleTextureId = idleTextureId >= 0 ? idleTextureId : textureId;
     const int resolvedMoveTextureId = moveTextureId >= 0 ? moveTextureId : textureId;
+    const int resolvedJumpTextureId = jumpTextureId >= 0 ? jumpTextureId : textureId;
+    const int resolvedCaptureTextureId = captureTextureId >= 0 ? captureTextureId : textureId;
     animation->DefineClip("idle", resolvedIdleTextureId, kPlayerIdleSheetColumns, kPlayerIdleSheetRows, 0, kPlayerIdleFrameCount, kPlayerIdleFps, true);
     animation->DefineClip("run", resolvedMoveTextureId, kPlayerMoveSheetColumns, kPlayerMoveSheetRows, 0, kPlayerMoveFrameCount, kPlayerMoveFps, true);
-    animation->DefineClip("jump", textureId, kPlayerSheetColumns, kPlayerSheetRows, 3, 1, 1.0f, false);
-    animation->DefineClip("fall", textureId, kPlayerSheetColumns, kPlayerSheetRows, 18, 1, 1.0f, false);
+    animation->DefineClip("jump", resolvedJumpTextureId, kPlayerJumpSheetColumns, kPlayerJumpSheetRows, kPlayerJumpAscentStartFrame, kPlayerJumpAscentFrameCount, kPlayerJumpAscentFps, false);
+    animation->DefineClip("fall", resolvedJumpTextureId, kPlayerJumpSheetColumns, kPlayerJumpSheetRows, kPlayerJumpFallStartFrame, kPlayerJumpFallFrameCount, kPlayerJumpFallFps, false);
+    animation->DefineClip("capture_hold", resolvedCaptureTextureId, kPlayerCaptureSheetColumns, kPlayerCaptureSheetRows, 0, kPlayerCaptureHoldFrameCount, kPlayerCaptureHoldFps, false);
+    animation->DefineClip("capture_release", resolvedCaptureTextureId, kPlayerCaptureSheetColumns, kPlayerCaptureSheetRows, kPlayerCaptureReleaseStartFrame, kPlayerCaptureReleaseFrameCount, kPlayerCaptureReleaseFps, false);
     animation->DefineClip("dodge", textureId, kPlayerSheetColumns, kPlayerSheetRows, 10, 1, 1.0f, false);
     animation->Play("idle", true);
 }
 
 inline void UpdateAnimation(
-    const GameScenePlayerState& playerState,
+    GameScenePlayerState& playerState,
+    GameSceneFlowState& flowState,
     Entity& player,
     bool isDodging)
 {
@@ -69,23 +91,53 @@ inline void UpdateAnimation(
 
     const char* clipName = "idle";
     const float horizontalSpeed = std::fabs(playerState.velocityX);
-    if (isDodging)
+    if (playerState.captureAnimationActive)
+    {
+        clipName = playerState.captureAnimationReleased ? "capture_release" : "capture_hold";
+    }
+    else if (isDodging)
     {
         clipName = "dodge";
     }
     else if (!playerState.grounded)
     {
-        clipName = playerState.velocityY < -40.0f ? "jump" : "fall";
+        clipName = playerState.velocityY < 0.0f ? "jump" : "fall";
     }
     else if (horizontalSpeed > 40.0f)
     {
         clipName = "run";
     }
 
-    animation->Play(clipName);
+    if (playerState.captureAnimationActive &&
+        playerState.captureAnimationReleased &&
+        animation->GetCurrentClipName() != "capture_release")
+    {
+        clipName = "capture_release";
+        animation->Play(clipName, true);
+    }
+    else
+    {
+        animation->Play(clipName);
+    }
+
+    if (playerState.captureAnimationActive &&
+        playerState.captureAnimationReleased &&
+        animation->GetCurrentClipName() == "capture_release" &&
+        animation->GetCurrentFrameIndex() >= (kPlayerCaptureReleaseStartFrame + kPlayerCaptureReleaseFrameCount - 1))
+    {
+        playerState.captureAnimationActive = false;
+        playerState.captureAnimationReleased = false;
+    }
+
     const std::string_view currentClip(clipName);
-    const bool usesNewMoveSheet = currentClip == "idle" || currentClip == "run";
-    sprite->SetFlipX(usesNewMoveSheet ? !playerState.facingRight : playerState.facingRight);
+    const bool usesNewCharacterSheet =
+        currentClip == "idle" ||
+        currentClip == "run" ||
+        currentClip == "jump" ||
+        currentClip == "fall" ||
+        currentClip == "capture_hold" ||
+        currentClip == "capture_release";
+    sprite->SetFlipX(usesNewCharacterSheet ? !playerState.facingRight : playerState.facingRight);
 }
 
 inline void UpdatePresentation(

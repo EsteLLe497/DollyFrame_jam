@@ -1,5 +1,6 @@
 #include "game_scene_internal.h"
 #include "photo_filter_rules.h"
+#include "texture.h"
 
 #include "DxLib.h"
 
@@ -1055,10 +1056,25 @@ void GameScene::DrawEntity(const Entity& entity) const
         const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
         if (animation)
         {
-            constexpr float kPlayerFrameAspect = 800.0f / 1132.0f;
-            const float centerX = drawX + drawWidth * 0.5f;
-            drawWidth = drawHeight * kPlayerFrameAspect;
-            drawX = centerX - drawWidth * 0.5f;
+            const int textureId = sprite->GetTextureId();
+            const int textureWidth = TextureGetWidth(textureId);
+            const int textureHeight = TextureGetHeight(textureId);
+            const float sourceWidth = sprite->GetSourceWidth();
+            const float sourceHeight = sprite->GetSourceHeight();
+            if (textureWidth > 0 &&
+                textureHeight > 0 &&
+                sourceWidth > 0.0f &&
+                sourceHeight > 0.0f)
+            {
+                const float frameWidth = static_cast<float>(textureWidth) * sourceWidth;
+                const float frameHeight = static_cast<float>(textureHeight) * sourceHeight;
+                if (frameHeight > 0.0f)
+                {
+                    const float centerX = drawX + drawWidth * 0.5f;
+                    drawWidth = drawHeight * (frameWidth / frameHeight);
+                    drawX = centerX - drawWidth * 0.5f;
+                }
+            }
         }
     }
     if (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth)
