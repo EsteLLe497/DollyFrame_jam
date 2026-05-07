@@ -1442,7 +1442,8 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     else if (tag && HasTag(tag, kTagLaserBeam))
     {
-        if (entity.GetComponent<PhotoCopyGroupComponent>() && drawWidth >= drawHeight)
+        if ((entity.GetComponent<PhotoCopyGroupComponent>() || entity.GetComponent<BossBeamCaptureComponent>()) &&
+            drawWidth >= drawHeight)
         {
             const int outerColor = GetColor(124, 206, 255);
             const int coreColor = GetColor(236, 248, 255);
