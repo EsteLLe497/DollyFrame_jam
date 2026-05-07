@@ -225,6 +225,7 @@ LaserTurretComponent::LaserTurretComponent(
     , vertical(verticalValue)
     , shootsLeft(shootsLeftValue)
     , requiresLaserPower(requiresLaserPowerValue)
+    , fireToLeft(shootsLeftValue)
 {
 }
 
@@ -236,6 +237,11 @@ void LaserTurretComponent::DrawDebugUI()
     ImGui::Text("Direction: %s", vertical ? "Down" : (shootsLeft ? "Left" : "Right"));
     ImGui::Text("Needs X Switch: %s", requiresLaserPower ? "Yes" : "No");
     ImGui::Text("Player Damage Timer: %.2f", playerDamageTimer);
+    ImGui::Text("Active: %s", active ? "Yes" : "No");
+    ImGui::Text("Warmup: %.2f", warmupRemaining);
+    ImGui::Text("Beam Facing: %s", fireToLeft ? "Left" : "Right");
+    ImGui::Text("Enemy Knockback: %.1f", enemyKnockbackSpeed);
+    ImGui::Text("Origin Offset: (%.1f, %.1f)", beamOriginOffsetX, beamOriginOffsetY);
 }
 
 TransformComponent::TransformComponent(float xValue, float yValue, float widthValue, float heightValue)
@@ -442,6 +448,8 @@ namespace
             return "Ranged";
         case EnemyArchetype::ShieldBoss:
             return "ShieldBoss";
+        case EnemyArchetype::MidBoss2:
+            return "MidBoss2";
         case EnemyArchetype::Ghost:
             return "Ghost";
         case EnemyArchetype::BlasterRobot:

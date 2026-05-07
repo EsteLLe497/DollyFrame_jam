@@ -48,6 +48,7 @@ struct PrefabDefinition
     EnemyArchetype enemyArchetype = EnemyArchetype::Floater;
     int enemyContactDamage = 1;
     bool hasShieldBoss = false;
+    bool hasMidBoss2 = false;
     bool hasGhost = false;
     bool hasBlasterRobot = false;
     bool hasEnemyMover = false;

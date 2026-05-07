@@ -6,6 +6,24 @@ using namespace game_scene_detail;
 
 void GameScene::DrawDebugUI()
 {
+    const auto toMidBoss2StateLabel = [](MidBoss2State state) -> const char*
+    {
+        switch (state)
+        {
+        case MidBoss2State::Idle: return "Idle";
+        case MidBoss2State::SpearJump: return "SpearJump";
+        case MidBoss2State::SpearThrow: return "SpearThrow";
+        case MidBoss2State::SpearLanding: return "SpearLanding";
+        case MidBoss2State::SpearCooldown: return "SpearCooldown";
+        case MidBoss2State::BeamCharge: return "BeamCharge";
+        case MidBoss2State::BeamFire: return "BeamFire";
+        case MidBoss2State::BeamCooldown: return "BeamCooldown";
+        case MidBoss2State::Damaged: return "Damaged";
+        case MidBoss2State::Dead: return "Dead";
+        default: return "Unknown";
+        }
+    };
+
     ImGui::Begin("Game Scene");
     ImGui::Text("2D photo-platform prototype");
     ImGui::Text("Move: A / D or gamepad stick");
@@ -92,6 +110,47 @@ void GameScene::DrawDebugUI()
     }
 
     ImGui::Text("Events This Frame: %d", static_cast<int>(m_eventBus.GetEvents().size()));
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<MidBoss2Component>();
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss2 || !transform)
+        {
+            continue;
+        }
+
+        ImGui::SeparatorText("MidBoss2");
+        ImGui::Text("Boss Hitbox: %.1f, %.1f, %.1f, %.1f",
+            transform->x,
+            transform->y,
+            transform->width * transform->scale,
+            transform->height * transform->scale);
+        ImGui::Text("State: %s", toMidBoss2StateLabel(boss->state));
+        ImGui::Text("Attack Flow: %d", boss->attackFlowStep);
+        ImGui::Text("Cooldown Remaining: %.2f", boss->cooldownRemaining);
+        ImGui::Text("Capture Window: %s", boss->captureWindowActive ? "Yes" : "No");
+        ImGui::Text("Spear Direction: %.2f, %.2f", boss->lastSpearDirX, boss->lastSpearDirY);
+
+        if (boss->beamEntity)
+        {
+            if (const auto* beamTransform = boss->beamEntity->GetComponent<TransformComponent>())
+            {
+                ImGui::Text("Beam Hitbox: %.1f, %.1f, %.1f, %.1f",
+                    beamTransform->x,
+                    beamTransform->y,
+                    beamTransform->width * beamTransform->scale,
+                    beamTransform->height * beamTransform->scale);
+            }
+        }
+    }
+
     ImGui::End();
 }
 

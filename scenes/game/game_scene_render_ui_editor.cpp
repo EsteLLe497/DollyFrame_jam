@@ -62,7 +62,7 @@ void GameScene::DrawMapEditorOverlay() const
     DrawString(panelLeft + 16, panelTop + 38, "F4: 閉じる  M: タイル/マーカー切替  WASD/十字: カメラ移動", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 58, "左ドラッグ: 塗る  右ドラッグ: 消す", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 78, "タイル: 0-9 / Q,E / F9(10)", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(None),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(M Log),F11(Y),F12(N Boss),H,I,J,K,L,O,U,Q,E", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(None),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F(MidBoss2),F10(M Log),F11(Y),F12(N Boss),H,I,J,K,L,O,U,Q,E", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 114, "F5: 保存  F6: CSV再読込  F7: 新規作成  F8: 別名保存", GetColor(168, 192, 220));
     DrawFormatString(
         panelLeft + 16,

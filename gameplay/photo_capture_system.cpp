@@ -327,7 +327,13 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedLog = HasTag(*entity, kTagLog);
         const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr && !capturedLog;
         const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr && !capturedLog;
-        const bool capturedLaserTurret = HasTag(*entity, kTagLaserTurret);
+        const auto* bossBeamCapture = entity->GetComponent<BossBeamCaptureComponent>();
+        const bool capturedLaserTurret = HasTag(*entity, kTagLaserTurret)
+            && (!bossBeamCapture || bossBeamCapture->captureEnabled);
+        if (HasTag(*entity, kTagLaserTurret) && bossBeamCapture && !bossBeamCapture->captureEnabled)
+        {
+            continue;
+        }
         const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
         const auto* tileValueComponent = entity->GetComponent<PhotoCopyTileValueComponent>();
@@ -412,6 +418,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
+        }
+        else if (capturedLaserTurret)
+        {
+            item.role = PhotoCopyRole::Hazard;
+            item.layer = PhotoCopyLayer::Foreground;
+            if (const auto* laserTurret = entity->GetComponent<LaserTurretComponent>())
+            {
+                item.laserBeamThickness = laserTurret->beamThickness;
+                item.laserDamagePerSecond = laserTurret->damagePerSecond;
+                item.laserEnemyKnockbackSpeed = laserTurret->enemyKnockbackSpeed;
+            }
         }
         else if (damagePlatform)
         {
