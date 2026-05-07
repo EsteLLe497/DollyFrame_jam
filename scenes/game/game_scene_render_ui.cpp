@@ -33,6 +33,7 @@ namespace
         case 'B': return { 172, 142, 255 };
         case 'V': return { 146, 255, 170 };
         case 'C': return { 246, 238, 122 };
+        case 'F': return { 255, 142, 210 };
         case 'M': return { 255, 142, 210 };
         case 'Y': return { 240, 208, 90 };
         case 'H': return { 214, 124, 255 };

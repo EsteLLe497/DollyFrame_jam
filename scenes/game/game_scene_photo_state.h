@@ -59,7 +59,7 @@ inline constexpr std::array<PhotoPlacementRuleDefinition, 3> kPhotoPlacementRule
     },
     PhotoPlacementRuleDefinition{
         PhotoPlacementRuleGroup::Group3,
-        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // êßå¿Ç»Çµ
+        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // Âà∂Èôê„Å™„Åó
     },
 };
 
@@ -121,6 +121,9 @@ struct CapturedPhotoItem
     float projectileVelocityX = 0.0f;
     float projectileVelocityY = 0.0f;
     int projectileDamage = 1;
+    float laserBeamThickness = 0.0f;
+    float laserDamagePerSecond = 1.0f;
+    float laserEnemyKnockbackSpeed = 0.0f;
     float lightRadius = 0.0f;
     float lightIntensity = 0.0f;
     std::vector<OutlinePoint> collisionOutline;

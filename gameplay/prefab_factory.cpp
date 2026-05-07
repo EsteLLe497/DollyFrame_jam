@@ -97,6 +97,11 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
         entity->AddComponent<ShieldBossComponent>();
     }
 
+    if (definition.hasMidBoss2)
+    {
+        entity->AddComponent<MidBoss2Component>();
+    }
+
     if (definition.hasGhost)
     {
         entity->AddComponent<GhostComponent>();
@@ -275,6 +280,10 @@ void PrefabFactory::LoadDefinitions()
         {
             definition.enemyArchetype = EnemyArchetype::ShieldBoss;
         }
+        else if (enemyArchetype == "mid_boss_2")
+        {
+            definition.enemyArchetype = EnemyArchetype::MidBoss2;
+        }
         else if (enemyArchetype == "ghost")
         {
             definition.enemyArchetype = EnemyArchetype::Ghost;
@@ -296,6 +305,7 @@ void PrefabFactory::LoadDefinitions()
         definition.enemyDetectHeight = enemy.value("detectHeight", 96.0f);
 
         definition.hasShieldBoss = enemy.value("shieldBoss", false);
+        definition.hasMidBoss2 = enemy.value("midBoss2", false);
 
         definition.hasGhost = enemy.value("ghost", false);
         definition.hasBlasterRobot = enemy.value("blasterRobot", false);

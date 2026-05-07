@@ -396,7 +396,7 @@ void GameScene::RefreshEnemiesFromMarkers()
             }
             else if (marker == 'N')
             {
-                Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
+                Entity& boss = SpawnStagePrefab(prefabs, "sandbox_mid_boss2", markerX, markerY);
                 placeEnemyAtMarker(boss);
             }
 			else if (marker == 'A')
@@ -649,15 +649,17 @@ void GameScene::RefreshLaserTurretsFromMarkers()
             turret->AddComponent<TransformComponent>(turretX, turretY, turretWidth, turretHeight);
             turret->AddComponent<TintComponent>(0.40f, 0.44f, 0.50f, 1.0f);
             turret->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            turret->AddComponent<LaserTurretComponent>(
+            auto& turretComponent = turret->AddComponent<LaserTurretComponent>(
                 beamThickness,
                 1.0f,
                 vertical,
                 shootsLeft,
                 requiresLaserPower);
+            turretComponent.fireToLeft = shootsLeft;
             m_entities.push_back(std::move(turret));
 
             auto beam = std::make_unique<Entity>();
+            Entity* beamEntity = beam.get();
             beam->AddComponent<TagComponent>(kTagLaserBeam);
             beam->AddComponent<TransformComponent>(
                 vertical ? turretX + (turretWidth - beamThickness) * 0.5f : (shootsLeft ? turretX : turretX + turretWidth),
@@ -667,6 +669,9 @@ void GameScene::RefreshLaserTurretsFromMarkers()
             beam->AddComponent<TintComponent>(1.0f, 0.24f, 0.24f, 0.86f);
             beam->AddComponent<SpriteRenderComponent>(m_whiteTexture);
             beam->AddComponent<LaserBeamComponent>();
+            turretComponent.beamEntity = beamEntity;
+            turretComponent.beamOriginOffsetX = vertical ? (turretWidth - beamThickness) * 0.5f : (shootsLeft ? 0.0f : turretWidth);
+            turretComponent.beamOriginOffsetY = vertical ? turretHeight : turretHeight * 0.5f;
             m_entities.push_back(std::move(beam));
         }
     }

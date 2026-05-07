@@ -754,15 +754,16 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
 
         if (auto* transformed = transitionedPlayer->GetComponent<TransformComponent>())
         {
-            if (spawnMarker != '\0')
             {
+                static_cast<void>(spawnMarker);
+                const char resolvedSpawnMarker = 'P';
                 bool foundSpawnMarker = false;
                 for (int spawnRow = 0; spawnRow < m_tileMap.GetHeight() && !foundSpawnMarker; ++spawnRow)
                 {
                     for (int spawnColumn = 0; spawnColumn < m_tileMap.GetWidth(); ++spawnColumn)
                     {
                         const char tileMarker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(spawnColumn, spawnRow))));
-                        if (tileMarker != spawnMarker)
+                        if (tileMarker != resolvedSpawnMarker)
                         {
                             continue;
                         }
