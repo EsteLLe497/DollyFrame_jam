@@ -47,7 +47,7 @@ namespace
         case 'U': return { 255, 104, 104 };
         case 'Z': return { 255, 84, 128 };
         case 'P': return { 255, 232, 84 };
-        case 'F': return { 255, 248, 150 };
+        case 'N': return { 255, 248, 150 };
         case 'G': return { 255, 235, 128 };
         case 'T': return { 122, 230, 255 };
         case 'E': return { 180, 255, 196 };

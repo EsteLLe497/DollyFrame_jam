@@ -630,6 +630,7 @@ inline void UpdateEnemies(
                 boss->beamEntity->AddComponent<TintComponent>(0.48f, 0.78f, 1.0f, 0.0f);
                 boss->beamEntity->AddComponent<SpriteRenderComponent>(tileTexture);
                 boss->beamEntity->AddComponent<LaserBeamComponent>();
+                boss->beamEntity->AddComponent<BossBeamCaptureComponent>();
                 if (auto* turretEntity = boss->beamTurretEntity)
                 {
                     if (auto* turret = turretEntity->GetComponent<LaserTurretComponent>())
