@@ -431,6 +431,7 @@ void GameScene::DrawStageDarknessOverlay() const
 
     std::vector<OverlayLightSource> overlayLights;
     overlayLights.reserve(kMaxDarknessOverlayLights * 2);
+    constexpr int kDarknessOverlayActiveLightLimit = 6;
 
     const auto isLightVisible = [&](const OverlayLightSource& light)
     {
@@ -606,17 +607,18 @@ void GameScene::DrawStageDarknessOverlay() const
         }
     }
 
-    if (overlayLights.size() > static_cast<size_t>(kMaxDarknessOverlayLights))
+    const int renderedLightLimit = (std::min)(kMaxDarknessOverlayLights, kDarknessOverlayActiveLightLimit);
+    if (overlayLights.size() > static_cast<size_t>(renderedLightLimit))
     {
         std::partial_sort(
             overlayLights.begin(),
-            overlayLights.begin() + kMaxDarknessOverlayLights,
+            overlayLights.begin() + renderedLightLimit,
             overlayLights.end(),
             [](const OverlayLightSource& a, const OverlayLightSource& b)
             {
                 return a.priority > b.priority;
             });
-        overlayLights.resize(kMaxDarknessOverlayLights);
+        overlayLights.resize(renderedLightLimit);
     }
 
     if (DirectXHasDarknessOverlay())

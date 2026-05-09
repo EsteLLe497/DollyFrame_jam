@@ -190,6 +190,12 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     if (scene.m_player.captureAnimationActive && !scene.m_player.captureAnimationReleased)
     {
         scene.m_player.captureAnimationReleased = true;
+        scene.m_player.pasteAnimationActive = false;
+        scene.m_player.pasteAnimationReleased = false;
+        scene.m_player.pasteAnimationEnemyAttack = false;
+        scene.m_photo.placement.active = false;
+        scene.m_photo.placement.valid = false;
+        scene.m_player.afterimages.clear();
     }
 
     if (scene.IsPhotoTrayHit(static_cast<float>(Input_GetMouseX()), static_cast<float>(Input_GetMouseY())))
@@ -221,6 +227,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     const bool defeatedGhostInFinder = scene.HandleFinderDefeatGhosts(frameX, frameY, frameWidth, frameHeight) > 0;
 
     scene.m_photo.capture.items.clear();
+    scene.m_photo.capture.containsEnemyAttackPaste = false;
     float capturedMaxRight = 0.0f;
     float capturedMaxBottom = 0.0f;
     CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
@@ -354,6 +361,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                         : (capturedLaserTurret
                             ? CapturedSpawnArchetype::LaserTurret
                             : (capturedWalker ? CapturedSpawnArchetype::WalkerMelee : CapturedSpawnArchetype::None)))));
+        item.enemyAttackPaste = capturedWalker;
         item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
             *entity,
             capturedVanishObject,
@@ -449,6 +457,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }
         scene.m_photo.capture.items.push_back(item);
+        scene.m_photo.capture.containsEnemyAttackPaste =
+            scene.m_photo.capture.containsEnemyAttackPaste || item.enemyAttackPaste;
         capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
         capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
         if (capturedVanishObject)

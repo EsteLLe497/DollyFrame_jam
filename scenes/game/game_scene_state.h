@@ -119,6 +119,9 @@ struct GameScenePlayerState
     float dodgeStretch = 0.0f;
     bool captureAnimationActive = false;
     bool captureAnimationReleased = false;
+    bool pasteAnimationActive = false;
+    bool pasteAnimationReleased = false;
+    bool pasteAnimationEnemyAttack = false;
     std::vector<PlayerAfterimage> afterimages;
 };
 

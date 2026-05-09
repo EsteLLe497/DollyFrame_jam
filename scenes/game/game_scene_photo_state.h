@@ -116,6 +116,7 @@ struct CapturedPhotoItem
     float rotation = 0.0f;
     bool flipX = false;
     bool vanishOnCapture = false;
+    bool enemyAttackPaste = false;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
     PhotoPlacementRuleGroup placementRuleGroup = PhotoPlacementRuleGroup::Group1;
     float projectileVelocityX = 0.0f;
@@ -132,6 +133,7 @@ struct PhotoCaptureState
     PhotoFilterTheme selectedTheme = PhotoFilterTheme::None;
     PhotoFilterTheme capturedTheme = PhotoFilterTheme::None;
     std::vector<CapturedPhotoItem> items;
+    bool containsEnemyAttackPaste = false;
     int textureId = -1;
     float width = 64.0f;
     float height = 64.0f;

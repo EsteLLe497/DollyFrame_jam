@@ -4,6 +4,10 @@
 
 #include "DxLib.h"
 
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
 using namespace game_scene_detail;
 
 namespace
@@ -578,6 +582,51 @@ namespace
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
     }
 
+    void DrawCompactFlickerLight(
+        const TransformComponent& transform,
+        const FlickerLightComponent& light,
+        float cameraX,
+        float cameraY,
+        float intensityScale)
+    {
+        if (intensityScale <= 0.001f)
+        {
+            return;
+        }
+
+        const float viewScale = GetViewScale();
+        const float viewOriginX = GetViewOriginX();
+        const float viewOriginY = GetViewOriginY();
+        const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+        const float flicker = ComputeLightFlicker(timeSeconds, transform, light);
+        const float radius = light.radius * viewScale * flicker * 0.18f;
+        if (radius <= 1.0f)
+        {
+            return;
+        }
+
+        const float centerX = viewOriginX + ((transform.x + transform.width * 0.5f + light.offsetX) - cameraX) * viewScale;
+        const float centerY = viewOriginY + ((transform.y + transform.height * 0.5f + light.offsetY) - cameraY) * viewScale;
+        const int color = GetColor(
+            static_cast<int>(std::round(std::clamp(light.r, 0.0f, 1.0f) * 255.0f)),
+            static_cast<int>(std::round(std::clamp(light.g, 0.0f, 1.0f) * 255.0f)),
+            static_cast<int>(std::round(std::clamp(light.b, 0.0f, 1.0f) * 255.0f)));
+        const int alpha = std::clamp(static_cast<int>(std::round(82.0f * light.intensity * intensityScale)), 0, 180);
+        if (alpha <= 0)
+        {
+            return;
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
+        DrawCircle(
+            static_cast<int>(std::round(centerX)),
+            static_cast<int>(std::round(centerY)),
+            static_cast<int>(std::round(radius)),
+            color,
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+    }
+
     void DrawGodRay(
         const TransformComponent& transform,
         const FlickerLightComponent& light,
@@ -947,6 +996,21 @@ void GameScene::DrawEffects() const
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
 
+    struct LightDrawTarget
+    {
+        const TransformComponent* transform = nullptr;
+        const FlickerLightComponent* light = nullptr;
+        float intensityScale = 1.0f;
+        float priority = 0.0f;
+    };
+
+    std::vector<LightDrawTarget> lightTargets;
+    lightTargets.reserve(16);
+    const float viewRight = viewOriginX + GetViewWidth();
+    const float viewBottom = viewOriginY + GetViewHeight();
+    const float viewCenterWorldX = m_flow.cameraX + GetViewWidth() / std::max(0.001f, viewScale) * 0.5f;
+    const float viewCenterWorldY = m_flow.cameraY + GetViewHeight() / std::max(0.001f, viewScale) * 0.5f;
+
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -965,11 +1029,15 @@ void GameScene::DrawEffects() const
             continue;
         }
 
-        const float centerX = transform->x + transform->width * 0.5f;
-        const float maxRadius = light->radius + std::abs(light->offsetX) + transform->width * 0.5f;
+        const float centerX = transform->x + transform->width * transform->scale * 0.5f + light->offsetX;
+        const float centerY = transform->y + transform->height * transform->scale * 0.5f + light->offsetY;
+        const float maxRadius = light->radius + std::abs(light->offsetX) + std::abs(light->offsetY) +
+            (std::max)(transform->width, transform->height) * transform->scale * 0.5f;
         const float drawLeft = viewOriginX + (centerX - maxRadius - m_flow.cameraX) * viewScale;
         const float drawRight = viewOriginX + (centerX + maxRadius - m_flow.cameraX) * viewScale;
-        if (drawRight < viewOriginX || drawLeft > viewOriginX + GetViewWidth())
+        const float drawTop = viewOriginY + (centerY - maxRadius - m_flow.cameraY) * viewScale;
+        const float drawBottom = viewOriginY + (centerY + maxRadius - m_flow.cameraY) * viewScale;
+        if (drawRight < viewOriginX || drawLeft > viewRight || drawBottom < viewOriginY || drawTop > viewBottom)
         {
             continue;
         }
@@ -984,8 +1052,48 @@ void GameScene::DrawEffects() const
             intensityScale *= checkpoint->activated ? 1.15f : 0.85f;
         }
 
-        DrawGodRay(*transform, *light, m_flow.cameraX, m_flow.cameraY, intensityScale);
-        DrawFlickerLight(*transform, *light, m_flow.cameraX, m_flow.cameraY, intensityScale);
+        const float dx = centerX - viewCenterWorldX;
+        const float dy = centerY - viewCenterWorldY;
+        const float distancePenalty = std::sqrt(dx * dx + dy * dy) * 0.02f;
+        lightTargets.push_back({
+            transform,
+            light,
+            intensityScale,
+            light->radius * light->intensity * intensityScale - distancePenalty
+            });
+    }
+
+    const int maxLightEffects = m_darknessStageEnabled ? 6 : 16;
+    if (lightTargets.size() > static_cast<size_t>(maxLightEffects))
+    {
+        std::partial_sort(
+            lightTargets.begin(),
+            lightTargets.begin() + maxLightEffects,
+            lightTargets.end(),
+            [](const LightDrawTarget& a, const LightDrawTarget& b)
+            {
+                return a.priority > b.priority;
+            });
+        lightTargets.resize(maxLightEffects);
+    }
+
+    int godRayCount = 0;
+    const int maxGodRays = m_darknessStageEnabled ? 0 : 8;
+    for (const LightDrawTarget& target : lightTargets)
+    {
+        if (godRayCount < maxGodRays)
+        {
+            DrawGodRay(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
+            ++godRayCount;
+        }
+        if (m_darknessStageEnabled)
+        {
+            DrawCompactFlickerLight(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
+        }
+        else
+        {
+            DrawFlickerLight(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
+        }
     }
 
     for (const auto& particle : m_effects.barrelDebris)
