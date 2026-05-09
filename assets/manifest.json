@@ -26,6 +26,14 @@
       "type": "file",
       "path": "assets/texture/chara_capture.png"
     },
+    "player_paste": {
+      "type": "file",
+      "path": "assets/texture/chara_paste.png"
+    },
+    "player_attack": {
+      "type": "file",
+      "path": "assets/texture/chara_attack.png"
+    },
     "target": {
       "type": "checkerboard",
       "width": 192,

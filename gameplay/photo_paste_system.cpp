@@ -108,6 +108,14 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
 {
     scene.m_photo.placement.valid = false;
 
+    const bool pasteReleasePlaying = scene.m_player.pasteAnimationActive && scene.m_player.pasteAnimationReleased;
+    if (pasteReleasePlaying)
+    {
+        scene.m_photo.placement.active = false;
+        scene.m_photo.placement.blockedByUi = false;
+        return;
+    }
+
     if (!scene.m_flow.cameraMode &&
         scene.m_photo.capture.hasPhoto &&
         (Input_IsActionPressed(InputAction::HoldPlacement) || Input_IsNorthButtonPressed()))
@@ -116,10 +124,19 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
         if (scene.m_photo.placement.active)
         {
             scene.m_flow.cameraMode = false;
+            scene.m_player.captureAnimationActive = false;
+            scene.m_player.captureAnimationReleased = false;
+            scene.m_player.pasteAnimationActive = true;
+            scene.m_player.pasteAnimationReleased = false;
+            scene.m_player.pasteAnimationEnemyAttack = false;
+            scene.m_player.afterimages.clear();
             ++scene.m_photo.placement.sessionId;
         }
         else
         {
+            scene.m_player.pasteAnimationActive = false;
+            scene.m_player.pasteAnimationReleased = false;
+            scene.m_player.pasteAnimationEnemyAttack = false;
             scene.m_photo.placement.valid = false;
             scene.m_photo.placement.blockedByUi = false;
         }
@@ -133,6 +150,9 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
 
     if (Input_IsActionPressed(InputAction::Cancel))
     {
+        scene.m_player.pasteAnimationActive = false;
+        scene.m_player.pasteAnimationReleased = false;
+        scene.m_player.pasteAnimationEnemyAttack = false;
         scene.m_photo.placement.active = false;
         scene.m_photo.placement.valid = false;
         scene.m_photo.placement.blockedByUi = false;
@@ -563,6 +583,10 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
 
     if (confirmPressed && scene.m_photo.placement.valid)
     {
+        scene.m_player.captureAnimationActive = false;
+        scene.m_player.captureAnimationReleased = false;
+        scene.m_player.pasteAnimationEnemyAttack = scene.m_photo.capture.containsEnemyAttackPaste;
+        scene.m_player.pasteAnimationReleased = true;
         scene.m_photo.placement.confirmFlashRemaining = kPlacementConfirmFlashSeconds;
         return true;
     }

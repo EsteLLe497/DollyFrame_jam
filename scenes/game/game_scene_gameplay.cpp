@@ -2187,6 +2187,7 @@ void GameScene::RespawnPlayer(Entity& player)
     m_player.visualRotation = 0.0f;
     m_player.visualScaleX = 1.0f;
     m_player.visualScaleY = 1.0f;
+    game_scene_player_visual_system::ResetSpriteAnimationToIdle(m_player, player);
 
     if (auto* health = player.GetComponent<HealthComponent>())
     {
