@@ -59,6 +59,15 @@ namespace
         }
     }
 
+    void DrawStartupLoadingScreen(const char* text)
+    {
+        SetDrawScreen(DX_SCREEN_BACK);
+        ClearDrawScreen();
+        DrawBox(0, 0, kVirtualScreenWidth, kVirtualScreenHeight, GetColor(6, 8, 14), TRUE);
+        DrawString(kVirtualScreenWidth / 2 - 84, kVirtualScreenHeight / 2 - 8, text, GetColor(210, 230, 255));
+        ScreenFlip();
+    }
+
 }
 
 Application::Application()
@@ -139,7 +148,7 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     SetOutApplicationLogValidFlag(FALSE);
     SetUseCharCodeFormat(DX_CHARCODEFORMAT_UTF8);
     ChangeWindowMode(FALSE);
-    SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_DESKTOP);
+    SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_BORDERLESS_WINDOW);
     SetFullScreenScalingMode(DX_FSSCALINGMODE_NEAREST, TRUE);
     SetGraphMode(kVirtualScreenWidth, kVirtualScreenHeight, 32, 60);
     SetWindowSizeChangeEnableFlag(FALSE, FALSE);
@@ -149,6 +158,7 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
         return false;
     }
     SetMouseDispFlag(TRUE);
+    DrawStartupLoadingScreen("LOADING...");
 
     DirectXInitialize(GetMainWindowHandle());
     if (!Shader_Initialize(nullptr, nullptr))
@@ -166,7 +176,6 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     Audio_LoadCueFromFile("shutter", "assets/effects/Sound/shutter.wav");
     Audio_LoadCueFromFile("barrel", "assets/effects/Sound/barrel.wav");
     Audio_LoadCueFromFile("cant_paste", "assets/effects/Sound/cantPaste.wav");
-    Audio_LoadCueFromFile("demo_bgm", "assets/effects/Sound/demo.wav");
     Audio_LoadCueFromFile("enemy_gun", "assets/effects/Sound/EnemyGun.wav");
 
     m_sceneRegistry->Register("title", []()
