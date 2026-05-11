@@ -139,7 +139,7 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     SetOutApplicationLogValidFlag(FALSE);
     SetUseCharCodeFormat(DX_CHARCODEFORMAT_UTF8);
     ChangeWindowMode(FALSE);
-    SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_DESKTOP);
+    SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_BORDERLESS_WINDOW);
     SetFullScreenScalingMode(DX_FSSCALINGMODE_NEAREST, TRUE);
     SetGraphMode(kVirtualScreenWidth, kVirtualScreenHeight, 32, 60);
     SetWindowSizeChangeEnableFlag(FALSE, FALSE);
