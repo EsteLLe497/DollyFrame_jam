@@ -27,6 +27,8 @@ namespace
         {
         case 'W': return { 120, 212, 255 };
         case 'R': return { 255, 128, 128 };
+        case '?': return { 255, 248, 150 };
+        case '!': return { 255, 248, 150 };
         case 'A': return { 176, 176, 255 };
         case 'D': return { 96, 230, 150 };
         case 'S': return { 255, 176, 88 };
@@ -47,6 +49,7 @@ namespace
         case 'U': return { 255, 104, 104 };
         case 'Z': return { 255, 84, 128 };
         case 'P': return { 255, 232, 84 };
+        case '@': return { 255, 220, 96 };
         case 'N': return { 255, 248, 150 };
         case 'G': return { 255, 235, 128 };
         case 'T': return { 122, 230, 255 };
@@ -506,6 +509,41 @@ void GameScene::DrawStageDarknessOverlay() const
             12.0f);
     }
 
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, kTagStageLight))
+        {
+            continue;
+        }
+
+        const auto* stageLight = entity->GetComponent<StageLightComponent>();
+        const auto* stageTransform = entity->GetComponent<TransformComponent>();
+        if (!stageLight || !stageTransform || !stageLight->enabled)
+        {
+            continue;
+        }
+
+        const float stageCenterWorldX = stageTransform->x + stageTransform->width * stageTransform->scale * 0.5f;
+        const float beamLength = stageLight->beamLength * stageTransform->scale * viewScale;
+        const float beamTopWidth = std::max(stageLight->beamTopWidth, stageTransform->width) * stageTransform->scale * viewScale;
+        const float beamBottomWidth = stageLight->beamBottomWidth * stageTransform->scale * viewScale;
+        const float beamFeather = std::max(stageLight->beamFeather * stageTransform->scale * viewScale, 4.0f * viewScale);
+        const float sourceY = viewOriginY + ((stageTransform->y + stageTransform->height * stageTransform->scale) - m_flow.cameraY) * viewScale;
+        addOverlayLight({
+            viewOriginX + (stageCenterWorldX - m_flow.cameraX) * viewScale,
+            sourceY + beamLength * 0.5f,
+            2.0f,
+            beamTopWidth * 0.5f,
+            beamFeather,
+            beamBottomWidth * 0.5f,
+            beamLength * 0.5f,
+            stageLight->intensity,
+            stageLight->r,
+            stageLight->g,
+            stageLight->b },
+            18.0f);
+    }
+
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize > 0.0f)
     {
@@ -736,7 +774,24 @@ void GameScene::DrawStageDarknessOverlay() const
 
         for (const OverlayLightSource& light : overlayLights)
         {
-            if (light.shapeType >= 0.5f)
+            if (light.shapeType >= 1.5f)
+            {
+                const float halfLength = std::max(0.001f, light.extentY);
+                const float feather = light.outerRadius;
+                if (std::fabs(bandCenterY - light.centerY) > halfLength + feather)
+                {
+                    continue;
+                }
+
+                const float topY = light.centerY - halfLength;
+                const float normalizedY = Clamp01((bandCenterY - topY) / (halfLength * 2.0f));
+                const float halfWidth = std::lerp(light.innerRadius, light.extentX, SmoothStep01(normalizedY));
+                xBreaks.push_back(light.centerX - halfWidth - feather);
+                xBreaks.push_back(light.centerX - halfWidth);
+                xBreaks.push_back(light.centerX + halfWidth);
+                xBreaks.push_back(light.centerX + halfWidth + feather);
+            }
+            else if (light.shapeType >= 0.5f)
             {
                 const float halfHeight = light.extentY;
                 const float feather = light.outerRadius;
@@ -817,7 +872,37 @@ void GameScene::DrawStageDarknessOverlay() const
             int alpha = maxDarknessAlpha;
             for (const OverlayLightSource& light : overlayLights)
             {
-                if (light.shapeType >= 0.5f)
+                if (light.shapeType >= 1.5f)
+                {
+                    const float halfLength = std::max(0.001f, light.extentY);
+                    const float feather = std::max(0.001f, light.outerRadius);
+                    const float topY = light.centerY - halfLength;
+                    const float bottomY = light.centerY + halfLength;
+                    const float normalizedY = Clamp01((bandCenterY - topY) / (halfLength * 2.0f));
+                    const float halfWidth = std::lerp(light.innerRadius, light.extentX, SmoothStep01(normalizedY));
+                    const float dx = std::fabs(sampleX - light.centerX) - halfWidth;
+                    const float dyTop = topY - bandCenterY;
+                    const float dyBottom = bandCenterY - bottomY;
+                    const float outsideX = std::max(dx, 0.0f);
+                    const float outsideY = std::max(std::max(dyTop, dyBottom), 0.0f);
+                    const float outsideDistance = std::sqrt(outsideX * outsideX + outsideY * outsideY);
+                    if (outsideDistance >= feather)
+                    {
+                        continue;
+                    }
+                    if (outsideDistance <= 0.0f)
+                    {
+                        alpha = 0;
+                        break;
+                    }
+
+                    const float normalized = Clamp01(outsideDistance / feather);
+                    const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
+                    const float edgeWeighted = eased * eased;
+                    const int candidateAlpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha) / std::max(0.001f, light.intensity)));
+                    alpha = (std::min)(alpha, std::clamp(candidateAlpha, 0, maxDarknessAlpha));
+                }
+                else if (light.shapeType >= 0.5f)
                 {
                     const float dx = std::fabs(sampleX - light.centerX) - light.extentX;
                     const float dy = std::fabs(bandCenterY - light.centerY) - light.extentY;
@@ -2075,7 +2160,8 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
             HasTag(*entity, kTagElevator) ||
             HasTag(*entity, kTagLaserSwitch) ||
             HasTag(*entity, kTagShutter) ||
-            HasTag(*entity, kTagLaserBeam))
+            HasTag(*entity, kTagLaserBeam) ||
+            HasTag(*entity, kTagStageLight))
         {
             continue;
         }

@@ -205,6 +205,79 @@ namespace
         DrawTriangleAA(ax, ay, cx, cy, dx, dy, color, TRUE);
     }
 
+    void DrawStageLightFixtureShape(
+        float x,
+        float y,
+        float width,
+        float height,
+        float rotation,
+        const StageLightComponent& light,
+        const TintComponent* tint,
+        float alpha)
+    {
+        const float centerX = x + width * 0.5f;
+        const float centerY = y + height * 0.5f;
+        const float topHalfWidth = width * 0.5f * std::clamp(light.fixtureTopWidthRatio, 0.05f, 1.0f);
+        const float bottomHalfWidth = width * 0.5f;
+
+        float topLeftX = centerX - topHalfWidth;
+        float topLeftY = y;
+        float topRightX = centerX + topHalfWidth;
+        float topRightY = y;
+        float bottomRightX = centerX + bottomHalfWidth;
+        float bottomRightY = y + height;
+        float bottomLeftX = centerX - bottomHalfWidth;
+        float bottomLeftY = y + height;
+        RotatePoint(centerX, centerY, rotation, topLeftX, topLeftY);
+        RotatePoint(centerX, centerY, rotation, topRightX, topRightY);
+        RotatePoint(centerX, centerY, rotation, bottomRightX, bottomRightY);
+        RotatePoint(centerX, centerY, rotation, bottomLeftX, bottomLeftY);
+
+        const float tintR = tint ? tint->r : light.r;
+        const float tintG = tint ? tint->g : light.g;
+        const float tintB = tint ? tint->b : light.b;
+        const int bodyColor = light.enabled
+            ? GetColor(
+                static_cast<int>(std::round(std::clamp(tintR * 0.86f, 0.0f, 1.0f) * 255.0f)),
+                static_cast<int>(std::round(std::clamp(tintG * 0.82f, 0.0f, 1.0f) * 255.0f)),
+                static_cast<int>(std::round(std::clamp(tintB * 0.56f, 0.0f, 1.0f) * 255.0f)))
+            : GetColor(88, 82, 70);
+        const int rimColor = light.enabled ? GetColor(72, 54, 30) : GetColor(42, 40, 38);
+        const int lensColor = light.enabled ? GetColor(255, 238, 172) : GetColor(112, 104, 88);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 245.0f)), 0, 255));
+        DrawFilledQuad(topLeftX, topLeftY, topRightX, topRightY, bottomRightX, bottomRightY, bottomLeftX, bottomLeftY, bodyColor);
+        DrawLine(static_cast<int>(std::round(topLeftX)), static_cast<int>(std::round(topLeftY)), static_cast<int>(std::round(topRightX)), static_cast<int>(std::round(topRightY)), rimColor);
+        DrawLine(static_cast<int>(std::round(topRightX)), static_cast<int>(std::round(topRightY)), static_cast<int>(std::round(bottomRightX)), static_cast<int>(std::round(bottomRightY)), rimColor);
+        DrawLine(static_cast<int>(std::round(bottomRightX)), static_cast<int>(std::round(bottomRightY)), static_cast<int>(std::round(bottomLeftX)), static_cast<int>(std::round(bottomLeftY)), rimColor);
+        DrawLine(static_cast<int>(std::round(bottomLeftX)), static_cast<int>(std::round(bottomLeftY)), static_cast<int>(std::round(topLeftX)), static_cast<int>(std::round(topLeftY)), rimColor);
+
+        const float lensWidth = width * 0.42f;
+        const float lensHeight = std::max(2.0f, height * 0.16f);
+        const int lensAlpha = std::clamp(static_cast<int>(std::round(alpha * (light.enabled ? 255.0f : 170.0f))), 0, 255);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, lensAlpha);
+        DrawBoxAA(
+            centerX - lensWidth * 0.5f,
+            y + height * 0.72f,
+            centerX + lensWidth * 0.5f,
+            y + height * 0.72f + lensHeight,
+            lensColor,
+            TRUE);
+
+        if (light.enabled)
+        {
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(alpha * 92.0f * light.intensity)), 0, 255));
+            DrawCircle(
+                static_cast<int>(std::round(centerX)),
+                static_cast<int>(std::round(y + height * 0.78f)),
+                static_cast<int>(std::round(std::max(width, height) * 0.24f)),
+                lensColor,
+                TRUE);
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     struct DamagePlatformPoint
     {
         float x = 0.0f;
@@ -705,6 +778,73 @@ namespace
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
     }
 
+    void DrawStageLightBeam(
+        const TransformComponent& transform,
+        const StageLightComponent& light,
+        float cameraX,
+        float cameraY)
+    {
+        if (!light.enabled || light.intensity <= 0.001f)
+        {
+            return;
+        }
+
+        const float viewScale = GetViewScale();
+        const float viewOriginX = GetViewOriginX();
+        const float viewOriginY = GetViewOriginY();
+        const float beamLength = (light.beamLength > 0.0f ? light.beamLength : transform.height * 3.0f) * transform.scale * viewScale;
+        const float topWidth = (light.beamTopWidth > 0.0f ? light.beamTopWidth : transform.width) * transform.scale * viewScale;
+        const float bottomWidth = (light.beamBottomWidth > 0.0f ? light.beamBottomWidth : transform.width * 3.0f) * transform.scale * viewScale;
+        if (beamLength <= 1.0f || topWidth <= 1.0f || bottomWidth <= 1.0f)
+        {
+            return;
+        }
+
+        const float centerX = viewOriginX + ((transform.x + transform.width * transform.scale * 0.5f) - cameraX) * viewScale;
+        const float sourceY = viewOriginY + ((transform.y + transform.height * transform.scale) - cameraY) * viewScale;
+        const float bottomY = sourceY + beamLength;
+        const float topHalfWidth = topWidth * 0.5f;
+        const float bottomHalfWidth = bottomWidth * 0.5f;
+        const int beamColor = GetColor(
+            static_cast<int>(std::round(std::clamp(light.r, 0.0f, 1.0f) * 255.0f)),
+            static_cast<int>(std::round(std::clamp(light.g, 0.0f, 1.0f) * 255.0f)),
+            static_cast<int>(std::round(std::clamp(light.b, 0.0f, 1.0f) * 255.0f)));
+        const int innerColor = GetColor(255, 248, 216);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(42.0f * light.intensity)), 0, 255));
+        DrawFilledQuad(
+            centerX - topHalfWidth,
+            sourceY,
+            centerX + topHalfWidth,
+            sourceY,
+            centerX + bottomHalfWidth,
+            bottomY,
+            centerX - bottomHalfWidth,
+            bottomY,
+            beamColor);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(30.0f * light.intensity)), 0, 255));
+        DrawFilledQuad(
+            centerX - topHalfWidth * 0.38f,
+            sourceY,
+            centerX + topHalfWidth * 0.38f,
+            sourceY,
+            centerX + bottomHalfWidth * 0.42f,
+            bottomY,
+            centerX - bottomHalfWidth * 0.42f,
+            bottomY,
+            innerColor);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(88.0f * light.intensity)), 0, 255));
+        DrawCircle(
+            static_cast<int>(std::round(centerX)),
+            static_cast<int>(std::round(sourceY)),
+            static_cast<int>(std::round(std::max(2.0f, topHalfWidth * 0.42f))),
+            innerColor,
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
 }
 
 namespace
@@ -1096,6 +1236,32 @@ void GameScene::DrawEffects() const
         }
     }
 
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* stageLight = entity->GetComponent<StageLightComponent>();
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!stageLight || !transform || !stageLight->enabled)
+        {
+            continue;
+        }
+
+        const float centerX = transform->x + transform->width * transform->scale * 0.5f;
+        const float maxHalfWidth = std::max(stageLight->beamTopWidth, stageLight->beamBottomWidth) * transform->scale * 0.5f;
+        const float drawLeft = viewOriginX + (centerX - maxHalfWidth - m_flow.cameraX) * viewScale;
+        const float drawRight = viewOriginX + (centerX + maxHalfWidth - m_flow.cameraX) * viewScale;
+        if (drawRight < viewOriginX || drawLeft > viewOriginX + GetViewWidth())
+        {
+            continue;
+        }
+
+        DrawStageLightBeam(*transform, *stageLight, m_flow.cameraX, m_flow.cameraY);
+    }
+
     for (const auto& particle : m_effects.barrelDebris)
     {
         const float lifeT = Clamp01(particle.life / std::max(0.001f, particle.maxLife));
@@ -1282,6 +1448,24 @@ void GameScene::DrawEntity(const Entity& entity) const
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         Shader_ResetStyle();
         return;
+    }
+
+    if (tag && HasTag(tag, kTagStageLight))
+    {
+        if (const auto* stageLight = entity.GetComponent<StageLightComponent>())
+        {
+            DrawStageLightFixtureShape(
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                transform->rotation,
+                *stageLight,
+                entity.GetComponent<TintComponent>(),
+                alphaMultiplier);
+            Shader_ResetStyle();
+            return;
+        }
     }
 
     if (tag && HasTag(tag, kTagGoal))

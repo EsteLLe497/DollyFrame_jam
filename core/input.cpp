@@ -68,6 +68,7 @@ namespace
         case 'R': return KEY_INPUT_R;
         case 'S': return KEY_INPUT_S;
         case 'T': return KEY_INPUT_T;
+        case 'V': return KEY_INPUT_V;
         case 'W': return KEY_INPUT_W;
         case 'X': return KEY_INPUT_X;
         case 'Z': return KEY_INPUT_Z;

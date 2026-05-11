@@ -327,6 +327,43 @@ void MarkerLightComponent::DrawDebugUI()
     ImGui::Text("Activated: %s", activated ? "On" : "Off");
 }
 
+StageLightComponent::StageLightComponent(
+    bool enabledValue,
+    float fixtureTopWidthRatioValue,
+    float beamLengthValue,
+    float beamTopWidthValue,
+    float beamBottomWidthValue,
+    float beamFeatherValue,
+    float rValue,
+    float gValue,
+    float bValue,
+    float intensityValue)
+    : enabled(enabledValue)
+    , fixtureTopWidthRatio(std::clamp(fixtureTopWidthRatioValue, 0.05f, 1.0f))
+    , beamLength(std::max(0.0f, beamLengthValue))
+    , beamTopWidth(std::max(0.0f, beamTopWidthValue))
+    , beamBottomWidth(std::max(0.0f, beamBottomWidthValue))
+    , beamFeather(std::max(0.0f, beamFeatherValue))
+    , r(std::clamp(rValue, 0.0f, 1.0f))
+    , g(std::clamp(gValue, 0.0f, 1.0f))
+    , b(std::clamp(bValue, 0.0f, 1.0f))
+    , intensity(std::clamp(intensityValue, 0.0f, 1.0f))
+{
+}
+
+void StageLightComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Stage Light");
+    ImGui::Checkbox("Enabled", &enabled);
+    ImGui::SliderFloat("Fixture Top Ratio", &fixtureTopWidthRatio, 0.05f, 1.0f);
+    ImGui::DragFloat("Beam Length", &beamLength, 1.0f, 0.0f, 4096.0f);
+    ImGui::DragFloat("Beam Top Width", &beamTopWidth, 1.0f, 0.0f, 4096.0f);
+    ImGui::DragFloat("Beam Bottom Width", &beamBottomWidth, 1.0f, 0.0f, 4096.0f);
+    ImGui::DragFloat("Beam Feather", &beamFeather, 1.0f, 0.0f, 1024.0f);
+    ImGui::SliderFloat("Intensity", &intensity, 0.0f, 1.0f);
+    ImGui::ColorEdit3("Color", &r);
+}
+
 TagComponent::TagComponent(const char* value)
     : tag(value ? value : "")
 {

@@ -39,7 +39,7 @@ namespace
 
     bool IsEnemyMarker(char marker)
     {
-        return IsMarkerInSet(marker, "WRNAD");
+        return IsMarkerInSet(marker, "WRNAD!?");
     }
 
     bool IsBatteryMarker(char marker)
@@ -55,6 +55,47 @@ namespace
     bool IsMarkerLightMarker(char marker)
     {
         return IsMarkerInSet(marker, "PF");
+    }
+
+    bool IsStageLightMarker(char marker)
+    {
+        return marker == '@';
+    }
+
+    struct StageLightSizing
+    {
+        float lightTiles = 3.0f;
+        float fixtureTiles = 1.0f;
+    };
+
+    StageLightSizing ResolveStageLightSizing(int markerParameter)
+    {
+        constexpr float kDefaultLightTiles = 3.0f;
+        constexpr float kDefaultFixtureTiles = 1.0f;
+        constexpr float kMinLightTiles = 1.0f;
+        constexpr float kMaxLightTiles = 9.0f;
+        constexpr float kMinFixtureTiles = 0.5f;
+        constexpr float kMaxFixtureTiles = 4.0f;
+
+        const int encoded = markerParameter < 0 ? 0 : markerParameter;
+        StageLightSizing sizing;
+        sizing.lightTiles = kDefaultLightTiles;
+        sizing.fixtureTiles = kDefaultFixtureTiles;
+
+        if (encoded > 0 && encoded < 10)
+        {
+            sizing.lightTiles = static_cast<float>(encoded);
+        }
+        else if (encoded >= 10 && encoded < 100)
+        {
+            sizing.lightTiles = static_cast<float>(encoded / 10);
+            const int fixtureDigit = encoded % 10;
+            sizing.fixtureTiles = fixtureDigit > 0 ? static_cast<float>(fixtureDigit) : kDefaultFixtureTiles;
+        }
+
+        sizing.lightTiles = std::clamp(sizing.lightTiles, kMinLightTiles, kMaxLightTiles);
+        sizing.fixtureTiles = std::clamp(sizing.fixtureTiles, kMinFixtureTiles, kMaxFixtureTiles);
+        return sizing;
     }
 
     bool IsElevatorMarker(char marker)
@@ -286,6 +327,7 @@ void GameScene::RefreshMarkerDrivenSystems()
     RefreshBatteriesFromMarkers();
     RefreshLogsFromMarkers();
     RefreshMarkerLightsFromMarkers();
+    RefreshStageLightsFromMarkers();
     RefreshLaserTurretsFromMarkers();
     RefreshLinkedGimmicksFromMarkers();
     RefreshDamageFootholdsFromMarkers();
@@ -308,6 +350,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     const bool batteryChanged = markerChanged(IsBatteryMarker);
     const bool logChanged = markerChanged(IsLogMarker);
     const bool markerLightChanged = markerChanged(IsMarkerLightMarker);
+    const bool stageLightChanged = markerChanged(IsStageLightMarker);
     const bool linkedGimmickMarkerChanged =
         markerChanged(IsShutterOrLaserSwitchMarker) ||
         markerChanged(IsElevatorMarker);
@@ -318,6 +361,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     if (batteryChanged) RefreshBatteriesFromMarkers();
     if (logChanged) RefreshLogsFromMarkers();
     if (markerLightChanged) RefreshMarkerLightsFromMarkers();
+    if (stageLightChanged) RefreshStageLightsFromMarkers();
     if (linkedGimmickMarkerChanged) RefreshLinkedGimmicksFromMarkers();
     if (laserTurretChanged) RefreshLaserTurretsFromMarkers();
     if (damageFootholdChanged) RefreshDamageFootholdsFromMarkers();
@@ -394,7 +438,12 @@ void GameScene::RefreshEnemiesFromMarkers()
                 Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", markerX, markerY);
                 placeEnemyAtMarker(enemy);
             }
-            else if (marker == 'N')
+            else if (marker == 'N' || marker == '?')
+            {
+                Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
+                placeEnemyAtMarker(boss);
+            }
+            else if (marker == '!')
             {
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_mid_boss2", markerX, markerY);
                 placeEnemyAtMarker(boss);
@@ -559,9 +608,9 @@ void GameScene::RefreshMarkerLightsFromMarkers()
     }
 
     constexpr float kDefaultRadiusTiles = 3.0f;
-            constexpr float kIntensity = 1.0f;
-            constexpr float kLightSizeRatio = 0.72f;
-            constexpr float kRotationRadians = 0.78539816339f;
+    constexpr float kIntensity = 1.0f;
+    constexpr float kLightSizeRatio = 0.72f;
+    constexpr float kRotationRadians = 0.78539816339f;
 
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
@@ -595,6 +644,71 @@ void GameScene::RefreshMarkerLightsFromMarkers()
                 kIntensity);
             markerLight.activated = marker == 'F';
             m_entities.push_back(std::move(light));
+        }
+    }
+}
+
+void GameScene::RefreshStageLightsFromMarkers()
+{
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity)
+                {
+                    return true;
+                }
+                return HasTag(*entity, kTagStageLight);
+            }),
+        m_entities.end());
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    constexpr float kFixtureHeightRatio = 0.58f;
+    constexpr float kFixtureTopWidthRatio = 0.46f;
+    constexpr float kBeamBottomWidthRatio = 1.16f;
+    constexpr float kBeamFeatherTiles = 0.34f;
+    constexpr float kIntensity = 1.0f;
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            if (!IsStageLightMarker(m_tileMap.GetMarker(column, row)))
+            {
+                continue;
+            }
+
+            const StageLightSizing sizing = ResolveStageLightSizing(m_tileMap.GetMarkerParameter(column, row));
+            const float objectWidth = tileSize * sizing.fixtureTiles;
+            const float objectHeight = tileSize * kFixtureHeightRatio;
+            const float objectX = static_cast<float>(column) * tileSize + (tileSize - objectWidth) * 0.5f;
+            const float objectY = static_cast<float>(row) * tileSize + (tileSize - objectHeight) * 0.5f;
+            const float beamLength = tileSize * sizing.lightTiles;
+
+            auto stageLight = std::make_unique<Entity>();
+            stageLight->AddComponent<TagComponent>(kTagStageLight);
+            stageLight->AddComponent<TransformComponent>(objectX, objectY, objectWidth, objectHeight);
+            stageLight->AddComponent<TintComponent>(1.0f, 0.88f, 0.30f, 1.0f);
+            stageLight->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            stageLight->AddComponent<StageLightComponent>(
+                true,
+                kFixtureTopWidthRatio,
+                beamLength,
+                objectWidth,
+                tileSize * sizing.lightTiles * kBeamBottomWidthRatio,
+                tileSize * kBeamFeatherTiles,
+                1.0f,
+                0.88f,
+                0.30f,
+                kIntensity);
+            m_entities.push_back(std::move(stageLight));
         }
     }
 }
