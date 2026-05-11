@@ -26,6 +26,7 @@ void GameScene::OnEnter(ResourceManager& resources)
     const float initialMasterVolume = Audio_GetMasterVolume();
     m_debug.bgmRestoreVolume = initialMasterVolume > 0.001f ? initialMasterVolume : 0.6f;
     m_debug.bgmEnabled = initialMasterVolume > 0.001f;
+    Audio_LoadCueFromFile("demo_bgm", "assets/effects/Sound/demo.wav");
     Audio_PlayCue("demo_bgm");
     Logger::Info("GameScene entered as photo sandbox stage");
 }
