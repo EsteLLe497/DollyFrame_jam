@@ -708,7 +708,15 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_player = GameScenePlayerState{};
     m_flow = GameSceneFlowState{};
     m_effects = GameSceneEffectsState{};
-    m_mapEditor = GameSceneMapEditorState{};
+    m_mapEditor.active = false;
+    m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
+    m_mapEditor.selectedTileValue = 1;
+    m_mapEditor.selectedMarker = 'G';
+    m_mapEditor.selectedMarkerParameter = 1;
+    m_mapEditor.selectedStageLightTiles = 3;
+    m_mapEditor.selectedStageLightFixtureTiles = 1;
+    m_mapEditor.statusMessage.clear();
+    m_mapEditor.statusMessageTimer = 0.0f;
     m_cameraTransitionMarkers.clear();
     m_cameraFixedRanges.clear();
     m_hasPreviousPlayerCameraProbe = false;

@@ -60,7 +60,7 @@ namespace
     bool IsEnemySpawnMarker(char marker)
     {
         const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        return upper == 'W' || upper == 'R' || upper == 'N';
+        return upper == 'W' || upper == 'R' || upper == 'N' || upper == '!' || upper == '?';
     }
 
     void LoadStageTransitionLinks()
@@ -367,7 +367,15 @@ void GameScene::ResetSceneState()
     m_flow = GameSceneFlowState{};
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
-    m_mapEditor = GameSceneMapEditorState{};
+    m_mapEditor.active = false;
+    m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
+    m_mapEditor.selectedTileValue = 1;
+    m_mapEditor.selectedMarker = 'G';
+    m_mapEditor.selectedMarkerParameter = 1;
+    m_mapEditor.selectedStageLightTiles = 3;
+    m_mapEditor.selectedStageLightFixtureTiles = 1;
+    m_mapEditor.statusMessage.clear();
+    m_mapEditor.statusMessageTimer = 0.0f;
     m_cameraTransitionMarkers.clear();
     m_cameraFixedRanges.clear();
     m_hasPreviousPlayerCameraProbe = false;
@@ -592,7 +600,7 @@ void GameScene::InitializeStageEntities()
                     SnapEnemyToGround(*transform);
                 }
             }
-            else if (marker == 'N') // MidBoss
+            else if (marker == 'N' || marker == '?') // ShieldBoss
             {
                 Entity& boss = SpawnStagePrefab(
                     prefabs,
@@ -617,7 +625,7 @@ void GameScene::InitializeStageEntities()
                     }
                 }
             }
-            else if (marker == 'F') // MidBoss2
+            else if (marker == '!') // MidBoss2
             {
                 Entity& boss = SpawnStagePrefab(
                     prefabs,
@@ -642,7 +650,6 @@ void GameScene::InitializeStageEntities()
                     }
                 }
             }
-
             else if (marker == 'A') // ゴースト
             {
                 Entity& enemy = SpawnStagePrefab(
@@ -753,6 +760,7 @@ void GameScene::InitializeStageEntities()
 
     RefreshLogsFromMarkers();
     RefreshMarkerLightsFromMarkers();
+    RefreshStageLightsFromMarkers();
 
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {

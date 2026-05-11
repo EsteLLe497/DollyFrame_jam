@@ -159,6 +159,9 @@ struct GameSceneMapEditorState
     BrushTarget brushTarget = BrushTarget::Tile;
     int selectedTileValue = 1;
     char selectedMarker = 'G';
+    int selectedMarkerParameter = 1;
+    int selectedStageLightTiles = 3;
+    int selectedStageLightFixtureTiles = 1;
     std::string statusMessage;
     float statusMessageTimer = 0.0f;
 };

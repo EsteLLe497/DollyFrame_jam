@@ -308,6 +308,7 @@ inline constexpr const char* kTagShutter = "Shutter";
 inline constexpr const char* kTagLaserTurret = "LaserTurret";
 inline constexpr const char* kTagLaserBeam = "LaserBeam";
 inline constexpr const char* kTagMarkerLight = "MarkerLight";
+inline constexpr const char* kTagStageLight = "StageLight";
 
 inline bool IsDamagePlatformMarker(char marker)
 {

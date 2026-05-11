@@ -374,6 +374,35 @@ public:
     bool activated = false;
 };
 
+class StageLightComponent final : public Component
+{
+public:
+    StageLightComponent(
+        bool enabled,
+        float fixtureTopWidthRatio,
+        float beamLength,
+        float beamTopWidth,
+        float beamBottomWidth,
+        float beamFeather,
+        float r,
+        float g,
+        float b,
+        float intensity);
+
+    void DrawDebugUI() override;
+
+    bool enabled;
+    float fixtureTopWidthRatio;
+    float beamLength;
+    float beamTopWidth;
+    float beamBottomWidth;
+    float beamFeather;
+    float r;
+    float g;
+    float b;
+    float intensity;
+};
+
 class TagComponent final : public Component
 {
 public:
