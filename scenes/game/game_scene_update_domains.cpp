@@ -35,7 +35,7 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr int kMarkerPresetCount = 18;
+    constexpr int kMarkerPresetCount = 19;
 
     int MarkerToPresetIndex(char marker)
     {
@@ -75,6 +75,8 @@ namespace
             return 16;
         case 'P':
             return 17;
+        case '@':
+            return 18;
         default:
             return 0;
         }
@@ -118,6 +120,8 @@ namespace
             return 'N';
         case 17:
             return 'P';
+        case 18:
+            return '@';
         default:
             return '\0';
         }

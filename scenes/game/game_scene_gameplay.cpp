@@ -1235,6 +1235,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
         float sparkY = 0.0f;
         bool blocked = false;
         bool playerHitByLaser = false;
+        Entity* blockedProtectiveWall = nullptr;
 
         if (turret->vertical)
         {
@@ -1301,7 +1302,13 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                     continue;
                 }
 
-                hitY = std::min(hitY, transform->y);
+                if (transform->y < hitY)
+                {
+                    hitY = transform->y;
+                    blockedProtectiveWall = HasTag(*entity, kTagProtectiveWall)
+                        ? entity.get()
+                        : nullptr;
+                }
             }
 
             if (playerLaserBlockTransform)
@@ -1404,9 +1411,19 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                     continue;
                 }
 
-                hitX = firesLeft
-                    ? std::max(hitX, transform->x + objectWidth)
-                    : std::min(hitX, transform->x);
+                const float objectHitX = firesLeft
+                    ? transform->x + objectWidth
+                    : transform->x;
+                const bool nearerHit = firesLeft
+                    ? objectHitX > hitX
+                    : objectHitX < hitX;
+                if (nearerHit)
+                {
+                    hitX = objectHitX;
+                    blockedProtectiveWall = HasTag(*entity, kTagProtectiveWall)
+                        ? entity.get()
+                        : nullptr;
+                }
             }
 
             if (playerLaserBlockTransform)
@@ -1462,6 +1479,20 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                 else
                 {
                     turret->playerDamageTimer = 0.0f;
+                }
+            }
+        }
+
+        const bool bossBeamCanDamageWall = beamEntity->GetComponent<BossBeamCaptureComponent>() != nullptr;
+        if (bossBeamCanDamageWall && blockedProtectiveWall)
+        {
+            if (auto* wall = blockedProtectiveWall->GetComponent<ProtectiveWallComponent>())
+            {
+                wall->damageAccumulator += deltaTime;
+                while (!wall->IsDestroyed() && wall->damageAccumulator >= damageInterval)
+                {
+                    wall->ApplyDamage(1);
+                    wall->damageAccumulator -= damageInterval;
                 }
             }
         }

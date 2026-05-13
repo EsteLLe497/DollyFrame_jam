@@ -257,6 +257,36 @@ public:
     bool opensWhenUnpowered = false;
 };
 
+class ProtectiveWallComponent final : public Component
+{
+public:
+    ProtectiveWallComponent(
+        int linkId,
+        int maxDurability,
+        float moveRangeY,
+        float moveSpeed,
+        bool startsOn = false);
+
+    void OnAttach(Entity& owner) override;
+    void DrawDebugUI() override;
+    void ApplyDamage(int amount);
+    int GetCurrentDurability() const;
+    int GetMaxDurability() const;
+    bool IsDestroyed() const;
+
+    int linkId = 0;
+    float moveRangeY = 144.0f;
+    float moveSpeed = 240.0f;
+    float baseY = 0.0f;
+    bool isOn = false;
+    bool destroyed = false;
+    float damageAccumulator = 0.0f;
+
+private:
+    int m_maxDurability = 3;
+    int m_currentDurability = 3;
+};
+
 class LaserTurretComponent final : public Component
 {
 public:
@@ -614,6 +644,11 @@ public:
     float hoverShieldX = 0.0f;
     float hoverShieldY = 0.0f;
     float hoverPlayerOffsetX = 0.0f;
+    bool attackRectActive = false;
+    float attackRectX = 0.0f;
+    float attackRectY = 0.0f;
+    float attackRectWidth = 0.0f;
+    float attackRectHeight = 0.0f;
 
     Entity* shieldEntity = nullptr;
 };

@@ -214,6 +214,75 @@ void ShutterComponent::DrawDebugUI()
     ImGui::Text("Open When Off: %s", opensWhenUnpowered ? "Yes" : "No");
 }
 
+ProtectiveWallComponent::ProtectiveWallComponent(
+    int linkIdValue,
+    int maxDurabilityValue,
+    float moveRangeYValue,
+    float moveSpeedValue,
+    bool startsOnValue)
+    : linkId((std::max)(0, linkIdValue))
+    , moveRangeY((std::max)(0.0f, moveRangeYValue))
+    , moveSpeed((std::max)(1.0f, moveSpeedValue))
+    , isOn(startsOnValue)
+    , m_maxDurability((std::max)(1, maxDurabilityValue))
+    , m_currentDurability((std::max)(1, maxDurabilityValue))
+{
+}
+
+void ProtectiveWallComponent::OnAttach(Entity& owner)
+{
+    Component::OnAttach(owner);
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        baseY = transform->y;
+        if (!isOn)
+        {
+            transform->y = baseY + moveRangeY;
+        }
+    }
+}
+
+void ProtectiveWallComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Protective Wall");
+    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("HP: %d / %d", m_currentDurability, m_maxDurability);
+    ImGui::Text("On: %s", isOn ? "Yes" : "No");
+    ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
+    ImGui::Text("MoveRangeY: %.1f", moveRangeY);
+    ImGui::Text("MoveSpeed: %.1f", moveSpeed);
+}
+
+void ProtectiveWallComponent::ApplyDamage(int amount)
+{
+    if (destroyed)
+    {
+        return;
+    }
+
+    m_currentDurability = std::max(0, m_currentDurability - std::max(0, amount));
+    if (m_currentDurability <= 0)
+    {
+        destroyed = true;
+        isOn = false;
+    }
+}
+
+int ProtectiveWallComponent::GetCurrentDurability() const
+{
+    return m_currentDurability;
+}
+
+int ProtectiveWallComponent::GetMaxDurability() const
+{
+    return m_maxDurability;
+}
+
+bool ProtectiveWallComponent::IsDestroyed() const
+{
+    return destroyed || m_currentDurability <= 0;
+}
+
 LaserTurretComponent::LaserTurretComponent(
     float beamThicknessValue,
     float damagePerSecondValue,
