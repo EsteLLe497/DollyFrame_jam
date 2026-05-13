@@ -830,8 +830,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
         if (auto* transformed = transitionedPlayer->GetComponent<TransformComponent>())
         {
             {
-                static_cast<void>(spawnMarker);
-                const char resolvedSpawnMarker = 'P';
+                const char resolvedSpawnMarker = spawnMarker == '\0' ? '*' : spawnMarker;
                 bool foundSpawnMarker = false;
                 for (int spawnRow = 0; spawnRow < m_tileMap.GetHeight() && !foundSpawnMarker; ++spawnRow)
                 {
