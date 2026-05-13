@@ -1,8 +1,8 @@
 # source_map_csv,marker,destination_map_csv,spawn_marker
 # marker: current map side alphabet written in stage CSV
 # spawn_marker: marker searched in destination CSV to place player
-assets/maps/stage01_1.csv,A,assets/maps/stages/stage_a.csv,P
-assets/maps/stage01_1.csv,Z,assets/maps/boss/boss_a.csv,P
-assets/maps/stages/stage_a.csv,X,assets/maps/stage01_1.csv,P
-assets/maps/boss/boss_a.csv,X,assets/maps/stage01_1.csv,P
-assets/maps/stages/forest.csv,J,assets/maps/stages/forest_boss.csv,P
+assets/maps/stage01_1.csv,A,assets/maps/stages/stage_a.csv,*
+assets/maps/stage01_1.csv,Z,assets/maps/boss/boss_a.csv,*
+assets/maps/stages/stage_a.csv,X,assets/maps/stage01_1.csv,*
+assets/maps/boss/boss_a.csv,X,assets/maps/stage01_1.csv,*
+assets/maps/stages/forest.csv,J,assets/maps/stages/forest_boss.csv,*

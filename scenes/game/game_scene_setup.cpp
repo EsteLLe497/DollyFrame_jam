@@ -398,7 +398,7 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
     m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/forest_boss.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/under.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -500,7 +500,7 @@ void GameScene::InitializeStageEntities()
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
         {
-            if (m_tileMap.GetMarker(column, row) != 'P')
+            if (m_tileMap.GetMarker(column, row) != '*')
             {
                 continue;
             }
