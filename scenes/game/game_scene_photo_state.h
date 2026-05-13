@@ -15,6 +15,9 @@ enum class CapturedSpawnArchetype
     Projectile,
     LaserTurret,
     WalkerMelee,
+    ShieldNormal,
+    ShieldRushBurst,
+    ShieldJumpBurst,
 };
 
 enum class PhotoPlacementRuleGroup
@@ -59,7 +62,7 @@ inline constexpr std::array<PhotoPlacementRuleDefinition, 3> kPhotoPlacementRule
     },
     PhotoPlacementRuleDefinition{
         PhotoPlacementRuleGroup::Group3,
-        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // êßå¿Ç»Çµ
+        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // Âà∂Èôê„Å™„Åó
     },
 };
 

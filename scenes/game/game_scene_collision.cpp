@@ -479,9 +479,25 @@ namespace
         return true;
     }
 
+    bool IsGroundedCapturedShield(const Entity& entity)
+    {
+        if (!HasTag(entity, "CapturedShield"))
+        {
+            return false;
+        }
+
+        const auto* shield = entity.GetComponent<ShieldComponent>();
+        return shield && shield->photoSpawned && shield->grounded;
+    }
+
     bool IsSolidPolygonEntity(const Entity& entity)
     {
         if (entity.GetComponent<ImageOutlineColliderComponent>())
+        {
+            return true;
+        }
+
+        if (IsGroundedCapturedShield(entity))
         {
             return true;
         }
@@ -1358,7 +1374,8 @@ void GameScene::GetEntityBoundsByTag(const char* tag, std::vector<TransformCompo
 
 bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
 {
-    return HasTag(entity, kTagPhotoSource) ||
+    return IsGroundedCapturedShield(entity) ||
+        HasTag(entity, kTagPhotoSource) ||
         HasTag(entity, kTagBatterySwitch) ||
         HasTag(entity, kTagElevator) ||
         HasTag(entity, kTagLaserSwitch) ||

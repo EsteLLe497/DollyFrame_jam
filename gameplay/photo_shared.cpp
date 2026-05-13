@@ -728,7 +728,10 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
         PhotoPlacementRuleGroup paperRuleGroup = PhotoPlacementRuleGroup::Group1;
         for (const auto& item : capture.items)
         {
-            if (item.spawnArchetype == CapturedSpawnArchetype::WalkerMelee)
+            if (item.spawnArchetype == CapturedSpawnArchetype::WalkerMelee ||
+                item.spawnArchetype == CapturedSpawnArchetype::ShieldNormal ||
+                item.spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst ||
+                item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
             {
                 paperRuleGroup = PhotoPlacementRuleGroup::Group3;
                 break;

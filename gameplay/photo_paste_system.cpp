@@ -803,6 +803,115 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             continue;
         }
 
+        if (item.spawnArchetype == CapturedSpawnArchetype::ShieldNormal ||
+            item.spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst ||
+            item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
+        {
+            constexpr float kTileSize = 48.0f;
+            constexpr float kBossRushSpeed = 520.0f;
+            constexpr float kBossJumpDescendSpeed = 1200.0f;
+
+            auto shieldEntity = std::make_unique<Entity>();
+            Entity* spawnedShield = shieldEntity.get();
+            lastSpawnedEntity = spawnedShield;
+            spawnedShield->AddComponent<TagComponent>("CapturedShield");
+            spawnedShield->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedShield->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+
+            float shieldX = spawnX + item.relativeX;
+            float shieldY = spawnY + item.relativeY;
+            float shieldW = item.width;
+            float shieldH = item.height;
+            const auto* playerTransform = player.GetComponent<TransformComponent>();
+            const bool facingRight = scene.m_player.facingRight;
+
+            if (item.spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
+            {
+                const float centerX = shieldX + shieldW * 0.5f;
+                const float centerY = shieldY + shieldH * 0.5f;
+                shieldW = kTileSize * 2.0f;
+                shieldH = kTileSize * 4.0f;
+                shieldX = centerX - shieldW * 0.5f;
+                shieldY = centerY - shieldH * 0.5f;
+            }
+            else if (item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst && playerTransform)
+            {
+                shieldW = kTileSize * 3.0f;
+                shieldH = kTileSize * 1.0f;
+                const float playerFootY = playerTransform->y + playerTransform->height * playerTransform->scale;
+                const float playerFrontX = facingRight
+                    ? playerTransform->x + playerTransform->width * playerTransform->scale + kTileSize * 2.0f
+                    : playerTransform->x - kTileSize * 2.0f;
+                shieldX = playerFrontX - shieldW * 0.5f;
+                shieldY = playerFootY - kTileSize * 6.0f - shieldH;
+            }
+
+            spawnedShield->AddComponent<TransformComponent>(shieldX, shieldY, shieldW, shieldH);
+            spawnedShield->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+            spawnedShield->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+            auto& shieldComp = spawnedShield->AddComponent<ShieldComponent>();
+            shieldComp.attached = false;
+            shieldComp.photoSpawned = true;
+            shieldComp.rotationSpeed = 0.0f;
+            shieldComp.velocityX = 0.0f;
+            shieldComp.velocityY = 0.0f;
+            shieldComp.contactDamage = 1;
+            shieldComp.knockbackGrids = 3.0f;
+            shieldComp.grounded = false;
+            shieldComp.shockwaveSpawned = false;
+            if (auto* sprite = spawnedShield->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                sprite->SetFlipX(item.flipX);
+            }
+            if (auto* transform = spawnedShield->GetComponent<TransformComponent>())
+            {
+                transform->rotation =
+                    (item.spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst ||
+                        item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
+                    ? 0.0f
+                    : item.rotation;
+            }
+
+            switch (item.spawnArchetype)
+            {
+            case CapturedSpawnArchetype::ShieldNormal:
+                shieldComp.capturedMode = CapturedShieldMode::Normal;
+                shieldComp.gravityEnabled = true;
+                shieldComp.contactDamage = 1;
+                break;
+            case CapturedSpawnArchetype::ShieldRushBurst:
+                shieldComp.capturedMode = CapturedShieldMode::RushBurst;
+                shieldComp.gravityEnabled = false;
+                shieldComp.contactDamage = 2;
+                shieldComp.velocityX = facingRight ? kBossRushSpeed : -kBossRushSpeed;
+                spawnedShield->AddComponent<PhotoCopyLifetimeComponent>(0.5f);
+                break;
+            case CapturedSpawnArchetype::ShieldJumpBurst:
+                shieldComp.capturedMode = CapturedShieldMode::JumpBurst;
+                shieldComp.gravityEnabled = false;
+                shieldComp.contactDamage = 0;
+                shieldComp.followPlayer = true;
+                shieldComp.hoverDuration = 1.5f;
+                shieldComp.descendSpeed = kBossJumpDescendSpeed;
+                if (playerTransform)
+                {
+                    const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+                    const float playerFootY = playerTransform->y + playerTransform->height * playerTransform->scale;
+                    const float shieldCenterX = shieldX + shieldW * 0.5f;
+                    shieldComp.followOffsetX = shieldCenterX - playerCenterX;
+                    shieldComp.followOffsetY = shieldY - playerFootY;
+                }
+                spawnedShield->AddComponent<PhotoCopyLifetimeComponent>(2.0f);
+                break;
+            default:
+                break;
+            }
+
+            scene.m_entities.push_back(std::move(shieldEntity));
+            continue;
+        }
+
         auto entity = std::make_unique<Entity>();
         lastSpawnedEntity = entity.get();
         ++spawnedPhotoBoxCount;

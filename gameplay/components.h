@@ -67,7 +67,8 @@ enum class ShieldBossState
     Rush,          
     RushCooldown, 
     Jump,          
-    JumpAscend,    
+    JumpAscend,
+    AirHover,
     JumpDescend,   
     SlamPhase1,    
     SlamPhase2,    
@@ -394,7 +395,7 @@ public:
 
     void Update(float deltaTime) override;
     void DrawDebugUI() override;
-    // 残り寿命。0 になると IsExpired が true になる。
+    // 隹ｿ荵晢ｽ願汞・ｿ陷ｻ・ｽ邵ｲ繝ｻ 邵ｺ・ｫ邵ｺ・ｪ郢ｧ荵昶・ IsExpired 邵ｺ繝ｻtrue 邵ｺ・ｫ邵ｺ・ｪ郢ｧ荵敖繝ｻ
     float GetRemainingSeconds() const;
     float GetLifetimeSeconds() const;
     bool IsExpired() const;
@@ -410,7 +411,7 @@ public:
     explicit PhotoPasteAnimationComponent(float durationSeconds);
 
     void Update(float deltaTime) override;
-    // 0.0～1.0 の正規化進捗（ペースト演出用）。
+    // 0.0繝ｻ繝ｻ.0 邵ｺ・ｮ雎・ｽ｣髫穂ｸ槫密鬨ｾ・ｲ隰先圜・ｼ蛹ｻ繝ｻ郢晢ｽｼ郢ｧ・ｹ郢晏沺・ｼ豕後・騾包ｽｨ繝ｻ蟲ｨﾂ繝ｻ
     float GetNormalizedProgress() const;
     bool IsFinished() const;
 
@@ -501,7 +502,7 @@ public:
     float attackCooldown = 3.0f;
     float detectRange = 400.0f;
     float attackRange = 48.0f;
-    float detectHeight = 96.0f; // 3/21追加(田之上俊)
+    float detectHeight = 96.0f; // 3/21髴托ｽｽ陷会｣ｰ(騾包ｽｰ闕ｵ蛟ｶ・ｸ雍具ｽｿ繝ｻ
     float velocityY = 0.0f;
     float spawnX = 0.0f;
     float spawnY = 0.0f;
@@ -527,51 +528,101 @@ class ShieldBossComponent final : public Component
 public:
     ShieldBossComponent() = default;
 
-    
     ShieldBossState state = ShieldBossState::Idle;
     ShieldBossFacing facing = ShieldBossFacing::Right;
 
-    
+    float detectRange = 6.0f * 48.0f;
+    float detectHeight = 4.0f * 48.0f;
     float stateTimer = 0.0f;
 
-    
-    int rushCount = 0;         
-    int rushCountMax = 3;       
+    float rushSpeed = 520.0f;
+    float rushDuration = 0.45f;
+    float rushCooldown = 2.5f;
+    int rushCount = 0;
+    int rushCountMax = 2;
 
- 
-    float detectRange = 600.0f;
-    float detectHeight = 192.0f;
+    float jumpHeight = 6.0f;
+    float jumpAscendDuration = 0.35f;
+    float airHoverDuration = 1.5f;
+    float descendSpeed = 1200.0f;
 
-    
-    float rushSpeed = 400.0f;
-    float rushDamage = 1.0f;
-    float rushCooldown = 1.0f;
-    float rushDuration = 2.0f;  
-
-   
-    float jumpHeight = 4.0f;    
-    float targetX = 0.0f;
-
-    
     float slamPhase1Duration = 0.2f;
-    float slamPhase2Duration = 0.2f;
-    float slamDamage1 = 1.0f;
-    float slamDamage2 = 2.0f;
-    float slamCooldown = 3.0f;
+    float slamPhase2Duration = 0.3f;
+    float slamCooldown = 2.5f;
 
-    
-    float velocityY = 0.0f;
+    float targetX = 0.0f;
+    float targetY = 0.0f;
+    float hoverShieldX = 0.0f;
+    float hoverShieldY = 0.0f;
+    float hoverPlayerOffsetX = 0.0f;
+
+    Entity* shieldEntity = nullptr;
+};
+
+enum class ShieldAttackType
+{
+    None,
+    Rush,       
+    Base,       
+    Slam,       
+};
+
+enum class CapturedShieldMode
+{
+    None,
+    Normal,
+    RushBurst,
+    JumpBurst,
+};
+
+class ShieldComponent final : public Component
+{
+public:
+    ShieldComponent() = default;
+
+    Entity* ownerBoss = nullptr;
+    bool attached = true;
+    bool gravityEnabled = false;
+    ShieldAttackType attackType = ShieldAttackType::None;
+
+    float followOffsetX = 0.0f;
+    float followOffsetY = 0.0f;
+
     float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    float rotationSpeed = 0.0f;
 
-    
-    bool attackRectActive = false;
-    float attackRectX = 0.0f;
-    float attackRectY = 0.0f;
-    float attackRectWidth = 0.0f;
-    float attackRectHeight = 0.0f;
-    float attackRectDamage = 1.0f;
+    int contactDamage = 1;
+    float knockbackGrids = 3.0f;
 
+    float elapsed = 0.0f;
+    float lifetime = 0.0f;
 
+    float baseAttackElapsed = 0.0f;
+    float baseAttackDuration = 0.5f;
+    bool photoSpawned = false;
+    CapturedShieldMode capturedMode = CapturedShieldMode::None;
+    bool followPlayer = false;
+    bool grounded = false;
+    bool shockwaveSpawned = false;
+    float hoverElapsed = 0.0f;
+    float hoverDuration = 0.0f;
+    float descendSpeed = 0.0f;
+    std::vector<Entity*> hitEntities;
+};
+
+class ShieldShockwaveComponent final : public Component
+{
+public:
+    ShieldShockwaveComponent() = default;
+
+    Entity* ownerBoss = nullptr;
+    int damage = 1;
+    float knockbackGrids = 3.0f;
+    float elapsed = 0.0f;
+    float lifetime = 0.2f;
+    bool damagesPlayer = true;
+    bool hitPlayer = false;
     std::vector<Entity*> hitEntities;
 };
 
@@ -604,7 +655,7 @@ public:
     bool facingRight = true;
 };
 
-// 3/21追加：ドロップアイテムコンポーネント(田之上俊)
+// 3/21髴托ｽｽ陷会｣ｰ繝ｻ螢ｹ繝ｩ郢晢ｽｭ郢昴・繝ｻ郢ｧ・｢郢ｧ・､郢昴・ﾎ堤ｹｧ・ｳ郢晢ｽｳ郢晄亢繝ｻ郢晞亂ﾎｦ郢昴・騾包ｽｰ闕ｵ蛟ｶ・ｸ雍具ｽｿ繝ｻ
 class DropItemComponent final : public Component
 {
 public:
@@ -839,7 +890,7 @@ public:
         float fps,
         bool loop = true);
     bool HasClip(const std::string& name) const;
-    // 再生中クリップと同名の場合、restartIfSame=true のときだけ先頭フレームへ戻す。
+    // 陷蜥ｲ蜃ｽ闕ｳ・ｭ郢ｧ・ｯ郢晢ｽｪ郢昴・繝ｻ邵ｺ・ｨ陷ｷ謔滄倹邵ｺ・ｮ陜｣・ｴ陷ｷ蛹ｻﾂ縲影startIfSame=true 邵ｺ・ｮ邵ｺ・ｨ邵ｺ髦ｪ笆｡邵ｺ螟ｧ繝ｻ鬯・ｽｭ郢晁ｼ釆樒ｹ晢ｽｼ郢晢｣ｰ邵ｺ・ｸ隰鯉ｽｻ邵ｺ蜷ｶﾂ繝ｻ
     bool Play(const std::string& name, bool restartIfSame = false);
     const std::string& GetCurrentClipName() const;
     int GetCurrentFrameIndex() const;
@@ -899,9 +950,9 @@ public:
 
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
-    // Transform -> Box2D 反映（主に static / kinematic 用）。
+    // Transform -> Box2D 陷ｿ閧ｴ荳舌・莠包ｽｸ・ｻ邵ｺ・ｫ static / kinematic 騾包ｽｨ繝ｻ蟲ｨﾂ繝ｻ
     void PushTransformToPhysics();
-    // Box2D -> Transform 反映（主に dynamic の結果取り込み）。
+    // Box2D -> Transform 陷ｿ閧ｴ荳舌・莠包ｽｸ・ｻ邵ｺ・ｫ dynamic 邵ｺ・ｮ驍ｨ蜈域｣｡陷ｿ謔ｶ・企恷・ｼ邵ｺ・ｿ繝ｻ蟲ｨﾂ繝ｻ
     void PullTransformFromPhysics();
 
     b2BodyId GetBodyId() const;
@@ -943,7 +994,7 @@ public:
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
     b2ChainId GetChainId() const;
-    // [0,1] 正規化頂点。実体生成時に Transform サイズへスケールして使う。
+    // [0,1] 雎・ｽ｣髫穂ｸ槫密鬯・ｉ縺帷ｸｲ繧・ｽｮ貊会ｽｽ骰句・隰悟・蜃ｾ邵ｺ・ｫ Transform 郢ｧ・ｵ郢ｧ・､郢ｧ・ｺ邵ｺ・ｸ郢ｧ・ｹ郢ｧ・ｱ郢晢ｽｼ郢晢ｽｫ邵ｺ蜉ｱ窶ｻ闖ｴ・ｿ邵ｺ繝ｻﾂ繝ｻ
     const std::vector<b2Vec2>& GetNormalizedOutline() const;
 
 private:

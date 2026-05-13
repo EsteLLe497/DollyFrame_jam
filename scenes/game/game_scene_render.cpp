@@ -1367,6 +1367,19 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
+    if ((!tag || !HasTag(tag, kTagPlayer)))
+    {
+        if (const auto* cooldown = entity.GetComponent<DamageCooldownComponent>())
+        {
+            if (cooldown->GetRemainingSeconds() > 0.0f)
+            {
+                const float cooldownSeconds = std::max(0.001f, cooldown->GetCooldownSeconds());
+                const float flashT = Clamp01(cooldown->GetRemainingSeconds() / cooldownSeconds);
+                Shader_SetFlash(1.0f, 0.88f, 0.28f, 1.0f, flashT);
+            }
+        }
+    }
+
     if (const auto* tint = entity.GetComponent<TintComponent>())
     {
         Shader_SetTint(tint->r, tint->g, tint->b, tint->a * alphaMultiplier);
@@ -1486,7 +1499,7 @@ void GameScene::DrawEnemyAttackRects() const
     {
         if (!entity) continue;
 
-        // Walker�U������
+        // Walker
         const auto* enemy = entity->GetComponent<EnemyComponent>();
         if (enemy && enemy->attackRectActive)
         {
@@ -1499,24 +1512,6 @@ void GameScene::DrawEnemyAttackRects() const
                 GetColor(255, 80, 80), TRUE);
         }
 
-        // ���{�X�U������
-        const auto* boss = entity->GetComponent<ShieldBossComponent>();
-        if (boss && boss->attackRectActive)
-        {
-            const float screenX = viewOriginX + (boss->attackRectX - m_flow.cameraX) * viewScale;
-            const float screenY = viewOriginY + (boss->attackRectY - m_flow.cameraY) * viewScale;
-            const float screenW = boss->attackRectWidth * viewScale;
-            const float screenH = boss->attackRectHeight * viewScale;
-
-            const unsigned int color =
-                boss->state == ShieldBossState::Rush
-                ? GetColor(255, 80, 80)    // �ːi�̓I�����W
-                : boss->state == ShieldBossState::SlamPhase1
-                ? GetColor(255, 140, 0)    // ����@�̓I�����W
-                : GetColor(180, 0, 255);   // ����A�͎�
-
-            DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH,
-                color, TRUE);
-        }
+        
     }
 }

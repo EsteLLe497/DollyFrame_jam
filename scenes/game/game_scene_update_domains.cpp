@@ -225,7 +225,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
 {
     UpdateCameraMode();
 
-    // 3状態（撮影/配置/現像プレビュー）から、トレイ表示とスロー演出を一元決定する。
+    // 3迥ｶ諷具ｼ域聴蠖ｱ/驟咲ｽｮ/迴ｾ蜒上・繝ｬ繝薙Η繝ｼ・峨°繧峨√ヨ繝ｬ繧､陦ｨ遉ｺ縺ｨ繧ｹ繝ｭ繝ｼ貍泌・繧剃ｸ蜈・ｱｺ螳壹☆繧九・
     const bool placementHeld = !m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
     const bool placementActive = placementHeld || m_photo.placement.active;
     const bool previewActive = m_photo.pendingStore.active && m_flow.developedPhotoPreviewRemaining > 0.0f;
@@ -245,7 +245,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
     m_flow.placementSlowRemaining = placementActive ? kPlacementFocusDuration : 0.0f;
     const bool slowForCapture = m_flow.cameraMode;
     const bool slowForPlacement = placementActive;
-    // フォーカス中だけゲーム全体を減速させる。
+    // 繝輔か繝ｼ繧ｫ繧ｹ荳ｭ縺縺代ご繝ｼ繝蜈ｨ菴薙ｒ貂幃溘＆縺帙ｋ縲・
     return (slowForCapture || slowForPlacement)
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
@@ -450,8 +450,8 @@ bool GameScene::HandleMapEditorModeShortcuts()
             : GameSceneMapEditorState::BrushTarget::Tile;
         m_mapEditor.statusMessage =
             m_mapEditor.brushTarget == GameSceneMapEditorState::BrushTarget::Marker
-            ? "編集対象: マーカー"
-            : "編集対象: タイル";
+            ? "邱ｨ髮・ｯｾ雎｡: 繝槭・繧ｫ繝ｼ"
+            : "邱ｨ髮・ｯｾ雎｡: 繧ｿ繧､繝ｫ";
         m_mapEditor.statusMessageTimer = 1.8f;
     }
 
@@ -567,12 +567,12 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
     {
         if (m_tileMap.SaveToCsv(gCurrentMapCsvPath))
         {
-            m_mapEditor.statusMessage = "保存しました: " + gCurrentMapCsvPath;
+            m_mapEditor.statusMessage = "菫晏ｭ倥＠縺ｾ縺励◆: " + gCurrentMapCsvPath;
             m_mapEditor.statusMessageTimer = 2.4f;
         }
         else
         {
-            m_mapEditor.statusMessage = "保存に失敗しました";
+            m_mapEditor.statusMessage = "菫晏ｭ倥↓螟ｱ謨励＠縺ｾ縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -584,12 +584,12 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
             RefreshStageRenderProfile();
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
-            m_mapEditor.statusMessage = "CSVを再読み込みしました";
+            m_mapEditor.statusMessage = "CSV繧貞・隱ｭ縺ｿ霎ｼ縺ｿ縺励∪縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
         else
         {
-            m_mapEditor.statusMessage = "再読み込みに失敗しました";
+            m_mapEditor.statusMessage = "蜀崎ｪｭ縺ｿ霎ｼ縺ｿ縺ｫ螟ｱ謨励＠縺ｾ縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -608,12 +608,12 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
             RefreshMarkerDrivenSystems();
             m_flow.cameraX = 0.0f;
             m_flow.cameraY = 0.0f;
-            m_mapEditor.statusMessage = "新規マップを作成: " + newMapPath;
+            m_mapEditor.statusMessage = "譁ｰ隕上・繝・・繧剃ｽ懈・: " + newMapPath;
             m_mapEditor.statusMessageTimer = 3.0f;
         }
         else
         {
-            m_mapEditor.statusMessage = "新規マップ作成に失敗しました";
+            m_mapEditor.statusMessage = "譁ｰ隕上・繝・・菴懈・縺ｫ螟ｱ謨励＠縺ｾ縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -626,12 +626,12 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
         {
             gCurrentMapCsvPath = duplicatedMapPath;
             RefreshStageRenderProfile();
-            m_mapEditor.statusMessage = "別名保存しました: " + duplicatedMapPath;
+            m_mapEditor.statusMessage = "蛻･蜷堺ｿ晏ｭ倥＠縺ｾ縺励◆: " + duplicatedMapPath;
             m_mapEditor.statusMessageTimer = 3.0f;
         }
         else
         {
-            m_mapEditor.statusMessage = "別名保存に失敗しました";
+            m_mapEditor.statusMessage = "蛻･蜷堺ｿ晏ｭ倥↓螟ｱ謨励＠縺ｾ縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -1292,7 +1292,7 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
     }
     m_flow.pickupPulse += gameplayDeltaTime;
 
-    // HPバー演出の更新: 実HPとは別に表示用比率を補間する。
+    // HP繝舌・貍泌・縺ｮ譖ｴ譁ｰ: 螳櫞P縺ｨ縺ｯ蛻･縺ｫ陦ｨ遉ｺ逕ｨ豈皮紫繧定｣憺俣縺吶ｋ縲・
     if (const Entity* player = FindEntityByTag(kTagPlayer))
     {
         if (const auto* health = player->GetComponent<HealthComponent>())
@@ -1347,6 +1347,7 @@ void GameScene::RunGameplayFrame(float gameplayDeltaTime)
     UpdateBatteries(gameplayDeltaTime);
     UpdateElevatorGimmicks(gameplayDeltaTime);
     UpdateEnemies();
+    UpdateShields(gameplayDeltaTime);
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
     UpdateGoalVisual(gameplayDeltaTime);
