@@ -43,12 +43,22 @@ void GameScene::UpdateEnemies()
         {
             for (auto it = m_entities.begin(); it != m_entities.end(); ++it)
             {
-                if (!*it || !HasTag(**it, kTagPhotoBox)) continue;
+                if (!*it) continue;
+                const bool isPhotoBox = HasTag(**it, kTagPhotoBox);
+                const bool isGroundedCapturedShield =
+                    HasTag(**it, "CapturedShield") &&
+                    (*it)->GetComponent<ShieldComponent>() &&
+                    (*it)->GetComponent<ShieldComponent>()->photoSpawned &&
+                    (*it)->GetComponent<ShieldComponent>()->grounded;
+                if (!isPhotoBox && !isGroundedCapturedShield) continue;
                 const auto* photoTransform = (*it)->GetComponent<TransformComponent>();
                 if (!photoTransform) continue;
                 if (IntersectsRect(bossTransform, *photoTransform))
                 {
-                    it = m_entities.erase(it);
+                    if (isPhotoBox)
+                    {
+                        it = m_entities.erase(it);
+                    }
                     return true;
                 }
             }
@@ -293,6 +303,7 @@ void GameScene::UpdateShields(float deltaTime)
             case CapturedShieldMode::Normal:
                 shield->gravityEnabled = true;
                 shield->grounded = false;
+                shield->contactDamage = 1;
                 shield->velocityY = std::min(kMaxFallSpeed, shield->velocityY + kGravity * deltaTime);
                 shieldTransform->x += shield->velocityX * deltaTime;
                 shieldTransform->y += shield->velocityY * deltaTime;
@@ -301,6 +312,7 @@ void GameScene::UpdateShields(float deltaTime)
                     std::max(gGroundSnapDistance, std::fabs(shield->velocityY) * deltaTime + 4.0f)))
                 {
                     shield->grounded = true;
+                    shield->contactDamage = 0;
                     shield->velocityY = 0.0f;
                     shield->velocityX *= 0.85f;
                 }
@@ -358,6 +370,7 @@ void GameScene::UpdateShields(float deltaTime)
                                 shockW,
                                 shockH);
                             shockwave->AddComponent<TintComponent>(0.18f, 0.95f, 1.0f, 0.75f);
+                            shockwave->AddComponent<SpriteRenderComponent>(m_whiteTexture);
                             auto& shockComp = shockwave->AddComponent<ShieldShockwaveComponent>();
                             shockComp.ownerBoss = shield->ownerBoss;
                             shockComp.damage = 1;
