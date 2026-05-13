@@ -33,7 +33,7 @@ struct StageTransitionLink
 };
 
 inline std::vector<StageTransitionLink> gStageTransitionLinks;
-inline std::string gCurrentMapCsvPath = "assets/maps/stage01_1.csv";
+inline std::string gCurrentMapCsvPath = "assets/maps/stages/stage_a.csv";
 inline char gLastStageTransitionMarker = '\0';
 
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";
@@ -308,6 +308,7 @@ inline constexpr const char* kTagShutter = "Shutter";
 inline constexpr const char* kTagLaserTurret = "LaserTurret";
 inline constexpr const char* kTagLaserBeam = "LaserBeam";
 inline constexpr const char* kTagMarkerLight = "MarkerLight";
+inline constexpr const char* kTagStageLight = "StageLight";
 
 inline bool IsDamagePlatformMarker(char marker)
 {

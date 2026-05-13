@@ -56,6 +56,7 @@ enum class EnemyArchetype
     Turret,
     Ranged, 
     ShieldBoss,
+    MidBoss2,
     Ghost,        
     BlasterRobot, 
 };
@@ -79,6 +80,20 @@ enum class ShieldBossFacing
 {
     Right,
     Left,
+};
+
+enum class MidBoss2State
+{
+    Idle,
+    SpearJump,
+    SpearThrow,
+    SpearLanding,
+    SpearCooldown,
+    BeamCharge,
+    BeamFire,
+    BeamCooldown,
+    Damaged,
+    Dead,
 };
 
 enum class GimmickType
@@ -262,12 +277,27 @@ public:
     float playerDamageTimer = 0.0f;
     std::unordered_map<const Entity*, float> enemyDamageTimers;
     float sparkTimer = 0.0f;
+    bool active = true;
+    bool fireToLeft = false;
+    float warmupRemaining = 0.0f;
+    float enemyKnockbackSpeed = 0.0f;
+    Entity* beamEntity = nullptr;
+    float beamOriginOffsetX = 0.0f;
+    float beamOriginOffsetY = 0.0f;
 };
 
 class LaserBeamComponent final : public Component
 {
 public:
     LaserBeamComponent() = default;
+};
+
+class BossBeamCaptureComponent final : public Component
+{
+public:
+    BossBeamCaptureComponent() = default;
+
+    bool captureEnabled = false;
 };
 
 class TransformComponent final : public Component
@@ -343,6 +373,35 @@ public:
     float radius;
     float intensity;
     bool activated = false;
+};
+
+class StageLightComponent final : public Component
+{
+public:
+    StageLightComponent(
+        bool enabled,
+        float fixtureTopWidthRatio,
+        float beamLength,
+        float beamTopWidth,
+        float beamBottomWidth,
+        float beamFeather,
+        float r,
+        float g,
+        float b,
+        float intensity);
+
+    void DrawDebugUI() override;
+
+    bool enabled;
+    float fixtureTopWidthRatio;
+    float beamLength;
+    float beamTopWidth;
+    float beamBottomWidth;
+    float beamFeather;
+    float r;
+    float g;
+    float b;
+    float intensity;
 };
 
 class TagComponent final : public Component
@@ -624,6 +683,71 @@ public:
     bool damagesPlayer = true;
     bool hitPlayer = false;
     std::vector<Entity*> hitEntities;
+};
+
+class MidBoss2Component final : public Component
+{
+public:
+    struct Params
+    {
+        int boss2Hp = 15;
+        int boss2WidthGrid = 4;
+        int boss2HeightGrid = 4;
+        int spearDamage = 1;
+        float spearFadeTime = 3.0f;
+        float spearInterval = 0.3f;
+        float spearCooldownAfterLanding = 2.0f;
+        float spearLandingPauseTime = 0.2f;
+        float spearJumpHeightGrid = 6.0f;
+        float spearJumpHorizontalGrid = 8.0f;
+        float beamChargeTime = 3.0f;
+        float beamDamagePerSecond = 1.0f;
+        float beamHeightGrid = 3.0f;
+        float pastedBeamDamagePerSecond = 1.0f;
+    };
+
+    MidBoss2Component() = default;
+
+    Params params;
+    MidBoss2State state = MidBoss2State::Idle;
+    bool facingRight = true;
+    float stateTimer = 0.0f;
+    float cooldownRemaining = 0.0f;
+    int attackFlowStep = 1;
+    int spearCycleCount = 0;
+    int spearShotsFired = 0;
+    float lastSpearDirX = 0.0f;
+    float lastSpearDirY = -1.0f;
+    float hoverStartX = 0.0f;
+    float hoverStartY = 0.0f;
+    float hoverTargetX = 0.0f;
+    float hoverTargetY = 0.0f;
+    float landingTargetX = 0.0f;
+    float landingTargetY = 0.0f;
+    float homeX = 0.0f;
+    float homeY = 0.0f;
+    bool initializedHome = false;
+    bool beamEntitiesSpawned = false;
+    Entity* beamTurretEntity = nullptr;
+    Entity* beamEntity = nullptr;
+    bool captureWindowActive = false;
+};
+
+class MidBoss2SpearComponent final : public Component
+{
+public:
+    MidBoss2SpearComponent() = default;
+
+    bool launched = false;
+    bool stuck = false;
+    float fadeRemaining = 0.0f;
+    float fadeDuration = 3.0f;
+    float directionX = 0.0f;
+    float directionY = -1.0f;
+    float targetDirectionX = 0.0f;
+    float targetDirectionY = -1.0f;
+    float launchDelay = 0.0f;
+    float launchTimer = 0.0f;
 };
 
 class GhostComponent final : public Component

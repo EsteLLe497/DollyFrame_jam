@@ -119,6 +119,9 @@ struct GameScenePlayerState
     float dodgeStretch = 0.0f;
     bool captureAnimationActive = false;
     bool captureAnimationReleased = false;
+    bool pasteAnimationActive = false;
+    bool pasteAnimationReleased = false;
+    bool pasteAnimationEnemyAttack = false;
     std::vector<PlayerAfterimage> afterimages;
 };
 
@@ -159,6 +162,9 @@ struct GameSceneMapEditorState
     BrushTarget brushTarget = BrushTarget::Tile;
     int selectedTileValue = 1;
     char selectedMarker = 'G';
+    int selectedMarkerParameter = 1;
+    int selectedStageLightTiles = 3;
+    int selectedStageLightFixtureTiles = 1;
     std::string statusMessage;
     float statusMessageTimer = 0.0f;
 };

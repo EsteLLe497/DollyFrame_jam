@@ -119,11 +119,15 @@ struct CapturedPhotoItem
     float rotation = 0.0f;
     bool flipX = false;
     bool vanishOnCapture = false;
+    bool enemyAttackPaste = false;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
     PhotoPlacementRuleGroup placementRuleGroup = PhotoPlacementRuleGroup::Group1;
     float projectileVelocityX = 0.0f;
     float projectileVelocityY = 0.0f;
     int projectileDamage = 1;
+    float laserBeamThickness = 0.0f;
+    float laserDamagePerSecond = 1.0f;
+    float laserEnemyKnockbackSpeed = 0.0f;
     float lightRadius = 0.0f;
     float lightIntensity = 0.0f;
     std::vector<OutlinePoint> collisionOutline;
@@ -135,6 +139,7 @@ struct PhotoCaptureState
     PhotoFilterTheme selectedTheme = PhotoFilterTheme::None;
     PhotoFilterTheme capturedTheme = PhotoFilterTheme::None;
     std::vector<CapturedPhotoItem> items;
+    bool containsEnemyAttackPaste = false;
     int textureId = -1;
     float width = 64.0f;
     float height = 64.0f;

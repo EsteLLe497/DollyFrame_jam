@@ -25,6 +25,8 @@ void GameScene::UpdateEnemies()
     game_scene_combat_system::UpdateEnemies(
         m_entities,
         m_tileTexture,
+        GetMapPixelWidth(),
+        GetMapPixelHeight(),
         m_flow,
         m_photo,
         playerTransform,
@@ -247,6 +249,7 @@ int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
     case EnemyArchetype::Ranged:
         return 10;
     case EnemyArchetype::ShieldBoss:
+    case EnemyArchetype::MidBoss2:
         return 50;
     default:
         return 5;
@@ -603,7 +606,7 @@ void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
         const auto* meleeTransform = entity->GetComponent<TransformComponent>();
         if (!meleeTransform) continue;
 
-        // 繝励Ξ繧､繝､繝ｼ縺ｸ縺ｮ繝繝｡繝ｼ繧ｸ
+        // プレイヤーへのダメージ
         if (playerTransform && IntersectsRect(*playerTransform, *meleeTransform))
         {
             ApplyHazardDamageToPlayer(
@@ -613,7 +616,7 @@ void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
                 1);
         }
 
-        // 謨ｵ縺ｸ縺ｮ繝繝｡繝ｼ繧ｸ
+        // 敵へのダメージ
         for (const auto& target : m_entities)
         {
             if (!target) continue;
@@ -734,6 +737,34 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         {
             enemyComponent->MarkDefeated();
             defeatedThisHit = true;
+            if (auto* midBoss2 = enemy.GetComponent<MidBoss2Component>())
+            {
+                if (auto* turretEntity = midBoss2->beamTurretEntity)
+                {
+                    if (auto* turret = turretEntity->GetComponent<LaserTurretComponent>())
+                    {
+                        turret->active = false;
+                    }
+                    if (auto* capture = turretEntity->GetComponent<BossBeamCaptureComponent>())
+                    {
+                        capture->captureEnabled = false;
+                    }
+                    if (auto* transform = turretEntity->GetComponent<TransformComponent>())
+                    {
+                        transform->x = -10000.0f;
+                        transform->y = -10000.0f;
+                    }
+                }
+                if (auto* beamEntity = midBoss2->beamEntity)
+                {
+                    if (auto* beamTransform = beamEntity->GetComponent<TransformComponent>())
+                    {
+                        beamTransform->x = -10000.0f;
+                        beamTransform->y = -10000.0f;
+                        beamTransform->width = 0.0f;
+                    }
+                }
+            }
             
             if (const auto* transform = enemy.GetComponent<TransformComponent>())
             {
@@ -749,6 +780,34 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     {
         enemyComponent->MarkDefeated();
         defeatedThisHit = true;
+        if (auto* midBoss2 = enemy.GetComponent<MidBoss2Component>())
+        {
+            if (auto* turretEntity = midBoss2->beamTurretEntity)
+            {
+                if (auto* turret = turretEntity->GetComponent<LaserTurretComponent>())
+                {
+                    turret->active = false;
+                }
+                if (auto* capture = turretEntity->GetComponent<BossBeamCaptureComponent>())
+                {
+                    capture->captureEnabled = false;
+                }
+                if (auto* transform = turretEntity->GetComponent<TransformComponent>())
+                {
+                    transform->x = -10000.0f;
+                    transform->y = -10000.0f;
+                }
+            }
+            if (auto* beamEntity = midBoss2->beamEntity)
+            {
+                if (auto* beamTransform = beamEntity->GetComponent<TransformComponent>())
+                {
+                    beamTransform->x = -10000.0f;
+                    beamTransform->y = -10000.0f;
+                    beamTransform->width = 0.0f;
+                }
+            }
+        }
         
         if (const auto* transform = enemy.GetComponent<TransformComponent>())
         {

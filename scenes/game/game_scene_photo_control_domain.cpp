@@ -26,11 +26,19 @@ void GameScene::UpdateCameraMode()
     {
         m_photo.placement.active = false;
         m_photo.placement.valid = false;
+        m_player.pasteAnimationActive = false;
+        m_player.pasteAnimationReleased = false;
+        m_player.pasteAnimationEnemyAttack = false;
+        m_player.afterimages.clear();
     }
     if (m_flow.cameraMode && !wasCameraMode)
     {
         m_player.captureAnimationActive = true;
         m_player.captureAnimationReleased = false;
+        m_player.pasteAnimationActive = false;
+        m_player.pasteAnimationReleased = false;
+        m_player.pasteAnimationEnemyAttack = false;
+        m_player.afterimages.clear();
         ++m_flow.cameraModeSessionId;
     }
     else if (!m_flow.cameraMode &&

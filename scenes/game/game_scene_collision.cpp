@@ -1591,6 +1591,48 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
         return false;
     };
 
+    auto intersectsPlayer = [&](const TransformComponent& candidate, float clearance) -> bool
+    {
+        CollisionPolygon candidatePolygon;
+        buildCandidatePolygon(candidate, candidatePolygon);
+        for (const auto& entity : m_entities)
+        {
+            if (!entity || !HasTag(*entity, kTagPlayer))
+            {
+                continue;
+            }
+
+            const auto* playerTransform = entity->GetComponent<TransformComponent>();
+            if (!playerTransform)
+            {
+                continue;
+            }
+
+            CollisionPolygon playerPolygon;
+            if (clearance > 0.0f)
+            {
+                BuildRotatedRectPolygon(
+                    playerTransform->x - clearance,
+                    playerTransform->y - clearance,
+                    playerTransform->width * playerTransform->scale + clearance * 2.0f,
+                    playerTransform->height * playerTransform->scale + clearance * 2.0f,
+                    playerTransform->rotation,
+                    playerPolygon);
+            }
+            else if (!BuildEntityCollisionPolygon(*entity, playerPolygon))
+            {
+                continue;
+            }
+
+            if (PolygonsIntersect(candidatePolygon, playerPolygon))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
     // Forbidden target: Floor. Check solid/slope tiles and solid pasted photo boxes.
     auto intersectsFloorObject = [&](const TransformComponent& candidate) -> bool
     {
@@ -1676,7 +1718,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     {
         // Backward-compatible fallback: treat as Group1 when no captured items exist.
         TransformComponent candidate(x, y, width, height);
-        return !violatesPlacementRule(candidate, PhotoPlacementRuleGroup::Group1);
+        return !intersectsPlayer(candidate, 8.0f) && !violatesPlacementRule(candidate, PhotoPlacementRuleGroup::Group1);
     }
 
     float placementWidth = 0.0f;
@@ -1692,6 +1734,15 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     {
         TransformComponent candidate(x + item.relativeX, y + item.relativeY, item.width, item.height);
         candidate.rotation = item.rotation;
+        const bool blocksPlayer =
+            item.layer == PhotoCopyLayer::Foreground &&
+            item.spawnArchetype != CapturedSpawnArchetype::Projectile &&
+            item.spawnArchetype != CapturedSpawnArchetype::LaserTurret &&
+            item.spawnArchetype != CapturedSpawnArchetype::WalkerMelee;
+        if (blocksPlayer && intersectsPlayer(candidate, 8.0f))
+        {
+            return false;
+        }
         if (violatesPlacementRule(candidate, item.placementRuleGroup))
         {
             return false;

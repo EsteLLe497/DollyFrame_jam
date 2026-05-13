@@ -225,6 +225,7 @@ LaserTurretComponent::LaserTurretComponent(
     , vertical(verticalValue)
     , shootsLeft(shootsLeftValue)
     , requiresLaserPower(requiresLaserPowerValue)
+    , fireToLeft(shootsLeftValue)
 {
 }
 
@@ -236,6 +237,11 @@ void LaserTurretComponent::DrawDebugUI()
     ImGui::Text("Direction: %s", vertical ? "Down" : (shootsLeft ? "Left" : "Right"));
     ImGui::Text("Needs X Switch: %s", requiresLaserPower ? "Yes" : "No");
     ImGui::Text("Player Damage Timer: %.2f", playerDamageTimer);
+    ImGui::Text("Active: %s", active ? "Yes" : "No");
+    ImGui::Text("Warmup: %.2f", warmupRemaining);
+    ImGui::Text("Beam Facing: %s", fireToLeft ? "Left" : "Right");
+    ImGui::Text("Enemy Knockback: %.1f", enemyKnockbackSpeed);
+    ImGui::Text("Origin Offset: (%.1f, %.1f)", beamOriginOffsetX, beamOriginOffsetY);
 }
 
 TransformComponent::TransformComponent(float xValue, float yValue, float widthValue, float heightValue)
@@ -319,6 +325,43 @@ void MarkerLightComponent::DrawDebugUI()
     ImGui::Text("Radius: %.1f", radius);
     ImGui::Text("Intensity: %.2f", intensity);
     ImGui::Text("Activated: %s", activated ? "On" : "Off");
+}
+
+StageLightComponent::StageLightComponent(
+    bool enabledValue,
+    float fixtureTopWidthRatioValue,
+    float beamLengthValue,
+    float beamTopWidthValue,
+    float beamBottomWidthValue,
+    float beamFeatherValue,
+    float rValue,
+    float gValue,
+    float bValue,
+    float intensityValue)
+    : enabled(enabledValue)
+    , fixtureTopWidthRatio(std::clamp(fixtureTopWidthRatioValue, 0.05f, 1.0f))
+    , beamLength(std::max(0.0f, beamLengthValue))
+    , beamTopWidth(std::max(0.0f, beamTopWidthValue))
+    , beamBottomWidth(std::max(0.0f, beamBottomWidthValue))
+    , beamFeather(std::max(0.0f, beamFeatherValue))
+    , r(std::clamp(rValue, 0.0f, 1.0f))
+    , g(std::clamp(gValue, 0.0f, 1.0f))
+    , b(std::clamp(bValue, 0.0f, 1.0f))
+    , intensity(std::clamp(intensityValue, 0.0f, 1.0f))
+{
+}
+
+void StageLightComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Stage Light");
+    ImGui::Checkbox("Enabled", &enabled);
+    ImGui::SliderFloat("Fixture Top Ratio", &fixtureTopWidthRatio, 0.05f, 1.0f);
+    ImGui::DragFloat("Beam Length", &beamLength, 1.0f, 0.0f, 4096.0f);
+    ImGui::DragFloat("Beam Top Width", &beamTopWidth, 1.0f, 0.0f, 4096.0f);
+    ImGui::DragFloat("Beam Bottom Width", &beamBottomWidth, 1.0f, 0.0f, 4096.0f);
+    ImGui::DragFloat("Beam Feather", &beamFeather, 1.0f, 0.0f, 1024.0f);
+    ImGui::SliderFloat("Intensity", &intensity, 0.0f, 1.0f);
+    ImGui::ColorEdit3("Color", &r);
 }
 
 TagComponent::TagComponent(const char* value)
@@ -442,6 +485,8 @@ namespace
             return "Ranged";
         case EnemyArchetype::ShieldBoss:
             return "ShieldBoss";
+        case EnemyArchetype::MidBoss2:
+            return "MidBoss2";
         case EnemyArchetype::Ghost:
             return "Ghost";
         case EnemyArchetype::BlasterRobot:

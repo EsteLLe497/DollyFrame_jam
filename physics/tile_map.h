@@ -43,6 +43,8 @@ public:
     int GetMarkerParameter(int column, int row) const;
     bool SetTile(int column, int row, int tileValue);
     bool SetMarker(int column, int row, char markerValue);
+    bool SetMarker(int column, int row, char markerValue, int markerParameter);
+    bool SetMarkerParameter(int column, int row, int markerParameter);
     bool IsSolid(int column, int row) const;
     static TileTriangleShape GetTriangleShape(int tileValue);
 

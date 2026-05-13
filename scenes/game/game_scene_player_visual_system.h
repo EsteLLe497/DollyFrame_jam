@@ -42,12 +42,25 @@ inline constexpr float kPlayerCaptureHoldFps = 18.0f;
 inline constexpr int kPlayerCaptureReleaseStartFrame = kPlayerCaptureHoldLastFrame + 1;
 inline constexpr int kPlayerCaptureReleaseFrameCount = kPlayerCaptureTotalFrames - kPlayerCaptureReleaseStartFrame;
 inline constexpr float kPlayerCaptureReleaseFps = 18.0f;
+inline constexpr int kPlayerPasteSheetColumns = 7;
+inline constexpr int kPlayerPasteSheetRows = 4;
+inline constexpr int kPlayerPasteTotalFrames = 28;
+inline constexpr int kPlayerPasteHoldLastFrame = 12;
+inline constexpr int kPlayerPasteHoldFrameCount = kPlayerPasteHoldLastFrame + 1;
+inline constexpr float kPlayerPasteHoldFps = 18.0f;
+inline constexpr int kPlayerPasteReleaseStartFrame = kPlayerPasteHoldLastFrame + 1;
+inline constexpr int kPlayerPasteReleaseFrameCount = kPlayerPasteTotalFrames - kPlayerPasteReleaseStartFrame;
+inline constexpr float kPlayerPasteReleaseFps = 18.0f;
+inline constexpr int kPlayerAttackSheetColumns = 5;
+inline constexpr int kPlayerAttackSheetRows = 3;
+inline constexpr int kPlayerAttackFrameCount = 15;
+inline constexpr float kPlayerAttackFps = 18.0f;
 inline constexpr int kPlayerIdleSheetColumns = 5;
 inline constexpr int kPlayerIdleSheetRows = 9;
 inline constexpr int kPlayerIdleFrameCount = 45;
 inline constexpr float kPlayerIdleFps = 12.0f;
 
-inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -1, int moveTextureId = -1, int jumpTextureId = -1, int captureTextureId = -1)
+inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -1, int moveTextureId = -1, int jumpTextureId = -1, int captureTextureId = -1, int pasteTextureId = -1, int attackTextureId = -1)
 {
     auto* sprite = player.GetComponent<SpriteRenderComponent>();
     if (!sprite)
@@ -66,14 +79,55 @@ inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -
     const int resolvedMoveTextureId = moveTextureId >= 0 ? moveTextureId : textureId;
     const int resolvedJumpTextureId = jumpTextureId >= 0 ? jumpTextureId : textureId;
     const int resolvedCaptureTextureId = captureTextureId >= 0 ? captureTextureId : textureId;
+    const int resolvedPasteTextureId = pasteTextureId >= 0 ? pasteTextureId : textureId;
+    const int resolvedAttackTextureId = attackTextureId >= 0 ? attackTextureId : resolvedPasteTextureId;
     animation->DefineClip("idle", resolvedIdleTextureId, kPlayerIdleSheetColumns, kPlayerIdleSheetRows, 0, kPlayerIdleFrameCount, kPlayerIdleFps, true);
     animation->DefineClip("run", resolvedMoveTextureId, kPlayerMoveSheetColumns, kPlayerMoveSheetRows, 0, kPlayerMoveFrameCount, kPlayerMoveFps, true);
     animation->DefineClip("jump", resolvedJumpTextureId, kPlayerJumpSheetColumns, kPlayerJumpSheetRows, kPlayerJumpAscentStartFrame, kPlayerJumpAscentFrameCount, kPlayerJumpAscentFps, false);
     animation->DefineClip("fall", resolvedJumpTextureId, kPlayerJumpSheetColumns, kPlayerJumpSheetRows, kPlayerJumpFallStartFrame, kPlayerJumpFallFrameCount, kPlayerJumpFallFps, false);
     animation->DefineClip("capture_hold", resolvedCaptureTextureId, kPlayerCaptureSheetColumns, kPlayerCaptureSheetRows, 0, kPlayerCaptureHoldFrameCount, kPlayerCaptureHoldFps, false);
     animation->DefineClip("capture_release", resolvedCaptureTextureId, kPlayerCaptureSheetColumns, kPlayerCaptureSheetRows, kPlayerCaptureReleaseStartFrame, kPlayerCaptureReleaseFrameCount, kPlayerCaptureReleaseFps, false);
+    animation->DefineClip("paste_hold", resolvedPasteTextureId, kPlayerPasteSheetColumns, kPlayerPasteSheetRows, 0, kPlayerPasteHoldFrameCount, kPlayerPasteHoldFps, false);
+    animation->DefineClip("paste_release", resolvedPasteTextureId, kPlayerPasteSheetColumns, kPlayerPasteSheetRows, kPlayerPasteReleaseStartFrame, kPlayerPasteReleaseFrameCount, kPlayerPasteReleaseFps, false);
+    animation->DefineClip("paste_attack_release", resolvedAttackTextureId, kPlayerAttackSheetColumns, kPlayerAttackSheetRows, 0, kPlayerAttackFrameCount, kPlayerAttackFps, false);
     animation->DefineClip("dodge", textureId, kPlayerSheetColumns, kPlayerSheetRows, 10, 1, 1.0f, false);
     animation->Play("idle", true);
+}
+
+inline void ClearPhotoPoseAnimations(GameScenePlayerState& playerState)
+{
+    playerState.captureAnimationActive = false;
+    playerState.captureAnimationReleased = false;
+    playerState.pasteAnimationActive = false;
+    playerState.pasteAnimationReleased = false;
+    playerState.pasteAnimationEnemyAttack = false;
+    playerState.afterimages.clear();
+}
+
+inline void ResetSpriteAnimationToIdle(GameScenePlayerState& playerState, Entity& player)
+{
+    ClearPhotoPoseAnimations(playerState);
+    playerState.dodgeRemaining = 0.0f;
+    playerState.dodgeCooldownRemaining = 0.0f;
+    playerState.visualOffsetY = 0.0f;
+    playerState.visualRotation = 0.0f;
+    playerState.visualScaleX = 1.0f;
+    playerState.visualScaleY = 1.0f;
+    playerState.landingImpact = 0.0f;
+    playerState.jumpStretch = 0.0f;
+    playerState.dodgeStretch = 0.0f;
+
+    if (auto* animation = player.GetComponent<SpriteSheetAnimationComponent>())
+    {
+        animation->Play("idle", true);
+    }
+    if (auto* sprite = player.GetComponent<SpriteRenderComponent>())
+    {
+        sprite->SetFlipX(!playerState.facingRight);
+        sprite->SetRenderOffset(0.0f, 0.0f);
+        sprite->SetRenderScale(1.0f, 1.0f);
+        sprite->SetRenderRotationOffset(0.0f);
+    }
 }
 
 inline void UpdateAnimation(
@@ -89,11 +143,33 @@ inline void UpdateAnimation(
         return;
     }
 
+    if (playerState.captureAnimationActive && playerState.pasteAnimationActive)
+    {
+        if (flowState.cameraMode)
+        {
+            playerState.pasteAnimationActive = false;
+            playerState.pasteAnimationReleased = false;
+            playerState.pasteAnimationEnemyAttack = false;
+        }
+        else
+        {
+            playerState.captureAnimationActive = false;
+            playerState.captureAnimationReleased = false;
+        }
+        playerState.afterimages.clear();
+    }
+
     const char* clipName = "idle";
     const float horizontalSpeed = std::fabs(playerState.velocityX);
     if (playerState.captureAnimationActive)
     {
         clipName = playerState.captureAnimationReleased ? "capture_release" : "capture_hold";
+    }
+    else if (playerState.pasteAnimationActive)
+    {
+        clipName = playerState.pasteAnimationReleased
+            ? (playerState.pasteAnimationEnemyAttack ? "paste_attack_release" : "paste_release")
+            : "paste_hold";
     }
     else if (isDodging)
     {
@@ -115,6 +191,13 @@ inline void UpdateAnimation(
         clipName = "capture_release";
         animation->Play(clipName, true);
     }
+    else if (playerState.pasteAnimationActive &&
+        playerState.pasteAnimationReleased &&
+        animation->GetCurrentClipName() != (playerState.pasteAnimationEnemyAttack ? "paste_attack_release" : "paste_release"))
+    {
+        clipName = playerState.pasteAnimationEnemyAttack ? "paste_attack_release" : "paste_release";
+        animation->Play(clipName, true);
+    }
     else
     {
         animation->Play(clipName);
@@ -128,6 +211,17 @@ inline void UpdateAnimation(
         playerState.captureAnimationActive = false;
         playerState.captureAnimationReleased = false;
     }
+    if (playerState.pasteAnimationActive &&
+        playerState.pasteAnimationReleased &&
+        (((animation->GetCurrentClipName() == "paste_release") &&
+            animation->GetCurrentFrameIndex() >= (kPlayerPasteReleaseStartFrame + kPlayerPasteReleaseFrameCount - 1)) ||
+            ((animation->GetCurrentClipName() == "paste_attack_release") &&
+                animation->GetCurrentFrameIndex() >= (kPlayerAttackFrameCount - 1))))
+    {
+        playerState.pasteAnimationActive = false;
+        playerState.pasteAnimationReleased = false;
+        playerState.pasteAnimationEnemyAttack = false;
+    }
 
     const std::string_view currentClip(clipName);
     const bool usesNewCharacterSheet =
@@ -136,7 +230,10 @@ inline void UpdateAnimation(
         currentClip == "jump" ||
         currentClip == "fall" ||
         currentClip == "capture_hold" ||
-        currentClip == "capture_release";
+        currentClip == "capture_release" ||
+        currentClip == "paste_hold" ||
+        currentClip == "paste_release" ||
+        currentClip == "paste_attack_release";
     sprite->SetFlipX(usesNewCharacterSheet ? !playerState.facingRight : playerState.facingRight);
 }
 

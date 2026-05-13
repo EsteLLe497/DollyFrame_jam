@@ -60,7 +60,7 @@ float4 main(PSInput input) : SV_TARGET
             edgeFade = edgeFade * edgeFade * (3.0 - 2.0 * edgeFade);
             contribution = (1.0 - edgeFade) * intensity;
         }
-        else
+        else if (gLightShapeData[lightIndex].x < 1.5)
         {
             float2 extents = gLightShapeData[lightIndex].yz;
             float feather = max(gLightShapeData[lightIndex].w, 0.001);
@@ -69,6 +69,23 @@ float4 main(PSInput input) : SV_TARGET
             float insideDistance = min(max(delta.x, delta.y), 0.0);
             float signedDistance = outsideDistance + insideDistance;
             float edgeFade = smoothstep(0.0, feather, signedDistance);
+            edgeFade = edgeFade * edgeFade * (3.0 - 2.0 * edgeFade);
+            contribution = (1.0 - edgeFade) * intensity;
+        }
+        else
+        {
+            float topHalfWidth = max(light.z, 0.001);
+            float bottomHalfWidth = max(gLightShapeData[lightIndex].y, topHalfWidth);
+            float halfLength = max(gLightShapeData[lightIndex].z, 0.001);
+            float feather = max(gLightShapeData[lightIndex].w, 0.001);
+            float topY = light.y - halfLength;
+            float normalizedY = saturate((screenPos.y - topY) / (halfLength * 2.0));
+            float yWeight = normalizedY * normalizedY * (3.0 - 2.0 * normalizedY);
+            float halfWidth = lerp(topHalfWidth, bottomHalfWidth, yWeight);
+            float outsideX = max(abs(screenPos.x - light.x) - halfWidth, 0.0);
+            float outsideY = max(max(topY - screenPos.y, screenPos.y - (light.y + halfLength)), 0.0);
+            float outsideDistance = length(float2(outsideX, outsideY));
+            float edgeFade = smoothstep(0.0, feather, outsideDistance);
             edgeFade = edgeFade * edgeFade * (3.0 - 2.0 * edgeFade);
             contribution = (1.0 - edgeFade) * intensity;
         }

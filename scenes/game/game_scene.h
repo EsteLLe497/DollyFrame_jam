@@ -125,6 +125,7 @@ private:
     void RefreshBatteriesFromMarkers();
     void RefreshLogsFromMarkers();
     void RefreshMarkerLightsFromMarkers();
+    void RefreshStageLightsFromMarkers();
     void RefreshLaserTurretsFromMarkers();
     void RefreshLinkedGimmicksFromMarkers();
     void RefreshDamageFootholdsFromMarkers();

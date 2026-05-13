@@ -802,6 +802,11 @@ void GameScene::RefreshEnemiesFromMarkers()
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
                 placeEnemyAtMarker(boss);
             }
+            else if (marker == 'F')
+            {
+                Entity& boss = SpawnStagePrefab(prefabs, "sandbox_mid_boss2", markerX, markerY);
+                placeEnemyAtMarker(boss);
+            }
         }
     }
 }

@@ -708,7 +708,15 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_player = GameScenePlayerState{};
     m_flow = GameSceneFlowState{};
     m_effects = GameSceneEffectsState{};
-    m_mapEditor = GameSceneMapEditorState{};
+    m_mapEditor.active = false;
+    m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
+    m_mapEditor.selectedTileValue = 1;
+    m_mapEditor.selectedMarker = 'G';
+    m_mapEditor.selectedMarkerParameter = 1;
+    m_mapEditor.selectedStageLightTiles = 3;
+    m_mapEditor.selectedStageLightFixtureTiles = 1;
+    m_mapEditor.statusMessage.clear();
+    m_mapEditor.statusMessageTimer = 0.0f;
     m_cameraTransitionMarkers.clear();
     m_cameraFixedRanges.clear();
     m_hasPreviousPlayerCameraProbe = false;
@@ -750,19 +758,23 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
             m_assets.GetTexture("player_idle"),
             m_assets.GetTexture("player_move"),
             m_assets.GetTexture("player_jump"),
-            m_assets.GetTexture("player_capture"));
+            m_assets.GetTexture("player_capture"),
+            m_assets.GetTexture("player_paste"),
+            m_assets.GetTexture("player_attack"));
+        game_scene_player_visual_system::ResetSpriteAnimationToIdle(m_player, *transitionedPlayer);
 
         if (auto* transformed = transitionedPlayer->GetComponent<TransformComponent>())
         {
-            if (spawnMarker != '\0')
             {
+                static_cast<void>(spawnMarker);
+                const char resolvedSpawnMarker = 'P';
                 bool foundSpawnMarker = false;
                 for (int spawnRow = 0; spawnRow < m_tileMap.GetHeight() && !foundSpawnMarker; ++spawnRow)
                 {
                     for (int spawnColumn = 0; spawnColumn < m_tileMap.GetWidth(); ++spawnColumn)
                     {
                         const char tileMarker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(spawnColumn, spawnRow))));
-                        if (tileMarker != spawnMarker)
+                        if (tileMarker != resolvedSpawnMarker)
                         {
                             continue;
                         }

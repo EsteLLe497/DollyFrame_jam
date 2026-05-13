@@ -108,6 +108,14 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
 {
     scene.m_photo.placement.valid = false;
 
+    const bool pasteReleasePlaying = scene.m_player.pasteAnimationActive && scene.m_player.pasteAnimationReleased;
+    if (pasteReleasePlaying)
+    {
+        scene.m_photo.placement.active = false;
+        scene.m_photo.placement.blockedByUi = false;
+        return;
+    }
+
     if (!scene.m_flow.cameraMode &&
         scene.m_photo.capture.hasPhoto &&
         (Input_IsActionPressed(InputAction::HoldPlacement) || Input_IsNorthButtonPressed()))
@@ -116,10 +124,19 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
         if (scene.m_photo.placement.active)
         {
             scene.m_flow.cameraMode = false;
+            scene.m_player.captureAnimationActive = false;
+            scene.m_player.captureAnimationReleased = false;
+            scene.m_player.pasteAnimationActive = true;
+            scene.m_player.pasteAnimationReleased = false;
+            scene.m_player.pasteAnimationEnemyAttack = false;
+            scene.m_player.afterimages.clear();
             ++scene.m_photo.placement.sessionId;
         }
         else
         {
+            scene.m_player.pasteAnimationActive = false;
+            scene.m_player.pasteAnimationReleased = false;
+            scene.m_player.pasteAnimationEnemyAttack = false;
             scene.m_photo.placement.valid = false;
             scene.m_photo.placement.blockedByUi = false;
         }
@@ -133,6 +150,9 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
 
     if (Input_IsActionPressed(InputAction::Cancel))
     {
+        scene.m_player.pasteAnimationActive = false;
+        scene.m_player.pasteAnimationReleased = false;
+        scene.m_player.pasteAnimationEnemyAttack = false;
         scene.m_photo.placement.active = false;
         scene.m_photo.placement.valid = false;
         scene.m_photo.placement.blockedByUi = false;
@@ -563,6 +583,10 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
 
     if (confirmPressed && scene.m_photo.placement.valid)
     {
+        scene.m_player.captureAnimationActive = false;
+        scene.m_player.captureAnimationReleased = false;
+        scene.m_player.pasteAnimationEnemyAttack = scene.m_photo.capture.containsEnemyAttackPaste;
+        scene.m_player.pasteAnimationReleased = true;
         scene.m_photo.placement.confirmFlashRemaining = kPlacementConfirmFlashSeconds;
         return true;
     }
@@ -776,6 +800,65 @@ void PhotoPasteSystem::SpawnPhotoGroup(
 
         if (item.spawnArchetype == CapturedSpawnArchetype::LaserTurret)
         {
+            constexpr float kPastedBeamLifetimeSeconds = 3.0f;
+            constexpr float kPastedBeamWarmupSeconds = 0.45f;
+            constexpr float kPastedBeamKnockbackSpeed = 120.0f;
+
+            auto turretEntity = std::make_unique<Entity>();
+            Entity* spawnedTurret = turretEntity.get();
+            lastSpawnedEntity = spawnedTurret;
+            spawnedTurret->AddComponent<TagComponent>(kTagLaserTurret);
+            spawnedTurret->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedTurret->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedTurret->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
+            spawnedTurret->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+            spawnedTurret->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+            const float pastedBeamThickness = item.laserBeamThickness > 0.0f ? item.laserBeamThickness : (item.height * 0.2f);
+            auto& pastedTurret = spawnedTurret->AddComponent<LaserTurretComponent>(
+                pastedBeamThickness,
+                item.laserDamagePerSecond,
+                false,
+                item.flipX,
+                false);
+            pastedTurret.fireToLeft = item.flipX;
+            pastedTurret.warmupRemaining = kPastedBeamWarmupSeconds;
+            pastedTurret.enemyKnockbackSpeed = item.laserEnemyKnockbackSpeed > 0.0f
+                ? item.laserEnemyKnockbackSpeed
+                : kPastedBeamKnockbackSpeed;
+            spawnedTurret->AddComponent<PhotoCopyLifetimeComponent>(kPastedBeamLifetimeSeconds);
+            spawnedTurret->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
+            if (auto* sprite = spawnedTurret->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                sprite->SetFlipX(item.flipX);
+            }
+            if (auto* transform = spawnedTurret->GetComponent<TransformComponent>())
+            {
+                transform->rotation = item.rotation;
+            }
+            scene.m_entities.push_back(std::move(turretEntity));
+
+            auto beamEntity = std::make_unique<Entity>();
+            Entity* spawnedBeam = beamEntity.get();
+            spawnedBeam->AddComponent<TagComponent>(kTagLaserBeam);
+            spawnedBeam->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedBeam->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedBeam->AddComponent<TransformComponent>(
+                item.flipX
+                    ? (spawnX + item.relativeX)
+                    : (spawnX + item.relativeX + item.width),
+                spawnY + item.relativeY + item.height * 0.5f - pastedBeamThickness * 0.5f,
+                0.0f,
+                pastedBeamThickness);
+            spawnedBeam->AddComponent<TintComponent>(0.48f, 0.78f, 1.0f, 0.86f);
+            spawnedBeam->AddComponent<SpriteRenderComponent>(scene.m_whiteTexture);
+            spawnedBeam->AddComponent<LaserBeamComponent>();
+            spawnedBeam->AddComponent<PhotoCopyLifetimeComponent>(kPastedBeamLifetimeSeconds);
+            pastedTurret.beamEntity = spawnedBeam;
+            pastedTurret.beamOriginOffsetX = item.flipX ? 0.0f : item.width;
+            pastedTurret.beamOriginOffsetY = item.height * 0.5f;
+            scene.m_entities.push_back(std::move(beamEntity));
+            lastSpawnedEntity = spawnedBeam;
             continue;
         }
 

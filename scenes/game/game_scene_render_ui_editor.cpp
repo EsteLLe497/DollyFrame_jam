@@ -28,6 +28,7 @@ void GameScene::DrawMapEditorOverlay() const
     const int row = static_cast<int>(std::floor(worldY / tileSize));
     int hoveredTileValue = 0;
     char hoveredMarkerValue = '\0';
+    int hoveredMarkerParameter = 0;
     const bool markerMode = m_mapEditor.brushTarget == GameSceneMapEditorState::BrushTarget::Marker;
     const int cursorOuterColor = markerMode ? GetColor(116, 220, 255) : GetColor(255, 225, 120);
     const int cursorInnerColor = markerMode ? GetColor(72, 168, 255) : GetColor(255, 170, 80);
@@ -35,6 +36,7 @@ void GameScene::DrawMapEditorOverlay() const
     {
         hoveredTileValue = m_tileMap.GetTile(column, row);
         hoveredMarkerValue = m_tileMap.GetMarker(column, row);
+        hoveredMarkerParameter = m_tileMap.GetMarkerParameter(column, row);
         const int left = static_cast<int>(std::round(GetViewOriginX() + (static_cast<float>(column) * tileSize - m_flow.cameraX) * viewScale));
         const int top = static_cast<int>(std::round(GetViewOriginY() + (static_cast<float>(row) * tileSize - m_flow.cameraY) * viewScale));
         const int right = static_cast<int>(std::round(GetViewOriginX() + ((static_cast<float>(column) + 1.0f) * tileSize - m_flow.cameraX) * viewScale));
@@ -46,7 +48,7 @@ void GameScene::DrawMapEditorOverlay() const
     const int panelLeft = 22;
     const int panelTop = 22;
     const int panelRight = 560;
-    const int panelBottom = 244;
+    const int panelBottom = 286;
     const char selectedMarker = m_mapEditor.selectedMarker;
     const char markerLabel = selectedMarker == '\0' ? '-' : selectedMarker;
     const char hoveredMarkerLabel = hoveredMarkerValue == '\0' ? '-' : static_cast<char>(std::toupper(static_cast<unsigned char>(hoveredMarkerValue)));
@@ -62,38 +64,44 @@ void GameScene::DrawMapEditorOverlay() const
     DrawString(panelLeft + 16, panelTop + 38, "F4: 閉じる  M: タイル/マーカー切替  WASD/十字: カメラ移動", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 58, "左ドラッグ: 塗る  右ドラッグ: 消す", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 78, "タイル: 0-9 / Q,E / F9(10)", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(None),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(M Log),F11(Y),F12(N Boss),H,I,J,K,L,O,U,Q,E", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 114, "F5: 保存  F6: CSV再読込  F7: 新規作成  F8: 別名保存", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(None),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(M Log),F11(Y),N(? Boss1),F12(! Boss2),H,I,J,K,L,O,U,Q,E", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 114, "@照明: C/V 光の長さ  Z/X 本体横幅", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 132, "数値付き: C/V param  Z 符号反転  X 初期値", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 150, "F5: 保存  F6: CSV再読込  F7: 新規作成  F8: 別名保存", GetColor(168, 192, 220));
     DrawFormatString(
         panelLeft + 16,
-        panelTop + 138,
+        panelTop + 174,
         markerMode ? GetColor(180, 238, 255) : GetColor(255, 236, 160),
         "編集モード: %s",
         markerMode ? "マーカー" : "タイル");
     DrawFormatString(
         panelLeft + 16,
-        panelTop + 158,
+        panelTop + 194,
         GetColor(255, 236, 160),
-        "選択タイル: %d  /  選択マーカー: %c",
+        "選択タイル: %d  /  選択マーカー: %c  /  param:%d  /  @光:%d 本体:%d",
         m_mapEditor.selectedTileValue,
-        markerLabel);
+        markerLabel,
+        m_mapEditor.selectedMarkerParameter,
+        m_mapEditor.selectedStageLightTiles,
+        m_mapEditor.selectedStageLightFixtureTiles);
     DrawFormatString(
         panelLeft + 16,
-        panelTop + 178,
+        panelTop + 214,
         GetColor(255, 236, 160),
-        "カーソル: (%d,%d)  tile=%d marker=%c",
+        "カーソル: (%d,%d)  tile=%d marker=%c param=%d",
         column,
         row,
         hoveredTileValue,
-        hoveredMarkerLabel);
+        hoveredMarkerLabel,
+        hoveredMarkerParameter);
     DrawFormatString(
         panelLeft + 16,
-        panelTop + 198,
+        panelTop + 234,
         GetColor(220, 230, 244),
         "現在マップ: %s",
         GetMapDisplayName(gCurrentMapCsvPath).c_str());
     if (!m_mapEditor.statusMessage.empty())
     {
-        DrawString(panelLeft + 16, panelTop + 222, m_mapEditor.statusMessage.c_str(), GetColor(142, 236, 166));
+        DrawString(panelLeft + 16, panelTop + 258, m_mapEditor.statusMessage.c_str(), GetColor(142, 236, 166));
     }
 }
