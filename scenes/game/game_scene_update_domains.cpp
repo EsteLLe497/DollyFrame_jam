@@ -1352,6 +1352,7 @@ void GameScene::RunGameplayFrame(float gameplayDeltaTime)
     UpdateBatteries(gameplayDeltaTime);
     UpdateElevatorGimmicks(gameplayDeltaTime);
     UpdateEnemies();
+    UpdateShields(gameplayDeltaTime);
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
     UpdateGoalVisual(gameplayDeltaTime);

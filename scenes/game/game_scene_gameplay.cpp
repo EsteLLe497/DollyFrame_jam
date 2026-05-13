@@ -2010,7 +2010,7 @@ void GameScene::HandleAttackHits()
     {
         if (!entity) continue;
 
-        // Walker�U������
+        
         const auto* enemy = entity->GetComponent<EnemyComponent>();
         if (enemy && enemy->IsEnabled() && enemy->attackRectActive)
         {
@@ -2031,34 +2031,6 @@ void GameScene::HandleAttackHits()
             }
         }
 
-        // ���{�X�U������
-        auto* boss = entity->GetComponent<ShieldBossComponent>();
-        if (boss && boss->attackRectActive)
-        {
-            const float attackLeft = boss->attackRectX;
-            const float attackRight = boss->attackRectX + boss->attackRectWidth;
-            const float attackTop = boss->attackRectY;
-            const float attackBottom = boss->attackRectY + boss->attackRectHeight;
-
-            const bool intersects =
-                playerLeft < attackRight &&
-                playerRight > attackLeft &&
-                playerTop < attackBottom &&
-                playerBottom > attackTop;
-
-            // ���i�q�b�g�h�~
-            const bool alreadyHit = std::find(
-                boss->hitEntities.begin(),
-                boss->hitEntities.end(),
-                player) != boss->hitEntities.end();
-
-            if (intersects && !alreadyHit)
-            {
-                HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by boss slam",
-                    static_cast<int>(boss->attackRectDamage));
-                boss->hitEntities.push_back(player);
-            }
-        }
     }
 }
 

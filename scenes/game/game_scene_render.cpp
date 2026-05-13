@@ -1872,6 +1872,19 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
+    if ((!tag || !HasTag(tag, kTagPlayer)))
+    {
+        if (const auto* cooldown = entity.GetComponent<DamageCooldownComponent>())
+        {
+            if (cooldown->GetRemainingSeconds() > 0.0f)
+            {
+                const float cooldownSeconds = std::max(0.001f, cooldown->GetCooldownSeconds());
+                const float flashT = Clamp01(cooldown->GetRemainingSeconds() / cooldownSeconds);
+                Shader_SetFlash(1.0f, 0.88f, 0.28f, 1.0f, flashT);
+            }
+        }
+    }
+
     if (const auto* tint = entity.GetComponent<TintComponent>())
     {
         Shader_SetTint(tint->r, tint->g, tint->b, tint->a * alphaMultiplier);
@@ -2141,7 +2154,7 @@ void GameScene::DrawEnemyAttackRects() const
     {
         if (!entity) continue;
 
-        // Walker・ｽU・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ
+        // Walker
         const auto* enemy = entity->GetComponent<EnemyComponent>();
         if (enemy && enemy->attackRectActive)
         {

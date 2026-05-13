@@ -169,10 +169,11 @@ namespace
             return PhotoPlacementRuleGroup::Group1;
         }
 
-        // Mid-boss shield tags are grouped with gravity/projectile restrictions.
-        if (HasTag(entity, "Shield") || HasTag(entity, "Boss1Shield") || HasTag(entity, "MidBoss1Shield"))
+        // Shield captures can be pasted overlapping other objects and then resolve in gameplay.
+        if (entity.GetComponent<ShieldComponent>() != nullptr ||
+            HasTag(entity, "Shield") || HasTag(entity, "Boss1Shield") || HasTag(entity, "MidBoss1Shield"))
         {
-            return PhotoPlacementRuleGroup::Group2;
+            return PhotoPlacementRuleGroup::Group3;
         }
 
         return PhotoPlacementRuleGroup::Group1;
@@ -351,11 +352,94 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedProjectile = projectile != nullptr;
         const auto* enemyComp = entity->GetComponent<EnemyComponent>();
         const bool capturedWalker = enemyComp && enemyComp->GetArchetype() == EnemyArchetype::Walker;
+        const auto* shieldComp = entity->GetComponent<ShieldComponent>();
+        const bool capturedShield = shieldComp != nullptr;
+        if (capturedShield && shieldComp->photoSpawned && shieldComp->grounded)
+        {
+            continue;
+        }
+        CapturedSpawnArchetype capturedShieldArchetype = CapturedSpawnArchetype::None;
+        if (capturedShield)
+        {
+            if (shieldComp->photoSpawned)
+            {
+                switch (shieldComp->capturedMode)
+                {
+                case CapturedShieldMode::RushBurst:
+                    capturedShieldArchetype = CapturedSpawnArchetype::ShieldRushBurst;
+                    break;
+                case CapturedShieldMode::JumpBurst:
+                    capturedShieldArchetype = CapturedSpawnArchetype::ShieldJumpBurst;
+                    break;
+                case CapturedShieldMode::Normal:
+                case CapturedShieldMode::None:
+                default:
+                    capturedShieldArchetype = CapturedSpawnArchetype::ShieldNormal;
+                    break;
+                }
+            }
+            else if (shieldComp->ownerBoss)
+            {
+                if (const auto* bossComp = shieldComp->ownerBoss->GetComponent<ShieldBossComponent>())
+                {
+                    switch (bossComp->state)
+                    {
+                    case ShieldBossState::Rush:
+                        capturedShieldArchetype = CapturedSpawnArchetype::ShieldRushBurst;
+                        break;
+                    case ShieldBossState::JumpAscend:
+                    case ShieldBossState::AirHover:
+                    case ShieldBossState::JumpDescend:
+                        capturedShieldArchetype = CapturedSpawnArchetype::ShieldJumpBurst;
+                        break;
+                    default:
+                        capturedShieldArchetype = CapturedSpawnArchetype::ShieldNormal;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                capturedShieldArchetype = CapturedSpawnArchetype::ShieldNormal;
+            }
+        }
         item.textureId = sprite->GetTextureId();
         item.role = GetEntityCopyRole(*entity);
         item.layer = PhotoCopyLayer::Foreground;
         item.origin = GetEntityCopyOrigin(*entity);
         item.appliedTheme = scene.m_photo.capture.selectedTheme;
+        if (capturedShield)
+        {
+            item.spawnArchetype = capturedShieldArchetype;
+        }
+        else if (capturedBarrel)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::Barrel;
+        }
+        else if (capturedLog)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::Log;
+        }
+        else if (capturedBattery)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::Battery;
+        }
+        else if (capturedProjectile)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::Projectile;
+        }
+        else if (capturedLaserTurret)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::LaserTurret;
+        }
+        else if (capturedWalker)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::WalkerMelee;
+        }
+        else
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::None;
+        }
         item.spawnArchetype = capturedBarrel
             ? CapturedSpawnArchetype::Barrel
             : (capturedLog
@@ -448,7 +532,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
         }
-        else if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !damagePlatform && !spikeStrip)
+        else if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedShield && !damagePlatform && !spikeStrip)
         {
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);

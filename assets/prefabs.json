@@ -698,7 +698,7 @@
       },
       "health": {
         "enabled": true,
-        "maxHp": 10
+        "maxHp": 3
       }
     },
     "sandbox_mid_boss2": {

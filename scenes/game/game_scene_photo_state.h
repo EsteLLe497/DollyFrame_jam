@@ -15,6 +15,9 @@ enum class CapturedSpawnArchetype
     Projectile,
     LaserTurret,
     WalkerMelee,
+    ShieldNormal,
+    ShieldRushBurst,
+    ShieldJumpBurst,
 };
 
 enum class PhotoPlacementRuleGroup

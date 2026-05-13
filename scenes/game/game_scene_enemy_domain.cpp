@@ -256,6 +256,301 @@ int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
     }
 }
 
+void GameScene::UpdateShields(float deltaTime)
+{
+    constexpr float kTileSize = 48.0f;
+    constexpr float kGravity = 1900.0f;
+    constexpr float kMaxFallSpeed = 980.0f;
+    Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    std::vector<std::unique_ptr<Entity>> spawnedShockwaves;
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* shield = entity->GetComponent<ShieldComponent>();
+        auto* shieldTransform = entity->GetComponent<TransformComponent>();
+        if (!shield || !shieldTransform)
+        {
+            continue;
+        }
+
+        const bool isBossShield = HasTag(*entity, "BossShield");
+        const bool isCapturedShield = HasTag(*entity, "CapturedShield");
+        if (!isBossShield && !isCapturedShield)
+        {
+            continue;
+        }
+
+        if (shield->photoSpawned)
+        {
+            switch (shield->capturedMode)
+            {
+            case CapturedShieldMode::Normal:
+                shield->gravityEnabled = true;
+                shield->grounded = false;
+                shield->velocityY = std::min(kMaxFallSpeed, shield->velocityY + kGravity * deltaTime);
+                shieldTransform->x += shield->velocityX * deltaTime;
+                shieldTransform->y += shield->velocityY * deltaTime;
+                shieldTransform->rotation += shield->rotationSpeed * deltaTime;
+                if (TrySnapToGround(*shieldTransform,
+                    std::max(gGroundSnapDistance, std::fabs(shield->velocityY) * deltaTime + 4.0f)))
+                {
+                    shield->grounded = true;
+                    shield->velocityY = 0.0f;
+                    shield->velocityX *= 0.85f;
+                }
+                break;
+            case CapturedShieldMode::RushBurst:
+                shieldTransform->x += shield->velocityX * deltaTime;
+                break;
+            case CapturedShieldMode::JumpBurst:
+                if (shield->grounded)
+                {
+                    shield->contactDamage = 0;
+                    shield->gravityEnabled = false;
+                    shield->velocityX = 0.0f;
+                    shield->velocityY = 0.0f;
+                    shield->rotationSpeed = 0.0f;
+                    break;
+                }
+                if (shield->followPlayer && playerTransform)
+                {
+                    shield->hoverElapsed += deltaTime;
+                    const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+                    const float playerFootY = playerTransform->y + playerTransform->height * playerTransform->scale;
+                    const float shieldWidth = shieldTransform->width * shieldTransform->scale;
+                    shieldTransform->x = playerCenterX + shield->followOffsetX - shieldWidth * 0.5f;
+                    shieldTransform->y = playerFootY + shield->followOffsetY;
+                    if (shield->hoverElapsed >= shield->hoverDuration)
+                    {
+                        shield->followPlayer = false;
+                        shield->hitEntities.clear();
+                    }
+                }
+                else
+                {
+                    shieldTransform->y += shield->descendSpeed * deltaTime;
+                    if (TrySnapToGround(*shieldTransform, shield->descendSpeed * deltaTime + 4.0f))
+                    {
+                        shield->grounded = true;
+                        shield->contactDamage = 0;
+                        shield->gravityEnabled = false;
+                        shield->velocityX = 0.0f;
+                        shield->velocityY = 0.0f;
+                        shield->rotationSpeed = 0.0f;
+                        shield->hitEntities.clear();
+
+                        if (!shield->shockwaveSpawned)
+                        {
+                            shield->shockwaveSpawned = true;
+                            const float shockW = kTileSize * 8.0f;
+                            const float shockH = kTileSize * 3.0f;
+                            auto shockwave = std::make_unique<Entity>();
+                            shockwave->AddComponent<TagComponent>("BossShockwave");
+                            shockwave->AddComponent<TransformComponent>(
+                                shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f - shockW * 0.5f,
+                                shieldTransform->y + shieldTransform->height * shieldTransform->scale - shockH,
+                                shockW,
+                                shockH);
+                            shockwave->AddComponent<TintComponent>(0.18f, 0.95f, 1.0f, 0.75f);
+                            auto& shockComp = shockwave->AddComponent<ShieldShockwaveComponent>();
+                            shockComp.ownerBoss = shield->ownerBoss;
+                            shockComp.damage = 1;
+                            shockComp.lifetime = 0.4f;
+                            shockComp.damagesPlayer = false;
+                            spawnedShockwaves.push_back(std::move(shockwave));
+                        }
+                    }
+                }
+                break;
+            case CapturedShieldMode::None:
+            default:
+                break;
+            }
+        }
+        else
+        {
+            const bool skipPhysics = shield->attached;
+            if (!skipPhysics)
+            {
+                if (shield->attackType == ShieldAttackType::Base)
+                {
+                    shield->baseAttackElapsed += deltaTime;
+                    if (shield->baseAttackElapsed >= shield->baseAttackDuration)
+                    {
+                        shield->attached = true;
+                        shield->attackType = ShieldAttackType::None;
+                        shield->velocityX = 0.0f;
+                        shield->velocityY = 0.0f;
+                        shield->rotationSpeed = 0.0f;
+                        shield->gravityEnabled = false;
+                        shield->baseAttackElapsed = 0.0f;
+                        shield->contactDamage = 1;
+                        continue;
+                    }
+                }
+
+                if (shield->gravityEnabled)
+                {
+                    shield->velocityY = std::min(kMaxFallSpeed, shield->velocityY + kGravity * deltaTime);
+                }
+
+                shieldTransform->x += shield->velocityX * deltaTime;
+                shieldTransform->y += shield->velocityY * deltaTime;
+                shieldTransform->rotation += shield->rotationSpeed * deltaTime;
+
+                if (TrySnapToGround(*shieldTransform,
+                    std::max(gGroundSnapDistance, std::fabs(shield->velocityY) * deltaTime + 4.0f)))
+                {
+                    shield->velocityY = 0.0f;
+                    shield->velocityX *= 0.85f;
+                }
+            }
+        }
+
+        const float shieldW = shieldTransform->width * shieldTransform->scale;
+
+        if ((!shield->photoSpawned || shield->capturedMode == CapturedShieldMode::Normal) &&
+            player && playerTransform && IntersectsRect(*playerTransform, *shieldTransform))
+        {
+            ApplyHazardDamageToPlayer(*player, entity.get(),
+                "BossShield damaged player", shield->contactDamage);
+        }
+
+        for (const auto& target : m_entities)
+        {
+            if (!target || target.get() == entity.get())
+            {
+                continue;
+            }
+            if (HasTag(*target, "BossShield") || HasTag(*target, "CapturedShield") || HasTag(*target, "BossShockwave"))
+            {
+                continue;
+            }
+            if (target.get() == shield->ownerBoss)
+            {
+                continue;
+            }
+
+            auto* enemy = target->GetComponent<EnemyComponent>();
+            if (!enemy || !enemy->IsEnabled() || enemy->IsDefeated())
+            {
+                continue;
+            }
+
+            auto* enemyTransform = target->GetComponent<TransformComponent>();
+            if (!enemyTransform || !IntersectsRect(*shieldTransform, *enemyTransform))
+            {
+                continue;
+            }
+            if (shield->contactDamage <= 0)
+            {
+                continue;
+            }
+
+            if (shield->photoSpawned)
+            {
+                const bool alreadyHit = std::find(
+                    shield->hitEntities.begin(),
+                    shield->hitEntities.end(),
+                    target.get()) != shield->hitEntities.end();
+                if (alreadyHit)
+                {
+                    continue;
+                }
+                shield->hitEntities.push_back(target.get());
+            }
+
+            HandleEnemyDamage(*target, entity.get(), shield->contactDamage, "BossShield damaged enemy");
+
+            const float shieldCenterX = shieldTransform->x + shieldW * 0.5f;
+            const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
+            const float dir = enemyCenterX >= shieldCenterX ? 1.0f : -1.0f;
+            enemyTransform->x += dir * shield->knockbackGrids * kTileSize;
+        }
+    }
+
+    for (auto& shockwave : spawnedShockwaves)
+    {
+        m_entities.push_back(std::move(shockwave));
+    }
+
+    std::vector<Entity*> shockwavesToRemove;
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, "BossShockwave")) continue;
+
+        auto* shockwave = entity->GetComponent<ShieldShockwaveComponent>();
+        auto* shockTransform = entity->GetComponent<TransformComponent>();
+        if (!shockwave || !shockTransform) continue;
+
+        shockwave->elapsed += deltaTime;
+        if (shockwave->elapsed >= shockwave->lifetime)
+        {
+            shockwavesToRemove.push_back(entity.get());
+            continue;
+        }
+
+        if (shockwave->damagesPlayer &&
+            !shockwave->hitPlayer && player && playerTransform
+            && IntersectsRect(*playerTransform, *shockTransform))
+        {
+            ApplyHazardDamageToPlayer(*player, entity.get(),
+                "BossShockwave damaged player", shockwave->damage);
+            shockwave->hitPlayer = true;
+        }
+
+        for (const auto& target : m_entities)
+        {
+            if (!target || target.get() == entity.get()) continue;
+            if (HasTag(*target, "BossShield") || HasTag(*target, "CapturedShield") || HasTag(*target, "BossShockwave")) continue;
+            if (target.get() == shockwave->ownerBoss) continue;
+
+            auto* enemy = target->GetComponent<EnemyComponent>();
+            if (!enemy || !enemy->IsEnabled() || enemy->IsDefeated()) continue;
+
+            auto* enemyTransform = target->GetComponent<TransformComponent>();
+            if (!enemyTransform || !IntersectsRect(*shockTransform, *enemyTransform)) continue;
+
+            const bool alreadyHit = std::find(
+                shockwave->hitEntities.begin(),
+                shockwave->hitEntities.end(),
+                target.get()) != shockwave->hitEntities.end();
+            if (alreadyHit) continue;
+
+            HandleEnemyDamage(*target, entity.get(), shockwave->damage, "BossShockwave damaged enemy");
+            shockwave->hitEntities.push_back(target.get());
+
+            const float shockCenterX = shockTransform->x + shockTransform->width * shockTransform->scale * 0.5f;
+            const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
+            const float dir = enemyCenterX >= shockCenterX ? 1.0f : -1.0f;
+            enemyTransform->x += dir * shockwave->knockbackGrids * kTileSize;
+        }
+    }
+
+    if (!shockwavesToRemove.empty())
+    {
+        m_entities.erase(
+            std::remove_if(
+                m_entities.begin(),
+                m_entities.end(),
+                [&](const std::unique_ptr<Entity>& e) -> bool
+                {
+                    if (!e) return false;
+                    for (Entity* ptr : shockwavesToRemove)
+                    {
+                        if (e.get() == ptr) return true;
+                    }
+                    return false;
+                }),
+            m_entities.end());
+    }
+}
 void GameScene::HandleEnemyPlayerCollisions(Entity& player)
 {
     const auto* playerTransform = player.GetComponent<TransformComponent>();
@@ -413,6 +708,27 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     {
         return;
     }
+
+    auto* damageFlash = enemy.GetComponent<DamageCooldownComponent>();
+    if (!damageFlash)
+    {
+        damageFlash = &enemy.AddComponent<DamageCooldownComponent>(0.18f);
+    }
+    damageFlash->Trigger();
+
+    if (auto* boss = enemy.GetComponent<ShieldBossComponent>())
+    {
+        if (boss->shieldEntity)
+        {
+            auto* shieldFlash = boss->shieldEntity->GetComponent<DamageCooldownComponent>();
+            if (!shieldFlash)
+            {
+                shieldFlash = &boss->shieldEntity->AddComponent<DamageCooldownComponent>(0.18f);
+            }
+            shieldFlash->Trigger();
+        }
+    }
+
     bool defeatedThisHit = false;
     if (auto* health = enemy.GetComponent<HealthComponent>())
     {

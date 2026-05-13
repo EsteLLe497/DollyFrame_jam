@@ -20,6 +20,13 @@ inline bool HasTag(const Entity& entity, const char* value)
     return tag && tag->tag == value;
 }
 
+inline bool IntersectsBounds(const TransformComponent& a, const TransformComponent& b)
+{
+    const float aRight = a.x + a.width * a.scale;
+    const float aBottom = a.y + a.height * a.scale;
+    const float bRight = b.x + b.width * b.scale;
+    const float bBottom = b.y + b.height * b.scale;
+    return a.x < bRight && aRight > b.x && a.y < bBottom && aBottom > b.y;
 inline const char* ToMidBoss2StateLabel(MidBoss2State state)
 {
     switch (state)
@@ -76,6 +83,7 @@ inline void UpdateEnemies(
 {
     flow.enemyCount = 0;
     std::vector<std::unique_ptr<Entity>> newBullets;
+    std::vector<std::unique_ptr<Entity>> newShields;
 
     for (const auto& entity : entities)
     {
@@ -115,7 +123,7 @@ inline void UpdateEnemies(
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // �d�͏���
+            // 重力処理
             enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
             transform->y += enemy->velocityY * flow.lastDeltaTime;
             const bool onGround = snapToGround(*transform);
@@ -124,7 +132,7 @@ inline void UpdateEnemies(
                 enemy->velocityY = 0.0f;
             }
 
-            // �����X�V
+            // 向き更新
             if (enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
                 enemy->facing = dx > 0.0f
@@ -132,7 +140,7 @@ inline void UpdateEnemies(
                     : EnemyComponent::FacingDirection::Left;
             }
 
-            // �U���l�p�̎c�莞�Ԃ�X�V
+            // 攻撃四角の残り時間を更新
             if (enemy->attackRectActive)
             {
                 enemy->attackRectRemaining -= flow.lastDeltaTime;
@@ -153,7 +161,7 @@ inline void UpdateEnemies(
             case EnemyComponent::AIState::Chase:
                 if (dist < enemy->attackRange)
                 {
-                    // �U���J�n���Ɍ�����Œ肵�čU���l�p�𐶐�
+                    // 攻撃開始時に向きを固定して攻撃四角を生成
                     enemy->facing = dx > 0.0f
                         ? EnemyComponent::FacingDirection::Right
                         : EnemyComponent::FacingDirection::Left;
@@ -256,7 +264,7 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            // ���m�͈͓�Ȃ�Ǐ]�i�n�`�����Œ��i�j
+            // 検知範囲内なら追従（地形無視で直進）
             if (dist < ghost->detectRange)
             {
                 const float length = std::max(1.0f, dist);
@@ -279,7 +287,7 @@ inline void UpdateEnemies(
             blaster->cooldownTimer += flow.lastDeltaTime;
             blaster->burstTimer += flow.lastDeltaTime;
 
-            // ���m�͈͓�ŃN�[���_�E���I��������A�ˊJ�n
+            // 検知範囲内でクールダウン終了したら連射開始
             if (dist < blaster->detectRange && blaster->shotsRemaining == 0
                 && blaster->cooldownTimer >= blaster->cooldown)
             {
@@ -288,7 +296,7 @@ inline void UpdateEnemies(
                 blaster->cooldownTimer = 0.0f;
             }
 
-            // �A�ˏ���
+            // 連射処理
             if (blaster->shotsRemaining > 0 && blaster->burstTimer >= blaster->burstInterval)
             {
                 blaster->burstTimer = 0.0f;
@@ -322,46 +330,108 @@ inline void UpdateEnemies(
 
             const float dx = playerTransform->x - transform->x;
             const float dy = playerTransform->y - transform->y;
-            const bool inDetectRange = std::fabs(dx) < boss->detectRange && std::fabs(dy) < boss->detectHeight;
+            const bool inDetectRange = std::fabs(dx) < boss->detectRange
+                && std::fabs(dy) < boss->detectHeight;
 
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
             constexpr float kTileSize = 48.0f;
+            const float bossWidth = transform->width * transform->scale;
+            const float bossHeight = transform->height * transform->scale;
+
+            float& bossVelocityY = enemy->velocityY;
+            float bossVelocityX = 0.0f;
+
+            ShieldComponent* shieldComp = boss->shieldEntity
+                ? boss->shieldEntity->GetComponent<ShieldComponent>()
+                : nullptr;
+            TransformComponent* shieldTransform = boss->shieldEntity
+                ? boss->shieldEntity->GetComponent<TransformComponent>()
+                : nullptr;
+            TintComponent* shieldTint = boss->shieldEntity
+                ? boss->shieldEntity->GetComponent<TintComponent>()
+                : nullptr;
+
+            // Shield follow while attached.
+            if (shieldComp && shieldTransform && shieldComp->attached)
 
             // �d�͏����i�W�����v���̂݁j
             if (boss->state == ShieldBossState::JumpAscend ||
                 boss->state == ShieldBossState::JumpDescend)
             {
-                boss->velocityY = std::min(kMaxFallSpeed, boss->velocityY + kGravity * flow.lastDeltaTime);
-                transform->y += boss->velocityY * flow.lastDeltaTime;
-
-                const float targetDx = boss->targetX - transform->x;
-                if (std::fabs(targetDx) > 4.0f)
+                const float shieldW = shieldTransform->width * shieldTransform->scale;
+                const float shieldH = shieldTransform->height * shieldTransform->scale;
+                if (shieldTint)
                 {
-                    transform->x += (targetDx > 0.0f ? 1.0f : -1.0f) * 400.0f * flow.lastDeltaTime;
+                    shieldTint->r = 0.72f;
+                    shieldTint->g = 0.78f;
+                    shieldTint->b = 0.90f;
+                    shieldTint->a = 1.0f;
                 }
 
-                if (boss->state == ShieldBossState::JumpAscend && boss->velocityY >= 0.0f)
+                if (boss->state == ShieldBossState::JumpAscend)
                 {
-                    boss->state = ShieldBossState::JumpDescend;
+                    // During ascent the shield stays above the boss.
+                    shieldTransform->x = boss->facing == ShieldBossFacing::Right
+                        ? transform->x + bossWidth
+                        : transform->x - shieldW;
+                    shieldTransform->y = transform->y - shieldH;
                 }
-
-                const float targetRotation = boss->facing == ShieldBossFacing::Right
-                    ? -0.8f  
-                    : 0.8f;
-                transform->rotation += (targetRotation - transform->rotation) * flow.lastDeltaTime * 5.0f;
+                else if (boss->state == ShieldBossState::AirHover)
+                {
+                    shieldTransform->x = boss->hoverShieldX;
+                    shieldTransform->y = boss->hoverShieldY;
+                }
+                else if (boss->state == ShieldBossState::Rush)
+                {
+                    // 突進中：ボスの正面
+                    shieldTransform->x = boss->facing == ShieldBossFacing::Right
+                        ? transform->x + bossWidth
+                        : transform->x - shieldW;
+                    shieldTransform->y = transform->y;
+                }
+                else
+                {
+                    // 通常：ボスの正面
+                    shieldTransform->x = boss->facing == ShieldBossFacing::Right
+                        ? transform->x + bossWidth
+                        : transform->x - shieldW;
+                    shieldTransform->y = transform->y;
+                    shieldTransform->rotation = 0.0f;
+                }
             }
-            else if (boss->state == ShieldBossState::Rush)
+
+            // 重力（待機系）
+            if (boss->state == ShieldBossState::Idle ||
+                boss->state == ShieldBossState::Detect ||
+                boss->state == ShieldBossState::RushCooldown ||
+                boss->state == ShieldBossState::Cooldown)
+            {
+                bossVelocityY = std::min(kMaxFallSpeed, bossVelocityY + kGravity * flow.lastDeltaTime);
+                transform->y += bossVelocityY * flow.lastDeltaTime;
+                const bool onGround = snapToGround(*transform);
+                if (onGround) bossVelocityY = 0.0f;
+            }
+
+            // 突進
+            bool rushEndedThisFrame = false;
+            if (boss->state == ShieldBossState::Rush)
             {
                 const float dir = boss->facing == ShieldBossFacing::Right ? 1.0f : -1.0f;
                 transform->x += dir * boss->rushSpeed * flow.lastDeltaTime;
+
+                bool hitPlayer = false;
+                if (playerTransform)
+                {
+                    hitPlayer = IntersectsBounds(*transform, *playerTransform)
+                        || (shieldTransform && IntersectsBounds(*shieldTransform, *playerTransform));
+                }
 
                 // �ǃ`�F�b�N
                 const float bossWidth = transform->width * transform->scale;
                 const float bossHeight = transform->height * transform->scale;
                 const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
                 const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
-
                 bool hitWall = false;
                 if (boss->facing == ShieldBossFacing::Right)
                 {
@@ -390,13 +460,15 @@ inline void UpdateEnemies(
                     }
                 }
 
-                if (hitWall)
+                if (hitPlayer)
                 {
-                    boss->attackRectActive = false;
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
+                    transform->x -= dir * (kTileSize * 3.0f);
+                    rushEndedThisFrame = true;
                 }
+                else if (hitWall || checkPhotoBoxCollision(*transform, *entity))
 
                 // �U������X�V
                 const float rectW = kTileSize * 0.8f;
@@ -411,18 +483,121 @@ inline void UpdateEnemies(
 
                 if (!hitWall && checkPhotoBoxCollision(*transform, *entity))
                 {
-                    boss->attackRectActive = false;
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
+                    rushEndedThisFrame = true;
                 }
+
+                if (rushEndedThisFrame) continue;
             }
-            else if (
-                boss->state == ShieldBossState::Idle ||
-                boss->state == ShieldBossState::Detect ||
-                boss->state == ShieldBossState::RushCooldown ||
-                boss->state == ShieldBossState::Cooldown)
+
+            // ジャンプ上昇
+            if (boss->state == ShieldBossState::JumpAscend)
             {
+                const float jumpHeightPx = boss->jumpHeight * kTileSize;
+                const float ascendProgress = std::min(1.0f, boss->stateTimer / boss->jumpAscendDuration);
+                const float easedProgress = std::sin(ascendProgress * 3.1415926f * 0.5f);
+                transform->y = boss->targetY - jumpHeightPx * easedProgress;
+
+                const float targetDx = boss->targetX - transform->x;
+                if (std::fabs(targetDx) > 2.0f)
+                {
+                    transform->x += targetDx * std::min(1.0f, flow.lastDeltaTime * 6.0f);
+                }
+
+                boss->stateTimer += flow.lastDeltaTime;
+                if (boss->stateTimer >= boss->jumpAscendDuration)
+                {
+                    if (shieldComp && shieldTransform)
+                    {
+                        boss->hoverShieldX = shieldTransform->x;
+                        boss->hoverShieldY = boss->targetY - jumpHeightPx;
+                        shieldComp->attached = false;
+                        shieldComp->gravityEnabled = false;
+                        shieldComp->velocityX = 0.0f;
+                        shieldComp->velocityY = 0.0f;
+                        shieldComp->rotationSpeed = 0.0f;
+                        shieldTransform->x = boss->hoverShieldX;
+                        shieldTransform->y = boss->hoverShieldY;
+                    }
+                    boss->state = ShieldBossState::AirHover;
+                    boss->stateTimer = 0.0f;
+                }
+                continue;
+            }
+
+            // Air hover.
+            if (boss->state == ShieldBossState::AirHover)
+            {
+                boss->stateTimer += flow.lastDeltaTime;
+                if (boss->stateTimer >= boss->airHoverDuration)
+                {
+                    boss->state = ShieldBossState::JumpDescend;
+                    boss->stateTimer = 0.0f;
+                }
+                continue;
+            }
+            if (boss->state == ShieldBossState::JumpDescend)
+            {
+                if (!(shieldComp && shieldTransform))
+                {
+                    boss->state = ShieldBossState::Cooldown;
+                    boss->stateTimer = 0.0f;
+                    continue;
+                }
+
+                shieldTransform->y += boss->descendSpeed * flow.lastDeltaTime;
+
+                const float shieldW = shieldTransform->width * shieldTransform->scale;
+                const float shieldH = shieldTransform->height * shieldTransform->scale;
+                const float feetY = shieldTransform->y + shieldH;
+                const int bottomRow = static_cast<int>(feetY / kTileSize);
+                const int leftCol = static_cast<int>((shieldTransform->x + 4.0f) / kTileSize);
+                const int rightCol = static_cast<int>((shieldTransform->x + shieldW - 4.0f) / kTileSize);
+
+                bool onGround = false;
+                for (int col = leftCol; col <= rightCol; ++col)
+                {
+                    if (isSolidTile(col, bottomRow))
+                    {
+                        shieldTransform->y = static_cast<float>(bottomRow) * kTileSize - shieldH;
+                        onGround = true;
+                        break;
+                    }
+                }
+
+                if (onGround)
+                {
+                    bossVelocityY = 0.0f;
+                    transform->rotation = 0.0f;
+                    transform->y = boss->targetY;
+
+                    // Switch the shield to its slam hitbox once it reaches the ground.
+                    const float slamW = kTileSize * 5.0f;
+                    const float slamH = kTileSize * 1.0f;
+                    shieldComp->attached = false;
+                    shieldComp->attackType = ShieldAttackType::Slam;
+                    shieldComp->contactDamage = 2;
+                    shieldComp->gravityEnabled = false;
+                    shieldComp->velocityX = 0.0f;
+                    shieldComp->velocityY = 0.0f;
+                    shieldComp->rotationSpeed = 0.0f;
+                    shieldTransform->width = slamW;
+                    shieldTransform->height = slamH;
+                    shieldTransform->x -= (slamW - shieldW) * 0.5f;
+                    if (shieldTint)
+                    {
+                        shieldTint->r = 1.0f;
+                        shieldTint->g = 0.45f;
+                        shieldTint->b = 0.12f;
+                        shieldTint->a = 1.0f;
+                    }
+
+                    boss->state = ShieldBossState::SlamPhase1;
+                    boss->stateTimer = 0.0f;
+                }
+                continue;
                 // �ҋ@�n�X�e�[�g�̂ݒn�ʃX�i�b�v
                 boss->velocityY = std::min(kMaxFallSpeed, boss->velocityY + kGravity * flow.lastDeltaTime);
                 transform->y += boss->velocityY * flow.lastDeltaTime;
@@ -435,7 +610,6 @@ inline void UpdateEnemies(
             switch (boss->state)
             {
             case ShieldBossState::Idle:
-                boss->attackRectActive = false;
                 if (inDetectRange)
                 {
                     boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
@@ -446,21 +620,17 @@ inline void UpdateEnemies(
                 break;
 
             case ShieldBossState::Detect:
-                // ���m�シ���ːi��
                 boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
                 if (boss->stateTimer >= 0.5f)
                 {
                     boss->state = ShieldBossState::Rush;
                     boss->stateTimer = 0.0f;
-                    boss->hitEntities.clear();
                 }
                 break;
 
             case ShieldBossState::Rush:
-                // �ːi�I������F���Ԑ؂�
                 if (boss->stateTimer >= boss->rushDuration)
                 {
-                    boss->attackRectActive = false;
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
@@ -468,27 +638,44 @@ inline void UpdateEnemies(
                 break;
 
             case ShieldBossState::RushCooldown:
-                boss->attackRectActive = false;
                 if (boss->stateTimer >= boss->rushCooldown)
                 {
                     if (boss->rushCount < boss->rushCountMax)
                     {
-                        // ���̓ːi��
                         boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
                         boss->state = ShieldBossState::Rush;
                         boss->stateTimer = 0.0f;
-                        boss->hitEntities.clear();
+                        if (shieldComp)
+                        {
+                            shieldComp->attached = true;
+                            shieldComp->attackType = ShieldAttackType::None;
+                            shieldComp->velocityX = 0.0f;
+                            shieldComp->velocityY = 0.0f;
+                            shieldComp->rotationSpeed = 0.0f;
+                            shieldComp->gravityEnabled = false;
+                            shieldComp->baseAttackElapsed = 0.0f;
+                            shieldComp->contactDamage = 1;
+                            if (shieldTransform)
+                            {
+                                shieldTransform->width = kTileSize * 1.0f;
+                                shieldTransform->height = kTileSize * 3.0f;
+                                shieldTransform->rotation = 0.0f;
+                            }
+                        }
                     }
                     else
                     {
-                        // �W�����v�U����
+                        boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
                         boss->rushCount = 0;
-                        boss->targetX = playerTransform->x
-                            + playerTransform->width * playerTransform->scale * 0.5f
-                            - transform->width * transform->scale * 0.5f;
-                        const float jumpHeightPx = boss->jumpHeight * kTileSize;
-                        boss->velocityY = -std::sqrt(2.0f * kGravity * jumpHeightPx);
-                        boss->velocityX = 0.0f;
+                        const float playerCenterX = playerTransform->x
+                            + playerTransform->width * playerTransform->scale * 0.5f;
+                        const float jumpShieldWidth = kTileSize * 3.0f;
+                        boss->targetX = boss->facing == ShieldBossFacing::Right
+                            ? playerCenterX - bossWidth - jumpShieldWidth * 0.5f
+                            : playerCenterX + jumpShieldWidth * 0.5f;
+                        boss->targetY = transform->y;
+                        bossVelocityY = 0.0f;
+                        bossVelocityX = 0.0f;
                         boss->state = ShieldBossState::JumpAscend;
                         boss->stateTimer = 0.0f;
                     }
@@ -501,31 +688,48 @@ inline void UpdateEnemies(
                 // �㏸���͒��n���肵�Ȃ�
                 if (boss->velocityY < 0.0f) break;
 
-                const bool onGround = snapToGround(*transform);
-                if (onGround && boss->stateTimer > 0.3f)
-                {
-                    boss->velocityY = 0.0f;
-
-                    const float slamW = kTileSize * 4.0f;
-                    const float slamH = kTileSize * 1.0f;
-                    boss->attackRectX = transform->x + transform->width * transform->scale * 0.5f - slamW * 0.5f;
-                    boss->attackRectY = transform->y + transform->height * transform->scale - slamH;
-                    boss->attackRectWidth = slamW;
-                    boss->attackRectHeight = slamH;
-                    boss->attackRectDamage = boss->slamDamage1;
-                    boss->attackRectActive = true;
-                    boss->hitEntities.clear();
-
-                    boss->state = ShieldBossState::SlamPhase1;
-                    boss->stateTimer = 0.0f;
-                    transform->rotation = 0.0f;
+                        if (shieldComp && shieldTransform)
+                        {
+                            shieldComp->attached = true;
+                            shieldComp->attackType = ShieldAttackType::None;
+                            shieldComp->velocityX = 0.0f;
+                            shieldComp->velocityY = 0.0f;
+                            shieldComp->rotationSpeed = 0.0f;
+                            shieldComp->gravityEnabled = false;
+                            shieldComp->baseAttackElapsed = 0.0f;
+                            shieldComp->contactDamage = 1;
+                            shieldTransform->width = kTileSize * 3.0f;
+                            shieldTransform->height = kTileSize * 1.0f;
+                            shieldTransform->rotation = 0.0f;
+                        }
+                    }
                 }
                 break;
-            }
-
             case ShieldBossState::SlamPhase1:
                 if (boss->stateTimer >= boss->slamPhase1Duration)
                 {
+                    // 衝撃波エンティティを生成（ShieldShockwaveComponent）
+                    if (shieldComp && shieldTransform)
+                    {
+                        const float shockW = kTileSize * 8.0f;
+                        const float shockH = kTileSize * 3.0f;
+                        auto shockwave = std::make_unique<Entity>();
+                        shockwave->AddComponent<TagComponent>("BossShockwave");
+                        shockwave->AddComponent<TransformComponent>(
+                            shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f - shockW * 0.5f,
+                            shieldTransform->y + shieldTransform->height * shieldTransform->scale - shockH,
+                            shockW,
+                            shockH);
+                        shockwave->AddComponent<TintComponent>(0.18f, 0.95f, 1.0f, 0.75f);
+                        auto& shockComp = shockwave->AddComponent<ShieldShockwaveComponent>();
+                        shockComp.ownerBoss = entity.get();
+                        shockComp.damage = 1;
+                        shockComp.lifetime = 0.25f;
+                        newShields.push_back(std::move(shockwave));
+
+                        // 盾本体の判定を無効化（衝撃波に引き継ぐ）
+                        shieldComp->contactDamage = 0;
+                    }
                     // ����@����������A����
                     const float slamW = kTileSize * 7.0f;
                     const float slamH = kTileSize * 1.0f;
@@ -543,19 +747,41 @@ inline void UpdateEnemies(
                 break;
 
             case ShieldBossState::SlamPhase2:
-                if (boss->stateTimer >= boss->slamPhase2Duration)
+                if (boss->stateTimer >= boss->slamPhase2Duration + 0.3f)
                 {
-                    boss->attackRectActive = false;
                     boss->state = ShieldBossState::Cooldown;
                     boss->stateTimer = 0.0f;
+                    // 盾を通常サイズに戻して再装着
+                    if (shieldComp)
+                    {
+                        shieldComp->attached = true;
+                        shieldComp->attackType = ShieldAttackType::None;
+                        shieldComp->contactDamage = 1;
+                        shieldComp->gravityEnabled = false;
+                        shieldComp->velocityX = 0.0f;
+                        shieldComp->velocityY = 0.0f;
+                        shieldComp->rotationSpeed = 0.0f;
+                        if (shieldTransform)
+                        {
+                            shieldTransform->width = kTileSize * 1.0f;
+                            shieldTransform->height = kTileSize * 3.0f;
+                            shieldTransform->rotation = 0.0f;
+                        }
+                        if (shieldTint)
+                        {
+                            shieldTint->r = 0.72f;
+                            shieldTint->g = 0.78f;
+                            shieldTint->b = 0.90f;
+                            shieldTint->a = 1.0f;
+                        }
+                    }
                 }
                 break;
 
             case ShieldBossState::Cooldown:
-                boss->attackRectActive = false;
                 if (boss->stateTimer >= boss->slamCooldown)
                 {
-                    boss->state = ShieldBossState::Detect;
+                    boss->state = ShieldBossState::Idle;
                     boss->stateTimer = 0.0f;
                 }
                 break;
@@ -983,6 +1209,11 @@ inline void UpdateEnemies(
     for (auto& bullet : newBullets)
     {
         entities.push_back(std::move(bullet));
+    }
+
+    for (auto& shield : newShields)  
+    {
+        entities.push_back(std::move(shield));
     }
 
     flow.goalUnlocked = photo.groups.hasSpawnedCopy || flow.goalUnlockedBySwitch;

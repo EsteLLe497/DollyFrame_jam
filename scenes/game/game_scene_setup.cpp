@@ -398,7 +398,7 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
     m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/stage_a.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/forest_boss.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -622,6 +622,29 @@ void GameScene::InitializeStageEntities()
                     {
                         enemy->spawnX = transform->x;
                         enemy->spawnY = transform->y;
+                    }
+
+                    if (auto* bossComp = boss.GetComponent<ShieldBossComponent>())
+                    {
+                        constexpr float kShieldW = 48.0f;
+                        constexpr float kShieldH = 144.0f;
+                        auto shieldEntity = std::make_unique<Entity>();
+                        shieldEntity->AddComponent<TagComponent>("BossShield");
+                        shieldEntity->AddComponent<TransformComponent>(
+                            transform->x - kShieldW,
+                            transform->y,
+                            kShieldW,
+                            kShieldH);
+                        shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
+                        shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+                        auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
+                        shieldComp.attached = true;
+                        shieldComp.ownerBoss = &boss;
+                        shieldComp.contactDamage = 1;
+                        shieldComp.followOffsetX = -kShieldW;
+                        shieldComp.followOffsetY = 0.0f;
+                        bossComp->shieldEntity = shieldEntity.get();
+                        m_entities.push_back(std::move(shieldEntity));
                     }
                 }
             }

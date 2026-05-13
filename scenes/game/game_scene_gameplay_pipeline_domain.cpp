@@ -19,6 +19,7 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     UpdateLaserTurrets(gameplayDeltaTime);
     UpdateLinkedGimmicks(gameplayDeltaTime);
     UpdateEnemies();
+    UpdateShields(gameplayDeltaTime);
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
 }
