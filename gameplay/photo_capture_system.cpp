@@ -440,17 +440,6 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             item.spawnArchetype = CapturedSpawnArchetype::None;
         }
-        item.spawnArchetype = capturedBarrel
-            ? CapturedSpawnArchetype::Barrel
-            : (capturedLog
-                ? CapturedSpawnArchetype::Log
-                : (capturedBattery
-                    ? CapturedSpawnArchetype::Battery
-                    : (capturedProjectile
-                        ? CapturedSpawnArchetype::Projectile
-                        : (capturedLaserTurret
-                            ? CapturedSpawnArchetype::LaserTurret
-                            : (capturedWalker ? CapturedSpawnArchetype::WalkerMelee : CapturedSpawnArchetype::None)))));
         item.enemyAttackPaste = capturedWalker;
         item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
             *entity,

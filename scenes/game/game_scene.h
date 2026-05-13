@@ -189,6 +189,7 @@ private:
     void DrawPhotoStorageTray() const;
     void DrawPhotoPlacementPreview() const;
     void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
+    void DrawBossShockwavesUnderlay() const;
     void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
     void DrawBatterySwitchCounters() const;

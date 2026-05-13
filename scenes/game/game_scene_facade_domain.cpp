@@ -127,9 +127,12 @@ void GameScene::DrawWorldAndUiLayers()
     DrawBackdrop();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Shadow);
+    DrawBossShockwavesUnderlay();
     for (const auto& entity : m_entities)
     {
-        if (entity && (HasTag(*entity, kTagPhotoBox) || entity->GetComponent<PhotoPasteOrderComponent>()))
+        if (entity && (HasTag(*entity, kTagPhotoBox) ||
+            entity->GetComponent<PhotoPasteOrderComponent>() ||
+            HasTag(*entity, "BossShockwave")))
         {
             continue;
         }
