@@ -99,21 +99,6 @@ namespace
         }
     }
 
-    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
-    {
-        if (std::fabs(rotation) <= 0.0001f)
-        {
-            return;
-        }
-
-        const float localX = x - centerX;
-        const float localY = y - centerY;
-        const float cosTheta = std::cos(rotation);
-        const float sinTheta = std::sin(rotation);
-        x = centerX + (localX * cosTheta - localY * sinTheta);
-        y = centerY + (localX * sinTheta + localY * cosTheta);
-    }
-
     bool DrawSlopeTriangle(float x, float y, float width, float height, int tileValue, const TintComponent* tint, bool flipX, float rotation, float alpha)
     {
         const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 
@@ -11,6 +12,7 @@ public:
 
     void Initialize(void* device);
     void Shutdown();
+    void ReserveTextureCache(size_t count);
 
     int LoadTexture(const std::wstring& path);
     int CreateSolidTexture(int width, int height, unsigned int rgba);

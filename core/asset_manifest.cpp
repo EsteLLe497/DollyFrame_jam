@@ -28,6 +28,8 @@ void AssetManifest::LoadDefaults(ResourceManager& resources)
     if (!ifs)
     {
         Logger::Warn("assets/manifest.json not found. Falling back to built-in defaults.");
+        m_textureIds.reserve(5);
+        resources.ReserveTextureCache(5);
         m_textureIds.emplace("white", resources.CreateSolidTexture(1, 1, 0xFFFFFFFF));
         m_textureIds.emplace("player", resources.CreateCheckerboardTexture(256, 256, 0xFF4EC9B0, 0xFF1B3340, 32));
         m_textureIds.emplace("target", resources.CreateCheckerboardTexture(192, 192, 0xFFE08A2E, 0xFF5A2615, 24));
@@ -40,6 +42,11 @@ void AssetManifest::LoadDefaults(ResourceManager& resources)
     ifs >> root;
 
     const auto& textures = root["textures"];
+    if (textures.is_object())
+    {
+        m_textureIds.reserve(textures.size());
+        resources.ReserveTextureCache(textures.size());
+    }
     for (auto it = textures.begin(); it != textures.end(); ++it)
     {
         const std::string key = it.key();

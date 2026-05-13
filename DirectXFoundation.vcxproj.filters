@@ -108,6 +108,9 @@
     <ClCompile Include="scenes\game\game_scene_render.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_render_ui_helpers.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
     <ClCompile Include="scenes\game\game_scene_render_ui.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
@@ -366,6 +369,12 @@
       <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>
     <ClInclude Include="scenes\game\game_scene_internal.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\game\game_scene_draw_helpers.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\game\game_scene_render_ui_helpers.h">
       <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>
     <ClInclude Include="core\game_session.h">

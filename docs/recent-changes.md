@@ -6,6 +6,20 @@
 
 ## 反映済み
 
+- `RotatePoint` を共通化
+  - `game_scene_internal.h` に寄せて、描画/衝突/UI の重複を削除
+- `core/input.cpp` を整理
+  - ゲームパッド判定の重複を共通化
+  - 入力名の解決をテーブル化して、分岐を減らした
+- `game_scene_render_ui.cpp` を分割
+  - `game_scene_render_ui_helpers.cpp` に helper 群を移した
+- `photo_shared` と UI 補助の描画重複を整理
+  - `DrawTriangleItem` / `DrawProjectileItem` を `game_scene_draw_helpers.h` に共通化
+- `ResourceManager` / `AssetManifest` の軽量化
+  - テクスチャキャッシュを事前予約するように変更
+- `core` 基盤の軽量化
+  - `SceneRegistry` の検索で一時 `std::string` を生成しないように変更
+  - `Logger` の `Info` / `Warn` / `Error` を共通化し、`spdlog` に直接 `string_view` を渡すように変更
 - `GameScene` の大規模責務分割
   - 入口: `game_scene_entry_domain.cpp`
   - ライフサイクル: `game_scene_lifecycle_domain.cpp`
