@@ -3,6 +3,7 @@
 #include <cfloat>
 
 #include "game_scene_internal.h"
+#include "game_scene_draw_helpers.h"
 #include "photo_filter_rules.h"
 #include "DxLib.h"
 
@@ -32,66 +33,6 @@ float GetRotatedBoundsHeight(float width, float height, float rotation)
     const float cosTheta = std::fabs(std::cos(rotation));
     const float sinTheta = std::fabs(std::sin(rotation));
     return width * sinTheta + height * cosTheta;
-}
-
-void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
-{
-    if (std::fabs(rotation) <= 0.0001f)
-    {
-        return;
-    }
-
-    const float localX = x - centerX;
-    const float localY = y - centerY;
-    const float cosTheta = std::cos(rotation);
-    const float sinTheta = std::sin(rotation);
-    x = centerX + (localX * cosTheta - localY * sinTheta);
-    y = centerY + (localX * sinTheta + localY * cosTheta);
-}
-
-void DrawTriangleItem(
-    float drawX,
-    float drawY,
-    float drawWidth,
-    float drawHeight,
-    bool risesRight,
-    bool flipX,
-    float rotation,
-    int color)
-{
-    const bool finalRisesRight = flipX ? !risesRight : risesRight;
-    float ax = 0.0f;
-    float ay = 0.0f;
-    float bx = 0.0f;
-    float by = 0.0f;
-    float cx = 0.0f;
-    float cy = 0.0f;
-
-    if (finalRisesRight)
-    {
-        ax = drawX;
-        ay = drawY + drawHeight;
-        bx = drawX + drawWidth;
-        by = drawY + drawHeight;
-        cx = drawX + drawWidth;
-        cy = drawY;
-    }
-    else
-    {
-        ax = drawX;
-        ay = drawY;
-        bx = drawX;
-        by = drawY + drawHeight;
-        cx = drawX + drawWidth;
-        cy = drawY + drawHeight;
-    }
-
-    const float centerX = drawX + drawWidth * 0.5f;
-    const float centerY = drawY + drawHeight * 0.5f;
-    RotatePoint(centerX, centerY, rotation, ax, ay);
-    RotatePoint(centerX, centerY, rotation, bx, by);
-    RotatePoint(centerX, centerY, rotation, cx, cy);
-    DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
 }
 
 void DrawQuadItem(
@@ -379,30 +320,6 @@ void DrawSpikeStripItem(
     }
 
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-}
-
-void DrawProjectileItem(
-    float drawX,
-    float drawY,
-    float drawWidth,
-    float drawHeight,
-    bool flipX,
-    float rotation,
-    int color)
-{
-    float ax = flipX ? drawX + drawWidth : drawX;
-    float ay = drawY;
-    float bx = flipX ? drawX + drawWidth : drawX;
-    float by = drawY + drawHeight;
-    float cx = flipX ? drawX : drawX + drawWidth;
-    float cy = drawY + drawHeight * 0.5f;
-
-    const float centerX = drawX + drawWidth * 0.5f;
-    const float centerY = drawY + drawHeight * 0.5f;
-    RotatePoint(centerX, centerY, rotation, ax, ay);
-    RotatePoint(centerX, centerY, rotation, bx, by);
-    RotatePoint(centerX, centerY, rotation, cx, cy);
-    DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
 }
 
 void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width, float& height, float rotation)

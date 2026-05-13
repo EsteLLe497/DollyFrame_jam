@@ -17,21 +17,6 @@ namespace
 
     using CollisionPolygon = std::vector<CollisionPoint>;
 
-    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
-    {
-        if (std::fabs(rotation) <= 0.0001f)
-        {
-            return;
-        }
-
-        const float localX = x - centerX;
-        const float localY = y - centerY;
-        const float cosTheta = std::cos(rotation);
-        const float sinTheta = std::sin(rotation);
-        x = centerX + (localX * cosTheta - localY * sinTheta);
-        y = centerY + (localX * sinTheta + localY * cosTheta);
-    }
-
     void BuildRotatedRectPolygon(float left, float top, float width, float height, float rotation, CollisionPolygon& outPolygon)
     {
         outPolygon.resize(4);

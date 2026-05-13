@@ -124,75 +124,183 @@ namespace
             static_cast<float>(255 - kTriggerThreshold);
     }
 
+    bool IsGamepadButtonDown(int buttonIndex)
+    {
+        return g_connected && g_state.Buttons[buttonIndex] != 0;
+    }
+
+    bool IsGamepadButtonPressed(int buttonIndex)
+    {
+        return g_connected &&
+            g_state.Buttons[buttonIndex] != 0 &&
+            g_prevState.Buttons[buttonIndex] == 0;
+    }
+
+    bool IsGamepadTriggerDown(unsigned char value)
+    {
+        return g_connected && value > kTriggerThreshold;
+    }
+
+    bool IsGamepadTriggerPressed(unsigned char value, unsigned char prevValue)
+    {
+        return g_connected && value > kTriggerThreshold && prevValue <= kTriggerThreshold;
+    }
+
+    template <typename Value>
+    struct NamedValue
+    {
+        const char* name;
+        Value value;
+    };
+
+    template <typename Value, std::size_t N>
+    bool TryLookupName(const std::string& key, const std::array<NamedValue<Value>, N>& entries, Value& out)
+    {
+        for (const auto& entry : entries)
+        {
+            if (key == entry.name)
+            {
+                out = entry.value;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    constexpr std::array<NamedValue<InputAction>, 34> kActionNameMap =
+    {{
+        { "CONFIRM", InputAction::Confirm },
+        { "CANCEL", InputAction::Cancel },
+        { "STARTGAME", InputAction::StartGame },
+        { "OPENDEMOSCENE", InputAction::OpenDemoScene },
+        { "OPENSHOWCASE", InputAction::OpenShaderShowcase },
+        { "OPENSHADERSHOWCASE", InputAction::OpenShaderShowcase },
+        { "RESTARTSCENE", InputAction::RestartScene },
+        { "RETURNTOTITLE", InputAction::ReturnToTitle },
+        { "TOGGLETUNINGPANEL", InputAction::ToggleTuningPanel },
+        { "TOGGLEPOSTPROCESS", InputAction::TogglePostProcess },
+        { "TOGGLECOLLISIONDEBUG", InputAction::ToggleCollisionDebug },
+        { "CYCLEFILTER", InputAction::CycleFilter },
+        { "SELECTFILTERNONE", InputAction::SelectFilterNone },
+        { "SELECTFILTERHOT", InputAction::SelectFilterHot },
+        { "SELECTFILTERCOLD", InputAction::SelectFilterCold },
+        { "SELECTFILTERINVERT", InputAction::SelectFilterInvert },
+        { "SELECTFILTERSEPIA", InputAction::SelectFilterSepia },
+        { "HOLDCAMERA", InputAction::HoldCamera },
+        { "CAPTUREPHOTO", InputAction::CapturePhoto },
+        { "HOLDPLACEMENT", InputAction::HoldPlacement },
+        { "CONFIRMPLACEMENT", InputAction::ConfirmPlacement },
+        { "CYCLEPLACEMENTLAYER", InputAction::CyclePlacementLayer },
+        { "FLIPPLACEMENT", InputAction::FlipPlacement },
+        { "TOGGLEBRIDGEPLACEMENT", InputAction::ToggleBridgePlacement },
+        { "ROTATEPLACEMENTLEFT", InputAction::RotatePlacementLeft },
+        { "ROTATEPLACEMENTRIGHT", InputAction::RotatePlacementRight },
+        { "MOVELEFT", InputAction::MoveLeft },
+        { "MOVERIGHT", InputAction::MoveRight },
+        { "MOVEUP", InputAction::MoveUp },
+        { "MOVEDOWN", InputAction::MoveDown },
+        { "JUMP", InputAction::Jump },
+        { "DODGE", InputAction::Dodge },
+        { "EXITPROMPTYES", InputAction::ExitPromptYes },
+        { "EXITPROMPTNO", InputAction::ExitPromptNo },
+    }};
+
+    constexpr std::array<NamedValue<int>, 28> kNamedVirtualKeys =
+    {{
+        { "ENTER", VK_RETURN },
+        { "RETURN", VK_RETURN },
+        { "SPACE", VK_SPACE },
+        { "ESC", VK_ESCAPE },
+        { "ESCAPE", VK_ESCAPE },
+        { "LEFT", VK_LEFT },
+        { "RIGHT", VK_RIGHT },
+        { "UP", VK_UP },
+        { "DOWN", VK_DOWN },
+        { "SHIFT", VK_SHIFT },
+        { "LSHIFT", VK_LSHIFT },
+        { "RSHIFT", VK_RSHIFT },
+        { "LBUTTON", VK_LBUTTON },
+        { "MOUSE_LEFT", VK_LBUTTON },
+        { "RBUTTON", VK_RBUTTON },
+        { "MOUSE_RIGHT", VK_RBUTTON },
+        { "F1", VK_F1 },
+        { "F2", VK_F2 },
+        { "F3", VK_F3 },
+        { "F4", VK_F4 },
+        { "F5", VK_F5 },
+        { "F6", VK_F6 },
+        { "F7", VK_F7 },
+        { "F8", VK_F8 },
+        { "F9", VK_F9 },
+        { "F10", VK_F10 },
+        { "F11", VK_F11 },
+        { "F12", VK_F12 },
+    }};
+
+    bool IsGamepadSouthPressed();
+    bool IsGamepadEastPressed();
+    bool IsGamepadNorthPressed();
+    bool IsGamepadBackPressed();
+    bool IsGamepadLeftTriggerDown();
+    bool IsGamepadRightTriggerDown();
+    bool IsGamepadRightTriggerPressed();
+    bool IsGamepadLeftShoulderDown();
+    bool IsGamepadRightShoulderDown();
+    bool IsGamepadLeftShoulderPressed();
+    bool IsGamepadRightShoulderPressed();
+
+    constexpr std::array<NamedValue<ActionPredicate>, 11> kPredicateNameMap =
+    {{
+        { "GAMEPAD_SOUTH_PRESSED", IsGamepadSouthPressed },
+        { "GAMEPAD_EAST_PRESSED", IsGamepadEastPressed },
+        { "GAMEPAD_NORTH_PRESSED", IsGamepadNorthPressed },
+        { "GAMEPAD_BACK_PRESSED", IsGamepadBackPressed },
+        { "GAMEPAD_LEFT_TRIGGER_DOWN", IsGamepadLeftTriggerDown },
+        { "GAMEPAD_RIGHT_TRIGGER_DOWN", IsGamepadRightTriggerDown },
+        { "GAMEPAD_RIGHT_TRIGGER_PRESSED", IsGamepadRightTriggerPressed },
+        { "GAMEPAD_LEFT_SHOULDER_DOWN", IsGamepadLeftShoulderDown },
+        { "GAMEPAD_RIGHT_SHOULDER_DOWN", IsGamepadRightShoulderDown },
+        { "GAMEPAD_LEFT_SHOULDER_PRESSED", IsGamepadLeftShoulderPressed },
+        { "GAMEPAD_RIGHT_SHOULDER_PRESSED", IsGamepadRightShoulderPressed },
+    }};
+
     bool IsGamepadSouthPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-
-        return g_state.Buttons[XINPUT_BUTTON_A] != 0 && g_prevState.Buttons[XINPUT_BUTTON_A] == 0;
+        return IsGamepadButtonPressed(XINPUT_BUTTON_A);
     }
 
     bool IsGamepadEastPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-
-        return g_state.Buttons[XINPUT_BUTTON_B] != 0 && g_prevState.Buttons[XINPUT_BUTTON_B] == 0;
+        return IsGamepadButtonPressed(XINPUT_BUTTON_B);
     }
 
     bool IsGamepadNorthPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return g_state.Buttons[XINPUT_BUTTON_Y] != 0 && g_prevState.Buttons[XINPUT_BUTTON_Y] == 0;
+        return IsGamepadButtonPressed(XINPUT_BUTTON_Y);
 	}
 
 
     bool IsGamepadBackPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-
-        return g_state.Buttons[XINPUT_BUTTON_BACK] != 0 &&
-            g_prevState.Buttons[XINPUT_BUTTON_BACK] == 0;
+        return IsGamepadButtonPressed(XINPUT_BUTTON_BACK);
     }
 
     //LT がホールドされているか
     bool IsGamepadLeftTriggerDown()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return g_state.LeftTrigger > kTriggerThreshold;
+        return IsGamepadTriggerDown(g_state.LeftTrigger);
     }
 
     bool IsGamepadRightTriggerDown()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return g_state.RightTrigger > kTriggerThreshold;
+        return IsGamepadTriggerDown(g_state.RightTrigger);
 	}
 
 
     //RTを押したとき
     bool IsGamepadRightTriggerPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return g_state.RightTrigger > kTriggerThreshold && g_prevState.RightTrigger <= kTriggerThreshold;
+        return IsGamepadTriggerPressed(g_state.RightTrigger, g_prevState.RightTrigger);
     }
 
     //右スティック取得
@@ -208,38 +316,22 @@ namespace
 
     bool IsGamepadRightShoulderDown()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return (g_state.Buttons[XINPUT_BUTTON_RIGHT_SHOULDER] != 0);
+        return IsGamepadButtonDown(XINPUT_BUTTON_RIGHT_SHOULDER);
 	}
 
     bool IsGamepadLeftShoulderDown()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return (g_state.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] != 0);
+        return IsGamepadButtonDown(XINPUT_BUTTON_LEFT_SHOULDER);
     }
 
     bool IsGamepadRightShoulderPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return (g_state.Buttons[XINPUT_BUTTON_RIGHT_SHOULDER] != 0) && (g_prevState.Buttons[XINPUT_BUTTON_RIGHT_SHOULDER] == 0);
+        return IsGamepadButtonPressed(XINPUT_BUTTON_RIGHT_SHOULDER);
 	}
 
     bool IsGamepadLeftShoulderPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return (g_state.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] != 0) && (g_prevState.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] == 0);
+        return IsGamepadButtonPressed(XINPUT_BUTTON_LEFT_SHOULDER);
 	}
 
     bool EvaluateBoundKeys(const int (&keys)[kMaxBindingKeys], bool pressed)
@@ -325,40 +417,7 @@ namespace
     bool TryParseAction(const std::string& text, InputAction& outAction)
     {
         const std::string key = ToUpperAscii(text);
-        if (key == "CONFIRM") { outAction = InputAction::Confirm; return true; }
-        if (key == "CANCEL") { outAction = InputAction::Cancel; return true; }
-        if (key == "STARTGAME") { outAction = InputAction::StartGame; return true; }
-        if (key == "OPENDEMOSCENE") { outAction = InputAction::OpenDemoScene; return true; }
-        if (key == "OPENSHOWCASE" || key == "OPENSHADERSHOWCASE") { outAction = InputAction::OpenShaderShowcase; return true; }
-        if (key == "RESTARTSCENE") { outAction = InputAction::RestartScene; return true; }
-        if (key == "RETURNTOTITLE") { outAction = InputAction::ReturnToTitle; return true; }
-        if (key == "TOGGLETUNINGPANEL") { outAction = InputAction::ToggleTuningPanel; return true; }
-        if (key == "TOGGLEPOSTPROCESS") { outAction = InputAction::TogglePostProcess; return true; }
-        if (key == "TOGGLECOLLISIONDEBUG") { outAction = InputAction::ToggleCollisionDebug; return true; }
-        if (key == "CYCLEFILTER") { outAction = InputAction::CycleFilter; return true; }
-        if (key == "SELECTFILTERNONE") { outAction = InputAction::SelectFilterNone; return true; }
-        if (key == "SELECTFILTERHOT") { outAction = InputAction::SelectFilterHot; return true; }
-        if (key == "SELECTFILTERCOLD") { outAction = InputAction::SelectFilterCold; return true; }
-        if (key == "SELECTFILTERINVERT") { outAction = InputAction::SelectFilterInvert; return true; }
-        if (key == "SELECTFILTERSEPIA") { outAction = InputAction::SelectFilterSepia; return true; }
-        if (key == "HOLDCAMERA") { outAction = InputAction::HoldCamera; return true; }
-        if (key == "CAPTUREPHOTO") { outAction = InputAction::CapturePhoto; return true; }
-        if (key == "HOLDPLACEMENT") { outAction = InputAction::HoldPlacement; return true; }
-        if (key == "CONFIRMPLACEMENT") { outAction = InputAction::ConfirmPlacement; return true; }
-        if (key == "CYCLEPLACEMENTLAYER") { outAction = InputAction::CyclePlacementLayer; return true; }
-        if (key == "FLIPPLACEMENT") { outAction = InputAction::FlipPlacement; return true; }
-        if (key == "TOGGLEBRIDGEPLACEMENT") { outAction = InputAction::ToggleBridgePlacement; return true; }
-        if (key == "ROTATEPLACEMENTLEFT") { outAction = InputAction::RotatePlacementLeft; return true; }
-        if (key == "ROTATEPLACEMENTRIGHT") { outAction = InputAction::RotatePlacementRight; return true; }
-        if (key == "MOVELEFT") { outAction = InputAction::MoveLeft; return true; }
-        if (key == "MOVERIGHT") { outAction = InputAction::MoveRight; return true; }
-        if (key == "MOVEUP") { outAction = InputAction::MoveUp; return true; }
-        if (key == "MOVEDOWN") { outAction = InputAction::MoveDown; return true; }
-        if (key == "JUMP") { outAction = InputAction::Jump; return true; }
-        if (key == "DODGE") { outAction = InputAction::Dodge; return true; }
-        if (key == "EXITPROMPTYES") { outAction = InputAction::ExitPromptYes; return true; }
-        if (key == "EXITPROMPTNO") { outAction = InputAction::ExitPromptNo; return true; }
-        return false;
+        return TryLookupName(key, kActionNameMap, outAction);
     }
 
     bool TryParseVirtualKey(const json& value, int& outKey)
@@ -390,30 +449,10 @@ namespace
             outKey = kNoKey;
             return true;
         }
-        if (key == "ENTER" || key == "RETURN") { outKey = VK_RETURN; return true; }
-        if (key == "SPACE") { outKey = VK_SPACE; return true; }
-        if (key == "ESC" || key == "ESCAPE") { outKey = VK_ESCAPE; return true; }
-        if (key == "LEFT") { outKey = VK_LEFT; return true; }
-        if (key == "RIGHT") { outKey = VK_RIGHT; return true; }
-        if (key == "UP") { outKey = VK_UP; return true; }
-        if (key == "DOWN") { outKey = VK_DOWN; return true; }
-        if (key == "SHIFT") { outKey = VK_SHIFT; return true; }
-        if (key == "LSHIFT") { outKey = VK_LSHIFT; return true; }
-        if (key == "RSHIFT") { outKey = VK_RSHIFT; return true; }
-        if (key == "LBUTTON" || key == "MOUSE_LEFT") { outKey = VK_LBUTTON; return true; }
-        if (key == "RBUTTON" || key == "MOUSE_RIGHT") { outKey = VK_RBUTTON; return true; }
-        if (key == "F1") { outKey = VK_F1; return true; }
-        if (key == "F2") { outKey = VK_F2; return true; }
-        if (key == "F3") { outKey = VK_F3; return true; }
-        if (key == "F4") { outKey = VK_F4; return true; }
-        if (key == "F5") { outKey = VK_F5; return true; }
-        if (key == "F6") { outKey = VK_F6; return true; }
-        if (key == "F7") { outKey = VK_F7; return true; }
-        if (key == "F8") { outKey = VK_F8; return true; }
-        if (key == "F9") { outKey = VK_F9; return true; }
-        if (key == "F10") { outKey = VK_F10; return true; }
-        if (key == "F11") { outKey = VK_F11; return true; }
-        if (key == "F12") { outKey = VK_F12; return true; }
+        if (TryLookupName(key, kNamedVirtualKeys, outKey))
+        {
+            return true;
+        }
 
         if (key.size() == 1)
         {
@@ -441,18 +480,7 @@ namespace
             outPredicate = nullptr;
             return true;
         }
-        if (key == "GAMEPAD_SOUTH_PRESSED") { outPredicate = IsGamepadSouthPressed; return true; }
-        if (key == "GAMEPAD_EAST_PRESSED") { outPredicate = IsGamepadEastPressed; return true; }
-        if (key == "GAMEPAD_NORTH_PRESSED") { outPredicate = IsGamepadNorthPressed; return true; }
-        if (key == "GAMEPAD_BACK_PRESSED") { outPredicate = IsGamepadBackPressed; return true; }
-        if (key == "GAMEPAD_LEFT_TRIGGER_DOWN") { outPredicate = IsGamepadLeftTriggerDown; return true; }
-        if (key == "GAMEPAD_RIGHT_TRIGGER_DOWN") { outPredicate = IsGamepadRightTriggerDown; return true; }
-        if (key == "GAMEPAD_RIGHT_TRIGGER_PRESSED") { outPredicate = IsGamepadRightTriggerPressed; return true; }
-        if (key == "GAMEPAD_LEFT_SHOULDER_DOWN") { outPredicate = IsGamepadLeftShoulderDown; return true; }
-        if (key == "GAMEPAD_RIGHT_SHOULDER_DOWN") { outPredicate = IsGamepadRightShoulderDown; return true; }
-        if (key == "GAMEPAD_LEFT_SHOULDER_PRESSED") { outPredicate = IsGamepadLeftShoulderPressed; return true; }
-        if (key == "GAMEPAD_RIGHT_SHOULDER_PRESSED") { outPredicate = IsGamepadRightShoulderPressed; return true; }
-        return false;
+        return TryLookupName(key, kPredicateNameMap, outPredicate);
     }
 
     const char* PredicateToString(ActionPredicate predicate)

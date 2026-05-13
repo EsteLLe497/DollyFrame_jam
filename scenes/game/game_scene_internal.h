@@ -88,6 +88,21 @@ inline float Clamp01(float value)
     return std::clamp(value, 0.0f, 1.0f);
 }
 
+inline void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
+{
+    if (std::fabs(rotation) <= 0.0001f)
+    {
+        return;
+    }
+
+    const float localX = x - centerX;
+    const float localY = y - centerY;
+    const float cosTheta = std::cos(rotation);
+    const float sinTheta = std::sin(rotation);
+    x = centerX + (localX * cosTheta - localY * sinTheta);
+    y = centerY + (localX * sinTheta + localY * cosTheta);
+}
+
 inline std::string GetMapDisplayName(const std::string& path)
 {
     const size_t slashPos = path.find_last_of("/\\");
