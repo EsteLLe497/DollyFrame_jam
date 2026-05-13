@@ -27,6 +27,8 @@ inline bool IntersectsBounds(const TransformComponent& a, const TransformCompone
     const float bRight = b.x + b.width * b.scale;
     const float bBottom = b.y + b.height * b.scale;
     return a.x < bRight && aRight > b.x && a.y < bBottom && aBottom > b.y;
+}
+
 inline const char* ToMidBoss2StateLabel(MidBoss2State state)
 {
     switch (state)
@@ -123,7 +125,7 @@ inline void UpdateEnemies(
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // 重力処理
+            // 驥榊鴨蜃ｦ逅・
             enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
             transform->y += enemy->velocityY * flow.lastDeltaTime;
             const bool onGround = snapToGround(*transform);
@@ -132,7 +134,7 @@ inline void UpdateEnemies(
                 enemy->velocityY = 0.0f;
             }
 
-            // 向き更新
+            // 蜷代″譖ｴ譁ｰ
             if (enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
                 enemy->facing = dx > 0.0f
@@ -140,7 +142,7 @@ inline void UpdateEnemies(
                     : EnemyComponent::FacingDirection::Left;
             }
 
-            // 攻撃四角の残り時間を更新
+            // 謾ｻ謦・屁隗偵・谿九ｊ譎る俣繧呈峩譁ｰ
             if (enemy->attackRectActive)
             {
                 enemy->attackRectRemaining -= flow.lastDeltaTime;
@@ -161,7 +163,7 @@ inline void UpdateEnemies(
             case EnemyComponent::AIState::Chase:
                 if (dist < enemy->attackRange)
                 {
-                    // 攻撃開始時に向きを固定して攻撃四角を生成
+                    // 謾ｻ謦・幕蟋区凾縺ｫ蜷代″繧貞崋螳壹＠縺ｦ謾ｻ謦・屁隗偵ｒ逕滓・
                     enemy->facing = dx > 0.0f
                         ? EnemyComponent::FacingDirection::Right
                         : EnemyComponent::FacingDirection::Left;
@@ -264,7 +266,7 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            // 検知範囲内なら追従（地形無視で直進）
+            // 讀懃衍遽・峇蜀・↑繧芽ｿｽ蠕難ｼ亥慍蠖｢辟｡隕悶〒逶ｴ騾ｲ・・
             if (dist < ghost->detectRange)
             {
                 const float length = std::max(1.0f, dist);
@@ -287,7 +289,7 @@ inline void UpdateEnemies(
             blaster->cooldownTimer += flow.lastDeltaTime;
             blaster->burstTimer += flow.lastDeltaTime;
 
-            // 検知範囲内でクールダウン終了したら連射開始
+            // 讀懃衍遽・峇蜀・〒繧ｯ繝ｼ繝ｫ繝繧ｦ繝ｳ邨ゆｺ・＠縺溘ｉ騾｣蟆・幕蟋・
             if (dist < blaster->detectRange && blaster->shotsRemaining == 0
                 && blaster->cooldownTimer >= blaster->cooldown)
             {
@@ -296,7 +298,7 @@ inline void UpdateEnemies(
                 blaster->cooldownTimer = 0.0f;
             }
 
-            // 連射処理
+            // 騾｣蟆・・逅・
             if (blaster->shotsRemaining > 0 && blaster->burstTimer >= blaster->burstInterval)
             {
                 blaster->burstTimer = 0.0f;
@@ -354,10 +356,6 @@ inline void UpdateEnemies(
 
             // Shield follow while attached.
             if (shieldComp && shieldTransform && shieldComp->attached)
-
-            // �d�͏����i�W�����v���̂݁j
-            if (boss->state == ShieldBossState::JumpAscend ||
-                boss->state == ShieldBossState::JumpDescend)
             {
                 const float shieldW = shieldTransform->width * shieldTransform->scale;
                 const float shieldH = shieldTransform->height * shieldTransform->scale;
@@ -384,7 +382,7 @@ inline void UpdateEnemies(
                 }
                 else if (boss->state == ShieldBossState::Rush)
                 {
-                    // 突進中：ボスの正面
+                    // 遯・ｲ荳ｭ・壹・繧ｹ縺ｮ豁｣髱｢
                     shieldTransform->x = boss->facing == ShieldBossFacing::Right
                         ? transform->x + bossWidth
                         : transform->x - shieldW;
@@ -392,7 +390,7 @@ inline void UpdateEnemies(
                 }
                 else
                 {
-                    // 通常：ボスの正面
+                    // 騾壼ｸｸ・壹・繧ｹ縺ｮ豁｣髱｢
                     shieldTransform->x = boss->facing == ShieldBossFacing::Right
                         ? transform->x + bossWidth
                         : transform->x - shieldW;
@@ -401,7 +399,7 @@ inline void UpdateEnemies(
                 }
             }
 
-            // 重力（待機系）
+            // 驥榊鴨・亥ｾ・ｩ溽ｳｻ・・
             if (boss->state == ShieldBossState::Idle ||
                 boss->state == ShieldBossState::Detect ||
                 boss->state == ShieldBossState::RushCooldown ||
@@ -413,7 +411,7 @@ inline void UpdateEnemies(
                 if (onGround) bossVelocityY = 0.0f;
             }
 
-            // 突進
+            // 遯・ｲ
             bool rushEndedThisFrame = false;
             if (boss->state == ShieldBossState::Rush)
             {
@@ -427,9 +425,6 @@ inline void UpdateEnemies(
                         || (shieldTransform && IntersectsBounds(*shieldTransform, *playerTransform));
                 }
 
-                // �ǃ`�F�b�N
-                const float bossWidth = transform->width * transform->scale;
-                const float bossHeight = transform->height * transform->scale;
                 const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
                 const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
                 bool hitWall = false;
@@ -469,19 +464,6 @@ inline void UpdateEnemies(
                     rushEndedThisFrame = true;
                 }
                 else if (hitWall || checkPhotoBoxCollision(*transform, *entity))
-
-                // �U������X�V
-                const float rectW = kTileSize * 0.8f;
-                const float rectH = kTileSize * 3.0f;
-                boss->attackRectX = boss->facing == ShieldBossFacing::Right
-                    ? transform->x + bossWidth
-                    : transform->x - rectW;
-                boss->attackRectY = transform->y;
-                boss->attackRectWidth = rectW;
-                boss->attackRectHeight = rectH;
-                boss->attackRectActive = !hitWall;
-
-                if (!hitWall && checkPhotoBoxCollision(*transform, *entity))
                 {
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
@@ -492,7 +474,7 @@ inline void UpdateEnemies(
                 if (rushEndedThisFrame) continue;
             }
 
-            // ジャンプ上昇
+            // 繧ｸ繝｣繝ｳ繝嶺ｸ頑・
             if (boss->state == ShieldBossState::JumpAscend)
             {
                 const float jumpHeightPx = boss->jumpHeight * kTileSize;
@@ -598,11 +580,6 @@ inline void UpdateEnemies(
                     boss->stateTimer = 0.0f;
                 }
                 continue;
-                // �ҋ@�n�X�e�[�g�̂ݒn�ʃX�i�b�v
-                boss->velocityY = std::min(kMaxFallSpeed, boss->velocityY + kGravity * flow.lastDeltaTime);
-                transform->y += boss->velocityY * flow.lastDeltaTime;
-                const bool onGround = snapToGround(*transform);
-                if (onGround) boss->velocityY = 0.0f;
             }
 
             boss->stateTimer += flow.lastDeltaTime;
@@ -678,15 +655,6 @@ inline void UpdateEnemies(
                         bossVelocityX = 0.0f;
                         boss->state = ShieldBossState::JumpAscend;
                         boss->stateTimer = 0.0f;
-                    }
-                }
-                break;
-
-            case ShieldBossState::JumpAscend:
-            case ShieldBossState::JumpDescend:
-            {
-                // �㏸���͒��n���肵�Ȃ�
-                if (boss->velocityY < 0.0f) break;
 
                         if (shieldComp && shieldTransform)
                         {
@@ -708,7 +676,7 @@ inline void UpdateEnemies(
             case ShieldBossState::SlamPhase1:
                 if (boss->stateTimer >= boss->slamPhase1Duration)
                 {
-                    // 衝撃波エンティティを生成（ShieldShockwaveComponent）
+                    // 陦晄茶豕｢繧ｨ繝ｳ繝・ぅ繝・ぅ繧堤函謌撰ｼ・hieldShockwaveComponent・・
                     if (shieldComp && shieldTransform)
                     {
                         const float shockW = kTileSize * 8.0f;
@@ -727,20 +695,9 @@ inline void UpdateEnemies(
                         shockComp.lifetime = 0.25f;
                         newShields.push_back(std::move(shockwave));
 
-                        // 盾本体の判定を無効化（衝撃波に引き継ぐ）
+                        // 逶ｾ譛ｬ菴薙・蛻､螳壹ｒ辟｡蜉ｹ蛹厄ｼ郁｡晄茶豕｢縺ｫ蠑輔″邯吶＄・・
                         shieldComp->contactDamage = 0;
                     }
-                    // ����@����������A����
-                    const float slamW = kTileSize * 7.0f;
-                    const float slamH = kTileSize * 1.0f;
-                    boss->attackRectX = transform->x + transform->width * transform->scale * 0.5f - slamW * 0.5f;
-                    boss->attackRectY = transform->y + transform->height * transform->scale - slamH;
-                    boss->attackRectWidth = slamW;
-                    boss->attackRectHeight = slamH;
-                    boss->attackRectDamage = boss->slamDamage2;
-                    boss->attackRectActive = true;
-                    boss->hitEntities.clear();
-
                     boss->state = ShieldBossState::SlamPhase2;
                     boss->stateTimer = 0.0f;
                 }
@@ -751,7 +708,7 @@ inline void UpdateEnemies(
                 {
                     boss->state = ShieldBossState::Cooldown;
                     boss->stateTimer = 0.0f;
-                    // 盾を通常サイズに戻して再装着
+                    // 逶ｾ繧帝壼ｸｸ繧ｵ繧､繧ｺ縺ｫ謌ｻ縺励※蜀崎｣・捩
                     if (shieldComp)
                     {
                         shieldComp->attached = true;
@@ -787,7 +744,6 @@ inline void UpdateEnemies(
                 break;
             }
         }
-
         else if (enemy->GetArchetype() == EnemyArchetype::MidBoss2)
         {
             auto* boss = entity->GetComponent<MidBoss2Component>();
@@ -856,7 +812,6 @@ inline void UpdateEnemies(
                 boss->beamEntity->AddComponent<TintComponent>(0.48f, 0.78f, 1.0f, 0.0f);
                 boss->beamEntity->AddComponent<SpriteRenderComponent>(tileTexture);
                 boss->beamEntity->AddComponent<LaserBeamComponent>();
-                boss->beamEntity->AddComponent<BossBeamCaptureComponent>();
                 if (auto* turretEntity = boss->beamTurretEntity)
                 {
                     if (auto* turret = turretEntity->GetComponent<LaserTurretComponent>())
@@ -1231,7 +1186,6 @@ void UpdateBullets(
     , HandleEnemyDamageFn&& handleEnemyDamage
     , IsSolidTileFn&& isSolidTile) 
 {
-    constexpr float kMidBoss2SpearSpeed = 640.0f;
     entities.erase(
         std::remove_if(
             entities.begin(),
@@ -1249,73 +1203,15 @@ void UpdateBullets(
                 {
                     return false;
                 }
-                auto* spear = entity->GetComponent<MidBoss2SpearComponent>();
 
-                if (spear && spear->stuck)
-                {
-                    spear->fadeRemaining -= deltaTime;
-                    if (auto* tint = entity->GetComponent<TintComponent>())
-                    {
-                        const float alpha = spear->fadeDuration > 0.0f
-                            ? std::clamp(spear->fadeRemaining / spear->fadeDuration, 0.0f, 1.0f)
-                            : 0.0f;
-                        tint->a = alpha;
-                    }
-                    if (player && intersectsEntity(*player, *entity))
-                    {
-                        handlePlayerDamage(*player, entity.get(), "GameScene player damaged by spear");
-                    }
-                    return spear->fadeRemaining <= 0.0f;
-                }
-
-                if (spear)
-                {
-                    if (!spear->launched)
-                    {
-                        spear->launchTimer += deltaTime;
-                        const float launchDuration = std::max(0.0001f, spear->launchDelay);
-                        const float startAngle = -1.5707963268f;
-                        float targetAngle = std::atan2(spear->targetDirectionY, spear->targetDirectionX);
-                        while (targetAngle < startAngle)
-                        {
-                            targetAngle += 6.2831853072f;
-                        }
-
-                        const float progress = std::clamp(spear->launchTimer / launchDuration, 0.0f, 1.0f);
-                        const float currentAngle = startAngle + (targetAngle - startAngle) * progress;
-                        transform->rotation = currentAngle;
-                        spear->directionX = std::cos(currentAngle);
-                        spear->directionY = std::sin(currentAngle);
-                        if (progress >= 1.0f)
-                        {
-                            spear->directionX = spear->targetDirectionX;
-                            spear->directionY = spear->targetDirectionY;
-                            transform->rotation = NormalizeAngleRadians(targetAngle);
-                            spear->launched = true;
-                        }
-                        return false;
-                    }
-
-                    transform->rotation = std::atan2(spear->directionY, spear->directionX);
-                    transform->x += spear->directionX * kMidBoss2SpearSpeed * deltaTime;
-                    transform->y += spear->directionY * kMidBoss2SpearSpeed * deltaTime;
-                }
-                else
-                {
-                    transform->x += projectile->GetVelocityX() * deltaTime;
-                    transform->y += projectile->GetVelocityY() * deltaTime;
-                }
+                transform->x += projectile->GetVelocityX() * deltaTime;
+                transform->y += projectile->GetVelocityY() * deltaTime;
 
                 if (isSolidTile(transform->x, transform->y) ||
                     isSolidTile(transform->x + transform->width, transform->y) ||
                     isSolidTile(transform->x, transform->y + transform->height) ||
                     isSolidTile(transform->x + transform->width, transform->y + transform->height))
                 {
-                    if (spear)
-                    {
-                        spear->stuck = true;
-                        return false;
-                    }
                     return true;
                 }
 

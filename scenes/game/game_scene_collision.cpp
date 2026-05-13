@@ -1359,6 +1359,12 @@ void GameScene::GetEntityBoundsByTag(const char* tag, std::vector<TransformCompo
 
 bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
 {
+    if (HasTag(entity, kTagProtectiveWall))
+    {
+        const auto* wall = entity.GetComponent<ProtectiveWallComponent>();
+        return wall && !wall->IsDestroyed() && wall->isOn;
+    }
+
     return IsGroundedCapturedShield(entity) ||
         HasTag(entity, kTagPhotoSource) ||
         HasTag(entity, kTagBatterySwitch) ||

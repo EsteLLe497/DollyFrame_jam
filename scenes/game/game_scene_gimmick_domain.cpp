@@ -489,6 +489,70 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             kPlatformBatteryInsetX);
     }
 
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* wall = entity->GetComponent<ProtectiveWallComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!wall || !transform)
+        {
+            continue;
+        }
+
+        const bool powered = linkPowered[wall->linkId] && !wall->IsDestroyed();
+        wall->isOn = powered;
+        const float previousY = transform->y;
+        const float targetY = powered
+            ? wall->baseY
+            : wall->baseY + wall->moveRangeY;
+        const float maxStep = wall->moveSpeed * deltaTime;
+        const float deltaToTarget = targetY - transform->y;
+        if (std::fabs(deltaToTarget) <= maxStep)
+        {
+            transform->y = targetY;
+        }
+        else
+        {
+            transform->y += (deltaToTarget > 0.0f ? maxStep : -maxStep);
+        }
+
+        if (auto* tint = entity->GetComponent<TintComponent>())
+        {
+            const float durabilityRatio = static_cast<float>(wall->GetCurrentDurability()) /
+                static_cast<float>((std::max)(1, wall->GetMaxDurability()));
+            tint->r = wall->IsDestroyed() ? 0.16f : 0.18f + 0.18f * (1.0f - durabilityRatio);
+            tint->g = wall->IsDestroyed() ? 0.18f : 0.58f + 0.20f * durabilityRatio;
+            tint->b = wall->IsDestroyed() ? 0.20f : 0.52f + 0.22f * durabilityRatio;
+            tint->a = wall->IsDestroyed() ? 0.0f : 1.0f;
+        }
+
+        const float deltaY = transform->y - previousY;
+        if (!powered || std::fabs(deltaY) <= 0.001f)
+        {
+            continue;
+        }
+
+        const float topTolerance = std::max(kPlatformTopToleranceMin, tileSize * 0.24f);
+        carryPlayerByPlatformDeltaY(
+            *transform,
+            previousY,
+            transform->y,
+            deltaY,
+            topTolerance,
+            kPlatformPlayerInsetX);
+        carryBatteriesByPlatformDeltaY(
+            *transform,
+            previousY,
+            transform->y,
+            deltaY,
+            topTolerance,
+            kPlatformBatteryInsetX);
+    }
+
 }
 
 void GameScene::HandleWorldInteractions()
