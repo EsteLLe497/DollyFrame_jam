@@ -245,7 +245,7 @@ void ProtectiveWallComponent::OnAttach(Entity& owner)
 void ProtectiveWallComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Protective Wall");
-    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("Activation: Nearest Marker Light");
     ImGui::Text("HP: %d / %d", m_currentDurability, m_maxDurability);
     ImGui::Text("On: %s", isOn ? "Yes" : "No");
     ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");

@@ -3,6 +3,7 @@
 #include "game_scene_world_interaction_system.h"
 
 #include <cctype>
+#include <limits>
 #include <unordered_map>
 
 using namespace game_scene_detail;
@@ -503,7 +504,9 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             continue;
         }
 
-        const bool powered = linkPowered[wall->linkId] && !wall->IsDestroyed();
+        const Entity* nearestLightEntity = FindNearestMarkerLightEntity(*transform);
+        const auto* nearestLight = nearestLightEntity ? nearestLightEntity->GetComponent<MarkerLightComponent>() : nullptr;
+        const bool powered = nearestLight && nearestLight->activated && !wall->IsDestroyed();
         wall->isOn = powered;
         const float previousY = transform->y;
         const float targetY = powered
@@ -553,6 +556,45 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             kPlatformBatteryInsetX);
     }
 
+}
+
+const Entity* GameScene::FindNearestMarkerLightEntity(const TransformComponent& referenceTransform) const
+{
+    const float referenceWidth = referenceTransform.width * referenceTransform.scale;
+    const float referenceHeight = referenceTransform.height * referenceTransform.scale;
+    const float referenceCenterX = referenceTransform.x + referenceWidth * 0.5f;
+    const float referenceCenterY = referenceTransform.y + referenceHeight * 0.5f;
+
+    const Entity* nearestEntity = nullptr;
+    float nearestDistanceSq = std::numeric_limits<float>::max();
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, kTagMarkerLight))
+        {
+            continue;
+        }
+
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform)
+        {
+            continue;
+        }
+
+        const float lightWidth = transform->width * transform->scale;
+        const float lightHeight = transform->height * transform->scale;
+        const float lightCenterX = transform->x + lightWidth * 0.5f;
+        const float lightCenterY = transform->y + lightHeight * 0.5f;
+        const float dx = lightCenterX - referenceCenterX;
+        const float dy = lightCenterY - referenceCenterY;
+        const float distanceSq = dx * dx + dy * dy;
+        if (distanceSq < nearestDistanceSq)
+        {
+            nearestDistanceSq = distanceSq;
+            nearestEntity = entity.get();
+        }
+    }
+
+    return nearestEntity;
 }
 
 void GameScene::HandleWorldInteractions()
