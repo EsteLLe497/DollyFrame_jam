@@ -274,7 +274,15 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 continue;
             }
         }
-        if (HasTag(*entity, kTagLaserBeam) || HasTag(*entity, kTagLaserTurret) || HasTag(*entity, kTagStageLight))
+        const auto* bossBeamCapture = entity->GetComponent<BossBeamCaptureComponent>();
+        const bool isCapturableBossBeam =
+            HasTag(*entity, kTagLaserBeam) &&
+            bossBeamCapture &&
+            bossBeamCapture->captureEnabled;
+        if ((HasTag(*entity, kTagLaserBeam) && !isCapturableBossBeam) ||
+            (HasTag(*entity, kTagLaserTurret) &&
+                (!bossBeamCapture || !bossBeamCapture->captureEnabled)) ||
+            HasTag(*entity, kTagStageLight))
         {
             continue;
         }
@@ -335,9 +343,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedLog = HasTag(*entity, kTagLog);
         const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr && !capturedLog;
         const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr && !capturedLog;
-        const auto* bossBeamCapture = entity->GetComponent<BossBeamCaptureComponent>();
-        const bool capturedLaserTurret = HasTag(*entity, kTagLaserTurret)
-            && (!bossBeamCapture || bossBeamCapture->captureEnabled);
+        const auto* laserBeam = entity->GetComponent<LaserBeamComponent>();
+        const bool capturedBossBeam = isCapturableBossBeam && laserBeam != nullptr;
+        const bool capturedLaserTurret = (HasTag(*entity, kTagLaserTurret) ||
+            capturedBossBeam) &&
+            (!bossBeamCapture || bossBeamCapture->captureEnabled);
         if (HasTag(*entity, kTagLaserTurret) && bossBeamCapture && !bossBeamCapture->captureEnabled)
         {
             continue;
@@ -494,6 +504,18 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.projectileVelocityY = projectile->GetVelocityY();
             item.projectileDamage = projectile->GetDamage();
             item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+            if (const auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
+            {
+                item.spearProjectile = true;
+                item.spearStuck = spear->stuck;
+                item.spearDirectionX = spear->stuck ? spear->directionX : spear->targetDirectionX;
+                item.spearDirectionY = spear->stuck ? spear->directionY : spear->targetDirectionY;
+                item.spearTravelDistance = spear->travelDistance;
+                if (std::fabs(item.spearDirectionX) > 0.0001f || std::fabs(item.spearDirectionY) > 0.0001f)
+                {
+                    item.rotation = std::atan2(item.spearDirectionY, item.spearDirectionX);
+                }
+            }
         }
         else if (capturedWalker)  
         {
@@ -509,6 +531,12 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 item.laserBeamThickness = laserTurret->beamThickness;
                 item.laserDamagePerSecond = laserTurret->damagePerSecond;
                 item.laserEnemyKnockbackSpeed = laserTurret->enemyKnockbackSpeed;
+            }
+            else if (laserBeam)
+            {
+                item.laserBeamThickness = targetTransform->height * targetTransform->scale;
+                item.laserDamagePerSecond = laserBeam->damagePerSecond;
+                item.laserEnemyKnockbackSpeed = laserBeam->enemyKnockbackSpeed;
             }
         }
         else if (damagePlatform)

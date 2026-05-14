@@ -356,6 +356,10 @@ void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width
         const float rotatedVelocityY = item.projectileVelocityX * sinTheta + item.projectileVelocityY * cosTheta;
         item.projectileVelocityX = rotatedVelocityX;
         item.projectileVelocityY = rotatedVelocityY;
+        const float rotatedSpearDirectionX = item.spearDirectionX * cosTheta - item.spearDirectionY * sinTheta;
+        const float rotatedSpearDirectionY = item.spearDirectionX * sinTheta + item.spearDirectionY * cosTheta;
+        item.spearDirectionX = rotatedSpearDirectionX;
+        item.spearDirectionY = rotatedSpearDirectionY;
 
         minX = (std::min)(minX, item.relativeX);
         minY = (std::min)(minY, item.relativeY);
@@ -535,6 +539,7 @@ std::vector<CapturedPhotoItem> BuildRawPlacementItems(
         item.relativeX = captureWidth - item.relativeX - item.width;
         item.flipX = !item.flipX;
         item.projectileVelocityX = -item.projectileVelocityX;
+        item.spearDirectionX = -item.spearDirectionX;
         for (auto& point : item.collisionOutline)
         {
             point.x = 1.0f - point.x;
@@ -671,6 +676,7 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
                 item.relativeX = outWidth - item.relativeX - item.width;
                 item.flipX = !item.flipX;
                 item.projectileVelocityX = -item.projectileVelocityX;
+                item.spearDirectionX = -item.spearDirectionX;
             }
         }
         RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
@@ -721,7 +727,10 @@ void DrawCapturedPhotoItem(
             static_cast<int>(std::round(item.tintR * 255.0f)),
             static_cast<int>(std::round(item.tintG * 255.0f)),
             static_cast<int>(std::round(item.tintB * 255.0f)));
-        const float projectileAngle = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+        const float projectileAngle = item.spearProjectile &&
+            (std::fabs(item.spearDirectionX) > 0.0001f || std::fabs(item.spearDirectionY) > 0.0001f)
+            ? std::atan2(item.spearDirectionY, item.spearDirectionX)
+            : std::atan2(item.projectileVelocityY, item.projectileVelocityX);
         DrawProjectileItem(
             drawX,
             drawY,

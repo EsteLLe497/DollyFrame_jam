@@ -295,22 +295,55 @@ LaserTurretComponent::LaserTurretComponent(
     , shootsLeft(shootsLeftValue)
     , requiresLaserPower(requiresLaserPowerValue)
     , fireToLeft(shootsLeftValue)
+    , fireDirection(verticalValue
+        ? LaserTurretFireDirection::Down
+        : (shootsLeftValue ? LaserTurretFireDirection::Left : LaserTurretFireDirection::Right))
 {
 }
 
 void LaserTurretComponent::DrawDebugUI()
 {
+    const char* directionName = "Down";
+    switch (fireDirection)
+    {
+    case LaserTurretFireDirection::Down:
+        directionName = "Down";
+        break;
+    case LaserTurretFireDirection::Up:
+        directionName = "Up";
+        break;
+    case LaserTurretFireDirection::Left:
+        directionName = "Left";
+        break;
+    case LaserTurretFireDirection::Right:
+        directionName = "Right";
+        break;
+    }
+
     ImGui::SeparatorText("Laser Turret");
     ImGui::Text("Beam Thickness: %.1f", beamThickness);
     ImGui::Text("Damage / sec: %.2f", damagePerSecond);
-    ImGui::Text("Direction: %s", vertical ? "Down" : (shootsLeft ? "Left" : "Right"));
+    ImGui::Text("Direction: %s", directionName);
     ImGui::Text("Needs X Switch: %s", requiresLaserPower ? "Yes" : "No");
     ImGui::Text("Player Damage Timer: %.2f", playerDamageTimer);
     ImGui::Text("Active: %s", active ? "Yes" : "No");
     ImGui::Text("Warmup: %.2f", warmupRemaining);
-    ImGui::Text("Beam Facing: %s", fireToLeft ? "Left" : "Right");
+    ImGui::Text("Beam Facing: %s", directionName);
     ImGui::Text("Enemy Knockback: %.1f", enemyKnockbackSpeed);
     ImGui::Text("Origin Offset: (%.1f, %.1f)", beamOriginOffsetX, beamOriginOffsetY);
+}
+
+LaserBeamComponent::LaserBeamComponent(float damagePerSecondValue, float enemyKnockbackSpeedValue)
+    : damagePerSecond((std::max)(0.1f, damagePerSecondValue))
+    , enemyKnockbackSpeed((std::max)(0.0f, enemyKnockbackSpeedValue))
+{
+}
+
+void LaserBeamComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Laser Beam");
+    ImGui::Text("Damage / sec: %.2f", damagePerSecond);
+    ImGui::Text("Enemy Knockback: %.1f", enemyKnockbackSpeed);
 }
 
 TransformComponent::TransformComponent(float xValue, float yValue, float widthValue, float heightValue)

@@ -287,6 +287,14 @@ private:
     int m_currentDurability = 3;
 };
 
+enum class LaserTurretFireDirection
+{
+    Down,
+    Up,
+    Left,
+    Right
+};
+
 class LaserTurretComponent final : public Component
 {
 public:
@@ -309,6 +317,7 @@ public:
     float sparkTimer = 0.0f;
     bool active = true;
     bool fireToLeft = false;
+    LaserTurretFireDirection fireDirection = LaserTurretFireDirection::Down;
     float warmupRemaining = 0.0f;
     float enemyKnockbackSpeed = 0.0f;
     Entity* beamEntity = nullptr;
@@ -319,7 +328,15 @@ public:
 class LaserBeamComponent final : public Component
 {
 public:
-    LaserBeamComponent() = default;
+    LaserBeamComponent(
+        float damagePerSecond = 1.0f,
+        float enemyKnockbackSpeed = 0.0f);
+
+    void DrawDebugUI() override;
+
+    float damagePerSecond = 1.0f;
+    float enemyKnockbackSpeed = 0.0f;
+    std::unordered_map<const Entity*, float> enemyDamageTimers;
 };
 
 class BossBeamCaptureComponent final : public Component
@@ -783,6 +800,7 @@ public:
     float targetDirectionY = -1.0f;
     float launchDelay = 0.0f;
     float launchTimer = 0.0f;
+    float travelDistance = 0.0f;
 };
 
 class GhostComponent final : public Component
@@ -866,6 +884,8 @@ public:
 
     float GetVelocityX() const { return m_velocityX; }
     float GetVelocityY() const { return m_velocityY; }
+    void SetVelocityX(float value) { m_velocityX = value; }
+    void SetVelocityY(float value) { m_velocityY = value; }
     int GetDamage() const { return m_damage; }
     Owner GetOwner() const { return m_owner; }
     int pierceRemaining = 0;    
