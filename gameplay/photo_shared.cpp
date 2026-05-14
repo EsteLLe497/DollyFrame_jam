@@ -506,6 +506,64 @@ bool ContainsSpawnArchetypeItem(const std::vector<CapturedPhotoItem>& items)
     return false;
 }
 
+bool IsShieldArchetype(CapturedSpawnArchetype archetype)
+{
+    return archetype == CapturedSpawnArchetype::ShieldNormal ||
+        archetype == CapturedSpawnArchetype::ShieldRushBurst ||
+        archetype == CapturedSpawnArchetype::ShieldJumpBurst;
+}
+
+bool ContainsOnlyShieldArchetypeItems(const std::vector<CapturedPhotoItem>& items)
+{
+    bool foundShield = false;
+    for (const auto& item : items)
+    {
+        if (IsShieldArchetype(item.spawnArchetype))
+        {
+            foundShield = true;
+            continue;
+        }
+
+        if (item.spawnArchetype != CapturedSpawnArchetype::None ||
+            item.layer == PhotoCopyLayer::Foreground)
+        {
+            return false;
+        }
+    }
+    return foundShield;
+}
+
+void NormalizeItemsToBounds(std::vector<CapturedPhotoItem>& items, float& width, float& height)
+{
+    if (items.empty())
+    {
+        width = 1.0f;
+        height = 1.0f;
+        return;
+    }
+
+    float minX = FLT_MAX;
+    float minY = FLT_MAX;
+    float maxX = -FLT_MAX;
+    float maxY = -FLT_MAX;
+    for (const auto& item : items)
+    {
+        minX = (std::min)(minX, item.relativeX);
+        minY = (std::min)(minY, item.relativeY);
+        maxX = (std::max)(maxX, item.relativeX + item.width);
+        maxY = (std::max)(maxY, item.relativeY + item.height);
+    }
+
+    for (auto& item : items)
+    {
+        item.relativeX -= minX;
+        item.relativeY -= minY;
+    }
+
+    width = (std::max)(1.0f, maxX - minX);
+    height = (std::max)(1.0f, maxY - minY);
+}
+
 bool ContainsShapePreservingItem(const std::vector<CapturedPhotoItem>& items)
 {
     for (const auto& item : items)
@@ -624,6 +682,20 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
 {
     const bool containsArchetype = ContainsSpawnArchetypeItem(capture.items);
     const bool preservesShape = ContainsShapePreservingItem(capture.items);
+    if (ContainsOnlyShieldArchetypeItems(capture.items))
+    {
+        outWidth = (std::max)(1.0f, capture.width);
+        outHeight = (std::max)(1.0f, capture.height);
+        std::vector<CapturedPhotoItem> items = BuildRawPlacementItems(
+            capture.items,
+            outWidth,
+            outHeight,
+            placement.flipX);
+        NormalizeItemsToBounds(items, outWidth, outHeight);
+        RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
+        return items;
+    }
+
     if (preservesShape)
     {
         outWidth = (std::max)(1.0f, capture.width);

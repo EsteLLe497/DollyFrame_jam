@@ -602,6 +602,10 @@ void GameScene::InitializeStageEntities()
             }
             else if (marker == 'N' || marker == '?') // ShieldBoss
             {
+                if (m_flow.shieldBossDefeatedThisScene)
+                {
+                    continue;
+                }
                 Entity& boss = SpawnStagePrefab(
                     prefabs,
                     "sandbox_shield_boss",

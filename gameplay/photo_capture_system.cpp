@@ -278,6 +278,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             continue;
         }
+        if (HasTag(*entity, "BossShockwave"))
+        {
+            continue;
+        }
         const bool isPhotoBox = HasTag(*entity, "PhotoBox");
         if (isPhotoBox)
         {
@@ -357,6 +361,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if (capturedShield && shieldComp->photoSpawned && shieldComp->grounded)
         {
             continue;
+        }
+        if (capturedShield && shieldComp->ownerBoss)
+        {
+            if (const auto* bossComp = shieldComp->ownerBoss->GetComponent<ShieldBossComponent>())
+            {
+                if (bossComp->state == ShieldBossState::SlamPhase1 ||
+                    bossComp->state == ShieldBossState::SlamPhase2)
+                {
+                    continue;
+                }
+            }
         }
         CapturedSpawnArchetype capturedShieldArchetype = CapturedSpawnArchetype::None;
         if (capturedShield)

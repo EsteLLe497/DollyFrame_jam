@@ -86,6 +86,7 @@ inline void UpdateEnemies(
     flow.enemyCount = 0;
     std::vector<std::unique_ptr<Entity>> newBullets;
     std::vector<std::unique_ptr<Entity>> newShields;
+    std::vector<Entity*> entitiesToRemove;
 
     for (const auto& entity : entities)
     {
@@ -125,7 +126,7 @@ inline void UpdateEnemies(
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // 驥榊鴨蜃ｦ逅・
+            
             enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
             transform->y += enemy->velocityY * flow.lastDeltaTime;
             const bool onGround = snapToGround(*transform);
@@ -134,7 +135,7 @@ inline void UpdateEnemies(
                 enemy->velocityY = 0.0f;
             }
 
-            // 蜷代″譖ｴ譁ｰ
+            
             if (enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
                 enemy->facing = dx > 0.0f
@@ -142,7 +143,7 @@ inline void UpdateEnemies(
                     : EnemyComponent::FacingDirection::Left;
             }
 
-            // 謾ｻ謦・屁隗偵・谿九ｊ譎る俣繧呈峩譁ｰ
+            
             if (enemy->attackRectActive)
             {
                 enemy->attackRectRemaining -= flow.lastDeltaTime;
@@ -163,7 +164,7 @@ inline void UpdateEnemies(
             case EnemyComponent::AIState::Chase:
                 if (dist < enemy->attackRange)
                 {
-                    // 謾ｻ謦・幕蟋区凾縺ｫ蜷代″繧貞崋螳壹＠縺ｦ謾ｻ謦・屁隗偵ｒ逕滓・
+                    
                     enemy->facing = dx > 0.0f
                         ? EnemyComponent::FacingDirection::Right
                         : EnemyComponent::FacingDirection::Left;
@@ -266,7 +267,7 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            // 讀懃衍遽・峇蜀・↑繧芽ｿｽ蠕難ｼ亥慍蠖｢辟｡隕悶〒逶ｴ騾ｲ・・
+            
             if (dist < ghost->detectRange)
             {
                 const float length = std::max(1.0f, dist);
@@ -289,7 +290,7 @@ inline void UpdateEnemies(
             blaster->cooldownTimer += flow.lastDeltaTime;
             blaster->burstTimer += flow.lastDeltaTime;
 
-            // 讀懃衍遽・峇蜀・〒繧ｯ繝ｼ繝ｫ繝繧ｦ繝ｳ邨ゆｺ・＠縺溘ｉ騾｣蟆・幕蟋・
+            
             if (dist < blaster->detectRange && blaster->shotsRemaining == 0
                 && blaster->cooldownTimer >= blaster->cooldown)
             {
@@ -298,7 +299,7 @@ inline void UpdateEnemies(
                 blaster->cooldownTimer = 0.0f;
             }
 
-            // 騾｣蟆・・逅・
+            
             if (blaster->shotsRemaining > 0 && blaster->burstTimer >= blaster->burstInterval)
             {
                 blaster->burstTimer = 0.0f;
@@ -354,6 +355,155 @@ inline void UpdateEnemies(
                 ? boss->shieldEntity->GetComponent<TintComponent>()
                 : nullptr;
 
+            auto resetShieldToGuard = [&]()
+            {
+                if (!shieldComp)
+                {
+                    return;
+                }
+                shieldComp->attached = true;
+                shieldComp->attackType = ShieldAttackType::None;
+                shieldComp->velocityX = 0.0f;
+                shieldComp->velocityY = 0.0f;
+                shieldComp->rotationSpeed = 0.0f;
+                shieldComp->gravityEnabled = false;
+                shieldComp->baseAttackElapsed = 0.0f;
+                shieldComp->contactDamage = 1;
+                if (shieldTransform)
+                {
+                    shieldTransform->width = kTileSize * 1.0f;
+                    shieldTransform->height = kTileSize * 3.0f;
+                    shieldTransform->rotation = 0.0f;
+                }
+                if (shieldTint)
+                {
+                    shieldTint->r = 0.72f;
+                    shieldTint->g = 0.78f;
+                    shieldTint->b = 0.90f;
+                    shieldTint->a = 1.0f;
+                }
+            };
+
+            auto isBossNearWall = [&]() -> bool
+            {
+                const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
+                const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
+                const int probeTiles = 3;
+                const int leftColumn = static_cast<int>((transform->x - kTileSize * probeTiles) / kTileSize);
+                const int rightColumn = static_cast<int>((transform->x + bossWidth + kTileSize * probeTiles) / kTileSize);
+                for (int row = rowTop; row <= rowBottom; ++row)
+                {
+                    if (isSolidTile(leftColumn, row) || isSolidTile(rightColumn, row))
+                    {
+                        return true;
+                    }
+                }
+                return transform->x <= kTileSize * 4.0f || transform->x + bossWidth >= mapWidth - kTileSize * 4.0f;
+            };
+
+            auto wouldJumpAttackRiskWall = [&](float plannedTargetX) -> bool
+            {
+                const float shieldWidth = kTileSize * 3.0f;
+                const float minX = boss->facing == ShieldBossFacing::Right
+                    ? plannedTargetX
+                    : plannedTargetX - shieldWidth;
+                const float maxX = boss->facing == ShieldBossFacing::Right
+                    ? plannedTargetX + bossWidth + shieldWidth
+                    : plannedTargetX + bossWidth;
+                if (minX <= kTileSize * 2.0f || maxX >= mapWidth - kTileSize * 2.0f)
+                {
+                    return true;
+                }
+
+                const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
+                const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
+                const int leftColumn = static_cast<int>((minX - kTileSize) / kTileSize);
+                const int rightColumn = static_cast<int>((maxX + kTileSize) / kTileSize);
+                for (int row = rowTop; row <= rowBottom; ++row)
+                {
+                    if (isSolidTile(leftColumn, row) || isSolidTile(rightColumn, row))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            auto hitsNonWallObject = [&]() -> bool
+            {
+                for (const auto& other : entities)
+                {
+                    if (!other || other.get() == entity.get() || other.get() == boss->shieldEntity)
+                    {
+                        continue;
+                    }
+                    const auto* otherTransform = other->GetComponent<TransformComponent>();
+                    if (!otherTransform)
+                    {
+                        continue;
+                    }
+                    if (IntersectsBounds(*transform, *otherTransform) ||
+                        (shieldTransform && IntersectsBounds(*shieldTransform, *otherTransform)))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            auto removeObjectsUnderShield = [&]()
+            {
+                if (!shieldTransform)
+                {
+                    return;
+                }
+                for (const auto& other : entities)
+                {
+                    if (!other || other.get() == entity.get() || other.get() == boss->shieldEntity)
+                    {
+                        continue;
+                    }
+                    if (HasTag(*other, "Player"))
+                    {
+                        continue;
+                    }
+                    const auto* otherTransform = other->GetComponent<TransformComponent>();
+                    if (!otherTransform || !IntersectsBounds(*shieldTransform, *otherTransform))
+                    {
+                        continue;
+                    }
+                    if (std::find(entitiesToRemove.begin(), entitiesToRemove.end(), other.get()) == entitiesToRemove.end())
+                    {
+                        entitiesToRemove.push_back(other.get());
+                    }
+                }
+            };
+
+            auto startBossKnockback = [&](float direction)
+            {
+                boss->knockbackActive = true;
+                boss->knockbackTimer = 0.0f;
+                boss->knockbackStartX = transform->x;
+                boss->knockbackStartY = transform->y;
+                boss->knockbackTargetX = transform->x - direction * (kTileSize * 3.0f);
+            };
+
+            if (boss->knockbackActive)
+            {
+                boss->knockbackTimer += flow.lastDeltaTime;
+                const float progress = std::min(1.0f, boss->knockbackTimer / boss->knockbackDuration);
+                const float moveProgress = std::sin(progress * 3.1415926f * 0.5f);
+                transform->x = boss->knockbackStartX + (boss->knockbackTargetX - boss->knockbackStartX) * moveProgress;
+                transform->y = boss->knockbackStartY - std::sin(progress * 3.1415926f) * boss->knockbackHeight * kTileSize;
+                if (progress >= 1.0f)
+                {
+                    transform->x = boss->knockbackTargetX;
+                    transform->y = boss->knockbackStartY;
+                    boss->knockbackActive = false;
+                    boss->knockbackTimer = 0.0f;
+                }
+            }
+
             // Shield follow while attached.
             if (shieldComp && shieldTransform && shieldComp->attached)
             {
@@ -382,7 +532,7 @@ inline void UpdateEnemies(
                 }
                 else if (boss->state == ShieldBossState::Rush)
                 {
-                    // 遯・ｲ荳ｭ・壹・繧ｹ縺ｮ豁｣髱｢
+                    
                     shieldTransform->x = boss->facing == ShieldBossFacing::Right
                         ? transform->x + bossWidth
                         : transform->x - shieldW;
@@ -390,7 +540,7 @@ inline void UpdateEnemies(
                 }
                 else
                 {
-                    // 騾壼ｸｸ・壹・繧ｹ縺ｮ豁｣髱｢
+                   
                     shieldTransform->x = boss->facing == ShieldBossFacing::Right
                         ? transform->x + bossWidth
                         : transform->x - shieldW;
@@ -399,19 +549,27 @@ inline void UpdateEnemies(
                 }
             }
 
-            // 驥榊鴨・亥ｾ・ｩ溽ｳｻ・・
+            
             if (boss->state == ShieldBossState::Idle ||
                 boss->state == ShieldBossState::Detect ||
                 boss->state == ShieldBossState::RushCooldown ||
                 boss->state == ShieldBossState::Cooldown)
             {
-                bossVelocityY = std::min(kMaxFallSpeed, bossVelocityY + kGravity * flow.lastDeltaTime);
-                transform->y += bossVelocityY * flow.lastDeltaTime;
-                const bool onGround = snapToGround(*transform);
-                if (onGround) bossVelocityY = 0.0f;
+                if (!boss->knockbackActive)
+                {
+                    bossVelocityY = std::min(kMaxFallSpeed, bossVelocityY + kGravity * flow.lastDeltaTime);
+                    transform->y += bossVelocityY * flow.lastDeltaTime;
+                    const bool onGround = snapToGround(*transform);
+                    if (onGround) bossVelocityY = 0.0f;
+                }
             }
 
-            // 遯・ｲ
+            if (boss->knockbackActive)
+            {
+                continue;
+            }
+
+            
             bool rushEndedThisFrame = false;
             if (boss->state == ShieldBossState::Rush)
             {
@@ -455,12 +613,13 @@ inline void UpdateEnemies(
                     }
                 }
 
-                if (hitPlayer)
+                const bool hitObject = hitsNonWallObject();
+                if (hitPlayer || hitObject)
                 {
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
-                    transform->x -= dir * (kTileSize * 3.0f);
+                    startBossKnockback(dir);
                     rushEndedThisFrame = true;
                 }
                 else if (hitWall || checkPhotoBoxCollision(*transform, *entity))
@@ -474,7 +633,28 @@ inline void UpdateEnemies(
                 if (rushEndedThisFrame) continue;
             }
 
-            // 繧ｸ繝｣繝ｳ繝嶺ｸ頑・
+           
+            if (boss->state == ShieldBossState::Jump)
+            {
+                boss->stateTimer += flow.lastDeltaTime;
+                const float progress = std::min(1.0f, boss->stateTimer / boss->returnJumpDuration);
+                const float arcHeight = boss->returnJumpHeight * kTileSize;
+                transform->x = boss->jumpStartX + (boss->targetX - boss->jumpStartX) * progress;
+                transform->y = boss->jumpStartY + (boss->targetY - boss->jumpStartY) * progress
+                    - std::sin(progress * 3.1415926f) * arcHeight;
+                if (progress >= 1.0f)
+                {
+                    transform->x = boss->targetX;
+                    transform->y = boss->targetY;
+                    bossVelocityY = 0.0f;
+                    boss->returningHomeJump = false;
+                    boss->state = ShieldBossState::Cooldown;
+                    boss->stateTimer = 0.0f;
+                    resetShieldToGuard();
+                }
+                continue;
+            }
+
             if (boss->state == ShieldBossState::JumpAscend)
             {
                 const float jumpHeightPx = boss->jumpHeight * kTileSize;
@@ -568,6 +748,7 @@ inline void UpdateEnemies(
                     shieldTransform->width = slamW;
                     shieldTransform->height = slamH;
                     shieldTransform->x -= (slamW - shieldW) * 0.5f;
+                    removeObjectsUnderShield();
                     if (shieldTint)
                     {
                         shieldTint->r = 1.0f;
@@ -641,9 +822,25 @@ inline void UpdateEnemies(
                         const float playerCenterX = playerTransform->x
                             + playerTransform->width * playerTransform->scale * 0.5f;
                         const float jumpShieldWidth = kTileSize * 3.0f;
-                        boss->targetX = boss->facing == ShieldBossFacing::Right
+                        const float plannedTargetX = boss->facing == ShieldBossFacing::Right
                             ? playerCenterX - bossWidth - jumpShieldWidth * 0.5f
                             : playerCenterX + jumpShieldWidth * 0.5f;
+                        if (isBossNearWall() || wouldJumpAttackRiskWall(plannedTargetX))
+                        {
+                            boss->jumpStartX = transform->x;
+                            boss->jumpStartY = transform->y;
+                            boss->targetX = enemy->spawnX;
+                            boss->targetY = enemy->spawnY;
+                            bossVelocityY = 0.0f;
+                            bossVelocityX = 0.0f;
+                            boss->returningHomeJump = true;
+                            boss->state = ShieldBossState::Jump;
+                            boss->stateTimer = 0.0f;
+                            resetShieldToGuard();
+                            break;
+                        }
+
+                        boss->targetX = plannedTargetX;
                         boss->targetY = transform->y;
                         bossVelocityY = 0.0f;
                         bossVelocityX = 0.0f;
@@ -670,16 +867,17 @@ inline void UpdateEnemies(
             case ShieldBossState::SlamPhase1:
                 if (boss->stateTimer >= boss->slamPhase1Duration)
                 {
-                    // 陦晄茶豕｢繧ｨ繝ｳ繝・ぅ繝・ぅ繧堤函謌撰ｼ・hieldShockwaveComponent・・
+                    
                     if (shieldComp && shieldTransform)
                     {
                         const float shockW = kTileSize * 8.0f;
                         const float shockH = kTileSize * 3.0f;
                         auto shockwave = std::make_unique<Entity>();
                         shockwave->AddComponent<TagComponent>("BossShockwave");
+                        const float shockGroundY = shieldTransform->y + shieldTransform->height * shieldTransform->scale;
                         shockwave->AddComponent<TransformComponent>(
                             shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f - shockW * 0.5f,
-                            shieldTransform->y + shieldTransform->height * shieldTransform->scale - shockH,
+                            shockGroundY - kTileSize * 2.0f,
                             shockW,
                             shockH);
                         shockwave->AddComponent<TintComponent>(0.18f, 0.95f, 1.0f, 0.75f);
@@ -690,7 +888,7 @@ inline void UpdateEnemies(
                         shockComp.lifetime = 0.25f;
                         newShields.push_back(std::move(shockwave));
 
-                        // 逶ｾ譛ｬ菴薙・蛻､螳壹ｒ辟｡蜉ｹ蛹厄ｼ郁｡晄茶豕｢縺ｫ蠑輔″邯吶＄・・
+                        
                         shieldComp->contactDamage = 0;
                     }
                     boss->state = ShieldBossState::SlamPhase2;
@@ -703,7 +901,7 @@ inline void UpdateEnemies(
                 {
                     boss->state = ShieldBossState::Cooldown;
                     boss->stateTimer = 0.0f;
-                    // 逶ｾ繧帝壼ｸｸ繧ｵ繧､繧ｺ縺ｫ謌ｻ縺励※蜀崎｣・捩
+                   
                     if (shieldComp)
                     {
                         shieldComp->attached = true;
@@ -1154,6 +1352,23 @@ inline void UpdateEnemies(
                 }
             }
         }
+    }
+
+    if (!entitiesToRemove.empty())
+    {
+        entities.erase(
+            std::remove_if(
+                entities.begin(),
+                entities.end(),
+                [&](const std::unique_ptr<Entity>& candidate) -> bool
+                {
+                    if (!candidate)
+                    {
+                        return false;
+                    }
+                    return std::find(entitiesToRemove.begin(), entitiesToRemove.end(), candidate.get()) != entitiesToRemove.end();
+                }),
+            entities.end());
     }
 
     for (auto& bullet : newBullets)
