@@ -606,12 +606,6 @@ inline void UpdateEnemies(
                 break;
 
             case ShieldBossState::Rush:
-                if (boss->stateTimer >= boss->rushDuration)
-                {
-                    boss->rushCount++;
-                    boss->state = ShieldBossState::RushCooldown;
-                    boss->stateTimer = 0.0f;
-                }
                 break;
 
             case ShieldBossState::RushCooldown:
@@ -689,6 +683,7 @@ inline void UpdateEnemies(
                             shockW,
                             shockH);
                         shockwave->AddComponent<TintComponent>(0.18f, 0.95f, 1.0f, 0.75f);
+                        shockwave->AddComponent<SpriteRenderComponent>(tileTexture);
                         auto& shockComp = shockwave->AddComponent<ShieldShockwaveComponent>();
                         shockComp.ownerBoss = entity.get();
                         shockComp.damage = 1;

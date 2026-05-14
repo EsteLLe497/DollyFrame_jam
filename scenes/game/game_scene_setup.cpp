@@ -500,7 +500,7 @@ void GameScene::InitializeStageEntities()
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
         {
-            if (m_tileMap.GetMarker(column, row) != 'P')
+            if (m_tileMap.GetMarker(column, row) != '*')
             {
                 continue;
             }

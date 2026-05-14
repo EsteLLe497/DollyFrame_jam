@@ -1048,6 +1048,19 @@ void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
     }
 }
 
+void GameScene::DrawBossShockwavesUnderlay() const
+{
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, "BossShockwave"))
+        {
+            continue;
+        }
+
+        DrawEntity(*entity);
+    }
+}
+
 void GameScene::DrawPastedEntitiesFront() const
 {
     struct DrawTarget
@@ -1505,6 +1518,41 @@ void GameScene::DrawEntity(const Entity& entity) const
         ApplyPhotoBoxRoleStyle(entity.GetComponent<PhotoCopyRoleComponent>());
         ApplyPhotoBoxLayerStyle(photoLayer, photoOrigin, tint);
         ApplyPhotoBoxThemeStyle(entity.GetComponent<PhotoCopyEffectComponent>());
+    }
+    else if (tag && HasTag(tag, "BossShockwave"))
+    {
+        const int outerColor = GetColor(72, 228, 255);
+        const int coreColor = GetColor(214, 250, 255);
+        const int left = static_cast<int>(std::round(drawX));
+        const int top = static_cast<int>(std::round(drawY));
+        const int right = static_cast<int>(std::round(drawX + drawWidth));
+        const int bottom = static_cast<int>(std::round(drawY + drawHeight));
+        const float glowPadX = std::max(10.0f, drawWidth * 0.08f);
+        const float glowPadY = std::max(8.0f, drawHeight * 0.25f);
+        const float coreInsetX = std::max(3.0f, drawWidth * 0.12f);
+        const float coreInsetY = std::max(2.0f, drawHeight * 0.18f);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(70.0f * alphaMultiplier)));
+        DrawBoxAA(
+            drawX - glowPadX,
+            drawY - glowPadY,
+            drawX + drawWidth + glowPadX,
+            drawY + drawHeight + glowPadY,
+            outerColor,
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(150.0f * alphaMultiplier)));
+        DrawBox(left, top, right, bottom, outerColor, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(210.0f * alphaMultiplier)));
+        DrawBox(
+            static_cast<int>(std::round(drawX + coreInsetX)),
+            static_cast<int>(std::round(drawY + coreInsetY)),
+            static_cast<int>(std::round(drawX + drawWidth - coreInsetX)),
+            static_cast<int>(std::round(drawY + drawHeight - coreInsetY)),
+            coreColor,
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        Shader_ResetStyle();
+        return;
     }
     else if (tag && HasTag(tag, kTagBullet))
     {
