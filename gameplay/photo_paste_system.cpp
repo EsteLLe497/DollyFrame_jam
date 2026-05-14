@@ -47,6 +47,24 @@ namespace
         return radians;
     }
 
+    LaserTurretFireDirection GetLaserTurretFireDirectionFromRotation(float rotation)
+    {
+        constexpr float kQuarterTurn = 1.5707963268f;
+        const float normalized = NormalizeAngleRadians(rotation);
+        const int quadrant = static_cast<int>(std::floor((normalized + kQuarterTurn * 0.5f) / kQuarterTurn)) & 3;
+        switch (quadrant)
+        {
+        case 0:
+            return LaserTurretFireDirection::Right;
+        case 1:
+            return LaserTurretFireDirection::Down;
+        case 2:
+            return LaserTurretFireDirection::Left;
+        default:
+            return LaserTurretFireDirection::Up;
+        }
+    }
+
     void UpdatePlacementPadCursor(
         float mouseWorldX,
         float mouseWorldY,
@@ -784,7 +802,31 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedBullet->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
             spawnedBullet->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
             spawnedBullet->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
-            spawnedBullet->AddComponent<ProjectileComponent>(item.projectileVelocityX, item.projectileVelocityY, item.projectileDamage, ProjectileComponent::Owner::Photo);
+            auto& projectile = spawnedBullet->AddComponent<ProjectileComponent>(item.projectileVelocityX, item.projectileVelocityY, item.projectileDamage, ProjectileComponent::Owner::Photo);
+            if (item.spearProjectile)
+            {
+                auto& spear = spawnedBullet->AddComponent<MidBoss2SpearComponent>();
+                spear.launched = true;
+                spear.stuck = item.spearStuck;
+                spear.directionX = item.spearDirectionX;
+                spear.directionY = item.spearDirectionY;
+                spear.targetDirectionX = item.spearDirectionX;
+                spear.targetDirectionY = item.spearDirectionY;
+                spear.launchDelay = 0.0f;
+                spear.launchTimer = 0.0f;
+                spear.fadeDuration = 3.0f;
+                spear.fadeRemaining = spear.fadeDuration;
+                spear.travelDistance = item.spearTravelDistance;
+                if (spear.stuck)
+                {
+                    projectile.SetVelocityX(0.0f);
+                    projectile.SetVelocityY(0.0f);
+                }
+                if (auto* transform = spawnedBullet->GetComponent<TransformComponent>())
+                {
+                    transform->rotation = std::atan2(spear.directionY, spear.directionX);
+                }
+            }
             if (auto* sprite = spawnedBullet->GetComponent<SpriteRenderComponent>())
             {
                 sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
@@ -803,6 +845,9 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             constexpr float kPastedBeamLifetimeSeconds = 3.0f;
             constexpr float kPastedBeamWarmupSeconds = 0.45f;
             constexpr float kPastedBeamKnockbackSpeed = 120.0f;
+            const auto fireDirection = GetLaserTurretFireDirectionFromRotation(item.rotation);
+            const bool firesVertically = fireDirection == LaserTurretFireDirection::Up ||
+                fireDirection == LaserTurretFireDirection::Down;
 
             auto turretEntity = std::make_unique<Entity>();
             Entity* spawnedTurret = turretEntity.get();
@@ -817,10 +862,13 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             auto& pastedTurret = spawnedTurret->AddComponent<LaserTurretComponent>(
                 pastedBeamThickness,
                 item.laserDamagePerSecond,
-                false,
-                item.flipX,
+                firesVertically,
+                fireDirection == LaserTurretFireDirection::Left,
                 false);
-            pastedTurret.fireToLeft = item.flipX;
+            pastedTurret.fireDirection = fireDirection;
+            pastedTurret.vertical = firesVertically;
+            pastedTurret.shootsLeft = fireDirection == LaserTurretFireDirection::Left;
+            pastedTurret.fireToLeft = fireDirection == LaserTurretFireDirection::Left;
             pastedTurret.warmupRemaining = kPastedBeamWarmupSeconds;
             pastedTurret.enemyKnockbackSpeed = item.laserEnemyKnockbackSpeed > 0.0f
                 ? item.laserEnemyKnockbackSpeed
@@ -843,20 +891,50 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedBeam->AddComponent<TagComponent>(kTagLaserBeam);
             spawnedBeam->AddComponent<PhotoCopyGroupComponent>(groupId);
             spawnedBeam->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
-            spawnedBeam->AddComponent<TransformComponent>(
-                item.flipX
-                    ? (spawnX + item.relativeX)
-                    : (spawnX + item.relativeX + item.width),
-                spawnY + item.relativeY + item.height * 0.5f - pastedBeamThickness * 0.5f,
-                0.0f,
-                pastedBeamThickness);
+            float beamX = spawnX + item.relativeX;
+            float beamY = spawnY + item.relativeY;
+            float beamWidth = 0.0f;
+            float beamHeight = 0.0f;
+            if (fireDirection == LaserTurretFireDirection::Up)
+            {
+                beamX += std::max(0.0f, item.width * 0.5f - pastedBeamThickness * 0.5f);
+                beamWidth = pastedBeamThickness;
+            }
+            else if (fireDirection == LaserTurretFireDirection::Down)
+            {
+                beamX += std::max(0.0f, item.width * 0.5f - pastedBeamThickness * 0.5f);
+                beamY += item.height;
+                beamWidth = pastedBeamThickness;
+            }
+            else if (fireDirection == LaserTurretFireDirection::Left)
+            {
+                beamY += std::max(0.0f, item.height * 0.5f - pastedBeamThickness * 0.5f);
+                beamHeight = pastedBeamThickness;
+            }
+            else
+            {
+                beamX += item.width;
+                beamY += std::max(0.0f, item.height * 0.5f - pastedBeamThickness * 0.5f);
+                beamHeight = pastedBeamThickness;
+            }
+            spawnedBeam->AddComponent<TransformComponent>(beamX, beamY, beamWidth, beamHeight);
             spawnedBeam->AddComponent<TintComponent>(0.48f, 0.78f, 1.0f, 0.86f);
             spawnedBeam->AddComponent<SpriteRenderComponent>(scene.m_whiteTexture);
-            spawnedBeam->AddComponent<LaserBeamComponent>();
+            spawnedBeam->AddComponent<LaserBeamComponent>(
+                item.laserDamagePerSecond,
+                item.laserEnemyKnockbackSpeed);
             spawnedBeam->AddComponent<PhotoCopyLifetimeComponent>(kPastedBeamLifetimeSeconds);
             pastedTurret.beamEntity = spawnedBeam;
-            pastedTurret.beamOriginOffsetX = item.flipX ? 0.0f : item.width;
-            pastedTurret.beamOriginOffsetY = item.height * 0.5f;
+            if (firesVertically)
+            {
+                pastedTurret.beamOriginOffsetX = std::max(0.0f, (item.width - pastedBeamThickness) * 0.5f);
+                pastedTurret.beamOriginOffsetY = fireDirection == LaserTurretFireDirection::Up ? 0.0f : item.height;
+            }
+            else
+            {
+                pastedTurret.beamOriginOffsetX = fireDirection == LaserTurretFireDirection::Left ? 0.0f : item.width;
+                pastedTurret.beamOriginOffsetY = item.height * 0.5f;
+            }
             scene.m_entities.push_back(std::move(beamEntity));
             lastSpawnedEntity = spawnedBeam;
             continue;

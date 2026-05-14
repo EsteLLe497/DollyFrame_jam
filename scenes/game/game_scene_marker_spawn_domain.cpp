@@ -832,6 +832,11 @@ void GameScene::RefreshLaserTurretsFromMarkers()
                 vertical,
                 shootsLeft,
                 requiresLaserPower);
+            turretComponent.fireDirection = vertical
+                ? LaserTurretFireDirection::Down
+                : (shootsLeft ? LaserTurretFireDirection::Left : LaserTurretFireDirection::Right);
+            turretComponent.vertical = vertical;
+            turretComponent.shootsLeft = shootsLeft;
             turretComponent.fireToLeft = shootsLeft;
             m_entities.push_back(std::move(turret));
 

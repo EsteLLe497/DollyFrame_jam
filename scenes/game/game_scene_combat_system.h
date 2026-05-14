@@ -761,7 +761,7 @@ inline void UpdateEnemies(
 
             if (!boss->initializedHome)
             {
-                boss->homeX = 0.0f;
+                boss->homeX = transform->x;
                 boss->homeY = transform->y;
                 boss->initializedHome = true;
             }
@@ -801,6 +801,11 @@ inline void UpdateEnemies(
                 auto& turret = boss->beamTurretEntity->AddComponent<LaserTurretComponent>(
                     boss->params.beamHeightGrid * kTileSize,
                     boss->params.beamDamagePerSecond);
+                turret.fireDirection = beamFacingRight
+                    ? LaserTurretFireDirection::Right
+                    : LaserTurretFireDirection::Left;
+                turret.vertical = false;
+                turret.shootsLeft = !beamFacingRight;
                 turret.fireToLeft = false;
                 turret.active = false;
                 newBullets.push_back(std::move(turretEntity));
@@ -811,7 +816,8 @@ inline void UpdateEnemies(
                 boss->beamEntity->AddComponent<TransformComponent>(-10000.0f, -10000.0f, 0.0f, boss->params.beamHeightGrid * kTileSize);
                 boss->beamEntity->AddComponent<TintComponent>(0.48f, 0.78f, 1.0f, 0.0f);
                 boss->beamEntity->AddComponent<SpriteRenderComponent>(tileTexture);
-                boss->beamEntity->AddComponent<LaserBeamComponent>();
+                boss->beamEntity->AddComponent<LaserBeamComponent>(boss->params.beamDamagePerSecond);
+                boss->beamEntity->AddComponent<BossBeamCaptureComponent>();
                 if (auto* turretEntity = boss->beamTurretEntity)
                 {
                     if (auto* turret = turretEntity->GetComponent<LaserTurretComponent>())
@@ -858,6 +864,10 @@ inline void UpdateEnemies(
                     {
                         beamTint->a = 0.0f;
                     }
+                    if (auto* beamCapture = beamEntity->GetComponent<BossBeamCaptureComponent>())
+                    {
+                        beamCapture->captureEnabled = false;
+                    }
                 }
             };
 
@@ -888,6 +898,11 @@ inline void UpdateEnemies(
                     {
                         turret->beamThickness = beamHeight;
                         turret->damagePerSecond = boss->params.beamDamagePerSecond;
+                        turret->fireDirection = beamFacingRight
+                            ? LaserTurretFireDirection::Right
+                            : LaserTurretFireDirection::Left;
+                        turret->vertical = false;
+                        turret->shootsLeft = !beamFacingRight;
                         turret->fireToLeft = !beamFacingRight;
                         turret->active = true;
                         turret->beamOriginOffsetX = turretWidth * 0.5f;
@@ -918,6 +933,10 @@ inline void UpdateEnemies(
                     {
                         beamTint->a = 0.86f;
                     }
+                    if (auto* beamDamage = beamEntity->GetComponent<LaserBeamComponent>())
+                    {
+                        beamDamage->damagePerSecond = boss->params.beamDamagePerSecond;
+                    }
                 }
             };
 
@@ -943,12 +962,20 @@ inline void UpdateEnemies(
                     const float bossHeight = transform->height * transform->scale;
                     const float maxBossX = std::max(0.0f, mapWidth - bossWidth);
                     const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
-                    boss->hoverTargetX = std::clamp(
+                    const float spearApproachTargetX = std::clamp(
                         mapWidth * 0.5f - bossWidth * 0.5f,
                         0.0f,
                         maxBossX);
+                    const float spearApproachTargetY = std::clamp(
+                        mapHeight - bossHeight - 8.0f * kTileSize,
+                        0.0f,
+                        maxBossY);
+                    boss->hoverTargetX = std::clamp(
+                        spearApproachTargetX,
+                        0.0f,
+                        maxBossX);
                     boss->hoverTargetY = std::clamp(
-                        boss->homeY - boss->params.spearJumpHeightGrid * kTileSize,
+                        spearApproachTargetY,
                         0.0f,
                         maxBossY);
                     boss->state = MidBoss2State::SpearJump;
@@ -1010,17 +1037,18 @@ inline void UpdateEnemies(
                     spearComponent.launched = false;
                     spearComponent.fadeRemaining = boss->params.spearFadeTime;
                     spearComponent.fadeDuration = boss->params.spearFadeTime;
-                    spearComponent.directionX = 0.0f;
-                    spearComponent.directionY = -1.0f;
+                    spearComponent.directionX = dirX;
+                    spearComponent.directionY = dirY;
                     spearComponent.targetDirectionX = dirX;
                     spearComponent.targetDirectionY = dirY;
                     spearComponent.launchDelay = boss->params.spearInterval;
                     spearComponent.launchTimer = 0.0f;
+                    spearComponent.travelDistance = 0.0f;
                     boss->lastSpearDirX = dirX;
                     boss->lastSpearDirY = dirY;
                     if (auto* spearTransform = spear->GetComponent<TransformComponent>())
                     {
-                        spearTransform->rotation = -1.5707963268f;
+                        spearTransform->rotation = std::atan2(dirY, dirX);
                     }
                     newBullets.push_back(std::move(spear));
                     playEnemyGun(*entity);
@@ -1030,11 +1058,14 @@ inline void UpdateEnemies(
                 {
                     ++boss->spearCycleCount;
                     const float bossWidth = transform->width * transform->scale;
-                    boss->landingTargetX = std::clamp(
-                        boss->homeX + (playerCenterX >= boss->homeX ? -1.0f : 1.0f) * boss->params.spearJumpHorizontalGrid * kTileSize,
+                    const float bossHeight = transform->height * transform->scale;
+                    const float maxBossX = std::max(0.0f, mapWidth - bossWidth);
+                    const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
+                    boss->landingTargetX = std::clamp(0.0f, 0.0f, maxBossX);
+                    boss->landingTargetY = std::clamp(
+                        mapHeight - bossHeight - 3.0f * kTileSize,
                         0.0f,
-                        std::max(0.0f, mapWidth - bossWidth));
-                    boss->landingTargetY = boss->homeY;
+                        maxBossY);
                     boss->state = MidBoss2State::SpearLanding;
                     boss->stateTimer = 0.0f;
                 }
@@ -1049,6 +1080,7 @@ inline void UpdateEnemies(
                 {
                     transform->x = boss->landingTargetX;
                     transform->y = boss->landingTargetY;
+                    snapToGround(*transform);
                     boss->state = MidBoss2State::SpearCooldown;
                     boss->stateTimer = 0.0f;
                 }
@@ -1062,11 +1094,25 @@ inline void UpdateEnemies(
             }
 
             case MidBoss2State::SpearCooldown:
+            {
                 boss->cooldownRemaining = std::max(0.0f, boss->params.spearCooldownAfterLanding - boss->stateTimer);
+                const float bossWidth = transform->width * transform->scale;
+                const float bossHeight = transform->height * transform->scale;
+                const float maxBossX = std::max(0.0f, mapWidth - bossWidth);
+                const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
+                const float spearReturnTargetX = std::clamp(
+                    0.0f,
+                    0.0f,
+                    maxBossX);
+                const float spearReturnTargetY = std::clamp(
+                    mapHeight - bossHeight - 3.0f * kTileSize,
+                    0.0f,
+                    maxBossY);
                 if (boss->stateTimer >= boss->params.spearLandingPauseTime)
                 {
-                    transform->x += (boss->homeX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
-                    transform->y += (boss->homeY - transform->y) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                    transform->x += (spearReturnTargetX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                    transform->y += (spearReturnTargetY - transform->y) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                    snapToGround(*transform);
                 }
                 if (boss->stateTimer >= boss->params.spearCooldownAfterLanding)
                 {
@@ -1076,16 +1122,20 @@ inline void UpdateEnemies(
                     }
                     else
                     {
-                        const float bossWidth = transform->width * transform->scale;
-                        const float bossHeight = transform->height * transform->scale;
-                        const float maxBossX = std::max(0.0f, mapWidth - bossWidth);
-                        const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
-                        boss->hoverTargetX = std::clamp(
+                        const float spearApproachTargetX = std::clamp(
                             mapWidth * 0.5f - bossWidth * 0.5f,
                             0.0f,
                             maxBossX);
+                        const float spearApproachTargetY = std::clamp(
+                            mapHeight - bossHeight - 8.0f * kTileSize,
+                            0.0f,
+                            maxBossY);
+                        boss->hoverTargetX = std::clamp(
+                            spearApproachTargetX,
+                            0.0f,
+                            maxBossX);
                         boss->hoverTargetY = std::clamp(
-                            boss->homeY - boss->params.spearJumpHeightGrid * kTileSize,
+                            spearApproachTargetY,
                             0.0f,
                             maxBossY);
                         boss->state = MidBoss2State::SpearJump;
@@ -1093,12 +1143,14 @@ inline void UpdateEnemies(
                     boss->stateTimer = 0.0f;
                 }
                 break;
+            }
 
             case MidBoss2State::BeamCharge:
                 hideBeamEntities();
                 boss->cooldownRemaining = std::max(0.0f, boss->params.beamChargeTime - boss->stateTimer);
-                transform->x += (boss->homeX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
-                transform->y += (boss->homeY - transform->y) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                transform->x += (0.0f - transform->x) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                transform->y += ((mapHeight - transform->height * transform->scale - 3.0f * kTileSize) - transform->y) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                snapToGround(*transform);
                 if (boss->stateTimer >= boss->params.beamChargeTime)
                 {
                     flow.screenShakeRemaining = kBeamFireShakeSeconds;
@@ -1111,7 +1163,9 @@ inline void UpdateEnemies(
 
             case MidBoss2State::BeamFire:
                 showBeamEntities();
-                transform->x += (boss->facingRight ? -1.0f : 1.0f) * 18.0f * flow.lastDeltaTime;
+                transform->x = 0.0f;
+                transform->y = mapHeight - transform->height * transform->scale - 3.0f * kTileSize;
+                snapToGround(*transform);
                 if (boss->stateTimer >= kBeamFireDuration)
                 {
                     boss->state = MidBoss2State::BeamCooldown;
@@ -1122,8 +1176,9 @@ inline void UpdateEnemies(
             case MidBoss2State::BeamCooldown:
                 hideBeamEntities();
                 boss->cooldownRemaining = std::max(0.0f, boss->params.spearCooldownAfterLanding - boss->stateTimer);
-                transform->x += (boss->homeX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
-                transform->y += (boss->homeY - transform->y) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
+                transform->x += (0.0f - transform->x) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
+                transform->y += ((mapHeight - transform->height * transform->scale - 3.0f * kTileSize) - transform->y) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
+                snapToGround(*transform);
                 if (boss->stateTimer >= boss->params.spearCooldownAfterLanding)
                 {
                     boss->spearCycleCount = 0;
@@ -1204,14 +1259,81 @@ void UpdateBullets(
                     return false;
                 }
 
+                if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
+                {
+                    const float targetAngle = std::atan2(spear->targetDirectionY, spear->targetDirectionX);
+                    spear->launchTimer += deltaTime;
+                    if (!spear->launched)
+                    {
+                        if (spear->launchTimer < spear->launchDelay)
+                        {
+                            transform->rotation = targetAngle + spear->launchTimer * 18.0f;
+                            return false;
+                        }
+
+                        spear->launched = true;
+                        projectile->SetVelocityX(spear->targetDirectionX * 640.0f);
+                        projectile->SetVelocityY(spear->targetDirectionY * 640.0f);
+                        transform->rotation = targetAngle;
+                    }
+                    else
+                    {
+                        if (spear->stuck)
+                        {
+                            projectile->SetVelocityX(0.0f);
+                            projectile->SetVelocityY(0.0f);
+                            transform->rotation = std::atan2(spear->directionY, spear->directionX);
+                        }
+                        else
+                        {
+                            spear->travelDistance += std::hypot(
+                                projectile->GetVelocityX(),
+                                projectile->GetVelocityY()) * deltaTime;
+                            transform->rotation = std::atan2(
+                                projectile->GetVelocityY(),
+                                projectile->GetVelocityX());
+                        }
+                    }
+                    if (spear->stuck)
+                    {
+                        spear->fadeRemaining = std::max(0.0f, spear->fadeRemaining - deltaTime);
+                        if (auto* tint = entity->GetComponent<TintComponent>())
+                        {
+                            const float fadeAlpha = spear->fadeDuration > 0.0f
+                                ? std::clamp(spear->fadeRemaining / spear->fadeDuration, 0.0f, 1.0f)
+                                : 1.0f;
+                            tint->a = fadeAlpha;
+                        }
+                        if (spear->fadeRemaining <= 0.0f)
+                        {
+                            return true;
+                        }
+                    }
+                }
+
                 transform->x += projectile->GetVelocityX() * deltaTime;
                 transform->y += projectile->GetVelocityY() * deltaTime;
 
-                if (isSolidTile(transform->x, transform->y) ||
+                const bool hitSolidTile =
+                    isSolidTile(transform->x, transform->y) ||
                     isSolidTile(transform->x + transform->width, transform->y) ||
                     isSolidTile(transform->x, transform->y + transform->height) ||
-                    isSolidTile(transform->x + transform->width, transform->y + transform->height))
+                    isSolidTile(transform->x + transform->width, transform->y + transform->height);
+                if (hitSolidTile)
                 {
+                    if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
+                    {
+                        const float hitLength = std::hypot(projectile->GetVelocityX(), projectile->GetVelocityY());
+                        if (hitLength > 0.0001f)
+                        {
+                            spear->directionX = projectile->GetVelocityX() / hitLength;
+                            spear->directionY = projectile->GetVelocityY() / hitLength;
+                        }
+                        spear->stuck = true;
+                        projectile->SetVelocityX(0.0f);
+                        projectile->SetVelocityY(0.0f);
+                        return false;
+                    }
                     return true;
                 }
 
@@ -1219,6 +1341,19 @@ void UpdateBullets(
                     player && intersectsEntity(*player, *entity))
                 {
                     handlePlayerDamage(*player, entity.get(), "GameScene player damaged by bullet");
+                    if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
+                    {
+                        const float hitLength = std::hypot(projectile->GetVelocityX(), projectile->GetVelocityY());
+                        if (hitLength > 0.0001f)
+                        {
+                            spear->directionX = projectile->GetVelocityX() / hitLength;
+                            spear->directionY = projectile->GetVelocityY() / hitLength;
+                        }
+                        spear->stuck = true;
+                        projectile->SetVelocityX(0.0f);
+                        projectile->SetVelocityY(0.0f);
+                        return false;
+                    }
                     return true;
                 }
 

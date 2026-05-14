@@ -1522,6 +1522,9 @@ void GameScene::DrawEntity(const Entity& entity) const
                     ? std::clamp(spear->launchDelay > 0.0f ? spear->launchTimer / spear->launchDelay : 1.0f, 0.0f, 1.0f)
                     : 1.0f;
                 const bool isForming = spear && !spear->launched;
+                const float spearFade = spear
+                    ? std::clamp(spear->fadeDuration > 0.0f ? spear->fadeRemaining / spear->fadeDuration : 1.0f, 0.0f, 1.0f)
+                    : 1.0f;
                 const float formationStretch = isForming ? std::lerp(0.18f, 1.0f, progress) : 1.0f;
                 const float shaftLength = drawWidth * std::lerp(0.24f, 0.88f, formationStretch);
                 const float shaftHalfThickness = std::max(1.5f, drawHeight * std::lerp(0.08f, 0.14f, formationStretch));
@@ -1561,8 +1564,9 @@ void GameScene::DrawEntity(const Entity& entity) const
                 RotatePoint(centerX, centerY, spearAngle, tailBottomX, tailBottomY);
                 RotatePoint(centerX, centerY, spearAngle, tailBackX, tailBackY);
 
-                const int auraAlpha = std::clamp(static_cast<int>(std::round((isForming ? 128.0f + progress * 80.0f : 164.0f) * alphaMultiplier)), 0, 255);
-                const int coreAlpha = std::clamp(static_cast<int>(std::round((isForming ? 180.0f + progress * 60.0f : 224.0f) * alphaMultiplier)), 0, 255);
+                const float spearAlphaScale = spear ? spearFade : 1.0f;
+                const int auraAlpha = std::clamp(static_cast<int>(std::round((isForming ? 128.0f + progress * 80.0f : 164.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
+                const int coreAlpha = std::clamp(static_cast<int>(std::round((isForming ? 180.0f + progress * 60.0f : 224.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
 
                 SetDrawBlendMode(DX_BLENDMODE_ADD, auraAlpha);
                 DrawLine(
@@ -1626,10 +1630,10 @@ void GameScene::DrawEntity(const Entity& entity) const
                     GetColor(118, 220, 255),
                     TRUE);
 
-                const float runProgress = isForming ? progress : std::fmod(static_cast<float>(GetNowCount()) * 0.0034f, 1.0f);
+                const float runProgress = isForming ? progress : 1.0f;
                 const float runX = std::lerp(tipX, tailBackX, runProgress);
                 const float runY = std::lerp(tipY, tailBackY, runProgress);
-                SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(168.0f * alphaMultiplier)), 0, 255));
+                SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(168.0f * alphaMultiplier * spearAlphaScale)), 0, 255));
                 DrawCircle(
                     static_cast<int>(std::round(runX)),
                     static_cast<int>(std::round(runY)),
@@ -1650,7 +1654,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                     RotatePoint(centerX, centerY, spearAngle, orbitX, orbitY);
                     const float particleX = std::lerp(centerX, orbitX, travelT);
                     const float particleY = std::lerp(centerY, orbitY, travelT);
-                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((104.0f + progress * 92.0f) * alphaMultiplier)), 0, 255));
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((104.0f + progress * 92.0f) * alphaMultiplier * spearAlphaScale)), 0, 255));
                     DrawCircle(
                         static_cast<int>(std::round(particleX)),
                         static_cast<int>(std::round(particleY)),
@@ -1840,31 +1844,30 @@ void GameScene::DrawEntity(const Entity& entity) const
             viewScale,
             m_flow.cameraX,
             m_flow.cameraY);
-
-        if (const auto* cooldown = entity.GetComponent<DamageCooldownComponent>())
-        {
-            if (cooldown->GetRemainingSeconds() > 0.0f)
-            {
-                const float cooldownSeconds = std::max(0.001f, cooldown->GetCooldownSeconds());
-                const float blinkProgress = 1.0f - Clamp01(cooldown->GetRemainingSeconds() / cooldownSeconds);
-                const float blinkPhase = blinkProgress * 6.0f * 3.14159265f;
-                const float blinkWave = 0.5f + 0.5f * std::sin(blinkPhase);
-                alphaMultiplier *= std::lerp(0.18f, 1.0f, blinkWave);
-
-                const float flash = 0.40f + 0.60f * std::sin(cooldown->GetRemainingSeconds() * 28.0f);
-                Shader_SetFlash(1.0f, 0.30f, 0.22f, 1.0f, Clamp01(flash));
-            }
-        }
     }
 
-    if ((!tag || !HasTag(tag, kTagPlayer)))
+    if (const auto* cooldown = entity.GetComponent<DamageCooldownComponent>())
     {
-        if (const auto* cooldown = entity.GetComponent<DamageCooldownComponent>())
+        if (cooldown->GetRemainingSeconds() > 0.0f)
         {
-            if (cooldown->GetRemainingSeconds() > 0.0f)
+            const bool isPlayer = tag && HasTag(tag, kTagPlayer);
+            const bool isEnemy = entity.GetComponent<EnemyComponent>() != nullptr;
+            const float cooldownSeconds = std::max(0.001f, cooldown->GetCooldownSeconds());
+            const float flashT = Clamp01(cooldown->GetRemainingSeconds() / cooldownSeconds);
+            if (isPlayer)
             {
-                const float cooldownSeconds = std::max(0.001f, cooldown->GetCooldownSeconds());
-                const float flashT = Clamp01(cooldown->GetRemainingSeconds() / cooldownSeconds);
+                Shader_SetFlash(1.0f, 0.30f, 0.22f, 1.0f, flashT);
+            }
+            else if (isEnemy)
+            {
+                const float blinkPhase = flashT * 7.0f * 3.14159265f;
+                const float blinkWave = 0.45f + 0.55f * std::sin(blinkPhase);
+                alphaMultiplier *= std::lerp(0.20f, 1.0f, blinkWave);
+                Shader_SetOutline(1.0f, 0.18f, 0.16f, 1.0f, 2.0f);
+                Shader_SetFlash(1.0f, 0.08f, 0.08f, 1.0f, std::max(flashT, blinkWave * 0.75f));
+            }
+            else
+            {
                 Shader_SetFlash(1.0f, 0.88f, 0.28f, 1.0f, flashT);
             }
         }
