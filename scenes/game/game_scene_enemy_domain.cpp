@@ -370,6 +370,15 @@ void GameScene::UpdateShields(float deltaTime)
     {
         if (auto* shieldBoss = target.GetComponent<ShieldBossComponent>())
         {
+            if (shieldBoss->state == ShieldBossState::Jump ||
+                shieldBoss->state == ShieldBossState::JumpAscend ||
+                shieldBoss->state == ShieldBossState::AirHover ||
+                shieldBoss->state == ShieldBossState::JumpDescend ||
+                shieldBoss->state == ShieldBossState::SlamPhase1 ||
+                shieldBoss->state == ShieldBossState::SlamPhase2)
+            {
+                return;
+            }
             shieldBoss->knockbackActive = true;
             shieldBoss->knockbackTimer = 0.0f;
             shieldBoss->knockbackStartX = transform.x;
