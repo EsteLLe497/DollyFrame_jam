@@ -135,6 +135,7 @@ struct GameSceneDebugState
     bool effectPlacementPulseEnabled = true;
     bool effectPasteStickEnabled = true;
     bool effectPasteRingEnabled = true;
+    bool sepiaFilmFilterDryRunEnabled = false;
     bool bgmEnabled = true;
     float bgmRestoreVolume = 0.6f;
     bool screenShakeEnabled = true;

@@ -692,6 +692,117 @@ namespace
         DirectXDrawDarknessOverlay();
     }
 
+    unsigned int BuildSepiaNoiseSeed(int x, int y, int frame)
+    {
+        unsigned int value = static_cast<unsigned int>(x) * 1973u;
+        value ^= static_cast<unsigned int>(y) * 9277u;
+        value ^= static_cast<unsigned int>(frame) * 26699u;
+        value ^= value << 13;
+        value ^= value >> 17;
+        value ^= value << 5;
+        return value;
+    }
+
+    void DrawSepiaFilmNoise(int left, int top, int right, int bottom, int frame)
+    {
+        constexpr int kNoiseCell = 4;
+        if (right <= left || bottom <= top)
+        {
+            return;
+        }
+
+        // Sparse black dots mimic coarse film grain without per-pixel work.
+        for (int y = top; y < bottom; y += kNoiseCell)
+        {
+            for (int x = left; x < right; x += kNoiseCell)
+            {
+                const unsigned int seed = BuildSepiaNoiseSeed(x / kNoiseCell, y / kNoiseCell, frame);
+                const int grain = static_cast<int>(seed & 31u);
+                if (grain < 15)
+                {
+                    continue;
+                }
+
+                const int alpha = 9 + grain;
+                const int dotSize = ((seed >> 6) & 3u) == 0u ? 2 : 1;
+                SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+                DrawBox(
+                    x,
+                    y,
+                    std::min(x + dotSize, right),
+                    std::min(y + dotSize, bottom),
+                    GetColor(0, 0, 0),
+                    TRUE);
+            }
+        }
+    }
+
+    void DrawSepiaFilmScratches(int left, int top, int right, int bottom, int frame)
+    {
+        const int width = right - left;
+        if (width <= 0 || bottom <= top)
+        {
+            return;
+        }
+
+        // Long black vertical scratches sell the worn film look.
+        constexpr int kScratchCount = 7;
+        for (int index = 0; index < kScratchCount; ++index)
+        {
+            const unsigned int seed = BuildSepiaNoiseSeed(index * 23, frame / 2, 17);
+            const int x = left + static_cast<int>(seed % static_cast<unsigned int>(width));
+            const int y0 = top + static_cast<int>((seed >> 8) % 34u) - 18;
+            const int length = 70 + static_cast<int>((seed >> 14) % 220u);
+            const int alpha = 18 + static_cast<int>((seed >> 22) % 34u);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+            DrawLine(x, y0, x + static_cast<int>((seed >> 5) % 3u) - 1, std::min(y0 + length, bottom), GetColor(0, 0, 0), 1);
+        }
+    }
+
+    void DrawSepiaFilmDust(int left, int top, int right, int bottom, int frame)
+    {
+        const int width = right - left;
+        const int height = bottom - top;
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        // A few larger dark stains create the faded, dirty film overlay.
+        constexpr int kDustCount = 16;
+        for (int index = 0; index < kDustCount; ++index)
+        {
+            const unsigned int seed = BuildSepiaNoiseSeed(index * 41, frame / 3, 73);
+            const int x = left + static_cast<int>(seed % static_cast<unsigned int>(width));
+            const int y = top + static_cast<int>((seed >> 9) % static_cast<unsigned int>(height));
+            const int radius = 1 + static_cast<int>((seed >> 18) % 3u);
+            const int alpha = 10 + static_cast<int>((seed >> 24) % 22u);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+            DrawCircle(x, y, radius, GetColor(0, 0, 0), TRUE);
+        }
+    }
+
+    void DrawSepiaFilmUnevenFade(int left, int top, int right, int bottom, int frame)
+    {
+        const int height = bottom - top;
+        if (right <= left || height <= 0)
+        {
+            return;
+        }
+
+        // Wide translucent bands make the finder feel bleached and unstable.
+        constexpr int kBandCount = 4;
+        for (int index = 0; index < kBandCount; ++index)
+        {
+            const unsigned int seed = BuildSepiaNoiseSeed(index * 13, frame / 4, 109);
+            const int bandTop = top + static_cast<int>(seed % static_cast<unsigned int>(height));
+            const int bandHeight = 18 + static_cast<int>((seed >> 11) % 56u);
+            const int alpha = 10 + static_cast<int>((seed >> 21) % 18u);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+            DrawBox(left, bandTop, right, std::min(bandTop + bandHeight, bottom), GetColor(238, 202, 142), TRUE);
+        }
+    }
+
     float GetTuningRowY(int index)
     {
         float y = kTuningPanelY + kTuningRowStartY;
@@ -832,6 +943,65 @@ void GameScene::DrawStageDarknessOverlay() const
     }
 
     DrawDarknessOverlayFallback(ctx, overlayLights, maxDarknessAlpha);
+}
+
+void GameScene::DrawSepiaFilmFilterOverlay() const
+{
+    const bool enabled =
+        m_debug.sepiaFilmFilterDryRunEnabled ||
+        m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia;
+    if (!enabled || !m_flow.cameraMode)
+    {
+        return;
+    }
+
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* transform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    if (!transform)
+    {
+        return;
+    }
+
+    float frameX = 0.0f;
+    float frameY = 0.0f;
+    float frameWidth = 0.0f;
+    float frameHeight = 0.0f;
+    GetCaptureFrameRect(*transform, frameX, frameY, frameWidth, frameHeight);
+
+    const float viewScale = GetViewScale();
+    const float drawX = GetViewOriginX() + (frameX - m_flow.cameraX) * viewScale;
+    const float drawY = GetViewOriginY() + (frameY - m_flow.cameraY) * viewScale;
+    const int left = static_cast<int>(std::round(drawX));
+    const int top = static_cast<int>(std::round(drawY));
+    const int right = static_cast<int>(std::round(drawX + frameWidth * viewScale));
+    const int bottom = static_cast<int>(std::round(drawY + frameHeight * viewScale));
+    if (right <= left || bottom <= top)
+    {
+        return;
+    }
+
+    const int frame = GetNowCount() / 33;
+    const int effectLeft = left;
+    const int effectTop = top;
+    const int effectRight = right;
+    const int effectBottom = bottom;
+    if (effectRight <= effectLeft || effectBottom <= effectTop)
+    {
+        return;
+    }
+
+    // Fill under the finder frame so no gap appears, without drawing outside it.
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 44);
+    DrawBox(effectLeft, effectTop, effectRight, effectBottom, GetColor(205, 178, 68), TRUE);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 82);
+    DrawBox(effectLeft, effectTop, effectRight, effectBottom, GetColor(255, 252, 220), TRUE);
+
+    DrawSepiaFilmUnevenFade(effectLeft, effectTop, effectRight, effectBottom, frame);
+    DrawSepiaFilmNoise(effectLeft, effectTop, effectRight, effectBottom, frame);
+    DrawSepiaFilmDust(effectLeft, effectTop, effectRight, effectBottom, frame);
+    DrawSepiaFilmScratches(effectLeft, effectTop, effectRight, effectBottom, frame);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
 
 void GameScene::DrawMarkerLightOutlines() const
@@ -1651,15 +1821,6 @@ void GameScene::DrawBackdropBaseInView(float viewOriginX, float viewOriginY, flo
     Shader_SetTint(0.05f, 0.05f, 0.07f, 0.98f);
     SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
-    if (m_photo.capture.selectedTheme != PhotoFilterTheme::None)
-    {
-        float filterR = 1.0f;
-        float filterG = 1.0f;
-        float filterB = 1.0f;
-        GetPhotoFilterThemeOverlayColor(m_photo.capture.selectedTheme, filterR, filterG, filterB);
-        Shader_SetTint(filterR, filterG, filterB, 0.07f);
-        SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
-    }
 }
 
 void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const

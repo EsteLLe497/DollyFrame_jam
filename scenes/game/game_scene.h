@@ -181,6 +181,7 @@ private:
     void DrawTuningPanel();
     void DrawPitRestartOverlay() const;
     void DrawStageDarknessOverlay() const;
+    void DrawSepiaFilmFilterOverlay() const;
     void DrawMarkerLightOutlines() const;
     void DrawEffects() const;
     void DrawEnemyAttackRects() const;

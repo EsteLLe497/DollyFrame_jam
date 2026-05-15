@@ -56,6 +56,10 @@ void GameScene::HandleGlobalSceneShortcuts()
     {
         m_debug.showCollisionDebug = !m_debug.showCollisionDebug;
     }
+    if (Input_IsKeyPressed(VK_F9))
+    {
+        m_debug.sepiaFilmFilterDryRunEnabled = !m_debug.sepiaFilmFilterDryRunEnabled;
+    }
 }
 
 bool GameScene::OnCancelAction()
