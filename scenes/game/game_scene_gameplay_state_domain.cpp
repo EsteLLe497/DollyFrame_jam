@@ -43,6 +43,20 @@ void GameScene::StartCameraFlashPulse(float durationSeconds)
 
 void GameScene::StoreCapturedPhoto()
 {
+    const bool sepiaDryRun =
+        m_debug.sepiaFilmFilterDryRunEnabled ||
+        m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia ||
+        m_photo.capture.capturedTheme == PhotoFilterTheme::Sepia;
+    if (sepiaDryRun)
+    {
+        // Sepia dry-run is preview-only, so never queue a capture for storage.
+        const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
+        m_photo.capture = PhotoCaptureState{};
+        m_photo.capture.selectedTheme = selectedTheme;
+        m_photo.pendingStore = PendingPhotoStoreState{};
+        return;
+    }
+
     CommitPendingCapturedPhoto();
 
     int slotToStore = -1;
@@ -71,6 +85,16 @@ void GameScene::CommitPendingCapturedPhoto()
 {
     if (!m_photo.pendingStore.active)
     {
+        return;
+    }
+    const bool sepiaDryRun =
+        m_debug.sepiaFilmFilterDryRunEnabled ||
+        m_photo.pendingStore.capture.selectedTheme == PhotoFilterTheme::Sepia ||
+        m_photo.pendingStore.capture.capturedTheme == PhotoFilterTheme::Sepia;
+    if (sepiaDryRun)
+    {
+        // Discard queued sepia captures before they can enter the saved slots.
+        m_photo.pendingStore = PendingPhotoStoreState{};
         return;
     }
 
