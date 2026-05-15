@@ -36,6 +36,56 @@ namespace
     constexpr float kTuningButtonWidth = 52.0f;
     constexpr float kTuningButtonHeight = 18.0f;
 
+    struct OverlayLightSource
+    {
+        float centerX = 0.0f;
+        float centerY = 0.0f;
+        float shapeType = 0.0f;
+        float innerRadius = 0.0f;
+        float outerRadius = 0.0f;
+        float extentX = 0.0f;
+        float extentY = 0.0f;
+        float intensity = 1.0f;
+        float colorR = 1.0f;
+        float colorG = 1.0f;
+        float colorB = 1.0f;
+        float priority = 0.0f;
+    };
+
+    bool IsOverlayLightVisible(const OverlayLightSource& light, int left, int top, int right, int bottom)
+    {
+        const float extentX = light.shapeType >= 0.5f ? light.extentX : 0.0f;
+        const float extentY = light.shapeType >= 0.5f ? light.extentY : 0.0f;
+        const float radius = light.outerRadius;
+        return light.centerX + extentX + radius >= static_cast<float>(left) &&
+            light.centerX - extentX - radius <= static_cast<float>(right) &&
+            light.centerY + extentY + radius >= static_cast<float>(top) &&
+            light.centerY - extentY - radius <= static_cast<float>(bottom);
+    }
+
+    void AppendOverlayLight(
+        std::vector<OverlayLightSource>& overlayLights,
+        OverlayLightSource light,
+        float playerLightScreenX,
+        float playerLightScreenY,
+        float basePriority,
+        int left,
+        int top,
+        int right,
+        int bottom)
+    {
+        if (!IsOverlayLightVisible(light, left, top, right, bottom))
+        {
+            return;
+        }
+
+        const float dx = light.centerX - playerLightScreenX;
+        const float dy = light.centerY - playerLightScreenY;
+        const float distancePenalty = std::sqrt(dx * dx + dy * dy) * 0.08f;
+        light.priority = basePriority + light.outerRadius * light.intensity - distancePenalty;
+        overlayLights.push_back(light);
+    }
+
     float GetTuningRowY(int index)
     {
         float y = kTuningPanelY + kTuningRowStartY;
@@ -138,66 +188,34 @@ void GameScene::DrawStageDarknessOverlay() const
         maxDarknessAlpha = static_cast<int>(std::round(std::lerp(228.0f, 160.0f, flashEase)));
     }
 
-    struct OverlayLightSource
-    {
-        float centerX = 0.0f;
-        float centerY = 0.0f;
-        float shapeType = 0.0f;
-        float innerRadius = 0.0f;
-        float outerRadius = 0.0f;
-        float extentX = 0.0f;
-        float extentY = 0.0f;
-        float intensity = 1.0f;
-        float colorR = 1.0f;
-        float colorG = 1.0f;
-        float colorB = 1.0f;
-        float priority = 0.0f;
-    };
-
     std::vector<OverlayLightSource> overlayLights;
     overlayLights.reserve(kMaxDarknessOverlayLights * 2);
     constexpr int kDarknessOverlayActiveLightLimit = 6;
 
-    const auto isLightVisible = [&](const OverlayLightSource& light)
-    {
-        const float extentX = light.shapeType >= 0.5f ? light.extentX : 0.0f;
-        const float extentY = light.shapeType >= 0.5f ? light.extentY : 0.0f;
-        const float radius = light.outerRadius;
-        return light.centerX + extentX + radius >= static_cast<float>(left) &&
-            light.centerX - extentX - radius <= static_cast<float>(right) &&
-            light.centerY + extentY + radius >= static_cast<float>(top) &&
-            light.centerY - extentY - radius <= static_cast<float>(bottom);
-    };
-
     const float playerLightScreenX = viewOriginX + (lightCenterWorldX - m_flow.cameraX) * viewScale;
     const float playerLightScreenY = viewOriginY + (lightCenterWorldY - m_flow.cameraY) * viewScale - 16.0f * viewScale;
-    const auto addOverlayLight = [&](OverlayLightSource light, float basePriority)
-    {
-        if (!isLightVisible(light))
+
+    AppendOverlayLight(
+        overlayLights,
         {
-            return;
-        }
-
-        const float dx = light.centerX - playerLightScreenX;
-        const float dy = light.centerY - playerLightScreenY;
-        const float distancePenalty = std::sqrt(dx * dx + dy * dy) * 0.08f;
-        light.priority = basePriority + light.outerRadius * light.intensity - distancePenalty;
-        overlayLights.push_back(light);
-    };
-
-    addOverlayLight({
+            playerLightScreenX,
+            playerLightScreenY,
+            0.0f,
+            innerRadius,
+            outerRadius,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f,
+            1.0f,
+            1.0f },
         playerLightScreenX,
         playerLightScreenY,
-        0.0f,
-        innerRadius,
-        outerRadius,
-        0.0f,
-        0.0f,
-        1.0f,
-        1.0f,
-        1.0f,
-        1.0f },
-        100000.0f);
+        100000.0f,
+        left,
+        top,
+        right,
+        bottom);
 
     for (const auto& entity : m_entities)
     {
@@ -215,19 +233,27 @@ void GameScene::DrawStageDarknessOverlay() const
         const float extraCenterWorldX = extraTransform->x + extraTransform->width * extraTransform->scale * 0.5f;
         const float extraCenterWorldY = extraTransform->y + extraTransform->height * extraTransform->scale * 0.5f;
         const float extraOuterRadius = extraLight->radius * viewScale;
-        addOverlayLight({
-            viewOriginX + (extraCenterWorldX - m_flow.cameraX) * viewScale,
-            viewOriginY + (extraCenterWorldY - m_flow.cameraY) * viewScale,
-            0.0f,
-            extraOuterRadius * 0.44f,
-            extraOuterRadius,
-            0.0f,
-            0.0f,
-            extraLight->intensity,
-            1.0f,
-            1.0f,
-            1.0f },
-            12.0f);
+        AppendOverlayLight(
+            overlayLights,
+            {
+                viewOriginX + (extraCenterWorldX - m_flow.cameraX) * viewScale,
+                viewOriginY + (extraCenterWorldY - m_flow.cameraY) * viewScale,
+                0.0f,
+                extraOuterRadius * 0.44f,
+                extraOuterRadius,
+                0.0f,
+                0.0f,
+                extraLight->intensity,
+                1.0f,
+                1.0f,
+                1.0f },
+            playerLightScreenX,
+            playerLightScreenY,
+            12.0f,
+            left,
+            top,
+            right,
+            bottom);
     }
 
     for (const auto& entity : m_entities)
@@ -250,19 +276,27 @@ void GameScene::DrawStageDarknessOverlay() const
         const float beamBottomWidth = stageLight->beamBottomWidth * stageTransform->scale * viewScale;
         const float beamFeather = std::max(stageLight->beamFeather * stageTransform->scale * viewScale, 4.0f * viewScale);
         const float sourceY = viewOriginY + ((stageTransform->y + stageTransform->height * stageTransform->scale) - m_flow.cameraY) * viewScale;
-        addOverlayLight({
-            viewOriginX + (stageCenterWorldX - m_flow.cameraX) * viewScale,
-            sourceY + beamLength * 0.5f,
-            2.0f,
-            beamTopWidth * 0.5f,
-            beamFeather,
-            beamBottomWidth * 0.5f,
-            beamLength * 0.5f,
-            stageLight->intensity,
-            stageLight->r,
-            stageLight->g,
-            stageLight->b },
-            18.0f);
+        AppendOverlayLight(
+            overlayLights,
+            {
+                viewOriginX + (stageCenterWorldX - m_flow.cameraX) * viewScale,
+                sourceY + beamLength * 0.5f,
+                2.0f,
+                beamTopWidth * 0.5f,
+                beamFeather,
+                beamBottomWidth * 0.5f,
+                beamLength * 0.5f,
+                stageLight->intensity,
+                stageLight->r,
+                stageLight->g,
+                stageLight->b },
+            playerLightScreenX,
+            playerLightScreenY,
+            18.0f,
+            left,
+            top,
+            right,
+            bottom);
     }
 
     const float tileSize = m_tileMap.GetTileSize();
@@ -284,19 +318,27 @@ void GameScene::DrawStageDarknessOverlay() const
 
             const float batteryCenterWorldX = batteryTransform->x + batteryTransform->width * batteryTransform->scale * 0.5f;
             const float batteryCenterWorldY = batteryTransform->y + batteryTransform->height * batteryTransform->scale * 0.5f;
-            addOverlayLight({
-                viewOriginX + (batteryCenterWorldX - m_flow.cameraX) * viewScale,
-                viewOriginY + (batteryCenterWorldY - m_flow.cameraY) * viewScale,
-                0.0f,
-                batteryOuterRadius * 0.44f,
-                batteryOuterRadius,
-                0.0f,
-                0.0f,
-                1.0f,
-                0.38f,
-                0.88f,
-                1.0f },
-                4.0f);
+            AppendOverlayLight(
+                overlayLights,
+                {
+                    viewOriginX + (batteryCenterWorldX - m_flow.cameraX) * viewScale,
+                    viewOriginY + (batteryCenterWorldY - m_flow.cameraY) * viewScale,
+                    0.0f,
+                    batteryOuterRadius * 0.44f,
+                    batteryOuterRadius,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    0.38f,
+                    0.88f,
+                    1.0f },
+                playerLightScreenX,
+                playerLightScreenY,
+                4.0f,
+                left,
+                top,
+                right,
+                bottom);
         }
 
         const float laserFeather = tileSize * viewScale * 0.6f;
@@ -320,19 +362,27 @@ void GameScene::DrawStageDarknessOverlay() const
             const float beamGlowHalfWidth = std::max(beamShortSize * viewScale * 1.6f, tileSize * viewScale * 0.22f);
             const float beamCenterX = beamTransform->x + beamWidth * 0.5f;
             const float beamCenterY = beamTransform->y + beamHeight * 0.5f;
-            addOverlayLight({
-                viewOriginX + (beamCenterX - m_flow.cameraX) * viewScale,
-                viewOriginY + (beamCenterY - m_flow.cameraY) * viewScale,
-                1.0f,
-                0.0f,
-                laserFeather,
-                std::max(beamWidth * viewScale * 0.5f, beamGlowHalfWidth),
-                std::max(beamHeight * viewScale * 0.5f, beamGlowHalfWidth),
-                0.96f,
-                1.0f,
-                0.22f,
-                0.18f },
-                18.0f);
+            AppendOverlayLight(
+                overlayLights,
+                {
+                    viewOriginX + (beamCenterX - m_flow.cameraX) * viewScale,
+                    viewOriginY + (beamCenterY - m_flow.cameraY) * viewScale,
+                    1.0f,
+                    0.0f,
+                    laserFeather,
+                    std::max(beamWidth * viewScale * 0.5f, beamGlowHalfWidth),
+                    std::max(beamHeight * viewScale * 0.5f, beamGlowHalfWidth),
+                    0.96f,
+                    1.0f,
+                    0.22f,
+                    0.18f },
+                playerLightScreenX,
+                playerLightScreenY,
+                18.0f,
+                left,
+                top,
+                right,
+                bottom);
         }
 
         const float blasterBulletOuterRadius = tileSize * viewScale * 0.9f;
@@ -351,19 +401,27 @@ void GameScene::DrawStageDarknessOverlay() const
 
             const float bulletCenterWorldX = bulletTransform->x + bulletTransform->width * bulletTransform->scale * 0.5f;
             const float bulletCenterWorldY = bulletTransform->y + bulletTransform->height * bulletTransform->scale * 0.5f;
-            addOverlayLight({
-                viewOriginX + (bulletCenterWorldX - m_flow.cameraX) * viewScale,
-                viewOriginY + (bulletCenterWorldY - m_flow.cameraY) * viewScale,
-                0.0f,
-                blasterBulletOuterRadius * 0.22f,
-                blasterBulletOuterRadius,
-                0.0f,
-                0.0f,
-                0.92f,
-                0.34f,
-                1.0f,
-                0.66f },
-                8.0f);
+            AppendOverlayLight(
+                overlayLights,
+                {
+                    viewOriginX + (bulletCenterWorldX - m_flow.cameraX) * viewScale,
+                    viewOriginY + (bulletCenterWorldY - m_flow.cameraY) * viewScale,
+                    0.0f,
+                    blasterBulletOuterRadius * 0.22f,
+                    blasterBulletOuterRadius,
+                    0.0f,
+                    0.0f,
+                    0.92f,
+                    0.34f,
+                    1.0f,
+                    0.66f },
+                playerLightScreenX,
+                playerLightScreenY,
+                8.0f,
+                left,
+                top,
+                right,
+                bottom);
         }
     }
 

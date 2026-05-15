@@ -120,7 +120,7 @@ namespace
 
     bool IsProtectiveWallMarker(char marker)
     {
-        return marker == '@';
+        return marker == '&';
     }
 
     struct SwitchMarker

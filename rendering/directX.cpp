@@ -61,10 +61,62 @@ namespace
         float colorB;
         float pad4;
         float lightParams[kMaxDarknessOverlayLights * 4];
-        float lightIntensityPack[kMaxDarknessOverlayLights];
         float lightColors[kMaxDarknessOverlayLights * 4];
         float lightShapeData[kMaxDarknessOverlayLights * 4];
     };
+
+    void ResetDarknessOverlayShaderParams(DarknessOverlayShaderParams& buffer)
+    {
+        buffer = {};
+    }
+
+    void WriteDarknessOverlayLight(
+        DarknessOverlayShaderParams& buffer,
+        int lightIndex,
+        const DarknessOverlayLight& light)
+    {
+        const int baseIndex = lightIndex * 4;
+        buffer.lightParams[baseIndex + 0] = light.centerX;
+        buffer.lightParams[baseIndex + 1] = light.centerY;
+        buffer.lightParams[baseIndex + 2] = light.innerRadius;
+        buffer.lightParams[baseIndex + 3] = (std::max)(light.outerRadius, light.innerRadius + 0.001f);
+        buffer.lightColors[baseIndex + 0] = std::clamp(light.colorR, 0.0f, 1.0f);
+        buffer.lightColors[baseIndex + 1] = std::clamp(light.colorG, 0.0f, 1.0f);
+        buffer.lightColors[baseIndex + 2] = std::clamp(light.colorB, 0.0f, 1.0f);
+        buffer.lightColors[baseIndex + 3] = std::clamp(light.intensity, 0.0f, 1.0f);
+        buffer.lightShapeData[baseIndex + 0] = light.shapeType;
+        buffer.lightShapeData[baseIndex + 1] = light.extentX;
+        buffer.lightShapeData[baseIndex + 2] = light.extentY;
+        buffer.lightShapeData[baseIndex + 3] = light.outerRadius;
+    }
+
+    void PopulateDarknessOverlayShaderParams(
+        DarknessOverlayShaderParams& buffer,
+        const DarknessOverlayParams& params)
+    {
+        buffer.screenWidth = static_cast<float>(kVirtualScreenWidth);
+        buffer.screenHeight = static_cast<float>(kVirtualScreenHeight);
+        buffer.pad0 = 0.0f;
+        buffer.pad1 = 0.0f;
+        buffer.viewLeft = params.viewLeft;
+        buffer.viewTop = params.viewTop;
+        buffer.viewRight = params.viewRight;
+        buffer.viewBottom = params.viewBottom;
+        buffer.darknessOpacity = std::clamp(params.darknessOpacity, 0.0f, 1.0f);
+        buffer.lightCount = static_cast<float>(std::clamp(params.lightCount, 0, kMaxDarknessOverlayLights));
+        buffer.pad2 = 0.0f;
+        buffer.pad3 = 0.0f;
+        buffer.colorR = std::clamp(params.colorR, 0.0f, 1.0f);
+        buffer.colorG = std::clamp(params.colorG, 0.0f, 1.0f);
+        buffer.colorB = std::clamp(params.colorB, 0.0f, 1.0f);
+        buffer.pad4 = 0.0f;
+
+        const int lightCount = std::clamp(params.lightCount, 0, kMaxDarknessOverlayLights);
+        for (int lightIndex = 0; lightIndex < lightCount; ++lightIndex)
+        {
+            WriteDarknessOverlayLight(buffer, lightIndex, params.lights[lightIndex]);
+        }
+    }
 
     void UpdatePresentationRect();
 
@@ -509,55 +561,8 @@ void DirectXDrawDarknessOverlay(void)
         return;
     }
 
-    buffer->screenWidth = static_cast<float>(kVirtualScreenWidth);
-    buffer->screenHeight = static_cast<float>(kVirtualScreenHeight);
-    buffer->pad0 = 0.0f;
-    buffer->pad1 = 0.0f;
-    buffer->viewLeft = g_darknessOverlayParams.viewLeft;
-    buffer->viewTop = g_darknessOverlayParams.viewTop;
-    buffer->viewRight = g_darknessOverlayParams.viewRight;
-    buffer->viewBottom = g_darknessOverlayParams.viewBottom;
-    buffer->darknessOpacity = std::clamp(g_darknessOverlayParams.darknessOpacity, 0.0f, 1.0f);
-    buffer->lightCount = static_cast<float>(std::clamp(g_darknessOverlayParams.lightCount, 0, kMaxDarknessOverlayLights));
-    buffer->pad2 = 0.0f;
-    buffer->pad3 = 0.0f;
-    buffer->colorR = std::clamp(g_darknessOverlayParams.colorR, 0.0f, 1.0f);
-    buffer->colorG = std::clamp(g_darknessOverlayParams.colorG, 0.0f, 1.0f);
-    buffer->colorB = std::clamp(g_darknessOverlayParams.colorB, 0.0f, 1.0f);
-    buffer->pad4 = 0.0f;
-    for (int i = 0; i < kMaxDarknessOverlayLights * 4; ++i)
-    {
-        buffer->lightParams[i] = 0.0f;
-    }
-    for (int i = 0; i < kMaxDarknessOverlayLights; ++i)
-    {
-        buffer->lightIntensityPack[i] = 0.0f;
-    }
-    for (int i = 0; i < kMaxDarknessOverlayLights * 4; ++i)
-    {
-        buffer->lightColors[i] = 0.0f;
-        buffer->lightShapeData[i] = 0.0f;
-    }
-
-    const int lightCount = std::clamp(g_darknessOverlayParams.lightCount, 0, kMaxDarknessOverlayLights);
-    for (int lightIndex = 0; lightIndex < lightCount; ++lightIndex)
-    {
-        const DarknessOverlayLight& light = g_darknessOverlayParams.lights[lightIndex];
-        const int baseIndex = lightIndex * 4;
-        buffer->lightParams[baseIndex + 0] = light.centerX;
-        buffer->lightParams[baseIndex + 1] = light.centerY;
-        buffer->lightParams[baseIndex + 2] = light.innerRadius;
-        buffer->lightParams[baseIndex + 3] = (std::max)(light.outerRadius, light.innerRadius + 0.001f);
-        buffer->lightIntensityPack[lightIndex] = std::clamp(light.intensity, 0.0f, 1.0f);
-        buffer->lightColors[baseIndex + 0] = std::clamp(light.colorR, 0.0f, 1.0f);
-        buffer->lightColors[baseIndex + 1] = std::clamp(light.colorG, 0.0f, 1.0f);
-        buffer->lightColors[baseIndex + 2] = std::clamp(light.colorB, 0.0f, 1.0f);
-        buffer->lightColors[baseIndex + 3] = std::clamp(light.intensity, 0.0f, 1.0f);
-        buffer->lightShapeData[baseIndex + 0] = light.shapeType;
-        buffer->lightShapeData[baseIndex + 1] = light.extentX;
-        buffer->lightShapeData[baseIndex + 2] = light.extentY;
-        buffer->lightShapeData[baseIndex + 3] = light.outerRadius;
-    }
+    ResetDarknessOverlayShaderParams(*buffer);
+    PopulateDarknessOverlayShaderParams(*buffer, g_darknessOverlayParams);
     UpdateShaderConstantBuffer(g_darknessOverlayConstantBuffer);
     SetShaderConstantBuffer(g_darknessOverlayConstantBuffer, DX_SHADERTYPE_PIXEL, 0);
 

@@ -506,7 +506,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
         const Entity* nearestLightEntity = FindNearestMarkerLightEntity(*transform);
         const auto* nearestLight = nearestLightEntity ? nearestLightEntity->GetComponent<MarkerLightComponent>() : nullptr;
-        const bool powered = nearestLight && nearestLight->activated && !wall->IsDestroyed();
+        const bool powered = nearestLight != nullptr && !wall->IsDestroyed();
         wall->isOn = powered;
         const float previousY = transform->y;
         const float targetY = powered
@@ -574,8 +574,9 @@ const Entity* GameScene::FindNearestMarkerLightEntity(const TransformComponent& 
             continue;
         }
 
+        const auto* markerLight = entity->GetComponent<MarkerLightComponent>();
         const auto* transform = entity->GetComponent<TransformComponent>();
-        if (!transform)
+        if (!markerLight || !markerLight->activated || !transform)
         {
             continue;
         }
