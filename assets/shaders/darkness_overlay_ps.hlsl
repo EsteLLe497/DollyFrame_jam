@@ -38,8 +38,8 @@ float4 main(PSInput input) : SV_TARGET
     }
 
     float visibility = 0.0;
-    float3 lightColorAccum = 0.0;
-    float lightContributionSum = 0.0;
+    float strongestContribution = 0.0;
+    float3 strongestLightColor = gDarknessColor;
 
     [loop]
     for (int lightIndex = 0; lightIndex < 16; ++lightIndex)
@@ -57,7 +57,6 @@ float4 main(PSInput input) : SV_TARGET
         {
             float distanceToLight = distance(screenPos, light.xy);
             float edgeFade = smoothstep(light.z, max(light.w, light.z + 0.001), distanceToLight);
-            edgeFade = edgeFade * edgeFade * (3.0 - 2.0 * edgeFade);
             contribution = (1.0 - edgeFade) * intensity;
         }
         else if (gLightShapeData[lightIndex].x < 1.5)
@@ -69,7 +68,6 @@ float4 main(PSInput input) : SV_TARGET
             float insideDistance = min(max(delta.x, delta.y), 0.0);
             float signedDistance = outsideDistance + insideDistance;
             float edgeFade = smoothstep(0.0, feather, signedDistance);
-            edgeFade = edgeFade * edgeFade * (3.0 - 2.0 * edgeFade);
             contribution = (1.0 - edgeFade) * intensity;
         }
         else
@@ -86,19 +84,18 @@ float4 main(PSInput input) : SV_TARGET
             float outsideY = max(max(topY - screenPos.y, screenPos.y - (light.y + halfLength)), 0.0);
             float outsideDistance = length(float2(outsideX, outsideY));
             float edgeFade = smoothstep(0.0, feather, outsideDistance);
-            edgeFade = edgeFade * edgeFade * (3.0 - 2.0 * edgeFade);
             contribution = (1.0 - edgeFade) * intensity;
         }
         visibility = max(visibility, contribution);
-        lightColorAccum += lightColor.rgb * contribution;
-        lightContributionSum += contribution;
+        if (contribution > strongestContribution)
+        {
+            strongestContribution = contribution;
+            strongestLightColor = lightColor.rgb;
+        }
     }
 
     float alpha = saturate((1.0 - visibility) * gDarknessOpacity);
-    float3 averageLightColor = lightContributionSum > 0.001
-        ? lightColorAccum / lightContributionSum
-        : float3(1.0, 1.0, 1.0);
     float colorBlend = saturate(visibility * 0.75);
-    float3 overlayColor = lerp(gDarknessColor, averageLightColor, colorBlend);
+    float3 overlayColor = lerp(gDarknessColor, strongestLightColor, colorBlend);
     return float4(overlayColor, alpha);
 }
