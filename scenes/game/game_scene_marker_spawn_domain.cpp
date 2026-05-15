@@ -31,37 +31,6 @@ namespace
             0.0f);
     }
 
-    bool IsMarkerInSet(char marker, std::string_view set)
-    {
-        const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        return set.find(normalized) != std::string_view::npos;
-    }
-
-    bool IsEnemyMarker(char marker)
-    {
-        return IsMarkerInSet(marker, "WRNAD!?");
-    }
-
-    bool IsBatteryMarker(char marker)
-    {
-        return IsMarkerInSet(marker, "Y");
-    }
-
-    bool IsLogMarker(char marker)
-    {
-        return IsMarkerInSet(marker, "M");
-    }
-
-    bool IsMarkerLightMarker(char marker)
-    {
-        return IsMarkerInSet(marker, "PF");
-    }
-
-    bool IsStageLightMarker(char marker)
-    {
-        return marker == '@';
-    }
-
     struct StageLightSizing
     {
         float lightTiles = 3.0f;
@@ -96,31 +65,6 @@ namespace
         sizing.lightTiles = std::clamp(sizing.lightTiles, kMinLightTiles, kMaxLightTiles);
         sizing.fixtureTiles = std::clamp(sizing.fixtureTiles, kMinFixtureTiles, kMaxFixtureTiles);
         return sizing;
-    }
-
-    bool IsElevatorMarker(char marker)
-    {
-        return IsMarkerInSet(marker, "KLQ");
-    }
-
-    bool IsDamageFootholdMarker(char marker)
-    {
-        return IsMarkerInSet(marker, "HI");
-    }
-
-    bool IsLaserTurretMarker(char marker)
-    {
-        return IsMarkerInSet(marker, "UZ");
-    }
-
-    bool IsShutterOrLaserSwitchMarker(char marker)
-    {
-        return IsMarkerInSet(marker, "JOX");
-    }
-
-    bool IsProtectiveWallMarker(char marker)
-    {
-        return marker == '&';
     }
 
     struct SwitchMarker

@@ -35,6 +35,9 @@ namespace
     constexpr float kTuningPlusButtonX = 390.0f;
     constexpr float kTuningButtonWidth = 52.0f;
     constexpr float kTuningButtonHeight = 18.0f;
+    constexpr int kDarknessOverlayActiveLightLimit = 6;
+
+    float SmoothStep01(float t);
 
     struct OverlayLightSource
     {
@@ -52,38 +55,641 @@ namespace
         float priority = 0.0f;
     };
 
-    bool IsOverlayLightVisible(const OverlayLightSource& light, int left, int top, int right, int bottom)
+    struct DarknessOverlayContext
+    {
+        float viewOriginX = 0.0f;
+        float viewOriginY = 0.0f;
+        float cameraX = 0.0f;
+        float cameraY = 0.0f;
+        float viewScale = 1.0f;
+        float playerLightScreenX = 0.0f;
+        float playerLightScreenY = 0.0f;
+        int left = 0;
+        int top = 0;
+        int right = 0;
+        int bottom = 0;
+        int maxDarknessAlpha = 0;
+        float tileSize = 0.0f;
+    };
+
+    float WorldToOverlayScreenX(const DarknessOverlayContext& ctx, float worldX)
+    {
+        return ctx.viewOriginX + (worldX - ctx.cameraX) * ctx.viewScale;
+    }
+
+    float WorldToOverlayScreenY(const DarknessOverlayContext& ctx, float worldY)
+    {
+        return ctx.viewOriginY + (worldY - ctx.cameraY) * ctx.viewScale;
+    }
+
+    bool IsOverlayLightVisible(const OverlayLightSource& light, const DarknessOverlayContext& ctx)
     {
         const float extentX = light.shapeType >= 0.5f ? light.extentX : 0.0f;
         const float extentY = light.shapeType >= 0.5f ? light.extentY : 0.0f;
         const float radius = light.outerRadius;
-        return light.centerX + extentX + radius >= static_cast<float>(left) &&
-            light.centerX - extentX - radius <= static_cast<float>(right) &&
-            light.centerY + extentY + radius >= static_cast<float>(top) &&
-            light.centerY - extentY - radius <= static_cast<float>(bottom);
+        return light.centerX + extentX + radius >= static_cast<float>(ctx.left) &&
+            light.centerX - extentX - radius <= static_cast<float>(ctx.right) &&
+            light.centerY + extentY + radius >= static_cast<float>(ctx.top) &&
+            light.centerY - extentY - radius <= static_cast<float>(ctx.bottom);
     }
 
     void AppendOverlayLight(
         std::vector<OverlayLightSource>& overlayLights,
         OverlayLightSource light,
-        float playerLightScreenX,
-        float playerLightScreenY,
-        float basePriority,
-        int left,
-        int top,
-        int right,
-        int bottom)
+        const DarknessOverlayContext& ctx,
+        float basePriority)
     {
-        if (!IsOverlayLightVisible(light, left, top, right, bottom))
+        if (!IsOverlayLightVisible(light, ctx))
         {
             return;
         }
 
-        const float dx = light.centerX - playerLightScreenX;
-        const float dy = light.centerY - playerLightScreenY;
+        const float dx = light.centerX - ctx.playerLightScreenX;
+        const float dy = light.centerY - ctx.playerLightScreenY;
         const float distancePenalty = std::sqrt(dx * dx + dy * dy) * 0.08f;
         light.priority = basePriority + light.outerRadius * light.intensity - distancePenalty;
         overlayLights.push_back(light);
+    }
+
+    void AddPlayerOverlayLight(std::vector<OverlayLightSource>& overlayLights, const DarknessOverlayContext& ctx, float innerRadius, float outerRadius)
+    {
+        AppendOverlayLight(
+            overlayLights,
+            {
+                ctx.playerLightScreenX,
+                ctx.playerLightScreenY,
+                0.0f,
+                innerRadius,
+                outerRadius,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f,
+                1.0f,
+                1.0f },
+            ctx,
+            100000.0f);
+    }
+
+    void CollectMarkerLightOverlayLights(
+        const std::vector<std::unique_ptr<Entity>>& entities,
+        const DarknessOverlayContext& ctx,
+        std::vector<OverlayLightSource>& overlayLights)
+    {
+        for (const auto& entity : entities)
+        {
+            if (!entity || !HasTag(*entity, kTagMarkerLight))
+            {
+                continue;
+            }
+
+            const auto* extraLight = entity->GetComponent<MarkerLightComponent>();
+            const auto* extraTransform = entity->GetComponent<TransformComponent>();
+            if (!extraLight || !extraTransform || !extraLight->activated)
+            {
+                continue;
+            }
+
+            const float extraCenterWorldX = extraTransform->x + extraTransform->width * extraTransform->scale * 0.5f;
+            const float extraCenterWorldY = extraTransform->y + extraTransform->height * extraTransform->scale * 0.5f;
+            const float extraOuterRadius = extraLight->radius * ctx.viewScale;
+            AppendOverlayLight(
+                overlayLights,
+                {
+                    WorldToOverlayScreenX(ctx, extraCenterWorldX),
+                    WorldToOverlayScreenY(ctx, extraCenterWorldY),
+                    0.0f,
+                    extraOuterRadius * 0.44f,
+                    extraOuterRadius,
+                    0.0f,
+                    0.0f,
+                    extraLight->intensity,
+                    1.0f,
+                    1.0f,
+                    1.0f },
+                ctx,
+                12.0f);
+        }
+    }
+
+    void CollectStageLightOverlayLights(
+        const std::vector<std::unique_ptr<Entity>>& entities,
+        const DarknessOverlayContext& ctx,
+        std::vector<OverlayLightSource>& overlayLights)
+    {
+        for (const auto& entity : entities)
+        {
+            if (!entity || !HasTag(*entity, kTagStageLight))
+            {
+                continue;
+            }
+
+            const auto* stageLight = entity->GetComponent<StageLightComponent>();
+            const auto* stageTransform = entity->GetComponent<TransformComponent>();
+            if (!stageLight || !stageTransform || !stageLight->enabled)
+            {
+                continue;
+            }
+
+            const float stageCenterWorldX = stageTransform->x + stageTransform->width * stageTransform->scale * 0.5f;
+            const float beamLength = stageLight->beamLength * stageTransform->scale * ctx.viewScale;
+            const float beamTopWidth = std::max(stageLight->beamTopWidth, stageTransform->width) * stageTransform->scale * ctx.viewScale;
+            const float beamBottomWidth = stageLight->beamBottomWidth * stageTransform->scale * ctx.viewScale;
+            const float beamFeather = std::max(stageLight->beamFeather * stageTransform->scale * ctx.viewScale, 4.0f * ctx.viewScale);
+            const float sourceY = WorldToOverlayScreenY(ctx, stageTransform->y + stageTransform->height * stageTransform->scale);
+            AppendOverlayLight(
+                overlayLights,
+                {
+                    WorldToOverlayScreenX(ctx, stageCenterWorldX),
+                    sourceY + beamLength * 0.5f,
+                    2.0f,
+                    beamTopWidth * 0.5f,
+                    beamFeather,
+                    beamBottomWidth * 0.5f,
+                    beamLength * 0.5f,
+                    stageLight->intensity,
+                    stageLight->r,
+                    stageLight->g,
+                    stageLight->b },
+                ctx,
+                18.0f);
+        }
+    }
+
+    void CollectBatteryOverlayLights(
+        const std::vector<std::unique_ptr<Entity>>& entities,
+        const DarknessOverlayContext& ctx,
+        std::vector<OverlayLightSource>& overlayLights)
+    {
+        const float batteryOuterRadius = ctx.tileSize * ctx.viewScale;
+        for (const auto& entity : entities)
+        {
+            if (!entity || !HasTag(*entity, kTagBattery))
+            {
+                continue;
+            }
+            const auto* battery = entity->GetComponent<BatteryComponent>();
+            const auto* batteryTransform = entity->GetComponent<TransformComponent>();
+            if (!battery || !batteryTransform)
+            {
+                continue;
+            }
+
+            const float batteryCenterWorldX = batteryTransform->x + batteryTransform->width * batteryTransform->scale * 0.5f;
+            const float batteryCenterWorldY = batteryTransform->y + batteryTransform->height * batteryTransform->scale * 0.5f;
+            AppendOverlayLight(
+                overlayLights,
+                {
+                    WorldToOverlayScreenX(ctx, batteryCenterWorldX),
+                    WorldToOverlayScreenY(ctx, batteryCenterWorldY),
+                    0.0f,
+                    batteryOuterRadius * 0.44f,
+                    batteryOuterRadius,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    0.38f,
+                    0.88f,
+                    1.0f },
+                ctx,
+                4.0f);
+        }
+    }
+
+    void CollectLaserBeamOverlayLights(
+        const std::vector<std::unique_ptr<Entity>>& entities,
+        const DarknessOverlayContext& ctx,
+        std::vector<OverlayLightSource>& overlayLights)
+    {
+        const float laserFeather = ctx.tileSize * ctx.viewScale * 0.6f;
+        for (const auto& entity : entities)
+        {
+            if (!entity || !HasTag(*entity, kTagLaserBeam))
+            {
+                continue;
+            }
+            const auto* beamTransform = entity->GetComponent<TransformComponent>();
+            if (!beamTransform || beamTransform->width <= 0.0f || beamTransform->height <= 0.0f)
+            {
+                continue;
+            }
+
+            const float beamWidth = beamTransform->width * beamTransform->scale;
+            const float beamHeight = beamTransform->height * beamTransform->scale;
+            const float beamShortSize = std::max(beamWidth, beamHeight) > 0.0f
+                ? std::min(beamWidth, beamHeight)
+                : 0.0f;
+            const float beamGlowHalfWidth = std::max(beamShortSize * ctx.viewScale * 1.6f, ctx.tileSize * ctx.viewScale * 0.22f);
+            const float beamCenterX = beamTransform->x + beamWidth * 0.5f;
+            const float beamCenterY = beamTransform->y + beamHeight * 0.5f;
+            AppendOverlayLight(
+                overlayLights,
+                {
+                    WorldToOverlayScreenX(ctx, beamCenterX),
+                    WorldToOverlayScreenY(ctx, beamCenterY),
+                    1.0f,
+                    0.0f,
+                    laserFeather,
+                    std::max(beamWidth * ctx.viewScale * 0.5f, beamGlowHalfWidth),
+                    std::max(beamHeight * ctx.viewScale * 0.5f, beamGlowHalfWidth),
+                    0.96f,
+                    1.0f,
+                    0.22f,
+                    0.18f },
+                ctx,
+                18.0f);
+        }
+    }
+
+    void CollectBlasterBulletOverlayLights(
+        const std::vector<std::unique_ptr<Entity>>& entities,
+        const DarknessOverlayContext& ctx,
+        std::vector<OverlayLightSource>& overlayLights)
+    {
+        const float blasterBulletOuterRadius = ctx.tileSize * ctx.viewScale * 0.9f;
+        for (const auto& entity : entities)
+        {
+            if (!entity || !HasTag(*entity, kTagBullet))
+            {
+                continue;
+            }
+            const auto* projectile = entity->GetComponent<ProjectileComponent>();
+            const auto* bulletTransform = entity->GetComponent<TransformComponent>();
+            if (!projectile || !bulletTransform || projectile->GetOwner() != ProjectileComponent::Owner::BlasterRobot)
+            {
+                continue;
+            }
+
+            const float bulletCenterWorldX = bulletTransform->x + bulletTransform->width * bulletTransform->scale * 0.5f;
+            const float bulletCenterWorldY = bulletTransform->y + bulletTransform->height * bulletTransform->scale * 0.5f;
+            AppendOverlayLight(
+                overlayLights,
+                {
+                    WorldToOverlayScreenX(ctx, bulletCenterWorldX),
+                    WorldToOverlayScreenY(ctx, bulletCenterWorldY),
+                    0.0f,
+                    blasterBulletOuterRadius * 0.22f,
+                    blasterBulletOuterRadius,
+                    0.0f,
+                    0.0f,
+                    0.92f,
+                    0.34f,
+                    1.0f,
+                    0.66f },
+                ctx,
+                8.0f);
+        }
+    }
+
+    void CollectDarknessOverlayLights(
+        const std::vector<std::unique_ptr<Entity>>& entities,
+        const DarknessOverlayContext& ctx,
+        std::vector<OverlayLightSource>& overlayLights)
+    {
+        AddPlayerOverlayLight(overlayLights, ctx, 74.0f * ctx.viewScale, 170.0f * ctx.viewScale);
+        CollectMarkerLightOverlayLights(entities, ctx, overlayLights);
+        CollectStageLightOverlayLights(entities, ctx, overlayLights);
+
+        if (ctx.tileSize > 0.0f)
+        {
+            CollectBatteryOverlayLights(entities, ctx, overlayLights);
+            CollectLaserBeamOverlayLights(entities, ctx, overlayLights);
+            CollectBlasterBulletOverlayLights(entities, ctx, overlayLights);
+        }
+    }
+
+    DarknessOverlayParams BuildDarknessOverlayParams(
+        const DarknessOverlayContext& ctx,
+        const std::vector<OverlayLightSource>& overlayLights)
+    {
+        DarknessOverlayParams params;
+        params.enabled = true;
+        params.lightCount = static_cast<int>(overlayLights.size());
+        for (int lightIndex = 0; lightIndex < params.lightCount; ++lightIndex)
+        {
+            params.lights[lightIndex].centerX = overlayLights[static_cast<size_t>(lightIndex)].centerX;
+            params.lights[lightIndex].centerY = overlayLights[static_cast<size_t>(lightIndex)].centerY;
+            params.lights[lightIndex].shapeType = overlayLights[static_cast<size_t>(lightIndex)].shapeType;
+            params.lights[lightIndex].innerRadius = overlayLights[static_cast<size_t>(lightIndex)].innerRadius;
+            params.lights[lightIndex].outerRadius = overlayLights[static_cast<size_t>(lightIndex)].outerRadius;
+            params.lights[lightIndex].extentX = overlayLights[static_cast<size_t>(lightIndex)].extentX;
+            params.lights[lightIndex].extentY = overlayLights[static_cast<size_t>(lightIndex)].extentY;
+            params.lights[lightIndex].intensity = overlayLights[static_cast<size_t>(lightIndex)].intensity;
+            params.lights[lightIndex].colorR = overlayLights[static_cast<size_t>(lightIndex)].colorR;
+            params.lights[lightIndex].colorG = overlayLights[static_cast<size_t>(lightIndex)].colorG;
+            params.lights[lightIndex].colorB = overlayLights[static_cast<size_t>(lightIndex)].colorB;
+        }
+        params.darknessOpacity = static_cast<float>(ctx.maxDarknessAlpha) / 255.0f;
+        params.viewLeft = static_cast<float>(ctx.left);
+        params.viewTop = static_cast<float>(ctx.top);
+        params.viewRight = static_cast<float>(ctx.right);
+        params.viewBottom = static_cast<float>(ctx.bottom);
+        params.colorR = 2.0f / 255.0f;
+        params.colorG = 2.0f / 255.0f;
+        params.colorB = 4.0f / 255.0f;
+        return params;
+    }
+
+    void DrawDarknessOverlayRect(const DarknessOverlayContext& ctx, float x0, float y0, float x1, float y1, int alpha)
+    {
+        const int rectLeft = static_cast<int>(std::floor((std::min)(x0, x1)));
+        const int rectTop = static_cast<int>(std::floor((std::min)(y0, y1)));
+        const int rectRight = static_cast<int>(std::ceil((std::max)(x0, x1)));
+        const int rectBottom = static_cast<int>(std::ceil((std::max)(y0, y1)));
+        if (rectRight <= rectLeft || rectBottom <= rectTop || alpha <= 0)
+        {
+            return;
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(alpha, 0, 255));
+        DrawBox(rectLeft, rectTop, rectRight, rectBottom, GetColor(2, 2, 4), TRUE);
+        static_cast<void>(ctx);
+    }
+
+    void DrawDarknessOverlaySingleCircleFallback(
+        const DarknessOverlayContext& ctx,
+        const OverlayLightSource& light,
+        int maxDarknessAlpha)
+    {
+        const float lightCenterX = light.centerX;
+        const float lightCenterY = light.centerY;
+        const float innerRadius = light.innerRadius;
+        const float outerRadius = light.outerRadius;
+        const float outerRadiusSq = outerRadius * outerRadius;
+        const float innerRadiusSq = innerRadius * innerRadius;
+        constexpr int kStripeHeight = 2;
+        constexpr int kSoftBandSegments = 18;
+
+        DrawDarknessOverlayRect(ctx, static_cast<float>(ctx.left), static_cast<float>(ctx.top), static_cast<float>(ctx.right), lightCenterY - outerRadius, maxDarknessAlpha);
+        DrawDarknessOverlayRect(ctx, static_cast<float>(ctx.left), lightCenterY + outerRadius, static_cast<float>(ctx.right), static_cast<float>(ctx.bottom), maxDarknessAlpha);
+
+        const int bandStartY = (std::max)(ctx.top, static_cast<int>(std::floor(lightCenterY - outerRadius)));
+        const int bandEndY = (std::min)(ctx.bottom, static_cast<int>(std::ceil(lightCenterY + outerRadius)));
+        for (int bandTop = bandStartY; bandTop < bandEndY; bandTop += kStripeHeight)
+        {
+            const int bandBottom = (std::min)(bandEndY, bandTop + kStripeHeight);
+            const float bandCenterY = (static_cast<float>(bandTop) + static_cast<float>(bandBottom)) * 0.5f;
+            const float dy = std::fabs(bandCenterY - lightCenterY);
+            if (dy >= outerRadius)
+            {
+                DrawDarknessOverlayRect(ctx, static_cast<float>(ctx.left), static_cast<float>(bandTop), static_cast<float>(ctx.right), static_cast<float>(bandBottom), maxDarknessAlpha);
+                continue;
+            }
+
+            const float outerDx = std::sqrt((std::max)(0.0f, outerRadiusSq - dy * dy));
+            const float innerDx = dy < innerRadius
+                ? std::sqrt((std::max)(0.0f, innerRadiusSq - dy * dy))
+                : 0.0f;
+
+            DrawDarknessOverlayRect(ctx, static_cast<float>(ctx.left), static_cast<float>(bandTop), lightCenterX - outerDx, static_cast<float>(bandBottom), maxDarknessAlpha);
+            DrawDarknessOverlayRect(ctx, lightCenterX + outerDx, static_cast<float>(bandTop), static_cast<float>(ctx.right), static_cast<float>(bandBottom), maxDarknessAlpha);
+
+            const float softWidth = (std::max)(0.0f, outerDx - innerDx);
+            if (softWidth <= 0.5f)
+            {
+                continue;
+            }
+
+            for (int segmentIndex = 0; segmentIndex < kSoftBandSegments; ++segmentIndex)
+            {
+                const float t0 = static_cast<float>(segmentIndex) / static_cast<float>(kSoftBandSegments);
+                const float t1 = static_cast<float>(segmentIndex + 1) / static_cast<float>(kSoftBandSegments);
+                const float dx0 = innerDx + softWidth * t0;
+                const float dx1 = innerDx + softWidth * t1;
+                const float dxMid = (dx0 + dx1) * 0.5f;
+                const float radiusAtMid = std::sqrt(dxMid * dxMid + dy * dy);
+                const float normalized = Clamp01((radiusAtMid - innerRadius) / (outerRadius - innerRadius));
+                const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
+                const float edgeWeighted = eased * eased;
+                const int alpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha)));
+                if (alpha <= 0)
+                {
+                    continue;
+                }
+
+                DrawDarknessOverlayRect(ctx, lightCenterX - dx1, static_cast<float>(bandTop), lightCenterX - dx0, static_cast<float>(bandBottom), alpha);
+                DrawDarknessOverlayRect(ctx, lightCenterX + dx0, static_cast<float>(bandTop), lightCenterX + dx1, static_cast<float>(bandBottom), alpha);
+            }
+        }
+    }
+
+    void DrawDarknessOverlayFallback(
+        const DarknessOverlayContext& ctx,
+        const std::vector<OverlayLightSource>& overlayLights,
+        int maxDarknessAlpha)
+    {
+        if (overlayLights.size() == 1 && overlayLights[0].shapeType < 0.5f)
+        {
+            DrawDarknessOverlaySingleCircleFallback(ctx, overlayLights[0], maxDarknessAlpha);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            return;
+        }
+
+        constexpr int kStripeHeight = 2;
+        constexpr int kSoftBandSegments = 18;
+        std::vector<float> xBreaks;
+        xBreaks.reserve(2 + overlayLights.size() * (4 + kSoftBandSegments * 2));
+
+        for (int bandTop = ctx.top; bandTop < ctx.bottom; bandTop += kStripeHeight)
+        {
+            const int bandBottom = (std::min)(ctx.bottom, bandTop + kStripeHeight);
+            const float bandCenterY = (static_cast<float>(bandTop) + static_cast<float>(bandBottom)) * 0.5f;
+            xBreaks.clear();
+            xBreaks.push_back(static_cast<float>(ctx.left));
+            xBreaks.push_back(static_cast<float>(ctx.right));
+
+            for (const OverlayLightSource& light : overlayLights)
+            {
+                if (light.shapeType >= 1.5f)
+                {
+                    const float halfLength = std::max(0.001f, light.extentY);
+                    const float feather = light.outerRadius;
+                    if (std::fabs(bandCenterY - light.centerY) > halfLength + feather)
+                    {
+                        continue;
+                    }
+
+                    const float topY = light.centerY - halfLength;
+                    const float normalizedY = Clamp01((bandCenterY - topY) / (halfLength * 2.0f));
+                    const float halfWidth = std::lerp(light.innerRadius, light.extentX, SmoothStep01(normalizedY));
+                    xBreaks.push_back(light.centerX - halfWidth - feather);
+                    xBreaks.push_back(light.centerX - halfWidth);
+                    xBreaks.push_back(light.centerX + halfWidth);
+                    xBreaks.push_back(light.centerX + halfWidth + feather);
+                }
+                else if (light.shapeType >= 0.5f)
+                {
+                    const float halfHeight = light.extentY;
+                    const float feather = light.outerRadius;
+                    if (std::fabs(bandCenterY - light.centerY) > halfHeight + feather)
+                    {
+                        continue;
+                    }
+
+                    xBreaks.push_back(light.centerX - light.extentX - feather);
+                    xBreaks.push_back(light.centerX - light.extentX);
+                    xBreaks.push_back(light.centerX + light.extentX);
+                    xBreaks.push_back(light.centerX + light.extentX + feather);
+                }
+                else
+                {
+                    const float dy = std::fabs(bandCenterY - light.centerY);
+                    if (dy >= light.outerRadius)
+                    {
+                        continue;
+                    }
+
+                    const float outerDx = std::sqrt((std::max)(0.0f, light.outerRadius * light.outerRadius - dy * dy));
+                    xBreaks.push_back(light.centerX - outerDx);
+                    xBreaks.push_back(light.centerX + outerDx);
+
+                    if (dy < light.innerRadius)
+                    {
+                        const float innerDx = std::sqrt((std::max)(0.0f, light.innerRadius * light.innerRadius - dy * dy));
+                        xBreaks.push_back(light.centerX - innerDx);
+                        xBreaks.push_back(light.centerX + innerDx);
+
+                        const float softWidth = (std::max)(0.0f, outerDx - innerDx);
+                        if (softWidth > 0.5f)
+                        {
+                            for (int segmentIndex = 1; segmentIndex < kSoftBandSegments; ++segmentIndex)
+                            {
+                                const float t = static_cast<float>(segmentIndex) / static_cast<float>(kSoftBandSegments);
+                                const float dx = innerDx + softWidth * t;
+                                xBreaks.push_back(light.centerX - dx);
+                                xBreaks.push_back(light.centerX + dx);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (int segmentIndex = 1; segmentIndex < kSoftBandSegments; ++segmentIndex)
+                        {
+                            const float t = static_cast<float>(segmentIndex) / static_cast<float>(kSoftBandSegments);
+                            const float dx = outerDx * t;
+                            xBreaks.push_back(light.centerX - dx);
+                            xBreaks.push_back(light.centerX + dx);
+                        }
+                    }
+                }
+            }
+
+            std::sort(xBreaks.begin(), xBreaks.end());
+            xBreaks.erase(
+                std::unique(
+                    xBreaks.begin(),
+                    xBreaks.end(),
+                    [](float a, float b)
+                    {
+                        return std::fabs(a - b) <= 0.5f;
+                    }),
+                xBreaks.end());
+
+            for (size_t index = 1; index < xBreaks.size(); ++index)
+            {
+                const float x0 = xBreaks[index - 1];
+                const float x1 = xBreaks[index];
+                if (x1 - x0 <= 0.5f)
+                {
+                    continue;
+                }
+
+                const float sampleX = (x0 + x1) * 0.5f;
+                int alpha = maxDarknessAlpha;
+                for (const OverlayLightSource& light : overlayLights)
+                {
+                    if (light.shapeType >= 1.5f)
+                    {
+                        const float halfLength = std::max(0.001f, light.extentY);
+                        const float feather = std::max(0.001f, light.outerRadius);
+                        const float topY = light.centerY - halfLength;
+                        const float bottomY = light.centerY + halfLength;
+                        const float normalizedY = Clamp01((bandCenterY - topY) / (halfLength * 2.0f));
+                        const float halfWidth = std::lerp(light.innerRadius, light.extentX, SmoothStep01(normalizedY));
+                        const float dx = std::fabs(sampleX - light.centerX) - halfWidth;
+                        const float dyTop = topY - bandCenterY;
+                        const float dyBottom = bandCenterY - bottomY;
+                        const float outsideX = std::max(dx, 0.0f);
+                        const float outsideY = std::max(std::max(dyTop, dyBottom), 0.0f);
+                        const float outsideDistance = std::sqrt(outsideX * outsideX + outsideY * outsideY);
+                        if (outsideDistance >= feather)
+                        {
+                            continue;
+                        }
+                        if (outsideDistance <= 0.0f)
+                        {
+                            alpha = 0;
+                            break;
+                        }
+
+                        const float normalized = Clamp01(outsideDistance / feather);
+                        const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
+                        const float edgeWeighted = eased * eased;
+                        const int candidateAlpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha) / std::max(0.001f, light.intensity)));
+                        alpha = (std::min)(alpha, std::clamp(candidateAlpha, 0, maxDarknessAlpha));
+                    }
+                    else if (light.shapeType >= 0.5f)
+                    {
+                        const float dx = std::fabs(sampleX - light.centerX) - light.extentX;
+                        const float dy = std::fabs(bandCenterY - light.centerY) - light.extentY;
+                        const float outsideX = (std::max)(dx, 0.0f);
+                        const float outsideY = (std::max)(dy, 0.0f);
+                        const float outsideDistance = std::sqrt(outsideX * outsideX + outsideY * outsideY);
+                        const float insideDistance = (std::min)((std::max)(dx, dy), 0.0f);
+                        const float signedDistance = outsideDistance + insideDistance;
+                        if (signedDistance >= light.outerRadius)
+                        {
+                            continue;
+                        }
+                        if (signedDistance <= 0.0f)
+                        {
+                            alpha = 0;
+                            break;
+                        }
+
+                        const float normalized = Clamp01(signedDistance / light.outerRadius);
+                        const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
+                        const float edgeWeighted = eased * eased;
+                        const int candidateAlpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha) / std::max(0.001f, light.intensity)));
+                        alpha = (std::min)(alpha, std::clamp(candidateAlpha, 0, maxDarknessAlpha));
+                    }
+                    else
+                    {
+                        const float dx = sampleX - light.centerX;
+                        const float dy = bandCenterY - light.centerY;
+                        const float distance = std::sqrt(dx * dx + dy * dy);
+                        if (distance >= light.outerRadius)
+                        {
+                            continue;
+                        }
+                        if (distance <= light.innerRadius)
+                        {
+                            alpha = 0;
+                            break;
+                        }
+
+                        const float normalized = Clamp01((distance - light.innerRadius) / (light.outerRadius - light.innerRadius));
+                        const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
+                        const float edgeWeighted = eased * eased;
+                        const int candidateAlpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha) / std::max(0.001f, light.intensity)));
+                        alpha = (std::min)(alpha, std::clamp(candidateAlpha, 0, maxDarknessAlpha));
+                    }
+                }
+
+                DrawDarknessOverlayRect(ctx, x0, static_cast<float>(bandTop), x1, static_cast<float>(bandBottom), alpha);
+            }
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
+    void RenderDarknessOverlayViaDirectX(
+        const DarknessOverlayContext& ctx,
+        const std::vector<OverlayLightSource>& overlayLights)
+    {
+        const DarknessOverlayParams params = BuildDarknessOverlayParams(ctx, overlayLights);
+        DirectXSetDarknessOverlay(params);
+        DirectXDrawDarknessOverlay();
     }
 
     float GetTuningRowY(int index)
@@ -145,40 +751,38 @@ void GameScene::DrawStageDarknessOverlay() const
     const int top = static_cast<int>(std::floor(viewOriginY));
     const int right = static_cast<int>(std::ceil(viewOriginX + viewWidth));
     const int bottom = static_cast<int>(std::ceil(viewOriginY + viewHeight));
-    constexpr int kDarkColorR = 2;
-    constexpr int kDarkColorG = 2;
-    constexpr int kDarkColorB = 4;
     constexpr int kBaseDarknessAlpha = 252;
-
-    const auto drawDarkRect = [&](float x0, float y0, float x1, float y1, int alpha)
-    {
-        const int rectLeft = static_cast<int>(std::floor((std::min)(x0, x1)));
-        const int rectTop = static_cast<int>(std::floor((std::min)(y0, y1)));
-        const int rectRight = static_cast<int>(std::ceil((std::max)(x0, x1)));
-        const int rectBottom = static_cast<int>(std::ceil((std::max)(y0, y1)));
-        if (rectRight <= rectLeft || rectBottom <= rectTop || alpha <= 0)
-        {
-            return;
-        }
-
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(alpha, 0, 255));
-        DrawBox(rectLeft, rectTop, rectRight, rectBottom, GetColor(kDarkColorR, kDarkColorG, kDarkColorB), TRUE);
-    };
 
     const Entity* player = FindEntityByTag(kTagPlayer);
     const auto* transform = player ? player->GetComponent<TransformComponent>() : nullptr;
     if (!transform)
     {
-        drawDarkRect(static_cast<float>(left), static_cast<float>(top), static_cast<float>(right), static_cast<float>(bottom), kBaseDarknessAlpha);
+        const DarknessOverlayContext noPlayerCtx{
+            viewOriginX,
+            viewOriginY,
+            m_flow.cameraX,
+            m_flow.cameraY,
+            GetViewScale(),
+            0.0f,
+            0.0f,
+            left,
+            top,
+            right,
+            bottom,
+            kBaseDarknessAlpha,
+            m_tileMap.GetTileSize() };
+        DrawDarknessOverlayRect(
+            noPlayerCtx,
+            static_cast<float>(left),
+            static_cast<float>(top),
+            static_cast<float>(right),
+            static_cast<float>(bottom),
+            kBaseDarknessAlpha);
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         return;
     }
 
     const float viewScale = GetViewScale();
-    const float lightCenterWorldX = transform->x + transform->width * transform->scale * 0.5f;
-    const float lightCenterWorldY = transform->y + transform->height * transform->scale * 0.5f;
-    float innerRadius = 74.0f * viewScale;
-    float outerRadius = 170.0f * viewScale;
     int maxDarknessAlpha = kBaseDarknessAlpha;
 
     if (m_flow.cameraFlash.enabled && m_flow.cameraFlash.pulseRemaining > 0.0f && m_flow.cameraFlash.pulseDuration > 0.0f)
@@ -188,242 +792,24 @@ void GameScene::DrawStageDarknessOverlay() const
         maxDarknessAlpha = static_cast<int>(std::round(std::lerp(228.0f, 160.0f, flashEase)));
     }
 
+    DarknessOverlayContext ctx;
+    ctx.viewOriginX = viewOriginX;
+    ctx.viewOriginY = viewOriginY;
+    ctx.cameraX = m_flow.cameraX;
+    ctx.cameraY = m_flow.cameraY;
+    ctx.viewScale = viewScale;
+    ctx.playerLightScreenX = viewOriginX + (transform->x + transform->width * transform->scale * 0.5f - m_flow.cameraX) * viewScale;
+    ctx.playerLightScreenY = viewOriginY + (transform->y + transform->height * transform->scale * 0.5f - m_flow.cameraY) * viewScale - 16.0f * viewScale;
+    ctx.left = left;
+    ctx.top = top;
+    ctx.right = right;
+    ctx.bottom = bottom;
+    ctx.maxDarknessAlpha = maxDarknessAlpha;
+    ctx.tileSize = m_tileMap.GetTileSize();
+
     std::vector<OverlayLightSource> overlayLights;
     overlayLights.reserve(kMaxDarknessOverlayLights * 2);
-    constexpr int kDarknessOverlayActiveLightLimit = 6;
-
-    const float playerLightScreenX = viewOriginX + (lightCenterWorldX - m_flow.cameraX) * viewScale;
-    const float playerLightScreenY = viewOriginY + (lightCenterWorldY - m_flow.cameraY) * viewScale - 16.0f * viewScale;
-
-    AppendOverlayLight(
-        overlayLights,
-        {
-            playerLightScreenX,
-            playerLightScreenY,
-            0.0f,
-            innerRadius,
-            outerRadius,
-            0.0f,
-            0.0f,
-            1.0f,
-            1.0f,
-            1.0f,
-            1.0f },
-        playerLightScreenX,
-        playerLightScreenY,
-        100000.0f,
-        left,
-        top,
-        right,
-        bottom);
-
-    for (const auto& entity : m_entities)
-    {
-        if (!entity || !HasTag(*entity, kTagMarkerLight))
-        {
-            continue;
-        }
-
-        const auto* extraLight = entity->GetComponent<MarkerLightComponent>();
-        const auto* extraTransform = entity->GetComponent<TransformComponent>();
-        if (!extraLight || !extraTransform || !extraLight->activated)
-        {
-            continue;
-        }
-        const float extraCenterWorldX = extraTransform->x + extraTransform->width * extraTransform->scale * 0.5f;
-        const float extraCenterWorldY = extraTransform->y + extraTransform->height * extraTransform->scale * 0.5f;
-        const float extraOuterRadius = extraLight->radius * viewScale;
-        AppendOverlayLight(
-            overlayLights,
-            {
-                viewOriginX + (extraCenterWorldX - m_flow.cameraX) * viewScale,
-                viewOriginY + (extraCenterWorldY - m_flow.cameraY) * viewScale,
-                0.0f,
-                extraOuterRadius * 0.44f,
-                extraOuterRadius,
-                0.0f,
-                0.0f,
-                extraLight->intensity,
-                1.0f,
-                1.0f,
-                1.0f },
-            playerLightScreenX,
-            playerLightScreenY,
-            12.0f,
-            left,
-            top,
-            right,
-            bottom);
-    }
-
-    for (const auto& entity : m_entities)
-    {
-        if (!entity || !HasTag(*entity, kTagStageLight))
-        {
-            continue;
-        }
-
-        const auto* stageLight = entity->GetComponent<StageLightComponent>();
-        const auto* stageTransform = entity->GetComponent<TransformComponent>();
-        if (!stageLight || !stageTransform || !stageLight->enabled)
-        {
-            continue;
-        }
-
-        const float stageCenterWorldX = stageTransform->x + stageTransform->width * stageTransform->scale * 0.5f;
-        const float beamLength = stageLight->beamLength * stageTransform->scale * viewScale;
-        const float beamTopWidth = std::max(stageLight->beamTopWidth, stageTransform->width) * stageTransform->scale * viewScale;
-        const float beamBottomWidth = stageLight->beamBottomWidth * stageTransform->scale * viewScale;
-        const float beamFeather = std::max(stageLight->beamFeather * stageTransform->scale * viewScale, 4.0f * viewScale);
-        const float sourceY = viewOriginY + ((stageTransform->y + stageTransform->height * stageTransform->scale) - m_flow.cameraY) * viewScale;
-        AppendOverlayLight(
-            overlayLights,
-            {
-                viewOriginX + (stageCenterWorldX - m_flow.cameraX) * viewScale,
-                sourceY + beamLength * 0.5f,
-                2.0f,
-                beamTopWidth * 0.5f,
-                beamFeather,
-                beamBottomWidth * 0.5f,
-                beamLength * 0.5f,
-                stageLight->intensity,
-                stageLight->r,
-                stageLight->g,
-                stageLight->b },
-            playerLightScreenX,
-            playerLightScreenY,
-            18.0f,
-            left,
-            top,
-            right,
-            bottom);
-    }
-
-    const float tileSize = m_tileMap.GetTileSize();
-    if (tileSize > 0.0f)
-    {
-        const float batteryOuterRadius = tileSize * viewScale;
-        for (const auto& entity : m_entities)
-        {
-            if (!entity || !HasTag(*entity, kTagBattery))
-            {
-                continue;
-            }
-            const auto* battery = entity->GetComponent<BatteryComponent>();
-            const auto* batteryTransform = entity->GetComponent<TransformComponent>();
-            if (!battery || !batteryTransform)
-            {
-                continue;
-            }
-
-            const float batteryCenterWorldX = batteryTransform->x + batteryTransform->width * batteryTransform->scale * 0.5f;
-            const float batteryCenterWorldY = batteryTransform->y + batteryTransform->height * batteryTransform->scale * 0.5f;
-            AppendOverlayLight(
-                overlayLights,
-                {
-                    viewOriginX + (batteryCenterWorldX - m_flow.cameraX) * viewScale,
-                    viewOriginY + (batteryCenterWorldY - m_flow.cameraY) * viewScale,
-                    0.0f,
-                    batteryOuterRadius * 0.44f,
-                    batteryOuterRadius,
-                    0.0f,
-                    0.0f,
-                    1.0f,
-                    0.38f,
-                    0.88f,
-                    1.0f },
-                playerLightScreenX,
-                playerLightScreenY,
-                4.0f,
-                left,
-                top,
-                right,
-                bottom);
-        }
-
-        const float laserFeather = tileSize * viewScale * 0.6f;
-        for (const auto& entity : m_entities)
-        {
-            if (!entity || !HasTag(*entity, kTagLaserBeam))
-            {
-                continue;
-            }
-            const auto* beamTransform = entity->GetComponent<TransformComponent>();
-            if (!beamTransform || beamTransform->width <= 0.0f || beamTransform->height <= 0.0f)
-            {
-                continue;
-            }
-
-            const float beamWidth = beamTransform->width * beamTransform->scale;
-            const float beamHeight = beamTransform->height * beamTransform->scale;
-            const float beamShortSize = std::max(beamWidth, beamHeight) > 0.0f
-                ? std::min(beamWidth, beamHeight)
-                : 0.0f;
-            const float beamGlowHalfWidth = std::max(beamShortSize * viewScale * 1.6f, tileSize * viewScale * 0.22f);
-            const float beamCenterX = beamTransform->x + beamWidth * 0.5f;
-            const float beamCenterY = beamTransform->y + beamHeight * 0.5f;
-            AppendOverlayLight(
-                overlayLights,
-                {
-                    viewOriginX + (beamCenterX - m_flow.cameraX) * viewScale,
-                    viewOriginY + (beamCenterY - m_flow.cameraY) * viewScale,
-                    1.0f,
-                    0.0f,
-                    laserFeather,
-                    std::max(beamWidth * viewScale * 0.5f, beamGlowHalfWidth),
-                    std::max(beamHeight * viewScale * 0.5f, beamGlowHalfWidth),
-                    0.96f,
-                    1.0f,
-                    0.22f,
-                    0.18f },
-                playerLightScreenX,
-                playerLightScreenY,
-                18.0f,
-                left,
-                top,
-                right,
-                bottom);
-        }
-
-        const float blasterBulletOuterRadius = tileSize * viewScale * 0.9f;
-        for (const auto& entity : m_entities)
-        {
-            if (!entity || !HasTag(*entity, kTagBullet))
-            {
-                continue;
-            }
-            const auto* projectile = entity->GetComponent<ProjectileComponent>();
-            const auto* bulletTransform = entity->GetComponent<TransformComponent>();
-            if (!projectile || !bulletTransform || projectile->GetOwner() != ProjectileComponent::Owner::BlasterRobot)
-            {
-                continue;
-            }
-
-            const float bulletCenterWorldX = bulletTransform->x + bulletTransform->width * bulletTransform->scale * 0.5f;
-            const float bulletCenterWorldY = bulletTransform->y + bulletTransform->height * bulletTransform->scale * 0.5f;
-            AppendOverlayLight(
-                overlayLights,
-                {
-                    viewOriginX + (bulletCenterWorldX - m_flow.cameraX) * viewScale,
-                    viewOriginY + (bulletCenterWorldY - m_flow.cameraY) * viewScale,
-                    0.0f,
-                    blasterBulletOuterRadius * 0.22f,
-                    blasterBulletOuterRadius,
-                    0.0f,
-                    0.0f,
-                    0.92f,
-                    0.34f,
-                    1.0f,
-                    0.66f },
-                playerLightScreenX,
-                playerLightScreenY,
-                8.0f,
-                left,
-                top,
-                right,
-                bottom);
-        }
-    }
+    CollectDarknessOverlayLights(m_entities, ctx, overlayLights);
 
     const int renderedLightLimit = (std::min)(kMaxDarknessOverlayLights, kDarknessOverlayActiveLightLimit);
     if (overlayLights.size() > static_cast<size_t>(renderedLightLimit))
@@ -441,299 +827,11 @@ void GameScene::DrawStageDarknessOverlay() const
 
     if (DirectXHasDarknessOverlay())
     {
-        DarknessOverlayParams params;
-        params.enabled = true;
-        params.lightCount = static_cast<int>(overlayLights.size());
-        for (int lightIndex = 0; lightIndex < params.lightCount; ++lightIndex)
-        {
-            params.lights[lightIndex].centerX = overlayLights[static_cast<size_t>(lightIndex)].centerX;
-            params.lights[lightIndex].centerY = overlayLights[static_cast<size_t>(lightIndex)].centerY;
-            params.lights[lightIndex].shapeType = overlayLights[static_cast<size_t>(lightIndex)].shapeType;
-            params.lights[lightIndex].innerRadius = overlayLights[static_cast<size_t>(lightIndex)].innerRadius;
-            params.lights[lightIndex].outerRadius = overlayLights[static_cast<size_t>(lightIndex)].outerRadius;
-            params.lights[lightIndex].extentX = overlayLights[static_cast<size_t>(lightIndex)].extentX;
-            params.lights[lightIndex].extentY = overlayLights[static_cast<size_t>(lightIndex)].extentY;
-            params.lights[lightIndex].intensity = overlayLights[static_cast<size_t>(lightIndex)].intensity;
-            params.lights[lightIndex].colorR = overlayLights[static_cast<size_t>(lightIndex)].colorR;
-            params.lights[lightIndex].colorG = overlayLights[static_cast<size_t>(lightIndex)].colorG;
-            params.lights[lightIndex].colorB = overlayLights[static_cast<size_t>(lightIndex)].colorB;
-        }
-        params.darknessOpacity = static_cast<float>(maxDarknessAlpha) / 255.0f;
-        params.viewLeft = static_cast<float>(left);
-        params.viewTop = static_cast<float>(top);
-        params.viewRight = static_cast<float>(right);
-        params.viewBottom = static_cast<float>(bottom);
-        params.colorR = static_cast<float>(kDarkColorR) / 255.0f;
-        params.colorG = static_cast<float>(kDarkColorG) / 255.0f;
-        params.colorB = static_cast<float>(kDarkColorB) / 255.0f;
-        DirectXSetDarknessOverlay(params);
-        DirectXDrawDarknessOverlay();
+        RenderDarknessOverlayViaDirectX(ctx, overlayLights);
         return;
     }
 
-    if (overlayLights.size() == 1 && overlayLights[0].shapeType < 0.5f)
-    {
-        const float lightCenterX = overlayLights[0].centerX;
-        const float lightCenterY = overlayLights[0].centerY;
-        const float innerRadius = overlayLights[0].innerRadius;
-        const float outerRadius = overlayLights[0].outerRadius;
-        const float outerRadiusSq = outerRadius * outerRadius;
-        const float innerRadiusSq = innerRadius * innerRadius;
-        constexpr int kStripeHeight = 2;
-        constexpr int kSoftBandSegments = 18;
-
-        drawDarkRect(static_cast<float>(left), static_cast<float>(top), static_cast<float>(right), lightCenterY - outerRadius, maxDarknessAlpha);
-        drawDarkRect(static_cast<float>(left), lightCenterY + outerRadius, static_cast<float>(right), static_cast<float>(bottom), maxDarknessAlpha);
-
-        const int bandStartY = (std::max)(top, static_cast<int>(std::floor(lightCenterY - outerRadius)));
-        const int bandEndY = (std::min)(bottom, static_cast<int>(std::ceil(lightCenterY + outerRadius)));
-        for (int bandTop = bandStartY; bandTop < bandEndY; bandTop += kStripeHeight)
-        {
-            const int bandBottom = (std::min)(bandEndY, bandTop + kStripeHeight);
-            const float bandCenterY = (static_cast<float>(bandTop) + static_cast<float>(bandBottom)) * 0.5f;
-            const float dy = std::fabs(bandCenterY - lightCenterY);
-            if (dy >= outerRadius)
-            {
-                drawDarkRect(static_cast<float>(left), static_cast<float>(bandTop), static_cast<float>(right), static_cast<float>(bandBottom), maxDarknessAlpha);
-                continue;
-            }
-
-            const float outerDx = std::sqrt((std::max)(0.0f, outerRadiusSq - dy * dy));
-            const float innerDx = dy < innerRadius
-                ? std::sqrt((std::max)(0.0f, innerRadiusSq - dy * dy))
-                : 0.0f;
-
-            drawDarkRect(static_cast<float>(left), static_cast<float>(bandTop), lightCenterX - outerDx, static_cast<float>(bandBottom), maxDarknessAlpha);
-            drawDarkRect(lightCenterX + outerDx, static_cast<float>(bandTop), static_cast<float>(right), static_cast<float>(bandBottom), maxDarknessAlpha);
-
-            const float softWidth = (std::max)(0.0f, outerDx - innerDx);
-            if (softWidth <= 0.5f)
-            {
-                continue;
-            }
-
-            for (int segmentIndex = 0; segmentIndex < kSoftBandSegments; ++segmentIndex)
-            {
-                const float t0 = static_cast<float>(segmentIndex) / static_cast<float>(kSoftBandSegments);
-                const float t1 = static_cast<float>(segmentIndex + 1) / static_cast<float>(kSoftBandSegments);
-                const float dx0 = innerDx + softWidth * t0;
-                const float dx1 = innerDx + softWidth * t1;
-                const float dxMid = (dx0 + dx1) * 0.5f;
-                const float radiusAtMid = std::sqrt(dxMid * dxMid + dy * dy);
-                const float normalized = Clamp01((radiusAtMid - innerRadius) / (outerRadius - innerRadius));
-                const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
-                const float edgeWeighted = eased * eased;
-                const int alpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha)));
-                if (alpha <= 0)
-                {
-                    continue;
-                }
-
-                drawDarkRect(lightCenterX - dx1, static_cast<float>(bandTop), lightCenterX - dx0, static_cast<float>(bandBottom), alpha);
-                drawDarkRect(lightCenterX + dx0, static_cast<float>(bandTop), lightCenterX + dx1, static_cast<float>(bandBottom), alpha);
-            }
-        }
-
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-        return;
-    }
-
-    constexpr int kStripeHeight = 2;
-    constexpr int kSoftBandSegments = 18;
-    std::vector<float> xBreaks;
-    xBreaks.reserve(2 + overlayLights.size() * (4 + kSoftBandSegments * 2));
-
-    for (int bandTop = top; bandTop < bottom; bandTop += kStripeHeight)
-    {
-        const int bandBottom = (std::min)(bottom, bandTop + kStripeHeight);
-        const float bandCenterY = (static_cast<float>(bandTop) + static_cast<float>(bandBottom)) * 0.5f;
-        xBreaks.clear();
-        xBreaks.push_back(static_cast<float>(left));
-        xBreaks.push_back(static_cast<float>(right));
-
-        for (const OverlayLightSource& light : overlayLights)
-        {
-            if (light.shapeType >= 1.5f)
-            {
-                const float halfLength = std::max(0.001f, light.extentY);
-                const float feather = light.outerRadius;
-                if (std::fabs(bandCenterY - light.centerY) > halfLength + feather)
-                {
-                    continue;
-                }
-
-                const float topY = light.centerY - halfLength;
-                const float normalizedY = Clamp01((bandCenterY - topY) / (halfLength * 2.0f));
-                const float halfWidth = std::lerp(light.innerRadius, light.extentX, SmoothStep01(normalizedY));
-                xBreaks.push_back(light.centerX - halfWidth - feather);
-                xBreaks.push_back(light.centerX - halfWidth);
-                xBreaks.push_back(light.centerX + halfWidth);
-                xBreaks.push_back(light.centerX + halfWidth + feather);
-            }
-            else if (light.shapeType >= 0.5f)
-            {
-                const float halfHeight = light.extentY;
-                const float feather = light.outerRadius;
-                if (std::fabs(bandCenterY - light.centerY) > halfHeight + feather)
-                {
-                    continue;
-                }
-
-                xBreaks.push_back(light.centerX - light.extentX - feather);
-                xBreaks.push_back(light.centerX - light.extentX);
-                xBreaks.push_back(light.centerX + light.extentX);
-                xBreaks.push_back(light.centerX + light.extentX + feather);
-            }
-            else
-            {
-                const float dy = std::fabs(bandCenterY - light.centerY);
-                if (dy >= light.outerRadius)
-                {
-                    continue;
-                }
-
-                const float outerDx = std::sqrt((std::max)(0.0f, light.outerRadius * light.outerRadius - dy * dy));
-                xBreaks.push_back(light.centerX - outerDx);
-                xBreaks.push_back(light.centerX + outerDx);
-
-                if (dy < light.innerRadius)
-                {
-                    const float innerDx = std::sqrt((std::max)(0.0f, light.innerRadius * light.innerRadius - dy * dy));
-                    xBreaks.push_back(light.centerX - innerDx);
-                    xBreaks.push_back(light.centerX + innerDx);
-
-                    const float softWidth = (std::max)(0.0f, outerDx - innerDx);
-                    if (softWidth > 0.5f)
-                    {
-                        for (int segmentIndex = 1; segmentIndex < kSoftBandSegments; ++segmentIndex)
-                        {
-                            const float t = static_cast<float>(segmentIndex) / static_cast<float>(kSoftBandSegments);
-                            const float dx = innerDx + softWidth * t;
-                            xBreaks.push_back(light.centerX - dx);
-                            xBreaks.push_back(light.centerX + dx);
-                        }
-                    }
-                }
-                else
-                {
-                    for (int segmentIndex = 1; segmentIndex < kSoftBandSegments; ++segmentIndex)
-                    {
-                        const float t = static_cast<float>(segmentIndex) / static_cast<float>(kSoftBandSegments);
-                        const float dx = outerDx * t;
-                        xBreaks.push_back(light.centerX - dx);
-                        xBreaks.push_back(light.centerX + dx);
-                    }
-                }
-            }
-        }
-
-        std::sort(xBreaks.begin(), xBreaks.end());
-        xBreaks.erase(
-            std::unique(
-                xBreaks.begin(),
-                xBreaks.end(),
-                [](float a, float b)
-                {
-                    return std::fabs(a - b) <= 0.5f;
-                }),
-            xBreaks.end());
-
-        for (size_t index = 1; index < xBreaks.size(); ++index)
-        {
-            const float x0 = xBreaks[index - 1];
-            const float x1 = xBreaks[index];
-            if (x1 - x0 <= 0.5f)
-            {
-                continue;
-            }
-
-            const float sampleX = (x0 + x1) * 0.5f;
-            int alpha = maxDarknessAlpha;
-            for (const OverlayLightSource& light : overlayLights)
-            {
-                if (light.shapeType >= 1.5f)
-                {
-                    const float halfLength = std::max(0.001f, light.extentY);
-                    const float feather = std::max(0.001f, light.outerRadius);
-                    const float topY = light.centerY - halfLength;
-                    const float bottomY = light.centerY + halfLength;
-                    const float normalizedY = Clamp01((bandCenterY - topY) / (halfLength * 2.0f));
-                    const float halfWidth = std::lerp(light.innerRadius, light.extentX, SmoothStep01(normalizedY));
-                    const float dx = std::fabs(sampleX - light.centerX) - halfWidth;
-                    const float dyTop = topY - bandCenterY;
-                    const float dyBottom = bandCenterY - bottomY;
-                    const float outsideX = std::max(dx, 0.0f);
-                    const float outsideY = std::max(std::max(dyTop, dyBottom), 0.0f);
-                    const float outsideDistance = std::sqrt(outsideX * outsideX + outsideY * outsideY);
-                    if (outsideDistance >= feather)
-                    {
-                        continue;
-                    }
-                    if (outsideDistance <= 0.0f)
-                    {
-                        alpha = 0;
-                        break;
-                    }
-
-                    const float normalized = Clamp01(outsideDistance / feather);
-                    const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
-                    const float edgeWeighted = eased * eased;
-                    const int candidateAlpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha) / std::max(0.001f, light.intensity)));
-                    alpha = (std::min)(alpha, std::clamp(candidateAlpha, 0, maxDarknessAlpha));
-                }
-                else if (light.shapeType >= 0.5f)
-                {
-                    const float dx = std::fabs(sampleX - light.centerX) - light.extentX;
-                    const float dy = std::fabs(bandCenterY - light.centerY) - light.extentY;
-                    const float outsideX = (std::max)(dx, 0.0f);
-                    const float outsideY = (std::max)(dy, 0.0f);
-                    const float outsideDistance = std::sqrt(outsideX * outsideX + outsideY * outsideY);
-                    const float insideDistance = (std::min)((std::max)(dx, dy), 0.0f);
-                    const float signedDistance = outsideDistance + insideDistance;
-                    if (signedDistance >= light.outerRadius)
-                    {
-                        continue;
-                    }
-                    if (signedDistance <= 0.0f)
-                    {
-                        alpha = 0;
-                        break;
-                    }
-
-                    const float normalized = Clamp01(signedDistance / light.outerRadius);
-                    const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
-                    const float edgeWeighted = eased * eased;
-                    const int candidateAlpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha) / std::max(0.001f, light.intensity)));
-                    alpha = (std::min)(alpha, std::clamp(candidateAlpha, 0, maxDarknessAlpha));
-                }
-                else
-                {
-                    const float dx = sampleX - light.centerX;
-                    const float dy = bandCenterY - light.centerY;
-                    const float distance = std::sqrt(dx * dx + dy * dy);
-                    if (distance >= light.outerRadius)
-                    {
-                        continue;
-                    }
-                    if (distance <= light.innerRadius)
-                    {
-                        alpha = 0;
-                        break;
-                    }
-
-                    const float normalized = Clamp01((distance - light.innerRadius) / (light.outerRadius - light.innerRadius));
-                    const float eased = normalized * normalized * (3.0f - 2.0f * normalized);
-                    const float edgeWeighted = eased * eased;
-                    const int candidateAlpha = static_cast<int>(std::round(edgeWeighted * static_cast<float>(maxDarknessAlpha) / std::max(0.001f, light.intensity)));
-                    alpha = (std::min)(alpha, std::clamp(candidateAlpha, 0, maxDarknessAlpha));
-                }
-            }
-
-            drawDarkRect(x0, static_cast<float>(bandTop), x1, static_cast<float>(bandBottom), alpha);
-        }
-    }
-
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawDarknessOverlayFallback(ctx, overlayLights, maxDarknessAlpha);
 }
 
 void GameScene::DrawMarkerLightOutlines() const

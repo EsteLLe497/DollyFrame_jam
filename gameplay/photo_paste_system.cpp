@@ -1,8 +1,8 @@
 #include "photo_paste_system.h"
 
 #include "game_scene_internal.h"
-#include "photo_system_bridge.h"
 #include "photo_filter_rules.h"
+#include "photo_shared.h"
 #include "DxLib.h"
 #include <cmath>
 
@@ -234,7 +234,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
     const float viewOriginY = GetViewOriginY();
     float previewWidth = 0.0f;
     float previewHeight = 0.0f;
-    std::vector<CapturedPhotoItem> previewItems = photo_system_bridge::BuildPlacementItemsBridge(
+    std::vector<CapturedPhotoItem> previewItems = photo_shared::BuildPlacementItems(
         scene.m_photo.capture,
         scene.m_photo.placement,
         scene.m_whiteTexture,
@@ -285,7 +285,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
     for (const auto& item : previewItems)
     {
         CapturedPhotoItem previewItem = item;
-        photo_system_bridge::ApplyPreviewFilterThemeBridge(previewItem);
+        photo_shared::ApplyPreviewFilterTheme(previewItem);
         const float drawX = viewOriginX + ((scene.m_photo.placement.x + item.relativeX) - scene.m_flow.cameraX) * viewScale;
         const float drawY = viewOriginY + ((scene.m_photo.placement.y + item.relativeY) - scene.m_flow.cameraY) * viewScale;
         const float drawWidth = item.width * viewScale;
@@ -308,7 +308,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
             Shader_SetTint(1.0f, 0.24f, 0.24f, 0.42f);
         }
 
-        photo_system_bridge::DrawCapturedPhotoItemBridge(
+        photo_shared::DrawCapturedPhotoItem(
             scene.m_tileTexture,
             item,
             drawX,
@@ -435,7 +435,7 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
 {
     float placementWidth = 0.0f;
     float placementHeight = 0.0f;
-    static_cast<void>(photo_system_bridge::BuildPlacementItemsBridge(
+    static_cast<void>(photo_shared::BuildPlacementItems(
         scene.m_photo.capture,
         scene.m_photo.placement,
         scene.m_whiteTexture,
@@ -622,7 +622,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     static_cast<void>(spawnWidth);
     float rotatedSpawnWidth = 0.0f;
     float rotatedSpawnHeight = 0.0f;
-    std::vector<CapturedPhotoItem> spawnedItems = photo_system_bridge::BuildPlacementItemsBridge(
+    std::vector<CapturedPhotoItem> spawnedItems = photo_shared::BuildPlacementItems(
         scene.m_photo.capture,
         scene.m_photo.placement,
         scene.m_whiteTexture,
