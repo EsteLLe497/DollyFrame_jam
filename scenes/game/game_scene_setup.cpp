@@ -398,7 +398,7 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
     m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/stage_58x25_split.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/forest_boss.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -626,6 +626,7 @@ void GameScene::InitializeStageEntities()
                     {
                         enemy->spawnX = transform->x;
                         enemy->spawnY = transform->y;
+                        enemy->respawnEnabled = false;
                     }
 
                     if (auto* bossComp = boss.GetComponent<ShieldBossComponent>())

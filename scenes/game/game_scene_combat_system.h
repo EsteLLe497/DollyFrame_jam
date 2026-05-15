@@ -114,6 +114,23 @@ inline void UpdateEnemies(
             continue;
         }
 
+        if (enemy->knockbackActive)
+        {
+            enemy->knockbackTimer += flow.lastDeltaTime;
+            const float progress = std::min(1.0f, enemy->knockbackTimer / enemy->knockbackDuration);
+            const float moveProgress = std::sin(progress * 3.1415926f * 0.5f);
+            transform->x = enemy->knockbackStartX + (enemy->knockbackTargetX - enemy->knockbackStartX) * moveProgress;
+            transform->y = enemy->knockbackStartY - std::sin(progress * 3.1415926f) * enemy->knockbackHeight * 48.0f;
+            if (progress >= 1.0f)
+            {
+                transform->x = enemy->knockbackTargetX;
+                transform->y = enemy->knockbackStartY;
+                enemy->knockbackActive = false;
+                enemy->knockbackTimer = 0.0f;
+            }
+            continue;
+        }
+
         if (enemy->GetArchetype() == EnemyArchetype::Walker)
         {
             const float dx = playerTransform->x - transform->x;
@@ -429,7 +446,7 @@ inline void UpdateEnemies(
                 return false;
             };
 
-            auto hitsNonWallObject = [&]() -> bool
+            auto findHitNonWallObject = [&]() -> Entity*
             {
                 for (const auto& other : entities)
                 {
@@ -445,10 +462,10 @@ inline void UpdateEnemies(
                     if (IntersectsBounds(*transform, *otherTransform) ||
                         (shieldTransform && IntersectsBounds(*shieldTransform, *otherTransform)))
                     {
-                        return true;
+                        return other.get();
                     }
                 }
-                return false;
+                return nullptr;
             };
 
             auto removeObjectsUnderShield = [&]()
@@ -486,6 +503,18 @@ inline void UpdateEnemies(
                 boss->knockbackStartX = transform->x;
                 boss->knockbackStartY = transform->y;
                 boss->knockbackTargetX = transform->x - direction * (kTileSize * 3.0f);
+                if (shieldComp && shieldTransform)
+                {
+                    shieldComp->attached = true;
+                    shieldComp->attackType = ShieldAttackType::None;
+                    shieldComp->velocityX = 0.0f;
+                    shieldComp->velocityY = 0.0f;
+                    shieldComp->rotationSpeed = 0.0f;
+                    shieldComp->gravityEnabled = false;
+                    shieldTransform->width = kTileSize * 1.0f;
+                    shieldTransform->height = kTileSize * 3.0f;
+                    shieldTransform->rotation = 0.0f;
+                }
             };
 
             if (boss->knockbackActive)
@@ -504,9 +533,28 @@ inline void UpdateEnemies(
                 }
             }
 
-            // Shield follow while attached.
-            if (shieldComp && shieldTransform && shieldComp->attached)
+            auto syncAttachedShieldToBoss = [&]()
             {
+                if (!shieldComp || !shieldTransform)
+                {
+                    return;
+                }
+                if (boss->knockbackActive)
+                {
+                    shieldComp->attached = true;
+                    shieldComp->attackType = ShieldAttackType::None;
+                    shieldComp->velocityX = 0.0f;
+                    shieldComp->velocityY = 0.0f;
+                    shieldComp->rotationSpeed = 0.0f;
+                    shieldComp->gravityEnabled = false;
+                    shieldTransform->width = kTileSize * 1.0f;
+                    shieldTransform->height = kTileSize * 3.0f;
+                    shieldTransform->rotation = 0.0f;
+                }
+                if (!shieldComp->attached)
+                {
+                    return;
+                }
                 const float shieldW = shieldTransform->width * shieldTransform->scale;
                 const float shieldH = shieldTransform->height * shieldTransform->scale;
                 if (shieldTint)
@@ -547,7 +595,9 @@ inline void UpdateEnemies(
                     shieldTransform->y = transform->y;
                     shieldTransform->rotation = 0.0f;
                 }
-            }
+            };
+
+            syncAttachedShieldToBoss();
 
             
             if (boss->state == ShieldBossState::Idle ||
@@ -575,6 +625,7 @@ inline void UpdateEnemies(
             {
                 const float dir = boss->facing == ShieldBossFacing::Right ? 1.0f : -1.0f;
                 transform->x += dir * boss->rushSpeed * flow.lastDeltaTime;
+                syncAttachedShieldToBoss();
 
                 bool hitPlayer = false;
                 if (playerTransform)
@@ -613,13 +664,19 @@ inline void UpdateEnemies(
                     }
                 }
 
-                const bool hitObject = hitsNonWallObject();
+                Entity* hitObject = findHitNonWallObject();
                 if (hitPlayer || hitObject)
                 {
+                    if (hitObject && HasTag(*hitObject, "PhotoBox") &&
+                        std::find(entitiesToRemove.begin(), entitiesToRemove.end(), hitObject) == entitiesToRemove.end())
+                    {
+                        entitiesToRemove.push_back(hitObject);
+                    }
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
                     startBossKnockback(dir);
+                    syncAttachedShieldToBoss();
                     rushEndedThisFrame = true;
                 }
                 else if (hitWall || checkPhotoBoxCollision(*transform, *entity))
@@ -627,6 +684,8 @@ inline void UpdateEnemies(
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
+                    startBossKnockback(dir);
+                    syncAttachedShieldToBoss();
                     rushEndedThisFrame = true;
                 }
 

@@ -366,6 +366,24 @@ void GameScene::UpdateShields(float deltaTime)
     std::vector<Entity*> shieldsToRemove;
     std::vector<Entity*> objectsToRemove;
 
+    auto startEnemyKnockback = [](Entity& target, EnemyComponent& enemy, TransformComponent& transform, float direction, float distance)
+    {
+        if (auto* shieldBoss = target.GetComponent<ShieldBossComponent>())
+        {
+            shieldBoss->knockbackActive = true;
+            shieldBoss->knockbackTimer = 0.0f;
+            shieldBoss->knockbackStartX = transform.x;
+            shieldBoss->knockbackStartY = transform.y;
+            shieldBoss->knockbackTargetX = transform.x + direction * distance;
+            return;
+        }
+        enemy.knockbackActive = true;
+        enemy.knockbackTimer = 0.0f;
+        enemy.knockbackStartX = transform.x;
+        enemy.knockbackStartY = transform.y;
+        enemy.knockbackTargetX = transform.x + direction * distance;
+    };
+
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -675,6 +693,31 @@ void GameScene::UpdateShields(float deltaTime)
             }
         }
 
+        if (isBossShield && shield->ownerBoss)
+        {
+            auto* ownerBoss = shield->ownerBoss->GetComponent<ShieldBossComponent>();
+            auto* ownerTransform = shield->ownerBoss->GetComponent<TransformComponent>();
+            if (ownerBoss && ownerTransform && ownerBoss->knockbackActive)
+            {
+                constexpr float kGuardShieldW = 48.0f;
+                constexpr float kGuardShieldH = 144.0f;
+                const float ownerW = ownerTransform->width * ownerTransform->scale;
+                shield->attached = true;
+                shield->attackType = ShieldAttackType::None;
+                shield->velocityX = 0.0f;
+                shield->velocityY = 0.0f;
+                shield->rotationSpeed = 0.0f;
+                shield->gravityEnabled = false;
+                shieldTransform->width = kGuardShieldW;
+                shieldTransform->height = kGuardShieldH;
+                shieldTransform->rotation = 0.0f;
+                shieldTransform->x = ownerBoss->facing == ShieldBossFacing::Right
+                    ? ownerTransform->x + ownerW
+                    : ownerTransform->x - kGuardShieldW;
+                shieldTransform->y = ownerTransform->y;
+            }
+        }
+
         const float shieldW = shieldTransform->width * shieldTransform->scale;
         const bool normalCapturedShield =
             shield->photoSpawned &&
@@ -752,10 +795,19 @@ void GameScene::UpdateShields(float deltaTime)
 
             HandleEnemyDamage(*target, entity.get(), shield->contactDamage, "BossShield damaged enemy");
 
-            const float shieldCenterX = shieldTransform->x + shieldW * 0.5f;
-            const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
-            const float dir = enemyCenterX >= shieldCenterX ? 1.0f : -1.0f;
-            enemyTransform->x += dir * shield->knockbackGrids * kTileSize;
+            const auto* shieldBoss = target->GetComponent<ShieldBossComponent>();
+            float dir = 0.0f;
+            if (shieldBoss && enemy->GetArchetype() == EnemyArchetype::ShieldBoss)
+            {
+                dir = shieldBoss->facing == ShieldBossFacing::Right ? -1.0f : 1.0f;
+            }
+            else
+            {
+                const float shieldCenterX = shieldTransform->x + shieldW * 0.5f;
+                const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
+                dir = enemyCenterX >= shieldCenterX ? 1.0f : -1.0f;
+            }
+            startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize);
 
             if (canRemoveNormalCapturedShield)
             {
@@ -841,10 +893,32 @@ void GameScene::UpdateShields(float deltaTime)
             HandleEnemyDamage(*target, entity.get(), shockwave->damage, "BossShockwave damaged enemy");
             shockwave->hitEntities.push_back(target.get());
 
-            const float shockCenterX = shockTransform->x + shockTransform->width * shockTransform->scale * 0.5f;
-            const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
-            const float dir = enemyCenterX >= shockCenterX ? 1.0f : -1.0f;
-            enemyTransform->x += dir * shockwave->knockbackGrids * kTileSize;
+            const auto* shieldBoss = target->GetComponent<ShieldBossComponent>();
+            float dir = 0.0f;
+            if (shieldBoss && enemy->GetArchetype() == EnemyArchetype::ShieldBoss)
+            {
+                const float shockCenterX = shockTransform->x + shockTransform->width * shockTransform->scale * 0.5f;
+                const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
+                const bool pastedJumpAttack = shockwave->ownerBoss == nullptr && !shockwave->damagesPlayer;
+                const bool hitFromBehind = shieldBoss->facing == ShieldBossFacing::Right
+                    ? shockCenterX < enemyCenterX
+                    : shockCenterX > enemyCenterX;
+                if (pastedJumpAttack && hitFromBehind)
+                {
+                    dir = shieldBoss->facing == ShieldBossFacing::Right ? 1.0f : -1.0f;
+                }
+                else
+                {
+                    dir = shieldBoss->facing == ShieldBossFacing::Right ? -1.0f : 1.0f;
+                }
+            }
+            else
+            {
+                const float shockCenterX = shockTransform->x + shockTransform->width * shockTransform->scale * 0.5f;
+                const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
+                dir = enemyCenterX >= shockCenterX ? 1.0f : -1.0f;
+            }
+            startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shockwave->knockbackGrids * kTileSize);
         }
     }
 
@@ -988,6 +1062,11 @@ void GameScene::RemoveDefeatedEnemies()
 
         auto* enemy = entity->GetComponent<EnemyComponent>();
         if (!enemy || !enemy->IsDefeated()) continue;
+        if (enemy->GetArchetype() == EnemyArchetype::ShieldBoss)
+        {
+            enemy->respawnEnabled = false;
+            m_flow.shieldBossDefeatedThisScene = true;
+        }
         if (!enemy->respawnEnabled) continue;
 
         auto* transform = entity->GetComponent<TransformComponent>();
