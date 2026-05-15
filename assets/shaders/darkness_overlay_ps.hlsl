@@ -9,7 +9,6 @@ cbuffer DarknessOverlayParams : register(b0)
     float3 gDarknessColor;
     float gPadding2;
     float4 gLightParams[16];
-    float4 gLightIntensityPack[4];
     float4 gLightColors[16];
     float4 gLightShapeData[16];
 };
@@ -22,6 +21,42 @@ struct PSInput
     float2 uv : TEXCOORD0;
     float2 suv : TEXCOORD1;
 };
+
+float ComputeCircleContribution(float2 screenPos, float4 light, float intensity)
+{
+    float distanceToLight = distance(screenPos, light.xy);
+    float edgeFade = smoothstep(light.z, max(light.w, light.z + 0.001), distanceToLight);
+    return (1.0 - edgeFade) * intensity;
+}
+
+float ComputeBoxContribution(float2 screenPos, float4 light, float4 shapeData, float intensity)
+{
+    float2 extents = shapeData.yz;
+    float feather = max(shapeData.w, 0.001);
+    float2 delta = abs(screenPos - light.xy) - extents;
+    float outsideDistance = length(max(delta, 0.0));
+    float insideDistance = min(max(delta.x, delta.y), 0.0);
+    float signedDistance = outsideDistance + insideDistance;
+    float edgeFade = smoothstep(0.0, feather, signedDistance);
+    return (1.0 - edgeFade) * intensity;
+}
+
+float ComputeBeamContribution(float2 screenPos, float4 light, float4 shapeData, float intensity)
+{
+    float topHalfWidth = max(light.z, 0.001);
+    float bottomHalfWidth = max(shapeData.y, topHalfWidth);
+    float halfLength = max(shapeData.z, 0.001);
+    float feather = max(shapeData.w, 0.001);
+    float topY = light.y - halfLength;
+    float normalizedY = saturate((screenPos.y - topY) / (halfLength * 2.0));
+    float yWeight = normalizedY * normalizedY * (3.0 - 2.0 * normalizedY);
+    float halfWidth = lerp(topHalfWidth, bottomHalfWidth, yWeight);
+    float outsideX = max(abs(screenPos.x - light.x) - halfWidth, 0.0);
+    float outsideY = max(max(topY - screenPos.y, screenPos.y - (light.y + halfLength)), 0.0);
+    float outsideDistance = length(float2(outsideX, outsideY));
+    float edgeFade = smoothstep(0.0, feather, outsideDistance);
+    return (1.0 - edgeFade) * intensity;
+}
 
 float4 main(PSInput input) : SV_TARGET
 {
@@ -51,41 +86,22 @@ float4 main(PSInput input) : SV_TARGET
 
         float4 light = gLightParams[lightIndex];
         float4 lightColor = gLightColors[lightIndex];
+        float4 shapeData = gLightShapeData[lightIndex];
         float intensity = lightColor.a;
         float contribution = 0.0;
-        if (gLightShapeData[lightIndex].x < 0.5)
+        if (shapeData.x < 0.5)
         {
-            float distanceToLight = distance(screenPos, light.xy);
-            float edgeFade = smoothstep(light.z, max(light.w, light.z + 0.001), distanceToLight);
-            contribution = (1.0 - edgeFade) * intensity;
+            contribution = ComputeCircleContribution(screenPos, light, intensity);
         }
-        else if (gLightShapeData[lightIndex].x < 1.5)
+        else if (shapeData.x < 1.5)
         {
-            float2 extents = gLightShapeData[lightIndex].yz;
-            float feather = max(gLightShapeData[lightIndex].w, 0.001);
-            float2 delta = abs(screenPos - light.xy) - extents;
-            float outsideDistance = length(max(delta, 0.0));
-            float insideDistance = min(max(delta.x, delta.y), 0.0);
-            float signedDistance = outsideDistance + insideDistance;
-            float edgeFade = smoothstep(0.0, feather, signedDistance);
-            contribution = (1.0 - edgeFade) * intensity;
+            contribution = ComputeBoxContribution(screenPos, light, shapeData, intensity);
         }
         else
         {
-            float topHalfWidth = max(light.z, 0.001);
-            float bottomHalfWidth = max(gLightShapeData[lightIndex].y, topHalfWidth);
-            float halfLength = max(gLightShapeData[lightIndex].z, 0.001);
-            float feather = max(gLightShapeData[lightIndex].w, 0.001);
-            float topY = light.y - halfLength;
-            float normalizedY = saturate((screenPos.y - topY) / (halfLength * 2.0));
-            float yWeight = normalizedY * normalizedY * (3.0 - 2.0 * normalizedY);
-            float halfWidth = lerp(topHalfWidth, bottomHalfWidth, yWeight);
-            float outsideX = max(abs(screenPos.x - light.x) - halfWidth, 0.0);
-            float outsideY = max(max(topY - screenPos.y, screenPos.y - (light.y + halfLength)), 0.0);
-            float outsideDistance = length(float2(outsideX, outsideY));
-            float edgeFade = smoothstep(0.0, feather, outsideDistance);
-            contribution = (1.0 - edgeFade) * intensity;
+            contribution = ComputeBeamContribution(screenPos, light, shapeData, intensity);
         }
+
         visibility = max(visibility, contribution);
         if (contribution > strongestContribution)
         {
