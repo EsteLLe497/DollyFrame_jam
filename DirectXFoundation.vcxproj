@@ -102,6 +102,8 @@
     <ClCompile Include="scenes\game\game_scene.cpp" />
     <ClCompile Include="scenes\game\game_scene_collision.cpp" />
     <ClCompile Include="scenes\game\game_scene_gameplay.cpp" />
+    <ClCompile Include="scenes\game\game_scene_gameplay_state_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_player_state_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_render.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui_helpers.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui.cpp" />
@@ -136,8 +138,6 @@
     <ClCompile Include="gameplay\photo_shared.cpp" />
     <ClCompile Include="gameplay\photo_capture_system.cpp" />
     <ClCompile Include="gameplay\photo_paste_system.cpp" />
-    <ClCompile Include="gameplay\photo_system_capture.cpp" />
-    <ClCompile Include="gameplay\photo_system_paste.cpp" />
     <ClCompile Include="gameplay\photo_system.cpp" />
     <ClCompile Include="rendering\shader.cpp" />
     <ClCompile Include="rendering\sprite.cpp" />
@@ -321,7 +321,6 @@
     <ClInclude Include="gameplay\photo_shared.h" />
     <ClInclude Include="gameplay\photo_capture_system.h" />
     <ClInclude Include="gameplay\photo_paste_system.h" />
-    <ClInclude Include="gameplay\photo_system_bridge.h" />
     <ClInclude Include="gameplay\photo_system.h" />
     <ClInclude Include="core\resource_manager.h" />
     <ClInclude Include="scenes\result_scene.h" />

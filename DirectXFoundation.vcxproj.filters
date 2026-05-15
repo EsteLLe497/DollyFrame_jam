@@ -105,6 +105,12 @@
     <ClCompile Include="scenes\game\game_scene_gameplay.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_gameplay_state_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_player_state_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
     <ClCompile Include="scenes\game\game_scene_render.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
@@ -163,12 +169,6 @@
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="gameplay\photo_paste_system.cpp">
-      <Filter>Source Files\Gameplay</Filter>
-    </ClCompile>
-    <ClCompile Include="gameplay\photo_system_capture.cpp">
-      <Filter>Source Files\Gameplay</Filter>
-    </ClCompile>
-    <ClCompile Include="gameplay\photo_system_paste.cpp">
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="gameplay\photo_system.cpp">
@@ -405,9 +405,6 @@
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="gameplay\photo_paste_system.h">
-      <Filter>Header Files\Gameplay</Filter>
-    </ClInclude>
-    <ClInclude Include="gameplay\photo_system_bridge.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="gameplay\photo_system.h">

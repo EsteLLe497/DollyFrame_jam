@@ -2,11 +2,13 @@
 
 #include "game_scene.h"
 
+#include <cctype>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <tracy/Tracy.hpp>
@@ -325,6 +327,151 @@ inline constexpr const char* kTagLaserTurret = "LaserTurret";
 inline constexpr const char* kTagLaserBeam = "LaserBeam";
 inline constexpr const char* kTagMarkerLight = "MarkerLight";
 inline constexpr const char* kTagStageLight = "StageLight";
+
+inline constexpr std::array<char, 30> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&'
+};
+inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
+
+inline bool IsMarkerInSet(char marker, std::string_view set)
+{
+    const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+    return set.find(normalized) != std::string_view::npos;
+}
+
+inline int MarkerToPresetIndex(char marker)
+{
+    const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+    for (int index = 0; index < kMarkerPresetCount; ++index)
+    {
+        if (kMarkerPresets[static_cast<size_t>(index)] == normalized)
+        {
+            return index;
+        }
+    }
+
+    return 0;
+}
+
+inline char PresetIndexToMarker(int index)
+{
+    if (index >= 0 && index < kMarkerPresetCount)
+    {
+        return kMarkerPresets[static_cast<size_t>(index)];
+    }
+
+    return '\0';
+}
+
+inline bool IsEnemyMarker(char marker)
+{
+    return IsMarkerInSet(marker, "WRNAD!?");
+}
+
+inline bool IsBatteryMarker(char marker)
+{
+    return IsMarkerInSet(marker, "Y");
+}
+
+inline bool IsLogMarker(char marker)
+{
+    return IsMarkerInSet(marker, "M");
+}
+
+inline bool IsMarkerLightMarker(char marker)
+{
+    return IsMarkerInSet(marker, "PF");
+}
+
+inline bool IsStageLightMarker(char marker)
+{
+    return marker == '@';
+}
+
+inline bool IsElevatorMarker(char marker)
+{
+    return IsMarkerInSet(marker, "KLQ");
+}
+
+inline bool IsDamageFootholdMarker(char marker)
+{
+    return IsMarkerInSet(marker, "HI");
+}
+
+inline bool IsLaserTurretMarker(char marker)
+{
+    return IsMarkerInSet(marker, "UZ");
+}
+
+inline bool IsShutterOrLaserSwitchMarker(char marker)
+{
+    return IsMarkerInSet(marker, "JOX");
+}
+
+inline bool IsProtectiveWallMarker(char marker)
+{
+    return marker == '&';
+}
+
+inline bool IsParameterizedEditorMarker(char marker)
+{
+    switch (static_cast<char>(std::toupper(static_cast<unsigned char>(marker))))
+    {
+    case 'P':
+    case 'F':
+    case 'K':
+    case 'L':
+    case 'Q':
+    case 'J':
+    case 'O':
+    case 'X':
+    case 'U':
+    case 'Z':
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline int NormalizeEditorMarkerParameter(char marker, int parameter)
+{
+    switch (static_cast<char>(std::toupper(static_cast<unsigned char>(marker))))
+    {
+    case 'P':
+    case 'F':
+    case 'K':
+    case 'L':
+    case 'Q':
+    case 'O':
+    case 'X':
+        return std::clamp(parameter, 1, 9);
+    case 'J':
+        return std::clamp(parameter, -9, 99);
+    case 'U':
+        return std::clamp(parameter, -2, 1);
+    case 'Z':
+        return std::clamp(parameter, 0, 1);
+    default:
+        return 0;
+    }
+}
+
+inline int EncodeStageLightMarkerParameter(int lightTiles, int fixtureTiles)
+{
+    constexpr int kDefaultLightTiles = 3;
+    constexpr int kDefaultFixtureTiles = 1;
+    const int clampedLightTiles = std::clamp(lightTiles, 1, 9);
+    const int clampedFixtureTiles = std::clamp(fixtureTiles, 1, 4);
+    if (clampedLightTiles == kDefaultLightTiles && clampedFixtureTiles == kDefaultFixtureTiles)
+    {
+        return 0;
+    }
+    if (clampedFixtureTiles == kDefaultFixtureTiles)
+    {
+        return clampedLightTiles;
+    }
+    return clampedLightTiles * 10 + clampedFixtureTiles;
+}
 
 inline bool IsDamagePlatformMarker(char marker)
 {
