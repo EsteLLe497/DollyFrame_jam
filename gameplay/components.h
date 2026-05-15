@@ -619,6 +619,13 @@ public:
     float attackRectWidth = 0.0f;
     float attackRectHeight = 0.0f;
     float attackRectRemaining = 0.0f;
+    bool knockbackActive = false;
+    float knockbackTimer = 0.0f;
+    float knockbackDuration = 0.26f;
+    float knockbackStartX = 0.0f;
+    float knockbackStartY = 0.0f;
+    float knockbackTargetX = 0.0f;
+    float knockbackHeight = 0.65f;
 
 private:
     EnemyArchetype m_archetype;

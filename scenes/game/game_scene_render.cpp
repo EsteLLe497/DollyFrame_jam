@@ -1323,6 +1323,27 @@ void GameScene::DrawEntity(const Entity& entity) const
     float drawWidth = transform->width * transform->scale * viewScale;
     float drawHeight = transform->height * transform->scale * viewScale;
     const auto* tag = entity.GetComponent<TagComponent>();
+    if (tag && HasTag(tag, "BossShield"))
+    {
+        const auto* shield = entity.GetComponent<ShieldComponent>();
+        const auto* ownerTransform = shield && shield->ownerBoss
+            ? shield->ownerBoss->GetComponent<TransformComponent>()
+            : nullptr;
+        const auto* ownerBoss = shield && shield->ownerBoss
+            ? shield->ownerBoss->GetComponent<ShieldBossComponent>()
+            : nullptr;
+        if (shield && ownerTransform && ownerBoss &&
+            (shield->attached || ownerBoss->knockbackActive || ownerBoss->state == ShieldBossState::Rush || ownerBoss->state == ShieldBossState::RushCooldown))
+        {
+            const float ownerW = ownerTransform->width * ownerTransform->scale;
+            const float shieldW = transform->width * transform->scale;
+            const float shieldWorldX = ownerBoss->facing == ShieldBossFacing::Right
+                ? ownerTransform->x + ownerW
+                : ownerTransform->x - shieldW;
+            drawX = viewOriginX + (shieldWorldX - m_flow.cameraX) * viewScale;
+            drawY = viewOriginY + (ownerTransform->y - m_flow.cameraY) * viewScale;
+        }
+    }
     if (tag && HasTag(tag, kTagPlayer))
     {
         const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();

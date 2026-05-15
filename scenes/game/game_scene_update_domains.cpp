@@ -672,6 +672,10 @@ void GameScene::RefreshEnemiesFromMarkers()
                     {
                         enemyComponent->spawnX = transform->x;
                         enemyComponent->spawnY = transform->y;
+                        if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)
+                        {
+                            enemyComponent->respawnEnabled = false;
+                        }
                     }
                 }
             };
