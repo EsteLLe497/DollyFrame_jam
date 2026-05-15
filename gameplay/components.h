@@ -501,7 +501,7 @@ public:
 
     void Update(float deltaTime) override;
     void DrawDebugUI() override;
-    // 隹ｿ荵晢ｽ願汞・ｿ陷ｻ・ｽ邵ｲ繝ｻ 邵ｺ・ｫ邵ｺ・ｪ郢ｧ荵昶・ IsExpired 邵ｺ繝ｻtrue 邵ｺ・ｫ邵ｺ・ｪ郢ｧ荵敖繝ｻ
+   
     float GetRemainingSeconds() const;
     float GetLifetimeSeconds() const;
     bool IsExpired() const;
@@ -517,7 +517,7 @@ public:
     explicit PhotoPasteAnimationComponent(float durationSeconds);
 
     void Update(float deltaTime) override;
-    // 0.0繝ｻ繝ｻ.0 邵ｺ・ｮ雎・ｽ｣髫穂ｸ槫密鬨ｾ・ｲ隰先圜・ｼ蛹ｻ繝ｻ郢晢ｽｼ郢ｧ・ｹ郢晏沺・ｼ豕後・騾包ｽｨ繝ｻ蟲ｨﾂ繝ｻ
+    
     float GetNormalizedProgress() const;
     bool IsFinished() const;
 
@@ -608,7 +608,7 @@ public:
     float attackCooldown = 3.0f;
     float detectRange = 400.0f;
     float attackRange = 48.0f;
-    float detectHeight = 96.0f; // 3/21髴托ｽｽ陷会｣ｰ(騾包ｽｰ闕ｵ蛟ｶ・ｸ雍具ｽｿ繝ｻ
+    float detectHeight = 96.0f; 
     float velocityY = 0.0f;
     float spawnX = 0.0f;
     float spawnY = 0.0f;
@@ -637,7 +637,7 @@ public:
     ShieldBossState state = ShieldBossState::Idle;
     ShieldBossFacing facing = ShieldBossFacing::Right;
 
-    float detectRange = 6.0f * 48.0f;
+    float detectRange = 12.0f * 48.0f;
     float detectHeight = 4.0f * 48.0f;
     float stateTimer = 0.0f;
 
@@ -654,10 +654,22 @@ public:
 
     float slamPhase1Duration = 0.2f;
     float slamPhase2Duration = 0.3f;
-    float slamCooldown = 2.5f;
+    float slamCooldown = 1.2f;
 
     float targetX = 0.0f;
     float targetY = 0.0f;
+    float jumpStartX = 0.0f;
+    float jumpStartY = 0.0f;
+    float returnJumpDuration = 0.9f;
+    float returnJumpHeight = 9.0f;
+    bool returningHomeJump = false;
+    bool knockbackActive = false;
+    float knockbackTimer = 0.0f;
+    float knockbackDuration = 0.28f;
+    float knockbackStartX = 0.0f;
+    float knockbackStartY = 0.0f;
+    float knockbackTargetX = 0.0f;
+    float knockbackHeight = 0.85f;
     float hoverShieldX = 0.0f;
     float hoverShieldY = 0.0f;
     float hoverPlayerOffsetX = 0.0f;
@@ -716,6 +728,7 @@ public:
     bool followPlayer = false;
     bool grounded = false;
     bool shockwaveSpawned = false;
+    bool fadeStarted = false;
     float hoverElapsed = 0.0f;
     float hoverDuration = 0.0f;
     float descendSpeed = 0.0f;
@@ -832,7 +845,7 @@ public:
     bool facingRight = true;
 };
 
-// 3/21髴托ｽｽ陷会｣ｰ繝ｻ螢ｹ繝ｩ郢晢ｽｭ郢昴・繝ｻ郢ｧ・｢郢ｧ・､郢昴・ﾎ堤ｹｧ・ｳ郢晢ｽｳ郢晄亢繝ｻ郢晞亂ﾎｦ郢昴・騾包ｽｰ闕ｵ蛟ｶ・ｸ雍具ｽｿ繝ｻ
+
 class DropItemComponent final : public Component
 {
 public:
@@ -1069,7 +1082,7 @@ public:
         float fps,
         bool loop = true);
     bool HasClip(const std::string& name) const;
-    // 陷蜥ｲ蜃ｽ闕ｳ・ｭ郢ｧ・ｯ郢晢ｽｪ郢昴・繝ｻ邵ｺ・ｨ陷ｷ謔滄倹邵ｺ・ｮ陜｣・ｴ陷ｷ蛹ｻﾂ縲影startIfSame=true 邵ｺ・ｮ邵ｺ・ｨ邵ｺ髦ｪ笆｡邵ｺ螟ｧ繝ｻ鬯・ｽｭ郢晁ｼ釆樒ｹ晢ｽｼ郢晢｣ｰ邵ｺ・ｸ隰鯉ｽｻ邵ｺ蜷ｶﾂ繝ｻ
+    
     bool Play(const std::string& name, bool restartIfSame = false);
     const std::string& GetCurrentClipName() const;
     int GetCurrentFrameIndex() const;
@@ -1129,9 +1142,9 @@ public:
 
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
-    // Transform -> Box2D 陷ｿ閧ｴ荳舌・莠包ｽｸ・ｻ邵ｺ・ｫ static / kinematic 騾包ｽｨ繝ｻ蟲ｨﾂ繝ｻ
+    
     void PushTransformToPhysics();
-    // Box2D -> Transform 陷ｿ閧ｴ荳舌・莠包ｽｸ・ｻ邵ｺ・ｫ dynamic 邵ｺ・ｮ驍ｨ蜈域｣｡陷ｿ謔ｶ・企恷・ｼ邵ｺ・ｿ繝ｻ蟲ｨﾂ繝ｻ
+    
     void PullTransformFromPhysics();
 
     b2BodyId GetBodyId() const;
@@ -1173,7 +1186,7 @@ public:
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
     b2ChainId GetChainId() const;
-    // [0,1] 雎・ｽ｣髫穂ｸ槫密鬯・ｉ縺帷ｸｲ繧・ｽｮ貊会ｽｽ骰句・隰悟・蜃ｾ邵ｺ・ｫ Transform 郢ｧ・ｵ郢ｧ・､郢ｧ・ｺ邵ｺ・ｸ郢ｧ・ｹ郢ｧ・ｱ郢晢ｽｼ郢晢ｽｫ邵ｺ蜉ｱ窶ｻ闖ｴ・ｿ邵ｺ繝ｻﾂ繝ｻ
+   
     const std::vector<b2Vec2>& GetNormalizedOutline() const;
 
 private:
