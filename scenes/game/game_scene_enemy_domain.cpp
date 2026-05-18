@@ -8,6 +8,24 @@ using namespace game_scene_detail;
 
 namespace
 {
+    inline constexpr int kEnemy1SheetColumns = 5;
+    inline constexpr int kEnemy1SheetRows = 6;
+    inline constexpr int kEnemy1FrameCount = 30;
+    inline constexpr float kEnemy1IdleFps = 12.0f;
+    inline constexpr float kEnemy1MoveFps = 14.0f;
+    inline constexpr int kEnemy1AttackSheetColumns = 8;
+    inline constexpr int kEnemy1AttackSheetRows = 7;
+    inline constexpr int kEnemy1AttackFrameCount = 56;
+    inline constexpr float kEnemy1AttackFps = 18.0f;
+    inline constexpr int kEnemy2IdleSheetColumns = 10;
+    inline constexpr int kEnemy2IdleSheetRows = 11;
+    inline constexpr int kEnemy2IdleFrameCount = 110;
+    inline constexpr float kEnemy2IdleFps = 12.0f;
+    inline constexpr int kEnemy2AttackSheetColumns = 10;
+    inline constexpr int kEnemy2AttackSheetRows = 8;
+    inline constexpr int kEnemy2AttackFrameCount = 80;
+    inline constexpr float kEnemy2AttackFps = 18.0f;
+
     constexpr float kEnemyDefeatHitStopSeconds = 0.08f;
     constexpr float kEnemyDefeatShakeSeconds = 0.18f;
     constexpr float kEnemyDefeatShakeAmplitude = 14.0f;
@@ -105,6 +123,69 @@ namespace
         flow.screenShakeDuration = kEnemyDefeatShakeSeconds;
         flow.screenShakeAmplitude = kEnemyDefeatShakeAmplitude;
     }
+}
+
+void GameScene::ConfigureWalkerSpriteAnimation(Entity& enemy)
+{
+    auto* sprite = enemy.GetComponent<SpriteRenderComponent>();
+    if (!sprite)
+    {
+        return;
+    }
+
+    const auto* transform = enemy.GetComponent<TransformComponent>();
+    constexpr float kWalkerVisualScale = 1.5f;
+    // Keep collision bounds unchanged; only enlarge the rendered enemy around its feet.
+    sprite->SetRenderScale(kWalkerVisualScale, kWalkerVisualScale);
+    sprite->SetRenderOffset(
+        transform ? transform->width * (1.0f - kWalkerVisualScale) * 0.5f : 0.0f,
+        transform ? transform->height * (1.0f - kWalkerVisualScale) : 0.0f);
+
+    auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>();
+    if (!animation)
+    {
+        animation = &enemy.AddComponent<SpriteSheetAnimationComponent>();
+    }
+
+    const int idleTexture = m_assets.GetTexture("enemy1_idle");
+    const int moveTexture = m_assets.GetTexture("enemy1_move");
+    const int attackTexture = m_assets.GetTexture("enemy1_attack");
+    const int fallbackTexture = sprite->GetTextureId();
+    const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
+    const int resolvedMoveTexture = moveTexture >= 0 ? moveTexture : resolvedIdleTexture;
+    const int resolvedAttackTexture = attackTexture >= 0 ? attackTexture : resolvedIdleTexture;
+
+    // Walker uses separate sheets; melee hit is emitted on the attack clip's 31st frame.
+    animation->DefineClip("idle", resolvedIdleTexture, kEnemy1SheetColumns, kEnemy1SheetRows, 0, kEnemy1FrameCount, kEnemy1IdleFps, true);
+    animation->DefineClip("move", resolvedMoveTexture, kEnemy1SheetColumns, kEnemy1SheetRows, 0, kEnemy1FrameCount, kEnemy1MoveFps, true);
+    animation->DefineClip("attack", resolvedAttackTexture, kEnemy1AttackSheetColumns, kEnemy1AttackSheetRows, 0, kEnemy1AttackFrameCount, kEnemy1AttackFps, false);
+    animation->Play("idle", true);
+}
+
+void GameScene::ConfigureRangedSpriteAnimation(Entity& enemy)
+{
+    auto* sprite = enemy.GetComponent<SpriteRenderComponent>();
+    if (!sprite)
+    {
+        return;
+    }
+
+    auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>();
+    if (!animation)
+    {
+        animation = &enemy.AddComponent<SpriteSheetAnimationComponent>();
+    }
+
+    const int idleTexture = m_assets.GetTexture("enemy2_idle");
+    const int attackTexture = m_assets.GetTexture("enemy2_attack");
+    const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : sprite->GetTextureId();
+    const int resolvedAttackTexture = attackTexture >= 0 ? attackTexture : resolvedIdleTexture;
+
+    // Enemy2 is left-facing; the shot is emitted on the attack clip's 39th frame.
+    sprite->SetFlipX(false);
+    animation->DefineClip("idle", resolvedIdleTexture, kEnemy2IdleSheetColumns, kEnemy2IdleSheetRows, 0, kEnemy2IdleFrameCount, kEnemy2IdleFps, true);
+    animation->DefineClip("attack", resolvedAttackTexture, kEnemy2AttackSheetColumns, kEnemy2AttackSheetRows, 0, kEnemy2AttackFrameCount, kEnemy2AttackFps, false);
+    animation->Play("idle", true);
 }
 
 void GameScene::UpdateEnemies()

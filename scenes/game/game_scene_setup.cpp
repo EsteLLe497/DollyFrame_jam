@@ -398,7 +398,7 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
     m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/forest_boss.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/stage_a.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -567,6 +567,7 @@ void GameScene::InitializeStageEntities()
                     "sandbox_enemy_walker",
                     static_cast<float>(column) * tileSize,
                     static_cast<float>(row) * tileSize);
+                ConfigureWalkerSpriteAnimation(enemy);
                 if (auto* transform = enemy.GetComponent<TransformComponent>())
                 {
                     transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
@@ -587,6 +588,7 @@ void GameScene::InitializeStageEntities()
                     "sandbox_enemy_ranged",
                     static_cast<float>(column) * tileSize,
                     static_cast<float>(row) * tileSize);
+                ConfigureRangedSpriteAnimation(enemy);
                 if (auto* transform = enemy.GetComponent<TransformComponent>())
                 {
                     transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;

@@ -619,6 +619,7 @@ public:
     float attackRectWidth = 0.0f;
     float attackRectHeight = 0.0f;
     float attackRectRemaining = 0.0f;
+    bool attackFrameTriggered = false; // One-shot marker for frame-timed attacks.
     bool knockbackActive = false;
     float knockbackTimer = 0.0f;
     float knockbackDuration = 0.26f;
