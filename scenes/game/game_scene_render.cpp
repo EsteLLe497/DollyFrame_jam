@@ -1318,10 +1318,10 @@ void GameScene::DrawEntity(const Entity& entity) const
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
     const float viewWidth = GetViewWidth();
-    float drawX = viewOriginX + (transform->x - m_flow.cameraX) * viewScale;
-    float drawY = viewOriginY + (transform->y - m_flow.cameraY) * viewScale;
-    float drawWidth = transform->width * transform->scale * viewScale;
-    float drawHeight = transform->height * transform->scale * viewScale;
+    float drawX = viewOriginX + (transform->x + sprite->GetRenderOffsetX() - m_flow.cameraX) * viewScale;
+    float drawY = viewOriginY + (transform->y + sprite->GetRenderOffsetY() - m_flow.cameraY) * viewScale;
+    float drawWidth = transform->width * transform->scale * sprite->GetRenderScaleX() * viewScale;
+    float drawHeight = transform->height * transform->scale * sprite->GetRenderScaleY() * viewScale;
     const auto* tag = entity.GetComponent<TagComponent>();
     if (tag && HasTag(tag, "BossShield"))
     {

@@ -102,6 +102,8 @@ private:
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
     bool SnapEnemyToGround(TransformComponent& transform) const;
+    void ConfigureWalkerSpriteAnimation(Entity& enemy);
+    void ConfigureRangedSpriteAnimation(Entity& enemy);
     void UpdateEnemies();
     int HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight);
     void UpdateBullets();

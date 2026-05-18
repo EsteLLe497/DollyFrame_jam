@@ -711,11 +711,13 @@ void GameScene::RefreshEnemiesFromMarkers()
             if (marker == 'W')
             {
                 Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_walker", markerX, markerY);
+                ConfigureWalkerSpriteAnimation(enemy);
                 placeEnemyAtMarker(enemy);
             }
             else if (marker == 'R')
             {
                 Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", markerX, markerY);
+                ConfigureRangedSpriteAnimation(enemy);
                 placeEnemyAtMarker(enemy);
             }
             else if (marker == 'N')

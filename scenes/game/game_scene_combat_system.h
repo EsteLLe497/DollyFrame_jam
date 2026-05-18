@@ -29,6 +29,37 @@ inline bool IntersectsBounds(const TransformComponent& a, const TransformCompone
     return a.x < bRight && aRight > b.x && a.y < bBottom && aBottom > b.y;
 }
 
+inline void UpdateWalkerSpriteAnimation(Entity& entity, const EnemyComponent& enemy, bool moving)
+{
+    auto* sprite = entity.GetComponent<SpriteRenderComponent>();
+    auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
+    if (!sprite || !animation)
+    {
+        return;
+    }
+
+    // Enemy1 sheets face left by default; mirror only when the AI faces right.
+    sprite->SetFlipX(enemy.facing == EnemyComponent::FacingDirection::Right);
+    const char* clipName = enemy.GetAIState() == EnemyComponent::AIState::Attack
+        ? "attack"
+        : (moving ? "move" : "idle");
+    animation->Play(clipName);
+}
+
+inline void PlayRangedSpriteAnimation(Entity& entity, const char* clipName, bool restart = false)
+{
+    auto* sprite = entity.GetComponent<SpriteRenderComponent>();
+    auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
+    if (!sprite || !animation)
+    {
+        return;
+    }
+
+    // Enemy2 is authored left-facing and should never turn around.
+    sprite->SetFlipX(false);
+    animation->Play(clipName, restart);
+}
+
 inline const char* ToMidBoss2StateLabel(MidBoss2State state)
 {
     switch (state)
@@ -136,10 +167,13 @@ inline void UpdateEnemies(
             const float dx = playerTransform->x - transform->x;
             const float dy = playerTransform->y - transform->y;
             const float dist = std::fabs(dx);
+            bool walkerMoved = false;
             constexpr float kWalkerSpeed = 120.0f;
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
             constexpr float kWalkerAttackActiveSeconds = 0.18f;
+            constexpr int kWalkerAttackHitFrame = 30; // 31st frame, zero-based.
+            constexpr int kWalkerAttackLastFrame = 55;
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
@@ -153,7 +187,7 @@ inline void UpdateEnemies(
             }
 
             
-            if (enemy->GetAIState() != EnemyComponent::AIState::Attack)
+            if (inDetectRange && enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
                 enemy->facing = dx > 0.0f
                     ? EnemyComponent::FacingDirection::Right
@@ -186,21 +220,13 @@ inline void UpdateEnemies(
                         ? EnemyComponent::FacingDirection::Right
                         : EnemyComponent::FacingDirection::Left;
 
-                    const float attackWidth = 48.0f;
-                    const float attackHeight = 60.0f;
-                    const float attackOffsetY = transform->height * transform->scale * -0.1f;
-
-                    enemy->attackRectX = enemy->facing == EnemyComponent::FacingDirection::Right
-                        ? transform->x + transform->width * transform->scale
-                        : transform->x - attackWidth;
-                    enemy->attackRectY = transform->y + attackOffsetY;
-                    enemy->attackRectWidth = attackWidth;
-                    enemy->attackRectHeight = attackHeight;
-                    enemy->attackRectRemaining = kWalkerAttackActiveSeconds;
-                    enemy->attackRectActive = true;
-
                     enemy->attackTimer = 0.0f;
+                    enemy->attackFrameTriggered = false;
                     enemy->SetAIState(EnemyComponent::AIState::Attack);
+                    if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
+                    {
+                        animation->Play("attack", true);
+                    }
                 }
                 else if (!inDetectRange)
                 {
@@ -210,23 +236,49 @@ inline void UpdateEnemies(
                 {
                     transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * flow.lastDeltaTime;
                     snapToGround(*transform);
+                    walkerMoved = true;
                 }
                 break;
             case EnemyComponent::AIState::Attack:
                 enemy->attackTimer += flow.lastDeltaTime;
-                if (dist >= enemy->attackRange)
+                if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
                 {
-                    enemy->attackRectActive = false;
-                    enemy->SetAIState(EnemyComponent::AIState::Chase);
+                    const int attackFrame = animation->GetCurrentFrameIndex();
+                    if (!enemy->attackFrameTriggered && attackFrame >= kWalkerAttackHitFrame)
+                    {
+                        enemy->attackFrameTriggered = true;
+                        const float attackWidth = 48.0f;
+                        const float attackHeight = 60.0f;
+                        const float attackOffsetY = transform->height * transform->scale * -0.1f;
+
+                        enemy->attackRectX = enemy->facing == EnemyComponent::FacingDirection::Right
+                            ? transform->x + transform->width * transform->scale
+                            : transform->x - attackWidth;
+                        enemy->attackRectY = transform->y + attackOffsetY;
+                        enemy->attackRectWidth = attackWidth;
+                        enemy->attackRectHeight = attackHeight;
+                        enemy->attackRectRemaining = kWalkerAttackActiveSeconds;
+                        enemy->attackRectActive = true;
+                    }
+
+                    if (attackFrame >= kWalkerAttackLastFrame)
+                    {
+                        enemy->attackFrameTriggered = false;
+                        enemy->attackRectActive = false;
+                        enemy->SetAIState(EnemyComponent::AIState::Chase);
+                    }
                 }
                 else if (enemy->attackTimer >= enemy->attackCooldown)
                 {
                     enemy->attackTimer = 0.0f;
+                    enemy->attackFrameTriggered = false;
                     enemy->attackRectActive = false;
                     enemy->SetAIState(EnemyComponent::AIState::Chase);
                 }
                 break;
             }
+
+            UpdateWalkerSpriteAnimation(*entity, *enemy, walkerMoved);
         }
 
         else if (enemy->GetArchetype() == EnemyArchetype::Ranged)
@@ -245,26 +297,52 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            
-            const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
+            // Enemy2 only watches its fixed left side; a player on the right is treated as undetected.
+            const bool inDetectRange = dx <= 0.0f && dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-      
-
-            enemy->attackTimer += flow.lastDeltaTime;
-
-            if (inDetectRange && enemy->attackTimer >= enemy->attackCooldown)
+            if (!inDetectRange)
             {
                 enemy->attackTimer = 0.0f;
+                enemy->attackFrameTriggered = false;
+                enemy->SetAIState(EnemyComponent::AIState::Idle);
+                PlayRangedSpriteAnimation(*entity, "idle");
+                continue;
+            }
+
+            auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>();
+            if (enemy->GetAIState() != EnemyComponent::AIState::Attack)
+            {
+                PlayRangedSpriteAnimation(*entity, "idle");
+                enemy->attackTimer += flow.lastDeltaTime;
+
+                if (enemy->attackTimer >= enemy->attackCooldown)
+                {
+                    enemy->attackTimer = 0.0f;
+                    enemy->attackFrameTriggered = false;
+                    enemy->SetAIState(EnemyComponent::AIState::Attack);
+                    PlayRangedSpriteAnimation(*entity, "attack", true);
+                }
+                continue;
+            }
+
+            PlayRangedSpriteAnimation(*entity, "attack");
+            const int attackFrame = animation ? animation->GetCurrentFrameIndex() : 0;
+            constexpr int kEnemy2AttackFireFrame = 38; // 39th frame, zero-based.
+            constexpr int kEnemy2AttackLastFrame = 79;
+
+            if (!enemy->attackFrameTriggered && attackFrame >= kEnemy2AttackFireFrame)
+            {
+                enemy->attackFrameTriggered = true;
 
                 constexpr float kBulletSpeed = 300.0f;
                 
-                const float velX = (dx > 0.0f ? 1.0f : -1.0f) * kBulletSpeed;
+                const float velX = -kBulletSpeed;
                 const float velY = 0.0f;
 
                 auto bullet = std::make_unique<Entity>();
                 bullet->AddComponent<TagComponent>(kTagBullet);
                 bullet->AddComponent<TransformComponent>(
-                    transform->x + 24.0f,
+                    transform->x - 24.0f,
                     transform->y + 24.0f,
                     48.0f, 24.0f); 
                 bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
@@ -272,6 +350,13 @@ inline void UpdateEnemies(
                 bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
                 playEnemyGun(*entity);
                 newBullets.push_back(std::move(bullet));
+            }
+
+            if (attackFrame >= kEnemy2AttackLastFrame)
+            {
+                enemy->attackFrameTriggered = false;
+                enemy->SetAIState(EnemyComponent::AIState::Idle);
+                PlayRangedSpriteAnimation(*entity, "idle", true);
             }
         }
 
