@@ -1997,7 +1997,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float tileSize = boss->params.boss2WidthGrid > 0
                 ? bossWidth / static_cast<float>(boss->params.boss2WidthGrid)
                 : 48.0f;
-            const float effectCenterWorldX = transform->x + (boss->facingRight ? bossWidth + tileSize * 0.8f : -tileSize * 0.8f);
+            const float effectCenterWorldX = transform->x + (boss->beamFacingRight ? bossWidth + tileSize * 0.8f : -tileSize * 0.8f);
             const float effectCenterWorldY = transform->y + bossHeight * 0.5f;
             const float effectCenterX = viewOriginX + (effectCenterWorldX - m_flow.cameraX) * viewScale;
             const float effectCenterY = viewOriginY + (effectCenterWorldY - m_flow.cameraY) * viewScale;

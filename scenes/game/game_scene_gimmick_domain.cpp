@@ -28,6 +28,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
     const float tileSize = m_tileMap.GetTileSize();
     constexpr float kPlatformPlayerInsetX = 6.0f;
     constexpr float kPlatformBatteryInsetX = 2.0f;
+
     constexpr float kSwitchTopToleranceMin = 8.0f;
     constexpr float kPlatformTopToleranceMin = 10.0f;
 

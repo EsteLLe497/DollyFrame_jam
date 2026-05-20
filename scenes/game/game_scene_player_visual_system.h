@@ -256,17 +256,12 @@ inline void UpdatePresentation(
     {
         playerState.landingImpact = 1.0f;
     }
-    if (!wasGrounded && playerState.velocityY < -80.0f)
-    {
-        playerState.jumpStretch = 1.0f;
-    }
     if (isDodging)
     {
         playerState.dodgeStretch = 1.0f;
     }
 
     playerState.landingImpact = std::max(0.0f, playerState.landingImpact - deltaTime * kPlayerLandingDecay);
-    playerState.jumpStretch = std::max(0.0f, playerState.jumpStretch - deltaTime * kPlayerJumpDecay);
     playerState.dodgeStretch = std::max(0.0f, playerState.dodgeStretch - deltaTime * kPlayerDodgeDecay);
 
     const float horizontalSpeedRatio = Clamp01(std::fabs(playerState.velocityX) / std::max(1.0f, gPlayerMoveSpeed));
@@ -292,15 +287,11 @@ inline void UpdatePresentation(
     }
     else if (playerState.velocityY < 0.0f)
     {
-        targetScaleX -= 0.05f;
-        targetScaleY += 0.10f;
         targetOffsetY -= 2.0f;
         targetRotation += moveAxis * 0.05f;
     }
     else
     {
-        targetScaleX += 0.07f;
-        targetScaleY -= 0.06f;
         targetOffsetY += 1.0f;
         targetRotation += moveAxis * 0.04f;
     }
@@ -308,10 +299,6 @@ inline void UpdatePresentation(
     targetScaleX += playerState.landingImpact * 0.14f;
     targetScaleY -= playerState.landingImpact * 0.18f;
     targetOffsetY += playerState.landingImpact * 3.5f;
-
-    targetScaleX -= playerState.jumpStretch * 0.07f;
-    targetScaleY += playerState.jumpStretch * 0.13f;
-    targetOffsetY -= playerState.jumpStretch * 2.5f;
 
     targetScaleX += playerState.dodgeStretch * 0.13f;
     targetScaleY -= playerState.dodgeStretch * 0.10f;
