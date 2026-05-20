@@ -1075,6 +1075,46 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             continue;
         }
 
+        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+        {
+            auto groundEntity = std::make_unique<Entity>();
+            Entity* spawnedGround = groundEntity.get();
+            lastSpawnedEntity = spawnedGround;
+
+            spawnedGround->AddComponent<TagComponent>(kTagPhotoBox);
+            spawnedGround->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedGround->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedGround->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
+            spawnedGround->AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+            spawnedGround->AddComponent<PhotoCopyLayerComponent>(scene.m_photo.placement.layer);
+            spawnedGround->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
+            spawnedGround->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
+            spawnedGround->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
+
+            spawnedGround->AddComponent<TransformComponent>(
+                spawnX + item.relativeX, spawnY + item.relativeY,
+                item.width, item.height);
+            spawnedGround->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            spawnedGround->AddComponent<SpriteRenderComponent>(
+                item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+            spawnedGround->AddComponent<ImageOutlineColliderComponent>(
+                std::vector<b2Vec2>{
+                    { 0.0f, 0.0f },
+                    { 1.0f, 0.0f },
+                    { 1.0f, 1.0f },
+                { 0.0f, 1.0f }},
+                0.2f);
+
+            if (auto* transform = spawnedGround->GetComponent<TransformComponent>())
+            {
+                transform->rotation = item.rotation;
+            }
+
+            ++spawnedPhotoBoxCount;
+            scene.m_entities.push_back(std::move(groundEntity));
+            continue;
+        }
+
         auto entity = std::make_unique<Entity>();
         lastSpawnedEntity = entity.get();
         ++spawnedPhotoBoxCount;

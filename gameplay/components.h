@@ -983,6 +983,12 @@ private:
     float m_tintA;
 };
 
+class SepiaRubbleComponent final : public Component
+{
+public:
+	SepiaRubbleComponent() = default;
+};
+
 // ============================================================================
 // Gameplay Common Domain
 // ============================================================================

@@ -75,16 +75,24 @@
       "path": "assets/texture/enemy2/enemy2_idle.png"
     },
     "enemy2_attack": {
-      "type": "file",
-      "path": "assets/texture/enemy2/enemy2_attack.png"
+        "type": "file",
+        "path": "assets/texture/enemy2/enemy2_attack.png"
+    },
+    "sepia_rubble": {
+        "type": "file",
+        "path": "assets/texture/SepiaSample1.png"
+    },
+    "sepia_ground": {
+        "type": "file",
+        "path": "assets/texture/SepiaSample2.png"
     },
     "star": {
       "type": "file",
       "path": "assets/texture/Star.png"
     },
     "apple": {
-      "type": "file",
-      "path": "assets/texture/Apple.png"
+        "type": "file",
+        "path": "assets/texture/Apple.png"
     }
   }
 }

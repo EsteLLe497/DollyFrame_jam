@@ -1491,6 +1491,25 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
+    if (tag && HasTag(tag, kTagSepiaRubble))
+    {
+
+        if (const auto* tint = entity.GetComponent<TintComponent>())
+        {
+            Shader_SetTint(tint->r, tint->g, tint->b, tint->a);
+        }
+        SpriteDraw(
+            sprite->GetTextureId(),
+            drawX, drawY, drawWidth, drawHeight,
+            sprite->GetSourceX(), sprite->GetSourceY(),
+            sprite->GetSourceWidth(), sprite->GetSourceHeight(),
+            sprite->GetFlipX(),
+            transform->rotation);
+        Shader_ResetStyle();
+        return;
+
+    }
+
     if (tag && HasTag(tag, kTagGoal))
     {
         Shader_SetOutline(
