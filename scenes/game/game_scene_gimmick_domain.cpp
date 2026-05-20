@@ -42,6 +42,8 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         linkPowered[linkId] = true;
     };
     bool shieldBossDefeated = false;
+    bool hasProtectiveWalls = false;
+    bool hasIntactProtectiveWall = false;
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -507,6 +509,12 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             continue;
         }
 
+        hasProtectiveWalls = true;
+        if (!wall->IsDestroyed())
+        {
+            hasIntactProtectiveWall = true;
+        }
+
         const Entity* nearestLightEntity = FindNearestMarkerLightEntity(*transform, wall->linkId, false);
         const auto* nearestLight = nearestLightEntity ? nearestLightEntity->GetComponent<MarkerLightComponent>() : nullptr;
         const bool powered = !wall->IsDestroyed() && nearestLight != nullptr && nearestLight->activated;
@@ -559,6 +567,10 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             kPlatformBatteryInsetX);
     }
 
+    if (hasProtectiveWalls && !hasIntactProtectiveWall)
+    {
+        RefreshProtectiveWallsFromMarkers();
+    }
 }
 
 const Entity* GameScene::FindNearestMarkerLightEntity(

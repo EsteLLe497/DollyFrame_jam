@@ -119,12 +119,12 @@ inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>> newBullets;
     std::vector<std::unique_ptr<Entity>> newShields;
     std::vector<Entity*> entitiesToRemove;
-    constexpr float kMidBoss2JumpCenterGridX = 35.0f;
+    constexpr float kMidBoss2JumpCenterGridX = 36.0f;
     constexpr float kMidBoss2ArenaHalfWidthGrid = 18.0f;
     constexpr float kMidBoss2ArenaCenterMinGridX = kMidBoss2JumpCenterGridX - kMidBoss2ArenaHalfWidthGrid;
     constexpr float kMidBoss2ArenaCenterMaxGridX = kMidBoss2JumpCenterGridX + kMidBoss2ArenaHalfWidthGrid;
     constexpr float kMidBoss2LandingInsetGrid = 6.0f;
-    constexpr float kMidBoss2SideLandingInsetGrid = 5.0f;
+    constexpr float kMidBoss2SideLandingInsetGrid = 3.0f;
     constexpr float kMidBoss2GroundOffsetGridY = 4.0f;
     constexpr float kMidBoss2HoverHeightGrid = 11.0f;
 
