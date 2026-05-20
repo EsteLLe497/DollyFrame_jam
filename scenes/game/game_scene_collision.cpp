@@ -1,5 +1,5 @@
 #include "game_scene_internal.h"
-#include "photo_system_bridge.h"
+#include "photo_shared.h"
 
 using namespace game_scene_detail;
 
@@ -1714,7 +1714,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
 
     float placementWidth = 0.0f;
     float placementHeight = 0.0f;
-    const std::vector<CapturedPhotoItem> placementItems = photo_system_bridge::BuildPlacementItemsBridge(
+    const std::vector<CapturedPhotoItem> placementItems = photo_shared::BuildPlacementItems(
         m_photo.capture,
         m_photo.placement,
         m_whiteTexture,

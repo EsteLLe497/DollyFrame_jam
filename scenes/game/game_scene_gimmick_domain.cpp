@@ -504,9 +504,9 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             continue;
         }
 
-        const Entity* nearestLightEntity = FindNearestMarkerLightEntity(*transform);
+        const Entity* nearestLightEntity = FindNearestMarkerLightEntity(*transform, wall->linkId, false);
         const auto* nearestLight = nearestLightEntity ? nearestLightEntity->GetComponent<MarkerLightComponent>() : nullptr;
-        const bool powered = nearestLight != nullptr && !wall->IsDestroyed();
+        const bool powered = !wall->IsDestroyed() && nearestLight != nullptr && nearestLight->activated;
         wall->isOn = powered;
         const float previousY = transform->y;
         const float targetY = powered
@@ -558,7 +558,10 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
 }
 
-const Entity* GameScene::FindNearestMarkerLightEntity(const TransformComponent& referenceTransform) const
+const Entity* GameScene::FindNearestMarkerLightEntity(
+    const TransformComponent& referenceTransform,
+    int linkId,
+    bool requireActivated) const
 {
     const float referenceWidth = referenceTransform.width * referenceTransform.scale;
     const float referenceHeight = referenceTransform.height * referenceTransform.scale;
@@ -576,7 +579,15 @@ const Entity* GameScene::FindNearestMarkerLightEntity(const TransformComponent& 
 
         const auto* markerLight = entity->GetComponent<MarkerLightComponent>();
         const auto* transform = entity->GetComponent<TransformComponent>();
-        if (!markerLight || !markerLight->activated || !transform)
+        if (!markerLight || !transform)
+        {
+            continue;
+        }
+        if (requireActivated && !markerLight->activated)
+        {
+            continue;
+        }
+        if (linkId >= 0 && markerLight->linkId != linkId)
         {
             continue;
         }

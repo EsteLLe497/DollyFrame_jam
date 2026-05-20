@@ -2,6 +2,7 @@
 #include "game_scene_combat_system.h"
 #include "game_scene_player_system.h"
 #include "game_scene_player_movement_system.h"
+#include "game_scene_player_visual_system.h"
 #include "game_scene_photo_tray_system.h"
 #include "photo_system.h"
 

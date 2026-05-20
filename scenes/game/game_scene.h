@@ -237,7 +237,10 @@ private:
     bool IsGroundPlatformEntity(const Entity& entity) const;
     void GetGroundPlatformBounds(std::vector<TransformComponent>& bounds) const;
     void GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const;
-    const Entity* FindNearestMarkerLightEntity(const TransformComponent& referenceTransform) const;
+    const Entity* FindNearestMarkerLightEntity(
+        const TransformComponent& referenceTransform,
+        int linkId = -1,
+        bool requireActivated = true) const;
     bool FindSpawnPosition(float desiredX, float objectWidth, float objectHeight, float& outX, float& outY) const;
     bool IsPhotoPlacementValid(float x, float y, float width, float height) const;
     float GetMapPixelWidth() const;

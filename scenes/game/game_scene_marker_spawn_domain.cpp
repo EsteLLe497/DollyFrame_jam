@@ -105,6 +105,7 @@ namespace
         float x = 0.0f;
         float y = 0.0f;
         int durability = 3;
+        int linkIdOverride = -1;
         int widthTiles = 1;
         int markerHeightTiles = 1;
         int heightTiles = 3;
@@ -233,17 +234,17 @@ namespace
                     }
                     outShutterMarkers.push_back(shutterMarker);
                 }
-                else if (marker == '@')
+                else if (marker == '&')
                 {
-                    if ((column > 0 && tileMap.GetMarker(column - 1, row) == '@') ||
-                        (row > 0 && tileMap.GetMarker(column, row - 1) == '@'))
+                    if ((column > 0 && tileMap.GetMarker(column - 1, row) == '&') ||
+                        (row > 0 && tileMap.GetMarker(column, row - 1) == '&'))
                     {
                         continue;
                     }
 
                     int widthTiles = 1;
                     while (column + widthTiles < tileMap.GetWidth() &&
-                        tileMap.GetMarker(column + widthTiles, row) == '@')
+                        tileMap.GetMarker(column + widthTiles, row) == '&')
                     {
                         ++widthTiles;
                     }
@@ -254,7 +255,7 @@ namespace
                     {
                         for (int wallColumnOffset = 0; wallColumnOffset < widthTiles; ++wallColumnOffset)
                         {
-                            if (tileMap.GetMarker(column + wallColumnOffset, row + heightTiles) != '@')
+                            if (tileMap.GetMarker(column + wallColumnOffset, row + heightTiles) != '&')
                             {
                                 rowMatchesWallWidth = false;
                                 break;
@@ -267,11 +268,14 @@ namespace
                     }
 
                     const int markerParameter = tileMap.GetMarkerParameter(column, row);
+                    const int wallLinkIdOverride = markerParameter < 0 ? -markerParameter : -1;
+                    const int wallDurability = markerParameter > 0 ? markerParameter : 3;
                     const int wallHeightTiles = heightTiles > 1 ? heightTiles : 4;
                     outProtectiveWallMarkers.push_back(ProtectiveWallMarker{
                         markerX,
                         markerY,
-                        markerParameter > 0 ? markerParameter : 3,
+                        wallDurability,
+                        wallLinkIdOverride,
                         widthTiles,
                         heightTiles,
                         wallHeightTiles });
@@ -630,6 +634,7 @@ void GameScene::RefreshMarkerLightsFromMarkers()
             }
 
             const int markerParameter = m_tileMap.GetMarkerParameter(column, row);
+            const int lightLinkId = markerParameter < 0 ? -markerParameter : -1;
             const float radiusTiles = markerParameter > 0
                 ? static_cast<float>(markerParameter)
                 : kDefaultRadiusTiles;
@@ -648,7 +653,8 @@ void GameScene::RefreshMarkerLightsFromMarkers()
             light->AddComponent<SpriteRenderComponent>(m_whiteTexture);
             auto& markerLight = light->AddComponent<MarkerLightComponent>(
                 tileSize * radiusTiles,
-                kIntensity);
+                kIntensity,
+                lightLinkId);
             markerLight.activated = marker == 'F';
             m_entities.push_back(std::move(light));
         }
@@ -943,7 +949,9 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         const float wallWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
         const float wallHeight = tileSize * static_cast<float>((std::max)(1, marker.heightTiles));
         const float wallX = marker.x + markerWidth * 0.5f - wallWidth * 0.5f;
-        const float wallY = marker.y + markerHeight * 0.5f - wallHeight * 0.5f;
+        // Anchor the wall to the ground surface of the placed marker band.
+        const float wallY = marker.y + markerHeight - tileSize - wallHeight;
+        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : linkId;
         auto wallEntity = std::make_unique<Entity>();
         wallEntity->AddComponent<TagComponent>(kTagProtectiveWall);
         wallEntity->AddComponent<TransformComponent>(
@@ -958,7 +966,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             1.0f);
         wallEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
         wallEntity->AddComponent<ProtectiveWallComponent>(
-            linkId,
+            effectiveLinkId,
             marker.durability,
             wallHeight,
             tileSize * cfg.protectiveWallSpeedTilesPerSec,
