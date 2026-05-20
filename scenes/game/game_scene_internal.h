@@ -35,7 +35,7 @@ struct StageTransitionLink
 };
 
 inline std::vector<StageTransitionLink> gStageTransitionLinks;
-inline std::string gCurrentMapCsvPath = "assets/maps/stages/stage_58x25_wall_test.csv";
+inline std::string gCurrentMapCsvPath = "assets/maps/stages/stage_58x25.csv";
 inline char gLastStageTransitionMarker = '\0';
 
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";

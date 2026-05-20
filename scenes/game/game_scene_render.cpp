@@ -768,6 +768,7 @@ namespace
     void DrawStageLightBeam(
         const TransformComponent& transform,
         const StageLightComponent& light,
+        float beamLengthWorld,
         float cameraX,
         float cameraY)
     {
@@ -779,7 +780,7 @@ namespace
         const float viewScale = GetViewScale();
         const float viewOriginX = GetViewOriginX();
         const float viewOriginY = GetViewOriginY();
-        const float beamLength = (light.beamLength > 0.0f ? light.beamLength : transform.height * 3.0f) * transform.scale * viewScale;
+        const float beamLength = beamLengthWorld * viewScale;
         const float topWidth = (light.beamTopWidth > 0.0f ? light.beamTopWidth : transform.width) * transform.scale * viewScale;
         const float bottomWidth = (light.beamBottomWidth > 0.0f ? light.beamBottomWidth : transform.width * 3.0f) * transform.scale * viewScale;
         if (beamLength <= 1.0f || topWidth <= 1.0f || bottomWidth <= 1.0f)
@@ -1259,7 +1260,8 @@ void GameScene::DrawEffects() const
             continue;
         }
 
-        DrawStageLightBeam(*transform, *stageLight, m_flow.cameraX, m_flow.cameraY);
+        const float beamLengthWorld = (stageLight->beamLength > 0.0f ? stageLight->beamLength : transform->height * 3.0f) * transform->scale;
+        DrawStageLightBeam(*transform, *stageLight, beamLengthWorld, m_flow.cameraX, m_flow.cameraY);
     }
 
     for (const auto& particle : m_effects.barrelDebris)
@@ -2016,7 +2018,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float tileSize = boss->params.boss2WidthGrid > 0
                 ? bossWidth / static_cast<float>(boss->params.boss2WidthGrid)
                 : 48.0f;
-            const float effectCenterWorldX = transform->x + (boss->facingRight ? bossWidth + tileSize * 0.8f : -tileSize * 0.8f);
+            const float effectCenterWorldX = transform->x + (boss->beamFacingRight ? bossWidth + tileSize * 0.8f : -tileSize * 0.8f);
             const float effectCenterWorldY = transform->y + bossHeight * 0.5f;
             const float effectCenterX = viewOriginX + (effectCenterWorldX - m_flow.cameraX) * viewScale;
             const float effectCenterY = viewOriginY + (effectCenterWorldY - m_flow.cameraY) * viewScale;

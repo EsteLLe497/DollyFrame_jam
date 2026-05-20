@@ -785,6 +785,7 @@ public:
     Params params;
     MidBoss2State state = MidBoss2State::Idle;
     bool facingRight = true;
+    bool beamFacingRight = true;
     float stateTimer = 0.0f;
     float cooldownRemaining = 0.0f;
     int attackFlowStep = 1;

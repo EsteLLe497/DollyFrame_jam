@@ -703,7 +703,7 @@ void GameScene::RefreshMarkerLightsFromMarkers()
                 tileSize * radiusTiles,
                 kIntensity,
                 lightLinkId);
-            markerLight.activated = marker == 'F';
+            markerLight.activated = marker == 'P';
             m_entities.push_back(std::move(light));
         }
     }
@@ -736,6 +736,55 @@ void GameScene::RefreshStageLightsFromMarkers()
     constexpr float kBeamBottomWidthRatio = 1.16f;
     constexpr float kBeamFeatherTiles = 0.34f;
     constexpr float kIntensity = 1.0f;
+    constexpr float kBeamGroundWidthLimitTiles = 6.0f;
+
+    auto computeBeamLengthToGround = [&](float sourceX, float sourceY, float beamWidthWorld, float fallbackLengthWorld) -> float
+    {
+        const float tileSize = m_tileMap.GetTileSize();
+        if (tileSize <= 0.0f || fallbackLengthWorld <= 0.0f || m_tileMap.GetWidth() <= 0 || m_tileMap.GetHeight() <= 0)
+        {
+            return fallbackLengthWorld;
+        }
+
+        const int startRow = std::clamp(
+            static_cast<int>(sourceY / tileSize) + 1,
+            0,
+            m_tileMap.GetHeight() - 1);
+        const float halfWidth = std::max(tileSize * 0.5f, beamWidthWorld * 0.5f);
+        const int leftColumn = std::clamp(
+            static_cast<int>((sourceX - halfWidth) / tileSize),
+            0,
+            m_tileMap.GetWidth() - 1);
+        const int rightColumn = std::clamp(
+            static_cast<int>(((sourceX + halfWidth) - 1.0f) / tileSize),
+            0,
+            m_tileMap.GetWidth() - 1);
+
+        for (int column = leftColumn; column <= rightColumn; ++column)
+        {
+            for (int row = startRow; row < m_tileMap.GetHeight(); ++row)
+            {
+                if (!IsSolidTile(column, row) && !IsSlopeTile(column, row))
+                {
+                    continue;
+                }
+
+                float groundY = static_cast<float>(row) * tileSize;
+                if (IsSlopeTile(column, row))
+                {
+                    float slopeSurfaceY = 0.0f;
+                    if (GetSlopeSurfaceY(column, row, sourceX, slopeSurfaceY))
+                    {
+                        groundY = slopeSurfaceY;
+                    }
+                }
+
+                return std::max(0.0f, groundY - sourceY);
+            }
+        }
+
+        return fallbackLengthWorld;
+    };
 
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
@@ -751,7 +800,10 @@ void GameScene::RefreshStageLightsFromMarkers()
             const float objectHeight = tileSize * kFixtureHeightRatio;
             const float objectX = static_cast<float>(column) * tileSize + (tileSize - objectWidth) * 0.5f;
             const float objectY = static_cast<float>(row) * tileSize + (tileSize - objectHeight) * 0.5f;
-            const float beamLength = tileSize * sizing.lightTiles;
+            const float beamSourceX = objectX + objectWidth * 0.5f;
+            const float beamSourceY = objectY + objectHeight;
+            const float fallbackLength = tileSize * sizing.lightTiles;
+            const float beamLength = computeBeamLengthToGround(beamSourceX, beamSourceY, objectWidth, fallbackLength);
 
             auto stageLight = std::make_unique<Entity>();
             stageLight->AddComponent<TagComponent>(kTagStageLight);
@@ -763,7 +815,9 @@ void GameScene::RefreshStageLightsFromMarkers()
                 kFixtureTopWidthRatio,
                 beamLength,
                 objectWidth,
-                tileSize * sizing.lightTiles * kBeamBottomWidthRatio,
+                std::min(
+                    tileSize * sizing.lightTiles * kBeamBottomWidthRatio,
+                    tileSize * kBeamGroundWidthLimitTiles),
                 tileSize * kBeamFeatherTiles,
                 1.0f,
                 0.88f,
@@ -1051,6 +1105,80 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             laserSwitchLinkIds);
         spawnShutter(marker, linkId);
     }
+
+    for (int index = 0; index < static_cast<int>(protectiveWallMarkers.size()); ++index)
+    {
+        spawnProtectiveWall(protectiveWallMarkers[static_cast<size_t>(index)], index);
+    }
+}
+
+void GameScene::RefreshProtectiveWallsFromMarkers()
+{
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity)
+                {
+                    return true;
+                }
+                return entity->GetComponent<ProtectiveWallComponent>() != nullptr;
+            }),
+        m_entities.end());
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    std::vector<ProtectiveWallMarker> protectiveWallMarkers;
+    std::vector<SwitchMarker> switchMarkers;
+    std::vector<ElevatorMarker> elevatorMarkers;
+    std::vector<LaserSwitchMarker> laserSwitchMarkers;
+    std::vector<ShutterMarker> shutterMarkers;
+    CollectLinkedGimmickMarkers(
+        m_tileMap,
+        tileSize,
+        switchMarkers,
+        elevatorMarkers,
+        laserSwitchMarkers,
+        shutterMarkers,
+        protectiveWallMarkers);
+
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    const auto spawnProtectiveWall = [&](const ProtectiveWallMarker& marker, int linkId)
+    {
+        const float markerWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
+        const float markerHeight = tileSize * static_cast<float>((std::max)(1, marker.markerHeightTiles));
+        const float wallWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
+        const float wallHeight = tileSize * static_cast<float>((std::max)(1, marker.heightTiles));
+        const float wallX = marker.x + markerWidth * 0.5f - wallWidth * 0.5f;
+        const float wallY = marker.y + markerHeight - tileSize - wallHeight;
+        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : linkId;
+        auto wallEntity = std::make_unique<Entity>();
+        wallEntity->AddComponent<TagComponent>(kTagProtectiveWall);
+        wallEntity->AddComponent<TransformComponent>(
+            wallX,
+            wallY,
+            wallWidth,
+            wallHeight);
+        wallEntity->AddComponent<TintComponent>(
+            cfg.protectiveWallColor.r,
+            cfg.protectiveWallColor.g,
+            cfg.protectiveWallColor.b,
+            1.0f);
+        wallEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        wallEntity->AddComponent<ProtectiveWallComponent>(
+            effectiveLinkId,
+            marker.durability,
+            wallHeight,
+            tileSize * cfg.protectiveWallSpeedTilesPerSec,
+            false);
+        m_entities.push_back(std::move(wallEntity));
+    };
 
     for (int index = 0; index < static_cast<int>(protectiveWallMarkers.size()); ++index)
     {

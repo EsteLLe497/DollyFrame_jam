@@ -130,6 +130,7 @@ private:
     void RefreshStageLightsFromMarkers();
     void RefreshLaserTurretsFromMarkers();
     void RefreshLinkedGimmicksFromMarkers();
+    void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
     void RefreshMarkerDrivenSystems();

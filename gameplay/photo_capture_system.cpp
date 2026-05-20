@@ -370,7 +370,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if (HasTag(*entity, kTagBatterySwitch) ||
             HasTag(*entity, kTagElevator) ||
             HasTag(*entity, kTagLaserSwitch) ||
-            HasTag(*entity, kTagShutter))
+            HasTag(*entity, kTagShutter) ||
+            HasTag(*entity, kTagProtectiveWall))
         {
             continue;
         }

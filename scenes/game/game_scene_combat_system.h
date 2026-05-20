@@ -14,6 +14,7 @@ namespace game_scene_combat_system
 {
 inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagEnemy = "Enemy";
+inline constexpr float kMidBoss2SpearSpeed = 800.0f;
 inline bool HasTag(const Entity& entity, const char* value)
 {
     const auto* tag = entity.GetComponent<TagComponent>();
@@ -118,6 +119,14 @@ inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>> newBullets;
     std::vector<std::unique_ptr<Entity>> newShields;
     std::vector<Entity*> entitiesToRemove;
+    constexpr float kMidBoss2JumpCenterGridX = 36.0f;
+    constexpr float kMidBoss2ArenaHalfWidthGrid = 18.0f;
+    constexpr float kMidBoss2ArenaCenterMinGridX = kMidBoss2JumpCenterGridX - kMidBoss2ArenaHalfWidthGrid;
+    constexpr float kMidBoss2ArenaCenterMaxGridX = kMidBoss2JumpCenterGridX + kMidBoss2ArenaHalfWidthGrid;
+    constexpr float kMidBoss2LandingInsetGrid = 6.0f;
+    constexpr float kMidBoss2SideLandingInsetGrid = 3.0f;
+    constexpr float kMidBoss2GroundOffsetGridY = 4.0f;
+    constexpr float kMidBoss2HoverHeightGrid = 11.0f;
 
     for (const auto& entity : entities)
     {
@@ -1091,10 +1100,13 @@ inline void UpdateEnemies(
             constexpr float kTileSize = 48.0f;
             constexpr float kHoverMoveSpeed = 360.0f;
             constexpr float kLandingMoveSpeed = 320.0f;
-            constexpr float kSpearSpeed = 640.0f;
             constexpr float kBeamFireDuration = 2.2f;
             constexpr float kBeamFireShakeSeconds = 0.16f;
             constexpr float kBeamFireShakeAmplitude = 24.0f;
+            const auto getMidBoss2LeftX = [&](float centerGridX, float bossWidth)
+            {
+                return centerGridX * kTileSize - bossWidth * 0.5f;
+            };
 
             if (!boss->initializedHome)
             {
@@ -1109,9 +1121,20 @@ inline void UpdateEnemies(
             const float bossCenterY = transform->y + transform->height * transform->scale * 0.5f;
             const float dx = playerCenterX - bossCenterX;
             const float dy = playerCenterY - bossCenterY;
-            boss->facingRight = dx >= 0.0f;
+            const bool inBeamSequence =
+                boss->state == MidBoss2State::BeamCharge ||
+                boss->state == MidBoss2State::BeamFire ||
+                boss->state == MidBoss2State::BeamCooldown;
+            if (!inBeamSequence)
+            {
+                boss->facingRight = dx >= 0.0f;
+            }
+            else
+            {
+                boss->facingRight = boss->beamFacingRight;
+            }
             const bool visualFacingRight = boss->facingRight;
-            const bool beamFacingRight = boss->facingRight;
+            const bool beamFacingRight = boss->beamFacingRight;
             if (auto* bossSprite = entity->GetComponent<SpriteRenderComponent>())
             {
                 bossSprite->SetFlipX(visualFacingRight);
@@ -1297,20 +1320,19 @@ inline void UpdateEnemies(
                     boss->hoverStartY = transform->y;
                     const float bossWidth = transform->width * transform->scale;
                     const float bossHeight = transform->height * transform->scale;
-                    const float maxBossX = std::max(0.0f, mapWidth - bossWidth);
                     const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
-                    const float spearApproachTargetX = std::clamp(
-                        mapWidth * 0.5f - bossWidth * 0.5f,
-                        0.0f,
-                        maxBossX);
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const auto clampArenaX = [&](float value)
+                    {
+                        return std::clamp(value, arenaMinX, arenaMaxX);
+                    };
+                    const float spearApproachTargetX = clampArenaX(getMidBoss2LeftX(kMidBoss2JumpCenterGridX, bossWidth));
                     const float spearApproachTargetY = std::clamp(
-                        mapHeight - bossHeight - 8.0f * kTileSize,
+                        mapHeight - bossHeight - kMidBoss2HoverHeightGrid * kTileSize,
                         0.0f,
                         maxBossY);
-                    boss->hoverTargetX = std::clamp(
-                        spearApproachTargetX,
-                        0.0f,
-                        maxBossX);
+                    boss->hoverTargetX = spearApproachTargetX;
                     boss->hoverTargetY = std::clamp(
                         spearApproachTargetY,
                         0.0f,
@@ -1393,14 +1415,23 @@ inline void UpdateEnemies(
 
                 if (boss->spearShotsFired >= 3)
                 {
+                    const bool landLeft = (boss->spearCycleCount % 2) == 0;
                     ++boss->spearCycleCount;
                     const float bossWidth = transform->width * transform->scale;
                     const float bossHeight = transform->height * transform->scale;
-                    const float maxBossX = std::max(0.0f, mapWidth - bossWidth);
                     const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
-                    boss->landingTargetX = std::clamp(0.0f, 0.0f, maxBossX);
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const auto clampArenaX = [&](float value)
+                    {
+                        return std::clamp(value, arenaMinX, arenaMaxX);
+                    };
+                    const float landingCenterGridX = landLeft
+                        ? kMidBoss2ArenaCenterMinGridX + kMidBoss2LandingInsetGrid
+                        : kMidBoss2ArenaCenterMaxGridX - kMidBoss2LandingInsetGrid;
+                    boss->landingTargetX = clampArenaX(getMidBoss2LeftX(landingCenterGridX, bossWidth));
                     boss->landingTargetY = std::clamp(
-                        mapHeight - bossHeight - 3.0f * kTileSize,
+                        mapHeight - bossHeight - kMidBoss2GroundOffsetGridY * kTileSize,
                         0.0f,
                         maxBossY);
                     boss->state = MidBoss2State::SpearLanding;
@@ -1435,14 +1466,20 @@ inline void UpdateEnemies(
                 boss->cooldownRemaining = std::max(0.0f, boss->params.spearCooldownAfterLanding - boss->stateTimer);
                 const float bossWidth = transform->width * transform->scale;
                 const float bossHeight = transform->height * transform->scale;
-                const float maxBossX = std::max(0.0f, mapWidth - bossWidth);
                 const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
-                const float spearReturnTargetX = std::clamp(
-                    0.0f,
-                    0.0f,
-                    maxBossX);
+                const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                const auto clampArenaX = [&](float value)
+                {
+                    return std::clamp(value, arenaMinX, arenaMaxX);
+                };
+                const bool landedLeft = ((boss->spearCycleCount - 1) % 2) == 0;
+                const float returnCenterGridX = landedLeft
+                    ? kMidBoss2ArenaCenterMinGridX + kMidBoss2SideLandingInsetGrid
+                    : kMidBoss2ArenaCenterMaxGridX - kMidBoss2SideLandingInsetGrid;
+                const float spearReturnTargetX = clampArenaX(getMidBoss2LeftX(returnCenterGridX, bossWidth));
                 const float spearReturnTargetY = std::clamp(
-                    mapHeight - bossHeight - 3.0f * kTileSize,
+                    mapHeight - bossHeight - kMidBoss2GroundOffsetGridY * kTileSize,
                     0.0f,
                     maxBossY);
                 if (boss->stateTimer >= boss->params.spearLandingPauseTime)
@@ -1455,22 +1492,17 @@ inline void UpdateEnemies(
                 {
                     if (boss->spearCycleCount >= 3)
                     {
+                        boss->beamFacingRight = dx >= 0.0f;
                         boss->state = MidBoss2State::BeamCharge;
                     }
                     else
                     {
-                        const float spearApproachTargetX = std::clamp(
-                            mapWidth * 0.5f - bossWidth * 0.5f,
-                            0.0f,
-                            maxBossX);
+                        const float spearApproachTargetX = clampArenaX(getMidBoss2LeftX(kMidBoss2JumpCenterGridX, bossWidth));
                         const float spearApproachTargetY = std::clamp(
-                            mapHeight - bossHeight - 8.0f * kTileSize,
+                            mapHeight - bossHeight - kMidBoss2HoverHeightGrid * kTileSize,
                             0.0f,
                             maxBossY);
-                        boss->hoverTargetX = std::clamp(
-                            spearApproachTargetX,
-                            0.0f,
-                            maxBossX);
+                        boss->hoverTargetX = spearApproachTargetX;
                         boss->hoverTargetY = std::clamp(
                             spearApproachTargetY,
                             0.0f,
@@ -1485,8 +1517,21 @@ inline void UpdateEnemies(
             case MidBoss2State::BeamCharge:
                 hideBeamEntities();
                 boss->cooldownRemaining = std::max(0.0f, boss->params.beamChargeTime - boss->stateTimer);
-                transform->x += (0.0f - transform->x) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
-                transform->y += ((mapHeight - transform->height * transform->scale - 3.0f * kTileSize) - transform->y) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                {
+                    const float bossWidth = transform->width * transform->scale;
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const bool beamFromLeftSide = ((boss->spearCycleCount - 1) % 2) == 0;
+                    const float beamAnchorCenterGridX = beamFromLeftSide
+                        ? kMidBoss2ArenaCenterMinGridX + kMidBoss2SideLandingInsetGrid
+                        : kMidBoss2ArenaCenterMaxGridX - kMidBoss2SideLandingInsetGrid;
+                    const float beamTargetX = std::clamp(
+                        getMidBoss2LeftX(beamAnchorCenterGridX, bossWidth),
+                        arenaMinX,
+                        arenaMaxX);
+                    transform->x += (beamTargetX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                }
+                transform->y += ((mapHeight - transform->height * transform->scale - kMidBoss2GroundOffsetGridY * kTileSize) - transform->y) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
                 snapToGround(*transform);
                 if (boss->stateTimer >= boss->params.beamChargeTime)
                 {
@@ -1500,8 +1545,20 @@ inline void UpdateEnemies(
 
             case MidBoss2State::BeamFire:
                 showBeamEntities();
-                transform->x = 0.0f;
-                transform->y = mapHeight - transform->height * transform->scale - 3.0f * kTileSize;
+                {
+                    const float bossWidth = transform->width * transform->scale;
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const bool beamFromLeftSide = ((boss->spearCycleCount - 1) % 2) == 0;
+                    const float beamAnchorCenterGridX = beamFromLeftSide
+                        ? kMidBoss2ArenaCenterMinGridX + kMidBoss2SideLandingInsetGrid
+                        : kMidBoss2ArenaCenterMaxGridX - kMidBoss2SideLandingInsetGrid;
+                    transform->x = std::clamp(
+                        getMidBoss2LeftX(beamAnchorCenterGridX, bossWidth),
+                        arenaMinX,
+                        arenaMaxX);
+                }
+                transform->y = mapHeight - transform->height * transform->scale - kMidBoss2GroundOffsetGridY * kTileSize;
                 snapToGround(*transform);
                 if (boss->stateTimer >= kBeamFireDuration)
                 {
@@ -1513,8 +1570,21 @@ inline void UpdateEnemies(
             case MidBoss2State::BeamCooldown:
                 hideBeamEntities();
                 boss->cooldownRemaining = std::max(0.0f, boss->params.spearCooldownAfterLanding - boss->stateTimer);
-                transform->x += (0.0f - transform->x) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
-                transform->y += ((mapHeight - transform->height * transform->scale - 3.0f * kTileSize) - transform->y) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
+                {
+                    const float bossWidth = transform->width * transform->scale;
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const bool beamFromLeftSide = ((boss->spearCycleCount - 1) % 2) == 0;
+                    const float beamAnchorCenterGridX = beamFromLeftSide
+                        ? kMidBoss2ArenaCenterMinGridX + kMidBoss2SideLandingInsetGrid
+                        : kMidBoss2ArenaCenterMaxGridX - kMidBoss2SideLandingInsetGrid;
+                    const float beamTargetX = std::clamp(
+                        getMidBoss2LeftX(beamAnchorCenterGridX, bossWidth),
+                        arenaMinX,
+                        arenaMaxX);
+                    transform->x += (beamTargetX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
+                }
+                transform->y += ((mapHeight - transform->height * transform->scale - kMidBoss2GroundOffsetGridY * kTileSize) - transform->y) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
                 snapToGround(*transform);
                 if (boss->stateTimer >= boss->params.spearCooldownAfterLanding)
                 {
@@ -1626,8 +1696,8 @@ void UpdateBullets(
                         }
 
                         spear->launched = true;
-                        projectile->SetVelocityX(spear->targetDirectionX * 640.0f);
-                        projectile->SetVelocityY(spear->targetDirectionY * 640.0f);
+                        projectile->SetVelocityX(spear->targetDirectionX * kMidBoss2SpearSpeed);
+                        projectile->SetVelocityY(spear->targetDirectionY * kMidBoss2SpearSpeed);
                         transform->rotation = targetAngle;
                     }
                     else
