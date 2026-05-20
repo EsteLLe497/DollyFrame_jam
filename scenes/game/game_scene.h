@@ -131,6 +131,7 @@ private:
     void RefreshLaserTurretsFromMarkers();
     void RefreshLinkedGimmicksFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
+	void RefleshSepiaRubblesFromMarkers();
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();

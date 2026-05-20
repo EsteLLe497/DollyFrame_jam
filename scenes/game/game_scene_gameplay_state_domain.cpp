@@ -43,13 +43,24 @@ void GameScene::StartCameraFlashPulse(float durationSeconds)
 
 void GameScene::StoreCapturedPhoto()
 {
-    const bool sepiaDryRun =
-        m_debug.sepiaFilmFilterDryRunEnabled ||
-        m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia ||
-        m_photo.capture.capturedTheme == PhotoFilterTheme::Sepia;
+	// キャプチャした写真にセピア地面アイテムが含まれているか
+    bool hasSepiaGroundItem = false;
+    for (const auto& item : m_photo.capture.items)
+    {
+        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+        {
+            hasSepiaGroundItem = true;
+            break;
+        }
+    }
+
+    const bool sepiaDryRun = 
+		!hasSepiaGroundItem &&
+        (m_debug.sepiaFilmFilterDryRunEnabled ||
+         m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia ||
+         m_photo.capture.capturedTheme == PhotoFilterTheme::Sepia);
     if (sepiaDryRun)
     {
-        // Sepia dry-run is preview-only, so never queue a capture for storage.
         const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
         m_photo.capture = PhotoCaptureState{};
         m_photo.capture.selectedTheme = selectedTheme;
@@ -87,10 +98,21 @@ void GameScene::CommitPendingCapturedPhoto()
     {
         return;
     }
+    // 確認
+    bool hasSepiaGroundItem = false;
+    for (const auto& item : m_photo.pendingStore.capture.items)
+    {
+        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+        {
+            hasSepiaGroundItem = true;
+            break;
+        }
+    }
     const bool sepiaDryRun =
-        m_debug.sepiaFilmFilterDryRunEnabled ||
-        m_photo.pendingStore.capture.selectedTheme == PhotoFilterTheme::Sepia ||
-        m_photo.pendingStore.capture.capturedTheme == PhotoFilterTheme::Sepia;
+		!hasSepiaGroundItem &&
+        (m_debug.sepiaFilmFilterDryRunEnabled ||
+         m_photo.pendingStore.capture.selectedTheme == PhotoFilterTheme::Sepia ||
+         m_photo.pendingStore.capture.capturedTheme == PhotoFilterTheme::Sepia);
     if (sepiaDryRun)
     {
         // Discard queued sepia captures before they can enter the saved slots.

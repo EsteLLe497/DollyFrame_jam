@@ -216,12 +216,44 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         return;
     }
 
+    float frameX = 0.0f;
+    float frameY = 0.0f;
+    float frameWidth = 0.0f;
+    float frameHeight = 0.0f;
+    scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
     scene.m_flow.cameraMode = false;
+	bool hasSepiaRubbleInFrame = false;
+    for (const auto& entity : scene.m_entities)
+    {
+
+        if (!entity || !entity->GetComponent<SepiaRubbleComponent>())
+        {
+            continue;
+        }
+        const auto* t = entity->GetComponent<TransformComponent>();
+        if (!t)
+        {
+            continue;
+        }
+        
+        const float overlapW = std::max(0.0f,
+            std::min(frameX + frameWidth, t->x + t->width * t->scale) - std::max(frameX, t->x));
+        const float overlapH = std::max(0.0f,
+            std::min(frameY + frameHeight, t->y + t->height * t->scale) - std::max(frameY, t->y));
+        if (overlapW > 1.0f && overlapH > 1.0f)
+        {
+            hasSepiaRubbleInFrame = true;
+            break;
+        }
+
+    }
 
     const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
     const bool sepiaDryRun =
-        scene.m_debug.sepiaFilmFilterDryRunEnabled ||
-        scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia;
+        !hasSepiaRubbleInFrame &&
+        (scene.m_debug.sepiaFilmFilterDryRunEnabled ||
+         scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia);
+
     if (sepiaDryRun)
     {
         const PhotoFilterTheme selectedTheme = scene.m_photo.capture.selectedTheme;
@@ -241,11 +273,6 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         return;
     }
 
-    float frameX = 0.0f;
-    float frameY = 0.0f;
-    float frameWidth = 0.0f;
-    float frameHeight = 0.0f;
-    scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
     const bool defeatedGhostInFinder = scene.HandleFinderDefeatGhosts(frameX, frameY, frameWidth, frameHeight) > 0;
 
     scene.m_photo.capture.items.clear();
@@ -253,7 +280,16 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float capturedMaxRight = 0.0f;
     float capturedMaxBottom = 0.0f;
     CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
+
+    // ↓ ここに移動（関数の中ではなく、呼び出しの後）
+    Logger::Info(std::string("items.size() after CaptureEntities: ") +
+        std::to_string(scene.m_photo.capture.items.size()));
+
     CaptureTilesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
+
+    Logger::Info(std::string("items.size() after CaptureTiles: ") +
+        std::to_string(scene.m_photo.capture.items.size()));
+
     if (scene.m_photo.capture.items.empty())
     {
         if (flashEnabled || defeatedGhostInFinder)
@@ -379,6 +415,12 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
+        // sugi
+        const bool capturedSepiaRubble = entity->GetComponent<SepiaRubbleComponent>() != nullptr;
+        if (capturedSepiaRubble && scene.m_photo.capture.selectedTheme != PhotoFilterTheme::Sepia)
+        {
+            continue;
+        }
         const auto* tileValueComponent = entity->GetComponent<PhotoCopyTileValueComponent>();
         const auto* damagePlatform = entity->GetComponent<DamagePlatformComponent>();
         const auto* spikeStrip = entity->GetComponent<SpikeStripComponent>();
@@ -454,7 +496,15 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         item.layer = PhotoCopyLayer::Foreground;
         item.origin = GetEntityCopyOrigin(*entity);
         item.appliedTheme = scene.m_photo.capture.selectedTheme;
-        if (capturedShield)
+        if (capturedSepiaRubble)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
+			item.textureId = scene.m_assets.GetTexture("sepia_ground");
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Generic;
+        }
+        else if (capturedShield)
         {
             item.spawnArchetype = capturedShieldArchetype;
         }
@@ -582,7 +632,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
         }
-        else if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedShield && !damagePlatform && !spikeStrip)
+        else if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedShield && !damagePlatform && !spikeStrip && !capturedSepiaRubble)
         {
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
@@ -603,7 +653,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedLog && !isPhotoBox && !capturedVanishObject && !capturedWalker)
+        if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedLog && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }
