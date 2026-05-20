@@ -279,8 +279,6 @@ inline void UpdatePresentation(
     {
         const float runWave = std::sin(playerState.runAnimationTime * 6.2831853f);
         const float runBounce = std::fabs(runWave);
-        targetScaleX += runBounce * 0.05f * horizontalSpeedRatio;
-        targetScaleY -= runBounce * 0.07f * horizontalSpeedRatio;
         targetOffsetY += runBounce * 1.8f * horizontalSpeedRatio;
         targetRotation += runWave * 0.03f * horizontalSpeedRatio;
         targetRotation += moveAxis * 0.035f;
