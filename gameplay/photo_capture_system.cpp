@@ -526,10 +526,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         if (markerLight)
         {
-            if (scene.m_flow.cameraFlash.unlocked)
-            {
-                markerLight->activated = true;
-            }
+            markerLight->activated = !markerLight->activated;
             continue;
         }
         if (capturedProjectile)

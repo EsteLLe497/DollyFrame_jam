@@ -245,7 +245,8 @@ void ProtectiveWallComponent::OnAttach(Entity& owner)
 void ProtectiveWallComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Protective Wall");
-    ImGui::Text("Activation: Nearest Marker Light");
+    ImGui::Text("Activation: Marker Light Number");
+    ImGui::Text("LinkId: %d", linkId);
     ImGui::Text("HP: %d / %d", m_currentDurability, m_maxDurability);
     ImGui::Text("On: %s", isOn ? "Yes" : "No");
     ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
@@ -415,9 +416,10 @@ void FlickerLightComponent::DrawDebugUI()
     }
 }
 
-MarkerLightComponent::MarkerLightComponent(float radiusValue, float intensityValue)
+MarkerLightComponent::MarkerLightComponent(float radiusValue, float intensityValue, int linkIdValue)
     : radius(std::max(1.0f, radiusValue))
     , intensity(std::clamp(intensityValue, 0.0f, 1.0f))
+    , linkId((std::max)(-1, linkIdValue))
 {
 }
 
@@ -426,6 +428,7 @@ void MarkerLightComponent::DrawDebugUI()
     ImGui::SeparatorText("Marker Light");
     ImGui::Text("Radius: %.1f", radius);
     ImGui::Text("Intensity: %.2f", intensity);
+    ImGui::Text("LinkId: %d", linkId);
     ImGui::Text("Activated: %s", activated ? "On" : "Off");
 }
 

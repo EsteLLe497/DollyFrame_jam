@@ -35,7 +35,7 @@ struct StageTransitionLink
 };
 
 inline std::vector<StageTransitionLink> gStageTransitionLinks;
-inline std::string gCurrentMapCsvPath = "assets/maps/stages/stage_58x25_split.csv";
+inline std::string gCurrentMapCsvPath = "assets/maps/stages/stage_58x25_wall_test.csv";
 inline char gLastStageTransitionMarker = '\0';
 
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";
@@ -425,6 +425,7 @@ inline bool IsParameterizedEditorMarker(char marker)
     case 'J':
     case 'O':
     case 'X':
+    case '&':
     case 'U':
     case 'Z':
         return true;
@@ -439,6 +440,7 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
     {
     case 'P':
     case 'F':
+        return std::clamp(parameter, -99, 99);
     case 'K':
     case 'L':
     case 'Q':
@@ -451,6 +453,8 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
         return std::clamp(parameter, -2, 1);
     case 'Z':
         return std::clamp(parameter, 0, 1);
+    case '&':
+        return std::clamp(parameter, -99, 99);
     default:
         return 0;
     }

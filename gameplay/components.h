@@ -413,12 +413,13 @@ public:
 class MarkerLightComponent final : public Component
 {
 public:
-    MarkerLightComponent(float radius, float intensity);
+    MarkerLightComponent(float radius, float intensity, int linkId = -1);
 
     void DrawDebugUI() override;
 
     float radius;
     float intensity;
+    int linkId = -1;
     bool activated = false;
 };
 

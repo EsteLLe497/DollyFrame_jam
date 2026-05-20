@@ -66,8 +66,9 @@ void GameScene::DrawMapEditorOverlay() const
     DrawString(panelLeft + 16, panelTop + 78, "タイル: 0-9 / Q,E / F9(10)", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(None),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(M Log),F11(Y),N(? Boss1),F12(! Boss2),H,I,J,K,L,O,U,Q,E", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 114, "@照明: C/V 光の長さ  Z/X 本体横幅", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 132, "数値付き: C/V param  Z 符号反転  X 初期値", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 150, "F5: 保存  F6: CSV再読込  F7: 新規作成  F8: 別名保存", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 132, "P/F: 正数=半径  負数=番号  Z 符号反転  X 初期値", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 150, "&: 正数=耐久  負数=番号", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 168, "F5: 保存  F6: CSV再読込  F7: 新規作成  F8: 別名保存", GetColor(168, 192, 220));
     DrawFormatString(
         panelLeft + 16,
         panelTop + 174,
