@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "shader_showcase_scene.h"
 
 #include <cmath>

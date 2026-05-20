@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "resource_manager.h"
 
 #include "texture.h"

@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "photo_shared.h"
 
 #include <cfloat>

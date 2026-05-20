@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "photo_filter_rules.h"
 #include "texture.h"

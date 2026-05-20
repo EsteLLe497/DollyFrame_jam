@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "photo_capture_system.h"
 
 #include <algorithm>

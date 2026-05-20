@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "script_engine.h"
 
 #include <memory>

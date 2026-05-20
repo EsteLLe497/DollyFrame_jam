@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "photo_filter_rules.h"
 
 #include <cmath>

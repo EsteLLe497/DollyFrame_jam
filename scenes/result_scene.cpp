@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "result_scene.h"
 
 #include "directX.h"

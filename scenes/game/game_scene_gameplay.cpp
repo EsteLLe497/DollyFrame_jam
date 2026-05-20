@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
 #include "game_scene_player_system.h"

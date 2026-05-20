@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "scene_registry.h"
 
 #include "scene.h"

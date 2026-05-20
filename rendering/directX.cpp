@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "directX.h"
 
 #include "DxLib.h"

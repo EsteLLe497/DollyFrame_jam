@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "title_scene.h"
 
 #include "DxLib.h"

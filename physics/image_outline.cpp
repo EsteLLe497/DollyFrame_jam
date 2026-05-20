@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "image_outline.h"
 
 #include <algorithm>

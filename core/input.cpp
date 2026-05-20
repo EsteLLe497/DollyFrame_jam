@@ -1,4 +1,6 @@
-﻿#include "input.h"
+﻿#include "pch.h"
+
+#include "input.h"
 
 #include <algorithm>
 #include <array>
