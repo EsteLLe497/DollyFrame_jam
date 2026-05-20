@@ -132,6 +132,7 @@ private:
     void RefreshLinkedGimmicksFromMarkers();
     void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
+	void RefleshSepiaRubblesFromMarkers();
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();
