@@ -627,6 +627,10 @@ void GameScene::RefreshEnemiesFromMarkers()
                 {
                     return true;
                 }
+                if (HasTag(*entity, "BossShield"))
+                {
+                    return true;
+                }
                 return HasTag(*entity, kTagBullet);
             }),
         m_entities.end());
@@ -668,24 +672,63 @@ void GameScene::RefreshEnemiesFromMarkers()
                     {
                         enemyComponent->spawnX = transform->x;
                         enemyComponent->spawnY = transform->y;
+                        if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)
+                        {
+                            enemyComponent->respawnEnabled = false;
+                        }
                     }
                 }
+            };
+            const auto attachShieldToBoss = [&](Entity& boss)
+            {
+                auto* bossComp = boss.GetComponent<ShieldBossComponent>();
+                auto* transform = boss.GetComponent<TransformComponent>();
+                if (!bossComp || !transform || bossComp->shieldEntity)
+                {
+                    return;
+                }
+                constexpr float kShieldW = 48.0f;
+                constexpr float kShieldH = 144.0f;
+                auto shieldEntity = std::make_unique<Entity>();
+                shieldEntity->AddComponent<TagComponent>("BossShield");
+                shieldEntity->AddComponent<TransformComponent>(
+                    transform->x - kShieldW,
+                    transform->y,
+                    kShieldW,
+                    kShieldH);
+                shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
+                shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+                auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
+                shieldComp.attached = true;
+                shieldComp.ownerBoss = &boss;
+                shieldComp.contactDamage = 1;
+                shieldComp.followOffsetX = -kShieldW;
+                shieldComp.followOffsetY = 0.0f;
+                bossComp->shieldEntity = shieldEntity.get();
+                m_entities.push_back(std::move(shieldEntity));
             };
 
             if (marker == 'W')
             {
                 Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_walker", markerX, markerY);
+                ConfigureWalkerSpriteAnimation(enemy);
                 placeEnemyAtMarker(enemy);
             }
             else if (marker == 'R')
             {
                 Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", markerX, markerY);
+                ConfigureRangedSpriteAnimation(enemy);
                 placeEnemyAtMarker(enemy);
             }
             else if (marker == 'N')
             {
+                if (m_flow.shieldBossDefeatedThisScene)
+                {
+                    continue;
+                }
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
                 placeEnemyAtMarker(boss);
+                attachShieldToBoss(boss);
             }
             else if (marker == 'F')
             {

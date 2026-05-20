@@ -1318,11 +1318,32 @@ void GameScene::DrawEntity(const Entity& entity) const
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
     const float viewWidth = GetViewWidth();
-    float drawX = viewOriginX + (transform->x - m_flow.cameraX) * viewScale;
-    float drawY = viewOriginY + (transform->y - m_flow.cameraY) * viewScale;
-    float drawWidth = transform->width * transform->scale * viewScale;
-    float drawHeight = transform->height * transform->scale * viewScale;
+    float drawX = viewOriginX + (transform->x + sprite->GetRenderOffsetX() - m_flow.cameraX) * viewScale;
+    float drawY = viewOriginY + (transform->y + sprite->GetRenderOffsetY() - m_flow.cameraY) * viewScale;
+    float drawWidth = transform->width * transform->scale * sprite->GetRenderScaleX() * viewScale;
+    float drawHeight = transform->height * transform->scale * sprite->GetRenderScaleY() * viewScale;
     const auto* tag = entity.GetComponent<TagComponent>();
+    if (tag && HasTag(tag, "BossShield"))
+    {
+        const auto* shield = entity.GetComponent<ShieldComponent>();
+        const auto* ownerTransform = shield && shield->ownerBoss
+            ? shield->ownerBoss->GetComponent<TransformComponent>()
+            : nullptr;
+        const auto* ownerBoss = shield && shield->ownerBoss
+            ? shield->ownerBoss->GetComponent<ShieldBossComponent>()
+            : nullptr;
+        if (shield && ownerTransform && ownerBoss &&
+            (shield->attached || ownerBoss->knockbackActive || ownerBoss->state == ShieldBossState::Rush || ownerBoss->state == ShieldBossState::RushCooldown))
+        {
+            const float ownerW = ownerTransform->width * ownerTransform->scale;
+            const float shieldW = transform->width * transform->scale;
+            const float shieldWorldX = ownerBoss->facing == ShieldBossFacing::Right
+                ? ownerTransform->x + ownerW
+                : ownerTransform->x - shieldW;
+            drawX = viewOriginX + (shieldWorldX - m_flow.cameraX) * viewScale;
+            drawY = viewOriginY + (ownerTransform->y - m_flow.cameraY) * viewScale;
+        }
+    }
     if (tag && HasTag(tag, kTagPlayer))
     {
         const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
@@ -1522,34 +1543,13 @@ void GameScene::DrawEntity(const Entity& entity) const
     else if (tag && HasTag(tag, "BossShockwave"))
     {
         const int outerColor = GetColor(72, 228, 255);
-        const int coreColor = GetColor(214, 250, 255);
         const int left = static_cast<int>(std::round(drawX));
         const int top = static_cast<int>(std::round(drawY));
         const int right = static_cast<int>(std::round(drawX + drawWidth));
         const int bottom = static_cast<int>(std::round(drawY + drawHeight));
-        const float glowPadX = std::max(10.0f, drawWidth * 0.08f);
-        const float glowPadY = std::max(8.0f, drawHeight * 0.25f);
-        const float coreInsetX = std::max(3.0f, drawWidth * 0.12f);
-        const float coreInsetY = std::max(2.0f, drawHeight * 0.18f);
 
-        SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(70.0f * alphaMultiplier)));
-        DrawBoxAA(
-            drawX - glowPadX,
-            drawY - glowPadY,
-            drawX + drawWidth + glowPadX,
-            drawY + drawHeight + glowPadY,
-            outerColor,
-            TRUE);
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(150.0f * alphaMultiplier)));
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(130.0f * alphaMultiplier)));
         DrawBox(left, top, right, bottom, outerColor, TRUE);
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(210.0f * alphaMultiplier)));
-        DrawBox(
-            static_cast<int>(std::round(drawX + coreInsetX)),
-            static_cast<int>(std::round(drawY + coreInsetY)),
-            static_cast<int>(std::round(drawX + drawWidth - coreInsetX)),
-            static_cast<int>(std::round(drawY + drawHeight - coreInsetY)),
-            coreColor,
-            TRUE);
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         Shader_ResetStyle();
         return;

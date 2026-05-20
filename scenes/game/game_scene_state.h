@@ -65,6 +65,7 @@ struct GameSceneFlowState
     float placementSlowRemaining = 0.0f;
     bool goalUnlocked = false;
     bool goalUnlockedBySwitch = false;
+    bool shieldBossDefeatedThisScene = false;
     bool cameraMode = false;
     int enemyCount = 0;
     float shutterFlashRemaining = 0.0f;
@@ -134,6 +135,7 @@ struct GameSceneDebugState
     bool effectPlacementPulseEnabled = true;
     bool effectPasteStickEnabled = true;
     bool effectPasteRingEnabled = true;
+    bool sepiaFilmFilterDryRunEnabled = false;
     bool bgmEnabled = true;
     float bgmRestoreVolume = 0.6f;
     bool screenShakeEnabled = true;

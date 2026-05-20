@@ -697,12 +697,18 @@ void EnemyComponent::MarkDefeated()
 {
     m_defeated = true;
     m_enabled = false;
+    attackFrameTriggered = false;
+    knockbackActive = false;
+    knockbackTimer = 0.0f;
 }
 
 void EnemyComponent::Restore()
 {
     m_defeated = false;
     m_enabled = true;
+    attackFrameTriggered = false;
+    knockbackActive = false;
+    knockbackTimer = 0.0f;
 }
 
 // ============================================================================

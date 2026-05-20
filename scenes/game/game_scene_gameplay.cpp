@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "DxLib.h"
+#include <game_scene_player_visual_system.h>
 
 using namespace game_scene_detail;
 

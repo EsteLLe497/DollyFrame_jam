@@ -219,6 +219,27 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     scene.m_flow.cameraMode = false;
 
     const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
+    const bool sepiaDryRun =
+        scene.m_debug.sepiaFilmFilterDryRunEnabled ||
+        scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia;
+    if (sepiaDryRun)
+    {
+        const PhotoFilterTheme selectedTheme = scene.m_photo.capture.selectedTheme;
+        // Sepia dry-run is visual only; do not keep objects, tiles, attacks, or stored photo data.
+        scene.m_photo.capture = PhotoCaptureState{};
+        scene.m_photo.capture.selectedTheme = selectedTheme;
+        scene.m_photo.pendingStore = PendingPhotoStoreState{};
+        scene.m_photo.placement.active = false;
+        scene.m_photo.placement.valid = false;
+        scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
+        scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
+        scene.m_flow.developedPhotoPreviewRemaining = 0.0f;
+        if (flashEnabled)
+        {
+            scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
+        }
+        return;
+    }
 
     float frameX = 0.0f;
     float frameY = 0.0f;
@@ -283,6 +304,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             (HasTag(*entity, kTagLaserTurret) &&
                 (!bossBeamCapture || !bossBeamCapture->captureEnabled)) ||
             HasTag(*entity, kTagStageLight))
+        {
+            continue;
+        }
+        if (HasTag(*entity, "BossShockwave"))
         {
             continue;
         }
@@ -367,6 +392,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if (capturedShield && shieldComp->photoSpawned && shieldComp->grounded)
         {
             continue;
+        }
+        if (capturedShield && shieldComp->ownerBoss)
+        {
+            if (const auto* bossComp = shieldComp->ownerBoss->GetComponent<ShieldBossComponent>())
+            {
+                if (bossComp->state == ShieldBossState::SlamPhase1 ||
+                    bossComp->state == ShieldBossState::SlamPhase2)
+                {
+                    continue;
+                }
+            }
         }
         CapturedSpawnArchetype capturedShieldArchetype = CapturedSpawnArchetype::None;
         if (capturedShield)
