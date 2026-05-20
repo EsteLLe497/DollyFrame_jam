@@ -1473,8 +1473,8 @@ void GameScene::DrawDevelopedPhotoPreview() const
     }
 
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    Shader_ResetStyle();
 }
+
 bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 {
     if (m_flow.photoTrayReveal <= 0.05f)
@@ -1638,15 +1638,35 @@ void GameScene::DrawBackdrop() const
 
 void GameScene::DrawBackdropBaseInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const
 {
+    // 背景画像（画面サイズ 1920x1080 に合わせて描画）
+    // オフセットで垂直位置を調整できるようにした（px 単位、負なら上へ移動）
+    constexpr float kBackgroundVerticalOffsetPx = -48.0f; // 必要に応じて値を変更してください
+    const int bgTexture = m_assets.GetTexture("sinrin8");
+    if (bgTexture >= 0)
+    {
+        Shader_ResetStyle();
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+
+        // 画面全体に引き伸ばして描画（1920x1080 にフィット）
+        // アスペクト比を保持したい場合は別実装にしますが、
+        // まずは画面に確実にフィットさせるため stretch 描画としています。
+        const float destX = 0.0f;
+        const float destY = kBackgroundVerticalOffsetPx; // 上にずらしたければ負値にする
+        const float destW = static_cast<float>(SCREEN_WIDTH);
+        const float destH = static_cast<float>(SCREEN_HEIGHT);
+        SpriteDraw(bgTexture, destX, destY, destW, destH, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
+
+    // 既存のオーバーレイは透過を下げつつ維持（背景が見えるように調整）
     Shader_ResetStyle();
-    Shader_SetTint(0.02f, 0.02f, 0.03f, 1.0f);
-    SpriteDraw(m_whiteTexture, 0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f, 0.0f, 1.0f, 1.0f);
+    Shader_SetTint(0.02f, 0.02f, 0.03f, 0.20f);
+    SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
     Shader_SetGradientMap(0.03f, 0.03f, 0.05f, 1.0f, 0.10f, 0.10f, 0.14f, 1.0f, 1.0f);
     Shader_SetTint(0.92f, 0.92f, 0.96f, 1.0f);
     SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, 210.0f * viewScale, 0.0f, 0.0f, 1.0f, 1.0f);
 
-    Shader_SetTint(0.05f, 0.05f, 0.07f, 0.98f);
+    Shader_SetTint(0.05f, 0.05f, 0.07f, 0.60f);
     SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
     if (m_photo.capture.selectedTheme != PhotoFilterTheme::None)
@@ -1659,7 +1679,6 @@ void GameScene::DrawBackdropBaseInView(float viewOriginX, float viewOriginY, flo
         SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
     }
 }
-
 void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const
 {
     const float tileSize = m_tileMap.GetTileSize();

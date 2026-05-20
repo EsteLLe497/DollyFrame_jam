@@ -45,6 +45,10 @@
     "apple": {
       "type": "file",
       "path": "assets/texture/Apple.png"
+    },
+    "sinrin8": {
+      "type": "file",
+      "path": "assets/texture/sinrin8.png"
     }
   }
 }
