@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "scene_manager.h"
 
 #include "resource_manager.h"

@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "game_scene_render_ui_helpers.h"
 #include "photo_system.h"

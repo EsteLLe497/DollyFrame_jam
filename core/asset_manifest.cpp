@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "asset_manifest.h"
 
 #include <fstream>

@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "entity.h"
 
 void Entity::Update(float deltaTime)

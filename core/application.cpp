@@ -1,4 +1,6 @@
-﻿#include "application.h"
+﻿#include "pch.h"
+
+#include "application.h"
 
 #include <algorithm>
 #include <cmath>

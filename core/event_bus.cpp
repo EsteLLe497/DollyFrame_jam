@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "event_bus.h"
 
 #include <algorithm>

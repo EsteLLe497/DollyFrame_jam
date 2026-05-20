@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "photo_paste_system.h"
 
 #include "game_scene_internal.h"

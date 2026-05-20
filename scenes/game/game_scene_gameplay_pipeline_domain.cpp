@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 
 using namespace game_scene_detail;

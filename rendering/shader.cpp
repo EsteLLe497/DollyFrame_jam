@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "shader.h"
 
 #include <algorithm>

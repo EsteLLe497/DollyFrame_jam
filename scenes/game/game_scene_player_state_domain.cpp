@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
 #include "game_scene_world_interaction_system.h"

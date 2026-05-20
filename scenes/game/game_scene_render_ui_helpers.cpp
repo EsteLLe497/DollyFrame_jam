@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_render_ui_helpers.h"
 #include "game_scene_draw_helpers.h"
 
