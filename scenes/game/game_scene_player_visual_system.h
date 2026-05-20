@@ -15,10 +15,6 @@ using namespace game_scene_detail;
 inline constexpr float kPlayerAfterimageLifetime = 0.18f;
 inline constexpr float kPlayerAfterimageSpawnInterval = 0.03f;
 inline constexpr int kMaxPlayerAfterimages = 8;
-inline constexpr float kPlayerVisualSmoothing = 14.0f;
-inline constexpr float kPlayerLandingDecay = 6.5f;
-inline constexpr float kPlayerJumpDecay = 5.0f;
-inline constexpr float kPlayerDodgeDecay = 7.5f;
 inline constexpr int kPlayerSheetColumns = 5;
 inline constexpr int kPlayerSheetRows = 6;
 inline constexpr int kPlayerMoveSheetColumns = 4;
@@ -101,7 +97,6 @@ inline void ClearPhotoPoseAnimations(GameScenePlayerState& playerState)
     playerState.pasteAnimationActive = false;
     playerState.pasteAnimationReleased = false;
     playerState.pasteAnimationEnemyAttack = false;
-    playerState.afterimages.clear();
 }
 
 inline void ResetSpriteAnimationToIdle(GameScenePlayerState& playerState, Entity& player)
@@ -116,6 +111,7 @@ inline void ResetSpriteAnimationToIdle(GameScenePlayerState& playerState, Entity
     playerState.landingImpact = 0.0f;
     playerState.jumpStretch = 0.0f;
     playerState.dodgeStretch = 0.0f;
+    playerState.afterimages.clear();
 
     if (auto* animation = player.GetComponent<SpriteSheetAnimationComponent>())
     {
@@ -252,105 +248,30 @@ inline void UpdatePresentation(
         return;
     }
 
-    if (landedThisFrame)
-    {
-        playerState.landingImpact = 1.0f;
-    }
-    if (isDodging)
-    {
-        playerState.dodgeStretch = 1.0f;
-    }
+    static_cast<void>(deltaTime);
+    static_cast<void>(moveAxis);
+    static_cast<void>(wasGrounded);
+    static_cast<void>(isDodging);
+    static_cast<void>(landedThisFrame);
 
-    playerState.landingImpact = std::max(0.0f, playerState.landingImpact - deltaTime * kPlayerLandingDecay);
-    playerState.dodgeStretch = std::max(0.0f, playerState.dodgeStretch - deltaTime * kPlayerDodgeDecay);
-
-    const float horizontalSpeedRatio = Clamp01(std::fabs(playerState.velocityX) / std::max(1.0f, gPlayerMoveSpeed));
-    if (playerState.grounded && horizontalSpeedRatio > 0.05f)
-    {
-        playerState.runAnimationTime += deltaTime * (2.6f + horizontalSpeedRatio * 5.2f);
-    }
-
-    float targetScaleX = 1.0f;
-    float targetScaleY = 1.0f;
-    float targetOffsetY = 0.0f;
-    float targetRotation = 0.0f;
-
-    if (playerState.grounded)
-    {
-        const float runWave = std::sin(playerState.runAnimationTime * 6.2831853f);
-        const float runBounce = std::fabs(runWave);
-        targetOffsetY += runBounce * 1.8f * horizontalSpeedRatio;
-        targetRotation += runWave * 0.03f * horizontalSpeedRatio;
-        targetRotation += moveAxis * 0.035f;
-    }
-    else if (playerState.velocityY < 0.0f)
-    {
-        targetOffsetY -= 2.0f;
-        targetRotation += moveAxis * 0.05f;
-    }
-    else
-    {
-        targetOffsetY += 1.0f;
-        targetRotation += moveAxis * 0.04f;
-    }
-
-    targetScaleX += playerState.landingImpact * 0.14f;
-    targetScaleY -= playerState.landingImpact * 0.18f;
-    targetOffsetY += playerState.landingImpact * 3.5f;
-
-    targetScaleX += playerState.dodgeStretch * 0.13f;
-    targetScaleY -= playerState.dodgeStretch * 0.10f;
-    targetRotation += (playerState.facingRight ? 1.0f : -1.0f) * playerState.dodgeStretch * 0.08f;
-
-    const float blend = std::min(1.0f, deltaTime * kPlayerVisualSmoothing);
-    playerState.visualScaleX += (targetScaleX - playerState.visualScaleX) * blend;
-    playerState.visualScaleY += (targetScaleY - playerState.visualScaleY) * blend;
-    playerState.visualOffsetY += (targetOffsetY - playerState.visualOffsetY) * blend;
-    playerState.visualRotation += (targetRotation - playerState.visualRotation) * blend;
-
-    sprite->SetRenderScale(playerState.visualScaleX, playerState.visualScaleY);
-    sprite->SetRenderOffset(0.0f, playerState.visualOffsetY);
-    sprite->SetRenderRotationOffset(playerState.visualRotation);
+    playerState.visualScaleX = 1.0f;
+    playerState.visualScaleY = 1.0f;
+    playerState.visualOffsetY = 0.0f;
+    playerState.visualRotation = 0.0f;
+    sprite->SetRenderScale(1.0f, 1.0f);
+    sprite->SetRenderOffset(0.0f, 0.0f);
+    sprite->SetRenderRotationOffset(0.0f);
 }
 
 inline void UpdateAfterimages(GameScenePlayerState& playerState, float deltaTime)
 {
-    for (auto& afterimage : playerState.afterimages)
-    {
-        afterimage.life = std::max(0.0f, afterimage.life - deltaTime);
-    }
-    playerState.afterimages.erase(
-        std::remove_if(
-            playerState.afterimages.begin(),
-            playerState.afterimages.end(),
-            [](const PlayerAfterimage& afterimage)
-            {
-                return afterimage.life <= 0.0f;
-            }),
-        playerState.afterimages.end());
+    static_cast<void>(deltaTime);
+    playerState.afterimages.clear();
 }
 
 inline void TrySpawnAfterimage(GameScenePlayerState& playerState, const TransformComponent& transform)
 {
-    const bool shouldAddAfterimage =
-        playerState.afterimages.empty() ||
-        (kPlayerAfterimageLifetime - playerState.afterimages.front().life) >= kPlayerAfterimageSpawnInterval;
-    if (!shouldAddAfterimage)
-    {
-        return;
-    }
-
-    PlayerAfterimage afterimage;
-    afterimage.x = transform.x;
-    afterimage.y = transform.y;
-    afterimage.rotation = transform.rotation;
-    afterimage.scale = transform.scale;
-    afterimage.flipX = playerState.facingRight ? false : true;
-    afterimage.life = kPlayerAfterimageLifetime;
-    playerState.afterimages.insert(playerState.afterimages.begin(), afterimage);
-    if (static_cast<int>(playerState.afterimages.size()) > kMaxPlayerAfterimages)
-    {
-        playerState.afterimages.resize(kMaxPlayerAfterimages);
-    }
+    static_cast<void>(playerState);
+    static_cast<void>(transform);
 }
 }
