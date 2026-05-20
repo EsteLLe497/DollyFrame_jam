@@ -1001,6 +1001,53 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     DrawSepiaFilmNoise(effectLeft, effectTop, effectRight, effectBottom, frame);
     DrawSepiaFilmDust(effectLeft, effectTop, effectRight, effectBottom, frame);
     DrawSepiaFilmScratches(effectLeft, effectTop, effectRight, effectBottom, frame);
+    // フレーム内の瓦礫を足場テクスチャでプレビュー描画
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, kTagSepiaRubble))
+        {
+            continue;
+        }
+		const auto* t = entity->GetComponent<TransformComponent>();
+        if (!t)
+        {
+            continue;
+        }
+        const float overlapLeft = std::max(frameX, t->x);
+        const float overlapTop = std::max(frameY, t->y);
+        const float overlapRight = std::min(frameX + frameWidth, t->x + t->width * t->scale);
+        const float overlapBot = std::min(frameY + frameHeight, t->y + t->height * t->scale);
+        if (overlapRight - overlapLeft <= 1.0f || overlapBot - overlapTop <= 1.0f)
+        {
+            continue;
+        }
+        // フレームと重なった瓦礫部分のみを描画
+		const float objectWorldX = t->width * t->scale;
+		const float objectWorldY = t->height * t->scale;
+        if (objectWorldX <= 0.0f || objectWorldY <= 0.0f)
+        {
+            continue;
+        }
+        const float overlapWidth = overlapRight - overlapLeft;
+        const float overlapHeight = overlapBot - overlapTop;
+        const float drawEntityX = GetViewOriginX() + (overlapLeft - m_flow.cameraX) * viewScale;
+        const float drawEntityY = GetViewOriginY() + (overlapTop - m_flow.cameraY) * viewScale;
+        const float drawEntityW = overlapWidth * viewScale;
+        const float drawEntityH = overlapHeight * viewScale;
+        const float sourceX = std::clamp((overlapLeft - t->x) / objectWorldX, 0.0f, 1.0f);
+        const float sourceY = std::clamp((overlapTop - t->y) / objectWorldY, 0.0f, 1.0f);
+        const float sourceW = std::clamp(overlapWidth / objectWorldX, 0.0f, 1.0f - sourceX);
+        const float sourceH = std::clamp(overlapHeight / objectWorldY, 0.0f, 1.0f - sourceY);
+        Shader_ResetStyle();
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
+        SpriteDraw(
+            m_assets.GetTexture("sepia_ground"),
+            drawEntityX, drawEntityY,
+            drawEntityW, drawEntityH,
+            sourceX, sourceY, sourceW, sourceH);
+
+    }
+    Shader_ResetStyle();
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
 

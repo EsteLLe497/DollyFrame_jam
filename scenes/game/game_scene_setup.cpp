@@ -398,7 +398,7 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
     m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/stage_a.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/ruins.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -876,6 +876,7 @@ void GameScene::InitializeStageEntities()
         }
     }
     RefreshDamageFootholdsFromMarkers();
+	RefleshSepiaRubblesFromMarkers();
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
 	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);
  //   Entity& photoSourceB= SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1360.0f, tileSize), AlignToGrid(240.0f, tileSize)); 

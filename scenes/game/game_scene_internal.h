@@ -327,9 +327,10 @@ inline constexpr const char* kTagLaserTurret = "LaserTurret";
 inline constexpr const char* kTagLaserBeam = "LaserBeam";
 inline constexpr const char* kTagMarkerLight = "MarkerLight";
 inline constexpr const char* kTagStageLight = "StageLight";
+inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
 
-inline constexpr std::array<char, 30> kMarkerPresets = {
-    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&'
+inline constexpr std::array<char, 31> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','+'
 };
 inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -411,6 +412,11 @@ inline bool IsShutterOrLaserSwitchMarker(char marker)
 inline bool IsProtectiveWallMarker(char marker)
 {
     return marker == '&';
+}
+
+inline bool IsSepiaRubbleMarker(char marker)
+{
+    return marker == '+';
 }
 
 inline bool IsParameterizedEditorMarker(char marker)

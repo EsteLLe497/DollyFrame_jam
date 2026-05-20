@@ -337,6 +337,7 @@ void GameScene::RefreshMarkerDrivenSystems()
     RefreshLaserTurretsFromMarkers();
     RefreshLinkedGimmicksFromMarkers();
     RefreshDamageFootholdsFromMarkers();
+	RefleshSepiaRubblesFromMarkers();
 }
 
 void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after)
@@ -363,6 +364,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
         markerChanged(IsProtectiveWallMarker);
     const bool laserTurretChanged = markerChanged(IsLaserTurretMarker);
     const bool damageFootholdChanged = markerChanged(IsDamageFootholdMarker);
+	const bool sepiaRubbleChanged = markerChanged(IsSepiaRubbleMarker);
 
     if (enemyChanged) RefreshEnemiesFromMarkers();
     if (batteryChanged) RefreshBatteriesFromMarkers();
@@ -372,6 +374,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     if (linkedGimmickMarkerChanged) RefreshLinkedGimmicksFromMarkers();
     if (laserTurretChanged) RefreshLaserTurretsFromMarkers();
     if (damageFootholdChanged) RefreshDamageFootholdsFromMarkers();
+	if (sepiaRubbleChanged) RefleshSepiaRubblesFromMarkers();
 }
 
 void GameScene::RefreshEnemiesFromMarkers()
@@ -1116,4 +1119,59 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
             m_entities.push_back(std::move(damagePlatformSpike));
         }
     }
+}
+
+void GameScene::RefleshSepiaRubblesFromMarkers()
+{
+    m_entities.erase(
+        std::remove_if(
+            m_entities.begin(),
+            m_entities.end(),
+            [](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity)
+                {
+                    return true;
+                }
+
+                return HasTag(*entity, kTagSepiaRubble);
+            }),
+        m_entities.end());
+
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(
+                std::toupper(static_cast<unsigned char>(
+                    m_tileMap.GetMarker(column, row))));
+
+            if (marker != '+')
+            {
+                continue;
+            }
+
+            const float markerX = static_cast<float>(column) * tileSize;
+            const float markerY = static_cast<float>(row) * tileSize;
+
+            auto rubble = std::make_unique<Entity>();
+            rubble->AddComponent<TagComponent>(kTagSepiaRubble);
+            rubble->AddComponent<TransformComponent>(
+                markerX, markerY, tileSize, tileSize);
+            rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            rubble->AddComponent<SpriteRenderComponent>(
+                    m_assets.GetTexture("sepia_rubble"));
+            rubble->AddComponent<SepiaRubbleComponent>();
+
+            m_entities.push_back(std::move(rubble));
+        }
+    }
+
 }

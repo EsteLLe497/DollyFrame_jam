@@ -18,6 +18,7 @@ enum class CapturedSpawnArchetype
     ShieldNormal,
     ShieldRushBurst,
     ShieldJumpBurst,
+    SepiaGround,
 };
 
 enum class PhotoPlacementRuleGroup
