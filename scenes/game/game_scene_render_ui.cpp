@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "DxLib.h"
+#include <texture.h>
 
 using namespace game_scene_detail;
 
@@ -1636,49 +1637,229 @@ void GameScene::DrawBackdrop() const
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-void GameScene::DrawBackdropBaseInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const
+void GameScene::DrawBackdropBaseInView(
+    float viewOriginX,
+    float viewOriginY,
+    float viewWidth,
+    float viewHeight,
+    float viewScale) const
 {
-    // 背景画像（画面サイズ 1920x1080 に合わせて描画）
-    // オフセットで垂直位置を調整できるようにした（px 単位、負なら上へ移動）
-    constexpr float kBackgroundVerticalOffsetPx = -48.0f; // 必要に応じて値を変更してください
-    const int bgTexture = m_assets.GetTexture("sinrin8");
-    if (bgTexture >= 0)
-    {
-        Shader_ResetStyle();
-        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+    const int bgTexture = m_assets.GetTexture("sinrin10");
+    const int bg1Texture = m_assets.GetTexture("sinrin11");
 
-        // 画面全体に引き伸ばして描画（1920x1080 にフィット）
-        // アスペクト比を保持したい場合は別実装にしますが、
-        // まずは画面に確実にフィットさせるため stretch 描画としています。
-        const float destX = 0.0f;
-        const float destY = kBackgroundVerticalOffsetPx; // 上にずらしたければ負値にする
-        const float destW = static_cast<float>(SCREEN_WIDTH);
-        const float destH = static_cast<float>(SCREEN_HEIGHT);
-        SpriteDraw(bgTexture, destX, destY, destW, destH, 0.0f, 0.0f, 1.0f, 1.0f);
+	if (bgTexture < 0 || bg1Texture < 0)
+    {
+        return;
     }
 
-    // 既存のオーバーレイは透過を下げつつ維持（背景が見えるように調整）
-    Shader_ResetStyle();
-    Shader_SetTint(0.02f, 0.02f, 0.03f, 0.20f);
-    SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
-
-    Shader_SetGradientMap(0.03f, 0.03f, 0.05f, 1.0f, 0.10f, 0.10f, 0.14f, 1.0f, 1.0f);
-    Shader_SetTint(0.92f, 0.92f, 0.96f, 1.0f);
-    SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, 210.0f * viewScale, 0.0f, 0.0f, 1.0f, 1.0f);
-
-    Shader_SetTint(0.05f, 0.05f, 0.07f, 0.60f);
-    SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
-
-    if (m_photo.capture.selectedTheme != PhotoFilterTheme::None)
+    // テクスチャサイズ sinrin10
+    const int texW = TextureGetWidth(bgTexture);
+    const int texH = TextureGetHeight(bgTexture);
+    if (texW <= 0 || texH <= 0)
     {
-        float filterR = 1.0f;
-        float filterG = 1.0f;
-        float filterB = 1.0f;
-        GetPhotoFilterThemeOverlayColor(m_photo.capture.selectedTheme, filterR, filterG, filterB);
-        Shader_SetTint(filterR, filterG, filterB, 0.07f);
-        SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        return;
+    }
+
+    // テクスチャサイズ sinrin11
+    const int texW1 = TextureGetWidth(bg1Texture);
+    const int texH1 = TextureGetHeight(bg1Texture);
+    if (texW1 <= 0 || texH1 <= 0)
+    {
+        return;
+    }
+
+    // 描画サイズ（画面領域）
+    const float drawW = viewWidth;
+    const float drawH = viewHeight;
+
+    // 描画サイズ（画面領域）bg1
+    const float drawW1 = viewWidth;
+    const float drawH1 = viewHeight;
+
+    // パララックス係数（0.0 = 固定背景、1.0 = カメラと同速）
+    // 必要に応じてここを変更（例: 0.2f, 0.5f, 1.0f）
+    const float parallaxX = 0.45f;
+    const float parallaxY = 0.45f;
+
+    // パララックス係数（0.0 = 固定背景、1.0 = カメラと同速）
+    // 必要に応じてここを変更（例: 0.2f, 0.5f, 1.0f）bg1
+    const float parallaxX1 = 0.45f;
+    const float parallaxY1 = 0.45f;
+
+    // カメラのワールド位置を使ってUVスクロール量を計算（0..1）
+    float scrollU = std::fmod((m_flow.cameraX * parallaxX) / static_cast<float>(texW), 1.0f);
+    if (scrollU < 0.0f) scrollU += 1.0f;
+    float scrollV = std::fmod((m_flow.cameraY * parallaxY) / static_cast<float>(texH), 1.0f);
+    if (scrollV < 0.0f) scrollV += 1.0f;
+
+    // カメラのワールド位置を使ってUVスクロール量を計算（0..1）bg1
+    float scrollU1 = std::fmod((m_flow.cameraX * parallaxX1) / static_cast<float>(texW1), 1.0f);
+    if (scrollU1 < 0.0f) scrollU1 += 1.0f;
+    float scrollV1 = std::fmod((m_flow.cameraY * parallaxY1) / static_cast<float>(texH1), 1.0f);
+    if (scrollV1 < 0.0f) scrollV1 += 1.0f;
+
+    // UV比から画面上の分割幅を計算（左/右, 上/下）
+    const float leftUVWidth = 1.0f - scrollU;
+    const float rightUVWidth = scrollU;
+    const float topUVHeight = 1.0f - scrollV;
+    const float bottomUVHeight = scrollV;
+
+    // UV比から画面上の分割幅を計算（左/右, 上/下）bg1
+    const float leftUVWidth1 = 1.0f - scrollU1;
+    const float rightUVWidth1 = scrollU1;
+    const float topUVHeight1 = 1.0f - scrollV1;
+    const float bottomUVHeight1 = scrollV1;
+
+    const float leftDrawW = drawW * leftUVWidth;
+    const float rightDrawW = drawW - leftDrawW; // = drawW * rightUVWidth
+    const float topDrawH = drawH * topUVHeight;
+    const float bottomDrawH = drawH - topDrawH; // = drawH * bottomUVHeight
+
+	// UV比から画面上の分割幅を計算（左/右, 上/下）bg1
+    const float leftDrawW1 = drawW * leftUVWidth1;
+    const float rightDrawW1 = drawW - leftDrawW1; // = drawW * rightUVWidth1
+    const float topDrawH1 = drawH * topUVHeight1;
+    const float bottomDrawH1 = drawH - topDrawH1; // = drawH * bottomUVHeight1
+
+    // 最小描画幅/高さの閾値（あまりに小さければ描かない）
+    constexpr float kMinDrawSize = 0.5f;
+
+    // 4分割で描画：左上、右上、左下、右下
+    // 左上
+    if (leftDrawW > kMinDrawSize && topDrawH > kMinDrawSize)
+    {
+        SpriteDraw(
+            bgTexture,
+            viewOriginX,
+            viewOriginY,
+            leftDrawW,
+            topDrawH,
+            scrollU,
+            scrollV,
+            leftUVWidth,
+            topUVHeight,
+            false,
+            0.0f);
+    }
+	//左上bg1
+    if (leftDrawW1 > kMinDrawSize && topDrawH1 > kMinDrawSize)
+    {
+        SpriteDraw(
+            bg1Texture,
+            viewOriginX,
+            viewOriginY,
+            leftDrawW1,
+            topDrawH1,
+            scrollU1,
+            scrollV1,
+            leftUVWidth1,
+            topUVHeight1,
+            false,
+            0.0f);
+    }
+
+    // 右上
+    if (rightDrawW > kMinDrawSize && topDrawH > kMinDrawSize)
+    {
+        SpriteDraw(
+            bgTexture,
+            viewOriginX + leftDrawW,
+            viewOriginY,
+            rightDrawW,
+            topDrawH,
+            0.0f,
+            scrollV,
+            rightUVWidth,
+            topUVHeight,
+            false,
+            0.0f);
+    }
+
+    // 右上bg1
+    if (rightDrawW1 > kMinDrawSize && topDrawH1 > kMinDrawSize)
+    {
+        SpriteDraw(
+            bg1Texture,
+            viewOriginX + leftDrawW1,
+            viewOriginY,
+            rightDrawW1,
+            topDrawH1,
+            0.0f,
+            scrollV1,
+            rightUVWidth1,
+            topUVHeight1,
+            false,
+            0.0f);
+    }
+
+    // 左下
+    if (leftDrawW > kMinDrawSize && bottomDrawH > kMinDrawSize)
+    {
+        SpriteDraw(
+            bgTexture,
+            viewOriginX,
+            viewOriginY + topDrawH,
+            leftDrawW,
+            bottomDrawH,
+            scrollU,
+            0.0f,
+            leftUVWidth,
+            bottomUVHeight,
+            false,
+            0.0f);
+    }
+
+    // 左下bg1
+    if (leftDrawW1 > kMinDrawSize && bottomDrawH1 > kMinDrawSize)
+    {
+        SpriteDraw(
+            bg1Texture,
+            viewOriginX,
+            viewOriginY + topDrawH1,
+            leftDrawW1,
+            bottomDrawH1,
+            scrollU1,
+            0.0f,
+            leftUVWidth1,
+            bottomUVHeight1,
+            false,
+            0.0f);
+    }
+
+    // 右下
+    if (rightDrawW > kMinDrawSize && bottomDrawH > kMinDrawSize)
+    {
+        SpriteDraw(
+            bgTexture,
+            viewOriginX + leftDrawW,
+            viewOriginY + topDrawH,
+            rightDrawW,
+            bottomDrawH,
+            0.0f,
+            0.0f,
+            rightUVWidth,
+            bottomUVHeight,
+            false,
+            0.0f);
+    }
+    // 右下bg1
+    if (rightDrawW1 > kMinDrawSize && bottomDrawH1 > kMinDrawSize)
+    {
+        SpriteDraw(
+            bg1Texture,
+            viewOriginX + leftDrawW1,
+            viewOriginY + topDrawH1,
+            rightDrawW1,
+            bottomDrawH1,
+            0.0f,
+            0.0f,
+            rightUVWidth1,
+            bottomUVHeight1,
+            false,
+            0.0f);
     }
 }
+
 void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const
 {
     const float tileSize = m_tileMap.GetTileSize();
