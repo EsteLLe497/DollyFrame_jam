@@ -17,7 +17,8 @@ namespace
     inline constexpr float kEnemy1MoveFps = 14.0f;
     inline constexpr int kEnemy1AttackSheetColumns = 8;
     inline constexpr int kEnemy1AttackSheetRows = 7;
-    inline constexpr int kEnemy1AttackFrameCount = 56;
+    inline constexpr int kEnemy1AttackStartFrame = 24;
+    inline constexpr int kEnemy1AttackFrameCount = 16;
     inline constexpr float kEnemy1AttackFps = 18.0f;
     inline constexpr int kEnemy2IdleSheetColumns = 10;
     inline constexpr int kEnemy2IdleSheetRows = 11;
@@ -136,12 +137,12 @@ void GameScene::ConfigureWalkerSpriteAnimation(Entity& enemy)
     }
 
     const auto* transform = enemy.GetComponent<TransformComponent>();
-    constexpr float kWalkerVisualScale = 1.5f;
-    // Keep collision bounds unchanged; only enlarge the rendered enemy around its feet.
+    constexpr float kWalkerVisualScale = 1.55f;
+    constexpr float kWalkerVisualOffsetY = -22.0f;
     sprite->SetRenderScale(kWalkerVisualScale, kWalkerVisualScale);
     sprite->SetRenderOffset(
         transform ? transform->width * (1.0f - kWalkerVisualScale) * 0.5f : 0.0f,
-        transform ? transform->height * (1.0f - kWalkerVisualScale) : 0.0f);
+        kWalkerVisualOffsetY);
 
     auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>();
     if (!animation)
@@ -160,7 +161,7 @@ void GameScene::ConfigureWalkerSpriteAnimation(Entity& enemy)
     // Walker uses separate sheets; melee hit is emitted on the attack clip's 31st frame.
     animation->DefineClip("idle", resolvedIdleTexture, kEnemy1SheetColumns, kEnemy1SheetRows, 0, kEnemy1FrameCount, kEnemy1IdleFps, true);
     animation->DefineClip("move", resolvedMoveTexture, kEnemy1SheetColumns, kEnemy1SheetRows, 0, kEnemy1FrameCount, kEnemy1MoveFps, true);
-    animation->DefineClip("attack", resolvedAttackTexture, kEnemy1AttackSheetColumns, kEnemy1AttackSheetRows, 0, kEnemy1AttackFrameCount, kEnemy1AttackFps, false);
+    animation->DefineClip("attack", resolvedAttackTexture, kEnemy1AttackSheetColumns, kEnemy1AttackSheetRows, kEnemy1AttackStartFrame, kEnemy1AttackFrameCount, kEnemy1AttackFps, false);
     animation->Play("idle", true);
 }
 
@@ -177,6 +178,14 @@ void GameScene::ConfigureRangedSpriteAnimation(Entity& enemy)
     {
         animation = &enemy.AddComponent<SpriteSheetAnimationComponent>();
     }
+
+    const auto* transform = enemy.GetComponent<TransformComponent>();
+    constexpr float kRangedVisualScale = 1.5f;
+    constexpr float kRangedVisualOffsetY = -24.0f;
+    sprite->SetRenderScale(kRangedVisualScale, kRangedVisualScale);
+    sprite->SetRenderOffset(
+        transform ? transform->width * (1.0f - kRangedVisualScale) * 0.5f : 0.0f,
+        kRangedVisualOffsetY);
 
     const int idleTexture = m_assets.GetTexture("enemy2_idle");
     const int attackTexture = m_assets.GetTexture("enemy2_attack");

@@ -621,7 +621,7 @@
       "transform": {
         "x": 0.0,
         "y": 0.0,
-        "width": 48.0,
+        "width": 85.0,
         "height": 96.0,
         "rotation": 0.0,
         "scale": 1.0
@@ -638,7 +638,7 @@
         "contactDamage": 1,
         "detectRange": 192.0,
         "attackRange": 48.0,
-        "attackCooldown": 3.0,
+        "attackCooldown": 1.5,
         "detectHeight": 96.0
       }
     },
@@ -648,7 +648,7 @@
       "transform": {
         "x": 0.0,
         "y": 0.0,
-        "width": 48.0,
+        "width": 85.0,
         "height": 96.0,
         "rotation": 0.0,
         "scale": 1.0

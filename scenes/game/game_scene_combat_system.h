@@ -182,7 +182,7 @@ inline void UpdateEnemies(
             constexpr float kMaxFallSpeed = 980.0f;
             constexpr float kWalkerAttackActiveSeconds = 0.18f;
             constexpr int kWalkerAttackHitFrame = 30; // 31st frame, zero-based.
-            constexpr int kWalkerAttackLastFrame = 55;
+            constexpr int kWalkerAttackLastFrame = 39;
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
@@ -216,13 +216,15 @@ inline void UpdateEnemies(
             switch (enemy->GetAIState())
             {
             case EnemyComponent::AIState::Idle:
+                enemy->attackTimer = std::min(enemy->attackCooldown, enemy->attackTimer + flow.lastDeltaTime);
                 if (inDetectRange)
                 {
                     enemy->SetAIState(EnemyComponent::AIState::Chase);
                 }
                 break;
             case EnemyComponent::AIState::Chase:
-                if (dist < enemy->attackRange)
+                enemy->attackTimer = std::min(enemy->attackCooldown, enemy->attackTimer + flow.lastDeltaTime);
+                if (dist < enemy->attackRange && enemy->attackTimer >= enemy->attackCooldown)
                 {
                     
                     enemy->facing = dx > 0.0f
