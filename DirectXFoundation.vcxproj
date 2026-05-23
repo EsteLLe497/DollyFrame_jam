@@ -50,10 +50,13 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;NOMINMAX;TRACY_ENABLE;TRACY_NO_SYSTEM_TRACING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)core;$(ProjectDir)rendering;$(ProjectDir)physics;$(ProjectDir)gameplay;$(ProjectDir)scenes;$(ProjectDir)scenes\game;$(ProjectDir)third_party\dxlib\include;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\imgui\backends;$(ProjectDir)third_party\tracy\public;$(ProjectDir)third_party\json\single_include;$(ProjectDir)third_party\spdlog\include;$(ProjectDir)third_party\sol2\include;$(ProjectDir)third_party\lua54;$(ProjectDir)third_party\box2d\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /FS /wd4010 /wd4828 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -71,10 +74,13 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;NOMINMAX;TRACY_ENABLE;TRACY_NO_SYSTEM_TRACING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)core;$(ProjectDir)rendering;$(ProjectDir)physics;$(ProjectDir)gameplay;$(ProjectDir)scenes;$(ProjectDir)scenes\game;$(ProjectDir)third_party\dxlib\include;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\imgui\backends;$(ProjectDir)third_party\tracy\public;$(ProjectDir)third_party\json\single_include;$(ProjectDir)third_party\spdlog\include;$(ProjectDir)third_party\sol2\include;$(ProjectDir)third_party\lua54;$(ProjectDir)third_party\box2d\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /FS /wd4010 /wd4828 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -88,6 +94,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="core\audio.cpp" />
     <ClCompile Include="core\application.cpp" />
     <ClCompile Include="core\asset_manifest.cpp" />
@@ -102,7 +111,10 @@
     <ClCompile Include="scenes\game\game_scene.cpp" />
     <ClCompile Include="scenes\game\game_scene_collision.cpp" />
     <ClCompile Include="scenes\game\game_scene_gameplay.cpp" />
+    <ClCompile Include="scenes\game\game_scene_gameplay_state_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_player_state_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_render.cpp" />
+    <ClCompile Include="scenes\game\game_scene_render_ui_helpers.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui_editor.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui_status.cpp" />
@@ -135,8 +147,6 @@
     <ClCompile Include="gameplay\photo_shared.cpp" />
     <ClCompile Include="gameplay\photo_capture_system.cpp" />
     <ClCompile Include="gameplay\photo_paste_system.cpp" />
-    <ClCompile Include="gameplay\photo_system_capture.cpp" />
-    <ClCompile Include="gameplay\photo_system_paste.cpp" />
     <ClCompile Include="gameplay\photo_system.cpp" />
     <ClCompile Include="rendering\shader.cpp" />
     <ClCompile Include="rendering\sprite.cpp" />
@@ -149,149 +159,197 @@
     <ClCompile Include="physics\tile_map.cpp" />
     <ClCompile Include="rendering\texture.cpp" />
     <ClCompile Include="scenes\title_scene.cpp" />
-    <ClCompile Include="third_party\imgui\imgui.cpp" />
-    <ClCompile Include="third_party\imgui\imgui_demo.cpp" />
-    <ClCompile Include="third_party\imgui\imgui_draw.cpp" />
-    <ClCompile Include="third_party\imgui\imgui_tables.cpp" />
-    <ClCompile Include="third_party\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="third_party\lua54\onelua.c" />
+    <ClCompile Include="third_party\imgui\imgui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_demo.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_draw.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_tables.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_widgets.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\lua54\onelua.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="third_party\box2d\src\aabb.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\arena_allocator.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\array.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\bitset.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\body.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\broad_phase.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\constraint_graph.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\contact.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\contact_solver.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\core.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\distance.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\distance_joint.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\dynamic_tree.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\geometry.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\hull.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\id_pool.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\island.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\joint.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\manifold.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\math_functions.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\motor_joint.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\mover.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\physics_world.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\prismatic_joint.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\revolute_joint.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\sensor.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\shape.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\solver.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\solver_set.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\table.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\timer.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\types.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\weld_joint.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\box2d\src\wheel_joint.c">
       <AdditionalOptions>/std:c17 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="third_party\tracy\public\TracyClient.cpp" />
+    <ClCompile Include="third_party\tracy\public\TracyClient.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\audio.h" />
@@ -308,6 +366,8 @@
     <ClInclude Include="core\event_bus.h" />
     <ClInclude Include="scenes\game\game_scene.h" />
     <ClInclude Include="scenes\game\game_scene_internal.h" />
+    <ClInclude Include="scenes\game\game_scene_draw_helpers.h" />
+    <ClInclude Include="scenes\game\game_scene_render_ui_helpers.h" />
     <ClInclude Include="core\game_session.h" />
     <ClInclude Include="rendering\imgui_layer.h" />
     <ClInclude Include="core\input.h" />
@@ -318,7 +378,6 @@
     <ClInclude Include="gameplay\photo_shared.h" />
     <ClInclude Include="gameplay\photo_capture_system.h" />
     <ClInclude Include="gameplay\photo_paste_system.h" />
-    <ClInclude Include="gameplay\photo_system_bridge.h" />
     <ClInclude Include="gameplay\photo_system.h" />
     <ClInclude Include="core\resource_manager.h" />
     <ClInclude Include="scenes\result_scene.h" />
@@ -333,6 +392,7 @@
     <ClInclude Include="rendering\texture.h" />
     <ClInclude Include="scenes\title_scene.h" />
     <ClInclude Include="third_party\imgui\imgui.h" />
+    <ClInclude Include="pch.h" />
   </ItemGroup>
     <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

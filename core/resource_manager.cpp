@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "resource_manager.h"
 
 #include "texture.h"
@@ -8,6 +10,7 @@ void ResourceManager::Initialize(void* device)
 {
     TextureInitialize(device);
     m_textureCache.clear();
+    m_textureCache.reserve(32);
 }
 
 void ResourceManager::Shutdown()
@@ -16,10 +19,15 @@ void ResourceManager::Shutdown()
     TextureFinalize();
 }
 
+void ResourceManager::ReserveTextureCache(size_t count)
+{
+    m_textureCache.reserve(count);
+}
+
 int ResourceManager::LoadTexture(const std::wstring& path)
 {
-    const auto found = m_textureCache.find(path);
-    if (found != m_textureCache.end())
+    const auto [found, inserted] = m_textureCache.try_emplace(path, -1);
+    if (!inserted)
     {
         return found->second;
     }
@@ -27,8 +35,11 @@ int ResourceManager::LoadTexture(const std::wstring& path)
     const int id = TextureLoad(path);
     if (id >= 0)
     {
-        m_textureCache.emplace(path, id);
+        found->second = id;
+        return id;
     }
+
+    m_textureCache.erase(found);
     return id;
 }
 

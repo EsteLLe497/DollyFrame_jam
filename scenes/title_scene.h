@@ -18,18 +18,32 @@ public:
     EventBus* GetEventBus() override;
 
 private:
+    enum class MenuMode
+    {
+        Main,
+        Options,
+    };
+
     void DrawBackdrop() const;
+    void DrawMenu() const;
+    void DrawMainMenu() const;
+    void DrawOptionsMenu() const;
+    void UpdateMenuInput();
+    void ConfirmMainMenu();
+    void ConfirmOptionsMenu();
+    void PublishSceneChange(const char* sceneId);
+    void ToggleBgm();
 
     AssetManifest m_assets;
     EventBus m_eventBus;
     int m_whiteTexture;
     int m_titleTexture;
-    int m_ringTexture;
-    int m_burstTexture;
-    int m_windTexture;
-    int m_cloudTexture;
-    int m_laserTexture;
     float m_blinkTimer;
     float m_sceneTime;
     bool m_showPrompt;
+    MenuMode m_menuMode;
+    int m_menuSelection;
+    int m_optionsSelection;
+    bool m_bgmEnabled;
+    float m_bgmRestoreVolume;
 };

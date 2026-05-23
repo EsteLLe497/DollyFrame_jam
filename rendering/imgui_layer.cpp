@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "imgui_layer.h"
 
 bool ImGuiLayer_Initialize(HWND hWnd, void* device, void* context)

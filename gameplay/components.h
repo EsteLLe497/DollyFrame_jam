@@ -56,6 +56,7 @@ enum class EnemyArchetype
     Turret,
     Ranged, 
     ShieldBoss,
+    MidBoss2,
     Ghost,        
     BlasterRobot, 
 };
@@ -67,7 +68,8 @@ enum class ShieldBossState
     Rush,          
     RushCooldown, 
     Jump,          
-    JumpAscend,    
+    JumpAscend,
+    AirHover,
     JumpDescend,   
     SlamPhase1,    
     SlamPhase2,    
@@ -78,6 +80,20 @@ enum class ShieldBossFacing
 {
     Right,
     Left,
+};
+
+enum class MidBoss2State
+{
+    Idle,
+    SpearJump,
+    SpearThrow,
+    SpearLanding,
+    SpearCooldown,
+    BeamCharge,
+    BeamFire,
+    BeamCooldown,
+    Damaged,
+    Dead,
 };
 
 enum class GimmickType
@@ -164,7 +180,8 @@ public:
         int requiredBatteryCount,
         float pressDepth,
         float pressSpeed,
-        float releaseSpeed);
+        float releaseSpeed,
+        bool controlsLaserPower = false);
 
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
@@ -180,6 +197,7 @@ public:
     float baseY = 0.0f;
     float currentPress = 0.0f;
     bool isPressed = false;
+    bool controlsLaserPower = false;
 };
 
 class ElevatorComponent final : public Component
@@ -224,7 +242,8 @@ public:
         int linkId,
         float moveRangeY,
         float moveSpeed,
-        bool useBossDefeatSignal);
+        bool useBossDefeatSignal,
+        bool opensWhenUnpowered = false);
 
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
@@ -235,6 +254,45 @@ public:
     float baseY = 0.0f;
     bool isOpen = false;
     bool useBossDefeatSignal = false;
+    bool opensWhenUnpowered = false;
+};
+
+class ProtectiveWallComponent final : public Component
+{
+public:
+    ProtectiveWallComponent(
+        int linkId,
+        int maxDurability,
+        float moveRangeY,
+        float moveSpeed,
+        bool startsOn = false);
+
+    void OnAttach(Entity& owner) override;
+    void DrawDebugUI() override;
+    void ApplyDamage(int amount);
+    int GetCurrentDurability() const;
+    int GetMaxDurability() const;
+    bool IsDestroyed() const;
+
+    int linkId = 0;
+    float moveRangeY = 144.0f;
+    float moveSpeed = 240.0f;
+    float baseY = 0.0f;
+    bool isOn = false;
+    bool destroyed = false;
+    float damageAccumulator = 0.0f;
+
+private:
+    int m_maxDurability = 3;
+    int m_currentDurability = 3;
+};
+
+enum class LaserTurretFireDirection
+{
+    Down,
+    Up,
+    Left,
+    Right
 };
 
 class LaserTurretComponent final : public Component
@@ -242,21 +300,51 @@ class LaserTurretComponent final : public Component
 public:
     LaserTurretComponent(
         float beamThickness,
-        float damagePerSecond);
+        float damagePerSecond,
+        bool vertical = false,
+        bool shootsLeft = false,
+        bool requiresLaserPower = false);
 
     void DrawDebugUI() override;
 
     float beamThickness = 8.0f;
     float damagePerSecond = 1.0f;
+    bool vertical = false;
+    bool shootsLeft = false;
+    bool requiresLaserPower = false;
     float playerDamageTimer = 0.0f;
     std::unordered_map<const Entity*, float> enemyDamageTimers;
     float sparkTimer = 0.0f;
+    bool active = true;
+    bool fireToLeft = false;
+    LaserTurretFireDirection fireDirection = LaserTurretFireDirection::Down;
+    float warmupRemaining = 0.0f;
+    float enemyKnockbackSpeed = 0.0f;
+    Entity* beamEntity = nullptr;
+    float beamOriginOffsetX = 0.0f;
+    float beamOriginOffsetY = 0.0f;
 };
 
 class LaserBeamComponent final : public Component
 {
 public:
-    LaserBeamComponent() = default;
+    LaserBeamComponent(
+        float damagePerSecond = 1.0f,
+        float enemyKnockbackSpeed = 0.0f);
+
+    void DrawDebugUI() override;
+
+    float damagePerSecond = 1.0f;
+    float enemyKnockbackSpeed = 0.0f;
+    std::unordered_map<const Entity*, float> enemyDamageTimers;
+};
+
+class BossBeamCaptureComponent final : public Component
+{
+public:
+    BossBeamCaptureComponent() = default;
+
+    bool captureEnabled = false;
 };
 
 class TransformComponent final : public Component
@@ -325,13 +413,43 @@ public:
 class MarkerLightComponent final : public Component
 {
 public:
-    MarkerLightComponent(float radius, float intensity);
+    MarkerLightComponent(float radius, float intensity, int linkId = -1);
 
     void DrawDebugUI() override;
 
     float radius;
     float intensity;
+    int linkId = -1;
     bool activated = false;
+};
+
+class StageLightComponent final : public Component
+{
+public:
+    StageLightComponent(
+        bool enabled,
+        float fixtureTopWidthRatio,
+        float beamLength,
+        float beamTopWidth,
+        float beamBottomWidth,
+        float beamFeather,
+        float r,
+        float g,
+        float b,
+        float intensity);
+
+    void DrawDebugUI() override;
+
+    bool enabled;
+    float fixtureTopWidthRatio;
+    float beamLength;
+    float beamTopWidth;
+    float beamBottomWidth;
+    float beamFeather;
+    float r;
+    float g;
+    float b;
+    float intensity;
 };
 
 class TagComponent final : public Component
@@ -384,7 +502,7 @@ public:
 
     void Update(float deltaTime) override;
     void DrawDebugUI() override;
-    // 残り寿命。0 になると IsExpired が true になる。
+   
     float GetRemainingSeconds() const;
     float GetLifetimeSeconds() const;
     bool IsExpired() const;
@@ -400,7 +518,7 @@ public:
     explicit PhotoPasteAnimationComponent(float durationSeconds);
 
     void Update(float deltaTime) override;
-    // 0.0～1.0 の正規化進捗（ペースト演出用）。
+    
     float GetNormalizedProgress() const;
     bool IsFinished() const;
 
@@ -491,7 +609,7 @@ public:
     float attackCooldown = 3.0f;
     float detectRange = 400.0f;
     float attackRange = 48.0f;
-    float detectHeight = 96.0f; // 3/21追加(田之上俊)
+    float detectHeight = 96.0f; 
     float velocityY = 0.0f;
     float spawnX = 0.0f;
     float spawnY = 0.0f;
@@ -502,6 +620,14 @@ public:
     float attackRectWidth = 0.0f;
     float attackRectHeight = 0.0f;
     float attackRectRemaining = 0.0f;
+    bool attackFrameTriggered = false; // One-shot marker for frame-timed attacks.
+    bool knockbackActive = false;
+    float knockbackTimer = 0.0f;
+    float knockbackDuration = 0.26f;
+    float knockbackStartX = 0.0f;
+    float knockbackStartY = 0.0f;
+    float knockbackTargetX = 0.0f;
+    float knockbackHeight = 0.65f;
 
 private:
     EnemyArchetype m_archetype;
@@ -517,52 +643,187 @@ class ShieldBossComponent final : public Component
 public:
     ShieldBossComponent() = default;
 
-    
     ShieldBossState state = ShieldBossState::Idle;
     ShieldBossFacing facing = ShieldBossFacing::Right;
 
-    
+    float detectRange = 12.0f * 48.0f;
+    float detectHeight = 4.0f * 48.0f;
     float stateTimer = 0.0f;
 
-    
-    int rushCount = 0;         
-    int rushCountMax = 3;       
+    float rushSpeed = 520.0f;
+    float rushDuration = 0.45f;
+    float rushCooldown = 2.5f;
+    int rushCount = 0;
+    int rushCountMax = 2;
 
- 
-    float detectRange = 600.0f;
-    float detectHeight = 192.0f;
+    float jumpHeight = 6.0f;
+    float jumpAscendDuration = 0.35f;
+    float airHoverDuration = 1.5f;
+    float descendSpeed = 1200.0f;
 
-    
-    float rushSpeed = 400.0f;
-    float rushDamage = 1.0f;
-    float rushCooldown = 1.0f;
-    float rushDuration = 2.0f;  
-
-   
-    float jumpHeight = 4.0f;    
-    float targetX = 0.0f;
-
-    
     float slamPhase1Duration = 0.2f;
-    float slamPhase2Duration = 0.2f;
-    float slamDamage1 = 1.0f;
-    float slamDamage2 = 2.0f;
-    float slamCooldown = 3.0f;
+    float slamPhase2Duration = 0.3f;
+    float slamCooldown = 1.2f;
 
-    
-    float velocityY = 0.0f;
-    float velocityX = 0.0f;
-
-    
+    float targetX = 0.0f;
+    float targetY = 0.0f;
+    float jumpStartX = 0.0f;
+    float jumpStartY = 0.0f;
+    float returnJumpDuration = 0.9f;
+    float returnJumpHeight = 9.0f;
+    bool returningHomeJump = false;
+    bool knockbackActive = false;
+    float knockbackTimer = 0.0f;
+    float knockbackDuration = 0.28f;
+    float knockbackStartX = 0.0f;
+    float knockbackStartY = 0.0f;
+    float knockbackTargetX = 0.0f;
+    float knockbackHeight = 0.85f;
+    float hoverShieldX = 0.0f;
+    float hoverShieldY = 0.0f;
+    float hoverPlayerOffsetX = 0.0f;
     bool attackRectActive = false;
     float attackRectX = 0.0f;
     float attackRectY = 0.0f;
     float attackRectWidth = 0.0f;
     float attackRectHeight = 0.0f;
-    float attackRectDamage = 1.0f;
 
+    Entity* shieldEntity = nullptr;
+};
 
+enum class ShieldAttackType
+{
+    None,
+    Rush,       
+    Base,       
+    Slam,       
+};
+
+enum class CapturedShieldMode
+{
+    None,
+    Normal,
+    RushBurst,
+    JumpBurst,
+};
+
+class ShieldComponent final : public Component
+{
+public:
+    ShieldComponent() = default;
+
+    Entity* ownerBoss = nullptr;
+    bool attached = true;
+    bool gravityEnabled = false;
+    ShieldAttackType attackType = ShieldAttackType::None;
+
+    float followOffsetX = 0.0f;
+    float followOffsetY = 0.0f;
+
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    float rotationSpeed = 0.0f;
+
+    int contactDamage = 1;
+    float knockbackGrids = 3.0f;
+
+    float elapsed = 0.0f;
+    float lifetime = 0.0f;
+
+    float baseAttackElapsed = 0.0f;
+    float baseAttackDuration = 0.5f;
+    bool photoSpawned = false;
+    CapturedShieldMode capturedMode = CapturedShieldMode::None;
+    bool followPlayer = false;
+    bool grounded = false;
+    bool shockwaveSpawned = false;
+    bool fadeStarted = false;
+    float hoverElapsed = 0.0f;
+    float hoverDuration = 0.0f;
+    float descendSpeed = 0.0f;
     std::vector<Entity*> hitEntities;
+};
+
+class ShieldShockwaveComponent final : public Component
+{
+public:
+    ShieldShockwaveComponent() = default;
+
+    Entity* ownerBoss = nullptr;
+    int damage = 1;
+    float knockbackGrids = 3.0f;
+    float elapsed = 0.0f;
+    float lifetime = 0.2f;
+    bool damagesPlayer = true;
+    bool hitPlayer = false;
+    std::vector<Entity*> hitEntities;
+};
+
+class MidBoss2Component final : public Component
+{
+public:
+    struct Params
+    {
+        int boss2Hp = 15;
+        int boss2WidthGrid = 4;
+        int boss2HeightGrid = 4;
+        int spearDamage = 1;
+        float spearFadeTime = 3.0f;
+        float spearInterval = 0.3f;
+        float spearCooldownAfterLanding = 2.0f;
+        float spearLandingPauseTime = 0.2f;
+        float spearJumpHeightGrid = 6.0f;
+        float spearJumpHorizontalGrid = 8.0f;
+        float beamChargeTime = 3.0f;
+        float beamDamagePerSecond = 1.0f;
+        float beamHeightGrid = 3.0f;
+        float pastedBeamDamagePerSecond = 1.0f;
+    };
+
+    MidBoss2Component() = default;
+
+    Params params;
+    MidBoss2State state = MidBoss2State::Idle;
+    bool facingRight = true;
+    bool beamFacingRight = true;
+    float stateTimer = 0.0f;
+    float cooldownRemaining = 0.0f;
+    int attackFlowStep = 1;
+    int spearCycleCount = 0;
+    int spearShotsFired = 0;
+    float lastSpearDirX = 0.0f;
+    float lastSpearDirY = -1.0f;
+    float hoverStartX = 0.0f;
+    float hoverStartY = 0.0f;
+    float hoverTargetX = 0.0f;
+    float hoverTargetY = 0.0f;
+    float landingTargetX = 0.0f;
+    float landingTargetY = 0.0f;
+    float homeX = 0.0f;
+    float homeY = 0.0f;
+    bool initializedHome = false;
+    bool beamEntitiesSpawned = false;
+    Entity* beamTurretEntity = nullptr;
+    Entity* beamEntity = nullptr;
+    bool captureWindowActive = false;
+};
+
+class MidBoss2SpearComponent final : public Component
+{
+public:
+    MidBoss2SpearComponent() = default;
+
+    bool launched = false;
+    bool stuck = false;
+    float fadeRemaining = 0.0f;
+    float fadeDuration = 3.0f;
+    float directionX = 0.0f;
+    float directionY = -1.0f;
+    float targetDirectionX = 0.0f;
+    float targetDirectionY = -1.0f;
+    float launchDelay = 0.0f;
+    float launchTimer = 0.0f;
+    float travelDistance = 0.0f;
 };
 
 class GhostComponent final : public Component
@@ -594,7 +855,7 @@ public:
     bool facingRight = true;
 };
 
-// 3/21追加：ドロップアイテムコンポーネント(田之上俊)
+
 class DropItemComponent final : public Component
 {
 public:
@@ -646,6 +907,8 @@ public:
 
     float GetVelocityX() const { return m_velocityX; }
     float GetVelocityY() const { return m_velocityY; }
+    void SetVelocityX(float value) { m_velocityX = value; }
+    void SetVelocityY(float value) { m_velocityY = value; }
     int GetDamage() const { return m_damage; }
     Owner GetOwner() const { return m_owner; }
     int pierceRemaining = 0;    
@@ -718,6 +981,12 @@ private:
     float m_tintG;
     float m_tintB;
     float m_tintA;
+};
+
+class SepiaRubbleComponent final : public Component
+{
+public:
+	SepiaRubbleComponent() = default;
 };
 
 // ============================================================================
@@ -829,7 +1098,7 @@ public:
         float fps,
         bool loop = true);
     bool HasClip(const std::string& name) const;
-    // 再生中クリップと同名の場合、restartIfSame=true のときだけ先頭フレームへ戻す。
+    
     bool Play(const std::string& name, bool restartIfSame = false);
     const std::string& GetCurrentClipName() const;
     int GetCurrentFrameIndex() const;
@@ -889,9 +1158,9 @@ public:
 
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
-    // Transform -> Box2D 反映（主に static / kinematic 用）。
+    
     void PushTransformToPhysics();
-    // Box2D -> Transform 反映（主に dynamic の結果取り込み）。
+    
     void PullTransformFromPhysics();
 
     b2BodyId GetBodyId() const;
@@ -933,7 +1202,7 @@ public:
     void OnAttach(Entity& owner) override;
     void DrawDebugUI() override;
     b2ChainId GetChainId() const;
-    // [0,1] 正規化頂点。実体生成時に Transform サイズへスケールして使う。
+   
     const std::vector<b2Vec2>& GetNormalizedOutline() const;
 
 private:

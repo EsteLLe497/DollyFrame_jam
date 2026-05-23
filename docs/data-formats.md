@@ -280,3 +280,75 @@ JSON が読めない場合の挙動は以下です。
   撮影フレームのタイル数
 - `printed_photo_*`
   貼り付け時のポラロイド台紙サイズ
+
+## `assets/input_bindings.json`
+
+役割:
+
+- 入力アクションのキーボード / マウス / ゲームパッド割り当てを上書きする
+- `core/input.cpp` のデフォルト定義に対して差分適用する
+
+### ルート構造
+
+```json
+{
+  "actions": {
+    "Jump": {
+      "pressed_keys": ["SPACE", "W", "UP"],
+      "pressed_gamepad": ["GAMEPAD_SOUTH_PRESSED"]
+    },
+    "HoldCamera": {
+      "down_keys": ["RBUTTON"],
+      "down_gamepad": ["GAMEPAD_LEFT_TRIGGER_DOWN"],
+      "down_falls_back_to_pressed": false
+    }
+  }
+}
+```
+
+### `actions.<ActionName>` で使えるキー
+
+- `down_keys`
+  `Input_IsActionDown` 判定に使うキー配列
+- `pressed_keys`
+  `Input_IsActionPressed` 判定に使うキー配列
+- `down_gamepad`
+  `Input_IsActionDown` 判定に使うゲームパッド述語配列
+- `pressed_gamepad`
+  `Input_IsActionPressed` 判定に使うゲームパッド述語配列
+- `down_falls_back_to_pressed`
+  `true` のとき、`down_keys/down_gamepad` が無効なら `pressed_*` 判定へフォールバックする
+
+### キー名 (`down_keys` / `pressed_keys`)
+
+主な文字列:
+
+- 単文字: `A`〜`Z`, `0`〜`9`
+- 特殊: `ENTER`, `SPACE`, `ESCAPE`, `LEFT`, `RIGHT`, `UP`, `DOWN`
+- 修飾: `SHIFT`, `LSHIFT`, `RSHIFT`
+- マウス: `LBUTTON`, `RBUTTON`
+- ファンクション: `F1`〜`F12`
+- 無効化: `NONE`
+
+数値 (0〜255) も指定できます。
+
+### ゲームパッド述語名 (`down_gamepad` / `pressed_gamepad`)
+
+- `GAMEPAD_SOUTH_PRESSED`
+- `GAMEPAD_EAST_PRESSED`
+- `GAMEPAD_NORTH_PRESSED`
+- `GAMEPAD_BACK_PRESSED`
+- `GAMEPAD_LEFT_TRIGGER_DOWN`
+- `GAMEPAD_RIGHT_TRIGGER_DOWN`
+- `GAMEPAD_RIGHT_TRIGGER_PRESSED`
+- `GAMEPAD_LEFT_SHOULDER_DOWN`
+- `GAMEPAD_RIGHT_SHOULDER_DOWN`
+- `GAMEPAD_LEFT_SHOULDER_PRESSED`
+- `GAMEPAD_RIGHT_SHOULDER_PRESSED`
+- `NONE`
+
+### 運用メモ
+
+- ファイルが無い場合はデフォルト割り当てを使います。
+- 未知の Action 名 / キー名 / 述語名は `foundation.log` に警告が出ます。
+- 起動時に、最終的に有効になった全アクションのバインド一覧をログ出力します。

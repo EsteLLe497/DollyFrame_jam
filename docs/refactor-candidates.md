@@ -4,6 +4,22 @@
 
 ## 完了（今回反映済み）
 
+- `RotatePoint` の共通化
+  - `game_scene_internal.h` に寄せて、複数ファイルの重複実装を削除
+- `core/input.cpp` の整理
+  - ゲームパッド判定の共通化
+  - アクション名 / キー名 / predicate 名のテーブル化
+- `game_scene_render_ui.cpp` の分割
+  - 共通 helper を `game_scene_render_ui_helpers.cpp` へ切り出し
+- `photo_shared` と UI 補助の共通描画ヘルパー化
+  - `DrawTriangleItem` / `DrawProjectileItem` を `game_scene_draw_helpers.h` に集約
+- `ResourceManager` のキャッシュ予約
+  - `AssetManifest` から見積もり件数を渡して rehash を抑制
+- `SceneRegistry` の透過検索化
+  - `Create` / `Contains` の一時 `std::string` 生成を削減
+- `Logger` の共通ログ入口化
+  - `Info` / `Warn` / `Error` を共通ヘルパーへ集約
+  - `spdlog` 呼び出し時の一時 `std::string` 生成を削減
 - 連動ギミック更新/再生成関数の命名整理
   - `UpdateElevatorGimmicks` → `UpdateLinkedGimmicks`
   - `RefreshElevatorGimmicksFromMarkers` → `RefreshLinkedGimmicksFromMarkers`

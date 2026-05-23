@@ -1,14 +1,31 @@
-﻿#include "input.h"
+﻿#include "pch.h"
+
+#include "input.h"
+
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <exception>
+#include <fstream>
+#include <iterator>
+#include <sstream>
+#include <string>
+
+#include <nlohmann/json.hpp>
 
 #include "DxLib.h"
+#include "directX.h"
+#include "logger.h"
 
 namespace
 {
     using ActionPredicate = bool (*)();
+    using json = nlohmann::json;
 
     constexpr int kNoKey = -1;
     constexpr int kMaxBindingKeys = 4;
     constexpr int kMaxBindingPredicates = 3;
+    constexpr const char* kInputBindingsPath = "assets/input_bindings.json";
 
     struct ActionBinding
     {
@@ -53,6 +70,7 @@ namespace
         case 'R': return KEY_INPUT_R;
         case 'S': return KEY_INPUT_S;
         case 'T': return KEY_INPUT_T;
+        case 'V': return KEY_INPUT_V;
         case 'W': return KEY_INPUT_W;
         case 'X': return KEY_INPUT_X;
         case 'Z': return KEY_INPUT_Z;
@@ -108,75 +126,183 @@ namespace
             static_cast<float>(255 - kTriggerThreshold);
     }
 
+    bool IsGamepadButtonDown(int buttonIndex)
+    {
+        return g_connected && g_state.Buttons[buttonIndex] != 0;
+    }
+
+    bool IsGamepadButtonPressed(int buttonIndex)
+    {
+        return g_connected &&
+            g_state.Buttons[buttonIndex] != 0 &&
+            g_prevState.Buttons[buttonIndex] == 0;
+    }
+
+    bool IsGamepadTriggerDown(unsigned char value)
+    {
+        return g_connected && value > kTriggerThreshold;
+    }
+
+    bool IsGamepadTriggerPressed(unsigned char value, unsigned char prevValue)
+    {
+        return g_connected && value > kTriggerThreshold && prevValue <= kTriggerThreshold;
+    }
+
+    template <typename Value>
+    struct NamedValue
+    {
+        const char* name;
+        Value value;
+    };
+
+    template <typename Value, std::size_t N>
+    bool TryLookupName(const std::string& key, const std::array<NamedValue<Value>, N>& entries, Value& out)
+    {
+        for (const auto& entry : entries)
+        {
+            if (key == entry.name)
+            {
+                out = entry.value;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    constexpr std::array<NamedValue<InputAction>, 34> kActionNameMap =
+    {{
+        { "CONFIRM", InputAction::Confirm },
+        { "CANCEL", InputAction::Cancel },
+        { "STARTGAME", InputAction::StartGame },
+        { "OPENDEMOSCENE", InputAction::OpenDemoScene },
+        { "OPENSHOWCASE", InputAction::OpenShaderShowcase },
+        { "OPENSHADERSHOWCASE", InputAction::OpenShaderShowcase },
+        { "RESTARTSCENE", InputAction::RestartScene },
+        { "RETURNTOTITLE", InputAction::ReturnToTitle },
+        { "TOGGLETUNINGPANEL", InputAction::ToggleTuningPanel },
+        { "TOGGLEPOSTPROCESS", InputAction::TogglePostProcess },
+        { "TOGGLECOLLISIONDEBUG", InputAction::ToggleCollisionDebug },
+        { "CYCLEFILTER", InputAction::CycleFilter },
+        { "SELECTFILTERNONE", InputAction::SelectFilterNone },
+        { "SELECTFILTERHOT", InputAction::SelectFilterHot },
+        { "SELECTFILTERCOLD", InputAction::SelectFilterCold },
+        { "SELECTFILTERINVERT", InputAction::SelectFilterInvert },
+        { "SELECTFILTERSEPIA", InputAction::SelectFilterSepia },
+        { "HOLDCAMERA", InputAction::HoldCamera },
+        { "CAPTUREPHOTO", InputAction::CapturePhoto },
+        { "HOLDPLACEMENT", InputAction::HoldPlacement },
+        { "CONFIRMPLACEMENT", InputAction::ConfirmPlacement },
+        { "CYCLEPLACEMENTLAYER", InputAction::CyclePlacementLayer },
+        { "FLIPPLACEMENT", InputAction::FlipPlacement },
+        { "TOGGLEBRIDGEPLACEMENT", InputAction::ToggleBridgePlacement },
+        { "ROTATEPLACEMENTLEFT", InputAction::RotatePlacementLeft },
+        { "ROTATEPLACEMENTRIGHT", InputAction::RotatePlacementRight },
+        { "MOVELEFT", InputAction::MoveLeft },
+        { "MOVERIGHT", InputAction::MoveRight },
+        { "MOVEUP", InputAction::MoveUp },
+        { "MOVEDOWN", InputAction::MoveDown },
+        { "JUMP", InputAction::Jump },
+        { "DODGE", InputAction::Dodge },
+        { "EXITPROMPTYES", InputAction::ExitPromptYes },
+        { "EXITPROMPTNO", InputAction::ExitPromptNo },
+    }};
+
+    constexpr std::array<NamedValue<int>, 28> kNamedVirtualKeys =
+    {{
+        { "ENTER", VK_RETURN },
+        { "RETURN", VK_RETURN },
+        { "SPACE", VK_SPACE },
+        { "ESC", VK_ESCAPE },
+        { "ESCAPE", VK_ESCAPE },
+        { "LEFT", VK_LEFT },
+        { "RIGHT", VK_RIGHT },
+        { "UP", VK_UP },
+        { "DOWN", VK_DOWN },
+        { "SHIFT", VK_SHIFT },
+        { "LSHIFT", VK_LSHIFT },
+        { "RSHIFT", VK_RSHIFT },
+        { "LBUTTON", VK_LBUTTON },
+        { "MOUSE_LEFT", VK_LBUTTON },
+        { "RBUTTON", VK_RBUTTON },
+        { "MOUSE_RIGHT", VK_RBUTTON },
+        { "F1", VK_F1 },
+        { "F2", VK_F2 },
+        { "F3", VK_F3 },
+        { "F4", VK_F4 },
+        { "F5", VK_F5 },
+        { "F6", VK_F6 },
+        { "F7", VK_F7 },
+        { "F8", VK_F8 },
+        { "F9", VK_F9 },
+        { "F10", VK_F10 },
+        { "F11", VK_F11 },
+        { "F12", VK_F12 },
+    }};
+
+    bool IsGamepadSouthPressed();
+    bool IsGamepadEastPressed();
+    bool IsGamepadNorthPressed();
+    bool IsGamepadBackPressed();
+    bool IsGamepadLeftTriggerDown();
+    bool IsGamepadRightTriggerDown();
+    bool IsGamepadRightTriggerPressed();
+    bool IsGamepadLeftShoulderDown();
+    bool IsGamepadRightShoulderDown();
+    bool IsGamepadLeftShoulderPressed();
+    bool IsGamepadRightShoulderPressed();
+
+    constexpr std::array<NamedValue<ActionPredicate>, 11> kPredicateNameMap =
+    {{
+        { "GAMEPAD_SOUTH_PRESSED", IsGamepadSouthPressed },
+        { "GAMEPAD_EAST_PRESSED", IsGamepadEastPressed },
+        { "GAMEPAD_NORTH_PRESSED", IsGamepadNorthPressed },
+        { "GAMEPAD_BACK_PRESSED", IsGamepadBackPressed },
+        { "GAMEPAD_LEFT_TRIGGER_DOWN", IsGamepadLeftTriggerDown },
+        { "GAMEPAD_RIGHT_TRIGGER_DOWN", IsGamepadRightTriggerDown },
+        { "GAMEPAD_RIGHT_TRIGGER_PRESSED", IsGamepadRightTriggerPressed },
+        { "GAMEPAD_LEFT_SHOULDER_DOWN", IsGamepadLeftShoulderDown },
+        { "GAMEPAD_RIGHT_SHOULDER_DOWN", IsGamepadRightShoulderDown },
+        { "GAMEPAD_LEFT_SHOULDER_PRESSED", IsGamepadLeftShoulderPressed },
+        { "GAMEPAD_RIGHT_SHOULDER_PRESSED", IsGamepadRightShoulderPressed },
+    }};
+
     bool IsGamepadSouthPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-
-        return g_state.Buttons[XINPUT_BUTTON_A] != 0 && g_prevState.Buttons[XINPUT_BUTTON_A] == 0;
+        return IsGamepadButtonPressed(XINPUT_BUTTON_A);
     }
 
     bool IsGamepadEastPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-
-        return g_state.Buttons[XINPUT_BUTTON_B] != 0 && g_prevState.Buttons[XINPUT_BUTTON_B] == 0;
+        return IsGamepadButtonPressed(XINPUT_BUTTON_B);
     }
 
     bool IsGamepadNorthPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return g_state.Buttons[XINPUT_BUTTON_Y] != 0 && g_prevState.Buttons[XINPUT_BUTTON_Y] == 0;
+        return IsGamepadButtonPressed(XINPUT_BUTTON_Y);
 	}
 
 
     bool IsGamepadBackPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-
-        return g_state.Buttons[XINPUT_BUTTON_BACK] != 0 &&
-            g_prevState.Buttons[XINPUT_BUTTON_BACK] == 0;
+        return IsGamepadButtonPressed(XINPUT_BUTTON_BACK);
     }
 
     //LT がホールドされているか
     bool IsGamepadLeftTriggerDown()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return g_state.LeftTrigger > kTriggerThreshold;
+        return IsGamepadTriggerDown(g_state.LeftTrigger);
     }
 
     bool IsGamepadRightTriggerDown()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return g_state.RightTrigger > kTriggerThreshold;
+        return IsGamepadTriggerDown(g_state.RightTrigger);
 	}
 
 
     //RTを押したとき
     bool IsGamepadRightTriggerPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return g_state.RightTrigger > kTriggerThreshold && g_prevState.RightTrigger <= kTriggerThreshold;
+        return IsGamepadTriggerPressed(g_state.RightTrigger, g_prevState.RightTrigger);
     }
 
     //右スティック取得
@@ -192,38 +318,22 @@ namespace
 
     bool IsGamepadRightShoulderDown()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return (g_state.Buttons[XINPUT_BUTTON_RIGHT_SHOULDER] != 0);
+        return IsGamepadButtonDown(XINPUT_BUTTON_RIGHT_SHOULDER);
 	}
 
     bool IsGamepadLeftShoulderDown()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return (g_state.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] != 0);
+        return IsGamepadButtonDown(XINPUT_BUTTON_LEFT_SHOULDER);
     }
 
     bool IsGamepadRightShoulderPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return (g_state.Buttons[XINPUT_BUTTON_RIGHT_SHOULDER] != 0) && (g_prevState.Buttons[XINPUT_BUTTON_RIGHT_SHOULDER] == 0);
+        return IsGamepadButtonPressed(XINPUT_BUTTON_RIGHT_SHOULDER);
 	}
 
     bool IsGamepadLeftShoulderPressed()
     {
-        if (!g_connected)
-        {
-            return false;
-        }
-        return (g_state.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] != 0) && (g_prevState.Buttons[XINPUT_BUTTON_LEFT_SHOULDER] == 0);
+        return IsGamepadButtonPressed(XINPUT_BUTTON_LEFT_SHOULDER);
 	}
 
     bool EvaluateBoundKeys(const int (&keys)[kMaxBindingKeys], bool pressed)
@@ -254,7 +364,7 @@ namespace
         return false;
     }
 
-    constexpr ActionBinding kActionBindings[] =
+    constexpr ActionBinding kDefaultActionBindings[] =
     {
         { InputAction::Confirm, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_RETURN, VK_SPACE, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadSouthPressed, nullptr, nullptr } },
         { InputAction::Cancel, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_ESCAPE, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
@@ -291,9 +401,264 @@ namespace
         { InputAction::ExitPromptNo, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'N', VK_ESCAPE, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
     };
 
-    const ActionBinding* FindBinding(InputAction action)
+    std::array<ActionBinding, std::size(kDefaultActionBindings)> g_actionBindings = std::to_array(kDefaultActionBindings);
+
+    std::string ToUpperAscii(std::string value)
     {
-        for (const ActionBinding& binding : kActionBindings)
+        std::transform(
+            value.begin(),
+            value.end(),
+            value.begin(),
+            [](unsigned char ch)
+            {
+                return static_cast<char>(std::toupper(ch));
+            });
+        return value;
+    }
+
+    bool TryParseAction(const std::string& text, InputAction& outAction)
+    {
+        const std::string key = ToUpperAscii(text);
+        return TryLookupName(key, kActionNameMap, outAction);
+    }
+
+    bool TryParseVirtualKey(const json& value, int& outKey)
+    {
+        if (value.is_number_integer())
+        {
+            const int key = value.get<int>();
+            if (key >= 0 && key <= 255)
+            {
+                outKey = key;
+                return true;
+            }
+            return false;
+        }
+
+        if (!value.is_string())
+        {
+            return false;
+        }
+
+        std::string key = ToUpperAscii(value.get<std::string>());
+        if (key.rfind("VK_", 0) == 0)
+        {
+            key = key.substr(3);
+        }
+
+        if (key == "NONE")
+        {
+            outKey = kNoKey;
+            return true;
+        }
+        if (TryLookupName(key, kNamedVirtualKeys, outKey))
+        {
+            return true;
+        }
+
+        if (key.size() == 1)
+        {
+            const unsigned char ch = static_cast<unsigned char>(key[0]);
+            if ((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9'))
+            {
+                outKey = static_cast<int>(ch);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool TryParsePredicateName(const json& value, ActionPredicate& outPredicate)
+    {
+        if (!value.is_string())
+        {
+            return false;
+        }
+
+        std::string key = ToUpperAscii(value.get<std::string>());
+        if (key == "NONE")
+        {
+            outPredicate = nullptr;
+            return true;
+        }
+        return TryLookupName(key, kPredicateNameMap, outPredicate);
+    }
+
+    const char* PredicateToString(ActionPredicate predicate)
+    {
+        if (predicate == nullptr) { return "NONE"; }
+        if (predicate == IsGamepadSouthPressed) { return "GAMEPAD_SOUTH_PRESSED"; }
+        if (predicate == IsGamepadEastPressed) { return "GAMEPAD_EAST_PRESSED"; }
+        if (predicate == IsGamepadNorthPressed) { return "GAMEPAD_NORTH_PRESSED"; }
+        if (predicate == IsGamepadBackPressed) { return "GAMEPAD_BACK_PRESSED"; }
+        if (predicate == IsGamepadLeftTriggerDown) { return "GAMEPAD_LEFT_TRIGGER_DOWN"; }
+        if (predicate == IsGamepadRightTriggerDown) { return "GAMEPAD_RIGHT_TRIGGER_DOWN"; }
+        if (predicate == IsGamepadRightTriggerPressed) { return "GAMEPAD_RIGHT_TRIGGER_PRESSED"; }
+        if (predicate == IsGamepadLeftShoulderDown) { return "GAMEPAD_LEFT_SHOULDER_DOWN"; }
+        if (predicate == IsGamepadRightShoulderDown) { return "GAMEPAD_RIGHT_SHOULDER_DOWN"; }
+        if (predicate == IsGamepadLeftShoulderPressed) { return "GAMEPAD_LEFT_SHOULDER_PRESSED"; }
+        if (predicate == IsGamepadRightShoulderPressed) { return "GAMEPAD_RIGHT_SHOULDER_PRESSED"; }
+        return "UNKNOWN_PREDICATE";
+    }
+
+    std::string VirtualKeyToString(int key)
+    {
+        if (key == kNoKey) { return "NONE"; }
+        if (key >= 'A' && key <= 'Z') { return std::string(1, static_cast<char>(key)); }
+        if (key >= '0' && key <= '9') { return std::string(1, static_cast<char>(key)); }
+        switch (key)
+        {
+        case VK_RETURN: return "ENTER";
+        case VK_SPACE: return "SPACE";
+        case VK_ESCAPE: return "ESCAPE";
+        case VK_LEFT: return "LEFT";
+        case VK_RIGHT: return "RIGHT";
+        case VK_UP: return "UP";
+        case VK_DOWN: return "DOWN";
+        case VK_SHIFT: return "SHIFT";
+        case VK_LSHIFT: return "LSHIFT";
+        case VK_RSHIFT: return "RSHIFT";
+        case VK_LBUTTON: return "LBUTTON";
+        case VK_RBUTTON: return "RBUTTON";
+        case VK_F1: return "F1";
+        case VK_F2: return "F2";
+        case VK_F3: return "F3";
+        case VK_F4: return "F4";
+        case VK_F5: return "F5";
+        case VK_F6: return "F6";
+        case VK_F7: return "F7";
+        case VK_F8: return "F8";
+        case VK_F9: return "F9";
+        case VK_F10: return "F10";
+        case VK_F11: return "F11";
+        case VK_F12: return "F12";
+        default:
+            break;
+        }
+        return "VK_" + std::to_string(key);
+    }
+
+    const char* ActionToString(InputAction action)
+    {
+        switch (action)
+        {
+        case InputAction::Confirm: return "Confirm";
+        case InputAction::Cancel: return "Cancel";
+        case InputAction::StartGame: return "StartGame";
+        case InputAction::OpenDemoScene: return "OpenDemoScene";
+        case InputAction::OpenShaderShowcase: return "OpenShaderShowcase";
+        case InputAction::RestartScene: return "RestartScene";
+        case InputAction::ReturnToTitle: return "ReturnToTitle";
+        case InputAction::ToggleTuningPanel: return "ToggleTuningPanel";
+        case InputAction::TogglePostProcess: return "TogglePostProcess";
+        case InputAction::ToggleCollisionDebug: return "ToggleCollisionDebug";
+        case InputAction::CycleFilter: return "CycleFilter";
+        case InputAction::SelectFilterNone: return "SelectFilterNone";
+        case InputAction::SelectFilterHot: return "SelectFilterHot";
+        case InputAction::SelectFilterCold: return "SelectFilterCold";
+        case InputAction::SelectFilterInvert: return "SelectFilterInvert";
+        case InputAction::SelectFilterSepia: return "SelectFilterSepia";
+        case InputAction::HoldCamera: return "HoldCamera";
+        case InputAction::CapturePhoto: return "CapturePhoto";
+        case InputAction::HoldPlacement: return "HoldPlacement";
+        case InputAction::ConfirmPlacement: return "ConfirmPlacement";
+        case InputAction::CyclePlacementLayer: return "CyclePlacementLayer";
+        case InputAction::FlipPlacement: return "FlipPlacement";
+        case InputAction::ToggleBridgePlacement: return "ToggleBridgePlacement";
+        case InputAction::RotatePlacementLeft: return "RotatePlacementLeft";
+        case InputAction::RotatePlacementRight: return "RotatePlacementRight";
+        case InputAction::MoveLeft: return "MoveLeft";
+        case InputAction::MoveRight: return "MoveRight";
+        case InputAction::MoveUp: return "MoveUp";
+        case InputAction::MoveDown: return "MoveDown";
+        case InputAction::Jump: return "Jump";
+        case InputAction::Dodge: return "Dodge";
+        case InputAction::ExitPromptYes: return "ExitPromptYes";
+        case InputAction::ExitPromptNo: return "ExitPromptNo";
+        default: return "Unknown";
+        }
+    }
+
+    void ClearKeyArray(int (&keys)[kMaxBindingKeys])
+    {
+        for (int& key : keys)
+        {
+            key = kNoKey;
+        }
+    }
+
+    void ClearPredicateArray(ActionPredicate (&predicates)[kMaxBindingPredicates])
+    {
+        for (ActionPredicate& predicate : predicates)
+        {
+            predicate = nullptr;
+        }
+    }
+
+    void ParseKeyArray(const json& arrayJson, int (&keys)[kMaxBindingKeys], const std::string& actionName, const char* fieldName)
+    {
+        if (!arrayJson.is_array())
+        {
+            return;
+        }
+
+        ClearKeyArray(keys);
+        size_t writeIndex = 0;
+        for (const auto& item : arrayJson)
+        {
+            if (writeIndex >= kMaxBindingKeys)
+            {
+                break;
+            }
+
+            int key = kNoKey;
+            if (TryParseVirtualKey(item, key))
+            {
+                keys[writeIndex] = key;
+                ++writeIndex;
+            }
+            else if (item.is_string() || item.is_number_integer())
+            {
+                const std::string badValue = item.is_string() ? item.get<std::string>() : std::to_string(item.get<int>());
+                Logger::Warn(
+                    "Input key is unknown for action '" + actionName + "' (" + fieldName + "): " + badValue);
+            }
+        }
+    }
+
+    void ParsePredicateArray(const json& arrayJson, ActionPredicate (&predicates)[kMaxBindingPredicates], const std::string& actionName)
+    {
+        if (!arrayJson.is_array())
+        {
+            return;
+        }
+
+        ClearPredicateArray(predicates);
+        size_t writeIndex = 0;
+        for (const auto& item : arrayJson)
+        {
+            if (writeIndex >= kMaxBindingPredicates)
+            {
+                break;
+            }
+
+            ActionPredicate predicate = nullptr;
+            if (TryParsePredicateName(item, predicate))
+            {
+                predicates[writeIndex] = predicate;
+                ++writeIndex;
+            }
+            else if (item.is_string())
+            {
+                Logger::Warn("Input gamepad predicate is unknown for action '" + actionName + "': " + item.get<std::string>());
+            }
+        }
+    }
+
+    ActionBinding* FindMutableBinding(InputAction action)
+    {
+        for (ActionBinding& binding : g_actionBindings)
         {
             if (binding.action == action)
             {
@@ -302,10 +667,158 @@ namespace
         }
         return nullptr;
     }
+
+    const ActionBinding* FindBinding(InputAction action)
+    {
+        for (const ActionBinding& binding : g_actionBindings)
+        {
+            if (binding.action == action)
+            {
+                return &binding;
+            }
+        }
+        return nullptr;
+    }
+
+    void ApplyBindingOverride(const json& bindingJson, const std::string& actionName)
+    {
+        InputAction action = InputAction::Confirm;
+        if (!TryParseAction(actionName, action))
+        {
+            Logger::Warn("Input binding action is unknown: " + actionName);
+            return;
+        }
+
+        ActionBinding* binding = FindMutableBinding(action);
+        if (!binding)
+        {
+            return;
+        }
+
+        if (bindingJson.contains("down_keys"))
+        {
+            ParseKeyArray(bindingJson["down_keys"], binding->downKeys, actionName, "down_keys");
+        }
+        if (bindingJson.contains("pressed_keys"))
+        {
+            ParseKeyArray(bindingJson["pressed_keys"], binding->pressedKeys, actionName, "pressed_keys");
+        }
+        if (bindingJson.contains("down_falls_back_to_pressed") && bindingJson["down_falls_back_to_pressed"].is_boolean())
+        {
+            binding->downFallsBackToPressed = bindingJson["down_falls_back_to_pressed"].get<bool>();
+        }
+        if (bindingJson.contains("down_gamepad"))
+        {
+            ParsePredicateArray(bindingJson["down_gamepad"], binding->downPredicates, actionName);
+        }
+        if (bindingJson.contains("pressed_gamepad"))
+        {
+            ParsePredicateArray(bindingJson["pressed_gamepad"], binding->pressedPredicates, actionName);
+        }
+    }
+
+    void LoadInputBindings()
+    {
+        std::ifstream stream(kInputBindingsPath, std::ios::binary);
+        if (!stream.is_open())
+        {
+            return;
+        }
+
+        json root;
+        try
+        {
+            stream >> root;
+        }
+        catch (const std::exception& e)
+        {
+            Logger::Warn(std::string("Failed to parse input bindings JSON: ") + e.what());
+            return;
+        }
+
+        if (root.contains("bindings") && root["bindings"].is_array())
+        {
+            for (const auto& bindingJson : root["bindings"])
+            {
+                if (!bindingJson.is_object() || !bindingJson.contains("action") || !bindingJson["action"].is_string())
+                {
+                    continue;
+                }
+                ApplyBindingOverride(bindingJson, bindingJson["action"].get<std::string>());
+            }
+        }
+
+        if (root.contains("actions") && root["actions"].is_object())
+        {
+            for (const auto& [actionName, bindingJson] : root["actions"].items())
+            {
+                if (!bindingJson.is_object())
+                {
+                    continue;
+                }
+                ApplyBindingOverride(bindingJson, actionName);
+            }
+        }
+
+        auto joinKeys = [](const int (&keys)[kMaxBindingKeys]) -> std::string
+        {
+            std::ostringstream oss;
+            bool first = true;
+            for (int key : keys)
+            {
+                if (key == kNoKey)
+                {
+                    continue;
+                }
+                if (!first)
+                {
+                    oss << ", ";
+                }
+                first = false;
+                oss << VirtualKeyToString(key);
+            }
+            return first ? "NONE" : oss.str();
+        };
+
+        auto joinPredicates = [](const ActionPredicate (&predicates)[kMaxBindingPredicates]) -> std::string
+        {
+            std::ostringstream oss;
+            bool first = true;
+            for (ActionPredicate predicate : predicates)
+            {
+                if (predicate == nullptr)
+                {
+                    continue;
+                }
+                if (!first)
+                {
+                    oss << ", ";
+                }
+                first = false;
+                oss << PredicateToString(predicate);
+            }
+            return first ? "NONE" : oss.str();
+        };
+
+        Logger::Info("Input bindings loaded from assets/input_bindings.json");
+        for (const ActionBinding& binding : g_actionBindings)
+        {
+            Logger::Info(
+                std::string("Input binding: ") + ActionToString(binding.action) +
+                " | down_keys=[" + joinKeys(binding.downKeys) + "]" +
+                " | pressed_keys=[" + joinKeys(binding.pressedKeys) + "]" +
+                " | down_gamepad=[" + joinPredicates(binding.downPredicates) + "]" +
+                " | pressed_gamepad=[" + joinPredicates(binding.pressedPredicates) + "]" +
+                " | fallback=" + (binding.downFallsBackToPressed ? "true" : "false"));
+        }
+    }
 }
 
 bool Input_Initialize()
 {
+    g_actionBindings = std::to_array(kDefaultActionBindings);
+    LoadInputBindings();
+
     ZeroMemory(&g_state, sizeof(g_state));
     ZeroMemory(&g_prevState, sizeof(g_prevState));
     ZeroMemory(g_keyState, sizeof(g_keyState));
@@ -498,7 +1011,7 @@ int Input_GetMouseX()
     int x = 0;
     int y = 0;
     GetMousePoint(&x, &y);
-    return x;
+    return DirectXMapWindowToVirtualX(x);
 }
 
 int Input_GetMouseY()
@@ -506,7 +1019,7 @@ int Input_GetMouseY()
     int x = 0;
     int y = 0;
     GetMousePoint(&x, &y);
-    return y;
+    return DirectXMapWindowToVirtualY(y);
 }
 
 bool Input_IsDpadUpPressed()

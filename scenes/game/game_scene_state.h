@@ -65,6 +65,7 @@ struct GameSceneFlowState
     float placementSlowRemaining = 0.0f;
     bool goalUnlocked = false;
     bool goalUnlockedBySwitch = false;
+    bool shieldBossDefeatedThisScene = false;
     bool cameraMode = false;
     int enemyCount = 0;
     float shutterFlashRemaining = 0.0f;
@@ -117,6 +118,11 @@ struct GameScenePlayerState
     float landingImpact = 0.0f;
     float jumpStretch = 0.0f;
     float dodgeStretch = 0.0f;
+    bool captureAnimationActive = false;
+    bool captureAnimationReleased = false;
+    bool pasteAnimationActive = false;
+    bool pasteAnimationReleased = false;
+    bool pasteAnimationEnemyAttack = false;
     std::vector<PlayerAfterimage> afterimages;
 };
 
@@ -129,9 +135,11 @@ struct GameSceneDebugState
     bool effectPlacementPulseEnabled = true;
     bool effectPasteStickEnabled = true;
     bool effectPasteRingEnabled = true;
+    bool sepiaFilmFilterDryRunEnabled = false;
     bool bgmEnabled = true;
     float bgmRestoreVolume = 0.6f;
     bool screenShakeEnabled = true;
+    bool playerHealthDamageEnabled = true;
     int tuningSelection = 0;
     float tuningReloadTimer = 0.0f;
     std::filesystem::file_time_type tuningFileWriteTime{};
@@ -156,6 +164,9 @@ struct GameSceneMapEditorState
     BrushTarget brushTarget = BrushTarget::Tile;
     int selectedTileValue = 1;
     char selectedMarker = 'G';
+    int selectedMarkerParameter = 1;
+    int selectedStageLightTiles = 3;
+    int selectedStageLightFixtureTiles = 1;
     std::string statusMessage;
     float statusMessageTimer = 0.0f;
 };

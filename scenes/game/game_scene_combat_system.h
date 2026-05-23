@@ -14,16 +14,99 @@ namespace game_scene_combat_system
 {
 inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagEnemy = "Enemy";
+inline constexpr float kMidBoss2SpearSpeed = 800.0f;
 inline bool HasTag(const Entity& entity, const char* value)
 {
     const auto* tag = entity.GetComponent<TagComponent>();
     return tag && tag->tag == value;
 }
 
+inline bool IntersectsBounds(const TransformComponent& a, const TransformComponent& b)
+{
+    const float aRight = a.x + a.width * a.scale;
+    const float aBottom = a.y + a.height * a.scale;
+    const float bRight = b.x + b.width * b.scale;
+    const float bBottom = b.y + b.height * b.scale;
+    return a.x < bRight && aRight > b.x && a.y < bBottom && aBottom > b.y;
+}
+
+inline void UpdateWalkerSpriteAnimation(Entity& entity, const EnemyComponent& enemy, bool moving)
+{
+    auto* sprite = entity.GetComponent<SpriteRenderComponent>();
+    auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
+    if (!sprite || !animation)
+    {
+        return;
+    }
+
+    // Enemy1 sheets face left by default; mirror only when the AI faces right.
+    sprite->SetFlipX(enemy.facing == EnemyComponent::FacingDirection::Right);
+    const char* clipName = enemy.GetAIState() == EnemyComponent::AIState::Attack
+        ? "attack"
+        : (moving ? "move" : "idle");
+    animation->Play(clipName);
+}
+
+inline void PlayRangedSpriteAnimation(Entity& entity, const char* clipName, bool restart = false)
+{
+    auto* sprite = entity.GetComponent<SpriteRenderComponent>();
+    auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
+    if (!sprite || !animation)
+    {
+        return;
+    }
+
+    // Enemy2 is authored left-facing and should never turn around.
+    sprite->SetFlipX(false);
+    animation->Play(clipName, restart);
+}
+
+inline const char* ToMidBoss2StateLabel(MidBoss2State state)
+{
+    switch (state)
+    {
+    case MidBoss2State::Idle: return "Idle";
+    case MidBoss2State::SpearJump: return "SpearJump";
+    case MidBoss2State::SpearThrow: return "SpearThrow";
+    case MidBoss2State::SpearLanding: return "SpearLanding";
+    case MidBoss2State::SpearCooldown: return "SpearCooldown";
+    case MidBoss2State::BeamCharge: return "BeamCharge";
+    case MidBoss2State::BeamFire: return "BeamFire";
+    case MidBoss2State::BeamCooldown: return "BeamCooldown";
+    case MidBoss2State::Damaged: return "Damaged";
+    case MidBoss2State::Dead: return "Dead";
+    default: return "Unknown";
+    }
+}
+
+inline float NormalizeAngleRadians(float radians)
+{
+    constexpr float kTwoPi = 6.2831853072f;
+    constexpr float kPi = 3.1415926536f;
+    if (std::isnan(radians) || std::isinf(radians))
+    {
+        return 0.0f;
+    }
+
+    radians = std::fmod(radians, kTwoPi);
+    if (radians > kPi)
+    {
+        radians -= kTwoPi;
+    }
+    else if (radians < -kPi)
+    {
+        radians += kTwoPi;
+    }
+
+    return radians;
+}
+
 template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
     int tileTexture,
+    float mapWidth,
+    float mapHeight,
     GameSceneFlowState& flow,
     const PhotoState& photo,
     const TransformComponent* playerTransform,
@@ -34,6 +117,16 @@ inline void UpdateEnemies(
 {
     flow.enemyCount = 0;
     std::vector<std::unique_ptr<Entity>> newBullets;
+    std::vector<std::unique_ptr<Entity>> newShields;
+    std::vector<Entity*> entitiesToRemove;
+    constexpr float kMidBoss2JumpCenterGridX = 36.0f;
+    constexpr float kMidBoss2ArenaHalfWidthGrid = 18.0f;
+    constexpr float kMidBoss2ArenaCenterMinGridX = kMidBoss2JumpCenterGridX - kMidBoss2ArenaHalfWidthGrid;
+    constexpr float kMidBoss2ArenaCenterMaxGridX = kMidBoss2JumpCenterGridX + kMidBoss2ArenaHalfWidthGrid;
+    constexpr float kMidBoss2LandingInsetGrid = 6.0f;
+    constexpr float kMidBoss2SideLandingInsetGrid = 3.0f;
+    constexpr float kMidBoss2GroundOffsetGridY = 4.0f;
+    constexpr float kMidBoss2HoverHeightGrid = 11.0f;
 
     for (const auto& entity : entities)
     {
@@ -61,18 +154,39 @@ inline void UpdateEnemies(
             continue;
         }
 
+        if (enemy->knockbackActive)
+        {
+            enemy->knockbackTimer += flow.lastDeltaTime;
+            const float progress = std::min(1.0f, enemy->knockbackTimer / enemy->knockbackDuration);
+            const float moveProgress = std::sin(progress * 3.1415926f * 0.5f);
+            transform->x = enemy->knockbackStartX + (enemy->knockbackTargetX - enemy->knockbackStartX) * moveProgress;
+            transform->y = enemy->knockbackStartY - std::sin(progress * 3.1415926f) * enemy->knockbackHeight * 48.0f;
+            if (progress >= 1.0f)
+            {
+                transform->x = enemy->knockbackTargetX;
+                transform->y = enemy->knockbackStartY;
+                enemy->knockbackActive = false;
+                enemy->knockbackTimer = 0.0f;
+            }
+            continue;
+        }
+
         if (enemy->GetArchetype() == EnemyArchetype::Walker)
         {
             const float dx = playerTransform->x - transform->x;
             const float dy = playerTransform->y - transform->y;
             const float dist = std::fabs(dx);
+            bool walkerMoved = false;
             constexpr float kWalkerSpeed = 120.0f;
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
+            constexpr float kWalkerAttackActiveSeconds = 0.18f;
+            constexpr int kWalkerAttackHitFrame = 30; // 31st frame, zero-based.
+            constexpr int kWalkerAttackLastFrame = 55;
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            // 重力処理
+            
             enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
             transform->y += enemy->velocityY * flow.lastDeltaTime;
             const bool onGround = snapToGround(*transform);
@@ -81,15 +195,15 @@ inline void UpdateEnemies(
                 enemy->velocityY = 0.0f;
             }
 
-            // 向き更新
-            if (enemy->GetAIState() != EnemyComponent::AIState::Attack)
+            
+            if (inDetectRange && enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
                 enemy->facing = dx > 0.0f
                     ? EnemyComponent::FacingDirection::Right
                     : EnemyComponent::FacingDirection::Left;
             }
 
-            // 攻撃四角の残り時間を更新
+            
             if (enemy->attackRectActive)
             {
                 enemy->attackRectRemaining -= flow.lastDeltaTime;
@@ -110,26 +224,18 @@ inline void UpdateEnemies(
             case EnemyComponent::AIState::Chase:
                 if (dist < enemy->attackRange)
                 {
-                    // 攻撃開始時に向きを固定して攻撃四角を生成
+                    
                     enemy->facing = dx > 0.0f
                         ? EnemyComponent::FacingDirection::Right
                         : EnemyComponent::FacingDirection::Left;
 
-                    const float attackWidth = 48.0f;
-                    const float attackHeight = 60.0f;
-                    const float attackOffsetY = transform->height * transform->scale * -3.3f;
-
-                    enemy->attackRectX = enemy->facing == EnemyComponent::FacingDirection::Right
-                        ? transform->x + transform->width * transform->scale
-                        : transform->x - attackWidth;
-                    enemy->attackRectY = transform->y + attackOffsetY;
-                    enemy->attackRectWidth = attackWidth;
-                    enemy->attackRectHeight = attackHeight;
-                    enemy->attackRectRemaining = enemy->attackCooldown;
-                    enemy->attackRectActive = true;
-
                     enemy->attackTimer = 0.0f;
+                    enemy->attackFrameTriggered = false;
                     enemy->SetAIState(EnemyComponent::AIState::Attack);
+                    if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
+                    {
+                        animation->Play("attack", true);
+                    }
                 }
                 else if (!inDetectRange)
                 {
@@ -139,23 +245,49 @@ inline void UpdateEnemies(
                 {
                     transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * flow.lastDeltaTime;
                     snapToGround(*transform);
+                    walkerMoved = true;
                 }
                 break;
             case EnemyComponent::AIState::Attack:
                 enemy->attackTimer += flow.lastDeltaTime;
-                if (dist >= enemy->attackRange)
+                if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
                 {
-                    enemy->attackRectActive = false;
-                    enemy->SetAIState(EnemyComponent::AIState::Chase);
+                    const int attackFrame = animation->GetCurrentFrameIndex();
+                    if (!enemy->attackFrameTriggered && attackFrame >= kWalkerAttackHitFrame)
+                    {
+                        enemy->attackFrameTriggered = true;
+                        const float attackWidth = 48.0f;
+                        const float attackHeight = 60.0f;
+                        const float attackOffsetY = transform->height * transform->scale * -0.1f;
+
+                        enemy->attackRectX = enemy->facing == EnemyComponent::FacingDirection::Right
+                            ? transform->x + transform->width * transform->scale
+                            : transform->x - attackWidth;
+                        enemy->attackRectY = transform->y + attackOffsetY;
+                        enemy->attackRectWidth = attackWidth;
+                        enemy->attackRectHeight = attackHeight;
+                        enemy->attackRectRemaining = kWalkerAttackActiveSeconds;
+                        enemy->attackRectActive = true;
+                    }
+
+                    if (attackFrame >= kWalkerAttackLastFrame)
+                    {
+                        enemy->attackFrameTriggered = false;
+                        enemy->attackRectActive = false;
+                        enemy->SetAIState(EnemyComponent::AIState::Chase);
+                    }
                 }
                 else if (enemy->attackTimer >= enemy->attackCooldown)
                 {
                     enemy->attackTimer = 0.0f;
+                    enemy->attackFrameTriggered = false;
                     enemy->attackRectActive = false;
                     enemy->SetAIState(EnemyComponent::AIState::Chase);
                 }
                 break;
             }
+
+            UpdateWalkerSpriteAnimation(*entity, *enemy, walkerMoved);
         }
 
         else if (enemy->GetArchetype() == EnemyArchetype::Ranged)
@@ -174,26 +306,52 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            
-            const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
+            // Enemy2 only watches its fixed left side; a player on the right is treated as undetected.
+            const bool inDetectRange = dx <= 0.0f && dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-      
-
-            enemy->attackTimer += flow.lastDeltaTime;
-
-            if (inDetectRange && enemy->attackTimer >= enemy->attackCooldown)
+            if (!inDetectRange)
             {
                 enemy->attackTimer = 0.0f;
+                enemy->attackFrameTriggered = false;
+                enemy->SetAIState(EnemyComponent::AIState::Idle);
+                PlayRangedSpriteAnimation(*entity, "idle");
+                continue;
+            }
+
+            auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>();
+            if (enemy->GetAIState() != EnemyComponent::AIState::Attack)
+            {
+                PlayRangedSpriteAnimation(*entity, "idle");
+                enemy->attackTimer += flow.lastDeltaTime;
+
+                if (enemy->attackTimer >= enemy->attackCooldown)
+                {
+                    enemy->attackTimer = 0.0f;
+                    enemy->attackFrameTriggered = false;
+                    enemy->SetAIState(EnemyComponent::AIState::Attack);
+                    PlayRangedSpriteAnimation(*entity, "attack", true);
+                }
+                continue;
+            }
+
+            PlayRangedSpriteAnimation(*entity, "attack");
+            const int attackFrame = animation ? animation->GetCurrentFrameIndex() : 0;
+            constexpr int kEnemy2AttackFireFrame = 38; // 39th frame, zero-based.
+            constexpr int kEnemy2AttackLastFrame = 79;
+
+            if (!enemy->attackFrameTriggered && attackFrame >= kEnemy2AttackFireFrame)
+            {
+                enemy->attackFrameTriggered = true;
 
                 constexpr float kBulletSpeed = 300.0f;
                 
-                const float velX = (dx > 0.0f ? 1.0f : -1.0f) * kBulletSpeed;
+                const float velX = -kBulletSpeed;
                 const float velY = 0.0f;
 
                 auto bullet = std::make_unique<Entity>();
                 bullet->AddComponent<TagComponent>(kTagBullet);
                 bullet->AddComponent<TransformComponent>(
-                    transform->x + 24.0f,
+                    transform->x - 24.0f,
                     transform->y + 24.0f,
                     48.0f, 24.0f); 
                 bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
@@ -201,6 +359,13 @@ inline void UpdateEnemies(
                 bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
                 playEnemyGun(*entity);
                 newBullets.push_back(std::move(bullet));
+            }
+
+            if (attackFrame >= kEnemy2AttackLastFrame)
+            {
+                enemy->attackFrameTriggered = false;
+                enemy->SetAIState(EnemyComponent::AIState::Idle);
+                PlayRangedSpriteAnimation(*entity, "idle", true);
             }
         }
 
@@ -213,7 +378,7 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            // 検知範囲内なら追従（地形無視で直進）
+            
             if (dist < ghost->detectRange)
             {
                 const float length = std::max(1.0f, dist);
@@ -236,7 +401,7 @@ inline void UpdateEnemies(
             blaster->cooldownTimer += flow.lastDeltaTime;
             blaster->burstTimer += flow.lastDeltaTime;
 
-            // 検知範囲内でクールダウン終了したら連射開始
+            
             if (dist < blaster->detectRange && blaster->shotsRemaining == 0
                 && blaster->cooldownTimer >= blaster->cooldown)
             {
@@ -245,7 +410,7 @@ inline void UpdateEnemies(
                 blaster->cooldownTimer = 0.0f;
             }
 
-            // 連射処理
+            
             if (blaster->shotsRemaining > 0 && blaster->burstTimer >= blaster->burstInterval)
             {
                 blaster->burstTimer = 0.0f;
@@ -279,46 +444,292 @@ inline void UpdateEnemies(
 
             const float dx = playerTransform->x - transform->x;
             const float dy = playerTransform->y - transform->y;
-            const bool inDetectRange = std::fabs(dx) < boss->detectRange && std::fabs(dy) < boss->detectHeight;
+            const bool inDetectRange = std::fabs(dx) < boss->detectRange
+                && std::fabs(dy) < boss->detectHeight;
 
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
             constexpr float kTileSize = 48.0f;
+            const float bossWidth = transform->width * transform->scale;
+            const float bossHeight = transform->height * transform->scale;
 
-            // 重力処理（ジャンプ中のみ）
-            if (boss->state == ShieldBossState::JumpAscend ||
-                boss->state == ShieldBossState::JumpDescend)
+            float& bossVelocityY = enemy->velocityY;
+            float bossVelocityX = 0.0f;
+
+            ShieldComponent* shieldComp = boss->shieldEntity
+                ? boss->shieldEntity->GetComponent<ShieldComponent>()
+                : nullptr;
+            TransformComponent* shieldTransform = boss->shieldEntity
+                ? boss->shieldEntity->GetComponent<TransformComponent>()
+                : nullptr;
+            TintComponent* shieldTint = boss->shieldEntity
+                ? boss->shieldEntity->GetComponent<TintComponent>()
+                : nullptr;
+
+            auto resetShieldToGuard = [&]()
             {
-                boss->velocityY = std::min(kMaxFallSpeed, boss->velocityY + kGravity * flow.lastDeltaTime);
-                transform->y += boss->velocityY * flow.lastDeltaTime;
-
-                const float targetDx = boss->targetX - transform->x;
-                if (std::fabs(targetDx) > 4.0f)
+                if (!shieldComp)
                 {
-                    transform->x += (targetDx > 0.0f ? 1.0f : -1.0f) * 400.0f * flow.lastDeltaTime;
+                    return;
+                }
+                shieldComp->attached = true;
+                shieldComp->attackType = ShieldAttackType::None;
+                shieldComp->velocityX = 0.0f;
+                shieldComp->velocityY = 0.0f;
+                shieldComp->rotationSpeed = 0.0f;
+                shieldComp->gravityEnabled = false;
+                shieldComp->baseAttackElapsed = 0.0f;
+                shieldComp->contactDamage = 1;
+                if (shieldTransform)
+                {
+                    shieldTransform->width = kTileSize * 1.0f;
+                    shieldTransform->height = kTileSize * 3.0f;
+                    shieldTransform->rotation = 0.0f;
+                }
+                if (shieldTint)
+                {
+                    shieldTint->r = 0.72f;
+                    shieldTint->g = 0.78f;
+                    shieldTint->b = 0.90f;
+                    shieldTint->a = 1.0f;
+                }
+            };
+
+            auto isBossNearWall = [&]() -> bool
+            {
+                const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
+                const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
+                const int probeTiles = 3;
+                const int leftColumn = static_cast<int>((transform->x - kTileSize * probeTiles) / kTileSize);
+                const int rightColumn = static_cast<int>((transform->x + bossWidth + kTileSize * probeTiles) / kTileSize);
+                for (int row = rowTop; row <= rowBottom; ++row)
+                {
+                    if (isSolidTile(leftColumn, row) || isSolidTile(rightColumn, row))
+                    {
+                        return true;
+                    }
+                }
+                return transform->x <= kTileSize * 4.0f || transform->x + bossWidth >= mapWidth - kTileSize * 4.0f;
+            };
+
+            auto wouldJumpAttackRiskWall = [&](float plannedTargetX) -> bool
+            {
+                const float shieldWidth = kTileSize * 3.0f;
+                const float minX = boss->facing == ShieldBossFacing::Right
+                    ? plannedTargetX
+                    : plannedTargetX - shieldWidth;
+                const float maxX = boss->facing == ShieldBossFacing::Right
+                    ? plannedTargetX + bossWidth + shieldWidth
+                    : plannedTargetX + bossWidth;
+                if (minX <= kTileSize * 2.0f || maxX >= mapWidth - kTileSize * 2.0f)
+                {
+                    return true;
                 }
 
-                if (boss->state == ShieldBossState::JumpAscend && boss->velocityY >= 0.0f)
+                const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
+                const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
+                const int leftColumn = static_cast<int>((minX - kTileSize) / kTileSize);
+                const int rightColumn = static_cast<int>((maxX + kTileSize) / kTileSize);
+                for (int row = rowTop; row <= rowBottom; ++row)
                 {
-                    boss->state = ShieldBossState::JumpDescend;
+                    if (isSolidTile(leftColumn, row) || isSolidTile(rightColumn, row))
+                    {
+                        return true;
+                    }
                 }
+                return false;
+            };
 
-                const float targetRotation = boss->facing == ShieldBossFacing::Right
-                    ? -0.8f  
-                    : 0.8f;
-                transform->rotation += (targetRotation - transform->rotation) * flow.lastDeltaTime * 5.0f;
+            auto findHitNonWallObject = [&]() -> Entity*
+            {
+                for (const auto& other : entities)
+                {
+                    if (!other || other.get() == entity.get() || other.get() == boss->shieldEntity)
+                    {
+                        continue;
+                    }
+                    const auto* otherTransform = other->GetComponent<TransformComponent>();
+                    if (!otherTransform)
+                    {
+                        continue;
+                    }
+                    if (IntersectsBounds(*transform, *otherTransform) ||
+                        (shieldTransform && IntersectsBounds(*shieldTransform, *otherTransform)))
+                    {
+                        return other.get();
+                    }
+                }
+                return nullptr;
+            };
+
+            auto removeObjectsUnderShield = [&]()
+            {
+                if (!shieldTransform)
+                {
+                    return;
+                }
+                for (const auto& other : entities)
+                {
+                    if (!other || other.get() == entity.get() || other.get() == boss->shieldEntity)
+                    {
+                        continue;
+                    }
+                    if (HasTag(*other, "Player"))
+                    {
+                        continue;
+                    }
+                    const auto* otherTransform = other->GetComponent<TransformComponent>();
+                    if (!otherTransform || !IntersectsBounds(*shieldTransform, *otherTransform))
+                    {
+                        continue;
+                    }
+                    if (std::find(entitiesToRemove.begin(), entitiesToRemove.end(), other.get()) == entitiesToRemove.end())
+                    {
+                        entitiesToRemove.push_back(other.get());
+                    }
+                }
+            };
+
+            auto startBossKnockback = [&](float direction)
+            {
+                boss->knockbackActive = true;
+                boss->knockbackTimer = 0.0f;
+                boss->knockbackStartX = transform->x;
+                boss->knockbackStartY = transform->y;
+                boss->knockbackTargetX = transform->x - direction * (kTileSize * 3.0f);
+                if (shieldComp && shieldTransform)
+                {
+                    shieldComp->attached = true;
+                    shieldComp->attackType = ShieldAttackType::None;
+                    shieldComp->velocityX = 0.0f;
+                    shieldComp->velocityY = 0.0f;
+                    shieldComp->rotationSpeed = 0.0f;
+                    shieldComp->gravityEnabled = false;
+                    shieldTransform->width = kTileSize * 1.0f;
+                    shieldTransform->height = kTileSize * 3.0f;
+                    shieldTransform->rotation = 0.0f;
+                }
+            };
+
+            if (boss->knockbackActive)
+            {
+                boss->knockbackTimer += flow.lastDeltaTime;
+                const float progress = std::min(1.0f, boss->knockbackTimer / boss->knockbackDuration);
+                const float moveProgress = std::sin(progress * 3.1415926f * 0.5f);
+                transform->x = boss->knockbackStartX + (boss->knockbackTargetX - boss->knockbackStartX) * moveProgress;
+                transform->y = boss->knockbackStartY - std::sin(progress * 3.1415926f) * boss->knockbackHeight * kTileSize;
+                if (progress >= 1.0f)
+                {
+                    transform->x = boss->knockbackTargetX;
+                    transform->y = boss->knockbackStartY;
+                    boss->knockbackActive = false;
+                    boss->knockbackTimer = 0.0f;
+                }
             }
-            else if (boss->state == ShieldBossState::Rush)
+
+            auto syncAttachedShieldToBoss = [&]()
+            {
+                if (!shieldComp || !shieldTransform)
+                {
+                    return;
+                }
+                if (boss->knockbackActive)
+                {
+                    shieldComp->attached = true;
+                    shieldComp->attackType = ShieldAttackType::None;
+                    shieldComp->velocityX = 0.0f;
+                    shieldComp->velocityY = 0.0f;
+                    shieldComp->rotationSpeed = 0.0f;
+                    shieldComp->gravityEnabled = false;
+                    shieldTransform->width = kTileSize * 1.0f;
+                    shieldTransform->height = kTileSize * 3.0f;
+                    shieldTransform->rotation = 0.0f;
+                }
+                if (!shieldComp->attached)
+                {
+                    return;
+                }
+                const float shieldW = shieldTransform->width * shieldTransform->scale;
+                const float shieldH = shieldTransform->height * shieldTransform->scale;
+                if (shieldTint)
+                {
+                    shieldTint->r = 0.72f;
+                    shieldTint->g = 0.78f;
+                    shieldTint->b = 0.90f;
+                    shieldTint->a = 1.0f;
+                }
+
+                if (boss->state == ShieldBossState::JumpAscend)
+                {
+                    // During ascent the shield stays above the boss.
+                    shieldTransform->x = boss->facing == ShieldBossFacing::Right
+                        ? transform->x + bossWidth
+                        : transform->x - shieldW;
+                    shieldTransform->y = transform->y - shieldH;
+                }
+                else if (boss->state == ShieldBossState::AirHover)
+                {
+                    shieldTransform->x = boss->hoverShieldX;
+                    shieldTransform->y = boss->hoverShieldY;
+                }
+                else if (boss->state == ShieldBossState::Rush)
+                {
+                    
+                    shieldTransform->x = boss->facing == ShieldBossFacing::Right
+                        ? transform->x + bossWidth
+                        : transform->x - shieldW;
+                    shieldTransform->y = transform->y;
+                }
+                else
+                {
+                   
+                    shieldTransform->x = boss->facing == ShieldBossFacing::Right
+                        ? transform->x + bossWidth
+                        : transform->x - shieldW;
+                    shieldTransform->y = transform->y;
+                    shieldTransform->rotation = 0.0f;
+                }
+            };
+
+            syncAttachedShieldToBoss();
+
+            
+            if (boss->state == ShieldBossState::Idle ||
+                boss->state == ShieldBossState::Detect ||
+                boss->state == ShieldBossState::RushCooldown ||
+                boss->state == ShieldBossState::Cooldown)
+            {
+                if (!boss->knockbackActive)
+                {
+                    bossVelocityY = std::min(kMaxFallSpeed, bossVelocityY + kGravity * flow.lastDeltaTime);
+                    transform->y += bossVelocityY * flow.lastDeltaTime;
+                    const bool onGround = snapToGround(*transform);
+                    if (onGround) bossVelocityY = 0.0f;
+                }
+            }
+
+            if (boss->knockbackActive)
+            {
+                continue;
+            }
+
+            
+            bool rushEndedThisFrame = false;
+            if (boss->state == ShieldBossState::Rush)
             {
                 const float dir = boss->facing == ShieldBossFacing::Right ? 1.0f : -1.0f;
                 transform->x += dir * boss->rushSpeed * flow.lastDeltaTime;
+                syncAttachedShieldToBoss();
 
-                // 壁チェック
-                const float bossWidth = transform->width * transform->scale;
-                const float bossHeight = transform->height * transform->scale;
+                bool hitPlayer = false;
+                if (playerTransform)
+                {
+                    hitPlayer = IntersectsBounds(*transform, *playerTransform)
+                        || (shieldTransform && IntersectsBounds(*shieldTransform, *playerTransform));
+                }
+
                 const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
                 const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
-
                 bool hitWall = false;
                 if (boss->facing == ShieldBossFacing::Right)
                 {
@@ -347,44 +758,162 @@ inline void UpdateEnemies(
                     }
                 }
 
-                if (hitWall)
+                Entity* hitObject = findHitNonWallObject();
+                if (hitPlayer || hitObject)
                 {
-                    boss->attackRectActive = false;
+                    if (hitObject && HasTag(*hitObject, "PhotoBox") &&
+                        std::find(entitiesToRemove.begin(), entitiesToRemove.end(), hitObject) == entitiesToRemove.end())
+                    {
+                        entitiesToRemove.push_back(hitObject);
+                    }
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
+                    startBossKnockback(dir);
+                    syncAttachedShieldToBoss();
+                    rushEndedThisFrame = true;
                 }
-
-                // 攻撃判定更新
-                const float rectW = kTileSize * 0.8f;
-                const float rectH = kTileSize * 3.0f;
-                boss->attackRectX = boss->facing == ShieldBossFacing::Right
-                    ? transform->x + bossWidth
-                    : transform->x - rectW;
-                boss->attackRectY = transform->y;
-                boss->attackRectWidth = rectW;
-                boss->attackRectHeight = rectH;
-                boss->attackRectActive = !hitWall;
-
-                if (!hitWall && checkPhotoBoxCollision(*transform, *entity))
+                else if (hitWall || checkPhotoBoxCollision(*transform, *entity))
                 {
-                    boss->attackRectActive = false;
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
+                    startBossKnockback(dir);
+                    syncAttachedShieldToBoss();
+                    rushEndedThisFrame = true;
                 }
+
+                if (rushEndedThisFrame) continue;
             }
-            else if (
-                boss->state == ShieldBossState::Idle ||
-                boss->state == ShieldBossState::Detect ||
-                boss->state == ShieldBossState::RushCooldown ||
-                boss->state == ShieldBossState::Cooldown)
+
+           
+            if (boss->state == ShieldBossState::Jump)
             {
-                // 待機系ステートのみ地面スナップ
-                boss->velocityY = std::min(kMaxFallSpeed, boss->velocityY + kGravity * flow.lastDeltaTime);
-                transform->y += boss->velocityY * flow.lastDeltaTime;
-                const bool onGround = snapToGround(*transform);
-                if (onGround) boss->velocityY = 0.0f;
+                boss->stateTimer += flow.lastDeltaTime;
+                const float progress = std::min(1.0f, boss->stateTimer / boss->returnJumpDuration);
+                const float arcHeight = boss->returnJumpHeight * kTileSize;
+                transform->x = boss->jumpStartX + (boss->targetX - boss->jumpStartX) * progress;
+                transform->y = boss->jumpStartY + (boss->targetY - boss->jumpStartY) * progress
+                    - std::sin(progress * 3.1415926f) * arcHeight;
+                if (progress >= 1.0f)
+                {
+                    transform->x = boss->targetX;
+                    transform->y = boss->targetY;
+                    bossVelocityY = 0.0f;
+                    boss->returningHomeJump = false;
+                    boss->state = ShieldBossState::Cooldown;
+                    boss->stateTimer = 0.0f;
+                    resetShieldToGuard();
+                }
+                continue;
+            }
+
+            if (boss->state == ShieldBossState::JumpAscend)
+            {
+                const float jumpHeightPx = boss->jumpHeight * kTileSize;
+                const float ascendProgress = std::min(1.0f, boss->stateTimer / boss->jumpAscendDuration);
+                const float easedProgress = std::sin(ascendProgress * 3.1415926f * 0.5f);
+                transform->y = boss->targetY - jumpHeightPx * easedProgress;
+
+                const float targetDx = boss->targetX - transform->x;
+                if (std::fabs(targetDx) > 2.0f)
+                {
+                    transform->x += targetDx * std::min(1.0f, flow.lastDeltaTime * 6.0f);
+                }
+
+                boss->stateTimer += flow.lastDeltaTime;
+                if (boss->stateTimer >= boss->jumpAscendDuration)
+                {
+                    if (shieldComp && shieldTransform)
+                    {
+                        boss->hoverShieldX = shieldTransform->x;
+                        boss->hoverShieldY = boss->targetY - jumpHeightPx;
+                        shieldComp->attached = false;
+                        shieldComp->gravityEnabled = false;
+                        shieldComp->velocityX = 0.0f;
+                        shieldComp->velocityY = 0.0f;
+                        shieldComp->rotationSpeed = 0.0f;
+                        shieldTransform->x = boss->hoverShieldX;
+                        shieldTransform->y = boss->hoverShieldY;
+                    }
+                    boss->state = ShieldBossState::AirHover;
+                    boss->stateTimer = 0.0f;
+                }
+                continue;
+            }
+
+            // Air hover.
+            if (boss->state == ShieldBossState::AirHover)
+            {
+                boss->stateTimer += flow.lastDeltaTime;
+                if (boss->stateTimer >= boss->airHoverDuration)
+                {
+                    boss->state = ShieldBossState::JumpDescend;
+                    boss->stateTimer = 0.0f;
+                }
+                continue;
+            }
+            if (boss->state == ShieldBossState::JumpDescend)
+            {
+                if (!(shieldComp && shieldTransform))
+                {
+                    boss->state = ShieldBossState::Cooldown;
+                    boss->stateTimer = 0.0f;
+                    continue;
+                }
+
+                shieldTransform->y += boss->descendSpeed * flow.lastDeltaTime;
+
+                const float shieldW = shieldTransform->width * shieldTransform->scale;
+                const float shieldH = shieldTransform->height * shieldTransform->scale;
+                const float feetY = shieldTransform->y + shieldH;
+                const int bottomRow = static_cast<int>(feetY / kTileSize);
+                const int leftCol = static_cast<int>((shieldTransform->x + 4.0f) / kTileSize);
+                const int rightCol = static_cast<int>((shieldTransform->x + shieldW - 4.0f) / kTileSize);
+
+                bool onGround = false;
+                for (int col = leftCol; col <= rightCol; ++col)
+                {
+                    if (isSolidTile(col, bottomRow))
+                    {
+                        shieldTransform->y = static_cast<float>(bottomRow) * kTileSize - shieldH;
+                        onGround = true;
+                        break;
+                    }
+                }
+
+                if (onGround)
+                {
+                    bossVelocityY = 0.0f;
+                    transform->rotation = 0.0f;
+                    transform->y = boss->targetY;
+
+                    // Switch the shield to its slam hitbox once it reaches the ground.
+                    const float slamW = kTileSize * 5.0f;
+                    const float slamH = kTileSize * 1.0f;
+                    shieldComp->attached = false;
+                    shieldComp->attackType = ShieldAttackType::Slam;
+                    shieldComp->contactDamage = 2;
+                    shieldComp->gravityEnabled = false;
+                    shieldComp->velocityX = 0.0f;
+                    shieldComp->velocityY = 0.0f;
+                    shieldComp->rotationSpeed = 0.0f;
+                    shieldTransform->width = slamW;
+                    shieldTransform->height = slamH;
+                    shieldTransform->x -= (slamW - shieldW) * 0.5f;
+                    removeObjectsUnderShield();
+                    if (shieldTint)
+                    {
+                        shieldTint->r = 1.0f;
+                        shieldTint->g = 0.45f;
+                        shieldTint->b = 0.12f;
+                        shieldTint->a = 1.0f;
+                    }
+
+                    boss->state = ShieldBossState::SlamPhase1;
+                    boss->stateTimer = 0.0f;
+                }
+                continue;
             }
 
             boss->stateTimer += flow.lastDeltaTime;
@@ -392,7 +921,6 @@ inline void UpdateEnemies(
             switch (boss->state)
             {
             case ShieldBossState::Idle:
-                boss->attackRectActive = false;
                 if (inDetectRange)
                 {
                     boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
@@ -403,126 +931,723 @@ inline void UpdateEnemies(
                 break;
 
             case ShieldBossState::Detect:
-                // 検知後すぐ突進へ
                 boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
                 if (boss->stateTimer >= 0.5f)
                 {
                     boss->state = ShieldBossState::Rush;
                     boss->stateTimer = 0.0f;
-                    boss->hitEntities.clear();
                 }
                 break;
 
             case ShieldBossState::Rush:
-                // 突進終了条件：時間切れ
-                if (boss->stateTimer >= boss->rushDuration)
-                {
-                    boss->attackRectActive = false;
-                    boss->rushCount++;
-                    boss->state = ShieldBossState::RushCooldown;
-                    boss->stateTimer = 0.0f;
-                }
                 break;
 
             case ShieldBossState::RushCooldown:
-                boss->attackRectActive = false;
                 if (boss->stateTimer >= boss->rushCooldown)
                 {
                     if (boss->rushCount < boss->rushCountMax)
                     {
-                        // 次の突進へ
                         boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
                         boss->state = ShieldBossState::Rush;
                         boss->stateTimer = 0.0f;
-                        boss->hitEntities.clear();
+                        if (shieldComp)
+                        {
+                            shieldComp->attached = true;
+                            shieldComp->attackType = ShieldAttackType::None;
+                            shieldComp->velocityX = 0.0f;
+                            shieldComp->velocityY = 0.0f;
+                            shieldComp->rotationSpeed = 0.0f;
+                            shieldComp->gravityEnabled = false;
+                            shieldComp->baseAttackElapsed = 0.0f;
+                            shieldComp->contactDamage = 1;
+                            if (shieldTransform)
+                            {
+                                shieldTransform->width = kTileSize * 1.0f;
+                                shieldTransform->height = kTileSize * 3.0f;
+                                shieldTransform->rotation = 0.0f;
+                            }
+                        }
                     }
                     else
                     {
-                        // ジャンプ攻撃へ
+                        boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
                         boss->rushCount = 0;
-                        boss->targetX = playerTransform->x
-                            + playerTransform->width * playerTransform->scale * 0.5f
-                            - transform->width * transform->scale * 0.5f;
-                        const float jumpHeightPx = boss->jumpHeight * kTileSize;
-                        boss->velocityY = -std::sqrt(2.0f * kGravity * jumpHeightPx);
-                        boss->velocityX = 0.0f;
+                        const float playerCenterX = playerTransform->x
+                            + playerTransform->width * playerTransform->scale * 0.5f;
+                        const float jumpShieldWidth = kTileSize * 3.0f;
+                        const float plannedTargetX = boss->facing == ShieldBossFacing::Right
+                            ? playerCenterX - bossWidth - jumpShieldWidth * 0.5f
+                            : playerCenterX + jumpShieldWidth * 0.5f;
+                        if (isBossNearWall() || wouldJumpAttackRiskWall(plannedTargetX))
+                        {
+                            boss->jumpStartX = transform->x;
+                            boss->jumpStartY = transform->y;
+                            boss->targetX = enemy->spawnX;
+                            boss->targetY = enemy->spawnY;
+                            bossVelocityY = 0.0f;
+                            bossVelocityX = 0.0f;
+                            boss->returningHomeJump = true;
+                            boss->state = ShieldBossState::Jump;
+                            boss->stateTimer = 0.0f;
+                            resetShieldToGuard();
+                            break;
+                        }
+
+                        boss->targetX = plannedTargetX;
+                        boss->targetY = transform->y;
+                        bossVelocityY = 0.0f;
+                        bossVelocityX = 0.0f;
                         boss->state = ShieldBossState::JumpAscend;
                         boss->stateTimer = 0.0f;
+
+                        if (shieldComp && shieldTransform)
+                        {
+                            shieldComp->attached = true;
+                            shieldComp->attackType = ShieldAttackType::None;
+                            shieldComp->velocityX = 0.0f;
+                            shieldComp->velocityY = 0.0f;
+                            shieldComp->rotationSpeed = 0.0f;
+                            shieldComp->gravityEnabled = false;
+                            shieldComp->baseAttackElapsed = 0.0f;
+                            shieldComp->contactDamage = 1;
+                            shieldTransform->width = kTileSize * 3.0f;
+                            shieldTransform->height = kTileSize * 1.0f;
+                            shieldTransform->rotation = 0.0f;
+                        }
                     }
                 }
                 break;
-
-            case ShieldBossState::JumpAscend:
-            case ShieldBossState::JumpDescend:
-            {
-                // 上昇中は着地判定しない
-                if (boss->velocityY < 0.0f) break;
-
-                const bool onGround = snapToGround(*transform);
-                if (onGround && boss->stateTimer > 0.3f)
-                {
-                    boss->velocityY = 0.0f;
-
-                    const float slamW = kTileSize * 4.0f;
-                    const float slamH = kTileSize * 1.0f;
-                    boss->attackRectX = transform->x + transform->width * transform->scale * 0.5f - slamW * 0.5f;
-                    boss->attackRectY = transform->y + transform->height * transform->scale - slamH;
-                    boss->attackRectWidth = slamW;
-                    boss->attackRectHeight = slamH;
-                    boss->attackRectDamage = boss->slamDamage1;
-                    boss->attackRectActive = true;
-                    boss->hitEntities.clear();
-
-                    boss->state = ShieldBossState::SlamPhase1;
-                    boss->stateTimer = 0.0f;
-                    transform->rotation = 0.0f;
-                }
-                break;
-            }
-
             case ShieldBossState::SlamPhase1:
                 if (boss->stateTimer >= boss->slamPhase1Duration)
                 {
-                    // 判定①消去→判定②生成
-                    const float slamW = kTileSize * 7.0f;
-                    const float slamH = kTileSize * 1.0f;
-                    boss->attackRectX = transform->x + transform->width * transform->scale * 0.5f - slamW * 0.5f;
-                    boss->attackRectY = transform->y + transform->height * transform->scale - slamH;
-                    boss->attackRectWidth = slamW;
-                    boss->attackRectHeight = slamH;
-                    boss->attackRectDamage = boss->slamDamage2;
-                    boss->attackRectActive = true;
-                    boss->hitEntities.clear();
+                    
+                    if (shieldComp && shieldTransform)
+                    {
+                        const float shockW = kTileSize * 8.0f;
+                        const float shockH = kTileSize * 3.0f;
+                        auto shockwave = std::make_unique<Entity>();
+                        shockwave->AddComponent<TagComponent>("BossShockwave");
+                        const float shockGroundY = shieldTransform->y + shieldTransform->height * shieldTransform->scale;
+                        shockwave->AddComponent<TransformComponent>(
+                            shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f - shockW * 0.5f,
+                            shockGroundY - kTileSize * 2.0f,
+                            shockW,
+                            shockH);
+                        shockwave->AddComponent<TintComponent>(0.18f, 0.95f, 1.0f, 0.75f);
+                        shockwave->AddComponent<SpriteRenderComponent>(tileTexture);
+                        auto& shockComp = shockwave->AddComponent<ShieldShockwaveComponent>();
+                        shockComp.ownerBoss = entity.get();
+                        shockComp.damage = 1;
+                        shockComp.lifetime = 0.25f;
+                        newShields.push_back(std::move(shockwave));
 
+                        
+                        shieldComp->contactDamage = 0;
+                    }
                     boss->state = ShieldBossState::SlamPhase2;
                     boss->stateTimer = 0.0f;
                 }
                 break;
 
             case ShieldBossState::SlamPhase2:
-                if (boss->stateTimer >= boss->slamPhase2Duration)
+                if (boss->stateTimer >= boss->slamPhase2Duration + 0.3f)
                 {
-                    boss->attackRectActive = false;
                     boss->state = ShieldBossState::Cooldown;
                     boss->stateTimer = 0.0f;
+                   
+                    if (shieldComp)
+                    {
+                        shieldComp->attached = true;
+                        shieldComp->attackType = ShieldAttackType::None;
+                        shieldComp->contactDamage = 1;
+                        shieldComp->gravityEnabled = false;
+                        shieldComp->velocityX = 0.0f;
+                        shieldComp->velocityY = 0.0f;
+                        shieldComp->rotationSpeed = 0.0f;
+                        if (shieldTransform)
+                        {
+                            shieldTransform->width = kTileSize * 1.0f;
+                            shieldTransform->height = kTileSize * 3.0f;
+                            shieldTransform->rotation = 0.0f;
+                        }
+                        if (shieldTint)
+                        {
+                            shieldTint->r = 0.72f;
+                            shieldTint->g = 0.78f;
+                            shieldTint->b = 0.90f;
+                            shieldTint->a = 1.0f;
+                        }
+                    }
                 }
                 break;
 
             case ShieldBossState::Cooldown:
-                boss->attackRectActive = false;
                 if (boss->stateTimer >= boss->slamCooldown)
                 {
-                    boss->state = ShieldBossState::Detect;
+                    boss->state = ShieldBossState::Idle;
                     boss->stateTimer = 0.0f;
                 }
                 break;
             }
         }
+        else if (enemy->GetArchetype() == EnemyArchetype::MidBoss2)
+        {
+            auto* boss = entity->GetComponent<MidBoss2Component>();
+            if (!boss) continue;
+
+            constexpr float kGravity = 1900.0f;
+            constexpr float kMaxFallSpeed = 980.0f;
+            constexpr float kTileSize = 48.0f;
+            constexpr float kHoverMoveSpeed = 360.0f;
+            constexpr float kLandingMoveSpeed = 320.0f;
+            constexpr float kBeamFireDuration = 2.2f;
+            constexpr float kBeamFireShakeSeconds = 0.16f;
+            constexpr float kBeamFireShakeAmplitude = 24.0f;
+            const auto getMidBoss2LeftX = [&](float centerGridX, float bossWidth)
+            {
+                return centerGridX * kTileSize - bossWidth * 0.5f;
+            };
+
+            if (!boss->initializedHome)
+            {
+                boss->homeX = transform->x;
+                boss->homeY = transform->y;
+                boss->initializedHome = true;
+            }
+
+            const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+            const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
+            const float bossCenterX = transform->x + transform->width * transform->scale * 0.5f;
+            const float bossCenterY = transform->y + transform->height * transform->scale * 0.5f;
+            const float dx = playerCenterX - bossCenterX;
+            const float dy = playerCenterY - bossCenterY;
+            const bool inBeamSequence =
+                boss->state == MidBoss2State::BeamCharge ||
+                boss->state == MidBoss2State::BeamFire ||
+                boss->state == MidBoss2State::BeamCooldown;
+            if (!inBeamSequence)
+            {
+                boss->facingRight = dx >= 0.0f;
+            }
+            else
+            {
+                boss->facingRight = boss->beamFacingRight;
+            }
+            const bool visualFacingRight = boss->facingRight;
+            const bool beamFacingRight = boss->beamFacingRight;
+            if (auto* bossSprite = entity->GetComponent<SpriteRenderComponent>())
+            {
+                bossSprite->SetFlipX(visualFacingRight);
+            }
+            boss->attackFlowStep = boss->state == MidBoss2State::BeamCharge || boss->state == MidBoss2State::BeamFire || boss->state == MidBoss2State::BeamCooldown ? 2 : 1;
+            boss->captureWindowActive = boss->state == MidBoss2State::BeamFire;
+            boss->stateTimer += flow.lastDeltaTime;
+            boss->cooldownRemaining = 0.0f;
+
+            auto ensureBeamEntities = [&]()
+            {
+                if (boss->beamEntitiesSpawned)
+                {
+                    return;
+                }
+
+                auto turretEntity = std::make_unique<Entity>();
+                boss->beamTurretEntity = turretEntity.get();
+                boss->beamTurretEntity->AddComponent<TagComponent>("LaserTurret");
+                boss->beamTurretEntity->AddComponent<TransformComponent>(-10000.0f, -10000.0f, kTileSize, boss->params.beamHeightGrid * kTileSize);
+                boss->beamTurretEntity->AddComponent<TintComponent>(1.0f, 0.55f, 0.20f, 0.0f);
+                boss->beamTurretEntity->AddComponent<SpriteRenderComponent>(tileTexture);
+                boss->beamTurretEntity->AddComponent<BossBeamCaptureComponent>();
+                auto& turret = boss->beamTurretEntity->AddComponent<LaserTurretComponent>(
+                    boss->params.beamHeightGrid * kTileSize,
+                    boss->params.beamDamagePerSecond);
+                turret.fireDirection = beamFacingRight
+                    ? LaserTurretFireDirection::Right
+                    : LaserTurretFireDirection::Left;
+                turret.vertical = false;
+                turret.shootsLeft = !beamFacingRight;
+                turret.fireToLeft = false;
+                turret.active = false;
+                newBullets.push_back(std::move(turretEntity));
+
+                auto beamEntity = std::make_unique<Entity>();
+                boss->beamEntity = beamEntity.get();
+                boss->beamEntity->AddComponent<TagComponent>("LaserBeam");
+                boss->beamEntity->AddComponent<TransformComponent>(-10000.0f, -10000.0f, 0.0f, boss->params.beamHeightGrid * kTileSize);
+                boss->beamEntity->AddComponent<TintComponent>(0.48f, 0.78f, 1.0f, 0.0f);
+                boss->beamEntity->AddComponent<SpriteRenderComponent>(tileTexture);
+                boss->beamEntity->AddComponent<LaserBeamComponent>(boss->params.beamDamagePerSecond);
+                boss->beamEntity->AddComponent<BossBeamCaptureComponent>();
+                if (auto* turretEntity = boss->beamTurretEntity)
+                {
+                    if (auto* turret = turretEntity->GetComponent<LaserTurretComponent>())
+                    {
+                        turret->beamEntity = boss->beamEntity;
+                    }
+                }
+                newBullets.push_back(std::move(beamEntity));
+
+                boss->beamEntitiesSpawned = true;
+            };
+
+            auto hideBeamEntities = [&]()
+            {
+                if (auto* turretEntity = boss->beamTurretEntity)
+                {
+                    if (auto* turretTransform = turretEntity->GetComponent<TransformComponent>())
+                    {
+                        turretTransform->x = -10000.0f;
+                        turretTransform->y = -10000.0f;
+                    }
+                    if (auto* turret = turretEntity->GetComponent<LaserTurretComponent>())
+                    {
+                        turret->active = false;
+                    }
+                    if (auto* captureComponent = turretEntity->GetComponent<BossBeamCaptureComponent>())
+                    {
+                        captureComponent->captureEnabled = false;
+                    }
+                    if (auto* turretTint = turretEntity->GetComponent<TintComponent>())
+                    {
+                        turretTint->a = 0.0f;
+                    }
+                }
+                if (auto* beamEntity = boss->beamEntity)
+                {
+                    if (auto* beamTransform = beamEntity->GetComponent<TransformComponent>())
+                    {
+                        beamTransform->x = -10000.0f;
+                        beamTransform->y = -10000.0f;
+                        beamTransform->width = 0.0f;
+                    }
+                    if (auto* beamTint = beamEntity->GetComponent<TintComponent>())
+                    {
+                        beamTint->a = 0.0f;
+                    }
+                    if (auto* beamCapture = beamEntity->GetComponent<BossBeamCaptureComponent>())
+                    {
+                        beamCapture->captureEnabled = false;
+                    }
+                }
+            };
+
+            auto showBeamEntities = [&]()
+            {
+                ensureBeamEntities();
+                const float bossWidth = transform->width * transform->scale;
+                const float bossHeight = transform->height * transform->scale;
+                const float beamHeight = boss->params.beamHeightGrid * kTileSize;
+                const float turretWidth = kTileSize;
+                const float beamOriginX = beamFacingRight
+                    ? transform->x + bossWidth + kTileSize
+                    : transform->x - kTileSize;
+                const float beamOriginY = transform->y + bossHeight * 0.5f;
+                const float turretX = beamOriginX - turretWidth * 0.5f;
+                const float turretY = beamOriginY - beamHeight * 0.5f;
+
+                if (auto* turretEntity = boss->beamTurretEntity)
+                {
+                    if (auto* turretTransform = turretEntity->GetComponent<TransformComponent>())
+                    {
+                        turretTransform->x = turretX;
+                        turretTransform->y = turretY;
+                        turretTransform->width = turretWidth;
+                        turretTransform->height = beamHeight;
+                    }
+                    if (auto* turret = turretEntity->GetComponent<LaserTurretComponent>())
+                    {
+                        turret->beamThickness = beamHeight;
+                        turret->damagePerSecond = boss->params.beamDamagePerSecond;
+                        turret->fireDirection = beamFacingRight
+                            ? LaserTurretFireDirection::Right
+                            : LaserTurretFireDirection::Left;
+                        turret->vertical = false;
+                        turret->shootsLeft = !beamFacingRight;
+                        turret->fireToLeft = !beamFacingRight;
+                        turret->active = true;
+                        turret->beamOriginOffsetX = turretWidth * 0.5f;
+                        turret->beamOriginOffsetY = beamHeight * 0.5f;
+                    }
+                    if (auto* turretSprite = turretEntity->GetComponent<SpriteRenderComponent>())
+                    {
+                        turretSprite->SetFlipX(beamFacingRight);
+                    }
+                    if (auto* captureComponent = turretEntity->GetComponent<BossBeamCaptureComponent>())
+                    {
+                        captureComponent->captureEnabled = true;
+                    }
+                    if (auto* turretTint = turretEntity->GetComponent<TintComponent>())
+                    {
+                        turretTint->a = 1.0f;
+                    }
+                }
+                if (auto* beamEntity = boss->beamEntity)
+                {
+                    if (auto* beamTransform = beamEntity->GetComponent<TransformComponent>())
+                    {
+                        beamTransform->x = beamOriginX;
+                        beamTransform->y = beamOriginY - beamHeight * 0.5f;
+                        beamTransform->height = beamHeight;
+                    }
+                    if (auto* beamTint = beamEntity->GetComponent<TintComponent>())
+                    {
+                        beamTint->a = 0.86f;
+                    }
+                    if (auto* beamDamage = beamEntity->GetComponent<LaserBeamComponent>())
+                    {
+                        beamDamage->damagePerSecond = boss->params.beamDamagePerSecond;
+                    }
+                }
+            };
+
+            if (enemy->IsDefeated())
+            {
+                boss->state = MidBoss2State::Dead;
+                boss->captureWindowActive = false;
+                hideBeamEntities();
+                continue;
+            }
+
+            switch (boss->state)
+            {
+            case MidBoss2State::Idle:
+                hideBeamEntities();
+                if (std::fabs(dx) <= enemy->detectRange && std::fabs(dy) <= enemy->detectHeight)
+                {
+                    boss->spearCycleCount = 0;
+                    boss->spearShotsFired = 0;
+                    boss->hoverStartX = transform->x;
+                    boss->hoverStartY = transform->y;
+                    const float bossWidth = transform->width * transform->scale;
+                    const float bossHeight = transform->height * transform->scale;
+                    const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const auto clampArenaX = [&](float value)
+                    {
+                        return std::clamp(value, arenaMinX, arenaMaxX);
+                    };
+                    const float spearApproachTargetX = clampArenaX(getMidBoss2LeftX(kMidBoss2JumpCenterGridX, bossWidth));
+                    const float spearApproachTargetY = std::clamp(
+                        mapHeight - bossHeight - kMidBoss2HoverHeightGrid * kTileSize,
+                        0.0f,
+                        maxBossY);
+                    boss->hoverTargetX = spearApproachTargetX;
+                    boss->hoverTargetY = std::clamp(
+                        spearApproachTargetY,
+                        0.0f,
+                        maxBossY);
+                    boss->state = MidBoss2State::SpearJump;
+                    boss->stateTimer = 0.0f;
+                }
+                break;
+
+            case MidBoss2State::SpearJump:
+            {
+                const float moveT = std::min(1.0f, flow.lastDeltaTime * 3.2f);
+                transform->x += (boss->hoverTargetX - transform->x) * moveT;
+                transform->y += (boss->hoverTargetY - transform->y) * moveT;
+                if (std::fabs(transform->x - boss->hoverTargetX) <= 4.0f &&
+                    std::fabs(transform->y - boss->hoverTargetY) <= 4.0f)
+                {
+                    transform->x = boss->hoverTargetX;
+                    transform->y = boss->hoverTargetY;
+                    boss->spearShotsFired = 0;
+                    boss->state = MidBoss2State::SpearThrow;
+                    boss->stateTimer = 0.0f;
+                }
+                break;
+            }
+
+            case MidBoss2State::SpearThrow:
+                if (boss->spearShotsFired < 3 && boss->stateTimer >= boss->params.spearInterval)
+                {
+                    boss->stateTimer = 0.0f;
+                    ++boss->spearShotsFired;
+
+                    const float spawnWidth = kTileSize * 3.0f;
+                    const float spawnHeight = kTileSize;
+                    const float rawSpawnX = boss->facingRight
+                        ? transform->x - spawnWidth
+                        : transform->x + transform->width * transform->scale;
+                    const float spawnX = std::clamp(rawSpawnX, 0.0f, std::max(0.0f, mapWidth - spawnWidth));
+                    const float spawnY = std::clamp(
+                        transform->y + transform->height * transform->scale * 0.25f,
+                        0.0f,
+                        std::max(0.0f, mapHeight - spawnHeight));
+                    const float aimDx = playerCenterX - (spawnX + spawnWidth * 0.5f);
+                    const float aimDy = playerCenterY - (spawnY + spawnHeight * 0.5f);
+                    const float length = std::max(1.0f, std::sqrt(aimDx * aimDx + aimDy * aimDy));
+                    const float dirX = aimDx / length;
+                    const float dirY = aimDy / length;
+
+                    auto spear = std::make_unique<Entity>();
+                    spear->AddComponent<TagComponent>(kTagBullet);
+                    spear->AddComponent<TransformComponent>(spawnX, spawnY, spawnWidth, spawnHeight);
+                    spear->AddComponent<TintComponent>(0.68f, 0.92f, 1.0f, 1.0f);
+                    spear->AddComponent<SpriteRenderComponent>(tileTexture);
+                    auto& projectile = spear->AddComponent<ProjectileComponent>(
+                        0.0f,
+                        0.0f,
+                        boss->params.spearDamage,
+                        ProjectileComponent::Owner::Enemy);
+                    projectile.sourceEntity = entity.get();
+                    auto& spearComponent = spear->AddComponent<MidBoss2SpearComponent>();
+                    spearComponent.launched = false;
+                    spearComponent.fadeRemaining = boss->params.spearFadeTime;
+                    spearComponent.fadeDuration = boss->params.spearFadeTime;
+                    spearComponent.directionX = dirX;
+                    spearComponent.directionY = dirY;
+                    spearComponent.targetDirectionX = dirX;
+                    spearComponent.targetDirectionY = dirY;
+                    spearComponent.launchDelay = boss->params.spearInterval;
+                    spearComponent.launchTimer = 0.0f;
+                    spearComponent.travelDistance = 0.0f;
+                    boss->lastSpearDirX = dirX;
+                    boss->lastSpearDirY = dirY;
+                    if (auto* spearTransform = spear->GetComponent<TransformComponent>())
+                    {
+                        spearTransform->rotation = std::atan2(dirY, dirX);
+                    }
+                    newBullets.push_back(std::move(spear));
+                    playEnemyGun(*entity);
+                }
+
+                if (boss->spearShotsFired >= 3)
+                {
+                    const bool landLeft = (boss->spearCycleCount % 2) == 0;
+                    ++boss->spearCycleCount;
+                    const float bossWidth = transform->width * transform->scale;
+                    const float bossHeight = transform->height * transform->scale;
+                    const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const auto clampArenaX = [&](float value)
+                    {
+                        return std::clamp(value, arenaMinX, arenaMaxX);
+                    };
+                    const float landingCenterGridX = landLeft
+                        ? kMidBoss2ArenaCenterMinGridX + kMidBoss2LandingInsetGrid
+                        : kMidBoss2ArenaCenterMaxGridX - kMidBoss2LandingInsetGrid;
+                    boss->landingTargetX = clampArenaX(getMidBoss2LeftX(landingCenterGridX, bossWidth));
+                    boss->landingTargetY = std::clamp(
+                        mapHeight - bossHeight - kMidBoss2GroundOffsetGridY * kTileSize,
+                        0.0f,
+                        maxBossY);
+                    boss->state = MidBoss2State::SpearLanding;
+                    boss->stateTimer = 0.0f;
+                }
+                break;
+
+            case MidBoss2State::SpearLanding:
+            {
+                const float moveX = boss->landingTargetX - transform->x;
+                const float moveY = boss->landingTargetY - transform->y;
+                const float distance = std::sqrt(moveX * moveX + moveY * moveY);
+                if (distance <= 6.0f)
+                {
+                    transform->x = boss->landingTargetX;
+                    transform->y = boss->landingTargetY;
+                    snapToGround(*transform);
+                    boss->state = MidBoss2State::SpearCooldown;
+                    boss->stateTimer = 0.0f;
+                }
+                else
+                {
+                    const float step = std::min(distance, kLandingMoveSpeed * flow.lastDeltaTime);
+                    transform->x += moveX / distance * step;
+                    transform->y += moveY / distance * step;
+                }
+                break;
+            }
+
+            case MidBoss2State::SpearCooldown:
+            {
+                boss->cooldownRemaining = std::max(0.0f, boss->params.spearCooldownAfterLanding - boss->stateTimer);
+                const float bossWidth = transform->width * transform->scale;
+                const float bossHeight = transform->height * transform->scale;
+                const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
+                const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                const auto clampArenaX = [&](float value)
+                {
+                    return std::clamp(value, arenaMinX, arenaMaxX);
+                };
+                const bool landedLeft = ((boss->spearCycleCount - 1) % 2) == 0;
+                const float returnCenterGridX = landedLeft
+                    ? kMidBoss2ArenaCenterMinGridX + kMidBoss2SideLandingInsetGrid
+                    : kMidBoss2ArenaCenterMaxGridX - kMidBoss2SideLandingInsetGrid;
+                const float spearReturnTargetX = clampArenaX(getMidBoss2LeftX(returnCenterGridX, bossWidth));
+                const float spearReturnTargetY = std::clamp(
+                    mapHeight - bossHeight - kMidBoss2GroundOffsetGridY * kTileSize,
+                    0.0f,
+                    maxBossY);
+                if (boss->stateTimer >= boss->params.spearLandingPauseTime)
+                {
+                    transform->x += (spearReturnTargetX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                    transform->y += (spearReturnTargetY - transform->y) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                    snapToGround(*transform);
+                }
+                if (boss->stateTimer >= boss->params.spearCooldownAfterLanding)
+                {
+                    if (boss->spearCycleCount >= 3)
+                    {
+                        boss->beamFacingRight = dx >= 0.0f;
+                        boss->state = MidBoss2State::BeamCharge;
+                    }
+                    else
+                    {
+                        const float spearApproachTargetX = clampArenaX(getMidBoss2LeftX(kMidBoss2JumpCenterGridX, bossWidth));
+                        const float spearApproachTargetY = std::clamp(
+                            mapHeight - bossHeight - kMidBoss2HoverHeightGrid * kTileSize,
+                            0.0f,
+                            maxBossY);
+                        boss->hoverTargetX = spearApproachTargetX;
+                        boss->hoverTargetY = std::clamp(
+                            spearApproachTargetY,
+                            0.0f,
+                            maxBossY);
+                        boss->state = MidBoss2State::SpearJump;
+                    }
+                    boss->stateTimer = 0.0f;
+                }
+                break;
+            }
+
+            case MidBoss2State::BeamCharge:
+                hideBeamEntities();
+                boss->cooldownRemaining = std::max(0.0f, boss->params.beamChargeTime - boss->stateTimer);
+                {
+                    const float bossWidth = transform->width * transform->scale;
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const bool beamFromLeftSide = ((boss->spearCycleCount - 1) % 2) == 0;
+                    const float beamAnchorCenterGridX = beamFromLeftSide
+                        ? kMidBoss2ArenaCenterMinGridX + kMidBoss2SideLandingInsetGrid
+                        : kMidBoss2ArenaCenterMaxGridX - kMidBoss2SideLandingInsetGrid;
+                    const float beamTargetX = std::clamp(
+                        getMidBoss2LeftX(beamAnchorCenterGridX, bossWidth),
+                        arenaMinX,
+                        arenaMaxX);
+                    transform->x += (beamTargetX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                }
+                transform->y += ((mapHeight - transform->height * transform->scale - kMidBoss2GroundOffsetGridY * kTileSize) - transform->y) * std::min(1.0f, flow.lastDeltaTime * 4.0f);
+                snapToGround(*transform);
+                if (boss->stateTimer >= boss->params.beamChargeTime)
+                {
+                    flow.screenShakeRemaining = kBeamFireShakeSeconds;
+                    flow.screenShakeDuration = kBeamFireShakeSeconds;
+                    flow.screenShakeAmplitude = kBeamFireShakeAmplitude;
+                    boss->state = MidBoss2State::BeamFire;
+                    boss->stateTimer = 0.0f;
+                }
+                break;
+
+            case MidBoss2State::BeamFire:
+                showBeamEntities();
+                {
+                    const float bossWidth = transform->width * transform->scale;
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const bool beamFromLeftSide = ((boss->spearCycleCount - 1) % 2) == 0;
+                    const float beamAnchorCenterGridX = beamFromLeftSide
+                        ? kMidBoss2ArenaCenterMinGridX + kMidBoss2SideLandingInsetGrid
+                        : kMidBoss2ArenaCenterMaxGridX - kMidBoss2SideLandingInsetGrid;
+                    transform->x = std::clamp(
+                        getMidBoss2LeftX(beamAnchorCenterGridX, bossWidth),
+                        arenaMinX,
+                        arenaMaxX);
+                }
+                transform->y = mapHeight - transform->height * transform->scale - kMidBoss2GroundOffsetGridY * kTileSize;
+                snapToGround(*transform);
+                if (boss->stateTimer >= kBeamFireDuration)
+                {
+                    boss->state = MidBoss2State::BeamCooldown;
+                    boss->stateTimer = 0.0f;
+                }
+                break;
+
+            case MidBoss2State::BeamCooldown:
+                hideBeamEntities();
+                boss->cooldownRemaining = std::max(0.0f, boss->params.spearCooldownAfterLanding - boss->stateTimer);
+                {
+                    const float bossWidth = transform->width * transform->scale;
+                    const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                    const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                    const bool beamFromLeftSide = ((boss->spearCycleCount - 1) % 2) == 0;
+                    const float beamAnchorCenterGridX = beamFromLeftSide
+                        ? kMidBoss2ArenaCenterMinGridX + kMidBoss2SideLandingInsetGrid
+                        : kMidBoss2ArenaCenterMaxGridX - kMidBoss2SideLandingInsetGrid;
+                    const float beamTargetX = std::clamp(
+                        getMidBoss2LeftX(beamAnchorCenterGridX, bossWidth),
+                        arenaMinX,
+                        arenaMaxX);
+                    transform->x += (beamTargetX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
+                }
+                transform->y += ((mapHeight - transform->height * transform->scale - kMidBoss2GroundOffsetGridY * kTileSize) - transform->y) * std::min(1.0f, flow.lastDeltaTime * 3.6f);
+                snapToGround(*transform);
+                if (boss->stateTimer >= boss->params.spearCooldownAfterLanding)
+                {
+                    boss->spearCycleCount = 0;
+                    boss->spearShotsFired = 0;
+                    boss->state = MidBoss2State::Idle;
+                    boss->stateTimer = 0.0f;
+                }
+                break;
+
+            case MidBoss2State::Damaged:
+                if (boss->stateTimer >= 0.2f)
+                {
+                    boss->state = MidBoss2State::Idle;
+                    boss->stateTimer = 0.0f;
+                }
+                break;
+
+            case MidBoss2State::Dead:
+                hideBeamEntities();
+                break;
+            }
+
+            enemy->attackRectActive = false;
+            if (boss->state != MidBoss2State::SpearJump &&
+                boss->state != MidBoss2State::SpearThrow &&
+                boss->state != MidBoss2State::SpearLanding)
+            {
+                enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
+                transform->y += enemy->velocityY * flow.lastDeltaTime;
+                if (snapToGround(*transform))
+                {
+                    enemy->velocityY = 0.0f;
+                }
+            }
+        }
+    }
+
+    if (!entitiesToRemove.empty())
+    {
+        entities.erase(
+            std::remove_if(
+                entities.begin(),
+                entities.end(),
+                [&](const std::unique_ptr<Entity>& candidate) -> bool
+                {
+                    if (!candidate)
+                    {
+                        return false;
+                    }
+                    return std::find(entitiesToRemove.begin(), entitiesToRemove.end(), candidate.get()) != entitiesToRemove.end();
+                }),
+            entities.end());
     }
 
     for (auto& bullet : newBullets)
     {
         entities.push_back(std::move(bullet));
+    }
+
+    for (auto& shield : newShields)  
+    {
+        entities.push_back(std::move(shield));
     }
 
     flow.goalUnlocked = photo.groups.hasSpawnedCopy || flow.goalUnlockedBySwitch;
@@ -558,14 +1683,81 @@ void UpdateBullets(
                     return false;
                 }
 
+                if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
+                {
+                    const float targetAngle = std::atan2(spear->targetDirectionY, spear->targetDirectionX);
+                    spear->launchTimer += deltaTime;
+                    if (!spear->launched)
+                    {
+                        if (spear->launchTimer < spear->launchDelay)
+                        {
+                            transform->rotation = targetAngle + spear->launchTimer * 18.0f;
+                            return false;
+                        }
+
+                        spear->launched = true;
+                        projectile->SetVelocityX(spear->targetDirectionX * kMidBoss2SpearSpeed);
+                        projectile->SetVelocityY(spear->targetDirectionY * kMidBoss2SpearSpeed);
+                        transform->rotation = targetAngle;
+                    }
+                    else
+                    {
+                        if (spear->stuck)
+                        {
+                            projectile->SetVelocityX(0.0f);
+                            projectile->SetVelocityY(0.0f);
+                            transform->rotation = std::atan2(spear->directionY, spear->directionX);
+                        }
+                        else
+                        {
+                            spear->travelDistance += std::hypot(
+                                projectile->GetVelocityX(),
+                                projectile->GetVelocityY()) * deltaTime;
+                            transform->rotation = std::atan2(
+                                projectile->GetVelocityY(),
+                                projectile->GetVelocityX());
+                        }
+                    }
+                    if (spear->stuck)
+                    {
+                        spear->fadeRemaining = std::max(0.0f, spear->fadeRemaining - deltaTime);
+                        if (auto* tint = entity->GetComponent<TintComponent>())
+                        {
+                            const float fadeAlpha = spear->fadeDuration > 0.0f
+                                ? std::clamp(spear->fadeRemaining / spear->fadeDuration, 0.0f, 1.0f)
+                                : 1.0f;
+                            tint->a = fadeAlpha;
+                        }
+                        if (spear->fadeRemaining <= 0.0f)
+                        {
+                            return true;
+                        }
+                    }
+                }
+
                 transform->x += projectile->GetVelocityX() * deltaTime;
                 transform->y += projectile->GetVelocityY() * deltaTime;
 
-                if (isSolidTile(transform->x, transform->y) ||
+                const bool hitSolidTile =
+                    isSolidTile(transform->x, transform->y) ||
                     isSolidTile(transform->x + transform->width, transform->y) ||
                     isSolidTile(transform->x, transform->y + transform->height) ||
-                    isSolidTile(transform->x + transform->width, transform->y + transform->height))
+                    isSolidTile(transform->x + transform->width, transform->y + transform->height);
+                if (hitSolidTile)
                 {
+                    if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
+                    {
+                        const float hitLength = std::hypot(projectile->GetVelocityX(), projectile->GetVelocityY());
+                        if (hitLength > 0.0001f)
+                        {
+                            spear->directionX = projectile->GetVelocityX() / hitLength;
+                            spear->directionY = projectile->GetVelocityY() / hitLength;
+                        }
+                        spear->stuck = true;
+                        projectile->SetVelocityX(0.0f);
+                        projectile->SetVelocityY(0.0f);
+                        return false;
+                    }
                     return true;
                 }
 
@@ -573,6 +1765,19 @@ void UpdateBullets(
                     player && intersectsEntity(*player, *entity))
                 {
                     handlePlayerDamage(*player, entity.get(), "GameScene player damaged by bullet");
+                    if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
+                    {
+                        const float hitLength = std::hypot(projectile->GetVelocityX(), projectile->GetVelocityY());
+                        if (hitLength > 0.0001f)
+                        {
+                            spear->directionX = projectile->GetVelocityX() / hitLength;
+                            spear->directionY = projectile->GetVelocityY() / hitLength;
+                        }
+                        spear->stuck = true;
+                        projectile->SetVelocityX(0.0f);
+                        projectile->SetVelocityY(0.0f);
+                        return false;
+                    }
                     return true;
                 }
 

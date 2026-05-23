@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "component.h"
 
 void Component::OnAttach(Entity& owner)

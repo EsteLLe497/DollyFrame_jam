@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "sprite.h"
 
 #include <algorithm>

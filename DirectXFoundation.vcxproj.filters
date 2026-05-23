@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
@@ -66,6 +66,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="core\audio.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -105,7 +108,16 @@
     <ClCompile Include="scenes\game\game_scene_gameplay.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_gameplay_state_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_player_state_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
     <ClCompile Include="scenes\game\game_scene_render.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_render_ui_helpers.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
     <ClCompile Include="scenes\game\game_scene_render_ui.cpp">
@@ -160,12 +172,6 @@
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="gameplay\photo_paste_system.cpp">
-      <Filter>Source Files\Gameplay</Filter>
-    </ClCompile>
-    <ClCompile Include="gameplay\photo_system_capture.cpp">
-      <Filter>Source Files\Gameplay</Filter>
-    </ClCompile>
-    <ClCompile Include="gameplay\photo_system_paste.cpp">
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="gameplay\photo_system.cpp">
@@ -329,6 +335,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="core\audio.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -368,6 +377,12 @@
     <ClInclude Include="scenes\game\game_scene_internal.h">
       <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>
+    <ClInclude Include="scenes\game\game_scene_draw_helpers.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\game\game_scene_render_ui_helpers.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
     <ClInclude Include="core\game_session.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -396,9 +411,6 @@
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="gameplay\photo_paste_system.h">
-      <Filter>Header Files\Gameplay</Filter>
-    </ClInclude>
-    <ClInclude Include="gameplay\photo_system_bridge.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="gameplay\photo_system.h">

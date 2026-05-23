@@ -2,11 +2,13 @@
 
 #include "game_scene.h"
 
+#include <cctype>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <tracy/Tracy.hpp>
@@ -33,7 +35,7 @@ struct StageTransitionLink
 };
 
 inline std::vector<StageTransitionLink> gStageTransitionLinks;
-inline std::string gCurrentMapCsvPath = "assets/maps/stage01_1.csv";
+inline std::string gCurrentMapCsvPath = "assets/maps/stages/stage_58x25.csv";
 inline char gLastStageTransitionMarker = '\0';
 
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";
@@ -86,6 +88,21 @@ constexpr float kHorizontalCollisionEpsilon = 1.0f;
 inline float Clamp01(float value)
 {
     return std::clamp(value, 0.0f, 1.0f);
+}
+
+inline void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
+{
+    if (std::fabs(rotation) <= 0.0001f)
+    {
+        return;
+    }
+
+    const float localX = x - centerX;
+    const float localY = y - centerY;
+    const float cosTheta = std::cos(rotation);
+    const float sinTheta = std::sin(rotation);
+    x = centerX + (localX * cosTheta - localY * sinTheta);
+    y = centerY + (localX * sinTheta + localY * cosTheta);
 }
 
 inline std::string GetMapDisplayName(const std::string& path)
@@ -305,9 +322,166 @@ inline constexpr const char* kTagDamagePlatform = "DamagePlatform";
 inline constexpr const char* kTagDamagePlatformSpike = "DamagePlatformSpike";
 inline constexpr const char* kTagLaserSwitch = "LaserSwitch";
 inline constexpr const char* kTagShutter = "Shutter";
+inline constexpr const char* kTagProtectiveWall = "ProtectiveWall";
 inline constexpr const char* kTagLaserTurret = "LaserTurret";
 inline constexpr const char* kTagLaserBeam = "LaserBeam";
 inline constexpr const char* kTagMarkerLight = "MarkerLight";
+inline constexpr const char* kTagStageLight = "StageLight";
+inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
+
+inline constexpr std::array<char, 31> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','+'
+};
+inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
+
+inline bool IsMarkerInSet(char marker, std::string_view set)
+{
+    const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+    return set.find(normalized) != std::string_view::npos;
+}
+
+inline int MarkerToPresetIndex(char marker)
+{
+    const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+    for (int index = 0; index < kMarkerPresetCount; ++index)
+    {
+        if (kMarkerPresets[static_cast<size_t>(index)] == normalized)
+        {
+            return index;
+        }
+    }
+
+    return 0;
+}
+
+inline char PresetIndexToMarker(int index)
+{
+    if (index >= 0 && index < kMarkerPresetCount)
+    {
+        return kMarkerPresets[static_cast<size_t>(index)];
+    }
+
+    return '\0';
+}
+
+inline bool IsEnemyMarker(char marker)
+{
+    return IsMarkerInSet(marker, "WRNAD!?");
+}
+
+inline bool IsBatteryMarker(char marker)
+{
+    return IsMarkerInSet(marker, "Y");
+}
+
+inline bool IsLogMarker(char marker)
+{
+    return IsMarkerInSet(marker, "M");
+}
+
+inline bool IsMarkerLightMarker(char marker)
+{
+    return IsMarkerInSet(marker, "PF");
+}
+
+inline bool IsStageLightMarker(char marker)
+{
+    return marker == '@';
+}
+
+inline bool IsElevatorMarker(char marker)
+{
+    return IsMarkerInSet(marker, "KLQ");
+}
+
+inline bool IsDamageFootholdMarker(char marker)
+{
+    return IsMarkerInSet(marker, "HI");
+}
+
+inline bool IsLaserTurretMarker(char marker)
+{
+    return IsMarkerInSet(marker, "UZ");
+}
+
+inline bool IsShutterOrLaserSwitchMarker(char marker)
+{
+    return IsMarkerInSet(marker, "JOX");
+}
+
+inline bool IsProtectiveWallMarker(char marker)
+{
+    return marker == '&';
+}
+
+inline bool IsSepiaRubbleMarker(char marker)
+{
+    return marker == '+';
+}
+
+inline bool IsParameterizedEditorMarker(char marker)
+{
+    switch (static_cast<char>(std::toupper(static_cast<unsigned char>(marker))))
+    {
+    case 'P':
+    case 'F':
+    case 'K':
+    case 'L':
+    case 'Q':
+    case 'J':
+    case 'O':
+    case 'X':
+    case '&':
+    case 'U':
+    case 'Z':
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline int NormalizeEditorMarkerParameter(char marker, int parameter)
+{
+    switch (static_cast<char>(std::toupper(static_cast<unsigned char>(marker))))
+    {
+    case 'P':
+    case 'F':
+        return std::clamp(parameter, -99, 99);
+    case 'K':
+    case 'L':
+    case 'Q':
+    case 'O':
+    case 'X':
+        return std::clamp(parameter, 1, 9);
+    case 'J':
+        return std::clamp(parameter, -9, 99);
+    case 'U':
+        return std::clamp(parameter, -2, 1);
+    case 'Z':
+        return std::clamp(parameter, 0, 1);
+    case '&':
+        return std::clamp(parameter, -99, 99);
+    default:
+        return 0;
+    }
+}
+
+inline int EncodeStageLightMarkerParameter(int lightTiles, int fixtureTiles)
+{
+    constexpr int kDefaultLightTiles = 3;
+    constexpr int kDefaultFixtureTiles = 1;
+    const int clampedLightTiles = std::clamp(lightTiles, 1, 9);
+    const int clampedFixtureTiles = std::clamp(fixtureTiles, 1, 4);
+    if (clampedLightTiles == kDefaultLightTiles && clampedFixtureTiles == kDefaultFixtureTiles)
+    {
+        return 0;
+    }
+    if (clampedFixtureTiles == kDefaultFixtureTiles)
+    {
+        return clampedLightTiles;
+    }
+    return clampedLightTiles * 10 + clampedFixtureTiles;
+}
 
 inline bool IsDamagePlatformMarker(char marker)
 {
@@ -361,7 +535,7 @@ inline PhotoCopyRole GetEntityCopyRole(const Entity& entity)
     {
         return PhotoCopyRole::Solid;
     }
-    if (HasTag(entity, kTagLaserSwitch) || HasTag(entity, kTagShutter))
+    if (HasTag(entity, kTagLaserSwitch) || HasTag(entity, kTagShutter) || HasTag(entity, kTagProtectiveWall))
     {
         return PhotoCopyRole::Solid;
     }
@@ -406,7 +580,7 @@ inline PhotoCopyOrigin GetEntityCopyOrigin(const Entity& entity)
     {
         return PhotoCopyOrigin::Generic;
     }
-    if (HasTag(entity, kTagLaserSwitch) || HasTag(entity, kTagShutter))
+    if (HasTag(entity, kTagLaserSwitch) || HasTag(entity, kTagShutter) || HasTag(entity, kTagProtectiveWall))
     {
         return PhotoCopyOrigin::Generic;
     }

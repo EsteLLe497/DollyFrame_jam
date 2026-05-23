@@ -1,8 +1,11 @@
+﻿#include "pch.h"
+
 #include "photo_shared.h"
 
 #include <cfloat>
 
 #include "game_scene_internal.h"
+#include "game_scene_draw_helpers.h"
 #include "photo_filter_rules.h"
 #include "DxLib.h"
 
@@ -32,66 +35,6 @@ float GetRotatedBoundsHeight(float width, float height, float rotation)
     const float cosTheta = std::fabs(std::cos(rotation));
     const float sinTheta = std::fabs(std::sin(rotation));
     return width * sinTheta + height * cosTheta;
-}
-
-void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
-{
-    if (std::fabs(rotation) <= 0.0001f)
-    {
-        return;
-    }
-
-    const float localX = x - centerX;
-    const float localY = y - centerY;
-    const float cosTheta = std::cos(rotation);
-    const float sinTheta = std::sin(rotation);
-    x = centerX + (localX * cosTheta - localY * sinTheta);
-    y = centerY + (localX * sinTheta + localY * cosTheta);
-}
-
-void DrawTriangleItem(
-    float drawX,
-    float drawY,
-    float drawWidth,
-    float drawHeight,
-    bool risesRight,
-    bool flipX,
-    float rotation,
-    int color)
-{
-    const bool finalRisesRight = flipX ? !risesRight : risesRight;
-    float ax = 0.0f;
-    float ay = 0.0f;
-    float bx = 0.0f;
-    float by = 0.0f;
-    float cx = 0.0f;
-    float cy = 0.0f;
-
-    if (finalRisesRight)
-    {
-        ax = drawX;
-        ay = drawY + drawHeight;
-        bx = drawX + drawWidth;
-        by = drawY + drawHeight;
-        cx = drawX + drawWidth;
-        cy = drawY;
-    }
-    else
-    {
-        ax = drawX;
-        ay = drawY;
-        bx = drawX;
-        by = drawY + drawHeight;
-        cx = drawX + drawWidth;
-        cy = drawY + drawHeight;
-    }
-
-    const float centerX = drawX + drawWidth * 0.5f;
-    const float centerY = drawY + drawHeight * 0.5f;
-    RotatePoint(centerX, centerY, rotation, ax, ay);
-    RotatePoint(centerX, centerY, rotation, bx, by);
-    RotatePoint(centerX, centerY, rotation, cx, cy);
-    DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
 }
 
 void DrawQuadItem(
@@ -381,30 +324,6 @@ void DrawSpikeStripItem(
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
 
-void DrawProjectileItem(
-    float drawX,
-    float drawY,
-    float drawWidth,
-    float drawHeight,
-    bool flipX,
-    float rotation,
-    int color)
-{
-    float ax = flipX ? drawX + drawWidth : drawX;
-    float ay = drawY;
-    float bx = flipX ? drawX + drawWidth : drawX;
-    float by = drawY + drawHeight;
-    float cx = flipX ? drawX : drawX + drawWidth;
-    float cy = drawY + drawHeight * 0.5f;
-
-    const float centerX = drawX + drawWidth * 0.5f;
-    const float centerY = drawY + drawHeight * 0.5f;
-    RotatePoint(centerX, centerY, rotation, ax, ay);
-    RotatePoint(centerX, centerY, rotation, bx, by);
-    RotatePoint(centerX, centerY, rotation, cx, cy);
-    DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
-}
-
 void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width, float& height, float rotation)
 {
     if (std::fabs(rotation) <= 0.0001f)
@@ -439,6 +358,10 @@ void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width
         const float rotatedVelocityY = item.projectileVelocityX * sinTheta + item.projectileVelocityY * cosTheta;
         item.projectileVelocityX = rotatedVelocityX;
         item.projectileVelocityY = rotatedVelocityY;
+        const float rotatedSpearDirectionX = item.spearDirectionX * cosTheta - item.spearDirectionY * sinTheta;
+        const float rotatedSpearDirectionY = item.spearDirectionX * sinTheta + item.spearDirectionY * cosTheta;
+        item.spearDirectionX = rotatedSpearDirectionX;
+        item.spearDirectionY = rotatedSpearDirectionY;
 
         minX = (std::min)(minX, item.relativeX);
         minY = (std::min)(minY, item.relativeY);
@@ -463,7 +386,8 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
     float contentWidth,
     float contentHeight,
     bool flipX,
-    bool bridgeEnabled)
+    bool bridgeEnabled,
+    PhotoPlacementRuleGroup paperRuleGroup = PhotoPlacementRuleGroup::Group1)
 {
     const float printedWidth = GetPrintedPhotoWidth(contentWidth);
     std::vector<CapturedPhotoItem> printedItems = sourceItems;
@@ -534,7 +458,7 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
     paper.layer = PhotoCopyLayer::Background;
     paper.origin = PhotoCopyOrigin::Generic;
     paper.appliedTheme = PhotoFilterTheme::None;
-    paper.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
+    paper.placementRuleGroup = paperRuleGroup;
     paper.relativeX = 0.0f;
     paper.relativeY = 0.0f;
     paper.width = printedWidth;
@@ -554,7 +478,7 @@ std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
     matte.layer = PhotoCopyLayer::Background;
     matte.origin = PhotoCopyOrigin::Tile;
     matte.appliedTheme = PhotoFilterTheme::None;
-    matte.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
+    matte.placementRuleGroup = paperRuleGroup;
     matte.relativeX = gPrintedPhotoPaddingX - gPrintedPhotoMatteInset;
     matte.relativeY = gPrintedPhotoPaddingTop - gPrintedPhotoMatteInset;
     matte.width = contentWidth + gPrintedPhotoMatteInset * 2.0f;
@@ -588,6 +512,64 @@ bool ContainsSpawnArchetypeItem(const std::vector<CapturedPhotoItem>& items)
     return false;
 }
 
+bool IsShieldArchetype(CapturedSpawnArchetype archetype)
+{
+    return archetype == CapturedSpawnArchetype::ShieldNormal ||
+        archetype == CapturedSpawnArchetype::ShieldRushBurst ||
+        archetype == CapturedSpawnArchetype::ShieldJumpBurst;
+}
+
+bool ContainsOnlyShieldArchetypeItems(const std::vector<CapturedPhotoItem>& items)
+{
+    bool foundShield = false;
+    for (const auto& item : items)
+    {
+        if (IsShieldArchetype(item.spawnArchetype))
+        {
+            foundShield = true;
+            continue;
+        }
+
+        if (item.spawnArchetype != CapturedSpawnArchetype::None ||
+            item.layer == PhotoCopyLayer::Foreground)
+        {
+            return false;
+        }
+    }
+    return foundShield;
+}
+
+void NormalizeItemsToBounds(std::vector<CapturedPhotoItem>& items, float& width, float& height)
+{
+    if (items.empty())
+    {
+        width = 1.0f;
+        height = 1.0f;
+        return;
+    }
+
+    float minX = FLT_MAX;
+    float minY = FLT_MAX;
+    float maxX = -FLT_MAX;
+    float maxY = -FLT_MAX;
+    for (const auto& item : items)
+    {
+        minX = (std::min)(minX, item.relativeX);
+        minY = (std::min)(minY, item.relativeY);
+        maxX = (std::max)(maxX, item.relativeX + item.width);
+        maxY = (std::max)(maxY, item.relativeY + item.height);
+    }
+
+    for (auto& item : items)
+    {
+        item.relativeX -= minX;
+        item.relativeY -= minY;
+    }
+
+    width = (std::max)(1.0f, maxX - minX);
+    height = (std::max)(1.0f, maxY - minY);
+}
+
 bool ContainsShapePreservingItem(const std::vector<CapturedPhotoItem>& items)
 {
     for (const auto& item : items)
@@ -617,6 +599,7 @@ std::vector<CapturedPhotoItem> BuildRawPlacementItems(
         item.relativeX = captureWidth - item.relativeX - item.width;
         item.flipX = !item.flipX;
         item.projectileVelocityX = -item.projectileVelocityX;
+        item.spearDirectionX = -item.spearDirectionX;
         for (auto& point : item.collisionOutline)
         {
             point.x = 1.0f - point.x;
@@ -706,6 +689,20 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
 {
     const bool containsArchetype = ContainsSpawnArchetypeItem(capture.items);
     const bool preservesShape = ContainsShapePreservingItem(capture.items);
+    if (ContainsOnlyShieldArchetypeItems(capture.items))
+    {
+        outWidth = (std::max)(1.0f, capture.width);
+        outHeight = (std::max)(1.0f, capture.height);
+        std::vector<CapturedPhotoItem> items = BuildRawPlacementItems(
+            capture.items,
+            outWidth,
+            outHeight,
+            placement.flipX);
+        NormalizeItemsToBounds(items, outWidth, outHeight);
+        RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
+        return items;
+    }
+
     if (preservesShape)
     {
         outWidth = (std::max)(1.0f, capture.width);
@@ -724,6 +721,19 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
         outWidth = (std::max)(1.0f, capture.width);
         outHeight = (std::max)(1.0f, capture.height);
 
+        PhotoPlacementRuleGroup paperRuleGroup = PhotoPlacementRuleGroup::Group1;
+        for (const auto& item : capture.items)
+        {
+            if (item.spawnArchetype == CapturedSpawnArchetype::WalkerMelee ||
+                item.spawnArchetype == CapturedSpawnArchetype::ShieldNormal ||
+                item.spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst ||
+                item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
+            {
+                paperRuleGroup = PhotoPlacementRuleGroup::Group3;
+                break;
+            }
+        }
+
         std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
             capture.items,
             whiteTexture,
@@ -731,7 +741,8 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
             outWidth,
             outHeight,
             placement.flipX,
-            false);
+            false,
+            paperRuleGroup);
         if (placement.flipX)
         {
             for (auto& item : items)
@@ -739,6 +750,7 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
                 item.relativeX = outWidth - item.relativeX - item.width;
                 item.flipX = !item.flipX;
                 item.projectileVelocityX = -item.projectileVelocityX;
+                item.spearDirectionX = -item.spearDirectionX;
             }
         }
         RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
@@ -789,7 +801,10 @@ void DrawCapturedPhotoItem(
             static_cast<int>(std::round(item.tintR * 255.0f)),
             static_cast<int>(std::round(item.tintG * 255.0f)),
             static_cast<int>(std::round(item.tintB * 255.0f)));
-        const float projectileAngle = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+        const float projectileAngle = item.spearProjectile &&
+            (std::fabs(item.spearDirectionX) > 0.0001f || std::fabs(item.spearDirectionY) > 0.0001f)
+            ? std::atan2(item.spearDirectionY, item.spearDirectionX)
+            : std::atan2(item.projectileVelocityY, item.projectileVelocityX);
         DrawProjectileItem(
             drawX,
             drawY,

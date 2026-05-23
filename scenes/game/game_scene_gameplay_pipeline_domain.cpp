@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 
 using namespace game_scene_detail;
@@ -19,6 +21,7 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     UpdateLaserTurrets(gameplayDeltaTime);
     UpdateLinkedGimmicks(gameplayDeltaTime);
     UpdateEnemies();
+    UpdateShields(gameplayDeltaTime);
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
 }

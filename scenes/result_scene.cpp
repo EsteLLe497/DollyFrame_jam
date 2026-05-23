@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "result_scene.h"
 
 #include "directX.h"
@@ -55,7 +57,6 @@ void ResultScene::OnEnter(ResourceManager& resources)
 void ResultScene::Update(float deltaTime)
 {
     ZoneScoped;
-    m_eventBus.Clear();
     m_blinkTimer += deltaTime;
     if (m_blinkTimer >= 0.45f)
     {

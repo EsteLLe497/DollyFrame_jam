@@ -1,5 +1,7 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
-#include "photo_system_bridge.h"
+#include "photo_shared.h"
 
 using namespace game_scene_detail;
 
@@ -16,21 +18,6 @@ namespace
     };
 
     using CollisionPolygon = std::vector<CollisionPoint>;
-
-    void RotatePoint(float centerX, float centerY, float rotation, float& x, float& y)
-    {
-        if (std::fabs(rotation) <= 0.0001f)
-        {
-            return;
-        }
-
-        const float localX = x - centerX;
-        const float localY = y - centerY;
-        const float cosTheta = std::cos(rotation);
-        const float sinTheta = std::sin(rotation);
-        x = centerX + (localX * cosTheta - localY * sinTheta);
-        y = centerY + (localX * sinTheta + localY * cosTheta);
-    }
 
     void BuildRotatedRectPolygon(float left, float top, float width, float height, float rotation, CollisionPolygon& outPolygon)
     {
@@ -479,9 +466,25 @@ namespace
         return true;
     }
 
+    bool IsGroundedCapturedShield(const Entity& entity)
+    {
+        if (!HasTag(entity, "CapturedShield"))
+        {
+            return false;
+        }
+
+        const auto* shield = entity.GetComponent<ShieldComponent>();
+        return shield && shield->photoSpawned && shield->grounded;
+    }
+
     bool IsSolidPolygonEntity(const Entity& entity)
     {
         if (entity.GetComponent<ImageOutlineColliderComponent>())
+        {
+            return true;
+        }
+
+        if (IsGroundedCapturedShield(entity))
         {
             return true;
         }
@@ -649,6 +652,11 @@ bool GameScene::IsSlopeTile(int column, int row) const
     }
 
     return false;
+}
+
+bool GameScene::GetSlopeSurfaceY(int column, int row, float worldX, float& outSurfaceY) const
+{
+    return TryGetSlopeSurfaceY(m_tileMap, column, row, worldX, outSurfaceY);
 }
 
 bool GameScene::IsTileBlockingFromLeft(int column, int row) const
@@ -1358,6 +1366,12 @@ void GameScene::GetEntityBoundsByTag(const char* tag, std::vector<TransformCompo
 
 bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
 {
+    if (HasTag(entity, kTagProtectiveWall))
+    {
+        const auto* wall = entity.GetComponent<ProtectiveWallComponent>();
+        return wall && !wall->IsDestroyed() && wall->isOn;
+    }
+
     return HasTag(entity, kTagPhotoSource) ||
         HasTag(entity, kTagBatterySwitch) ||
         HasTag(entity, kTagElevator) ||
@@ -1521,19 +1535,17 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
 {
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
-    if (x < 0.0f || y < 0.0f || x + width > mapWidth || y + height > mapHeight)
-    {
-        return false;
-    }
 
     const float tileSize = m_tileMap.GetTileSize();
-    auto buildCandidatePolygon = [](const TransformComponent& candidate, CollisionPolygon& outPolygon)
+    auto buildCandidatePolygon = [](const TransformComponent& candidate, CollisionPolygon& outPolygon, float inset = 0.0f)
     {
+        const float width = (std::max)(1.0f, candidate.width * candidate.scale - inset * 2.0f);
+        const float height = (std::max)(1.0f, candidate.height * candidate.scale - inset * 2.0f);
         BuildRotatedRectPolygon(
-            candidate.x,
-            candidate.y,
-            candidate.width * candidate.scale,
-            candidate.height * candidate.scale,
+            candidate.x + inset,
+            candidate.y + inset,
+            width,
+            height,
             candidate.rotation,
             outPolygon);
     };
@@ -1574,11 +1586,53 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
         return false;
     };
 
-    // Forbidden target: Floor. Check solid/slope tiles and solid pasted photo boxes.
-    auto intersectsFloorObject = [&](const TransformComponent& candidate) -> bool
+    auto intersectsPlayer = [&](const TransformComponent& candidate, float clearance) -> bool
     {
         CollisionPolygon candidatePolygon;
         buildCandidatePolygon(candidate, candidatePolygon);
+        for (const auto& entity : m_entities)
+        {
+            if (!entity || !HasTag(*entity, kTagPlayer))
+            {
+                continue;
+            }
+
+            const auto* playerTransform = entity->GetComponent<TransformComponent>();
+            if (!playerTransform)
+            {
+                continue;
+            }
+
+            CollisionPolygon playerPolygon;
+            if (clearance > 0.0f)
+            {
+                BuildRotatedRectPolygon(
+                    playerTransform->x - clearance,
+                    playerTransform->y - clearance,
+                    playerTransform->width * playerTransform->scale + clearance * 2.0f,
+                    playerTransform->height * playerTransform->scale + clearance * 2.0f,
+                    playerTransform->rotation,
+                    playerPolygon);
+            }
+            else if (!BuildEntityCollisionPolygon(*entity, playerPolygon))
+            {
+                continue;
+            }
+
+            if (PolygonsIntersect(candidatePolygon, playerPolygon))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    // Forbidden target: Floor. Check solid/slope tiles and solid pasted photo boxes.
+    auto intersectsFloorObject = [&](const TransformComponent& candidate, float inset = 0.0f) -> bool
+    {
+        CollisionPolygon candidatePolygon;
+        buildCandidatePolygon(candidate, candidatePolygon, inset);
         const int leftColumn = std::max(0, static_cast<int>(candidate.x / tileSize));
         const int rightColumn = std::min(
             m_tileMap.GetWidth() - 1,
@@ -1611,7 +1665,52 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
             }
         }
 
-        return IntersectsSolidPhotoBox(candidate);
+        TransformComponent insetCandidate(
+            candidate.x + inset,
+            candidate.y + inset,
+            (std::max)(1.0f, candidate.width * candidate.scale - inset * 2.0f),
+            (std::max)(1.0f, candidate.height * candidate.scale - inset * 2.0f));
+        insetCandidate.rotation = candidate.rotation;
+        return IntersectsSolidPhotoBox(insetCandidate);
+    };
+
+    auto intersectsTileOne = [&](const TransformComponent& candidate) -> bool
+    {
+        CollisionPolygon candidatePolygon;
+        buildCandidatePolygon(candidate, candidatePolygon);
+        const int leftColumn = std::max(0, static_cast<int>(candidate.x / tileSize));
+        const int rightColumn = std::min(
+            m_tileMap.GetWidth() - 1,
+            static_cast<int>((candidate.x + candidate.width * candidate.scale - 1.0f) / tileSize));
+        const int topRow = std::max(0, static_cast<int>(candidate.y / tileSize));
+        const int bottomRow = std::min(
+            m_tileMap.GetHeight() - 1,
+            static_cast<int>((candidate.y + candidate.height * candidate.scale - 1.0f) / tileSize));
+
+        for (int row = topRow; row <= bottomRow; ++row)
+        {
+            for (int column = leftColumn; column <= rightColumn; ++column)
+            {
+                if (m_tileMap.GetTile(column, row) != 1)
+                {
+                    continue;
+                }
+
+                TransformComponent tileRect(
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize,
+                    tileSize,
+                    tileSize);
+                CollisionPolygon tilePolygon;
+                BuildRotatedRectPolygon(tileRect.x, tileRect.y, tileRect.width, tileRect.height, 0.0f, tilePolygon);
+                if (PolygonsIntersect(candidatePolygon, tilePolygon))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     };
 
     constexpr std::array<PhotoPlacementForbiddenTarget, 2> kPlacementForbiddenTargets = {
@@ -1619,12 +1718,12 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
         PhotoPlacementForbiddenTarget::Enemy,
     };
 
-    auto violatesForbiddenTarget = [&](const TransformComponent& candidate, PhotoPlacementForbiddenTarget target) -> bool
+    auto violatesForbiddenTarget = [&](const TransformComponent& candidate, PhotoPlacementForbiddenTarget target, float floorInset) -> bool
     {
         switch (target)
         {
         case PhotoPlacementForbiddenTarget::Floor:
-            return intersectsFloorObject(candidate);
+            return intersectsFloorObject(candidate, floorInset);
         case PhotoPlacementForbiddenTarget::Enemy:
             return intersectsEnemy(candidate);
         case PhotoPlacementForbiddenTarget::None:
@@ -1633,7 +1732,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
         }
     };
 
-    auto violatesPlacementRule = [&](const TransformComponent& candidate, PhotoPlacementRuleGroup group) -> bool
+    auto violatesPlacementRule = [&](const TransformComponent& candidate, PhotoPlacementRuleGroup group, float floorInset = 0.0f) -> bool
     {
         const auto* ruleDefinition = FindPhotoPlacementRuleDefinition(group);
         const std::uint8_t forbiddenMask = ruleDefinition
@@ -1646,7 +1745,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
                 continue;
             }
 
-            if (violatesForbiddenTarget(candidate, target))
+            if (violatesForbiddenTarget(candidate, target, floorInset))
             {
                 return true;
             }
@@ -1657,25 +1756,91 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
 
     if (m_photo.capture.items.empty())
     {
+        if (x < 0.0f || y < 0.0f || x + width > mapWidth || y + height > mapHeight)
+        {
+            return false;
+        }
+
         // Backward-compatible fallback: treat as Group1 when no captured items exist.
         TransformComponent candidate(x, y, width, height);
-        return !violatesPlacementRule(candidate, PhotoPlacementRuleGroup::Group1);
+        return !intersectsPlayer(candidate, 8.0f) && !violatesPlacementRule(candidate, PhotoPlacementRuleGroup::Group1);
     }
 
     float placementWidth = 0.0f;
     float placementHeight = 0.0f;
-    const std::vector<CapturedPhotoItem> placementItems = photo_system_bridge::BuildPlacementItemsBridge(
+    const std::vector<CapturedPhotoItem> placementItems = photo_shared::BuildPlacementItems(
         m_photo.capture,
         m_photo.placement,
         m_whiteTexture,
         placementWidth,
         placementHeight);
 
+    const auto isShieldArchetype = [](CapturedSpawnArchetype archetype) -> bool
+    {
+        return archetype == CapturedSpawnArchetype::ShieldNormal ||
+            archetype == CapturedSpawnArchetype::ShieldRushBurst ||
+            archetype == CapturedSpawnArchetype::ShieldJumpBurst;
+    };
+
+    bool hasShieldItem = false;
+    bool hasNonShieldGameplayItem = false;
     for (const auto& item : placementItems)
     {
+        if (isShieldArchetype(item.spawnArchetype))
+        {
+            hasShieldItem = true;
+            continue;
+        }
+
+        if (item.spawnArchetype != CapturedSpawnArchetype::None ||
+            item.layer == PhotoCopyLayer::Foreground)
+        {
+            hasNonShieldGameplayItem = true;
+        }
+    }
+
+    if (hasShieldItem && !hasNonShieldGameplayItem)
+    {
+        for (const auto& item : placementItems)
+        {
+            if (!isShieldArchetype(item.spawnArchetype))
+            {
+                continue;
+            }
+
+            TransformComponent candidate(x + item.relativeX, y + item.relativeY, item.width, item.height);
+            candidate.rotation = item.rotation;
+            if (intersectsTileOne(candidate))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    for (const auto& item : placementItems)
+    {
+        if (x < 0.0f || y < 0.0f || x + width > mapWidth || y + height > mapHeight)
+        {
+            return false;
+        }
+
         TransformComponent candidate(x + item.relativeX, y + item.relativeY, item.width, item.height);
         candidate.rotation = item.rotation;
-        if (violatesPlacementRule(candidate, item.placementRuleGroup))
+        const bool blocksPlayer =
+            item.layer == PhotoCopyLayer::Foreground &&
+            item.spawnArchetype != CapturedSpawnArchetype::Projectile &&
+            item.spawnArchetype != CapturedSpawnArchetype::LaserTurret &&
+            item.spawnArchetype != CapturedSpawnArchetype::WalkerMelee &&
+            item.spawnArchetype != CapturedSpawnArchetype::ShieldNormal &&
+            item.spawnArchetype != CapturedSpawnArchetype::ShieldRushBurst &&
+            item.spawnArchetype != CapturedSpawnArchetype::ShieldJumpBurst;
+        if (blocksPlayer && intersectsPlayer(candidate, 8.0f))
+        {
+            return false;
+        }
+        const float floorInset = item.spawnArchetype == CapturedSpawnArchetype::ShieldNormal ? 3.0f : 0.0f;
+        if (violatesPlacementRule(candidate, item.placementRuleGroup, floorInset))
         {
             return false;
         }

@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "audio.h"
 #include "DxLib.h"
@@ -9,9 +11,9 @@ using namespace game_scene_detail;
 
 namespace
 {
-    constexpr int kEscapeMenuItemCount = 12;
+    constexpr int kEscapeMenuItemCount = 13;
     constexpr int kEscapeMenuPanelWidth = 560;
-    constexpr int kEscapeMenuPanelHeight = 540;
+    constexpr int kEscapeMenuPanelHeight = 580;
     constexpr int kEscapeMenuRowStartOffset = 86;
     constexpr int kEscapeMenuRowHeight = 38;
     constexpr int kEscapeMenuRowPaddingX = 18;
@@ -96,6 +98,9 @@ void GameScene::UpdateEscapeMenuInput()
         case 8:
             m_darknessStageEnabled = !m_darknessStageEnabled;
             break;
+        case 9:
+            m_debug.playerHealthDamageEnabled = !m_debug.playerHealthDamageEnabled;
+            break;
         default:
             break;
         }
@@ -140,14 +145,17 @@ void GameScene::UpdateEscapeMenuInput()
         m_darknessStageEnabled = !m_darknessStageEnabled;
         break;
     case 9:
-        m_debug.showEscapeMenu = false;
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+        m_debug.playerHealthDamageEnabled = !m_debug.playerHealthDamageEnabled;
         break;
     case 10:
         m_debug.showEscapeMenu = false;
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
         break;
     case 11:
+        m_debug.showEscapeMenu = false;
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        break;
+    case 12:
         m_debug.showEscapeMenu = false;
         m_eventBus.Publish({ EventType::ExitApplicationRequested, nullptr, nullptr, "", 0.0f, 0.0f });
         break;
@@ -183,7 +191,7 @@ void GameScene::DrawEscapeMenuOverlay() const
     }
 
     const int panelWidth = 560;
-    const int panelHeight = 540;
+    const int panelHeight = 580;
     const int left = (SCREEN_WIDTH - panelWidth) / 2;
     const int top = (SCREEN_HEIGHT - panelHeight) / 2;
     const int right = left + panelWidth;
@@ -252,12 +260,15 @@ void GameScene::DrawEscapeMenuOverlay() const
             DrawFormatString(left + 34, rowTop + 10, textColor, "暗闇エフェクト: %s", m_darknessStageEnabled ? "ON" : "OFF");
             break;
         case 9:
-            DrawString(left + 34, rowTop + 10, "シーンをリスタート", textColor);
+            DrawFormatString(left + 34, rowTop + 10, textColor, "体力減少: %s", m_debug.playerHealthDamageEnabled ? "ON" : "OFF");
             break;
         case 10:
-            DrawString(left + 34, rowTop + 10, "タイトルに戻る", textColor);
+            DrawString(left + 34, rowTop + 10, "シーンをリスタート", textColor);
             break;
         case 11:
+            DrawString(left + 34, rowTop + 10, "タイトルに戻る", textColor);
+            break;
+        case 12:
             DrawString(left + 34, rowTop + 10, "ゲームを終える", textColor);
             break;
         default:

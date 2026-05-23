@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "components.h"
 
 #include <algorithm>
@@ -105,12 +107,14 @@ BatterySwitchComponent::BatterySwitchComponent(
     int requiredBatteryCountValue,
     float pressDepthValue,
     float pressSpeedValue,
-    float releaseSpeedValue)
+    float releaseSpeedValue,
+    bool controlsLaserPowerValue)
     : linkId((std::max)(0, linkIdValue))
     , requiredBatteryCount((std::max)(1, requiredBatteryCountValue))
     , pressDepth((std::max)(0.0f, pressDepthValue))
     , pressSpeed((std::max)(1.0f, pressSpeedValue))
     , releaseSpeed((std::max)(1.0f, releaseSpeedValue))
+    , controlsLaserPower(controlsLaserPowerValue)
 {
 }
 
@@ -127,6 +131,7 @@ void BatterySwitchComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Battery Switch");
     ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("Target: %s", controlsLaserPower ? "Laser Power" : "Linked Gimmick");
     ImGui::Text("Battery: %d / %d", insertedBatteryCount, requiredBatteryCount);
     ImGui::Text("Press: %.1f / %.1f", currentPress, pressDepth);
     ImGui::Text("Pressed: %s", isPressed ? "Yes" : "No");
@@ -181,11 +186,13 @@ ShutterComponent::ShutterComponent(
     int linkIdValue,
     float moveRangeYValue,
     float moveSpeedValue,
-    bool useBossDefeatSignalValue)
+    bool useBossDefeatSignalValue,
+    bool opensWhenUnpoweredValue)
     : linkId((std::max)(0, linkIdValue))
     , moveRangeY((std::max)(0.0f, moveRangeYValue))
     , moveSpeed((std::max)(1.0f, moveSpeedValue))
     , useBossDefeatSignal(useBossDefeatSignalValue)
+    , opensWhenUnpowered(opensWhenUnpoweredValue)
 {
 }
 
@@ -206,22 +213,140 @@ void ShutterComponent::DrawDebugUI()
     ImGui::Text("MoveSpeed: %.1f", moveSpeed);
     ImGui::Text("Open: %s", isOpen ? "Yes" : "No");
     ImGui::Text("Boss Trigger: %s", useBossDefeatSignal ? "Yes" : "No");
+    ImGui::Text("Open When Off: %s", opensWhenUnpowered ? "Yes" : "No");
+}
+
+ProtectiveWallComponent::ProtectiveWallComponent(
+    int linkIdValue,
+    int maxDurabilityValue,
+    float moveRangeYValue,
+    float moveSpeedValue,
+    bool startsOnValue)
+    : linkId((std::max)(0, linkIdValue))
+    , moveRangeY((std::max)(0.0f, moveRangeYValue))
+    , moveSpeed((std::max)(1.0f, moveSpeedValue))
+    , isOn(startsOnValue)
+    , m_maxDurability((std::max)(1, maxDurabilityValue))
+    , m_currentDurability((std::max)(1, maxDurabilityValue))
+{
+}
+
+void ProtectiveWallComponent::OnAttach(Entity& owner)
+{
+    Component::OnAttach(owner);
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        baseY = transform->y;
+        if (!isOn)
+        {
+            transform->y = baseY + moveRangeY;
+        }
+    }
+}
+
+void ProtectiveWallComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Protective Wall");
+    ImGui::Text("Activation: Marker Light Number");
+    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("HP: %d / %d", m_currentDurability, m_maxDurability);
+    ImGui::Text("On: %s", isOn ? "Yes" : "No");
+    ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
+    ImGui::Text("MoveRangeY: %.1f", moveRangeY);
+    ImGui::Text("MoveSpeed: %.1f", moveSpeed);
+}
+
+void ProtectiveWallComponent::ApplyDamage(int amount)
+{
+    if (destroyed)
+    {
+        return;
+    }
+
+    m_currentDurability = std::max(0, m_currentDurability - std::max(0, amount));
+    if (m_currentDurability <= 0)
+    {
+        destroyed = true;
+        isOn = false;
+    }
+}
+
+int ProtectiveWallComponent::GetCurrentDurability() const
+{
+    return m_currentDurability;
+}
+
+int ProtectiveWallComponent::GetMaxDurability() const
+{
+    return m_maxDurability;
+}
+
+bool ProtectiveWallComponent::IsDestroyed() const
+{
+    return destroyed || m_currentDurability <= 0;
 }
 
 LaserTurretComponent::LaserTurretComponent(
     float beamThicknessValue,
-    float damagePerSecondValue)
+    float damagePerSecondValue,
+    bool verticalValue,
+    bool shootsLeftValue,
+    bool requiresLaserPowerValue)
     : beamThickness((std::max)(1.0f, beamThicknessValue))
     , damagePerSecond((std::max)(0.1f, damagePerSecondValue))
+    , vertical(verticalValue)
+    , shootsLeft(shootsLeftValue)
+    , requiresLaserPower(requiresLaserPowerValue)
+    , fireToLeft(shootsLeftValue)
+    , fireDirection(verticalValue
+        ? LaserTurretFireDirection::Down
+        : (shootsLeftValue ? LaserTurretFireDirection::Left : LaserTurretFireDirection::Right))
 {
 }
 
 void LaserTurretComponent::DrawDebugUI()
 {
+    const char* directionName = "Down";
+    switch (fireDirection)
+    {
+    case LaserTurretFireDirection::Down:
+        directionName = "Down";
+        break;
+    case LaserTurretFireDirection::Up:
+        directionName = "Up";
+        break;
+    case LaserTurretFireDirection::Left:
+        directionName = "Left";
+        break;
+    case LaserTurretFireDirection::Right:
+        directionName = "Right";
+        break;
+    }
+
     ImGui::SeparatorText("Laser Turret");
     ImGui::Text("Beam Thickness: %.1f", beamThickness);
     ImGui::Text("Damage / sec: %.2f", damagePerSecond);
+    ImGui::Text("Direction: %s", directionName);
+    ImGui::Text("Needs X Switch: %s", requiresLaserPower ? "Yes" : "No");
     ImGui::Text("Player Damage Timer: %.2f", playerDamageTimer);
+    ImGui::Text("Active: %s", active ? "Yes" : "No");
+    ImGui::Text("Warmup: %.2f", warmupRemaining);
+    ImGui::Text("Beam Facing: %s", directionName);
+    ImGui::Text("Enemy Knockback: %.1f", enemyKnockbackSpeed);
+    ImGui::Text("Origin Offset: (%.1f, %.1f)", beamOriginOffsetX, beamOriginOffsetY);
+}
+
+LaserBeamComponent::LaserBeamComponent(float damagePerSecondValue, float enemyKnockbackSpeedValue)
+    : damagePerSecond((std::max)(0.1f, damagePerSecondValue))
+    , enemyKnockbackSpeed((std::max)(0.0f, enemyKnockbackSpeedValue))
+{
+}
+
+void LaserBeamComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Laser Beam");
+    ImGui::Text("Damage / sec: %.2f", damagePerSecond);
+    ImGui::Text("Enemy Knockback: %.1f", enemyKnockbackSpeed);
 }
 
 TransformComponent::TransformComponent(float xValue, float yValue, float widthValue, float heightValue)
@@ -293,9 +418,10 @@ void FlickerLightComponent::DrawDebugUI()
     }
 }
 
-MarkerLightComponent::MarkerLightComponent(float radiusValue, float intensityValue)
+MarkerLightComponent::MarkerLightComponent(float radiusValue, float intensityValue, int linkIdValue)
     : radius(std::max(1.0f, radiusValue))
     , intensity(std::clamp(intensityValue, 0.0f, 1.0f))
+    , linkId((std::max)(-1, linkIdValue))
 {
 }
 
@@ -304,7 +430,45 @@ void MarkerLightComponent::DrawDebugUI()
     ImGui::SeparatorText("Marker Light");
     ImGui::Text("Radius: %.1f", radius);
     ImGui::Text("Intensity: %.2f", intensity);
+    ImGui::Text("LinkId: %d", linkId);
     ImGui::Text("Activated: %s", activated ? "On" : "Off");
+}
+
+StageLightComponent::StageLightComponent(
+    bool enabledValue,
+    float fixtureTopWidthRatioValue,
+    float beamLengthValue,
+    float beamTopWidthValue,
+    float beamBottomWidthValue,
+    float beamFeatherValue,
+    float rValue,
+    float gValue,
+    float bValue,
+    float intensityValue)
+    : enabled(enabledValue)
+    , fixtureTopWidthRatio(std::clamp(fixtureTopWidthRatioValue, 0.05f, 1.0f))
+    , beamLength(std::max(0.0f, beamLengthValue))
+    , beamTopWidth(std::max(0.0f, beamTopWidthValue))
+    , beamBottomWidth(std::max(0.0f, beamBottomWidthValue))
+    , beamFeather(std::max(0.0f, beamFeatherValue))
+    , r(std::clamp(rValue, 0.0f, 1.0f))
+    , g(std::clamp(gValue, 0.0f, 1.0f))
+    , b(std::clamp(bValue, 0.0f, 1.0f))
+    , intensity(std::clamp(intensityValue, 0.0f, 1.0f))
+{
+}
+
+void StageLightComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Stage Light");
+    ImGui::Checkbox("Enabled", &enabled);
+    ImGui::SliderFloat("Fixture Top Ratio", &fixtureTopWidthRatio, 0.05f, 1.0f);
+    ImGui::DragFloat("Beam Length", &beamLength, 1.0f, 0.0f, 4096.0f);
+    ImGui::DragFloat("Beam Top Width", &beamTopWidth, 1.0f, 0.0f, 4096.0f);
+    ImGui::DragFloat("Beam Bottom Width", &beamBottomWidth, 1.0f, 0.0f, 4096.0f);
+    ImGui::DragFloat("Beam Feather", &beamFeather, 1.0f, 0.0f, 1024.0f);
+    ImGui::SliderFloat("Intensity", &intensity, 0.0f, 1.0f);
+    ImGui::ColorEdit3("Color", &r);
 }
 
 TagComponent::TagComponent(const char* value)
@@ -428,6 +592,8 @@ namespace
             return "Ranged";
         case EnemyArchetype::ShieldBoss:
             return "ShieldBoss";
+        case EnemyArchetype::MidBoss2:
+            return "MidBoss2";
         case EnemyArchetype::Ghost:
             return "Ghost";
         case EnemyArchetype::BlasterRobot:
@@ -533,12 +699,18 @@ void EnemyComponent::MarkDefeated()
 {
     m_defeated = true;
     m_enabled = false;
+    attackFrameTriggered = false;
+    knockbackActive = false;
+    knockbackTimer = 0.0f;
 }
 
 void EnemyComponent::Restore()
 {
     m_defeated = false;
     m_enabled = true;
+    attackFrameTriggered = false;
+    knockbackActive = false;
+    knockbackTimer = 0.0f;
 }
 
 // ============================================================================
