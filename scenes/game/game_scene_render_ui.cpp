@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "DxLib.h"
+#include <texture.h>
 
 using namespace game_scene_detail;
 
@@ -1694,8 +1695,8 @@ void GameScene::DrawDevelopedPhotoPreview() const
     }
 
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    Shader_ResetStyle();
 }
+
 bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 {
     if (m_flow.photoTrayReveal <= 0.05f)
@@ -1857,19 +1858,227 @@ void GameScene::DrawBackdrop() const
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-void GameScene::DrawBackdropBaseInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const
+void GameScene::DrawBackdropBaseInView(
+    float viewOriginX,
+    float viewOriginY,
+    float viewWidth,
+    float viewHeight,
+    float viewScale) const
 {
-    Shader_ResetStyle();
-    Shader_SetTint(0.02f, 0.02f, 0.03f, 1.0f);
-    SpriteDraw(m_whiteTexture, 0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f, 0.0f, 1.0f, 1.0f);
+    const int bgTexture = m_assets.GetTexture("sinrin10");
+    const int bg1Texture = m_assets.GetTexture("sinrin11");
 
-    Shader_SetGradientMap(0.03f, 0.03f, 0.05f, 1.0f, 0.10f, 0.10f, 0.14f, 1.0f, 1.0f);
-    Shader_SetTint(0.92f, 0.92f, 0.96f, 1.0f);
-    SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, 210.0f * viewScale, 0.0f, 0.0f, 1.0f, 1.0f);
+	if (bgTexture < 0 || bg1Texture < 0)
+    {
+        return;
+    }
 
-    Shader_SetTint(0.05f, 0.05f, 0.07f, 0.98f);
-    SpriteDraw(m_whiteTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+    // �e�N�X�`���T�C�Y sinrin10
+    const int texW = TextureGetWidth(bgTexture);
+    const int texH = TextureGetHeight(bgTexture);
+    if (texW <= 0 || texH <= 0)
+    {
+        return;
+    }
 
+    // �e�N�X�`���T�C�Y sinrin11
+    const int texW1 = TextureGetWidth(bg1Texture);
+    const int texH1 = TextureGetHeight(bg1Texture);
+    if (texW1 <= 0 || texH1 <= 0)
+    {
+        return;
+    }
+
+    // �`��T�C�Y�i��ʗ̈�j
+    const float drawW = viewWidth;
+    const float drawH = viewHeight;
+
+    // �`��T�C�Y�i��ʗ̈�jbg1
+    const float drawW1 = viewWidth;
+    const float drawH1 = viewHeight;
+
+    // �p�����b�N�X�W���i0.0 = �Œ�w�i�A1.0 = �J�����Ɠ����j
+    // �K�v�ɉ����Ă�����ύX�i��: 0.2f, 0.5f, 1.0f�j
+    const float parallaxX = 0.45f;
+    const float parallaxY = 0.45f;
+
+    // �p�����b�N�X�W���i0.0 = �Œ�w�i�A1.0 = �J�����Ɠ����j
+    // �K�v�ɉ����Ă�����ύX�i��: 0.2f, 0.5f, 1.0f�jbg1
+    const float parallaxX1 = 0.45f;
+    const float parallaxY1 = 0.45f;
+
+    // �J�����̃��[���h�ʒu���g����UV�X�N���[���ʂ��v�Z�i0..1�j
+    float scrollU = std::fmod((m_flow.cameraX * parallaxX) / static_cast<float>(texW), 1.0f);
+    if (scrollU < 0.0f) scrollU += 1.0f;
+    float scrollV = std::fmod((m_flow.cameraY * parallaxY) / static_cast<float>(texH), 1.0f);
+    if (scrollV < 0.0f) scrollV += 1.0f;
+
+    // �J�����̃��[���h�ʒu���g����UV�X�N���[���ʂ��v�Z�i0..1�jbg1
+    float scrollU1 = std::fmod((m_flow.cameraX * parallaxX1) / static_cast<float>(texW1), 1.0f);
+    if (scrollU1 < 0.0f) scrollU1 += 1.0f;
+    float scrollV1 = std::fmod((m_flow.cameraY * parallaxY1) / static_cast<float>(texH1), 1.0f);
+    if (scrollV1 < 0.0f) scrollV1 += 1.0f;
+
+    // UV�䂩���ʏ�̕��������v�Z�i��/�E, ��/���j
+    const float leftUVWidth = 1.0f - scrollU;
+    const float rightUVWidth = scrollU;
+    const float topUVHeight = 1.0f - scrollV;
+    const float bottomUVHeight = scrollV;
+
+    // UV�䂩���ʏ�̕��������v�Z�i��/�E, ��/���jbg1
+    const float leftUVWidth1 = 1.0f - scrollU1;
+    const float rightUVWidth1 = scrollU1;
+    const float topUVHeight1 = 1.0f - scrollV1;
+    const float bottomUVHeight1 = scrollV1;
+
+    const float leftDrawW = drawW * leftUVWidth;
+    const float rightDrawW = drawW - leftDrawW; // = drawW * rightUVWidth
+    const float topDrawH = drawH * topUVHeight;
+    const float bottomDrawH = drawH - topDrawH; // = drawH * bottomUVHeight
+
+	// UV�䂩���ʏ�̕��������v�Z�i��/�E, ��/���jbg1
+    const float leftDrawW1 = drawW * leftUVWidth1;
+    const float rightDrawW1 = drawW - leftDrawW1; // = drawW * rightUVWidth1
+    const float topDrawH1 = drawH * topUVHeight1;
+    const float bottomDrawH1 = drawH - topDrawH1; // = drawH * bottomUVHeight1
+
+    // �ŏ��`�敝/������臒l�i���܂�ɏ�������Ε`���Ȃ��j
+    constexpr float kMinDrawSize = 0.5f;
+
+    // 4�����ŕ`��F����A�E��A�����A�E��
+    // ����
+    if (leftDrawW > kMinDrawSize && topDrawH > kMinDrawSize)
+    {
+        SpriteDraw(
+            bgTexture,
+            viewOriginX,
+            viewOriginY,
+            leftDrawW,
+            topDrawH,
+            scrollU,
+            scrollV,
+            leftUVWidth,
+            topUVHeight,
+            false,
+            0.0f);
+    }
+	//����bg1
+    if (leftDrawW1 > kMinDrawSize && topDrawH1 > kMinDrawSize)
+    {
+        SpriteDraw(
+            bg1Texture,
+            viewOriginX,
+            viewOriginY,
+            leftDrawW1,
+            topDrawH1,
+            scrollU1,
+            scrollV1,
+            leftUVWidth1,
+            topUVHeight1,
+            false,
+            0.0f);
+    }
+
+    // �E��
+    if (rightDrawW > kMinDrawSize && topDrawH > kMinDrawSize)
+    {
+        SpriteDraw(
+            bgTexture,
+            viewOriginX + leftDrawW,
+            viewOriginY,
+            rightDrawW,
+            topDrawH,
+            0.0f,
+            scrollV,
+            rightUVWidth,
+            topUVHeight,
+            false,
+            0.0f);
+    }
+
+    // �E��bg1
+    if (rightDrawW1 > kMinDrawSize && topDrawH1 > kMinDrawSize)
+    {
+        SpriteDraw(
+            bg1Texture,
+            viewOriginX + leftDrawW1,
+            viewOriginY,
+            rightDrawW1,
+            topDrawH1,
+            0.0f,
+            scrollV1,
+            rightUVWidth1,
+            topUVHeight1,
+            false,
+            0.0f);
+    }
+
+    // ����
+    if (leftDrawW > kMinDrawSize && bottomDrawH > kMinDrawSize)
+    {
+        SpriteDraw(
+            bgTexture,
+            viewOriginX,
+            viewOriginY + topDrawH,
+            leftDrawW,
+            bottomDrawH,
+            scrollU,
+            0.0f,
+            leftUVWidth,
+            bottomUVHeight,
+            false,
+            0.0f);
+    }
+
+    // ����bg1
+    if (leftDrawW1 > kMinDrawSize && bottomDrawH1 > kMinDrawSize)
+    {
+        SpriteDraw(
+            bg1Texture,
+            viewOriginX,
+            viewOriginY + topDrawH1,
+            leftDrawW1,
+            bottomDrawH1,
+            scrollU1,
+            0.0f,
+            leftUVWidth1,
+            bottomUVHeight1,
+            false,
+            0.0f);
+    }
+
+    // �E��
+    if (rightDrawW > kMinDrawSize && bottomDrawH > kMinDrawSize)
+    {
+        SpriteDraw(
+            bgTexture,
+            viewOriginX + leftDrawW,
+            viewOriginY + topDrawH,
+            rightDrawW,
+            bottomDrawH,
+            0.0f,
+            0.0f,
+            rightUVWidth,
+            bottomUVHeight,
+            false,
+            0.0f);
+    }
+    // �E��bg1
+    if (rightDrawW1 > kMinDrawSize && bottomDrawH1 > kMinDrawSize)
+    {
+        SpriteDraw(
+            bg1Texture,
+            viewOriginX + leftDrawW1,
+            viewOriginY + topDrawH1,
+            rightDrawW1,
+            bottomDrawH1,
+            0.0f,
+            0.0f,
+            rightUVWidth1,
+            bottomUVHeight1,
+            false,
+            0.0f);
+    }
 }
 
 void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const
