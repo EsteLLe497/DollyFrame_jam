@@ -15,6 +15,7 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
 {
     UpdatePlayer(gameplayDeltaTime);
     HandlePhotoCapture();
+    TryUseAttackCaptureSlot();
     HandlePhotoSpawn();
     UpdateBarrels(gameplayDeltaTime);
     UpdateBatteries(gameplayDeltaTime);

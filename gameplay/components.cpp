@@ -700,6 +700,9 @@ void EnemyComponent::MarkDefeated()
     m_defeated = true;
     m_enabled = false;
     attackFrameTriggered = false;
+    attackCaptureWindowActive = false;
+    attackWarningProgress = 0.0f;
+    attackFlashRemaining = 0.0f;
     knockbackActive = false;
     knockbackTimer = 0.0f;
 }
@@ -709,6 +712,9 @@ void EnemyComponent::Restore()
     m_defeated = false;
     m_enabled = true;
     attackFrameTriggered = false;
+    attackCaptureWindowActive = false;
+    attackWarningProgress = 0.0f;
+    attackFlashRemaining = 0.0f;
     knockbackActive = false;
     knockbackTimer = 0.0f;
 }

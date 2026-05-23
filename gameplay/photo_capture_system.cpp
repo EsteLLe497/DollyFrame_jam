@@ -328,7 +328,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if (HasTag(*entity, "Enemy"))
         {
             const auto* enemyComp = entity->GetComponent<EnemyComponent>();
-            if (!enemyComp || enemyComp->GetArchetype() != EnemyArchetype::Walker)
+            if (!enemyComp ||
+                enemyComp->GetArchetype() != EnemyArchetype::Walker ||
+                !enemyComp->attackCaptureWindowActive)
             {
                 continue;
             }

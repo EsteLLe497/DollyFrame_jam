@@ -621,6 +621,9 @@ public:
     float attackRectHeight = 0.0f;
     float attackRectRemaining = 0.0f;
     bool attackFrameTriggered = false; // One-shot marker for frame-timed attacks.
+    bool attackCaptureWindowActive = false; // True only while the enemy attack can be captured.
+    float attackWarningProgress = 0.0f; // 0-1 charge value used by the warning ring renderer.
+    float attackFlashRemaining = 0.0f; // Short hit-timing flash used by the warning renderer.
     bool knockbackActive = false;
     float knockbackTimer = 0.0f;
     float knockbackDuration = 0.26f;

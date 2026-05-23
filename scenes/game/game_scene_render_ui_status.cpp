@@ -6,6 +6,39 @@
 
 using namespace game_scene_detail;
 
+namespace
+{
+    unsigned int GetAttackCaptureIconColor(CapturedSpawnArchetype archetype)
+    {
+        switch (archetype)
+        {
+        case CapturedSpawnArchetype::WalkerMelee:
+            return GetColor(255, 94, 42);
+        case CapturedSpawnArchetype::Projectile:
+            return GetColor(255, 214, 72);
+        case CapturedSpawnArchetype::ShieldRushBurst:
+        case CapturedSpawnArchetype::ShieldJumpBurst:
+        case CapturedSpawnArchetype::ShieldNormal:
+            return GetColor(86, 156, 255);
+        default:
+            return GetColor(210, 86, 255);
+        }
+    }
+
+    CapturedSpawnArchetype GetPrimaryAttackCaptureArchetype(const PhotoCaptureState& capture)
+    {
+        for (const auto& item : capture.items)
+        {
+            if (item.enemyAttackPaste)
+            {
+                return item.spawnArchetype;
+            }
+        }
+
+        return CapturedSpawnArchetype::None;
+    }
+}
+
 void GameScene::DrawPlayerHpBar() const
 {
     const Entity* player = FindEntityByTag(kTagPlayer);
@@ -20,15 +53,15 @@ void GameScene::DrawPlayerHpBar() const
     constexpr float kBarWidth = 240.0f;
     constexpr float kBarHeight = 24.0f;
     constexpr float kPanelPadding = 12.0f;
-    constexpr float kMarginRight = 32.0f;
+    constexpr float kMarginLeft = 32.0f;
     constexpr float kMarginTop = 32.0f;
 
-    const float barX = static_cast<float>(SCREEN_WIDTH) - kBarWidth - kMarginRight;
-    const float barY = kMarginTop;
-    const float panelX = barX - kPanelPadding;
-    const float panelY = barY - kPanelPadding;
     const float panelWidth = kBarWidth + kPanelPadding * 2.0f;
     const float panelHeight = kBarHeight + 38.0f;
+    const float panelX = kMarginLeft;
+    const float panelY = kMarginTop;
+    const float barX = panelX + kPanelPadding;
+    const float barY = panelY + kPanelPadding;
 
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 204);
     DrawBox(
@@ -140,4 +173,54 @@ void GameScene::DrawPlayerHpBar() const
         "HP %d / %d",
         currentHp,
         maxHp);
+}
+
+void GameScene::DrawAttackCaptureSlot() const
+{
+    if (!m_photo.attackCapture.hasPhoto || !m_photo.attackCapture.containsEnemyAttackPaste)
+    {
+        return;
+    }
+
+    constexpr float kPanelX = 32.0f;
+    constexpr float kPanelY = 124.0f;
+    constexpr float kPanelSize = 96.0f;
+    constexpr float kIconRadius = 28.0f;
+    const float centerX = kPanelX + kPanelSize * 0.5f;
+    const float centerY = kPanelY + kPanelSize * 0.5f + 4.0f;
+    const CapturedSpawnArchetype archetype = GetPrimaryAttackCaptureArchetype(m_photo.attackCapture);
+    const unsigned int iconColor = GetAttackCaptureIconColor(archetype);
+
+    // Attack captures use a replaceable icon slot; the colored circle is a temporary asset stand-in.
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 210);
+    DrawBox(
+        static_cast<int>(std::round(kPanelX)),
+        static_cast<int>(std::round(kPanelY)),
+        static_cast<int>(std::round(kPanelX + kPanelSize)),
+        static_cast<int>(std::round(kPanelY + kPanelSize)),
+        GetColor(12, 18, 26),
+        TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawBox(
+        static_cast<int>(std::round(kPanelX)),
+        static_cast<int>(std::round(kPanelY)),
+        static_cast<int>(std::round(kPanelX + kPanelSize)),
+        static_cast<int>(std::round(kPanelY + kPanelSize)),
+        GetColor(224, 232, 242),
+        FALSE);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 80);
+    DrawCircleAA(centerX, centerY, kIconRadius + 14.0f, 64, iconColor, TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_ADD, 128);
+    DrawCircleAA(centerX, centerY, kIconRadius + 6.0f, 64, iconColor, TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 245);
+    DrawCircleAA(centerX, centerY, kIconRadius, 64, iconColor, TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawCircleAA(centerX, centerY, kIconRadius, 64, GetColor(255, 246, 226), FALSE, 2.0f);
+
+    DrawString(
+        static_cast<int>(std::round(kPanelX + 12.0f)),
+        static_cast<int>(std::round(kPanelY + 8.0f)),
+        "ATK",
+        GetColor(240, 226, 196));
 }
