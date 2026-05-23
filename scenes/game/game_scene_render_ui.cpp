@@ -2053,9 +2053,9 @@ void GameScene::DrawPhotoFilterPanelInView() const
     float filterB = 1.0f;
     GetPhotoFilterThemeOverlayColor(m_photo.capture.selectedTheme, filterR, filterG, filterB);
 
-    const int panelX = 22;
-    const int panelY = 18;
     const int panelWidth = 308;
+    const int panelX = SCREEN_WIDTH - panelWidth - 22;
+    const int panelY = 18;
     const int panelHeight = 78;
     DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(14, 18, 24), TRUE);
     DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(220, 228, 236), FALSE);

@@ -183,6 +183,9 @@ inline void UpdateEnemies(
             constexpr float kWalkerAttackActiveSeconds = 0.18f;
             constexpr int kWalkerAttackHitFrame = 30; // 31st frame, zero-based.
             constexpr int kWalkerAttackLastFrame = 55;
+            constexpr int kWalkerAttackCaptureStartFrame = kWalkerAttackHitFrame - 4;
+            constexpr int kWalkerAttackCaptureEndFrame = kWalkerAttackHitFrame + 8;
+            constexpr float kWalkerAttackFlashSeconds = 0.18f;
 
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
@@ -212,16 +215,24 @@ inline void UpdateEnemies(
                     enemy->attackRectActive = false;
                 }
             }
+            if (enemy->attackFlashRemaining > 0.0f)
+            {
+                enemy->attackFlashRemaining = std::max(0.0f, enemy->attackFlashRemaining - flow.lastDeltaTime);
+            }
 
             switch (enemy->GetAIState())
             {
             case EnemyComponent::AIState::Idle:
+                enemy->attackCaptureWindowActive = false;
+                enemy->attackWarningProgress = 0.0f;
                 if (inDetectRange)
                 {
                     enemy->SetAIState(EnemyComponent::AIState::Chase);
                 }
                 break;
             case EnemyComponent::AIState::Chase:
+                enemy->attackCaptureWindowActive = false;
+                enemy->attackWarningProgress = 0.0f;
                 if (dist < enemy->attackRange)
                 {
                     
@@ -253,9 +264,17 @@ inline void UpdateEnemies(
                 if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
                 {
                     const int attackFrame = animation->GetCurrentFrameIndex();
+                    enemy->attackWarningProgress = std::clamp(
+                        static_cast<float>(attackFrame) / static_cast<float>(kWalkerAttackHitFrame),
+                        0.0f,
+                        1.0f);
+                    enemy->attackCaptureWindowActive =
+                        attackFrame >= kWalkerAttackCaptureStartFrame &&
+                        attackFrame <= kWalkerAttackCaptureEndFrame;
                     if (!enemy->attackFrameTriggered && attackFrame >= kWalkerAttackHitFrame)
                     {
                         enemy->attackFrameTriggered = true;
+                        enemy->attackFlashRemaining = kWalkerAttackFlashSeconds;
                         const float attackWidth = 48.0f;
                         const float attackHeight = 60.0f;
                         const float attackOffsetY = transform->height * transform->scale * -0.1f;
@@ -273,6 +292,8 @@ inline void UpdateEnemies(
                     if (attackFrame >= kWalkerAttackLastFrame)
                     {
                         enemy->attackFrameTriggered = false;
+                        enemy->attackCaptureWindowActive = false;
+                        enemy->attackWarningProgress = 0.0f;
                         enemy->attackRectActive = false;
                         enemy->SetAIState(EnemyComponent::AIState::Chase);
                     }
@@ -281,6 +302,8 @@ inline void UpdateEnemies(
                 {
                     enemy->attackTimer = 0.0f;
                     enemy->attackFrameTriggered = false;
+                    enemy->attackCaptureWindowActive = false;
+                    enemy->attackWarningProgress = 0.0f;
                     enemy->attackRectActive = false;
                     enemy->SetAIState(EnemyComponent::AIState::Chase);
                 }

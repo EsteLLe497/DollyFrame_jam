@@ -153,6 +153,7 @@ private:
     void HandleAttackHits();
     void HandlePhotoCapture();
     void HandlePhotoSpawn();
+    void TryUseAttackCaptureSlot();
     void StoreCapturedPhoto();
     void CommitPendingCapturedPhoto();
     void SetSelectedPhotoSlot(int slotIndex);
@@ -197,6 +198,7 @@ private:
     void DrawBossShockwavesUnderlay() const;
     void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
+    void DrawAttackCaptureSlot() const;
     void DrawBatterySwitchCounters() const;
     void DrawEscapeMenuOverlay() const;
     void DrawMapEditorOverlay() const;

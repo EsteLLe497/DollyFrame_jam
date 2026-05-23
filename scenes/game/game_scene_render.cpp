@@ -1024,6 +1024,107 @@ namespace
         }
     }
 
+    void DrawWalkerAttackCaptureCue(
+        const TransformComponent& transform,
+        const EnemyComponent& enemy,
+        float viewOriginX,
+        float viewOriginY,
+        float viewScale,
+        float cameraX,
+        float cameraY)
+    {
+        if (enemy.GetArchetype() != EnemyArchetype::Walker ||
+            enemy.GetAIState() != EnemyComponent::AIState::Attack)
+        {
+            return;
+        }
+
+        const float charge = Clamp01(enemy.attackWarningProgress);
+        const float flash = Clamp01(enemy.attackFlashRemaining / 0.18f);
+        if (charge <= 0.001f && flash <= 0.001f)
+        {
+            return;
+        }
+
+        const float worldWidth = transform.width * transform.scale;
+        const float worldHeight = transform.height * transform.scale;
+        const float centerX = viewOriginX + (transform.x + worldWidth * 0.5f - cameraX) * viewScale;
+        const float centerY = viewOriginY + (transform.y + worldHeight * 0.50f - cameraY) * viewScale;
+        const float chargeEase = charge * charge * (3.0f - 2.0f * charge);
+        const float postHitFade = enemy.attackFrameTriggered ? flash : 1.0f;
+        const float ringFade = enemy.attackFrameTriggered ? std::min(1.0f, flash * 1.35f) : 1.0f;
+        const float innerRadius = std::max(worldWidth, worldHeight) * (0.46f + flash * 0.04f) * viewScale;
+        const float outerRadius = innerRadius * std::lerp(1.72f, 1.0f, chargeEase);
+        const float warningRadius = innerRadius * 1.02f;
+        const float pulse = 0.5f + 0.5f * std::sin(charge * 31.415926f);
+        const int deepRed = GetColor(255, 24, 26);
+        const int red = GetColor(255, 58, 42);
+        const int orangeRed = GetColor(255, 122, 70);
+        const int hotWhite = GetColor(255, 246, 224);
+        const int posnum = 96;
+
+        auto drawRingDash = [&](float angle, float length, float lineRadius, float alphaScale, float thicknessScale)
+        {
+            const float ax = centerX + std::cos(angle - length) * lineRadius;
+            const float ay = centerY + std::sin(angle - length) * lineRadius;
+            const float bx = centerX + std::cos(angle + length) * lineRadius;
+            const float by = centerY + std::sin(angle + length) * lineRadius;
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(alphaScale)), 0, 255));
+            DrawLineAA(ax, ay, bx, by, orangeRed, std::max(1.5f, thicknessScale * viewScale));
+        };
+
+        // Enemy1 charge warning: layered additive rings and short rim strokes like Endfield's charge cue.
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((12.0f + chargeEase * 24.0f) * ringFade)), 0, 80));
+        DrawCircleAA(centerX, centerY, outerRadius * 1.08f, posnum, deepRed, TRUE);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((34.0f + pulse * 12.0f) * ringFade)), 0, 120));
+        DrawCircleAA(centerX, centerY, warningRadius, posnum, deepRed, FALSE, std::max(3.0f, 5.0f * viewScale));
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((58.0f + chargeEase * 48.0f) * ringFade)), 0, 170));
+        DrawCircleAA(centerX, centerY, innerRadius, posnum, red, FALSE, std::max(1.5f, 2.2f * viewScale));
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((52.0f + chargeEase * 90.0f + pulse * 24.0f) * ringFade)), 0, 220));
+        DrawCircleAA(centerX, centerY, outerRadius, posnum, red, FALSE, std::max(3.0f, (4.2f + chargeEase * 2.4f) * viewScale));
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((36.0f + chargeEase * 96.0f + flash * 70.0f) * ringFade)), 0, 255));
+        DrawCircleAA(centerX, centerY, outerRadius * 0.985f, posnum, orangeRed, FALSE, std::max(1.0f, 1.8f * viewScale));
+
+        const float orbit = charge * 6.2831853f;
+        for (int index = 0; index < 6; ++index)
+        {
+            const float angle = orbit + static_cast<float>(index) * 1.0471976f;
+            const float dashAlpha = (42.0f + chargeEase * 82.0f + (index % 2 == 0 ? pulse * 42.0f : 0.0f)) * ringFade;
+            drawRingDash(angle, 0.09f + 0.03f * chargeEase, outerRadius * (1.0f + 0.018f * (index % 2)), dashAlpha, 2.0f + chargeEase * 2.0f);
+        }
+
+        if (enemy.attackCaptureWindowActive && postHitFade > 0.05f)
+        {
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((112.0f + flash * 104.0f) * postHitFade)), 0, 255));
+            DrawCircleAA(centerX, centerY, innerRadius * (1.02f + flash * 0.10f), posnum, orangeRed, FALSE, std::max(3.0f, (4.0f + flash * 3.0f) * viewScale));
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((62.0f + flash * 96.0f) * postHitFade)), 0, 255));
+            DrawCircleAA(centerX, centerY, innerRadius * (1.16f + flash * 0.18f), posnum, red, FALSE, std::max(4.0f, (7.0f + flash * 4.0f) * viewScale));
+        }
+
+        if (flash > 0.001f)
+        {
+            const float beamHalfLength = std::max(420.0f * viewScale, innerRadius * (3.8f + flash * 1.0f));
+            const float beamThickness = std::max(2.0f, (3.0f + flash * 5.0f) * viewScale);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(88.0f * flash)), 0, 255));
+            DrawLineAA(centerX - beamHalfLength, centerY, centerX + beamHalfLength, centerY, deepRed, beamThickness * 6.2f);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(174.0f * flash)), 0, 255));
+            DrawLineAA(centerX - beamHalfLength, centerY, centerX + beamHalfLength, centerY, red, beamThickness * 3.4f);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(245.0f * flash)), 0, 255));
+            DrawLineAA(centerX - beamHalfLength, centerY, centerX + beamHalfLength, centerY, hotWhite, beamThickness);
+            DrawLineAA(centerX, centerY - innerRadius * 0.34f, centerX, centerY + innerRadius * 0.34f, hotWhite, beamThickness * 0.72f);
+            DrawLineAA(centerX - innerRadius * 0.24f, centerY - innerRadius * 0.24f, centerX + innerRadius * 0.24f, centerY + innerRadius * 0.24f, hotWhite, beamThickness * 0.55f);
+            DrawLineAA(centerX - innerRadius * 0.24f, centerY + innerRadius * 0.24f, centerX + innerRadius * 0.24f, centerY - innerRadius * 0.24f, hotWhite, beamThickness * 0.55f);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(214.0f * flash)), 0, 255));
+            DrawCircleAA(centerX, centerY, innerRadius * 0.14f, posnum / 2, hotWhite, TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(126.0f * flash)), 0, 255));
+            DrawCircleAA(centerX, centerY, innerRadius * 0.30f, posnum / 2, orangeRed, TRUE);
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
 }
 
 void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
@@ -1262,6 +1363,30 @@ void GameScene::DrawEffects() const
 
         const float beamLengthWorld = (stageLight->beamLength > 0.0f ? stageLight->beamLength : transform->height * 3.0f) * transform->scale;
         DrawStageLightBeam(*transform, *stageLight, beamLengthWorld, m_flow.cameraX, m_flow.cameraY);
+    }
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!enemy || !transform || !enemy->IsEnabled())
+        {
+            continue;
+        }
+
+        DrawWalkerAttackCaptureCue(
+            *transform,
+            *enemy,
+            viewOriginX,
+            viewOriginY,
+            viewScale,
+            m_flow.cameraX,
+            m_flow.cameraY);
     }
 
     for (const auto& particle : m_effects.barrelDebris)

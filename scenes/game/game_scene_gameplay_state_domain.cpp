@@ -32,6 +32,73 @@ void GameScene::HandlePhotoSpawn()
     photo_system::HandleSpawn(*this);
 }
 
+void GameScene::TryUseAttackCaptureSlot()
+{
+    if (!Input_IsKeyPressed('Q') ||
+        m_flow.cameraMode ||
+        m_photo.placement.active ||
+        m_player.pasteAnimationActive ||
+        !m_photo.attackCapture.hasPhoto ||
+        !m_photo.attackCapture.containsEnemyAttackPaste)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    if (!player)
+    {
+        return;
+    }
+
+    const auto* playerTransform = player->GetComponent<TransformComponent>();
+    if (!playerTransform)
+    {
+        return;
+    }
+
+    CapturedSpawnArchetype attackArchetype = CapturedSpawnArchetype::None;
+    for (const auto& item : m_photo.attackCapture.items)
+    {
+        if (item.enemyAttackPaste)
+        {
+            attackArchetype = item.spawnArchetype;
+            break;
+        }
+    }
+
+    if (attackArchetype != CapturedSpawnArchetype::WalkerMelee)
+    {
+        return;
+    }
+
+    constexpr float kAttackWidth = 48.0f;
+    constexpr float kAttackHeight = 60.0f;
+    constexpr float kAttackLifetime = 0.4f;
+    constexpr float kFaceSideOffset = 8.0f;
+    const float playerWidth = playerTransform->width * playerTransform->scale;
+    const float playerHeight = playerTransform->height * playerTransform->scale;
+    const float attackX = m_player.facingRight
+        ? playerTransform->x + playerWidth + kFaceSideOffset
+        : playerTransform->x - kAttackWidth - kFaceSideOffset;
+    const float attackY = playerTransform->y + playerHeight * 0.22f;
+
+    auto attackEntity = std::make_unique<Entity>();
+    attackEntity->AddComponent<TagComponent>("WalkerMeleeAttack");
+    attackEntity->AddComponent<TransformComponent>(attackX, attackY, kAttackWidth, kAttackHeight);
+    attackEntity->AddComponent<TintComponent>(1.0f, 0.55f, 0.15f, 0.72f);
+    attackEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    attackEntity->AddComponent<PhotoCopyLifetimeComponent>(kAttackLifetime);
+    m_entities.push_back(std::move(attackEntity));
+
+    m_player.captureAnimationActive = false;
+    m_player.captureAnimationReleased = false;
+    m_player.pasteAnimationActive = true;
+    m_player.pasteAnimationEnemyAttack = true;
+    m_player.pasteAnimationReleased = true;
+    m_photo.attackCapture = PhotoCaptureState{};
+    m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Used captured attack", 0.0f, 0.0f });
+}
+
 void GameScene::StartCameraFlashPulse(float durationSeconds)
 {
     if (durationSeconds <= 0.0f)
@@ -71,6 +138,17 @@ void GameScene::StoreCapturedPhoto()
     }
 
     CommitPendingCapturedPhoto();
+
+    if (m_photo.capture.containsEnemyAttackPaste)
+    {
+        const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
+        // Enemy attacks use a dedicated one-slot inventory and never enter the photo tray.
+        m_photo.attackCapture = m_photo.capture;
+        m_photo.capture = PhotoCaptureState{};
+        m_photo.capture.selectedTheme = selectedTheme;
+        m_photo.pendingStore = PendingPhotoStoreState{};
+        return;
+    }
 
     int slotToStore = -1;
     for (int index = 0; index < static_cast<int>(m_photo.savedCaptures.size()); ++index)
@@ -149,6 +227,11 @@ void GameScene::SetSelectedPhotoSlot(int slotIndex)
 void GameScene::ConsumeSelectedPhotoSlot()
 {
     CommitPendingCapturedPhoto();
+
+    if (m_photo.capture.containsEnemyAttackPaste)
+    {
+        return;
+    }
 
     if (m_photo.selectedCaptureSlot < 0 || m_photo.selectedCaptureSlot >= static_cast<int>(m_photo.savedCaptures.size()))
     {
