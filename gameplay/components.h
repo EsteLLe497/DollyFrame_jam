@@ -59,6 +59,7 @@ enum class EnemyArchetype
     MidBoss2,
     Ghost,        
     BlasterRobot, 
+    Charger,
 };
 
 enum class ShieldBossState

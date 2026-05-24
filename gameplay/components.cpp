@@ -598,6 +598,8 @@ namespace
             return "Ghost";
         case EnemyArchetype::BlasterRobot:
             return "BlasterRobot";
+        case EnemyArchetype::Charger:
+            return "Charger";
         case EnemyArchetype::Floater:
         default:
             return "Floater";

@@ -329,8 +329,8 @@ inline constexpr const char* kTagMarkerLight = "MarkerLight";
 inline constexpr const char* kTagStageLight = "StageLight";
 inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
 
-inline constexpr std::array<char, 31> kMarkerPresets = {
-    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','+'
+inline constexpr std::array<char, 32> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', '$', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','+'
 };
 inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -366,7 +366,7 @@ inline char PresetIndexToMarker(int index)
 
 inline bool IsEnemyMarker(char marker)
 {
-    return IsMarkerInSet(marker, "WRNAD!?");
+    return IsMarkerInSet(marker, "WRNAD!?$");
 }
 
 inline bool IsBatteryMarker(char marker)

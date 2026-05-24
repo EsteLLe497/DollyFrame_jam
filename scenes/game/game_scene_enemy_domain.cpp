@@ -439,6 +439,8 @@ int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
         return 10;
     case EnemyArchetype::Ranged:
         return 10;
+    case EnemyArchetype::Charger:
+        return 10 + (rand() % 21);
     case EnemyArchetype::ShieldBoss:
     case EnemyArchetype::MidBoss2:
         return 50;

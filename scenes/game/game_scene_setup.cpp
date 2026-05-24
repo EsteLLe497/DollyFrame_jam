@@ -62,7 +62,7 @@ namespace
     bool IsEnemySpawnMarker(char marker)
     {
         const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        return upper == 'W' || upper == 'R' || upper == 'N' || upper == '!' || upper == '?';
+        return upper == 'W' || upper == 'R' || upper == 'N' || upper == '!' || upper == '?' || upper == '$';
     }
 
     void LoadStageTransitionLinks()
@@ -602,6 +602,31 @@ void GameScene::InitializeStageEntities()
                         transform->y = spawnY;
                     }
                     SnapEnemyToGround(*transform);
+                }
+            }
+            else if (marker == '$') // Charger
+            {
+                Entity& enemy = SpawnStagePrefab(
+                    prefabs,
+                    "sandbox_enemy_charger",
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize);
+                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                {
+                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
+                    float spawnX = transform->x;
+                    float spawnY = transform->y;
+                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
+                    {
+                        transform->x = spawnX;
+                        transform->y = spawnY;
+                    }
+                    SnapEnemyToGround(*transform);
+                    if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
+                    {
+                        enemyComp->spawnX = transform->x;
+                        enemyComp->spawnY = transform->y;
+                    }
                 }
             }
             else if (marker == 'N' || marker == '?') // ShieldBoss
