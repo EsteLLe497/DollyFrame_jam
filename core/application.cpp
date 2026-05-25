@@ -15,6 +15,7 @@
 #include "directX.h"
 #include "event_bus.h"
 #include "game_scene.h"
+#include "imgui_layer.h"
 #include "input.h"
 #include "logger.h"
 #include "resource_manager.h"
@@ -174,6 +175,10 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     {
         return false;
     }
+    if (!ImGuiLayer_Initialize(GetMainWindowHandle(), DirectXGetDevice(), DirectXGetDeviceContext()))
+    {
+        return false;
+    }
 
     Audio_LoadCueFromFile("shutter", "assets/effects/Sound/shutter.wav");
     Audio_LoadCueFromFile("barrel", "assets/effects/Sound/barrel.wav");
@@ -216,6 +221,7 @@ void Application::Shutdown()
     }
 
     m_sceneManager->Shutdown();
+    ImGuiLayer_Shutdown();
     Audio_Shutdown();
     SpriteFinalize();
     m_resources->Shutdown();
@@ -290,6 +296,7 @@ void Application::Draw()
     {
         DrawExitConfirmation();
     }
+    ImGuiLayer_DrawFoundationWindow(m_currentFps);
     Present();
 }
 
