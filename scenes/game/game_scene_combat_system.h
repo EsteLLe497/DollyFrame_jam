@@ -181,8 +181,9 @@ inline void UpdateEnemies(
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
             constexpr float kWalkerAttackActiveSeconds = 0.18f;
+            constexpr int kWalkerAttackFirstFrame = 24; // Current attack clip starts at this global frame index.
             constexpr int kWalkerAttackHitFrame = 30; // 31st frame, zero-based.
-            constexpr int kWalkerAttackLastFrame = 55;
+            constexpr int kWalkerAttackLastFrame = 39; // Current attack clip plays frames 24-39.
             constexpr int kWalkerAttackCaptureStartFrame = kWalkerAttackHitFrame - 4;
             constexpr int kWalkerAttackCaptureEndFrame = kWalkerAttackHitFrame + 8;
             constexpr float kWalkerAttackFlashSeconds = 0.18f;
@@ -264,8 +265,10 @@ inline void UpdateEnemies(
                 if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
                 {
                     const int attackFrame = animation->GetCurrentFrameIndex();
+                    // Normalize the red charge ring over this clip section so it starts at the outer radius.
                     enemy->attackWarningProgress = std::clamp(
-                        static_cast<float>(attackFrame) / static_cast<float>(kWalkerAttackHitFrame),
+                        static_cast<float>(attackFrame - kWalkerAttackFirstFrame) /
+                            static_cast<float>(kWalkerAttackHitFrame - kWalkerAttackFirstFrame),
                         0.0f,
                         1.0f);
                     enemy->attackCaptureWindowActive =
