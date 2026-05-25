@@ -997,16 +997,14 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 shieldX = centerX - shieldW * 0.5f;
                 shieldY = centerY - shieldH * 0.5f;
             }
-            else if (item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst && playerTransform)
+            else if (item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
             {
+                const float centerX = shieldX + shieldW * 0.5f;
+                const float centerY = shieldY + shieldH * 0.5f;
                 shieldW = kTileSize * 3.0f;
                 shieldH = kTileSize * 1.0f;
-                const float playerFootY = playerTransform->y + playerTransform->height * playerTransform->scale;
-                const float playerFrontX = facingRight
-                    ? playerTransform->x + playerTransform->width * playerTransform->scale + kTileSize * 2.0f
-                    : playerTransform->x - kTileSize * 2.0f;
-                shieldX = playerFrontX - shieldW * 0.5f;
-                shieldY = playerFootY - kTileSize * 6.0f - shieldH;
+                shieldX = centerX - shieldW * 0.5f;
+                shieldY = centerY - shieldH * 0.5f;
             }
 
             spawnedShield->AddComponent<TransformComponent>(shieldX, shieldY, shieldW, shieldH);
@@ -1054,8 +1052,8 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 shieldComp.capturedMode = CapturedShieldMode::JumpBurst;
                 shieldComp.gravityEnabled = false;
                 shieldComp.contactDamage = 0;
-                shieldComp.followPlayer = true;
-                shieldComp.hoverDuration = 1.5f;
+                shieldComp.followPlayer = false;
+                shieldComp.hoverDuration = 0.0f;
                 shieldComp.descendSpeed = kBossJumpDescendSpeed;
                 if (playerTransform)
                 {
