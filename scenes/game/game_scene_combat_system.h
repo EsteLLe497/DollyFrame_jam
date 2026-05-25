@@ -395,6 +395,62 @@ inline void UpdateEnemies(
             }
         }
 
+        else if (enemy->GetArchetype() == EnemyArchetype::Charger)
+        {
+            constexpr float kChargerSpeed = 240.0f;
+            constexpr float kGravity = 1900.0f;
+            constexpr float kMaxFallSpeed = 980.0f;
+            constexpr float kTileSize = 48.0f;
+
+            enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
+            transform->y += enemy->velocityY * flow.lastDeltaTime;
+            if (snapToGround(*transform))
+            {
+                enemy->velocityY = 0.0f;
+            }
+
+            const float chargerCenterX = transform->x + transform->width * transform->scale * 0.5f;
+            const float chargerCenterY = transform->y + transform->height * transform->scale * 0.5f;
+            const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+            const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
+            const float dx = playerCenterX - chargerCenterX;
+            const float dy = playerCenterY - chargerCenterY;
+            const float dist = std::sqrt(dx * dx + dy * dy);
+
+            if (enemy->GetAIState() == EnemyComponent::AIState::Idle && dist <= enemy->detectRange)
+            {
+                enemy->facing = dx >= 0.0f
+                    ? EnemyComponent::FacingDirection::Right
+                    : EnemyComponent::FacingDirection::Left;
+                enemy->SetAIState(EnemyComponent::AIState::Chase);
+            }
+
+            if (enemy->GetAIState() == EnemyComponent::AIState::Chase)
+            {
+                const float direction = enemy->facing == EnemyComponent::FacingDirection::Right ? 1.0f : -1.0f;
+                const float nextX = transform->x + direction * kChargerSpeed * flow.lastDeltaTime;
+                const float width = transform->width * transform->scale;
+                const float height = transform->height * transform->scale;
+                const float sideX = direction > 0.0f ? nextX + width - 2.0f : nextX + 2.0f;
+                const int sideColumn = static_cast<int>(sideX / kTileSize);
+                const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
+                const int rowBottom = static_cast<int>((transform->y + height - 4.0f) / kTileSize);
+                bool blockedByStep = false;
+                for (int row = rowTop; row <= rowBottom; ++row)
+                {
+                    if (isSolidTile(sideColumn, row))
+                    {
+                        blockedByStep = true;
+                        break;
+                    }
+                }
+                if (!blockedByStep)
+                {
+                    transform->x = nextX;
+                }
+            }
+        }
+
         else if (enemy->GetArchetype() == EnemyArchetype::Ghost)
         {
             auto* ghost = entity->GetComponent<GhostComponent>();

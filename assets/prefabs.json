@@ -784,6 +784,37 @@
         "enabled": true,
         "maxHp": 1
       }
+    },
+    "sandbox_enemy_charger": {
+      "tag": "Enemy",
+      "texture": "white",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 48.0,
+        "height": 96.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 1.0,
+        "g": 0.16,
+        "b": 0.12,
+        "a": 1.0
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "charger",
+        "contactDamage": 1,
+        "detectRange": 240.0,
+        "attackRange": 0.0,
+        "attackCooldown": 0.0,
+        "detectHeight": 240.0
+      },
+      "health": {
+        "enabled": true,
+        "maxHp": 1
+      }
     }
   }
 }
