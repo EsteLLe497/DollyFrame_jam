@@ -133,6 +133,7 @@ private:
     void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
+	bool RestoreSepiaBackgroundGroupInFrame(float frameX, float frameY, float frameWidth, float frameHeight);
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();
@@ -171,6 +172,7 @@ private:
     void RemoveEntitiesByPointerList(const std::vector<Entity*>& entitiesToRemove);
     void RemoveDefeatedEnemies();
     void RefreshPhotoGroupState();
+    void UpdateSepiaRestoredLifetimes(float deltaTime);
     void ApplyHazardDamageToPlayer(Entity& player, Entity* sourceEntity, const char* logMessage, int amount = 1);
     void HandlePlayerDamage(Entity& player, Entity* sourceEntity, const char* logMessage, int amount = 1);
     void HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amount, const char* logMessage);

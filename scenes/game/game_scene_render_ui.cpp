@@ -1011,6 +1011,14 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         {
             continue;
         }
+        
+        if (const auto* group = entity->GetComponent<SepiaRubbleGroupComponent>())
+        {
+            if (group->isRestored)
+            {
+                continue;
+            }
+        }
 		const auto* t = entity->GetComponent<TransformComponent>();
         if (!t)
         {

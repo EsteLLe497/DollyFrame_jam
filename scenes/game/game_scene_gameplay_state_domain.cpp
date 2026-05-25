@@ -376,3 +376,41 @@ void GameScene::RefreshPhotoGroupState()
     m_photo.groups.activeGroupCount = static_cast<int>(groups.size());
     m_photo.groups.nextGroupId = std::max(m_photo.groups.nextGroupId, maxGroupId + 1);
 }
+
+void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
+{
+    // Decrease restored lifetimes and revert groups whose lifetime expired.
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+        auto* sepiaGroup = entity->GetComponent<SepiaRubbleGroupComponent>();
+        if (!sepiaGroup || !sepiaGroup->isRestored)
+        {
+            continue;
+        }
+
+        if (sepiaGroup->restoredLifetime > 0.0f)
+        {
+            sepiaGroup->restoredLifetime = std::max(0.0f, sepiaGroup->restoredLifetime - deltaTime);
+        }
+
+        if (sepiaGroup->restoredLifetime <= 0.0f)
+        {
+            // Revert tiles in the group's footprint back to empty and clear restored flag.
+            for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
+            {
+                for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
+                {
+                    m_tileMap.SetTile(col, row, 0);
+                    // Restore the background marker for later refresh.
+                    m_tileMap.SetMarker(col, row, '<', 0);
+                }
+            }
+            sepiaGroup->isRestored = false;
+            sepiaGroup->restoredLifetime = 0.0f;
+        }
+    }
+}

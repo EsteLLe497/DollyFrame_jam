@@ -329,8 +329,8 @@ inline constexpr const char* kTagMarkerLight = "MarkerLight";
 inline constexpr const char* kTagStageLight = "StageLight";
 inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
 
-inline constexpr std::array<char, 31> kMarkerPresets = {
-    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','+'
+inline constexpr std::array<char, 32> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','+','<'
 };
 inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -419,6 +419,11 @@ inline bool IsSepiaRubbleMarker(char marker)
     return marker == '+';
 }
 
+inline bool IsSepiaBackgroundMarker(char marker)
+{
+    return marker == '<';
+}
+
 inline bool IsParameterizedEditorMarker(char marker)
 {
     switch (static_cast<char>(std::toupper(static_cast<unsigned char>(marker))))
@@ -434,6 +439,7 @@ inline bool IsParameterizedEditorMarker(char marker)
     case '&':
     case 'U':
     case 'Z':
+    case '<':
         return true;
     default:
         return false;
@@ -461,6 +467,8 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
         return std::clamp(parameter, 0, 1);
     case '&':
         return std::clamp(parameter, -99, 99);
+    case '<':
+        return std::clamp(parameter, 0, 99);
     default:
         return 0;
     }

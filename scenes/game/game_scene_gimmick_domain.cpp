@@ -1183,3 +1183,120 @@ void GameScene::StartPitRestart(Entity* player, const char* logMessage)
     m_eventBus.Publish({ EventType::LogMessage, player, nullptr, logMessage, 0.0f, 0.0f });
 }
 
+bool GameScene::RestoreSepiaBackgroundGroupInFrame(
+    float frameX,
+    float frameY,
+    float frameWidth,
+    float frameHeight)
+{
+    const float frameRight = frameX + frameWidth;
+    const float frameBottom = frameY + frameHeight;
+    const float tileSize = m_tileMap.GetTileSize();
+
+    if (tileSize <= 0.0f)
+    {
+        return false;
+    }
+
+    bool restoredAny = false;
+    std::vector<std::unique_ptr<Entity>> floorBlocksToAdd;
+
+    auto createFloorBlock =
+        [&](int column, int row, int restoredTileValue)
+        {
+            auto floorBlock = std::make_unique<Entity>();
+
+            floorBlock->AddComponent<TagComponent>(kTagSepiaRubble);
+
+            floorBlock->AddComponent<TransformComponent>(
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize,
+                tileSize,
+                tileSize);
+
+            floorBlock->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            floorBlock->AddComponent<SpriteRenderComponent>(
+                m_assets.GetTexture("sepia_ground"));
+
+
+            floorBlock->AddComponent<ImageOutlineColliderComponent>(
+                std::vector<b2Vec2>{
+                    { 0.0f, 0.0f },
+                    { 1.0f, 0.0f },
+                    { 1.0f, 1.0f },
+                    { 0.0f, 1.0f }
+            },
+                0.5f);
+
+            floorBlock->AddComponent<PhotoCopyTileValueComponent>(
+                restoredTileValue);
+
+            floorBlocksToAdd.push_back(std::move(floorBlock));
+        };
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* group =
+            entity->GetComponent<SepiaRubbleGroupComponent>();
+
+        if (!group ||
+            group->markerType != '<' ||
+            group->isRestored)
+        {
+            continue;
+        }
+
+        const auto* transform =
+            entity->GetComponent<TransformComponent>();
+
+        if (!transform)
+        {
+            continue;
+        }
+
+        const float groupLeft = transform->x;
+        const float groupTop = transform->y;
+        const float groupRight =
+            transform->x + transform->width * transform->scale;
+        const float groupBottom =
+            transform->y + transform->height * transform->scale;
+
+        const bool inside =
+            groupLeft >= frameX &&
+            groupTop >= frameY &&
+            groupRight <= frameRight &&
+            groupBottom <= frameBottom;
+
+        if (!inside)
+        {
+            continue;
+        }
+
+        group->isRestored = true;
+        restoredAny = true;
+
+        const size_t cellCount = std::min(
+            group->cellColumns.size(),
+            group->cellRows.size());
+
+        for (size_t index = 0; index < cellCount; ++index)
+        {
+            createFloorBlock(
+                group->cellColumns[index],
+                group->cellRows[index],
+                group->restoredTileValue);
+        }
+    }
+
+    for (auto& floorBlock : floorBlocksToAdd)
+    {
+        m_entities.push_back(std::move(floorBlock));
+    }
+
+    return restoredAny;
+}
