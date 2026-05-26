@@ -578,6 +578,26 @@ VanishOnCaptureComponent::VanishOnCaptureComponent(bool enabledValue)
 {
 }
 
+SepiaRubbleGroupComponent::SepiaRubbleGroupComponent(
+    char markerTypeValue,
+    int imageNoValue,
+    int restoredTileValueValue,
+    int minColumnValue,
+    int minRowValue,
+    int maxColumnValue,
+    int maxRowValue,
+    bool isRestoredValue)
+    : markerType(markerTypeValue)
+    , imageNo(imageNoValue)
+    , restoredTileValue(restoredTileValueValue)
+    , minColumn(minColumnValue)
+    , minRow(minRowValue)
+    , maxColumn(maxColumnValue)
+    , maxRow(maxRowValue)
+    , isRestored(isRestoredValue)
+{
+}
+
 namespace
 {
     const char* ToEnemyArchetypeLabel(EnemyArchetype archetype)

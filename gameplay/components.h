@@ -993,6 +993,32 @@ public:
 	SepiaRubbleComponent() = default;
 };
 
+class SepiaRubbleGroupComponent final : public Component
+{
+public:
+    SepiaRubbleGroupComponent(
+        char markerTypeValue,
+        int imageNoValue,
+		int restoredTileValue,
+		int minColumnValue,
+		int minRowValue,
+		int maxColumnValue,
+		int maxRowValue,
+        bool isRestoredValue);
+
+	char markerType = '\0';
+	int imageNo = 0;
+	int restoredTileValue = 0;
+    int minColumn = 0;
+    int minRow = 0;
+    int maxColumn = 0;
+    int maxRow = 0;
+	bool isRestored = false;
+    float restoredLifetime = 0.0f;
+	std::vector<int> cellColumns;
+	std::vector<int> cellRows;
+};
+
 // ============================================================================
 // Gameplay Common Domain
 // ============================================================================

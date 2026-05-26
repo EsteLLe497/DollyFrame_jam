@@ -69,6 +69,117 @@ namespace
         return sizing;
     }
 
+    struct SepiaBackgroundMarkerParameter
+    {
+        int imageNo = 0;
+        int restoredTileValue = 2; // 仮
+        bool valid = true;
+    };
+
+    inline SepiaBackgroundMarkerParameter ResolveSepiaBackgroundMarkerParameter(int markerParameter)
+    {
+        constexpr int kDefaultImageNo = 0;
+        constexpr int kDefaultRestoredTileValue = 2;
+        constexpr int kMinImageNo = 0;
+        constexpr int kMaxImageNo = 9;
+        constexpr int kMinRestoredTileValue = 1;
+        constexpr int kMaxRestoredTileValue = 9;
+
+        const int encoded = markerParameter < 0 ? 0 : markerParameter;
+
+        SepiaBackgroundMarkerParameter parameter;
+        parameter.imageNo = kDefaultImageNo;
+        parameter.restoredTileValue = kDefaultRestoredTileValue;
+        parameter.valid = true;
+
+        if (encoded == 0)
+        {
+            return parameter;
+        }
+
+        if (encoded > 0 && encoded < 10)
+        {
+            parameter.imageNo = kDefaultImageNo;
+            parameter.restoredTileValue = std::clamp(
+                encoded,
+                kMinRestoredTileValue,
+                kMaxRestoredTileValue);
+            return parameter;
+        }
+
+        if (encoded >= 10 && encoded < 100)
+        {
+            const int imageDigit = encoded / 10;
+            const int tileDigit = encoded % 10;
+
+            if (tileDigit == 0)
+            {
+                parameter.valid = false;
+                return parameter;
+            }
+
+            parameter.imageNo = std::clamp(
+                imageDigit,
+                kMinImageNo,
+                kMaxImageNo);
+
+            parameter.restoredTileValue = std::clamp(
+                tileDigit,
+                kMinRestoredTileValue,
+                kMaxRestoredTileValue);
+
+            return parameter;
+        }
+
+        parameter.valid = false;
+        return parameter;
+    }
+
+    struct SepiaBackgroundMarkerCell
+    {
+		int column = 0;
+        int row = 0;
+		int imageNo = 0;
+		int restoredTileValue = 2; // 仮
+    };
+
+    bool TryGetSepiaBackgroundMarkerCell( const TileMap& tileMap, int column, int row, 
+        SepiaBackgroundMarkerCell& outCell)
+    {
+        if (column < 0 ||
+            row < 0 ||
+            column >= tileMap.GetWidth() ||
+            row >= tileMap.GetHeight())
+        {
+            return false;
+        }
+
+        const char marker = static_cast<char>(
+            std::toupper(static_cast<unsigned char>(
+                tileMap.GetMarker(column, row))));
+
+        if (marker != '<')
+        {
+            return false;
+        }
+
+        const SepiaBackgroundMarkerParameter parameter =
+            ResolveSepiaBackgroundMarkerParameter(
+                tileMap.GetMarkerParameter(column, row));
+
+        if (!parameter.valid)
+        {
+            return false;
+        }
+
+        outCell.column = column;
+        outCell.row = row;
+        outCell.imageNo = parameter.imageNo;
+        outCell.restoredTileValue = parameter.restoredTileValue;
+        return true;
+    }
+
+
     struct SwitchMarker
     {
         float x = 0.0f;
@@ -370,7 +481,9 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
         markerChanged(IsProtectiveWallMarker);
     const bool laserTurretChanged = markerChanged(IsLaserTurretMarker);
     const bool damageFootholdChanged = markerChanged(IsDamageFootholdMarker);
-	const bool sepiaRubbleChanged = markerChanged(IsSepiaRubbleMarker);
+	const bool sepiaRubbleChanged = 
+        markerChanged(IsSepiaRubbleMarker) ||
+        markerChanged(IsSepiaBackgroundMarker);
 
     if (enemyChanged) RefreshEnemiesFromMarkers();
     if (batteryChanged) RefreshBatteriesFromMarkers();
@@ -1281,13 +1394,13 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             }),
         m_entities.end());
 
-
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
     {
         return;
     }
 
+    // 既存 '+' は現状仕様どおり 1マーカー = 1 Entity のまま生成する。
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -1306,15 +1419,166 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
 
             auto rubble = std::make_unique<Entity>();
             rubble->AddComponent<TagComponent>(kTagSepiaRubble);
-            rubble->AddComponent<TransformComponent>(
-                markerX, markerY, tileSize, tileSize);
+            rubble->AddComponent<TransformComponent>(markerX, markerY, tileSize, tileSize);
             rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
             rubble->AddComponent<SpriteRenderComponent>(
-                    m_assets.GetTexture("sepia_rubble"));
+                m_assets.GetTexture("sepia_rubble"));
             rubble->AddComponent<SepiaRubbleComponent>();
 
             m_entities.push_back(std::move(rubble));
         }
     }
 
+    const int mapWidth = m_tileMap.GetWidth();
+    const int mapHeight = m_tileMap.GetHeight();
+
+    if (mapWidth <= 0 || mapHeight <= 0)
+    {
+        return;
+    }
+    
+    std::vector<bool> visited(
+        static_cast<size_t>(mapWidth * mapHeight),
+        false);
+
+    const auto toIndex = [mapWidth](int column, int row) -> size_t
+        {
+            return static_cast<size_t>(row * mapWidth + column);
+        };
+
+    constexpr int kNeighborOffsets[4][2] =
+    {
+        { 1, 0 },
+        { -1, 0 },
+        { 0, 1 },
+        { 0, -1 },
+    };
+
+    for (int row = 0; row < mapHeight; ++row)
+    {
+        for (int column = 0; column < mapWidth; ++column)
+        {
+            const size_t startIndex = toIndex(column, row);
+            if (visited[startIndex])
+            {
+                continue;
+            }
+            
+            SepiaBackgroundMarkerCell startCell;
+            if (!TryGetSepiaBackgroundMarkerCell(
+                m_tileMap,
+                column,
+                row,
+                startCell))
+            {
+                visited[startIndex] = true;
+                continue;
+            }
+
+            const int targetImageNo = startCell.imageNo;
+            const int restoredTileValue = startCell.restoredTileValue;
+
+            int minColumn = column;
+            int minRow = row;
+            int maxColumn = column;
+            int maxRow = row;
+
+            std::vector<SepiaBackgroundMarkerCell> groupCells;
+            std::vector<SepiaBackgroundMarkerCell> stack;
+
+            visited[startIndex] = true;
+            stack.push_back(startCell);
+
+            while (!stack.empty())
+            {
+                const SepiaBackgroundMarkerCell current = stack.back();
+                stack.pop_back();
+
+                groupCells.push_back(current);
+
+                minColumn = std::min(minColumn, current.column);
+                minRow = std::min(minRow, current.row);
+                maxColumn = std::max(maxColumn, current.column);
+                maxRow = std::max(maxRow, current.row);
+
+                for (const auto& offset : kNeighborOffsets)
+                {
+                    const int nextColumn = current.column + offset[0];
+                    const int nextRow = current.row + offset[1];
+
+                    if (nextColumn < 0 ||
+                        nextRow < 0 ||
+                        nextColumn >= mapWidth ||
+                        nextRow >= mapHeight)
+                    {
+                        continue;
+                    }
+
+                    const size_t nextIndex = toIndex(nextColumn, nextRow);
+                    if (visited[nextIndex])
+                    {
+                        continue;
+                    }
+
+                    SepiaBackgroundMarkerCell nextCell;
+                    if (!TryGetSepiaBackgroundMarkerCell(
+                        m_tileMap,
+                        nextColumn,
+                        nextRow,
+                        nextCell))
+                    {
+                        visited[nextIndex] = true;
+                        continue;
+                    }
+
+                    if (nextCell.imageNo != targetImageNo)
+                    {
+                        continue;
+                    }
+
+                    visited[nextIndex] = true;
+                    stack.push_back(nextCell);
+                }
+            }
+
+            if (groupCells.empty())
+            {
+                continue;
+            }
+
+            // Compute group bounds (kept for informational / future use), but
+            // spawn individual entities per marker (same behavior as '+').
+            const float groupX = static_cast<float>(minColumn) * tileSize;
+            const float groupY = static_cast<float>(minRow) * tileSize;
+            const float groupWidth =
+                static_cast<float>(maxColumn - minColumn + 1) * tileSize;
+            const float groupHeight =
+                static_cast<float>(maxRow - minRow + 1) * tileSize;
+
+            // Create one entity per cell in the group (like '+' markers).
+            for (const SepiaBackgroundMarkerCell& cell : groupCells)
+            {
+                const float cellX = static_cast<float>(cell.column) * tileSize;
+                const float cellY = static_cast<float>(cell.row) * tileSize;
+
+                auto rubble = std::make_unique<Entity>();
+                rubble->AddComponent<TagComponent>(kTagSepiaRubble);
+                rubble->AddComponent<TransformComponent>(cellX, cellY, tileSize, tileSize);
+                rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+                rubble->AddComponent<SpriteRenderComponent>(
+                    m_assets.GetTexture("sepia_rubble"));
+                rubble->AddComponent<SepiaRubbleComponent>();
+                rubble->AddComponent<SepiaRubbleGroupComponent>(
+                    '<',
+                    cell.imageNo,
+                    cell.restoredTileValue,
+                    minColumn,
+                    minRow,
+                    maxColumn,
+                    maxRow,
+                    false);
+                m_entities.push_back(std::move(rubble));
+            }
+        }
+    }
 }
