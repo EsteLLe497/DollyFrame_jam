@@ -299,6 +299,8 @@ private:
     bool m_hasPreviousPlayerCameraProbe = false;
     float m_previousPlayerCameraProbeX = 0.0f;
     float m_previousPlayerCameraProbeY = 0.0f;
+    bool m_hasCameraSmoothedPlayerY = false;
+    float m_cameraSmoothedPlayerCenterY = 0.0f;
     bool m_floorCameraTransitionActive = false;
     float m_floorCameraTransitionElapsed = 0.0f;
     float m_floorCameraTransitionDuration = 0.45f;
