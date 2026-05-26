@@ -16,8 +16,6 @@ using namespace game_scene_detail;
 
 namespace
 {
-    constexpr float kFloorCameraWidth = 1920.0f;
-    constexpr float kFloorCameraHeight = 1080.0f;
     constexpr const char* kStageTransitionCsvPath = "assets/maps/stage_transitions.csv";
 
     bool IsDarknessStageMapPath(const std::string& mapPath)
@@ -187,116 +185,104 @@ void GameScene::BuildCameraMarkers()
 {
     m_cameraTransitionMarkers.clear();
     m_cameraFixedRanges.clear();
+    m_zoomMarkers.clear();
 
     const float tileSize = m_tileMap.GetTileSize();
-    if (tileSize <= 0.0f)
-    {
-        return;
-    }
+    const int width = m_tileMap.GetWidth();
+    const int height = m_tileMap.GetHeight();
 
-    struct MarkerPoint
-    {
-        float x = 0.0f;
-        float y = 0.0f;
-    };
+    CameraFixedRange range{};
+    bool inRange = false;
 
-    std::vector<MarkerPoint> fixedStarts;
-    std::vector<MarkerPoint> fixedEnds;
+    int cameraNum = 0;
 
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    for (int row = 0; row < height; ++row)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        for (int col = 0; col < width; ++col)
         {
-            const char marker = m_tileMap.GetMarker(column, row);
-            const float x = static_cast<float>(column) * tileSize;
-            const float y = static_cast<float>(row) * tileSize;
+            char marker = m_tileMap.GetMarker(col, row);
 
-            if (marker == 'T')
+            if (marker == 'S')
             {
-                CameraTransitionMarker transitionMarker;
-                transitionMarker.x = x;
-                transitionMarker.y = y;
-                transitionMarker.column = column;
-                transitionMarker.row = row;
-                transitionMarker.wasInside = false;
-                m_cameraTransitionMarkers.push_back(transitionMarker);
+                range.startX = col * tileSize;
+                inRange = true;
             }
-            else if (marker == 'S')
+            else if (marker == 'T' && inRange)
             {
-                fixedStarts.push_back({ x, y });
+                range.followPlayer = true;
+
             }
-            else if (marker == 'E')
+            else if (marker == 'E' && inRange)
             {
-                fixedEnds.push_back({ x, y });
+                range.endX = col * tileSize;
+
+                range.cameraX = range.startX;
+                range.cameraY = -1.0f;
+
+                range.cameraNum = cameraNum;
+
+                range.viewWidth = range.endX - range.startX;
+                range.viewHeight = range.viewWidth * (gDefaultCameraViewHeight / gDefaultCameraViewWidth);
+                //range.viewHeight = range.viewWidth * (kDefaultCameraViewHeight / kDefaultCameraViewWidth);
+
+                cameraNum++;
+
+                m_cameraFixedRanges.push_back(range);
+                inRange = false;
+                range = CameraFixedRange{};
             }
+
+            //ズーム
+            if (marker == 'O')
+            {
+                CameraZoomMarker zm;
+                zm.x = col * tileSize;
+                zm.y = row * tileSize;
+                zm.width = tileSize;
+                zm.height = tileSize;
+
+                zm.viewWidth = 2560.0f;
+                zm.viewHeight = 1440.0f;
+                zm.wasInside = false;
+                zm.isReset = false;
+
+                m_zoomMarkers.push_back(zm);
+            }
+
+            //ズームリセット
+            if (marker == 'K')
+            {
+                CameraZoomMarker zm;
+                zm.x = col * tileSize;
+                zm.y = row * tileSize;
+                zm.width = tileSize;
+                zm.height = tileSize;
+
+                zm.viewWidth = gDefaultCameraViewWidth;
+                zm.viewHeight = gDefaultCameraViewHeight;
+
+                zm.isReset = true;
+                m_zoomMarkers.push_back(zm);
+            }
+
+
         }
     }
 
-    if (fixedStarts.empty() || fixedEnds.empty())
+    for (int i = 0; i < (int)m_cameraFixedRanges.size(); i++)
     {
-        return;
-    }
-
-    auto markerOrder = [](const MarkerPoint& a, const MarkerPoint& b)
-    {
-        if (a.y == b.y)
+        if (i == 0)
         {
-            return a.x < b.x;
+            m_cameraFixedRanges[i].backCameraX = m_cameraFixedRanges[i].cameraX;
         }
-        return a.y < b.y;
-    };
-    std::sort(fixedStarts.begin(), fixedStarts.end(), markerOrder);
-    std::sort(fixedEnds.begin(), fixedEnds.end(), markerOrder);
-
-    const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth);
-    const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
-    std::vector<bool> endUsed(fixedEnds.size(), false);
-    for (const MarkerPoint& start : fixedStarts)
-    {
-        const int startFloorY = static_cast<int>(std::floor(start.y / kFloorCameraHeight));
-        int matchedEndIndex = -1;
-        float bestDeltaX = std::numeric_limits<float>::max();
-        for (int i = 0; i < static_cast<int>(fixedEnds.size()); ++i)
+        else
         {
-            if (endUsed[static_cast<size_t>(i)])
-            {
-                continue;
-            }
-
-            const MarkerPoint& candidateEnd = fixedEnds[static_cast<size_t>(i)];
-            const int endFloorY = static_cast<int>(std::floor(candidateEnd.y / kFloorCameraHeight));
-            if (endFloorY != startFloorY || candidateEnd.x < start.x)
-            {
-                continue;
-            }
-
-            const float deltaX = candidateEnd.x - start.x;
-            if (deltaX < bestDeltaX)
-            {
-                bestDeltaX = deltaX;
-                matchedEndIndex = i;
-            }
+            m_cameraFixedRanges[i].backCameraX = m_cameraFixedRanges[i - 1].cameraX;
         }
-        if (matchedEndIndex < 0)
-        {
-            continue;
-        }
-
-        const MarkerPoint& end = fixedEnds[static_cast<size_t>(matchedEndIndex)];
-        CameraFixedRange range;
-        range.startX = (std::min)(start.x, end.x);
-        range.endX = (std::max)(start.x, end.x);
-        const float startCenterX = start.x + tileSize * 0.5f;
-        const float endCenterX = end.x + tileSize * 0.5f;
-        const float segmentCenterX = (startCenterX + endCenterX) * 0.5f;
-        const float snappedCameraX = segmentCenterX - gCameraViewWidth * 0.5f;
-        const float snappedCameraY = std::floor(start.y / kFloorCameraHeight) * kFloorCameraHeight + tileSize * 4.0f;
-        range.cameraX = std::clamp(snappedCameraX, 0.0f, maxCameraX);
-        range.cameraY = std::clamp(snappedCameraY, 0.0f, maxCameraY);
-        m_cameraFixedRanges.push_back(range);
-        endUsed[static_cast<size_t>(matchedEndIndex)] = true;
     }
 }
+
+void GameScene::RecalculateViewScale() {}
 
 namespace game_scene_detail
 {
@@ -400,10 +386,12 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
     m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/under.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/forest.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
+
+    m_isZoomed = false;
 }
 
 void GameScene::LoadTuningState()

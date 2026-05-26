@@ -42,6 +42,8 @@ inline constexpr const char* kTuningFilePath = "assets/tuning.json";
 constexpr float kPixelsPerMeter = 100.0f;
 inline float gCameraViewWidth = 1120.0f;
 inline float gCameraViewHeight = 630.0f;
+inline float gDefaultCameraViewWidth = 1920.0f;
+inline float gDefaultCameraViewHeight = 1080.0f;
 inline float gCameraFollowSpeedX = 14.0f;
 inline float gCameraFollowSpeedY = 10.0f;
 inline float gCameraFollowY = 1.0f;
@@ -605,7 +607,8 @@ inline float GetViewScale()
     const float marginY = std::clamp(static_cast<float>(SCREEN_HEIGHT) * 0.04f, 36.0f, 72.0f);
     const float maxWidth = static_cast<float>(SCREEN_WIDTH) - marginX * 2.0f;
     const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - marginY * 2.0f;
-    return std::max(1.0f, std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight)) * gRenderViewScaleMultiplier;
+    //return std::max(1.0f, std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight)) * gRenderViewScaleMultiplier;
+	return std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight) * gRenderViewScaleMultiplier;
 }
 
 inline float GetViewWidth()
