@@ -419,7 +419,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedSepiaRubble = entity->GetComponent<SepiaRubbleComponent>() != nullptr;
         auto* sepiaGroup = entity->GetComponent<SepiaRubbleGroupComponent>();
         if (sepiaGroup && sepiaGroup->markerType == '<')
-        {
+        { 
             if (scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia)
             {
                 const float tileSize = scene.m_tileMap.GetTileSize();
@@ -430,6 +430,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
                 if (groupLeft >= frameX && groupTop >= frameY && groupRight <= frameX + frameWidth && groupBottom <= frameY + frameHeight)
                 {
+                    if (sepiaGroup->isRestored && sepiaGroup->restoredLifetime > 0.0f)
+                    {
+                        continue;
+                    }
+
                     const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
 
                     if (!sepiaGroup->cellColumns.empty() && sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
@@ -451,19 +456,20 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     }
 
                     sepiaGroup->isRestored = true;
-
+                    sepiaGroup->restoredLifetime = gPastedObjectLifetimeSeconds;
+                    if (auto* tint = entity->GetComponent<TintComponent>())
+                    {
+                        tint->a = 0.0f; 
+                    }
+                    else
+                    {
+                        entity->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 0.0f);
+                    }
                     // Ensure we add a PhotoPasteAnimationComponent so pasted visuals animate for the configured time.
                     if (!entity->GetComponent<PhotoPasteAnimationComponent>())
                     {
                         entity->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
                     }
-                    // Add a lifetime component to trigger revert after gPastedObjectPasteAnimationSeconds
-                    if (!entity->GetComponent<PhotoCopyLifetimeComponent>())
-                    {
-                        entity->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectPasteAnimationSeconds);
-                    }
-                    // Also record lifetime on the SepiaRubbleGroupComponent so update loop can revert.
-                    sepiaGroup->restoredLifetime = gPastedObjectPasteAnimationSeconds;
                 }
             }
 

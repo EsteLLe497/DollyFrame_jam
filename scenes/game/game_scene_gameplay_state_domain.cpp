@@ -379,7 +379,11 @@ void GameScene::RefreshPhotoGroupState()
 
 void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
 {
-    // Decrease restored lifetimes and revert groups whose lifetime expired.
+    if (deltaTime < 0.0f)
+    {
+        return;
+    }
+
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -405,12 +409,16 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
                 for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
                 {
                     m_tileMap.SetTile(col, row, 0);
-                    // Restore the background marker for later refresh.
                     m_tileMap.SetMarker(col, row, '<', 0);
                 }
             }
             sepiaGroup->isRestored = false;
             sepiaGroup->restoredLifetime = 0.0f;
+            auto* tint = entity->GetComponent<TintComponent>();
+            if (tint)
+            {
+                tint->a = 1.0f;
+            }
         }
     }
 }

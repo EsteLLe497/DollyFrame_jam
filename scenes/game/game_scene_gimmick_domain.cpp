@@ -1243,7 +1243,6 @@ bool GameScene::RestoreSepiaBackgroundGroupInFrame(
 
         auto* group =
             entity->GetComponent<SepiaRubbleGroupComponent>();
-
         if (!group ||
             group->markerType != '<' ||
             group->isRestored)
@@ -1253,7 +1252,6 @@ bool GameScene::RestoreSepiaBackgroundGroupInFrame(
 
         const auto* transform =
             entity->GetComponent<TransformComponent>();
-
         if (!transform)
         {
             continue;
