@@ -2352,71 +2352,10 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     lastMouseX = mouseX;
     lastMouseY = mouseY;
 
-    const auto computeCaptureViewTransform = [this](float& outScale, float& outOriginX, float& outOriginY)
-    {
-        const float marginX = std::clamp(static_cast<float>(SCREEN_WIDTH) * 0.04f, 48.0f, 96.0f);
-        const float marginY = std::clamp(static_cast<float>(SCREEN_HEIGHT) * 0.04f, 36.0f, 72.0f);
-        const float maxWidth = static_cast<float>(SCREEN_WIDTH) - marginX * 2.0f;
-        const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - marginY * 2.0f;
-        const float containScale = std::max(1.0f, std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight));
-
-        float baseCameraZoomMultiplier = 1.0f;
-        const float tileSize = m_tileMap.GetTileSize();
-        if (tileSize > 0.0f)
-        {
-            const float targetWorldWidth = tileSize * 23.0f;
-            if (targetWorldWidth > 0.0f)
-            {
-                baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
-            }
-        }
-
-        const float preMultiplier = m_mapEditor.active ? 1.0f : baseCameraZoomMultiplier;
-        const float preScale = containScale * preMultiplier;
-        const float preWidth = gCameraViewWidth * preScale;
-        const float preHeight = gCameraViewHeight * preScale;
-        const float preOriginX = preWidth >= static_cast<float>(SCREEN_WIDTH)
-            ? 0.0f
-            : std::round((static_cast<float>(SCREEN_WIDTH) - preWidth) * 0.5f);
-        const float preOriginY = preHeight >= static_cast<float>(SCREEN_HEIGHT)
-            ? 0.0f
-            : std::round((static_cast<float>(SCREEN_HEIGHT) - preHeight) * 0.5f);
-        const float anchorX = preOriginX + preWidth * 0.5f;
-        const float anchorY = preOriginY + preHeight * 0.5f;
-
-        const float zoomBlend = m_flow.captureModeZoomBlend * m_flow.captureModeZoomBlend * (3.0f - 2.0f * m_flow.captureModeZoomBlend);
-        const float finalMultiplier = m_mapEditor.active ? 1.0f : (baseCameraZoomMultiplier + zoomBlend * 0.08f);
-        outScale = containScale * finalMultiplier;
-        const float finalWidth = gCameraViewWidth * outScale;
-        const float finalHeight = gCameraViewHeight * outScale;
-
-        if (finalWidth >= static_cast<float>(SCREEN_WIDTH))
-        {
-            outOriginX = (m_flow.cameraMode && !m_mapEditor.active)
-                ? std::round(anchorX - finalWidth * 0.5f)
-                : 0.0f;
-        }
-        else
-        {
-            outOriginX = std::round((static_cast<float>(SCREEN_WIDTH) - finalWidth) * 0.5f);
-        }
-
-        if (finalHeight >= static_cast<float>(SCREEN_HEIGHT))
-        {
-            outOriginY = (m_flow.cameraMode && !m_mapEditor.active)
-                ? std::round(anchorY - finalHeight * 0.5f)
-                : 0.0f;
-        }
-        else
-        {
-            outOriginY = std::round((static_cast<float>(SCREEN_HEIGHT) - finalHeight) * 0.5f);
-        }
-    };
-
-    float viewScale = 1.0f;
-    float viewOriginX = 0.0f;
-    float viewOriginY = 0.0f;
-    computeCaptureViewTransform(viewScale, viewOriginX, viewOriginY);
+    // Mouse-to-world must use the same transform as rendering, especially when camera zoom markers pull back the view.
+    const float viewScale = GetViewScale();
+    const float viewOriginX = GetViewOriginX();
+    const float viewOriginY = GetViewOriginY();
     const float mouseWorldX = ((static_cast<float>(mouseX) - viewOriginX) / viewScale) + m_flow.cameraX;
     const float mouseWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale) + m_flow.cameraY;
 

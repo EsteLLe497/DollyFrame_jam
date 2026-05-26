@@ -122,6 +122,44 @@ namespace
         cursorWorldX += velocityX * dt;
         cursorWorldY += velocityY * dt;
     }
+
+    void ComputePlacementViewTransform(
+        float tileSize,
+        float captureModeZoomBlend,
+        bool mapEditorActive,
+        float& outScale,
+        float& outOriginX,
+        float& outOriginY)
+    {
+        const float marginX = std::clamp(static_cast<float>(SCREEN_WIDTH) * 0.04f, 48.0f, 96.0f);
+        const float marginY = std::clamp(static_cast<float>(SCREEN_HEIGHT) * 0.04f, 36.0f, 72.0f);
+        const float maxWidth = static_cast<float>(SCREEN_WIDTH) - marginX * 2.0f;
+        const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - marginY * 2.0f;
+        const float containScale = std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight);
+
+        float baseCameraZoomMultiplier = 1.0f;
+        if (tileSize > 0.0f)
+        {
+            const float targetWorldWidth = tileSize * kZoomTargetTilesX;
+            if (targetWorldWidth > 0.0f)
+            {
+                baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
+            }
+        }
+
+        const float zoomBlend = captureModeZoomBlend * captureModeZoomBlend * (3.0f - 2.0f * captureModeZoomBlend);
+        const float finalMultiplier = mapEditorActive ? 1.0f : (baseCameraZoomMultiplier + zoomBlend * 0.08f);
+        outScale = containScale * finalMultiplier;
+
+        const float finalWidth = gCameraViewWidth * outScale;
+        const float finalHeight = gCameraViewHeight * outScale;
+        outOriginX = finalWidth >= static_cast<float>(SCREEN_WIDTH)
+            ? 0.0f
+            : std::round((static_cast<float>(SCREEN_WIDTH) - finalWidth) * 0.5f);
+        outOriginY = finalHeight >= static_cast<float>(SCREEN_HEIGHT)
+            ? 0.0f
+            : std::round((static_cast<float>(SCREEN_HEIGHT) - finalHeight) * 0.5f);
+    }
 }
 
 void PhotoPasteSystem::HandleSpawn(GameScene& scene)
@@ -445,72 +483,16 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
         placementHeight));
     spawnWidth = placementWidth;
     spawnHeight = placementHeight;
-    const auto computePlacementViewTransform = [&scene](float& outScale, float& outOriginX, float& outOriginY)
-    {
-        const float marginX = std::clamp(static_cast<float>(SCREEN_WIDTH) * 0.04f, 48.0f, 96.0f);
-        const float marginY = std::clamp(static_cast<float>(SCREEN_HEIGHT) * 0.04f, 36.0f, 72.0f);
-        const float maxWidth = static_cast<float>(SCREEN_WIDTH) - marginX * 2.0f;
-        const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - marginY * 2.0f;
-        const float containScale = std::max(1.0f, std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight));
-
-        float baseCameraZoomMultiplier = 1.0f;
-        const float tileSize = scene.m_tileMap.GetTileSize();
-        if (tileSize > 0.0f)
-        {
-            const float targetWorldWidth = tileSize * kZoomTargetTilesX;
-            if (targetWorldWidth > 0.0f)
-            {
-                baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
-            }
-        }
-
-        const float preMultiplier = scene.m_mapEditor.active ? 1.0f : baseCameraZoomMultiplier;
-        const float preScale = containScale * preMultiplier;
-        const float preWidth = gCameraViewWidth * preScale;
-        const float preHeight = gCameraViewHeight * preScale;
-        const float preOriginX = preWidth >= static_cast<float>(SCREEN_WIDTH)
-            ? 0.0f
-            : std::round((static_cast<float>(SCREEN_WIDTH) - preWidth) * 0.5f);
-        const float preOriginY = preHeight >= static_cast<float>(SCREEN_HEIGHT)
-            ? 0.0f
-            : std::round((static_cast<float>(SCREEN_HEIGHT) - preHeight) * 0.5f);
-        const float anchorX = preOriginX + preWidth * 0.5f;
-        const float anchorY = preOriginY + preHeight * 0.5f;
-
-        const float zoomBlend = scene.m_flow.captureModeZoomBlend * scene.m_flow.captureModeZoomBlend *
-            (3.0f - 2.0f * scene.m_flow.captureModeZoomBlend);
-        const float finalMultiplier = scene.m_mapEditor.active ? 1.0f : (baseCameraZoomMultiplier + zoomBlend * 0.08f);
-        outScale = containScale * finalMultiplier;
-        const float finalWidth = gCameraViewWidth * outScale;
-        const float finalHeight = gCameraViewHeight * outScale;
-
-        if (finalWidth >= static_cast<float>(SCREEN_WIDTH))
-        {
-            outOriginX = (scene.m_flow.cameraMode && !scene.m_mapEditor.active)
-                ? std::round(anchorX - finalWidth * 0.5f)
-                : 0.0f;
-        }
-        else
-        {
-            outOriginX = std::round((static_cast<float>(SCREEN_WIDTH) - finalWidth) * 0.5f);
-        }
-
-        if (finalHeight >= static_cast<float>(SCREEN_HEIGHT))
-        {
-            outOriginY = (scene.m_flow.cameraMode && !scene.m_mapEditor.active)
-                ? std::round(anchorY - finalHeight * 0.5f)
-                : 0.0f;
-        }
-        else
-        {
-            outOriginY = std::round((static_cast<float>(SCREEN_HEIGHT) - finalHeight) * 0.5f);
-        }
-    };
-
     float viewScale = 1.0f;
     float viewOriginX = 0.0f;
     float viewOriginY = 0.0f;
-    computePlacementViewTransform(viewScale, viewOriginX, viewOriginY);
+    ComputePlacementViewTransform(
+        scene.m_tileMap.GetTileSize(),
+        scene.m_flow.captureModeZoomBlend,
+        scene.m_mapEditor.active,
+        viewScale,
+        viewOriginX,
+        viewOriginY);
 
     const float mapWidth = scene.GetMapPixelWidth();
     const float mapHeight = scene.GetMapPixelHeight();
@@ -997,16 +979,14 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 shieldX = centerX - shieldW * 0.5f;
                 shieldY = centerY - shieldH * 0.5f;
             }
-            else if (item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst && playerTransform)
+            else if (item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
             {
+                const float centerX = shieldX + shieldW * 0.5f;
+                const float centerY = shieldY + shieldH * 0.5f;
                 shieldW = kTileSize * 3.0f;
                 shieldH = kTileSize * 1.0f;
-                const float playerFootY = playerTransform->y + playerTransform->height * playerTransform->scale;
-                const float playerFrontX = facingRight
-                    ? playerTransform->x + playerTransform->width * playerTransform->scale + kTileSize * 2.0f
-                    : playerTransform->x - kTileSize * 2.0f;
-                shieldX = playerFrontX - shieldW * 0.5f;
-                shieldY = playerFootY - kTileSize * 6.0f - shieldH;
+                shieldX = centerX - shieldW * 0.5f;
+                shieldY = centerY - shieldH * 0.5f;
             }
 
             spawnedShield->AddComponent<TransformComponent>(shieldX, shieldY, shieldW, shieldH);
@@ -1054,8 +1034,8 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 shieldComp.capturedMode = CapturedShieldMode::JumpBurst;
                 shieldComp.gravityEnabled = false;
                 shieldComp.contactDamage = 0;
-                shieldComp.followPlayer = true;
-                shieldComp.hoverDuration = 1.5f;
+                shieldComp.followPlayer = false;
+                shieldComp.hoverDuration = 0.0f;
                 shieldComp.descendSpeed = kBossJumpDescendSpeed;
                 if (playerTransform)
                 {

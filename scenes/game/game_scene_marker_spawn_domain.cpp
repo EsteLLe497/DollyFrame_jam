@@ -605,6 +605,11 @@ void GameScene::RefreshEnemiesFromMarkers()
                 ConfigureRangedSpriteAnimation(enemy);
                 placeEnemyAtMarker(enemy);
             }
+            else if (marker == '$')
+            {
+                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_charger", markerX, markerY);
+                placeEnemyAtMarker(enemy);
+            }
             else if (marker == 'N' || marker == '?')
             {
                 if (m_flow.shieldBossDefeatedThisScene)

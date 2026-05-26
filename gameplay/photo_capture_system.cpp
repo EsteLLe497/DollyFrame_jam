@@ -549,6 +549,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 capturedShieldArchetype = CapturedSpawnArchetype::ShieldNormal;
             }
         }
+        const bool capturedShieldAttack =
+            capturedShieldArchetype == CapturedSpawnArchetype::ShieldRushBurst ||
+            capturedShieldArchetype == CapturedSpawnArchetype::ShieldJumpBurst;
         item.textureId = sprite->GetTextureId();
         item.role = GetEntityCopyRole(*entity);
         item.layer = PhotoCopyLayer::Foreground;
@@ -594,7 +597,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             item.spawnArchetype = CapturedSpawnArchetype::None;
         }
-        item.enemyAttackPaste = capturedWalker;
+        item.enemyAttackPaste = capturedWalker || capturedShieldAttack;
         item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
             *entity,
             capturedVanishObject,

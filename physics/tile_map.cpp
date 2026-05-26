@@ -89,6 +89,7 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker, i
             marker == '!' ||
             marker == '?' ||
             marker == '<';
+            marker == '$';
         if (!supportsParameter)
         {
             return false;

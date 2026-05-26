@@ -53,6 +53,27 @@ private:
         float endX = 0.0f;
         float cameraX = 0.0f;
         float cameraY = 0.0f;
+
+        float backCameraX = 0.0f;
+        bool followY = false;
+        bool followPlayer = false;
+        float viewWidth = 0.0f;
+        float viewHeight = 0.0f;
+        int cameraNum = 0;
+    };
+
+    struct CameraZoomMarker
+    {
+        float x;
+        float y;
+        float width;
+        float height;
+
+        float viewWidth;
+        float viewHeight;
+
+        bool wasInside = false;
+        bool isReset = false;
     };
 
     // Core lifecycle / facade
@@ -280,6 +301,8 @@ private:
     bool m_hasPreviousPlayerCameraProbe = false;
     float m_previousPlayerCameraProbeX = 0.0f;
     float m_previousPlayerCameraProbeY = 0.0f;
+    bool m_hasCameraSmoothedPlayerY = false;
+    float m_cameraSmoothedPlayerCenterY = 0.0f;
     bool m_floorCameraTransitionActive = false;
     float m_floorCameraTransitionElapsed = 0.0f;
     float m_floorCameraTransitionDuration = 0.45f;
@@ -297,4 +320,12 @@ private:
     char m_pendingStageTransitionSpawnMarker = '\0';
     char m_pendingStageTransitionMarker = '\0';
     bool m_darknessStageEnabled = false;
+
+    int m_cameraFixedLockNum = -1;
+    void ActivateCameraRange(int cameraNum);
+    std::vector<CameraZoomMarker> m_zoomMarkers;
+    void RecalculateViewScale();
+    bool m_isZoomed = false;
+    float m_zoomedViewWidth = 2560.0f;
+    float m_zoomedViewHeight = 1440.0f;
 };

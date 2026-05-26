@@ -56,17 +56,124 @@ void GameScene::TryUseAttackCaptureSlot()
         return;
     }
 
-    CapturedSpawnArchetype attackArchetype = CapturedSpawnArchetype::None;
+    const CapturedPhotoItem* attackItem = nullptr;
     for (const auto& item : m_photo.attackCapture.items)
     {
         if (item.enemyAttackPaste)
         {
-            attackArchetype = item.spawnArchetype;
+            attackItem = &item;
             break;
         }
     }
 
-    if (attackArchetype != CapturedSpawnArchetype::WalkerMelee)
+    if (!attackItem)
+    {
+        return;
+    }
+
+    auto finishAttackUse = [&]()
+    {
+        m_player.captureAnimationActive = false;
+        m_player.captureAnimationReleased = false;
+        m_player.pasteAnimationActive = true;
+        m_player.pasteAnimationEnemyAttack = true;
+        m_player.pasteAnimationReleased = true;
+        m_photo.attackCapture = PhotoCaptureState{};
+        m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Used captured attack", 0.0f, 0.0f });
+    };
+
+    if (attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst ||
+        attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
+    {
+        constexpr float kTileSize = 48.0f;
+        constexpr float kBossRushSpeed = 520.0f;
+        constexpr float kBossJumpDescendSpeed = 1200.0f;
+        const bool facingRight = m_player.facingRight;
+        const float playerWidth = playerTransform->width * playerTransform->scale;
+        const float playerHeight = playerTransform->height * playerTransform->scale;
+        const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
+        const float playerFootY = playerTransform->y + playerHeight;
+
+        float shieldW = kTileSize;
+        float shieldH = kTileSize * 3.0f;
+        float shieldX = facingRight
+            ? playerTransform->x + playerWidth
+            : playerTransform->x - shieldW;
+        float shieldY = playerTransform->y;
+
+        if (attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
+        {
+            shieldW = kTileSize * 2.0f;
+            shieldH = kTileSize * 4.0f;
+            shieldX = facingRight
+                ? playerTransform->x + playerWidth
+                : playerTransform->x - shieldW;
+            shieldY = playerFootY - shieldH;
+        }
+        else
+        {
+            shieldW = kTileSize * 3.0f;
+            shieldH = kTileSize;
+            const float playerFrontX = facingRight
+                ? playerTransform->x + playerWidth + shieldW * 0.5f
+                : playerTransform->x - shieldW * 0.5f;
+            shieldX = playerFrontX - shieldW * 0.5f;
+            shieldY = playerFootY - kTileSize * 6.0f - shieldH;
+        }
+
+        auto shieldEntity = std::make_unique<Entity>();
+        shieldEntity->AddComponent<TagComponent>("CapturedShield");
+        shieldEntity->AddComponent<TransformComponent>(shieldX, shieldY, shieldW, shieldH);
+        shieldEntity->AddComponent<TintComponent>(
+            attackItem->tintR,
+            attackItem->tintG,
+            attackItem->tintB,
+            attackItem->tintA);
+        shieldEntity->AddComponent<SpriteRenderComponent>(attackItem->textureId >= 0 ? attackItem->textureId : m_tileTexture);
+        auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
+        shieldComp.attached = false;
+        shieldComp.photoSpawned = true;
+        shieldComp.rotationSpeed = 0.0f;
+        shieldComp.velocityX = 0.0f;
+        shieldComp.velocityY = 0.0f;
+        shieldComp.contactDamage = 1;
+        shieldComp.knockbackGrids = 3.0f;
+        shieldComp.grounded = false;
+        shieldComp.shockwaveSpawned = false;
+
+        if (auto* sprite = shieldEntity->GetComponent<SpriteRenderComponent>())
+        {
+            sprite->SetSourceRect(attackItem->sourceX, attackItem->sourceY, attackItem->sourceWidth, attackItem->sourceHeight);
+            sprite->SetFlipX(!facingRight);
+        }
+
+        if (attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
+        {
+            shieldComp.capturedMode = CapturedShieldMode::RushBurst;
+            shieldComp.gravityEnabled = false;
+            shieldComp.contactDamage = 2;
+            shieldComp.velocityX = facingRight ? kBossRushSpeed : -kBossRushSpeed;
+            shieldEntity->AddComponent<PhotoCopyLifetimeComponent>(0.5f);
+        }
+        else
+        {
+            shieldComp.capturedMode = CapturedShieldMode::JumpBurst;
+            shieldComp.gravityEnabled = false;
+            shieldComp.contactDamage = 0;
+            shieldComp.followPlayer = false;
+            shieldComp.hoverDuration = 0.0f;
+            shieldComp.descendSpeed = kBossJumpDescendSpeed;
+            shieldComp.followOffsetX = (shieldX + shieldW * 0.5f) - playerCenterX;
+            shieldComp.followOffsetY = shieldY - playerFootY;
+            shieldEntity->AddComponent<PhotoCopyLifetimeComponent>(2.0f);
+        }
+
+        m_entities.push_back(std::move(shieldEntity));
+        finishAttackUse();
+        return;
+    }
+
+    if (attackItem->spawnArchetype != CapturedSpawnArchetype::WalkerMelee)
     {
         return;
     }
@@ -84,19 +191,14 @@ void GameScene::TryUseAttackCaptureSlot()
 
     auto attackEntity = std::make_unique<Entity>();
     attackEntity->AddComponent<TagComponent>("WalkerMeleeAttack");
-    attackEntity->AddComponent<TransformComponent>(attackX, attackY, kAttackWidth, kAttackHeight);
+    auto& attackTransform = attackEntity->AddComponent<TransformComponent>(attackX, attackY, kAttackWidth, kAttackHeight);
+    attackTransform.rotation = m_player.facingRight ? 0.0f : 3.14159265f;
     attackEntity->AddComponent<TintComponent>(1.0f, 0.55f, 0.15f, 0.72f);
     attackEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
     attackEntity->AddComponent<PhotoCopyLifetimeComponent>(kAttackLifetime);
     m_entities.push_back(std::move(attackEntity));
 
-    m_player.captureAnimationActive = false;
-    m_player.captureAnimationReleased = false;
-    m_player.pasteAnimationActive = true;
-    m_player.pasteAnimationEnemyAttack = true;
-    m_player.pasteAnimationReleased = true;
-    m_photo.attackCapture = PhotoCaptureState{};
-    m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Used captured attack", 0.0f, 0.0f });
+    finishAttackUse();
 }
 
 void GameScene::StartCameraFlashPulse(float durationSeconds)
