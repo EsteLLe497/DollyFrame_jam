@@ -2,8 +2,6 @@
   "camera_follow_speed_x": 34.0,
   "camera_follow_speed_y": 40.0,
   "camera_follow_y": true,
-  "camera_view_height": 1080.0,
-  "camera_view_width": 1920.0,
   "capture_height_tiles": 3.0,
   "capture_width_tiles": 5.0,
   "coyote_time": 0.10000000149011612,
