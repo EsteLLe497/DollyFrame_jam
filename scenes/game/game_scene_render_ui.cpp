@@ -1679,18 +1679,18 @@ void GameScene::DrawBackdropBaseInView(
     // パララックス係数（0.0 = 固定背景、1.0 = カメラと同速）
     // 必要に応じてここを変更（例: 0.2f, 0.5f, 1.0f）
     const float parallaxX = 0.45f;
-    const float parallaxY = 0.45f;
+	const float parallaxY = 0.45f;//0.0f; // 固定背景にしたい場合は常に0にする
 
     // パララックス係数（0.0 = 固定背景、1.0 = カメラと同速）
     // 必要に応じてここを変更（例: 0.2f, 0.5f, 1.0f）bg1
-    const float parallaxX1 = 0.45f;
+    const float parallaxX1 = 1.0f;
     const float parallaxY1 = 0.45f;
 
     // カメラのワールド位置を使ってUVスクロール量を計算（0..1）
     float scrollU = std::fmod((m_flow.cameraX * parallaxX) / static_cast<float>(texW), 1.0f);
     if (scrollU < 0.0f) scrollU += 1.0f;
-    float scrollV = std::fmod((m_flow.cameraY * parallaxY) / static_cast<float>(texH), 1.0f);
-    if (scrollV < 0.0f) scrollV += 1.0f;
+	float scrollV = std::fmod((m_flow.cameraY * parallaxY) / static_cast<float>(texH), 1.0f);
+	if (scrollV < 0.0f) scrollV += 0;// 固定背景にしたい場合は常に0にする
 
     // カメラのワールド位置を使ってUVスクロール量を計算（0..1）bg1
     float scrollU1 = std::fmod((m_flow.cameraX * parallaxX1) / static_cast<float>(texW1), 1.0f);
@@ -1701,13 +1701,13 @@ void GameScene::DrawBackdropBaseInView(
     // UV比から画面上の分割幅を計算（左/右, 上/下）
     const float leftUVWidth = 1.0f - scrollU;
     const float rightUVWidth = scrollU;
-    const float topUVHeight = 1.0f - scrollV;
+	const float topUVHeight = 1.0f - scrollV;//0.0f; // 固定背景にしたい場合は常に0にする
     const float bottomUVHeight = scrollV;
 
     // UV比から画面上の分割幅を計算（左/右, 上/下）bg1
     const float leftUVWidth1 = 1.0f - scrollU1;
     const float rightUVWidth1 = scrollU1;
-    const float topUVHeight1 = 1.0f - scrollV1;
+	const float topUVHeight1 = 1.0f - scrollV1;//0.0f; // 固定背景にしたい場合は常に0にする
     const float bottomUVHeight1 = scrollV1;
 
     const float leftDrawW = drawW * leftUVWidth;
