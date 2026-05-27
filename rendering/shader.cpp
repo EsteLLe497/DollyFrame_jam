@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "shader.h"
 
 #include <algorithm>
@@ -80,15 +82,6 @@ bool Shader_Initialize(void* pDevice, void* pContext)
 }
 
 void Shader_Finalize()
-{
-}
-
-void Shader_SetMatrix(const void* matrix)
-{
-    static_cast<void>(matrix);
-}
-
-void Shader_Begin()
 {
 }
 
@@ -270,17 +263,6 @@ void Shader_SetNormalMapLighting(float lightX, float lightY, float lightZ, float
 void Shader_SetAuxTexture(int textureID)
 {
     static_cast<void>(textureID);
-}
-
-void Shader_BindSpriteTextures(int primaryTextureID)
-{
-    static_cast<void>(primaryTextureID);
-}
-
-void Shader_SetTextureSize(float width, float height)
-{
-    static_cast<void>(width);
-    static_cast<void>(height);
 }
 
 void Shader_ResetStyle()

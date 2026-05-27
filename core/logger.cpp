@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "logger.h"
 
 #include <memory>
@@ -12,6 +14,14 @@
 namespace
 {
     std::shared_ptr<spdlog::logger> g_logger;
+
+    void Log(spdlog::level::level_enum level, std::string_view message)
+    {
+        if (g_logger)
+        {
+            g_logger->log(level, "{}", message);
+        }
+    }
 }
 
 bool Logger::Initialize()
@@ -24,6 +34,7 @@ bool Logger::Initialize()
     try
     {
         std::vector<spdlog::sink_ptr> sinks;
+        sinks.reserve(2);
         sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>("foundation.log", true));
         sinks.push_back(std::make_shared<spdlog::sinks::msvc_sink_mt>());
 
@@ -53,24 +64,15 @@ void Logger::Shutdown()
 
 void Logger::Info(std::string_view message)
 {
-    if (g_logger)
-    {
-        g_logger->info(std::string(message));
-    }
+    Log(spdlog::level::info, message);
 }
 
 void Logger::Warn(std::string_view message)
 {
-    if (g_logger)
-    {
-        g_logger->warn(std::string(message));
-    }
+    Log(spdlog::level::warn, message);
 }
 
 void Logger::Error(std::string_view message)
 {
-    if (g_logger)
-    {
-        g_logger->error(std::string(message));
-    }
+    Log(spdlog::level::err, message);
 }

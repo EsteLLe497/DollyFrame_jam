@@ -3,6 +3,9 @@
 
 #include <windows.h>
 
+constexpr int kVirtualScreenWidth = 1920;
+constexpr int kVirtualScreenHeight = 1080;
+
 void* DirectXGetSwapChain(void);
 
 enum class BlendMode2D
@@ -11,7 +14,7 @@ enum class BlendMode2D
     Additive,
 };
 
-constexpr int kMaxDarknessOverlayLights = 8;
+constexpr int kMaxDarknessOverlayLights = 16;
 
 struct DarknessOverlayLight
 {
@@ -63,6 +66,10 @@ bool DirectXHasDarknessOverlay(void);
 void DirectXResetDarknessOverlay(void);
 void DirectXSetDarknessOverlay(const DarknessOverlayParams& params);
 void DirectXDrawDarknessOverlay(void);
+void DirectXGetOutputSize(int& w, int& h);
+void DirectXGetPresentationRect(int& x, int& y, int& w, int& h);
+int DirectXMapWindowToVirtualX(int x);
+int DirectXMapWindowToVirtualY(int y);
 
 extern int SCREEN_WIDTH;
 extern int SCREEN_HEIGHT;

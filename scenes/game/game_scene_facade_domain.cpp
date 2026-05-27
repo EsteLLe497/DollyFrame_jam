@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
 
@@ -13,7 +15,6 @@ namespace
 
 void GameScene::BeginFrameUpdate(float deltaTime)
 {
-    m_eventBus.Clear();
     UpdateTuningHotReload(deltaTime);
 }
 
@@ -77,7 +78,7 @@ void GameScene::FinalizeGameplayFrame(float effectiveGameplayDeltaTime)
     RunGameplayFrame(effectiveGameplayDeltaTime);
     if (Entity* player = FindEntityByTag(kTagPlayer))
     {
-        game_scene_player_visual_system::UpdateAnimation(m_player, *player, m_player.dodgeRemaining > 0.0f);
+        game_scene_player_visual_system::UpdateAnimation(m_player, m_flow, *player, m_player.dodgeRemaining > 0.0f);
     }
 }
 
@@ -128,9 +129,12 @@ void GameScene::DrawWorldAndUiLayers()
     DrawBackdrop();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Shadow);
+    DrawBossShockwavesUnderlay();
     for (const auto& entity : m_entities)
     {
-        if (entity && (HasTag(*entity, kTagPhotoBox) || entity->GetComponent<PhotoPasteOrderComponent>()))
+        if (entity && (HasTag(*entity, kTagPhotoBox) ||
+            entity->GetComponent<PhotoPasteOrderComponent>() ||
+            HasTag(*entity, "BossShockwave")))
         {
             continue;
         }
@@ -141,6 +145,7 @@ void GameScene::DrawWorldAndUiLayers()
     DrawPastedEntitiesFront();
     DrawPhotoPlacementPreview();
     DrawStageDarknessOverlay();
+    DrawSepiaFilmFilterOverlay();
     DrawMarkerLightOutlines();
     DrawCaptureOverlay();
     DrawPhotoStorageTray();

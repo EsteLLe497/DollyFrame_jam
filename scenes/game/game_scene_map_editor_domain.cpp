@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "DxLib.h"
 
@@ -23,34 +25,6 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr std::array<char, 21> kMarkerPresets = {
-        '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'N', 'U', 'J', 'O', 'P'
-    };
-    constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
-
-    int MarkerToPresetIndex(char marker)
-    {
-        const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        for (int index = 0; index < kMarkerPresetCount; ++index)
-        {
-            if (kMarkerPresets[static_cast<size_t>(index)] == normalized)
-            {
-                return index;
-            }
-        }
-
-        return 0;
-    }
-
-    char PresetIndexToMarker(int index)
-    {
-        if (index >= 0 && index < kMarkerPresetCount)
-        {
-            return kMarkerPresets[static_cast<size_t>(index)];
-        }
-
-        return '\0';
-    }
 
     std::string BuildEditorMapFilePath(const char* prefix)
     {
@@ -224,6 +198,7 @@ void GameScene::UpdateMapEditorBrushSelection()
         return;
     }
 
+    const char markerBeforeSelection = m_mapEditor.selectedMarker;
     forEachPressedDigit([&](int digit) { m_mapEditor.selectedMarker = PresetIndexToMarker(digit); });
     const auto applyMarkerHotkey = [&](int keyCode, char marker)
     {
@@ -232,22 +207,66 @@ void GameScene::UpdateMapEditorBrushSelection()
             m_mapEditor.selectedMarker = marker;
         }
     };
-    constexpr std::array<std::pair<int, char>, 11> kMarkerHotkeys = {{
+    constexpr std::array<std::pair<int, char>, 12> kMarkerHotkeys = {{
         { VK_F10, 'M' },
         { VK_F11, 'Y' },
-        { VK_F12, 'N' },
+        { VK_F12, '!' },
         { 'H', 'H' },
         { 'I', 'I' },
         { 'J', 'J' },
         { 'K', 'K' },
         { 'L', 'L' },
+        { 'N', '?' },
         { 'O', 'O' },
-        { 'P', 'P' },
+        { 'P', '*' },
         { 'U', 'U' },
     }};
     for (const auto& [keyCode, marker] : kMarkerHotkeys)
     {
         applyMarkerHotkey(keyCode, marker);
+    }
+
+    if (m_mapEditor.selectedMarker == '@')
+    {
+        if (Input_IsKeyPressed('C'))
+        {
+            m_mapEditor.selectedStageLightTiles = std::max(1, m_mapEditor.selectedStageLightTiles - 1);
+        }
+        if (Input_IsKeyPressed('V'))
+        {
+            m_mapEditor.selectedStageLightTiles = std::min(9, m_mapEditor.selectedStageLightTiles + 1);
+        }
+        if (Input_IsKeyPressed('Z'))
+        {
+            m_mapEditor.selectedStageLightFixtureTiles = std::max(1, m_mapEditor.selectedStageLightFixtureTiles - 1);
+        }
+        if (Input_IsKeyPressed('X'))
+        {
+            m_mapEditor.selectedStageLightFixtureTiles = std::min(4, m_mapEditor.selectedStageLightFixtureTiles + 1);
+        }
+    }
+    else if (IsParameterizedEditorMarker(m_mapEditor.selectedMarker))
+    {
+        if (Input_IsKeyPressed('C'))
+        {
+            m_mapEditor.selectedMarkerParameter =
+                NormalizeEditorMarkerParameter(m_mapEditor.selectedMarker, m_mapEditor.selectedMarkerParameter - 1);
+        }
+        if (Input_IsKeyPressed('V'))
+        {
+            m_mapEditor.selectedMarkerParameter =
+                NormalizeEditorMarkerParameter(m_mapEditor.selectedMarker, m_mapEditor.selectedMarkerParameter + 1);
+        }
+        if (Input_IsKeyPressed('Z'))
+        {
+            m_mapEditor.selectedMarkerParameter =
+                NormalizeEditorMarkerParameter(m_mapEditor.selectedMarker, -m_mapEditor.selectedMarkerParameter);
+        }
+        if (Input_IsKeyPressed('X'))
+        {
+            m_mapEditor.selectedMarkerParameter =
+                NormalizeEditorMarkerParameter(m_mapEditor.selectedMarker, 0);
+        }
     }
 
     int markerIndex = MarkerToPresetIndex(m_mapEditor.selectedMarker);
@@ -260,6 +279,13 @@ void GameScene::UpdateMapEditorBrushSelection()
     {
         markerIndex = (markerIndex + 1) % kMarkerPresetCount;
         m_mapEditor.selectedMarker = PresetIndexToMarker(markerIndex);
+    }
+
+    if (m_mapEditor.selectedMarker != markerBeforeSelection &&
+        IsParameterizedEditorMarker(m_mapEditor.selectedMarker))
+    {
+        m_mapEditor.selectedMarkerParameter =
+            NormalizeEditorMarkerParameter(m_mapEditor.selectedMarker, m_mapEditor.selectedMarkerParameter);
     }
 }
 
@@ -365,9 +391,50 @@ void GameScene::ApplyMapEditorMousePaint(float tileSize)
         else
         {
             const char before = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-            m_tileMap.SetMarker(column, row, m_mapEditor.selectedMarker);
+            const int beforeParameter = m_tileMap.GetMarkerParameter(column, row);
+            int markerParameter = 0;
+            if (m_mapEditor.selectedMarker == '@')
+            {
+                markerParameter = EncodeStageLightMarkerParameter(
+                    m_mapEditor.selectedStageLightTiles,
+                    m_mapEditor.selectedStageLightFixtureTiles);
+            }
+            else if (IsParameterizedEditorMarker(m_mapEditor.selectedMarker))
+            {
+                markerParameter = NormalizeEditorMarkerParameter(
+                    m_mapEditor.selectedMarker,
+                    m_mapEditor.selectedMarkerParameter);
+            }
+            m_tileMap.SetMarker(column, row, m_mapEditor.selectedMarker, markerParameter);
             const char after = static_cast<char>(std::toupper(static_cast<unsigned char>(m_mapEditor.selectedMarker)));
             RefreshMarkerDrivenSystemsByMarkerChange(before, after);
+            if (before == after && beforeParameter != markerParameter)
+            {
+                switch (after)
+                {
+                case 'P':
+                case 'F':
+                    RefreshMarkerLightsFromMarkers();
+                    break;
+                case '@':
+                    RefreshStageLightsFromMarkers();
+                    break;
+                case 'U':
+                case 'Z':
+                    RefreshLaserTurretsFromMarkers();
+                    break;
+                case 'K':
+                case 'L':
+                case 'Q':
+                case 'J':
+                case 'O':
+                case 'X':
+                    RefreshLinkedGimmicksFromMarkers();
+                    break;
+                default:
+                    break;
+                }
+            }
         }
     }
     if ((mouseButtons & MOUSE_INPUT_RIGHT) != 0)

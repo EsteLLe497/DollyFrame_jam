@@ -617,7 +617,7 @@
     },
     "sandbox_enemy_walker": {
       "tag": "Enemy",
-      "texture": "enemy",
+      "texture": "enemy1_idle",
       "transform": {
         "x": 0.0,
         "y": 0.0,
@@ -627,9 +627,9 @@
         "scale": 1.0
       },
       "tint": {
-        "r": 0.92,
-        "g": 0.38,
-        "b": 0.38,
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
         "a": 1.0
       },
       "enemy": {
@@ -644,7 +644,7 @@
     },
     "sandbox_enemy_ranged": {
       "tag": "Enemy",
-      "texture": "enemy",
+      "texture": "enemy2_idle",
       "transform": {
         "x": 0.0,
         "y": 0.0,
@@ -654,9 +654,9 @@
         "scale": 1.0
       },
       "tint": {
-        "r": 0.38,
-        "g": 0.38,
-        "b": 0.92,
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
         "a": 1.0
       },
       "enemy": {
@@ -690,15 +690,47 @@
         "enabled": true,
         "archetype": "shield_boss",
         "contactDamage": 1,
-        "detectRange": 600.0,
+        "detectRange": 1200.0,
         "attackRange": 600.0,
-        "attackCooldown": 3.0,
+        "attackCooldown": 2.0,
         "detectHeight": 192.0,
         "shieldBoss": true
       },
       "health": {
         "enabled": true,
-        "maxHp": 10
+        "maxHp": 3
+      }
+    },
+    "sandbox_mid_boss2": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 192.0,
+        "height": 192.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.94,
+        "g": 0.58,
+        "b": 0.20,
+        "a": 1.0
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "mid_boss_2",
+        "contactDamage": 1,
+        "detectRange": 720.0,
+        "attackRange": 720.0,
+        "attackCooldown": 3.0,
+        "detectHeight": 240.0,
+        "midBoss2": true
+      },
+      "health": {
+        "enabled": true,
+        "maxHp": 15
       }
     },
     "sandbox_enemy_ghost": {

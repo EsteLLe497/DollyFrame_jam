@@ -39,8 +39,6 @@ enum class ShaderSupportLevel
 
 bool Shader_Initialize(void* pDevice, void* pContext);
 void Shader_Finalize();
-void Shader_SetMatrix(const void* matrix);
-void Shader_Begin();
 void Shader_SetTint(float r, float g, float b, float a);
 void Shader_SetEffect(ShaderEffect2D effect);
 void Shader_SetBlendMode(ShaderBlendMode2D blendMode);
@@ -69,8 +67,6 @@ void Shader_SetHeatOverlay(float intensity, float pulseTime);
 void Shader_SetParallax(float backSpeed, float frontSpeed, float mixRatio, float time);
 void Shader_SetNormalMapLighting(float lightX, float lightY, float lightZ, float ambient, float intensity);
 void Shader_SetAuxTexture(int textureID);
-void Shader_BindSpriteTextures(int primaryTextureID);
-void Shader_SetTextureSize(float width, float height);
 void Shader_ResetStyle();
 ShaderEffect2D Shader_GetCurrentEffect();
 ShaderBlendMode2D Shader_GetCurrentBlendMode();

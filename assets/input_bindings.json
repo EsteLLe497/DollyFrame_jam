@@ -1,0 +1,125 @@
+{
+  "actions": {
+    "Confirm": {
+      "pressed_keys": ["ENTER", "SPACE"],
+      "pressed_gamepad": ["GAMEPAD_SOUTH_PRESSED"]
+    },
+    "Cancel": {
+      "pressed_keys": ["ESCAPE"]
+    },
+    "StartGame": {
+      "pressed_keys": ["ENTER", "SPACE"],
+      "pressed_gamepad": ["GAMEPAD_SOUTH_PRESSED"]
+    },
+    "OpenDemoScene": {
+      "pressed_keys": ["D"]
+    },
+    "OpenShaderShowcase": {
+      "pressed_keys": ["S"]
+    },
+    "RestartScene": {
+      "pressed_keys": ["R"],
+      "pressed_gamepad": ["GAMEPAD_BACK_PRESSED"]
+    },
+    "ReturnToTitle": {
+      "pressed_keys": ["T"]
+    },
+    "ToggleTuningPanel": {
+      "pressed_keys": ["F1"]
+    },
+    "TogglePostProcess": {
+      "pressed_keys": ["F2"]
+    },
+    "ToggleCollisionDebug": {
+      "pressed_keys": ["F3"]
+    },
+    "CycleFilter": {
+      "pressed_keys": ["C"]
+    },
+    "SelectFilterNone": {
+      "pressed_keys": ["1"]
+    },
+    "SelectFilterHot": {
+      "pressed_keys": ["2"]
+    },
+    "SelectFilterCold": {
+      "pressed_keys": ["3"]
+    },
+    "SelectFilterInvert": {
+      "pressed_keys": ["4"]
+    },
+    "SelectFilterSepia": {
+      "pressed_keys": ["5"]
+    },
+    "HoldCamera": {
+      "down_keys": ["RBUTTON"],
+      "pressed_keys": ["RBUTTON"],
+      "down_falls_back_to_pressed": false,
+      "down_gamepad": ["GAMEPAD_LEFT_TRIGGER_DOWN"]
+    },
+    "CapturePhoto": {
+      "pressed_keys": ["LBUTTON"],
+      "pressed_gamepad": ["GAMEPAD_RIGHT_TRIGGER_PRESSED"]
+    },
+    "HoldPlacement": {
+      "down_keys": ["E"],
+      "pressed_keys": ["E"],
+      "down_falls_back_to_pressed": false,
+      "down_gamepad": ["GAMEPAD_NORTH_PRESSED"],
+      "pressed_gamepad": ["GAMEPAD_NORTH_PRESSED"]
+    },
+    "ConfirmPlacement": {
+      "pressed_keys": ["LBUTTON"],
+      "pressed_gamepad": ["GAMEPAD_RIGHT_TRIGGER_PRESSED", "GAMEPAD_SOUTH_PRESSED"]
+    },
+    "CyclePlacementLayer": {
+      "pressed_keys": ["Q"]
+    },
+    "FlipPlacement": {
+      "pressed_keys": ["F"]
+    },
+    "ToggleBridgePlacement": {
+      "pressed_keys": ["B"]
+    },
+    "RotatePlacementLeft": {
+      "down_keys": ["Z"],
+      "pressed_keys": ["Z"],
+      "down_falls_back_to_pressed": false,
+      "down_gamepad": ["GAMEPAD_LEFT_SHOULDER_DOWN"],
+      "pressed_gamepad": ["GAMEPAD_LEFT_SHOULDER_PRESSED"]
+    },
+    "RotatePlacementRight": {
+      "down_keys": ["X"],
+      "pressed_keys": ["X"],
+      "down_falls_back_to_pressed": false,
+      "down_gamepad": ["GAMEPAD_RIGHT_SHOULDER_DOWN"],
+      "pressed_gamepad": ["GAMEPAD_RIGHT_SHOULDER_PRESSED"]
+    },
+    "MoveLeft": {
+      "down_keys": ["A", "LEFT"]
+    },
+    "MoveRight": {
+      "down_keys": ["D", "RIGHT"]
+    },
+    "MoveUp": {
+      "down_keys": ["W", "UP"]
+    },
+    "MoveDown": {
+      "down_keys": ["S", "DOWN"]
+    },
+    "Jump": {
+      "pressed_keys": ["SPACE", "W", "UP"],
+      "pressed_gamepad": ["GAMEPAD_SOUTH_PRESSED"]
+    },
+    "Dodge": {
+      "pressed_keys": ["LSHIFT", "RSHIFT", "SHIFT"],
+      "pressed_gamepad": ["GAMEPAD_EAST_PRESSED"]
+    },
+    "ExitPromptYes": {
+      "pressed_keys": ["ENTER", "Y"]
+    },
+    "ExitPromptNo": {
+      "pressed_keys": ["N", "ESCAPE"]
+    }
+  }
+}

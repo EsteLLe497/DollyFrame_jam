@@ -14,12 +14,18 @@ enum class CapturedSpawnArchetype
     Battery,
     Projectile,
     LaserTurret,
+    WalkerMelee,
+    ShieldNormal,
+    ShieldRushBurst,
+    ShieldJumpBurst,
+    SepiaGround,
 };
 
 enum class PhotoPlacementRuleGroup
 {
     Group1,
     Group2,
+    Group3,
 };
 
 enum class PhotoPlacementForbiddenTarget : std::uint8_t
@@ -45,7 +51,7 @@ inline constexpr bool HasPlacementForbiddenTarget(std::uint8_t mask, PhotoPlacem
     return (mask & ToPlacementForbiddenMask(target)) != 0;
 }
 
-inline constexpr std::array<PhotoPlacementRuleDefinition, 2> kPhotoPlacementRuleDefinitions = {
+inline constexpr std::array<PhotoPlacementRuleDefinition, 3> kPhotoPlacementRuleDefinitions = {
     PhotoPlacementRuleDefinition{
         PhotoPlacementRuleGroup::Group1,
         ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy),
@@ -54,6 +60,10 @@ inline constexpr std::array<PhotoPlacementRuleDefinition, 2> kPhotoPlacementRule
         PhotoPlacementRuleGroup::Group2,
         ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Floor) |
             ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::Enemy),
+    },
+    PhotoPlacementRuleDefinition{
+        PhotoPlacementRuleGroup::Group3,
+        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // 制限なし
     },
 };
 
@@ -110,11 +120,20 @@ struct CapturedPhotoItem
     float rotation = 0.0f;
     bool flipX = false;
     bool vanishOnCapture = false;
+    bool enemyAttackPaste = false;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
     PhotoPlacementRuleGroup placementRuleGroup = PhotoPlacementRuleGroup::Group1;
     float projectileVelocityX = 0.0f;
     float projectileVelocityY = 0.0f;
     int projectileDamage = 1;
+    bool spearProjectile = false;
+    bool spearStuck = false;
+    float spearDirectionX = 0.0f;
+    float spearDirectionY = -1.0f;
+    float spearTravelDistance = 0.0f;
+    float laserBeamThickness = 0.0f;
+    float laserDamagePerSecond = 1.0f;
+    float laserEnemyKnockbackSpeed = 0.0f;
     float lightRadius = 0.0f;
     float lightIntensity = 0.0f;
     std::vector<OutlinePoint> collisionOutline;
@@ -126,6 +145,7 @@ struct PhotoCaptureState
     PhotoFilterTheme selectedTheme = PhotoFilterTheme::None;
     PhotoFilterTheme capturedTheme = PhotoFilterTheme::None;
     std::vector<CapturedPhotoItem> items;
+    bool containsEnemyAttackPaste = false;
     int textureId = -1;
     float width = 64.0f;
     float height = 64.0f;

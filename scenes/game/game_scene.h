@@ -102,6 +102,8 @@ private:
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
     bool SnapEnemyToGround(TransformComponent& transform) const;
+    void ConfigureWalkerSpriteAnimation(Entity& enemy);
+    void ConfigureRangedSpriteAnimation(Entity& enemy);
     void UpdateEnemies();
     int HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight);
     void UpdateBullets();
@@ -125,9 +127,12 @@ private:
     void RefreshBatteriesFromMarkers();
     void RefreshLogsFromMarkers();
     void RefreshMarkerLightsFromMarkers();
+    void RefreshStageLightsFromMarkers();
     void RefreshLaserTurretsFromMarkers();
     void RefreshLinkedGimmicksFromMarkers();
+    void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
+	void RefleshSepiaRubblesFromMarkers();
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();
@@ -143,6 +148,8 @@ private:
 
     // Photo control / photo runtime
     void HandleEnemyPlayerCollisions(Entity& player);
+    void HandleWalkerMeleeAttackCollisions(Entity& player);
+    void UpdateShields(float deltaTime);
     void HandleAttackHits();
     void HandlePhotoCapture();
     void HandlePhotoSpawn();
@@ -178,6 +185,7 @@ private:
     void DrawTuningPanel();
     void DrawPitRestartOverlay() const;
     void DrawStageDarknessOverlay() const;
+    void DrawSepiaFilmFilterOverlay() const;
     void DrawMarkerLightOutlines() const;
     void DrawEffects() const;
     void DrawEnemyAttackRects() const;
@@ -186,6 +194,7 @@ private:
     void DrawPhotoStorageTray() const;
     void DrawPhotoPlacementPreview() const;
     void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
+    void DrawBossShockwavesUnderlay() const;
     void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
     void DrawBatterySwitchCounters() const;
@@ -233,6 +242,10 @@ private:
     bool IsGroundPlatformEntity(const Entity& entity) const;
     void GetGroundPlatformBounds(std::vector<TransformComponent>& bounds) const;
     void GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const;
+    const Entity* FindNearestMarkerLightEntity(
+        const TransformComponent& referenceTransform,
+        int linkId = -1,
+        bool requireActivated = true) const;
     bool FindSpawnPosition(float desiredX, float objectWidth, float objectHeight, float& outX, float& outY) const;
     bool IsPhotoPlacementValid(float x, float y, float width, float height) const;
     float GetMapPixelWidth() const;

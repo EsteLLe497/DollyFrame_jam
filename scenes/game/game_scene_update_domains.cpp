@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "audio.h"
 #include "DxLib.h"
@@ -35,121 +37,6 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
-    constexpr int kMarkerPresetCount = 18;
-
-    int MarkerToPresetIndex(char marker)
-    {
-        switch (static_cast<char>(std::toupper(static_cast<unsigned char>(marker))))
-        {
-        case 'G':
-            return 1;
-        case 'S':
-            return 2;
-        case 'E':
-            return 3;
-        case 'T':
-            return 4;
-        case 'W':
-            return 5;
-        case 'R':
-            return 6;
-        case 'B':
-            return 7;
-        case 'V':
-            return 8;
-        case 'C':
-            return 9;
-        case 'M':
-            return 10;
-        case 'Y':
-            return 11;
-        case 'H':
-            return 12;
-        case 'I':
-            return 13;
-        case 'K':
-            return 14;
-        case 'L':
-            return 15;
-        case 'N':
-            return 16;
-        case 'P':
-            return 17;
-        default:
-            return 0;
-        }
-    }
-
-    char PresetIndexToMarker(int index)
-    {
-        switch (index)
-        {
-        case 1:
-            return 'G';
-        case 2:
-            return 'S';
-        case 3:
-            return 'E';
-        case 4:
-            return 'T';
-        case 5:
-            return 'W';
-        case 6:
-            return 'R';
-        case 7:
-            return 'B';
-        case 8:
-            return 'V';
-        case 9:
-            return 'C';
-        case 10:
-            return 'M';
-        case 11:
-            return 'Y';
-        case 12:
-            return 'H';
-        case 13:
-            return 'I';
-        case 14:
-            return 'K';
-        case 15:
-            return 'L';
-        case 16:
-            return 'N';
-        case 17:
-            return 'P';
-        default:
-            return '\0';
-        }
-    }
-
-    bool IsEnemyMarker(char marker)
-    {
-        const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        return normalized == 'W' || normalized == 'R' || normalized == 'N';
-    }
-
-    bool IsBatteryMarker(char marker)
-    {
-        return static_cast<char>(std::toupper(static_cast<unsigned char>(marker))) == 'Y';
-    }
-
-    bool IsLogMarker(char marker)
-    {
-        return static_cast<char>(std::toupper(static_cast<unsigned char>(marker))) == 'M';
-    }
-
-    bool IsElevatorMarker(char marker)
-    {
-        const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        return normalized == 'K' || normalized == 'L';
-    }
-
-    bool IsDamageFootholdMarker(char marker)
-    {
-        const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        return normalized == 'H' || normalized == 'I';
-    }
 
     std::string BuildEditorMapFilePath(const char* prefix)
     {
@@ -225,7 +112,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
 {
     UpdateCameraMode();
 
-    // 3状態（撮影/配置/現像プレビュー）から、トレイ表示とスロー演出を一元決定する。
+    // 3迥ｶ諷具ｼ域聴蠖ｱ/驟咲ｽｮ/迴ｾ蜒上・繝ｬ繝薙Η繝ｼ・峨°繧峨√ヨ繝ｬ繧､陦ｨ遉ｺ縺ｨ繧ｹ繝ｭ繝ｼ貍泌・繧剃ｸ蜈・ｱｺ螳壹☆繧九・
     const bool placementHeld = !m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
     const bool placementActive = placementHeld || m_photo.placement.active;
     const bool previewActive = m_photo.pendingStore.active && m_flow.developedPhotoPreviewRemaining > 0.0f;
@@ -245,7 +132,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
     m_flow.placementSlowRemaining = placementActive ? kPlacementFocusDuration : 0.0f;
     const bool slowForCapture = m_flow.cameraMode;
     const bool slowForPlacement = placementActive;
-    // フォーカス中だけゲーム全体を減速させる。
+    // 繝輔か繝ｼ繧ｫ繧ｹ荳ｭ縺縺代ご繝ｼ繝蜈ｨ菴薙ｒ貂幃溘＆縺帙ｋ縲・
     return (slowForCapture || slowForPlacement)
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
@@ -450,8 +337,8 @@ bool GameScene::HandleMapEditorModeShortcuts()
             : GameSceneMapEditorState::BrushTarget::Tile;
         m_mapEditor.statusMessage =
             m_mapEditor.brushTarget == GameSceneMapEditorState::BrushTarget::Marker
-            ? "編集対象: マーカー"
-            : "編集対象: タイル";
+            ? "邱ｨ髮・ｯｾ雎｡: 繝槭・繧ｫ繝ｼ"
+            : "邱ｨ髮・ｯｾ雎｡: 繧ｿ繧､繝ｫ";
         m_mapEditor.statusMessageTimer = 1.8f;
     }
 
@@ -567,12 +454,12 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
     {
         if (m_tileMap.SaveToCsv(gCurrentMapCsvPath))
         {
-            m_mapEditor.statusMessage = "保存しました: " + gCurrentMapCsvPath;
+            m_mapEditor.statusMessage = "菫晏ｭ倥＠縺ｾ縺励◆: " + gCurrentMapCsvPath;
             m_mapEditor.statusMessageTimer = 2.4f;
         }
         else
         {
-            m_mapEditor.statusMessage = "保存に失敗しました";
+            m_mapEditor.statusMessage = "菫晏ｭ倥↓螟ｱ謨励＠縺ｾ縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -584,12 +471,12 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
             RefreshStageRenderProfile();
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
-            m_mapEditor.statusMessage = "CSVを再読み込みしました";
+            m_mapEditor.statusMessage = "CSV繧貞・隱ｭ縺ｿ霎ｼ縺ｿ縺励∪縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
         else
         {
-            m_mapEditor.statusMessage = "再読み込みに失敗しました";
+            m_mapEditor.statusMessage = "蜀崎ｪｭ縺ｿ霎ｼ縺ｿ縺ｫ螟ｱ謨励＠縺ｾ縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -608,12 +495,12 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
             RefreshMarkerDrivenSystems();
             m_flow.cameraX = 0.0f;
             m_flow.cameraY = 0.0f;
-            m_mapEditor.statusMessage = "新規マップを作成: " + newMapPath;
+            m_mapEditor.statusMessage = "譁ｰ隕上・繝・・繧剃ｽ懈・: " + newMapPath;
             m_mapEditor.statusMessageTimer = 3.0f;
         }
         else
         {
-            m_mapEditor.statusMessage = "新規マップ作成に失敗しました";
+            m_mapEditor.statusMessage = "譁ｰ隕上・繝・・菴懈・縺ｫ螟ｱ謨励＠縺ｾ縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -626,12 +513,12 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
         {
             gCurrentMapCsvPath = duplicatedMapPath;
             RefreshStageRenderProfile();
-            m_mapEditor.statusMessage = "別名保存しました: " + duplicatedMapPath;
+            m_mapEditor.statusMessage = "蛻･蜷堺ｿ晏ｭ倥＠縺ｾ縺励◆: " + duplicatedMapPath;
             m_mapEditor.statusMessageTimer = 3.0f;
         }
         else
         {
-            m_mapEditor.statusMessage = "別名保存に失敗しました";
+            m_mapEditor.statusMessage = "蛻･蜷堺ｿ晏ｭ倥↓螟ｱ謨励＠縺ｾ縺励◆";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -742,6 +629,10 @@ void GameScene::RefreshEnemiesFromMarkers()
                 {
                     return true;
                 }
+                if (HasTag(*entity, "BossShield"))
+                {
+                    return true;
+                }
                 return HasTag(*entity, kTagBullet);
             }),
         m_entities.end());
@@ -783,23 +674,67 @@ void GameScene::RefreshEnemiesFromMarkers()
                     {
                         enemyComponent->spawnX = transform->x;
                         enemyComponent->spawnY = transform->y;
+                        if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)
+                        {
+                            enemyComponent->respawnEnabled = false;
+                        }
                     }
                 }
+            };
+            const auto attachShieldToBoss = [&](Entity& boss)
+            {
+                auto* bossComp = boss.GetComponent<ShieldBossComponent>();
+                auto* transform = boss.GetComponent<TransformComponent>();
+                if (!bossComp || !transform || bossComp->shieldEntity)
+                {
+                    return;
+                }
+                constexpr float kShieldW = 48.0f;
+                constexpr float kShieldH = 144.0f;
+                auto shieldEntity = std::make_unique<Entity>();
+                shieldEntity->AddComponent<TagComponent>("BossShield");
+                shieldEntity->AddComponent<TransformComponent>(
+                    transform->x - kShieldW,
+                    transform->y,
+                    kShieldW,
+                    kShieldH);
+                shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
+                shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+                auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
+                shieldComp.attached = true;
+                shieldComp.ownerBoss = &boss;
+                shieldComp.contactDamage = 1;
+                shieldComp.followOffsetX = -kShieldW;
+                shieldComp.followOffsetY = 0.0f;
+                bossComp->shieldEntity = shieldEntity.get();
+                m_entities.push_back(std::move(shieldEntity));
             };
 
             if (marker == 'W')
             {
                 Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_walker", markerX, markerY);
+                ConfigureWalkerSpriteAnimation(enemy);
                 placeEnemyAtMarker(enemy);
             }
             else if (marker == 'R')
             {
                 Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", markerX, markerY);
+                ConfigureRangedSpriteAnimation(enemy);
                 placeEnemyAtMarker(enemy);
             }
             else if (marker == 'N')
             {
+                if (m_flow.shieldBossDefeatedThisScene)
+                {
+                    continue;
+                }
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
+                placeEnemyAtMarker(boss);
+                attachShieldToBoss(boss);
+            }
+            else if (marker == 'F')
+            {
+                Entity& boss = SpawnStagePrefab(prefabs, "sandbox_mid_boss2", markerX, markerY);
                 placeEnemyAtMarker(boss);
             }
         }
@@ -1292,7 +1227,7 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
     }
     m_flow.pickupPulse += gameplayDeltaTime;
 
-    // HPバー演出の更新: 実HPとは別に表示用比率を補間する。
+    // HP繝舌・貍泌・縺ｮ譖ｴ譁ｰ: 螳櫞P縺ｨ縺ｯ蛻･縺ｫ陦ｨ遉ｺ逕ｨ豈皮紫繧定｣憺俣縺吶ｋ縲・
     if (const Entity* player = FindEntityByTag(kTagPlayer))
     {
         if (const auto* health = player->GetComponent<HealthComponent>())
@@ -1347,6 +1282,7 @@ void GameScene::RunGameplayFrame(float gameplayDeltaTime)
     UpdateBatteries(gameplayDeltaTime);
     UpdateElevatorGimmicks(gameplayDeltaTime);
     UpdateEnemies();
+    UpdateShields(gameplayDeltaTime);
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
     UpdateGoalVisual(gameplayDeltaTime);

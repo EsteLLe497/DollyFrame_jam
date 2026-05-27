@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "shader_showcase_scene.h"
 
 #include <cmath>
@@ -72,7 +74,6 @@ void ShaderShowcaseScene::OnEnter(ResourceManager& resources)
 void ShaderShowcaseScene::Update(float deltaTime)
 {
     ZoneScoped;
-    m_eventBus.Clear();
     m_time += deltaTime;
 
     if (Input_IsKeyPressed('T'))

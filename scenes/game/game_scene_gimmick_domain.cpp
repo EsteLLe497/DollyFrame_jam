@@ -1,8 +1,11 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
 #include "game_scene_world_interaction_system.h"
 
 #include <cctype>
+#include <limits>
 #include <unordered_map>
 
 using namespace game_scene_detail;
@@ -25,6 +28,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
     const float tileSize = m_tileMap.GetTileSize();
     constexpr float kPlatformPlayerInsetX = 6.0f;
     constexpr float kPlatformBatteryInsetX = 2.0f;
+
     constexpr float kSwitchTopToleranceMin = 8.0f;
     constexpr float kPlatformTopToleranceMin = 10.0f;
 
@@ -38,6 +42,8 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         linkPowered[linkId] = true;
     };
     bool shieldBossDefeated = false;
+    bool hasProtectiveWalls = false;
+    bool hasIntactProtectiveWall = false;
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -282,9 +288,19 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             kPlatformBatteryInsetX);
 
         const bool powered = switchComponent->isPressed;
-        setLinkPowered(switchComponent->linkId, powered);
+        if (!switchComponent->controlsLaserPower)
+        {
+            setLinkPowered(switchComponent->linkId, powered);
+        }
 
-        setEntityTint(*entity, powered ? 0.22f : 0.92f, powered ? 0.90f : 0.26f, powered ? 0.40f : 0.20f);
+        if (switchComponent->controlsLaserPower)
+        {
+            setEntityTint(*entity, powered ? 1.0f : 0.40f, powered ? 0.42f : 0.44f, powered ? 0.28f : 0.50f);
+        }
+        else
+        {
+            setEntityTint(*entity, powered ? 0.22f : 0.92f, powered ? 0.90f : 0.26f, powered ? 0.40f : 0.20f);
+        }
     }
 
     for (const auto& entity : m_entities)
@@ -325,8 +341,11 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
                 continue;
             }
             TransformComponent beamSense = *beamTransform;
-            // Beam may terminate exactly at the switch edge; keep a tiny overlap margin.
-            beamSense.width += 2.0f;
+            // Beam may terminate exactly at the switch edge from either direction; keep a tiny overlap margin.
+            beamSense.x -= 2.0f;
+            beamSense.y -= 2.0f;
+            beamSense.width += 4.0f;
+            beamSense.height += 4.0f;
             if (IntersectsRect(switchBounds, beamSense))
             {
                 isLaserHit = true;
@@ -433,9 +452,12 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
 
         const bool poweredByLink = linkPowered[shutter->linkId];
-        const bool powered = poweredByLink || (shutter->useBossDefeatSignal && shieldBossDefeated);
+        const bool linkActive = poweredByLink || (shutter->useBossDefeatSignal && shieldBossDefeated);
+        const bool open = shutter->opensWhenUnpowered
+            ? !linkActive
+            : linkActive;
         const float previousY = transform->y;
-        const float targetY = powered
+        const float targetY = open
             ? shutter->baseY - shutter->moveRangeY
             : shutter->baseY;
         const float maxStep = shutter->moveSpeed * deltaTime;
@@ -448,7 +470,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         {
             transform->y += (deltaToTarget > 0.0f ? maxStep : -maxStep);
         }
-        shutter->isOpen = powered;
+        shutter->isOpen = open;
 
         const float deltaY = transform->y - previousY;
         if (std::fabs(deltaY) <= 0.001f)
@@ -473,6 +495,133 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             kPlatformBatteryInsetX);
     }
 
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* wall = entity->GetComponent<ProtectiveWallComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!wall || !transform)
+        {
+            continue;
+        }
+
+        hasProtectiveWalls = true;
+        if (!wall->IsDestroyed())
+        {
+            hasIntactProtectiveWall = true;
+        }
+
+        const Entity* nearestLightEntity = FindNearestMarkerLightEntity(*transform, wall->linkId, false);
+        const auto* nearestLight = nearestLightEntity ? nearestLightEntity->GetComponent<MarkerLightComponent>() : nullptr;
+        const bool powered = !wall->IsDestroyed() && nearestLight != nullptr && nearestLight->activated;
+        wall->isOn = powered;
+        const float previousY = transform->y;
+        const float targetY = powered
+            ? wall->baseY
+            : wall->baseY + wall->moveRangeY;
+        const float maxStep = wall->moveSpeed * deltaTime;
+        const float deltaToTarget = targetY - transform->y;
+        if (std::fabs(deltaToTarget) <= maxStep)
+        {
+            transform->y = targetY;
+        }
+        else
+        {
+            transform->y += (deltaToTarget > 0.0f ? maxStep : -maxStep);
+        }
+
+        if (auto* tint = entity->GetComponent<TintComponent>())
+        {
+            const float durabilityRatio = static_cast<float>(wall->GetCurrentDurability()) /
+                static_cast<float>((std::max)(1, wall->GetMaxDurability()));
+            tint->r = wall->IsDestroyed() ? 0.16f : 0.18f + 0.18f * (1.0f - durabilityRatio);
+            tint->g = wall->IsDestroyed() ? 0.18f : 0.58f + 0.20f * durabilityRatio;
+            tint->b = wall->IsDestroyed() ? 0.20f : 0.52f + 0.22f * durabilityRatio;
+            tint->a = wall->IsDestroyed() ? 0.0f : 1.0f;
+        }
+
+        const float deltaY = transform->y - previousY;
+        if (!powered || std::fabs(deltaY) <= 0.001f)
+        {
+            continue;
+        }
+
+        const float topTolerance = std::max(kPlatformTopToleranceMin, tileSize * 0.24f);
+        carryPlayerByPlatformDeltaY(
+            *transform,
+            previousY,
+            transform->y,
+            deltaY,
+            topTolerance,
+            kPlatformPlayerInsetX);
+        carryBatteriesByPlatformDeltaY(
+            *transform,
+            previousY,
+            transform->y,
+            deltaY,
+            topTolerance,
+            kPlatformBatteryInsetX);
+    }
+
+    if (hasProtectiveWalls && !hasIntactProtectiveWall)
+    {
+        RefreshProtectiveWallsFromMarkers();
+    }
+}
+
+const Entity* GameScene::FindNearestMarkerLightEntity(
+    const TransformComponent& referenceTransform,
+    int linkId,
+    bool requireActivated) const
+{
+    const float referenceWidth = referenceTransform.width * referenceTransform.scale;
+    const float referenceHeight = referenceTransform.height * referenceTransform.scale;
+    const float referenceCenterX = referenceTransform.x + referenceWidth * 0.5f;
+    const float referenceCenterY = referenceTransform.y + referenceHeight * 0.5f;
+
+    const Entity* nearestEntity = nullptr;
+    float nearestDistanceSq = std::numeric_limits<float>::max();
+    for (const auto& entity : m_entities)
+    {
+        if (!entity || !HasTag(*entity, kTagMarkerLight))
+        {
+            continue;
+        }
+
+        const auto* markerLight = entity->GetComponent<MarkerLightComponent>();
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!markerLight || !transform)
+        {
+            continue;
+        }
+        if (requireActivated && !markerLight->activated)
+        {
+            continue;
+        }
+        if (linkId >= 0 && markerLight->linkId != linkId)
+        {
+            continue;
+        }
+
+        const float lightWidth = transform->width * transform->scale;
+        const float lightHeight = transform->height * transform->scale;
+        const float lightCenterX = transform->x + lightWidth * 0.5f;
+        const float lightCenterY = transform->y + lightHeight * 0.5f;
+        const float dx = lightCenterX - referenceCenterX;
+        const float dy = lightCenterY - referenceCenterY;
+        const float distanceSq = dx * dx + dy * dy;
+        if (distanceSq < nearestDistanceSq)
+        {
+            nearestDistanceSq = distanceSq;
+            nearestEntity = entity.get();
+        }
+    }
+
+    return nearestEntity;
 }
 
 void GameScene::HandleWorldInteractions()
@@ -501,6 +650,7 @@ void GameScene::HandleWorldInteractions()
     }
 
     HandleEnemyPlayerCollisions(*player);
+    HandleWalkerMeleeAttackCollisions(*player);
     if (m_flow.pitRestartActive || m_flow.resultQueued)
     {
         return;
@@ -691,7 +841,15 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_player = GameScenePlayerState{};
     m_flow = GameSceneFlowState{};
     m_effects = GameSceneEffectsState{};
-    m_mapEditor = GameSceneMapEditorState{};
+    m_mapEditor.active = false;
+    m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
+    m_mapEditor.selectedTileValue = 1;
+    m_mapEditor.selectedMarker = 'G';
+    m_mapEditor.selectedMarkerParameter = 1;
+    m_mapEditor.selectedStageLightTiles = 3;
+    m_mapEditor.selectedStageLightFixtureTiles = 1;
+    m_mapEditor.statusMessage.clear();
+    m_mapEditor.statusMessageTimer = 0.0f;
     m_cameraTransitionMarkers.clear();
     m_cameraFixedRanges.clear();
     m_hasPreviousPlayerCameraProbe = false;
@@ -728,19 +886,27 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     Entity* transitionedPlayer = FindEntityByTag(kTagPlayer);
     if (transitionedPlayer)
     {
-        game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(*transitionedPlayer);
+        game_scene_player_visual_system::ConfigurePlayerSpriteAnimation(
+            *transitionedPlayer,
+            m_assets.GetTexture("player_idle"),
+            m_assets.GetTexture("player_move"),
+            m_assets.GetTexture("player_jump"),
+            m_assets.GetTexture("player_capture"),
+            m_assets.GetTexture("player_paste"),
+            m_assets.GetTexture("player_attack"));
+        game_scene_player_visual_system::ResetSpriteAnimationToIdle(m_player, *transitionedPlayer);
 
         if (auto* transformed = transitionedPlayer->GetComponent<TransformComponent>())
         {
-            if (spawnMarker != '\0')
             {
+                const char resolvedSpawnMarker = spawnMarker == '\0' ? '*' : spawnMarker;
                 bool foundSpawnMarker = false;
                 for (int spawnRow = 0; spawnRow < m_tileMap.GetHeight() && !foundSpawnMarker; ++spawnRow)
                 {
                     for (int spawnColumn = 0; spawnColumn < m_tileMap.GetWidth(); ++spawnColumn)
                     {
                         const char tileMarker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(spawnColumn, spawnRow))));
-                        if (tileMarker != spawnMarker)
+                        if (tileMarker != resolvedSpawnMarker)
                         {
                             continue;
                         }

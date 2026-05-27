@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "game_scene_internal.h"
 #include "DxLib.h"
 
@@ -55,6 +57,10 @@ void GameScene::HandleGlobalSceneShortcuts()
     if (Input_IsActionPressed(InputAction::ToggleCollisionDebug))
     {
         m_debug.showCollisionDebug = !m_debug.showCollisionDebug;
+    }
+    if (Input_IsKeyPressed(VK_F9))
+    {
+        m_debug.sepiaFilmFilterDryRunEnabled = !m_debug.sepiaFilmFilterDryRunEnabled;
     }
 }
 

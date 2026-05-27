@@ -1,3 +1,5 @@
+﻿#include "pch.h"
+
 #include "tile_map.h"
 
 #include <algorithm>
@@ -80,7 +82,13 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker, i
         }
 
         const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(token[0])));
-        if (!std::isalpha(static_cast<unsigned char>(marker)))
+        const bool supportsParameter =
+            std::isalpha(static_cast<unsigned char>(marker)) ||
+            marker == '@' ||
+            marker == '&' ||
+            marker == '!' ||
+            marker == '?';
+        if (!supportsParameter)
         {
             return false;
         }
@@ -203,7 +211,7 @@ std::string FormatCsvCell(int tileValue, char marker, int markerParameter)
     }
 
     std::string markerText(1, static_cast<char>(std::toupper(static_cast<unsigned char>(marker))));
-    if (markerParameter > 0)
+    if (markerParameter != 0)
     {
         markerText += std::to_string(markerParameter);
     }
@@ -603,6 +611,11 @@ bool TileMap::SetTile(int column, int row, int tileValue)
 
 bool TileMap::SetMarker(int column, int row, char markerValue)
 {
+    return SetMarker(column, row, markerValue, 0);
+}
+
+bool TileMap::SetMarker(int column, int row, char markerValue, int markerParameter)
+{
     if (column < 0 || row < 0 || column >= m_data.width || row >= m_data.height)
     {
         return false;
@@ -621,7 +634,34 @@ bool TileMap::SetMarker(int column, int row, char markerValue)
         markerValue == '\0'
         ? '\0'
         : static_cast<char>(std::toupper(static_cast<unsigned char>(markerValue)));
-    m_data.markerParameters[static_cast<size_t>(row * m_data.width + column)] = 0;
+    m_data.markerParameters[static_cast<size_t>(row * m_data.width + column)] =
+        markerValue == '\0' ? 0 : markerParameter;
+    return true;
+}
+
+bool TileMap::SetMarkerParameter(int column, int row, int markerParameter)
+{
+    if (column < 0 || row < 0 || column >= m_data.width || row >= m_data.height)
+    {
+        return false;
+    }
+
+    if (m_data.markers.empty())
+    {
+        return false;
+    }
+    if (m_data.markerParameters.empty())
+    {
+        m_data.markerParameters.assign(static_cast<size_t>(m_data.width * m_data.height), 0);
+    }
+
+    const size_t index = static_cast<size_t>(row * m_data.width + column);
+    if (m_data.markers[index] == '\0')
+    {
+        return false;
+    }
+
+    m_data.markerParameters[index] = markerParameter;
     return true;
 }
 

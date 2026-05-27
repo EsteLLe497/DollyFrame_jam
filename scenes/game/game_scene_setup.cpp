@@ -1,3 +1,5 @@
+Ôªø#include "pch.h"
+
 #include "game_scene_internal.h"
 
 #include <cctype>
@@ -60,7 +62,7 @@ namespace
     bool IsEnemySpawnMarker(char marker)
     {
         const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        return upper == 'W' || upper == 'R' || upper == 'N';
+        return upper == 'W' || upper == 'R' || upper == 'N' || upper == '!' || upper == '?';
     }
 
     void LoadStageTransitionLinks()
@@ -367,7 +369,15 @@ void GameScene::ResetSceneState()
     m_flow = GameSceneFlowState{};
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
-    m_mapEditor = GameSceneMapEditorState{};
+    m_mapEditor.active = false;
+    m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
+    m_mapEditor.selectedTileValue = 1;
+    m_mapEditor.selectedMarker = 'G';
+    m_mapEditor.selectedMarkerParameter = 1;
+    m_mapEditor.selectedStageLightTiles = 3;
+    m_mapEditor.selectedStageLightFixtureTiles = 1;
+    m_mapEditor.statusMessage.clear();
+    m_mapEditor.statusMessageTimer = 0.0f;
     m_cameraTransitionMarkers.clear();
     m_cameraFixedRanges.clear();
     m_hasPreviousPlayerCameraProbe = false;
@@ -485,11 +495,30 @@ void GameScene::InitializeStageEntities()
     }
     }
 
+    float playerSpawnX = AlignToGrid(192.0f, tileSize);
+    float playerSpawnY = AlignToGrid(336.0f, tileSize);
+    bool playerSpawnMarkerFound = false;
+    for (int row = 0; row < m_tileMap.GetHeight() && !playerSpawnMarkerFound; ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            if (m_tileMap.GetMarker(column, row) != '*')
+            {
+                continue;
+            }
+
+            playerSpawnX = static_cast<float>(column) * tileSize;
+            playerSpawnY = static_cast<float>(row) * tileSize;
+            playerSpawnMarkerFound = true;
+            break;
+        }
+    }
+
     Entity& player = SpawnStagePrefab(
         prefabs,
         "sandbox_player",
-        AlignToGrid(192.0f, tileSize),
-        AlignToGrid(336.0f, tileSize));
+        playerSpawnX,
+        playerSpawnY);
     SetEntityTint(player, 1.0f, 1.0f, 1.0f, 1.0f);
     if (auto* playerTransform = player.GetComponent<TransformComponent>())
     {
@@ -540,6 +569,7 @@ void GameScene::InitializeStageEntities()
                     "sandbox_enemy_walker",
                     static_cast<float>(column) * tileSize,
                     static_cast<float>(row) * tileSize);
+                ConfigureWalkerSpriteAnimation(enemy);
                 if (auto* transform = enemy.GetComponent<TransformComponent>())
                 {
                     transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
@@ -560,6 +590,7 @@ void GameScene::InitializeStageEntities()
                     "sandbox_enemy_ranged",
                     static_cast<float>(column) * tileSize,
                     static_cast<float>(row) * tileSize);
+                ConfigureRangedSpriteAnimation(enemy);
                 if (auto* transform = enemy.GetComponent<TransformComponent>())
                 {
                     transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
@@ -573,8 +604,12 @@ void GameScene::InitializeStageEntities()
                     SnapEnemyToGround(*transform);
                 }
             }
-            else if (marker == 'N') // MidBoss
+            else if (marker == 'N' || marker == '?') // ShieldBoss
             {
+                if (m_flow.shieldBossDefeatedThisScene)
+                {
+                    continue;
+                }
                 Entity& boss = SpawnStagePrefab(
                     prefabs,
                     "sandbox_shield_boss",
@@ -595,11 +630,59 @@ void GameScene::InitializeStageEntities()
                     {
                         enemy->spawnX = transform->x;
                         enemy->spawnY = transform->y;
+                        enemy->respawnEnabled = false;
+                    }
+
+                    if (auto* bossComp = boss.GetComponent<ShieldBossComponent>())
+                    {
+                        constexpr float kShieldW = 48.0f;
+                        constexpr float kShieldH = 144.0f;
+                        auto shieldEntity = std::make_unique<Entity>();
+                        shieldEntity->AddComponent<TagComponent>("BossShield");
+                        shieldEntity->AddComponent<TransformComponent>(
+                            transform->x - kShieldW,
+                            transform->y,
+                            kShieldW,
+                            kShieldH);
+                        shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
+                        shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+                        auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
+                        shieldComp.attached = true;
+                        shieldComp.ownerBoss = &boss;
+                        shieldComp.contactDamage = 1;
+                        shieldComp.followOffsetX = -kShieldW;
+                        shieldComp.followOffsetY = 0.0f;
+                        bossComp->shieldEntity = shieldEntity.get();
+                        m_entities.push_back(std::move(shieldEntity));
                     }
                 }
             }
-
-            else if (marker == 'A') // ÉSÅ[ÉXÉg
+            else if (marker == '!') // MidBoss2
+            {
+                Entity& boss = SpawnStagePrefab(
+                    prefabs,
+                    "sandbox_mid_boss2",
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize);
+                if (auto* transform = boss.GetComponent<TransformComponent>())
+                {
+                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
+                    float spawnX = transform->x;
+                    float spawnY = transform->y;
+                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
+                    {
+                        transform->x = spawnX;
+                        transform->y = spawnY;
+                    }
+                    SnapEnemyToGround(*transform);
+                    if (auto* enemy = boss.GetComponent<EnemyComponent>())
+                    {
+                        enemy->spawnX = transform->x;
+                        enemy->spawnY = transform->y;
+                    }
+                }
+            }
+            else if (marker == 'A') // „Ç¥„Éº„Çπ„Éà
             {
                 Entity& enemy = SpawnStagePrefab(
                     prefabs,
@@ -615,7 +698,7 @@ void GameScene::InitializeStageEntities()
                     }
                 }
             }
-            else if (marker == 'D') // ÉuÉâÉçÉ{
+            else if (marker == 'D') // „Éñ„É©„É≠„Éú
             {
                 Entity& enemy = SpawnStagePrefab(
                     prefabs,
@@ -624,7 +707,7 @@ void GameScene::InitializeStageEntities()
                     static_cast<float>(row) * tileSize);
                 if (auto* transform = enemy.GetComponent<TransformComponent>())
                 {
-                    // FindSpawnPositionÇégÇÌÇ∏CSVÇÃç¿ïWÇÇªÇÃÇ‹Ç‹égÇ§
+                    // FindSpawnPosition„Çí‰Ωø„Çè„ÅöCSV„ÅÆÂ∫ßÊ®ô„Çí„Åù„ÅÆ„Åæ„Åæ‰Ωø„ÅÜ
                     transform->x = static_cast<float>(column) * tileSize;
                     transform->y = static_cast<float>(row) * tileSize;
                     if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
@@ -634,7 +717,7 @@ void GameScene::InitializeStageEntities()
                     }
                     if (auto* blasterRobot = enemy.GetComponent<BlasterRobotComponent>())
                     {
-                        // ìVà‰îªíËÅFÉ}Å[ÉJÅ[ÇÃè„ÇÃÉ^ÉCÉãÇ™ï«Ç»ÇÁìVà‰ê›íu
+                        // Â§©‰∫ïÂà§ÂÆöÔºö„Éû„Éº„Ç´„Éº„ÅÆ‰∏ä„ÅÆ„Çø„Ç§„É´„ÅåÂ£Å„Å™„ÇâÂ§©‰∫ïË®≠ÁΩÆ
                         if (row > 0 && m_tileMap.GetTile(column, row - 1) > 0)
                         {
                             blasterRobot->mountedOnCeiling = true;
@@ -709,6 +792,7 @@ void GameScene::InitializeStageEntities()
 
     RefreshLogsFromMarkers();
     RefreshMarkerLightsFromMarkers();
+    RefreshStageLightsFromMarkers();
 
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
@@ -794,6 +878,7 @@ void GameScene::InitializeStageEntities()
         }
     }
     RefreshDamageFootholdsFromMarkers();
+	RefleshSepiaRubblesFromMarkers();
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
 	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);
  //   Entity& photoSourceB= SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1360.0f, tileSize), AlignToGrid(240.0f, tileSize)); 
