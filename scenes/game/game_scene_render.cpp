@@ -1823,11 +1823,41 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     if (tag && HasTag(tag, kTagSepiaRubble))
     {
+        if (const auto* group = entity.GetComponent<SepiaRubbleGroupComponent>())
+        {
+            if (group->markerType == '<')
+            {
+                const float tileSize = m_tileMap.GetTileSize();
+                if (tileSize > 0.0f)
+                {
+                    const float groupX = static_cast<float>(group->minColumn) * tileSize;
+                    const float groupY = static_cast<float>(group->minRow) * tileSize;
+                    const float groupW = static_cast<float>(group->maxColumn - group->minColumn + 1) * tileSize;
+                    const float groupH = static_cast<float>(group->maxRow - group->minRow + 1) * tileSize;
+
+                    const bool isRepresentative =
+                        std::fabs(transform->x - groupX) <= 0.01f &&
+                        std::fabs(transform->y - groupY) <= 0.01f;
+
+                    if (!isRepresentative)
+                    {
+                        Shader_ResetStyle();
+                        return;
+                    }
+
+                    drawX = GetViewOriginX() + (groupX + sprite->GetRenderOffsetX() - m_flow.cameraX) * viewScale;
+                    drawY = GetViewOriginY() + (groupY + sprite->GetRenderOffsetY() - m_flow.cameraY) * viewScale;
+                    drawWidth = groupW * transform->scale * sprite->GetRenderScaleX() * viewScale;
+                    drawHeight = groupH * transform->scale * sprite->GetRenderScaleY() * viewScale;
+                }
+            }
+        }
 
         if (const auto* tint = entity.GetComponent<TintComponent>())
         {
             Shader_SetTint(tint->r, tint->g, tint->b, tint->a);
         }
+
         SpriteDraw(
             sprite->GetTextureId(),
             drawX, drawY, drawWidth, drawHeight,
@@ -1835,9 +1865,9 @@ void GameScene::DrawEntity(const Entity& entity) const
             sprite->GetSourceWidth(), sprite->GetSourceHeight(),
             sprite->GetFlipX(),
             transform->rotation);
+
         Shader_ResetStyle();
         return;
-
     }
 
     if (tag && HasTag(tag, kTagGoal))

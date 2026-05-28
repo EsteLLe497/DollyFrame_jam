@@ -181,6 +181,18 @@ namespace
         return PhotoPlacementRuleGroup::Group1;
     }
 
+    int ResolveSepiaTextureId(const AssetManifest& assets, bool isRestored, int imageNo)
+    {
+        const std::string baseKey = isRestored ? "sepia_ground" : "sepia_rubble";
+        const std::string numberedKey = baseKey + "_" + std::to_string(imageNo);
+
+        const int numbered = assets.GetTexture(numberedKey);
+        if (numbered >= 0)
+        {
+            return numbered;
+        }
+        return assets.GetTexture(baseKey);
+    }
 }
 
 void PhotoCaptureSystem::HandleCapture(GameScene& scene)
@@ -224,9 +236,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float frameHeight = 0.0f;
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
     scene.m_flow.cameraMode = false;
-    const bool restoredSepiaBackground =
-        scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia &&
-        scene.RestoreSepiaBackgroundGroupInFrame(frameX, frameY, frameWidth, frameHeight);
+    const bool restoredSepiaBackground = false;
 	bool hasSepiaRubbleInFrame = false;
     for (const auto& entity : scene.m_entities)
     {
@@ -284,7 +294,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     scene.m_photo.capture.containsEnemyAttackPaste = false;
     float capturedMaxRight = 0.0f;
     float capturedMaxBottom = 0.0f;
-    CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
+    CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom,restoredSepiaBackground);
 
     CaptureTilesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
 
@@ -312,12 +322,13 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     float frameWidth,
     float frameHeight,
     float& capturedMaxRight,
-    float& capturedMaxBottom)
+    float& capturedMaxBottom,
+    bool restoredSepiaBackground)
 {
     std::vector<Entity*> entitiesToRemove;
     for (const auto& entity : scene.m_entities)
     {
-        if (!entity || HasTag(*entity, "Player"))
+        if (!entity || HasTag(*entity, "Player") || HasTag(*entity, kTagDropItem))
         {
             continue;
         }
@@ -437,8 +448,21 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
                     const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
 
-                    if (!sepiaGroup->cellColumns.empty() && sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
+                    if (!sepiaGroup->cellColumns.empty() &&
+                        sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size() &&
+                        sepiaGroup->cellColumns.size() == sepiaGroup->cellRestoredTileValues.size())
                     {
+                        for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
+                        {
+                            const int v = sepiaGroup->cellRestoredTileValues[ci];
+                            const int tileValueToSet = (v > 0) ? v : 1; // v<=0 はフォールバック
+                            scene.m_tileMap.SetTile(sepiaGroup->cellColumns[ci], sepiaGroup->cellRows[ci], tileValueToSet);
+                        }
+                    }
+                    else if (!sepiaGroup->cellColumns.empty() &&
+                        sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
+                    {
+                        const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
                         for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
                         {
                             scene.m_tileMap.SetTile(sepiaGroup->cellColumns[ci], sepiaGroup->cellRows[ci], tileValueToSet);
@@ -446,6 +470,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     }
                     else
                     {
+                        const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
                         for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
                         {
                             for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
@@ -454,9 +479,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                             }
                         }
                     }
-
                     sepiaGroup->isRestored = true;
                     sepiaGroup->restoredLifetime = gPastedObjectLifetimeSeconds;
+					restoredSepiaBackground = true;
                     if (auto* tint = entity->GetComponent<TintComponent>())
                     {
                         tint->a = 0.0f; 
@@ -472,7 +497,6 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     }
                 }
             }
-
             continue;
         }
         if (capturedSepiaRubble && scene.m_photo.capture.selectedTheme != PhotoFilterTheme::Sepia)

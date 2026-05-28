@@ -16,7 +16,8 @@ private:
         float frameWidth,
         float frameHeight,
         float& capturedMaxRight,
-        float& capturedMaxBottom);
+        float& capturedMaxBottom,
+        bool restoredSepiaBackground);
 
     static void CaptureTilesInFrame(
         GameScene& scene,

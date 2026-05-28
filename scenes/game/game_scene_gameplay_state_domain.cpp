@@ -506,21 +506,37 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
         if (sepiaGroup->restoredLifetime <= 0.0f)
         {
             // Revert tiles in the group's footprint back to empty and clear restored flag.
-            for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
+            if (!sepiaGroup->cellColumns.empty() &&
+                sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
             {
-                for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
+                // セル単位で復元したなら、セル単位で戻す（空洞を潰さない）
+                for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
                 {
+                    const int col = sepiaGroup->cellColumns[ci];
+                    const int row = sepiaGroup->cellRows[ci];
                     m_tileMap.SetTile(col, row, 0);
                     m_tileMap.SetMarker(col, row, '<', 0);
                 }
             }
-            sepiaGroup->isRestored = false;
-            sepiaGroup->restoredLifetime = 0.0f;
-            auto* tint = entity->GetComponent<TintComponent>();
-            if (tint)
+            else
+            {
+                // cell 配列が無い場合は従来どおり min/max 矩形で戻す
+                for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
+                {
+                    for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
+                    {
+                        m_tileMap.SetTile(col, row, 0);
+                        m_tileMap.SetMarker(col, row, '<', 0);
+                    }
+                }
+            }
+            if (auto* tint = entity->GetComponent<TintComponent>())
             {
                 tint->a = 1.0f;
             }
+
+            sepiaGroup->isRestored = false;
+            sepiaGroup->restoredLifetime = 0.0f;
         }
     }
 }
