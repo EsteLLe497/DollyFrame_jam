@@ -75,16 +75,16 @@
       "path": "assets/texture/enemy2/enemy2_idle.png"
     },
     "enemy2_attack": {
-        "type": "file",
-        "path": "assets/texture/enemy2/enemy2_attack.png"
+      "type": "file",
+      "path": "assets/texture/enemy2/enemy2_attack.png"
     },
     "sepia_rubble": {
-        "type": "file",
-        "path": "assets/texture/SepiaSample1.png"
+      "type": "file",
+      "path": "assets/texture/SepiaSample1.png"
     },
     "sepia_ground": {
-        "type": "file",
-        "path": "assets/texture/SepiaSample2.png"
+      "type": "file",
+      "path": "assets/texture/SepiaSample2.png"
     },
     "star": {
       "type": "file",
@@ -99,10 +99,10 @@
       "type": "file",
       "path": "assets/texture/sinrin10.png"
     },
-
     "sinrin11": {
       "type": "file",
       "path": "assets/texture/sinrin11.png"
     }
+
   }
 }
