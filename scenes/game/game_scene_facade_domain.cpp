@@ -156,6 +156,7 @@ void GameScene::DrawWorldAndUiLayers()
     DrawTuningPanel();
     DrawBatterySwitchCounters();
     DrawPlayerHpBar();
+    DrawAttackCaptureSlot();
     DrawEnemyAttackRects();
 }
 

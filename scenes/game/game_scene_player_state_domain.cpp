@@ -87,6 +87,33 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
     {
         StartPitRestart(&player, "GameScene player was defeated");
     }
+
+    if (health->IsDead())
+    {
+        for (const auto& entity : m_entities)
+        {
+            if (!entity)
+            {
+                continue;
+            }
+            auto* sepiaGroup = entity->GetComponent<SepiaRubbleGroupComponent>();
+            if (!sepiaGroup || !sepiaGroup->isRestored)
+            {
+                continue;
+            }
+            // Clear tiles and restore marker
+            for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
+            {
+                for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
+                {
+                    m_tileMap.SetTile(col, row, 0);
+                    m_tileMap.SetMarker(col, row, '<', 0);
+                }
+            }
+            sepiaGroup->isRestored = false;
+            sepiaGroup->restoredLifetime = 0.0f;
+        }
+    }
 }
 
 void GameScene::RespawnPlayer(Entity& player)

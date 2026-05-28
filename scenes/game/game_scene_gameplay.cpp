@@ -20,6 +20,11 @@ namespace
     constexpr float kFloorCameraWidth = 1920.0f;
     constexpr float kCameraFollowTargetTilesX = 23.0f;
     constexpr float kCameraOffsetTilesY = -2.0f;
+    constexpr float kFixedCameraYDeadZone = 18.0f;
+    constexpr float kFixedCameraYFollowSpeed = 7.5f;
+    constexpr float kGroundedCameraYSmoothSpeed = 5.0f;
+    constexpr float kAirborneCameraYSmoothSpeed = 14.0f;
+    constexpr float kCameraYSnapDistance = 180.0f;
     constexpr float kFixedLockExitMargin = 24.0f;
     constexpr float kBarrelDebrisLifetime = 0.55f;
     constexpr float kBarrelRespawnOffscreenMargin = 64.0f;
@@ -148,21 +153,142 @@ void GameScene::StartFloorCameraTransition(int directionX, int directionY)
     m_floorCameraTransitionTargetY = targetY;
 }
 
+void GameScene::ActivateCameraRange(int cameraNum)
+{
+    const CameraFixedRange& range = m_cameraFixedRanges[cameraNum];
+
+    m_cameraFixedLockNum = cameraNum;
+
+    m_cameraFixedLockActive = true;
+
+    m_cameraFixedLockStartX = range.startX;
+    m_cameraFixedLockEndX = range.endX;
+
+    m_cameraFixedLockX = range.cameraX;
+    m_cameraFixedLockY = range.cameraY;
+
+    m_floorCameraTransitionActive = true;
+    m_floorCameraTransitionElapsed = 0.0f;
+
+    m_floorCameraTransitionStartX = m_flow.cameraX;
+    m_floorCameraTransitionStartY = m_flow.cameraY;
+
+    m_floorCameraTransitionTargetX = m_cameraFixedLockX;
+    m_floorCameraTransitionTargetY = m_cameraFixedLockY;
+}
+
+
 void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime)
 {
     const float playerWidth = playerTransform.width * playerTransform.scale;
     const float playerHeight = playerTransform.height * playerTransform.scale;
     const float playerCenterX = playerTransform.x + playerWidth * 0.5f;
     const float playerCenterY = playerTransform.y + playerHeight * 0.5f;
-    const float followSpanX = GetCameraFollowSpanX(m_tileMap);
-    const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
 
-    if (!m_hasPreviousPlayerCameraProbe)
+    if (!m_hasCameraSmoothedPlayerY)
     {
-        m_hasPreviousPlayerCameraProbe = true;
+        m_cameraSmoothedPlayerCenterY = playerCenterY;
+        m_hasCameraSmoothedPlayerY = true;
+    }
+    else
+    {
+        const float smoothSpeed = m_player.grounded ? kGroundedCameraYSmoothSpeed : kAirborneCameraYSmoothSpeed;
+        const float smoothRate = std::clamp(smoothSpeed * deltaTime, 0.0f, 1.0f);
+        if (std::fabs(playerCenterY - m_cameraSmoothedPlayerCenterY) >= kCameraYSnapDistance)
+        {
+            m_cameraSmoothedPlayerCenterY = playerCenterY;
+        }
+        else
+        {
+            m_cameraSmoothedPlayerCenterY += (playerCenterY - m_cameraSmoothedPlayerCenterY) * smoothRate;
+        }
+    }
+    const float cameraPlayerCenterY = m_cameraSmoothedPlayerCenterY;
+
+    const float tileSize = m_tileMap.GetTileSize();
+
+    if (m_isZoomed)
+    {
+        gCameraViewWidth = m_zoomedViewWidth;
+        gCameraViewHeight = m_zoomedViewHeight;
+    }
+    else
+    {
+        gCameraViewWidth = gDefaultCameraViewWidth;
+        gCameraViewHeight = gDefaultCameraViewHeight;
+    }
+
+
+    for (auto& zm : m_zoomMarkers)
+    {
+        bool inside =
+            playerCenterX >= zm.x &&
+            playerCenterX < zm.x + zm.width;
+
+        if (!zm.isReset)
+        {
+            if (inside && !zm.wasInside)
+            {
+                m_isZoomed = true;
+                gCameraViewWidth = zm.viewWidth;
+                gCameraViewHeight = zm.viewHeight;
+                RecalculateViewScale();
+            }
+        }
+        else
+        {
+            if (inside && !zm.wasInside)
+            {
+                m_isZoomed = false;
+                gCameraViewWidth = gDefaultCameraViewWidth;
+                gCameraViewHeight = gDefaultCameraViewHeight;
+                RecalculateViewScale();
+            }
+        }
+
+        zm.wasInside = inside;
+    }
+
+
+    {
+        const float dx = playerCenterX - m_previousPlayerCameraProbeX;
         m_previousPlayerCameraProbeX = playerCenterX;
         m_previousPlayerCameraProbeY = playerCenterY;
+
+        for (int i = 0; i < m_cameraFixedRanges.size(); i++)
+        {
+            const CameraFixedRange& range = m_cameraFixedRanges[i];
+
+            if (playerCenterX >= range.startX && playerCenterX < range.startX + tileSize)
+            {
+                const bool sameActiveRange = m_cameraFixedLockActive && m_cameraFixedLockNum == i;
+                if (dx > 0.0f && !sameActiveRange)
+                {
+                    ActivateCameraRange(i);
+                }
+                else if (dx < 0.0f)
+                {
+                    int prev = i - 1;
+                    const bool samePreviousRange = m_cameraFixedLockActive && m_cameraFixedLockNum == prev;
+                    if (prev >= 0 && !samePreviousRange)
+                    {
+                        ActivateCameraRange(prev);
+                    }
+                }
+
+                break;
+            }
+
+            if (playerCenterX >= range.endX && playerCenterX < range.endX + tileSize)
+            {
+                m_isZoomed = false;
+                gCameraViewWidth = gDefaultCameraViewWidth;
+                gCameraViewHeight = gDefaultCameraViewHeight;
+                RecalculateViewScale();
+            }
+        }
     }
+
 
     const CameraFixedRange* fixedRange = nullptr;
     for (const CameraFixedRange& range : m_cameraFixedRanges)
@@ -174,131 +300,111 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         }
     }
 
+
     if (!m_cameraFixedLockActive && fixedRange)
     {
         m_cameraFixedLockActive = true;
+
         m_cameraFixedLockStartX = fixedRange->startX;
         m_cameraFixedLockEndX = fixedRange->endX;
+
         m_cameraFixedLockX = fixedRange->cameraX;
         m_cameraFixedLockY = fixedRange->cameraY;
+
+        m_cameraFixedLockNum = fixedRange->cameraNum;
+
         m_floorCameraTransitionActive = true;
         m_floorCameraTransitionElapsed = 0.0f;
+
         m_floorCameraTransitionStartX = m_flow.cameraX;
         m_floorCameraTransitionStartY = m_flow.cameraY;
+
         m_floorCameraTransitionTargetX = m_cameraFixedLockX;
-        m_floorCameraTransitionTargetY = m_flow.cameraY;
+        m_floorCameraTransitionTargetY = m_cameraFixedLockY;
     }
+
 
     if (m_cameraFixedLockActive)
     {
-        // Add hysteresis around S/E bounds to prevent lock thrashing near borders.
-        const bool exitedRight = playerCenterX > m_cameraFixedLockEndX + kFixedLockExitMargin;
-        const bool exitedLeft = playerCenterX < m_cameraFixedLockStartX - kFixedLockExitMargin;
-        if (exitedRight || exitedLeft)
-        {
-            m_cameraFixedLockActive = false;
-            m_floorCameraTransitionActive = true;
-            m_floorCameraTransitionElapsed = 0.0f;
-            m_floorCameraTransitionStartX = m_flow.cameraX;
-            m_floorCameraTransitionStartY = m_flow.cameraY;
+        const CameraFixedRange& range = m_cameraFixedRanges[m_cameraFixedLockNum];
 
-            const float mapWidth = GetMapPixelWidth();
-            const float mapHeight = GetMapPixelHeight();
-            m_floorCameraTransitionTargetX = std::clamp(
-                playerCenterX - followSpanX * 0.5f,
-                0.0f,
-                std::max(0.0f, mapWidth - followSpanX));
-            if (gCameraFollowY >= 0.5f)
-            {
-                m_floorCameraTransitionTargetY = std::clamp(
-                    playerCenterY - visibleHeight * 0.5f + GetCameraFollowOffsetY(m_tileMap),
-                    0.0f,
-                    std::max(0.0f, mapHeight - visibleHeight));
-            }
-            else
-            {
-                m_floorCameraTransitionTargetY = 0.0f;
-            }
-        }
-        else
+        if (range.followPlayer)
         {
-            if (m_floorCameraTransitionActive)
-            {
-                m_floorCameraTransitionElapsed += std::max(0.0f, deltaTime);
-                const float duration = std::max(0.0001f, m_floorCameraTransitionDuration);
-                const float t = Clamp01(m_floorCameraTransitionElapsed / duration);
-                const float easedT = EaseInOutCubic(t);
-                m_flow.cameraX = std::lerp(m_floorCameraTransitionStartX, m_floorCameraTransitionTargetX, easedT);
-                if (t >= 1.0f)
-                {
-                    m_floorCameraTransitionActive = false;
-                    m_floorCameraTransitionElapsed = 0.0f;
-                    m_flow.cameraX = m_cameraFixedLockX;
-                }
-            }
-            else
-            {
-                m_flow.cameraX = m_cameraFixedLockX;
-            }
 
-            m_previousPlayerCameraProbeX = playerCenterX;
-            m_previousPlayerCameraProbeY = playerCenterY;
+            float cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
+
+            m_flow.cameraX = cameraX;
+            m_flow.cameraY = range.cameraY;
             return;
         }
-    }
 
-    if (m_floorCameraTransitionActive)
-    {
-        m_floorCameraTransitionElapsed += std::max(0.0f, deltaTime);
-        const float duration = std::max(0.0001f, m_floorCameraTransitionDuration);
-        const float t = Clamp01(m_floorCameraTransitionElapsed / duration);
-        const float easedT = EaseInOutCubic(t);
-        m_flow.cameraX = std::lerp(m_floorCameraTransitionStartX, m_floorCameraTransitionTargetX, easedT);
-        if (t >= 1.0f)
+        if (playerCenterX < m_cameraFixedLockStartX ||
+            playerCenterX > m_cameraFixedLockEndX)
         {
-            m_floorCameraTransitionActive = false;
-            m_floorCameraTransitionElapsed = 0.0f;
-            m_flow.cameraX = m_floorCameraTransitionTargetX;
+            m_cameraFixedLockActive = false;
+            return;
         }
-    }
-    else
-    {
-        const float tileSize = m_tileMap.GetTileSize();
-        if (tileSize > 0.0f)
-        {
-            const float dx = playerCenterX - m_previousPlayerCameraProbeX;
 
-            for (CameraTransitionMarker& marker : m_cameraTransitionMarkers)
+        if (m_floorCameraTransitionActive)
+        {
+            m_floorCameraTransitionElapsed += deltaTime;
+            const float t = Clamp01(m_floorCameraTransitionElapsed / m_floorCameraTransitionDuration);
+            const float easedT = EaseInOutCubic(t);
+
+            m_flow.cameraX = std::lerp(m_floorCameraTransitionStartX, m_floorCameraTransitionTargetX, easedT);
+            m_flow.cameraY = std::lerp(m_floorCameraTransitionStartY, m_floorCameraTransitionTargetY, easedT);
+
+            if (t >= 1.0f)
             {
-                const bool inside =
-                    playerCenterX >= marker.x &&
-                    playerCenterX < marker.x + tileSize &&
-                    playerCenterY >= marker.y &&
-                    playerCenterY < marker.y + tileSize;
-
-                if (inside && !marker.wasInside)
-                {
-                    int directionX = 0;
-                    if (std::fabs(dx) > 0.001f)
-                    {
-                        directionX = dx > 0.0f ? 1 : -1;
-                    }
-                    else
-                    {
-                        directionX = m_player.facingRight ? 1 : -1;
-                    }
-
-                    StartFloorCameraTransition(directionX, 0);
-                }
-
-                marker.wasInside = inside;
+                m_floorCameraTransitionActive = false;
+                m_flow.cameraX = m_cameraFixedLockX;
+                m_flow.cameraY = m_cameraFixedLockY;
             }
+
+            return;
         }
+
+        if (range.followY)
+        {
+            const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
+            const float targetY = std::clamp(cameraPlayerCenterY - (gCameraViewHeight * 0.5f), 0.0f, maxCameraY);
+            const float deltaY = targetY - m_flow.cameraY;
+            m_flow.cameraX = m_cameraFixedLockX;
+
+            // Fixed ranges with Y follow should absorb tiny player bobbing instead of snapping every frame.
+            if (std::fabs(deltaY) > kFixedCameraYDeadZone)
+            {
+                const float adjustedTargetY = targetY - std::copysign(kFixedCameraYDeadZone, deltaY);
+                const float followRate = std::clamp(kFixedCameraYFollowSpeed * deltaTime, 0.0f, 1.0f);
+                m_flow.cameraY += (adjustedTargetY - m_flow.cameraY) * followRate;
+            }
+
+            m_flow.cameraY = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
+            return;
+        }
+
+        const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
+        const float targetY = std::clamp(cameraPlayerCenterY - (gCameraViewHeight * 0.5f), 0.0f, maxCameraY);
+        const float deltaY = targetY - m_flow.cameraY;
+        if (std::fabs(deltaY) > kFixedCameraYDeadZone)
+        {
+            const float adjustedTargetY = targetY - std::copysign(kFixedCameraYDeadZone, deltaY);
+            const float followRate = std::clamp(kFixedCameraYFollowSpeed * deltaTime, 0.0f, 1.0f);
+            m_flow.cameraY += (adjustedTargetY - m_flow.cameraY) * followRate;
+        }
+        m_flow.cameraY = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
+        m_flow.cameraX = m_cameraFixedLockX;
+
+        return;
     }
+
+    m_flow.cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
+    m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
 
     m_previousPlayerCameraProbeX = playerCenterX;
     m_previousPlayerCameraProbeY = playerCenterY;
 }
+
 
 void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float height)
 {

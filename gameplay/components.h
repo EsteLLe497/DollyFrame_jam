@@ -59,6 +59,7 @@ enum class EnemyArchetype
     MidBoss2,
     Ghost,        
     BlasterRobot, 
+    Charger,
 };
 
 enum class ShieldBossState
@@ -621,6 +622,9 @@ public:
     float attackRectHeight = 0.0f;
     float attackRectRemaining = 0.0f;
     bool attackFrameTriggered = false; // One-shot marker for frame-timed attacks.
+    bool attackCaptureWindowActive = false; // True only while the enemy attack can be captured.
+    float attackWarningProgress = 0.0f; // 0-1 charge value used by the warning ring renderer.
+    float attackFlashRemaining = 0.0f; // Short hit-timing flash used by the warning renderer.
     bool knockbackActive = false;
     float knockbackTimer = 0.0f;
     float knockbackDuration = 0.26f;
@@ -987,6 +991,33 @@ class SepiaRubbleComponent final : public Component
 {
 public:
 	SepiaRubbleComponent() = default;
+};
+
+class SepiaRubbleGroupComponent final : public Component
+{
+public:
+    SepiaRubbleGroupComponent(
+        char markerTypeValue,
+        int imageNoValue,
+		int restoredTileValue,
+		int minColumnValue,
+		int minRowValue,
+		int maxColumnValue,
+		int maxRowValue,
+        bool isRestoredValue);
+
+	char markerType = '\0';
+	int imageNo = 0;
+	int restoredTileValue = 0;
+    int minColumn = 0;
+    int minRow = 0;
+    int maxColumn = 0;
+    int maxRow = 0;
+	bool isRestored = false;
+    float restoredLifetime = 0.0f;
+	std::vector<int> cellColumns;
+	std::vector<int> cellRows;
+    std::vector<int> cellRestoredTileValues;
 };
 
 // ============================================================================

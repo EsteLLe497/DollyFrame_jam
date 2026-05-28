@@ -294,6 +294,10 @@ void PrefabFactory::LoadDefinitions()
         {
             definition.enemyArchetype = EnemyArchetype::BlasterRobot;
         }
+        else if (enemyArchetype == "charger")
+        {
+            definition.enemyArchetype = EnemyArchetype::Charger;
+        }
         else
         {
             definition.enemyArchetype = EnemyArchetype::Floater;

@@ -1182,4 +1182,3 @@ void GameScene::StartPitRestart(Entity* player, const char* logMessage)
     m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, player, nullptr, logMessage, 0.0f, 0.0f });
 }
-

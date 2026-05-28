@@ -15,6 +15,7 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
 {
     UpdatePlayer(gameplayDeltaTime);
     HandlePhotoCapture();
+    TryUseAttackCaptureSlot();
     HandlePhotoSpawn();
     UpdateBarrels(gameplayDeltaTime);
     UpdateBatteries(gameplayDeltaTime);
@@ -24,6 +25,7 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     UpdateShields(gameplayDeltaTime);
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
+    UpdateSepiaRestoredLifetimes(gameplayDeltaTime);
 }
 
 void GameScene::ResolveGameplayOutcomes(float gameplayDeltaTime)

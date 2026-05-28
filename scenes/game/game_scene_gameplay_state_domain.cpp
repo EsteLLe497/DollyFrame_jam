@@ -32,6 +32,175 @@ void GameScene::HandlePhotoSpawn()
     photo_system::HandleSpawn(*this);
 }
 
+void GameScene::TryUseAttackCaptureSlot()
+{
+    if (!Input_IsKeyPressed('Q') ||
+        m_flow.cameraMode ||
+        m_photo.placement.active ||
+        m_player.pasteAnimationActive ||
+        !m_photo.attackCapture.hasPhoto ||
+        !m_photo.attackCapture.containsEnemyAttackPaste)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    if (!player)
+    {
+        return;
+    }
+
+    const auto* playerTransform = player->GetComponent<TransformComponent>();
+    if (!playerTransform)
+    {
+        return;
+    }
+
+    const CapturedPhotoItem* attackItem = nullptr;
+    for (const auto& item : m_photo.attackCapture.items)
+    {
+        if (item.enemyAttackPaste)
+        {
+            attackItem = &item;
+            break;
+        }
+    }
+
+    if (!attackItem)
+    {
+        return;
+    }
+
+    auto finishAttackUse = [&]()
+    {
+        m_player.captureAnimationActive = false;
+        m_player.captureAnimationReleased = false;
+        m_player.pasteAnimationActive = true;
+        m_player.pasteAnimationEnemyAttack = true;
+        m_player.pasteAnimationReleased = true;
+        m_photo.attackCapture = PhotoCaptureState{};
+        m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Used captured attack", 0.0f, 0.0f });
+    };
+
+    if (attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst ||
+        attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
+    {
+        constexpr float kTileSize = 48.0f;
+        constexpr float kBossRushSpeed = 520.0f;
+        constexpr float kBossJumpDescendSpeed = 1200.0f;
+        const bool facingRight = m_player.facingRight;
+        const float playerWidth = playerTransform->width * playerTransform->scale;
+        const float playerHeight = playerTransform->height * playerTransform->scale;
+        const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
+        const float playerFootY = playerTransform->y + playerHeight;
+
+        float shieldW = kTileSize;
+        float shieldH = kTileSize * 3.0f;
+        float shieldX = facingRight
+            ? playerTransform->x + playerWidth
+            : playerTransform->x - shieldW;
+        float shieldY = playerTransform->y;
+
+        if (attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
+        {
+            shieldW = kTileSize * 2.0f;
+            shieldH = kTileSize * 4.0f;
+            shieldX = facingRight
+                ? playerTransform->x + playerWidth
+                : playerTransform->x - shieldW;
+            shieldY = playerFootY - shieldH;
+        }
+        else
+        {
+            shieldW = kTileSize * 3.0f;
+            shieldH = kTileSize;
+            const float playerFrontX = facingRight
+                ? playerTransform->x + playerWidth + shieldW * 0.5f
+                : playerTransform->x - shieldW * 0.5f;
+            shieldX = playerFrontX - shieldW * 0.5f;
+            shieldY = playerFootY - kTileSize * 6.0f - shieldH;
+        }
+
+        auto shieldEntity = std::make_unique<Entity>();
+        shieldEntity->AddComponent<TagComponent>("CapturedShield");
+        shieldEntity->AddComponent<TransformComponent>(shieldX, shieldY, shieldW, shieldH);
+        shieldEntity->AddComponent<TintComponent>(
+            attackItem->tintR,
+            attackItem->tintG,
+            attackItem->tintB,
+            attackItem->tintA);
+        shieldEntity->AddComponent<SpriteRenderComponent>(attackItem->textureId >= 0 ? attackItem->textureId : m_tileTexture);
+        auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
+        shieldComp.attached = false;
+        shieldComp.photoSpawned = true;
+        shieldComp.rotationSpeed = 0.0f;
+        shieldComp.velocityX = 0.0f;
+        shieldComp.velocityY = 0.0f;
+        shieldComp.contactDamage = 1;
+        shieldComp.knockbackGrids = 3.0f;
+        shieldComp.grounded = false;
+        shieldComp.shockwaveSpawned = false;
+
+        if (auto* sprite = shieldEntity->GetComponent<SpriteRenderComponent>())
+        {
+            sprite->SetSourceRect(attackItem->sourceX, attackItem->sourceY, attackItem->sourceWidth, attackItem->sourceHeight);
+            sprite->SetFlipX(!facingRight);
+        }
+
+        if (attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
+        {
+            shieldComp.capturedMode = CapturedShieldMode::RushBurst;
+            shieldComp.gravityEnabled = false;
+            shieldComp.contactDamage = 2;
+            shieldComp.velocityX = facingRight ? kBossRushSpeed : -kBossRushSpeed;
+            shieldEntity->AddComponent<PhotoCopyLifetimeComponent>(0.5f);
+        }
+        else
+        {
+            shieldComp.capturedMode = CapturedShieldMode::JumpBurst;
+            shieldComp.gravityEnabled = false;
+            shieldComp.contactDamage = 0;
+            shieldComp.followPlayer = false;
+            shieldComp.hoverDuration = 0.0f;
+            shieldComp.descendSpeed = kBossJumpDescendSpeed;
+            shieldComp.followOffsetX = (shieldX + shieldW * 0.5f) - playerCenterX;
+            shieldComp.followOffsetY = shieldY - playerFootY;
+            shieldEntity->AddComponent<PhotoCopyLifetimeComponent>(2.0f);
+        }
+
+        m_entities.push_back(std::move(shieldEntity));
+        finishAttackUse();
+        return;
+    }
+
+    if (attackItem->spawnArchetype != CapturedSpawnArchetype::WalkerMelee)
+    {
+        return;
+    }
+
+    constexpr float kAttackWidth = 48.0f;
+    constexpr float kAttackHeight = 60.0f;
+    constexpr float kAttackLifetime = 0.4f;
+    constexpr float kFaceSideOffset = 8.0f;
+    const float playerWidth = playerTransform->width * playerTransform->scale;
+    const float playerHeight = playerTransform->height * playerTransform->scale;
+    const float attackX = m_player.facingRight
+        ? playerTransform->x + playerWidth + kFaceSideOffset
+        : playerTransform->x - kAttackWidth - kFaceSideOffset;
+    const float attackY = playerTransform->y + playerHeight * 0.22f;
+
+    auto attackEntity = std::make_unique<Entity>();
+    attackEntity->AddComponent<TagComponent>("WalkerMeleeAttack");
+    auto& attackTransform = attackEntity->AddComponent<TransformComponent>(attackX, attackY, kAttackWidth, kAttackHeight);
+    attackTransform.rotation = m_player.facingRight ? 0.0f : 3.14159265f;
+    attackEntity->AddComponent<TintComponent>(1.0f, 0.55f, 0.15f, 0.72f);
+    attackEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    attackEntity->AddComponent<PhotoCopyLifetimeComponent>(kAttackLifetime);
+    m_entities.push_back(std::move(attackEntity));
+
+    finishAttackUse();
+}
+
 void GameScene::StartCameraFlashPulse(float durationSeconds)
 {
     if (durationSeconds <= 0.0f)
@@ -71,6 +240,17 @@ void GameScene::StoreCapturedPhoto()
     }
 
     CommitPendingCapturedPhoto();
+
+    if (m_photo.capture.containsEnemyAttackPaste)
+    {
+        const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
+        // Enemy attacks use a dedicated one-slot inventory and never enter the photo tray.
+        m_photo.attackCapture = m_photo.capture;
+        m_photo.capture = PhotoCaptureState{};
+        m_photo.capture.selectedTheme = selectedTheme;
+        m_photo.pendingStore = PendingPhotoStoreState{};
+        return;
+    }
 
     int slotToStore = -1;
     for (int index = 0; index < static_cast<int>(m_photo.savedCaptures.size()); ++index)
@@ -149,6 +329,11 @@ void GameScene::SetSelectedPhotoSlot(int slotIndex)
 void GameScene::ConsumeSelectedPhotoSlot()
 {
     CommitPendingCapturedPhoto();
+
+    if (m_photo.capture.containsEnemyAttackPaste)
+    {
+        return;
+    }
 
     if (m_photo.selectedCaptureSlot < 0 || m_photo.selectedCaptureSlot >= static_cast<int>(m_photo.savedCaptures.size()))
     {
@@ -292,4 +477,66 @@ void GameScene::RefreshPhotoGroupState()
 
     m_photo.groups.activeGroupCount = static_cast<int>(groups.size());
     m_photo.groups.nextGroupId = std::max(m_photo.groups.nextGroupId, maxGroupId + 1);
+}
+
+void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
+{
+    if (deltaTime < 0.0f)
+    {
+        return;
+    }
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+        auto* sepiaGroup = entity->GetComponent<SepiaRubbleGroupComponent>();
+        if (!sepiaGroup || !sepiaGroup->isRestored)
+        {
+            continue;
+        }
+
+        if (sepiaGroup->restoredLifetime > 0.0f)
+        {
+            sepiaGroup->restoredLifetime = std::max(0.0f, sepiaGroup->restoredLifetime - deltaTime);
+        }
+
+        if (sepiaGroup->restoredLifetime <= 0.0f)
+        {
+            // Revert tiles in the group's footprint back to empty and clear restored flag.
+            if (!sepiaGroup->cellColumns.empty() &&
+                sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
+            {
+                // セル単位で復元したなら、セル単位で戻す（空洞を潰さない）
+                for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
+                {
+                    const int col = sepiaGroup->cellColumns[ci];
+                    const int row = sepiaGroup->cellRows[ci];
+                    m_tileMap.SetTile(col, row, 0);
+                    m_tileMap.SetMarker(col, row, '<', 0);
+                }
+            }
+            else
+            {
+                // cell 配列が無い場合は従来どおり min/max 矩形で戻す
+                for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
+                {
+                    for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
+                    {
+                        m_tileMap.SetTile(col, row, 0);
+                        m_tileMap.SetMarker(col, row, '<', 0);
+                    }
+                }
+            }
+            if (auto* tint = entity->GetComponent<TintComponent>())
+            {
+                tint->a = 1.0f;
+            }
+
+            sepiaGroup->isRestored = false;
+            sepiaGroup->restoredLifetime = 0.0f;
+        }
+    }
 }
