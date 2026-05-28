@@ -328,7 +328,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     std::vector<Entity*> entitiesToRemove;
     for (const auto& entity : scene.m_entities)
     {
-        if (!entity || HasTag(*entity, "Player"))
+        if (!entity || HasTag(*entity, "Player") || HasTag(*entity, kTagDropItem))
         {
             continue;
         }
