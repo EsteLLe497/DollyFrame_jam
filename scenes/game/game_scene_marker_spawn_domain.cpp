@@ -1555,30 +1555,35 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             const float groupHeight =
                 static_cast<float>(maxRow - minRow + 1) * tileSize;
 
-            // Create one entity per cell in the group (like '+' markers).
+            auto rubble = std::make_unique<Entity>();
+            rubble->AddComponent<TagComponent>(kTagSepiaRubble);
+
+            // 外接矩形サイズでTransformを作る（すでに groupX/Y/Width/Height は計算済み）
+            rubble->AddComponent<TransformComponent>(groupX, groupY, groupWidth, groupHeight);
+
+            rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            rubble->AddComponent<SpriteRenderComponent>(m_assets.GetTexture("sepia_rubble"));
+            rubble->AddComponent<SepiaRubbleComponent>();
+
+            auto& groupComp = rubble->AddComponent<SepiaRubbleGroupComponent>(
+                '<',
+                targetImageNo,          // startCell.imageNo と同じ
+                restoredTileValue,      // startCell.restoredTileValue
+                minColumn, minRow, maxColumn, maxRow,
+                false);
+
+            // 空洞復元、セル座標を詰める
+            groupComp.cellColumns.reserve(groupCells.size());
+            groupComp.cellRows.reserve(groupCells.size());
+			groupComp.cellRestoredTileValues.reserve(groupCells.size());
             for (const SepiaBackgroundMarkerCell& cell : groupCells)
             {
-                const float cellX = static_cast<float>(cell.column) * tileSize;
-                const float cellY = static_cast<float>(cell.row) * tileSize;
-
-                auto rubble = std::make_unique<Entity>();
-                rubble->AddComponent<TagComponent>(kTagSepiaRubble);
-                rubble->AddComponent<TransformComponent>(cellX, cellY, tileSize, tileSize);
-                rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
-                rubble->AddComponent<SpriteRenderComponent>(
-                    m_assets.GetTexture("sepia_rubble"));
-                rubble->AddComponent<SepiaRubbleComponent>();
-                rubble->AddComponent<SepiaRubbleGroupComponent>(
-                    '<',
-                    cell.imageNo,
-                    cell.restoredTileValue,
-                    minColumn,
-                    minRow,
-                    maxColumn,
-                    maxRow,
-                    false);
-                m_entities.push_back(std::move(rubble));
+                groupComp.cellColumns.push_back(cell.column);
+                groupComp.cellRows.push_back(cell.row);
+                groupComp.cellRestoredTileValues.push_back(cell.restoredTileValue);
             }
+
+            m_entities.push_back(std::move(rubble));
         }
     }
 }
