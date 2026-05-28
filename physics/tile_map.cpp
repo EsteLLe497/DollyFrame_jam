@@ -87,7 +87,9 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker, i
             marker == '@' ||
             marker == '&' ||
             marker == '!' ||
-            marker == '?';
+            marker == '?' ||
+            marker == '<' ||
+            marker == '$';
         if (!supportsParameter)
         {
             return false;
@@ -407,7 +409,11 @@ public:
                 {
                     continue;
                 }
-
+                /*const size_t index = static_cast<size_t>(row * data.width + column);
+                if (!data.markers.empty() && data.markers[index] == '<')
+                {
+                    continue;
+                }*/
                 float r = 1.0f;
                 float g = 1.0f;
                 float b = 1.0f;

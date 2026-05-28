@@ -181,6 +181,18 @@ namespace
         return PhotoPlacementRuleGroup::Group1;
     }
 
+    int ResolveSepiaTextureId(const AssetManifest& assets, bool isRestored, int imageNo)
+    {
+        const std::string baseKey = isRestored ? "sepia_ground" : "sepia_rubble";
+        const std::string numberedKey = baseKey + "_" + std::to_string(imageNo);
+
+        const int numbered = assets.GetTexture(numberedKey);
+        if (numbered >= 0)
+        {
+            return numbered;
+        }
+        return assets.GetTexture(baseKey);
+    }
 }
 
 void PhotoCaptureSystem::HandleCapture(GameScene& scene)
@@ -224,6 +236,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float frameHeight = 0.0f;
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
     scene.m_flow.cameraMode = false;
+    const bool restoredSepiaBackground = false;
 	bool hasSepiaRubbleInFrame = false;
     for (const auto& entity : scene.m_entities)
     {
@@ -281,20 +294,13 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     scene.m_photo.capture.containsEnemyAttackPaste = false;
     float capturedMaxRight = 0.0f;
     float capturedMaxBottom = 0.0f;
-    CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
-
-    // ↓ ここに移動（関数の中ではなく、呼び出しの後）
-    Logger::Info(std::string("items.size() after CaptureEntities: ") +
-        std::to_string(scene.m_photo.capture.items.size()));
+    CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom,restoredSepiaBackground);
 
     CaptureTilesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
 
-    Logger::Info(std::string("items.size() after CaptureTiles: ") +
-        std::to_string(scene.m_photo.capture.items.size()));
-
     if (scene.m_photo.capture.items.empty())
     {
-        if (flashEnabled || defeatedGhostInFinder)
+        if (flashEnabled || defeatedGhostInFinder || restoredSepiaBackground)
         {
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
@@ -316,19 +322,22 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     float frameWidth,
     float frameHeight,
     float& capturedMaxRight,
-    float& capturedMaxBottom)
+    float& capturedMaxBottom,
+    bool restoredSepiaBackground)
 {
     std::vector<Entity*> entitiesToRemove;
     for (const auto& entity : scene.m_entities)
     {
-        if (!entity || HasTag(*entity, "Player"))
+        if (!entity || HasTag(*entity, "Player") || HasTag(*entity, kTagDropItem))
         {
             continue;
         }
         if (HasTag(*entity, "Enemy"))
         {
             const auto* enemyComp = entity->GetComponent<EnemyComponent>();
-            if (!enemyComp || enemyComp->GetArchetype() != EnemyArchetype::Walker)
+            if (!enemyComp ||
+                enemyComp->GetArchetype() != EnemyArchetype::Walker ||
+                !enemyComp->attackCaptureWindowActive)
             {
                 continue;
             }
@@ -418,8 +427,78 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
-        // sugi
         const bool capturedSepiaRubble = entity->GetComponent<SepiaRubbleComponent>() != nullptr;
+        auto* sepiaGroup = entity->GetComponent<SepiaRubbleGroupComponent>();
+        if (sepiaGroup && sepiaGroup->markerType == '<')
+        { 
+            if (scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia)
+            {
+                const float tileSize = scene.m_tileMap.GetTileSize();
+                const float groupLeft = static_cast<float>(sepiaGroup->minColumn) * tileSize;
+                const float groupTop = static_cast<float>(sepiaGroup->minRow) * tileSize;
+                const float groupRight = static_cast<float>(sepiaGroup->maxColumn + 1) * tileSize;
+                const float groupBottom = static_cast<float>(sepiaGroup->maxRow + 1) * tileSize;
+
+                if (groupLeft >= frameX && groupTop >= frameY && groupRight <= frameX + frameWidth && groupBottom <= frameY + frameHeight)
+                {
+                    if (sepiaGroup->isRestored && sepiaGroup->restoredLifetime > 0.0f)
+                    {
+                        continue;
+                    }
+
+                    const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
+
+                    if (!sepiaGroup->cellColumns.empty() &&
+                        sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size() &&
+                        sepiaGroup->cellColumns.size() == sepiaGroup->cellRestoredTileValues.size())
+                    {
+                        for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
+                        {
+                            const int v = sepiaGroup->cellRestoredTileValues[ci];
+                            const int tileValueToSet = (v > 0) ? v : 1; // v<=0 はフォールバック
+                            scene.m_tileMap.SetTile(sepiaGroup->cellColumns[ci], sepiaGroup->cellRows[ci], tileValueToSet);
+                        }
+                    }
+                    else if (!sepiaGroup->cellColumns.empty() &&
+                        sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
+                    {
+                        const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
+                        for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
+                        {
+                            scene.m_tileMap.SetTile(sepiaGroup->cellColumns[ci], sepiaGroup->cellRows[ci], tileValueToSet);
+                        }
+                    }
+                    else
+                    {
+                        const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
+                        for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
+                        {
+                            for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
+                            {
+                                scene.m_tileMap.SetTile(col, row, tileValueToSet);
+                            }
+                        }
+                    }
+                    sepiaGroup->isRestored = true;
+                    sepiaGroup->restoredLifetime = gPastedObjectLifetimeSeconds;
+					restoredSepiaBackground = true;
+                    if (auto* tint = entity->GetComponent<TintComponent>())
+                    {
+                        tint->a = 0.0f; 
+                    }
+                    else
+                    {
+                        entity->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 0.0f);
+                    }
+                    // Ensure we add a PhotoPasteAnimationComponent so pasted visuals animate for the configured time.
+                    if (!entity->GetComponent<PhotoPasteAnimationComponent>())
+                    {
+                        entity->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
+                    }
+                }
+            }
+            continue;
+        }
         if (capturedSepiaRubble && scene.m_photo.capture.selectedTheme != PhotoFilterTheme::Sepia)
         {
             continue;
@@ -494,6 +573,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 capturedShieldArchetype = CapturedSpawnArchetype::ShieldNormal;
             }
         }
+        const bool capturedShieldAttack =
+            capturedShieldArchetype == CapturedSpawnArchetype::ShieldRushBurst ||
+            capturedShieldArchetype == CapturedSpawnArchetype::ShieldJumpBurst;
         item.textureId = sprite->GetTextureId();
         item.role = GetEntityCopyRole(*entity);
         item.layer = PhotoCopyLayer::Foreground;
@@ -539,7 +621,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             item.spawnArchetype = CapturedSpawnArchetype::None;
         }
-        item.enemyAttackPaste = capturedWalker;
+        item.enemyAttackPaste = capturedWalker || capturedShieldAttack;
         item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
             *entity,
             capturedVanishObject,

@@ -578,6 +578,26 @@ VanishOnCaptureComponent::VanishOnCaptureComponent(bool enabledValue)
 {
 }
 
+SepiaRubbleGroupComponent::SepiaRubbleGroupComponent(
+    char markerTypeValue,
+    int imageNoValue,
+    int restoredTileValueValue,
+    int minColumnValue,
+    int minRowValue,
+    int maxColumnValue,
+    int maxRowValue,
+    bool isRestoredValue)
+    : markerType(markerTypeValue)
+    , imageNo(imageNoValue)
+    , restoredTileValue(restoredTileValueValue)
+    , minColumn(minColumnValue)
+    , minRow(minRowValue)
+    , maxColumn(maxColumnValue)
+    , maxRow(maxRowValue)
+    , isRestored(isRestoredValue)
+{
+}
+
 namespace
 {
     const char* ToEnemyArchetypeLabel(EnemyArchetype archetype)
@@ -598,6 +618,8 @@ namespace
             return "Ghost";
         case EnemyArchetype::BlasterRobot:
             return "BlasterRobot";
+        case EnemyArchetype::Charger:
+            return "Charger";
         case EnemyArchetype::Floater:
         default:
             return "Floater";
@@ -700,6 +722,9 @@ void EnemyComponent::MarkDefeated()
     m_defeated = true;
     m_enabled = false;
     attackFrameTriggered = false;
+    attackCaptureWindowActive = false;
+    attackWarningProgress = 0.0f;
+    attackFlashRemaining = 0.0f;
     knockbackActive = false;
     knockbackTimer = 0.0f;
 }
@@ -709,6 +734,9 @@ void EnemyComponent::Restore()
     m_defeated = false;
     m_enabled = true;
     attackFrameTriggered = false;
+    attackCaptureWindowActive = false;
+    attackWarningProgress = 0.0f;
+    attackFlashRemaining = 0.0f;
     knockbackActive = false;
     knockbackTimer = 0.0f;
 }

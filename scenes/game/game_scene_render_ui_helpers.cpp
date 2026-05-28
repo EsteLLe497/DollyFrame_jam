@@ -23,6 +23,7 @@ RgbColor game_scene_detail::GetEditorMarkerColor(char marker)
     {
     case 'W': return { 120, 212, 255 };
     case 'R': return { 255, 128, 128 };
+    case '$': return { 255, 82, 72 };
     case '?': return { 255, 248, 150 };
     case '!': return { 255, 248, 150 };
     case 'A': return { 176, 176, 255 };
