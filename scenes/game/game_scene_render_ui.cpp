@@ -953,7 +953,7 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     const bool enabled =
         m_debug.sepiaFilmFilterDryRunEnabled ||
         m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia;
-    if (!enabled || !m_flow.cameraMode)
+    if (!enabled)
     {
         return;
     }
@@ -1178,11 +1178,6 @@ void GameScene::DrawPitRestartOverlay() const
 
 void GameScene::DrawCaptureOverlay() const
 {
-    if (!m_flow.cameraMode && m_flow.shutterFlashRemaining <= 0.0f)
-    {
-        return;
-    }
-
     const Entity* player = FindEntityByTag(kTagPlayer);
     if (!player)
     {

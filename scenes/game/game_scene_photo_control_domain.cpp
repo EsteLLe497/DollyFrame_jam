@@ -84,11 +84,6 @@ float GameScene::UpdatePhotoModes(float deltaTime)
 
 void GameScene::UpdateCaptureFinderZoomInput()
 {
-    if (!m_flow.cameraMode)
-    {
-        return;
-    }
-
     int zoomDirection = 0;
     const int wheelDelta = GetMouseWheelRotVol();
     const bool dpadUpDown = Input_IsDpadUpDown();

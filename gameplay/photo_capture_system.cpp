@@ -185,7 +185,12 @@ namespace
 
 void PhotoCaptureSystem::HandleCapture(GameScene& scene)
 {
-    if (!scene.m_flow.cameraMode || !Input_IsActionPressed(InputAction::CapturePhoto))
+    if (!Input_IsActionPressed(InputAction::CapturePhoto))
+    {
+        return;
+    }
+
+    if (scene.m_photo.placement.active || Input_IsActionDown(InputAction::HoldPlacement))
     {
         return;
     }
@@ -223,7 +228,6 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float frameWidth = 0.0f;
     float frameHeight = 0.0f;
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
-    scene.m_flow.cameraMode = false;
     const bool restoredSepiaBackground =
         scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia &&
         scene.RestoreSepiaBackgroundGroupInFrame(frameX, frameY, frameWidth, frameHeight);
