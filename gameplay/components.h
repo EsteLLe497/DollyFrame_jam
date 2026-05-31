@@ -1017,6 +1017,7 @@ public:
     float restoredLifetime = 0.0f;
 	std::vector<int> cellColumns;
 	std::vector<int> cellRows;
+    std::vector<int> cellRestoredTileValues;
 };
 
 // ============================================================================
