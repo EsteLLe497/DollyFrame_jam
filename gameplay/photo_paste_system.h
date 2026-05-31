@@ -10,8 +10,13 @@ public:
     static void DrawPlacementPreview(const GameScene& scene);
 
 private:
+    static int GetPhotoTraySlotAt(const GameScene& scene, float screenX, float screenY);
+    static void BeginPhotoPlacement(GameScene& scene, bool draggingFromTray);
+    static void CancelPhotoPlacement(GameScene& scene);
+
     static bool UpdatePlacementPreview(
         GameScene& scene,
+        bool confirmDrop,
         float& spawnX,
         float& spawnY,
         float& spawnWidth,

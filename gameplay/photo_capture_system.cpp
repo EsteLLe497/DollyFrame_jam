@@ -190,7 +190,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         return;
     }
 
-    if (scene.m_photo.placement.active || Input_IsActionDown(InputAction::HoldPlacement))
+    if (scene.m_photo.placement.active)
     {
         return;
     }

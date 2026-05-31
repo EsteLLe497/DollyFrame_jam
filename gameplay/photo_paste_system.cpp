@@ -28,6 +28,10 @@ namespace
     constexpr float kValidPreviewTintAlphaMin = 0.46f;
     constexpr float kValidPreviewTintAlphaMax = 0.62f;
     constexpr float kZoomTargetTilesX = 23.0f;
+    constexpr int kPhotoTraySlotCount = 3;
+    constexpr float kPhotoTraySlotWidth = 270.0f;
+    constexpr float kPhotoTraySlotHeight = 140.0f;
+    constexpr float kPhotoTraySlotGap = 18.0f;
 
     float NormalizeAngleRadians(float radians)
     {
@@ -160,60 +164,122 @@ namespace
             ? 0.0f
             : std::round((static_cast<float>(SCREEN_HEIGHT) - finalHeight) * 0.5f);
     }
+
+}
+
+int PhotoPasteSystem::GetPhotoTraySlotAt(const GameScene& scene, float screenX, float screenY)
+{
+    if (scene.m_flow.photoTrayReveal <= 0.05f)
+    {
+        return -1;
+    }
+
+    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
+    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
+    const float hiddenOffset = (1.0f - scene.m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
+    if (screenY < trayY || screenY > trayY + kPhotoTraySlotHeight)
+    {
+        return -1;
+    }
+
+    for (int slotIndex = 0; slotIndex < kPhotoTraySlotCount; ++slotIndex)
+    {
+        const float slotX = trayX + slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
+        if (screenX >= slotX && screenX <= slotX + kPhotoTraySlotWidth)
+        {
+            return slotIndex;
+        }
+    }
+
+    return -1;
+}
+
+void PhotoPasteSystem::BeginPhotoPlacement(GameScene& scene, bool draggingFromTray)
+{
+    scene.m_flow.cameraMode = false;
+    scene.m_player.captureAnimationActive = false;
+    scene.m_player.captureAnimationReleased = false;
+    scene.m_player.pasteAnimationActive = true;
+    scene.m_player.pasteAnimationReleased = false;
+    scene.m_player.pasteAnimationEnemyAttack = false;
+    scene.m_player.afterimages.clear();
+    scene.m_photo.placement.active = true;
+    scene.m_photo.placement.draggingFromTray = draggingFromTray;
+    scene.m_photo.placement.valid = false;
+    scene.m_photo.placement.blockedByUi = false;
+    ++scene.m_photo.placement.sessionId;
+}
+
+void PhotoPasteSystem::CancelPhotoPlacement(GameScene& scene)
+{
+    scene.m_player.pasteAnimationActive = false;
+    scene.m_player.pasteAnimationReleased = false;
+    scene.m_player.pasteAnimationEnemyAttack = false;
+    scene.m_photo.placement.active = false;
+    scene.m_photo.placement.valid = false;
+    scene.m_photo.placement.blockedByUi = false;
+    scene.m_photo.placement.draggingFromTray = false;
 }
 
 void PhotoPasteSystem::HandleSpawn(GameScene& scene)
 {
     scene.m_photo.placement.valid = false;
+    const bool leftPressed = Input_IsMouseLeftPressed();
+    const bool leftDown = Input_IsMouseLeftDown();
+    const bool leftReleased = Input_IsMouseLeftReleased();
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
 
     const bool pasteReleasePlaying = scene.m_player.pasteAnimationActive && scene.m_player.pasteAnimationReleased;
     if (pasteReleasePlaying)
     {
         scene.m_photo.placement.active = false;
         scene.m_photo.placement.blockedByUi = false;
+        scene.m_photo.placement.draggingFromTray = false;
         return;
+    }
+
+    if (!scene.m_photo.placement.active && leftPressed)
+    {
+        const int slotIndex = GetPhotoTraySlotAt(scene, static_cast<float>(mouseX), static_cast<float>(mouseY));
+        if (slotIndex >= 0 && slotIndex < static_cast<int>(scene.m_photo.savedCaptures.size()) &&
+            scene.m_photo.savedCaptures[slotIndex].hasPhoto)
+        {
+            scene.SetSelectedPhotoSlot(slotIndex);
+            if (scene.m_photo.capture.hasPhoto)
+            {
+                BeginPhotoPlacement(scene, true);
+            }
+        }
     }
 
     if (!scene.m_flow.cameraMode &&
         scene.m_photo.capture.hasPhoto &&
-        (Input_IsActionPressed(InputAction::HoldPlacement) || Input_IsNorthButtonPressed()))
+        Input_IsNorthButtonPressed())
     {
         scene.m_photo.placement.active = !scene.m_photo.placement.active;
         if (scene.m_photo.placement.active)
         {
-            scene.m_flow.cameraMode = false;
-            scene.m_player.captureAnimationActive = false;
-            scene.m_player.captureAnimationReleased = false;
-            scene.m_player.pasteAnimationActive = true;
-            scene.m_player.pasteAnimationReleased = false;
-            scene.m_player.pasteAnimationEnemyAttack = false;
-            scene.m_player.afterimages.clear();
-            ++scene.m_photo.placement.sessionId;
+            BeginPhotoPlacement(scene, false);
         }
         else
         {
-            scene.m_player.pasteAnimationActive = false;
-            scene.m_player.pasteAnimationReleased = false;
-            scene.m_player.pasteAnimationEnemyAttack = false;
-            scene.m_photo.placement.valid = false;
-            scene.m_photo.placement.blockedByUi = false;
+            CancelPhotoPlacement(scene);
         }
     }
 
     if (!scene.m_photo.capture.hasPhoto || !scene.m_photo.placement.active)
     {
         scene.m_photo.placement.blockedByUi = false;
+        scene.m_photo.placement.draggingFromTray = false;
         return;
     }
 
-    if (Input_IsActionPressed(InputAction::Cancel))
+    if (Input_IsActionPressed(InputAction::Cancel) ||
+        (scene.m_photo.placement.draggingFromTray && !leftDown && !leftReleased))
     {
-        scene.m_player.pasteAnimationActive = false;
-        scene.m_player.pasteAnimationReleased = false;
-        scene.m_player.pasteAnimationEnemyAttack = false;
-        scene.m_photo.placement.active = false;
-        scene.m_photo.placement.valid = false;
-        scene.m_photo.placement.blockedByUi = false;
+        CancelPhotoPlacement(scene);
         return;
     }
 
@@ -254,8 +320,15 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
     float spawnY = 0.0f;
     float spawnWidth = 0.0f;
     float spawnHeight = 0.0f;
-    if (!UpdatePlacementPreview(scene, spawnX, spawnY, spawnWidth, spawnHeight))
+    const bool confirmDrop = scene.m_photo.placement.draggingFromTray
+        ? leftReleased
+        : Input_IsActionPressed(InputAction::ConfirmPlacement);
+    if (!UpdatePlacementPreview(scene, confirmDrop, spawnX, spawnY, spawnWidth, spawnHeight))
     {
+        if (scene.m_photo.placement.draggingFromTray && confirmDrop)
+        {
+            CancelPhotoPlacement(scene);
+        }
         return;
     }
 
@@ -415,7 +488,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
     DrawLine(centerScreenX, centerScreenY - 12, centerScreenX, centerScreenY + 12, reticleColor, 1);
 
     int statusColor = GetColor(90, 235, 150);
-    const char* statusText = "Place: LMB / RT";
+    const char* statusText = scene.m_photo.placement.draggingFromTray ? "Drop: release LMB" : "Place: LMB / RT";
     if (!scene.m_photo.placement.valid)
     {
         statusColor = GetColor(255, 120, 120);
@@ -468,6 +541,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
 
 bool PhotoPasteSystem::UpdatePlacementPreview(
     GameScene& scene,
+    bool confirmDrop,
     float& spawnX,
     float& spawnY,
     float& spawnWidth,
@@ -572,18 +646,17 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
 
     const float cursorScreenX = viewOriginX + (cursorWorldX - scene.m_flow.cameraX) * viewScale;
     const float cursorScreenY = viewOriginY + (cursorWorldY - scene.m_flow.cameraY) * viewScale;
-    const bool confirmPressed = Input_IsActionPressed(InputAction::ConfirmPlacement);
     const bool blockedByTray = scene.IsPhotoTrayHit(cursorScreenX, cursorScreenY);
     scene.m_photo.placement.blockedByUi = blockedByTray;
 
-    if (confirmPressed && (!scene.m_photo.placement.valid || blockedByTray))
+    if (confirmDrop && (!scene.m_photo.placement.valid || blockedByTray))
     {
         scene.m_photo.placement.invalidFlashRemaining = kPlacementInvalidFlashSeconds;
         scene.m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "cant_paste", 0.0f, 0.0f });
         return false;
     }
 
-    if (confirmPressed && scene.m_photo.placement.valid)
+    if (confirmDrop && scene.m_photo.placement.valid)
     {
         scene.m_player.captureAnimationActive = false;
         scene.m_player.captureAnimationReleased = false;
@@ -1185,6 +1258,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     scene.m_photo.placement.active = false;
     scene.m_photo.placement.valid = false;
     scene.m_photo.placement.blockedByUi = false;
+    scene.m_photo.placement.draggingFromTray = false;
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, lastSpawnedEntity, "test_tone", 0.0f, 0.0f });
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, lastSpawnedEntity, "Spawned filtered reconstruction", 0.0f, 0.0f });
 }

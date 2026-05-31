@@ -54,6 +54,8 @@ float Input_GetAxis(InputAxis axis);
 bool Input_IsKeyDown(int virtualKey);
 bool Input_IsKeyPressed(int virtualKey);
 bool Input_IsMouseLeftPressed();
+bool Input_IsMouseLeftDown();
+bool Input_IsMouseLeftReleased();
 bool Input_IsGamepadConnected();
 float Input_GetMoveX();
 float Input_GetMoveY();

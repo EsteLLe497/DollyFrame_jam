@@ -23,8 +23,8 @@ namespace
     constexpr float kStageTransitionFadeInDuration = 1.10f;
 
     constexpr int kPhotoTraySlotCount = 3;
-    constexpr float kPhotoTraySlotWidth = 170.0f;
-    constexpr float kPhotoTraySlotHeight = 92.0f;
+    constexpr float kPhotoTraySlotWidth = 270.0f;
+    constexpr float kPhotoTraySlotHeight = 140.0f;
     constexpr float kPhotoTraySlotGap = 18.0f;
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
@@ -1474,8 +1474,8 @@ void GameScene::DrawDevelopedPhotoPreview() const
     const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     const float targetSlotX = trayX + m_photo.pendingStore.slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-    const float targetCenterX = targetSlotX + 54.0f;
-    const float targetCenterY = trayY + 53.0f;
+    const float targetCenterX = targetSlotX + 98.0f;
+    const float targetCenterY = trayY + 78.0f;
 
     const float photoWidth = 220.0f;
     const float photoHeight = 248.0f;
@@ -1733,6 +1733,23 @@ void GameScene::DrawPhotoStorageTray() const
     const int textBright = static_cast<int>(150.0f + m_flow.photoTrayReveal * 105.0f);
     const int textBrightCool = std::min(255, textBright + 10);
 
+    const int trayBackdropTexture = m_assets.GetTexture("photo_tray_backdrop");
+    if (trayBackdropTexture >= 0)
+    {
+        const float textureWidth = static_cast<float>(TextureGetWidth(trayBackdropTexture));
+        const float textureHeight = static_cast<float>(TextureGetHeight(trayBackdropTexture));
+        if (textureWidth > 0.0f && textureHeight > 0.0f)
+        {
+            const float drawWidth = static_cast<float>(SCREEN_WIDTH);
+            const float drawHeight = drawWidth * (textureHeight / textureWidth);
+            const float drawY = static_cast<float>(SCREEN_HEIGHT) - drawHeight;
+            Shader_ResetStyle();
+            Shader_SetTint(1.0f, 1.0f, 1.0f, m_flow.photoTrayReveal);
+            SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+            Shader_ResetStyle();
+        }
+    }
+
     for (int slotIndex = 0; slotIndex < kPhotoTraySlotCount; ++slotIndex)
     {
         const bool slotIsPending = m_photo.pendingStore.active && m_photo.pendingStore.slotIndex == slotIndex;
@@ -1777,8 +1794,8 @@ void GameScene::DrawPhotoStorageTray() const
 
         const float previewX = slotX + kInnerPadding;
         const float previewY = slotY + 28.0f;
-        const float previewWidth = 88.0f;
-        const float previewHeight = 50.0f;
+        const float previewWidth = 176.0f;
+        const float previewHeight = 100.0f;
         const float scale = std::min(
             previewWidth / std::max(1.0f, storedCapture.width),
             previewHeight / std::max(1.0f, storedCapture.height));
@@ -1814,24 +1831,24 @@ void GameScene::DrawPhotoStorageTray() const
             FALSE);
 
         DrawFormatString(
-            static_cast<int>(slotX + 108.0f),
+            static_cast<int>(slotX + 198.0f),
             static_cast<int>(slotY + 34.0f),
             GetColor(230, 236, 242),
             "%s",
             GetPhotoFilterThemeLabel(storedCapture.capturedTheme));
         DrawFormatString(
-            static_cast<int>(slotX + 108.0f),
+            static_cast<int>(slotX + 198.0f),
             static_cast<int>(slotY + 56.0f),
             GetColor(170, 186, 204),
             "%.0fx%.0f",
             storedCapture.width,
             storedCapture.height);
         DrawFormatString(
-            static_cast<int>(slotX + 108.0f),
+            static_cast<int>(slotX + 198.0f),
             static_cast<int>(slotY + 74.0f),
             slotIsPending ? GetColor(230, 214, 158) : GetColor(150, 170, 190),
             "%s",
-            slotIsPending ? "Storing..." : (selected ? "Selected" : "Click to select"));
+            slotIsPending ? "Storing..." : (selected ? "Drag to place" : "Drag"));
     }
 }
 
