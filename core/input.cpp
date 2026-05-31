@@ -931,6 +931,17 @@ bool Input_IsMouseLeftPressed()
         (g_prevMouseButtons & MOUSE_INPUT_LEFT) == 0;
 }
 
+bool Input_IsMouseLeftDown()
+{
+    return (g_mouseButtons & MOUSE_INPUT_LEFT) != 0;
+}
+
+bool Input_IsMouseLeftReleased()
+{
+    return (g_mouseButtons & MOUSE_INPUT_LEFT) == 0 &&
+        (g_prevMouseButtons & MOUSE_INPUT_LEFT) != 0;
+}
+
 bool Input_IsGamepadConnected()
 {
     return g_connected;
