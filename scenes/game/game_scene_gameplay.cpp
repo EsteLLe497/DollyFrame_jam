@@ -556,7 +556,8 @@ void GameScene::UpdatePlayer(float deltaTime)
         return;
     }
 
-    const bool blockPlayerInput = m_flow.cameraMode || m_photo.placement.active;
+    // Camera mode should still allow movement so the player can shoot photos while repositioning.
+    const bool blockPlayerInput = m_photo.placement.active;
     const auto controls = game_scene_player_system::SampleControls(blockPlayerInput);
     const float moveAxis = controls.moveAxis;
     const float tileSize = m_tileMap.GetTileSize();

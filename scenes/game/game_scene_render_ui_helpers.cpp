@@ -104,12 +104,9 @@ void game_scene_detail::UpdatePadCursor(
 
         if (nowSeconds - lastPadInputSeconds >= kPadCursorMouseReturnDelay)
         {
-            // Keep mouse-driven finder coordinates locked to the rendered cursor even when the camera moves.
-            cursorWorldX = mouseWorldX;
-            cursorWorldY = mouseWorldY;
-            velocityX = 0.0f;
-            velocityY = 0.0f;
-            return;
+            const float returnFactor = std::min(1.0f, dt * 6.0f);
+            cursorWorldX += (mouseWorldX - cursorWorldX) * returnFactor;
+            cursorWorldY += (mouseWorldY - cursorWorldY) * returnFactor;
         }
     }
 
