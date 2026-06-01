@@ -164,6 +164,9 @@ namespace
         root["ground_step_up_height"] = gGroundStepUpHeight;
         root["capture_width_tiles"] = gCaptureWidthTiles;
         root["capture_height_tiles"] = gCaptureHeightTiles;
+        root["capture_rapid_shot_limit"] = gCaptureRapidShotLimit;
+        root["capture_rapid_window_seconds"] = gCaptureRapidWindowSeconds;
+        root["capture_overheat_lock_seconds"] = gCaptureOverheatLockSeconds;
         root["printed_photo_padding_x"] = gPrintedPhotoPaddingX;
         root["printed_photo_padding_top"] = gPrintedPhotoPaddingTop;
         root["printed_photo_footer_height"] = gPrintedPhotoFooterHeight;
@@ -337,6 +340,9 @@ namespace game_scene_detail
         gGroundStepUpHeight = root.value("ground_step_up_height", gGroundStepUpHeight);
         gCaptureWidthTiles = root.value("capture_width_tiles", gCaptureWidthTiles);
         gCaptureHeightTiles = root.value("capture_height_tiles", gCaptureHeightTiles);
+        gCaptureRapidShotLimit = root.value("capture_rapid_shot_limit", gCaptureRapidShotLimit);
+        gCaptureRapidWindowSeconds = root.value("capture_rapid_window_seconds", gCaptureRapidWindowSeconds);
+        gCaptureOverheatLockSeconds = root.value("capture_overheat_lock_seconds", gCaptureOverheatLockSeconds);
         gPrintedPhotoPaddingX = root.value("printed_photo_padding_x", gPrintedPhotoPaddingX);
         gPrintedPhotoPaddingTop = root.value("printed_photo_padding_top", gPrintedPhotoPaddingTop);
         gPrintedPhotoFooterHeight = root.value("printed_photo_footer_height", gPrintedPhotoFooterHeight);

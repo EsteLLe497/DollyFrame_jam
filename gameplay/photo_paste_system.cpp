@@ -225,11 +225,31 @@ void PhotoPasteSystem::CancelPhotoPlacement(GameScene& scene)
 void PhotoPasteSystem::HandleSpawn(GameScene& scene)
 {
     scene.m_photo.placement.valid = false;
-    const bool leftPressed = Input_IsMouseLeftPressed();
-    const bool leftDown = Input_IsMouseLeftDown();
-    const bool leftReleased = Input_IsMouseLeftReleased();
-    const int mouseX = Input_GetMouseX();
-    const int mouseY = Input_GetMouseY();
+    static bool previousRightDown = false;
+    const bool rightDown = Input_IsKeyDown(VK_RBUTTON);
+    const bool rightPressed = rightDown && !previousRightDown;
+    const bool rightReleased = !rightDown && previousRightDown;
+    previousRightDown = rightDown;
+    const auto selectNextStoredPhoto = [&scene](int direction)
+    {
+        constexpr int kSlotCount = 3;
+        if (direction == 0)
+        {
+            return;
+        }
+
+        const int step = direction > 0 ? 1 : -1;
+        const int start = scene.m_photo.selectedCaptureSlot;
+        for (int offset = 1; offset <= kSlotCount; ++offset)
+        {
+            const int slotIndex = (start + step * offset + kSlotCount * 2) % kSlotCount;
+            if (scene.m_photo.savedCaptures[slotIndex].hasPhoto)
+            {
+                scene.SetSelectedPhotoSlot(slotIndex);
+                return;
+            }
+        }
+    };
 
     const bool pasteReleasePlaying = scene.m_player.pasteAnimationActive && scene.m_player.pasteAnimationReleased;
     if (pasteReleasePlaying)
@@ -240,32 +260,28 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
         return;
     }
 
-    if (!scene.m_photo.placement.active && leftPressed)
+    if (rightDown)
     {
-        const int slotIndex = GetPhotoTraySlotAt(scene, static_cast<float>(mouseX), static_cast<float>(mouseY));
-        if (slotIndex >= 0 && slotIndex < static_cast<int>(scene.m_photo.savedCaptures.size()) &&
-            scene.m_photo.savedCaptures[slotIndex].hasPhoto)
+        const int wheelDelta = GetMouseWheelRotVol();
+        if (wheelDelta != 0)
         {
-            scene.SetSelectedPhotoSlot(slotIndex);
-            if (scene.m_photo.capture.hasPhoto)
-            {
-                BeginPhotoPlacement(scene, true);
-            }
+            selectNextStoredPhoto(wheelDelta > 0 ? 1 : -1);
         }
     }
 
-    if (!scene.m_flow.cameraMode &&
-        scene.m_photo.capture.hasPhoto &&
-        Input_IsNorthButtonPressed())
+    if (!scene.m_photo.placement.active && rightPressed)
     {
-        scene.m_photo.placement.active = !scene.m_photo.placement.active;
-        if (scene.m_photo.placement.active)
+        if (!scene.m_photo.capture.hasPhoto &&
+            scene.m_photo.selectedCaptureSlot >= 0 &&
+            scene.m_photo.selectedCaptureSlot < static_cast<int>(scene.m_photo.savedCaptures.size()) &&
+            scene.m_photo.savedCaptures[scene.m_photo.selectedCaptureSlot].hasPhoto)
+        {
+            scene.SetSelectedPhotoSlot(scene.m_photo.selectedCaptureSlot);
+        }
+
+        if (scene.m_photo.capture.hasPhoto)
         {
             BeginPhotoPlacement(scene, false);
-        }
-        else
-        {
-            CancelPhotoPlacement(scene);
         }
     }
 
@@ -277,7 +293,7 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
     }
 
     if (Input_IsActionPressed(InputAction::Cancel) ||
-        (scene.m_photo.placement.draggingFromTray && !leftDown && !leftReleased))
+        (!rightDown && !rightReleased))
     {
         CancelPhotoPlacement(scene);
         return;
@@ -320,12 +336,10 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
     float spawnY = 0.0f;
     float spawnWidth = 0.0f;
     float spawnHeight = 0.0f;
-    const bool confirmDrop = scene.m_photo.placement.draggingFromTray
-        ? leftReleased
-        : Input_IsActionPressed(InputAction::ConfirmPlacement);
+    const bool confirmDrop = rightReleased;
     if (!UpdatePlacementPreview(scene, confirmDrop, spawnX, spawnY, spawnWidth, spawnHeight))
     {
-        if (scene.m_photo.placement.draggingFromTray && confirmDrop)
+        if (confirmDrop)
         {
             CancelPhotoPlacement(scene);
         }

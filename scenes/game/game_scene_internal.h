@@ -61,6 +61,9 @@ inline float gGroundStepUpHeight = 0.25f;
 inline float gShutterFlashSeconds = 0.18f;
 inline float gCaptureWidthTiles = 5.0f;
 inline float gCaptureHeightTiles = 3.0f;
+inline float gCaptureRapidShotLimit = 4.0f;
+inline float gCaptureRapidWindowSeconds = 1.2f;
+inline float gCaptureOverheatLockSeconds = 1.0f;
 inline float gPrintedPhotoPaddingX = 16.0f;
 inline float gPrintedPhotoPaddingTop = 16.0f;
 inline float gPrintedPhotoFooterHeight = 52.0f;
@@ -133,7 +136,7 @@ inline float GetPlayerDodgeDuration()
 
 inline auto BuildGameSceneTuningEntries()
 {
-    return std::array<GameSceneTuningEntry, 25>
+    return std::array<GameSceneTuningEntry, 28>
     {{
         { "Camera Width", &gCameraViewWidth, 20.0f, 640.0f, 1920.0f },
         { "Camera Height", &gCameraViewHeight, 20.0f, 360.0f, 1080.0f },
@@ -153,6 +156,9 @@ inline auto BuildGameSceneTuningEntries()
         { "Step Up", &gGroundStepUpHeight, 0.25f, 0.0f, 8.0f },
         { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
         { "Capture H Tiles", &gCaptureHeightTiles, 0.25f, 1.0f, 16.0f },
+        { "Capture Limit", &gCaptureRapidShotLimit, 1.0f, 1.0f, 20.0f },
+        { "Capture Window", &gCaptureRapidWindowSeconds, 0.1f, 0.1f, 10.0f },
+        { "Capture Lock", &gCaptureOverheatLockSeconds, 0.1f, 0.0f, 10.0f },
         { "Print Pad X", &gPrintedPhotoPaddingX, 1.0f, 0.0f, 80.0f },
         { "Print Pad Top", &gPrintedPhotoPaddingTop, 1.0f, 0.0f, 80.0f },
         { "Print Footer", &gPrintedPhotoFooterHeight, 2.0f, 0.0f, 160.0f },

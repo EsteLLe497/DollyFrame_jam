@@ -72,6 +72,9 @@ struct GameSceneFlowState
     float developedPhotoPreviewRemaining = 0.0f;
     float photoTrayReveal = 0.0f;
     float captureFinderScale = 1.0f;
+    float captureRapidTimer = 0.0f;
+    float captureLockoutRemaining = 0.0f;
+    int captureRapidCount = 0;
     float lastDeltaTime = 0.0f;
     int cameraModeSessionId = 0;
     bool pitRestartActive = false;
