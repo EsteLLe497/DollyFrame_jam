@@ -2302,11 +2302,21 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
 
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
-    padCursorWorldX = std::clamp(padCursorWorldX, 0.0f, std::max(0.0f, mapWidth));
-    padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
+    const float halfWidth = width * 0.5f;
+    const float halfHeight = height * 0.5f;
+    const float minCursorX = std::max(halfWidth, m_flow.cameraX + halfWidth);
+    const float maxCursorX = std::min(std::max(halfWidth, mapWidth - halfWidth), m_flow.cameraX + gCameraViewWidth - halfWidth);
+    const float minCursorY = std::max(halfHeight, m_flow.cameraY + halfHeight);
+    const float maxCursorY = std::min(std::max(halfHeight, mapHeight - halfHeight), m_flow.cameraY + gCameraViewHeight - halfHeight);
+    padCursorWorldX = minCursorX <= maxCursorX
+        ? std::clamp(padCursorWorldX, minCursorX, maxCursorX)
+        : m_flow.cameraX + gCameraViewWidth * 0.5f;
+    padCursorWorldY = minCursorY <= maxCursorY
+        ? std::clamp(padCursorWorldY, minCursorY, maxCursorY)
+        : m_flow.cameraY + gCameraViewHeight * 0.5f;
 
     x = padCursorWorldX - width * 0.5f;
-    y = std::clamp(padCursorWorldY - height * 0.5f, 0.0f, std::max(0.0f, mapHeight - height));
+    y = padCursorWorldY - height * 0.5f;
 }
 
 Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) const

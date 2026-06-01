@@ -326,6 +326,26 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         return;
     }
 
+    if (scene.m_flow.captureLockoutRemaining > 0.0f)
+    {
+        return;
+    }
+
+    if (scene.m_flow.captureRapidTimer <= 0.0f)
+    {
+        scene.m_flow.captureRapidCount = 0;
+    }
+
+    ++scene.m_flow.captureRapidCount;
+    scene.m_flow.captureRapidTimer = gCaptureRapidWindowSeconds;
+    if (scene.m_flow.captureRapidCount > static_cast<int>(std::round(gCaptureRapidShotLimit)))
+    {
+        scene.m_flow.captureLockoutRemaining = gCaptureOverheatLockSeconds;
+        scene.m_flow.captureRapidCount = 0;
+        scene.m_flow.captureRapidTimer = 0.0f;
+        return;
+    }
+
     Entity* player = scene.FindEntityByTag("Player");
     if (!player)
     {
