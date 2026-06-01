@@ -1745,7 +1745,7 @@ void GameScene::DrawPhotoStorageTray() const
             const float drawY = static_cast<float>(SCREEN_HEIGHT) - drawHeight;
             Shader_ResetStyle();
             Shader_SetTint(1.0f, 1.0f, 1.0f, m_flow.photoTrayReveal);
-            SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+           // SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
             Shader_ResetStyle();
         }
     }

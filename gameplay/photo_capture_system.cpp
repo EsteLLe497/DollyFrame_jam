@@ -343,12 +343,9 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float frameWidth = 0.0f;
     float frameHeight = 0.0f;
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
-    const bool restoredSepiaBackground =
-        scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia &&
-        scene.RestoreSepiaBackgroundGroupInFrame(frameX, frameY, frameWidth, frameHeight);
-    scene.m_flow.cameraMode = false;
     bool restoredSepiaBackground = false;
-	bool hasSepiaRubbleInFrame = false;
+    scene.m_flow.cameraMode = false;
+    bool hasSepiaRubbleInFrame = false;
     for (const auto& entity : scene.m_entities)
     {
 
@@ -404,7 +401,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     scene.m_photo.capture.containsEnemyAttackPaste = false;
     float capturedMaxRight = 0.0f;
     float capturedMaxBottom = 0.0f;
-    CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom,restoredSepiaBackground);
+    CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom, restoredSepiaBackground);
 
     CaptureTilesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
 
