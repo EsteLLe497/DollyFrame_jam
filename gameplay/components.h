@@ -999,25 +999,31 @@ public:
     SepiaRubbleGroupComponent(
         char markerTypeValue,
         int imageNoValue,
-		int restoredTileValue,
-		int minColumnValue,
-		int minRowValue,
-		int maxColumnValue,
-		int maxRowValue,
+        int restoredTileValue,
+        char restoredMarkerTypeValue,
+        int restoredMarkerParameterValue,
+        int minColumnValue,
+        int minRowValue,
+        int maxColumnValue,
+        int maxRowValue,
         bool isRestoredValue);
 
-	char markerType = '\0';
-	int imageNo = 0;
-	int restoredTileValue = 0;
+    char markerType = '\0';
+    int imageNo = 0;
+    int restoredTileValue = 0;
+    char restoredMarkerType = '\0';
+    int restoredMarkerParameter = 0;
     int minColumn = 0;
     int minRow = 0;
     int maxColumn = 0;
     int maxRow = 0;
-	bool isRestored = false;
+    bool isRestored = false;
     float restoredLifetime = 0.0f;
-	std::vector<int> cellColumns;
-	std::vector<int> cellRows;
+    std::vector<int> cellColumns;
+    std::vector<int> cellRows;
     std::vector<int> cellRestoredTileValues;
+    std::vector<char> cellRestoredMarkerTypes;
+    std::vector<int> cellRestoredMarkerParameters;
 };
 
 // ============================================================================
