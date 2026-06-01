@@ -578,10 +578,13 @@ VanishOnCaptureComponent::VanishOnCaptureComponent(bool enabledValue)
 {
 }
 
+
 SepiaRubbleGroupComponent::SepiaRubbleGroupComponent(
     char markerTypeValue,
     int imageNoValue,
     int restoredTileValueValue,
+    char restoredMarkerTypeValue,
+    int restoredMarkerParameterValue,
     int minColumnValue,
     int minRowValue,
     int maxColumnValue,
@@ -590,6 +593,8 @@ SepiaRubbleGroupComponent::SepiaRubbleGroupComponent(
     : markerType(markerTypeValue)
     , imageNo(imageNoValue)
     , restoredTileValue(restoredTileValueValue)
+    , restoredMarkerType(restoredMarkerTypeValue)
+    , restoredMarkerParameter(restoredMarkerParameterValue)
     , minColumn(minColumnValue)
     , minRow(minRowValue)
     , maxColumn(maxColumnValue)

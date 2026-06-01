@@ -117,6 +117,8 @@ struct CapturedPhotoItem
     int sourceTileValue = 0;
     int damagePlatformTileSpan = 0;
     int spikeStripTileSpan = 0;
+    int sepiaRestoredTileValue = 0;
+    bool sepiaRestoredMarkerObject = false;
     float rotation = 0.0f;
     bool flipX = false;
     bool vanishOnCapture = false;

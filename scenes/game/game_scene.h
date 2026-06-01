@@ -154,7 +154,6 @@ private:
     void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
-	bool RestoreSepiaBackgroundGroupInFrame(float frameX, float frameY, float frameWidth, float frameHeight);
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();

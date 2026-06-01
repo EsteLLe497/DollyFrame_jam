@@ -218,7 +218,8 @@ void GameScene::StoreCapturedPhoto()
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.capture.items)
     {
-        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround ||
+            item.sepiaRestoredMarkerObject)
         {
             hasSepiaGroundItem = true;
             break;

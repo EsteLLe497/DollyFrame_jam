@@ -1139,7 +1139,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedGround->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
             spawnedGround->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
             spawnedGround->AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
-            spawnedGround->AddComponent<PhotoCopyLayerComponent>(scene.m_photo.placement.layer);
+            spawnedGround->AddComponent<PhotoCopyLayerComponent>(item.layer);
             spawnedGround->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
             spawnedGround->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
             spawnedGround->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
@@ -1150,13 +1150,31 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedGround->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
             spawnedGround->AddComponent<SpriteRenderComponent>(
                 item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
-            spawnedGround->AddComponent<ImageOutlineColliderComponent>(
-                std::vector<b2Vec2>{
-                    { 0.0f, 0.0f },
-                    { 1.0f, 0.0f },
-                    { 1.0f, 1.0f },
-                { 0.0f, 1.0f }},
-                0.2f);
+            if (item.sepiaRestoredTileValue > 0)
+            {
+                spawnedGround->AddComponent<PhotoCopyTileValueComponent>(item.sepiaRestoredTileValue);
+            }
+
+            if (!item.collisionOutline.empty())
+            {
+                std::vector<b2Vec2> normalizedOutline;
+                normalizedOutline.reserve(item.collisionOutline.size());
+                for (const auto& point : item.collisionOutline)
+                {
+                    normalizedOutline.push_back({ point.x, point.y });
+                }
+                spawnedGround->AddComponent<ImageOutlineColliderComponent>(std::move(normalizedOutline), 0.2f);
+            }
+            else
+            {
+                spawnedGround->AddComponent<ImageOutlineColliderComponent>(
+                    std::vector<b2Vec2>{
+                        { 0.0f, 0.0f },
+                        { 1.0f, 0.0f },
+                        { 1.0f, 1.0f },
+                    { 0.0f, 1.0f }},
+                    0.2f);
+            }
 
             if (auto* transform = spawnedGround->GetComponent<TransformComponent>())
             {
