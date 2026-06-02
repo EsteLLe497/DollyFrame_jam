@@ -7,6 +7,7 @@
 #include "game_scene_player_visual_system.h"
 #include "game_scene_photo_tray_system.h"
 #include "photo_system.h"
+#include "game_scene_camerawork.h"
 
 #include <unordered_map>
 
@@ -109,21 +110,21 @@ namespace
     }
 }
 
-bool GameScene::TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const
-{
-    (void)playerCenterY;
-    for (const CameraFixedRange& range : m_cameraFixedRanges)
-    {
-        if (playerCenterX >= range.startX && playerCenterX <= range.endX)
-        {
-            outCameraX = range.cameraX;
-            outCameraY = range.cameraY;
-            return true;
-        }
-    }
-
-    return false;
-}
+//bool GameScene::TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const
+//{
+//    (void)playerCenterY;
+//    for (const CameraFixedRange& range : m_cameraFixedRanges)
+//    {
+//        if (playerCenterX >= range.startX && playerCenterX <= range.endX)
+//        {
+//            outCameraX = range.cameraX;
+//            outCameraY = range.cameraY;
+//            return true;
+//        }
+//    }
+//
+//    return false;
+//}
 
 void GameScene::StartFloorCameraTransition(int directionX, int directionY)
 {
@@ -153,29 +154,6 @@ void GameScene::StartFloorCameraTransition(int directionX, int directionY)
     m_floorCameraTransitionTargetY = targetY;
 }
 
-void GameScene::ActivateCameraRange(int cameraNum)
-{
-    const CameraFixedRange& range = m_cameraFixedRanges[cameraNum];
-
-    m_cameraFixedLockNum = cameraNum;
-
-    m_cameraFixedLockActive = true;
-
-    m_cameraFixedLockStartX = range.startX;
-    m_cameraFixedLockEndX = range.endX;
-
-    m_cameraFixedLockX = range.cameraX;
-    m_cameraFixedLockY = range.cameraY;
-
-    m_floorCameraTransitionActive = true;
-    m_floorCameraTransitionElapsed = 0.0f;
-
-    m_floorCameraTransitionStartX = m_flow.cameraX;
-    m_floorCameraTransitionStartY = m_flow.cameraY;
-
-    m_floorCameraTransitionTargetX = m_cameraFixedLockX;
-    m_floorCameraTransitionTargetY = m_cameraFixedLockY;
-}
 
 
 void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime)
@@ -185,224 +163,101 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     const float playerCenterX = playerTransform.x + playerWidth * 0.5f;
     const float playerCenterY = playerTransform.y + playerHeight * 0.5f;
 
-    if (!m_hasCameraSmoothedPlayerY)
+    int activeIndex = -1;
+    int bestPriority = -1;
+
+    for (int i = 0; i < m_fixedRanges.size(); i++)
     {
-        m_cameraSmoothedPlayerCenterY = playerCenterY;
-        m_hasCameraSmoothedPlayerY = true;
-    }
-    else
-    {
-        const float smoothSpeed = m_player.grounded ? kGroundedCameraYSmoothSpeed : kAirborneCameraYSmoothSpeed;
-        const float smoothRate = std::clamp(smoothSpeed * deltaTime, 0.0f, 1.0f);
-        if (std::fabs(playerCenterY - m_cameraSmoothedPlayerCenterY) >= kCameraYSnapDistance)
+        const auto& fixedCamera = m_fixedRanges[i];
+
+        if (fixedCamera.IsInRange(playerCenterX, playerCenterY))
         {
-            m_cameraSmoothedPlayerCenterY = playerCenterY;
+            if (fixedCamera.GetCameraNum() > bestPriority)
+            {
+                bestPriority = fixedCamera.GetCameraNum();
+                activeIndex = i;
+            }
+        }
+    }
+
+    bool prevFollow = (m_prevCameraIndex == -1);
+    bool currFollow = (activeIndex == -1);
+
+    bool easingNeeded = true;
+    if (prevFollow && currFollow)
+    {
+        easingNeeded = false;
+    }
+
+    if (easingNeeded && m_prevCameraIndex != activeIndex)
+    {
+        m_easingActive = true;
+        m_easingElapsedTime = 0.0f;
+
+        m_easingStartX = m_flow.cameraX;
+        m_easingStartY = m_flow.cameraY;
+
+        if (activeIndex == -1)
+        {
+            // 追従カメラ
+            m_easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
+            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
         }
         else
         {
-            m_cameraSmoothedPlayerCenterY += (playerCenterY - m_cameraSmoothedPlayerCenterY) * smoothRate;
-        }
-    }
-    const float cameraPlayerCenterY = m_cameraSmoothedPlayerCenterY;
+            // 固定カメラ
+            const auto& cam = m_fixedRanges[activeIndex];
 
-    const float tileSize = m_tileMap.GetTileSize();
+            gCameraViewWidth = cam.GetZoomWidth();
+            gCameraViewHeight = cam.GetZoomHeight();
 
-    if (m_isZoomed)
-    {
-        gCameraViewWidth = m_zoomedViewWidth;
-        gCameraViewHeight = m_zoomedViewHeight;
-    }
-    else
-    {
-        gCameraViewWidth = gDefaultCameraViewWidth;
-        gCameraViewHeight = gDefaultCameraViewHeight;
-    }
+            float centerX = (cam.GetStartX() + cam.GetEndX()) * 0.5f;
 
-
-    for (auto& zm : m_zoomMarkers)
-    {
-        bool inside =
-            playerCenterX >= zm.x &&
-            playerCenterX < zm.x + zm.width;
-
-        if (!zm.isReset)
-        {
-            if (inside && !zm.wasInside)
-            {
-                m_isZoomed = true;
-                gCameraViewWidth = zm.viewWidth;
-                gCameraViewHeight = zm.viewHeight;
-                RecalculateViewScale();
-            }
-        }
-        else
-        {
-            if (inside && !zm.wasInside)
-            {
-                m_isZoomed = false;
-                gCameraViewWidth = gDefaultCameraViewWidth;
-                gCameraViewHeight = gDefaultCameraViewHeight;
-                RecalculateViewScale();
-            }
-        }
-
-        zm.wasInside = inside;
-    }
-
-
-    {
-        const float dx = playerCenterX - m_previousPlayerCameraProbeX;
-        m_previousPlayerCameraProbeX = playerCenterX;
-        m_previousPlayerCameraProbeY = playerCenterY;
-
-        for (int i = 0; i < m_cameraFixedRanges.size(); i++)
-        {
-            const CameraFixedRange& range = m_cameraFixedRanges[i];
-
-            if (playerCenterX >= range.startX && playerCenterX < range.startX + tileSize)
-            {
-                const bool sameActiveRange = m_cameraFixedLockActive && m_cameraFixedLockNum == i;
-                if (dx > 0.0f && !sameActiveRange)
-                {
-                    ActivateCameraRange(i);
-                }
-                else if (dx < 0.0f)
-                {
-                    int prev = i - 1;
-                    const bool samePreviousRange = m_cameraFixedLockActive && m_cameraFixedLockNum == prev;
-                    if (prev >= 0 && !samePreviousRange)
-                    {
-                        ActivateCameraRange(prev);
-                    }
-                }
-
-                break;
-            }
-
-            if (playerCenterX >= range.endX && playerCenterX < range.endX + tileSize)
-            {
-                m_isZoomed = false;
-                gCameraViewWidth = gDefaultCameraViewWidth;
-                gCameraViewHeight = gDefaultCameraViewHeight;
-                RecalculateViewScale();
-            }
+            m_easingTargetX = centerX - (gCameraViewWidth * 0.25f);
+            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
         }
     }
 
-
-    const CameraFixedRange* fixedRange = nullptr;
-    for (const CameraFixedRange& range : m_cameraFixedRanges)
+    if (m_easingActive)
     {
-        if (playerCenterX >= range.startX && playerCenterX <= range.endX)
+        m_easingElapsedTime += deltaTime;
+        float t = m_easingElapsedTime / easingTime;
+
+        if (t >= 1.0f)
         {
-            fixedRange = &range;
-            break;
-        }
-    }
-
-
-    if (!m_cameraFixedLockActive && fixedRange)
-    {
-        m_cameraFixedLockActive = true;
-
-        m_cameraFixedLockStartX = fixedRange->startX;
-        m_cameraFixedLockEndX = fixedRange->endX;
-
-        m_cameraFixedLockX = fixedRange->cameraX;
-        m_cameraFixedLockY = fixedRange->cameraY;
-
-        m_cameraFixedLockNum = fixedRange->cameraNum;
-
-        m_floorCameraTransitionActive = true;
-        m_floorCameraTransitionElapsed = 0.0f;
-
-        m_floorCameraTransitionStartX = m_flow.cameraX;
-        m_floorCameraTransitionStartY = m_flow.cameraY;
-
-        m_floorCameraTransitionTargetX = m_cameraFixedLockX;
-        m_floorCameraTransitionTargetY = m_cameraFixedLockY;
-    }
-
-
-    if (m_cameraFixedLockActive)
-    {
-        const CameraFixedRange& range = m_cameraFixedRanges[m_cameraFixedLockNum];
-
-        if (range.followPlayer)
-        {
-
-            float cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
-
-            m_flow.cameraX = cameraX;
-            m_flow.cameraY = range.cameraY;
-            return;
+            t = 1.0f;
+            m_easingActive = false;
         }
 
-        if (playerCenterX < m_cameraFixedLockStartX ||
-            playerCenterX > m_cameraFixedLockEndX)
-        {
-            m_cameraFixedLockActive = false;
-            return;
-        }
+        m_flow.cameraX = std::lerp(m_easingStartX, m_easingTargetX, t);
+        m_flow.cameraY = std::lerp(m_easingStartY, m_easingTargetY, t);
 
-        if (m_floorCameraTransitionActive)
-        {
-            m_floorCameraTransitionElapsed += deltaTime;
-            const float t = Clamp01(m_floorCameraTransitionElapsed / m_floorCameraTransitionDuration);
-            const float easedT = EaseInOutCubic(t);
-
-            m_flow.cameraX = std::lerp(m_floorCameraTransitionStartX, m_floorCameraTransitionTargetX, easedT);
-            m_flow.cameraY = std::lerp(m_floorCameraTransitionStartY, m_floorCameraTransitionTargetY, easedT);
-
-            if (t >= 1.0f)
-            {
-                m_floorCameraTransitionActive = false;
-                m_flow.cameraX = m_cameraFixedLockX;
-                m_flow.cameraY = m_cameraFixedLockY;
-            }
-
-            return;
-        }
-
-        if (range.followY)
-        {
-            const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
-            const float targetY = std::clamp(cameraPlayerCenterY - (gCameraViewHeight * 0.5f), 0.0f, maxCameraY);
-            const float deltaY = targetY - m_flow.cameraY;
-            m_flow.cameraX = m_cameraFixedLockX;
-
-            // Fixed ranges with Y follow should absorb tiny player bobbing instead of snapping every frame.
-            if (std::fabs(deltaY) > kFixedCameraYDeadZone)
-            {
-                const float adjustedTargetY = targetY - std::copysign(kFixedCameraYDeadZone, deltaY);
-                const float followRate = std::clamp(kFixedCameraYFollowSpeed * deltaTime, 0.0f, 1.0f);
-                m_flow.cameraY += (adjustedTargetY - m_flow.cameraY) * followRate;
-            }
-
-            m_flow.cameraY = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
-            return;
-        }
-
-        const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
-        const float targetY = std::clamp(cameraPlayerCenterY - (gCameraViewHeight * 0.5f), 0.0f, maxCameraY);
-        const float deltaY = targetY - m_flow.cameraY;
-        if (std::fabs(deltaY) > kFixedCameraYDeadZone)
-        {
-            const float adjustedTargetY = targetY - std::copysign(kFixedCameraYDeadZone, deltaY);
-            const float followRate = std::clamp(kFixedCameraYFollowSpeed * deltaTime, 0.0f, 1.0f);
-            m_flow.cameraY += (adjustedTargetY - m_flow.cameraY) * followRate;
-        }
-        m_flow.cameraY = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
-        m_flow.cameraX = m_cameraFixedLockX;
-
+        m_prevCameraIndex = activeIndex;
         return;
     }
 
-    m_flow.cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
+    // 追従カメラ
+    if (activeIndex < 0)
+    {
+        m_flow.cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
+        m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
+
+        m_prevCameraIndex = activeIndex;
+        return;
+    }
+
+    // 固定カメラ
+    const auto& cameraRange = m_fixedRanges[activeIndex];
+
+    gCameraViewWidth = cameraRange.GetZoomWidth();
+    gCameraViewHeight = cameraRange.GetZoomHeight();
+
+    float centerX = (cameraRange.GetStartX() + cameraRange.GetEndX()) * 0.5f;
+
+    m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f);
     m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
 
-    m_previousPlayerCameraProbeX = playerCenterX;
-    m_previousPlayerCameraProbeY = playerCenterY;
+    m_prevCameraIndex = activeIndex;
 }
 
 

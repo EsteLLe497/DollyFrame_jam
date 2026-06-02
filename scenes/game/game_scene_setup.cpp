@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 
 #include "prefab_factory.h"
+#include "game_scene_camerawork.h"
 
 using namespace game_scene_detail;
 
@@ -186,106 +187,72 @@ void GameScene::RefreshStageRenderProfile()
 
 void GameScene::BuildCameraMarkers()
 {
-    m_cameraTransitionMarkers.clear();
     m_cameraFixedRanges.clear();
-    m_zoomMarkers.clear();
 
-    const float tileSize = m_tileMap.GetTileSize();
-    const int width = m_tileMap.GetWidth();
-    const int height = m_tileMap.GetHeight();
+    float tileSize = m_tileMap.GetTileSize();
 
-    CameraFixedRange range{};
-    bool inRange = false;
-
-    int cameraNum = 0;
-
-    for (int row = 0; row < height; ++row)
+    //カメラ1
     {
-        for (int col = 0; col < width; ++col)
-        {
-            char marker = m_tileMap.GetMarker(col, row);
+        fixedCameraRange cameraRange;
+        cameraRange.SetStartTiles(-2, 6, tileSize); // 左上タイル
+        cameraRange.SetEndTiles(22, 18, tileSize);   // 右下タイル
+        cameraRange.SetCameraNum(0);
+        cameraRange.SetFollowPlayer(false);
 
-            if (marker == 'S')
-            {
-                range.startX = col * tileSize;
-                inRange = true;
-            }
-            else if (marker == 'T' && inRange)
-            {
-                range.followPlayer = true;
-
-            }
-            else if (marker == 'E' && inRange)
-            {
-                range.endX = col * tileSize;
-
-                range.cameraX = range.startX;
-                range.cameraY = -1.0f;
-
-                range.cameraNum = cameraNum;
-
-                range.viewWidth = range.endX - range.startX;
-                range.viewHeight = range.viewWidth * (gDefaultCameraViewHeight / gDefaultCameraViewWidth);
-                //range.viewHeight = range.viewWidth * (kDefaultCameraViewHeight / kDefaultCameraViewWidth);
-
-                cameraNum++;
-
-                m_cameraFixedRanges.push_back(range);
-                inRange = false;
-                range = CameraFixedRange{};
-            }
-
-            //ズーム
-            if (marker == 'O')
-            {
-                CameraZoomMarker zm;
-                zm.x = col * tileSize;
-                zm.y = row * tileSize;
-                zm.width = tileSize;
-                zm.height = tileSize;
-
-                zm.viewWidth = 2560.0f;
-                zm.viewHeight = 1440.0f;
-                zm.wasInside = false;
-                zm.isReset = false;
-
-                m_zoomMarkers.push_back(zm);
-            }
-
-            //ズームリセット
-            if (marker == 'K')
-            {
-                CameraZoomMarker zm;
-                zm.x = col * tileSize;
-                zm.y = row * tileSize;
-                zm.width = tileSize;
-                zm.height = tileSize;
-
-                zm.viewWidth = gDefaultCameraViewWidth;
-                zm.viewHeight = gDefaultCameraViewHeight;
-
-                zm.isReset = true;
-                m_zoomMarkers.push_back(zm);
-            }
-
-
-        }
+        m_fixedRanges.push_back(cameraRange);
     }
 
-    for (int i = 0; i < (int)m_cameraFixedRanges.size(); i++)
+    //カメラ2
     {
-        if (i == 0)
-        {
-            m_cameraFixedRanges[i].backCameraX = m_cameraFixedRanges[i].cameraX;
-        }
-        else
-        {
-            m_cameraFixedRanges[i].backCameraX = m_cameraFixedRanges[i - 1].cameraX;
-        }
+        fixedCameraRange cameraRange;
+        cameraRange.SetStartTiles(22, 6, tileSize);
+        cameraRange.SetEndTiles(42, 19, tileSize);
+        cameraRange.SetCameraNum(1);
+        cameraRange.SetFollowPlayer(false);
+
+        m_fixedRanges.push_back(cameraRange);
     }
+
+    //カメラ3
+    {
+        fixedCameraRange cameraRange;
+        cameraRange.SetStartTiles(72, 2, tileSize);
+        cameraRange.SetEndTiles(93, 28, tileSize);
+        cameraRange.SetCameraNum(2);
+        cameraRange.SetFollowPlayer(false);
+
+        cameraRange.SetZoomWidth(2560.0f);
+        cameraRange.SetZoomHeight(1440.0f);
+
+        m_fixedRanges.push_back(cameraRange);
+    }
+
+    //カメラ4
+    {
+        fixedCameraRange cameraRange;
+        cameraRange.SetStartTiles(113, 4, tileSize);
+        cameraRange.SetEndTiles(133, 21, tileSize);
+        cameraRange.SetCameraNum(3);
+        cameraRange.SetFollowPlayer(false);
+
+        cameraRange.SetZoomHeight(1440.0f);
+
+        m_fixedRanges.push_back(cameraRange);
+    }
+
+    //カメラ5
+    {
+        fixedCameraRange cameraRange;
+        cameraRange.SetStartTiles(131, 10, tileSize);
+        cameraRange.SetEndTiles(148, 21, tileSize);
+        cameraRange.SetCameraNum(4);
+        cameraRange.SetFollowPlayer(false);
+
+        m_fixedRanges.push_back(cameraRange);
+    }
+
+
 }
-
-void GameScene::RecalculateViewScale() {}
 
 namespace game_scene_detail
 {
@@ -398,8 +365,6 @@ void GameScene::ResetSceneState()
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
-
-    m_isZoomed = false;
 }
 
 void GameScene::LoadTuningState()

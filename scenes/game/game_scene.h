@@ -14,6 +14,7 @@
 #include "game_scene_photo_state.h"
 #include "game_scene_state.h"
 #include "tile_map.h"
+#include "game_scene_camerawork.h"
 
 class TransformComponent;
 class PhotoSystem;
@@ -54,27 +55,11 @@ private:
         float cameraX = 0.0f;
         float cameraY = 0.0f;
 
-        float backCameraX = 0.0f;
-        bool followY = false;
         bool followPlayer = false;
-        float viewWidth = 0.0f;
-        float viewHeight = 0.0f;
         int cameraNum = 0;
     };
 
-    struct CameraZoomMarker
-    {
-        float x;
-        float y;
-        float width;
-        float height;
-
-        float viewWidth;
-        float viewHeight;
-
-        bool wasInside = false;
-        bool isReset = false;
-    };
+   
 
     // Core lifecycle / facade
     void ResetSceneState();
@@ -320,11 +305,13 @@ private:
     char m_pendingStageTransitionMarker = '\0';
     bool m_darknessStageEnabled = false;
 
-    int m_cameraFixedLockNum = -1;
-    void ActivateCameraRange(int cameraNum);
-    std::vector<CameraZoomMarker> m_zoomMarkers;
-    void RecalculateViewScale();
-    bool m_isZoomed = false;
-    float m_zoomedViewWidth = 2560.0f;
-    float m_zoomedViewHeight = 1440.0f;
+    static constexpr float easingTime = 0.35f;
+    bool m_easingActive = false;
+    float m_easingElapsedTime = 0.0f;
+    float m_easingStartX = 0.0f;
+    float m_easingStartY = 0.0f;
+    float m_easingTargetX = 0.0f;
+    float m_easingTargetY = 0.0f;
+    int m_prevCameraIndex = -1;
+    std::vector<fixedCameraRange> m_fixedRanges;
 };
