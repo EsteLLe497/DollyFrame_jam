@@ -396,7 +396,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
 void GameScene::InitializeStageEntities()
 {
     PrefabFactory prefabs(m_assets, m_physicsWorld, m_eventBus);
-    const bool isDebugStageMap = gCurrentMapCsvPath == "assets/maps/forest.csv";
+    const bool isDebugStageMap = gCurrentMapCsvPath == "assets/maps/stage_a.csv";
     const auto spawnRespawnableBarrel = [&](float x, float y)
     {
         Entity& barrel = SpawnStagePrefab(prefabs, "sandbox_barrel", x, y);
