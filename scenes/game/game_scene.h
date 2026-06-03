@@ -110,9 +110,6 @@ private:
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void ConfigureWalkerSpriteAnimation(Entity& enemy);
     void ConfigureRangedSpriteAnimation(Entity& enemy);
-    void ConfigureShieldBossSpriteAnimation(Entity& enemy);
-    void ConfigureBossShieldSpriteAnimation(Entity& shield);
-    void SpawnShieldBossRoarEffect(Entity& boss);
     void UpdateEnemies();
     int HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight);
     void UpdateBullets();

@@ -700,7 +700,6 @@ void GameScene::RefreshEnemiesFromMarkers()
                     kShieldH);
                 shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
                 shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-                ConfigureBossShieldSpriteAnimation(*shieldEntity);
                 auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
                 shieldComp.attached = true;
                 shieldComp.ownerBoss = &boss;
@@ -730,7 +729,6 @@ void GameScene::RefreshEnemiesFromMarkers()
                     continue;
                 }
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
-                ConfigureShieldBossSpriteAnimation(boss);
                 placeEnemyAtMarker(boss);
                 attachShieldToBoss(boss);
             }

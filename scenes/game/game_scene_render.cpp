@@ -1652,51 +1652,16 @@ void GameScene::DrawEntity(const Entity& entity) const
         if (shield && ownerTransform && ownerBoss &&
             (shield->attached || ownerBoss->knockbackActive || ownerBoss->state == ShieldBossState::Rush || ownerBoss->state == ShieldBossState::RushCooldown))
         {
-            const bool usesSheetShield = entity.GetComponent<SpriteSheetAnimationComponent>() != nullptr;
-            if (usesSheetShield)
-            {
-                const auto* ownerSprite = shield->ownerBoss->GetComponent<SpriteRenderComponent>();
-                const float ownerOffsetX = ownerSprite ? ownerSprite->GetRenderOffsetX() : 0.0f;
-                const float ownerOffsetY = ownerSprite ? ownerSprite->GetRenderOffsetY() : 0.0f;
-                const float ownerScaleX = ownerSprite ? ownerSprite->GetRenderScaleX() : 1.0f;
-                const float ownerScaleY = ownerSprite ? ownerSprite->GetRenderScaleY() : 1.0f;
-                // 分割盾シートは本体と同じキャンバスなので、盾ヒットボックスではなく本体描画サイズへ合わせる。
-                drawX = viewOriginX + (ownerTransform->x + ownerOffsetX - m_flow.cameraX) * viewScale;
-                drawY = viewOriginY + (ownerTransform->y + ownerOffsetY - m_flow.cameraY) * viewScale;
-                drawWidth = ownerTransform->width * ownerTransform->scale * ownerScaleX * viewScale;
-                drawHeight = ownerTransform->height * ownerTransform->scale * ownerScaleY * viewScale;
-            }
-            else
-            {
-                const float ownerW = ownerTransform->width * ownerTransform->scale;
-                const float shieldW = transform->width * transform->scale;
-                const float shieldWorldX = ownerBoss->facing == ShieldBossFacing::Right
-                    ? ownerTransform->x + ownerW
-                    : ownerTransform->x - shieldW;
-                drawX = viewOriginX + (shieldWorldX - m_flow.cameraX) * viewScale;
-                drawY = viewOriginY + (ownerTransform->y - m_flow.cameraY) * viewScale;
-            }
-        }
-        else if (shield && ownerTransform && ownerBoss && entity.GetComponent<SpriteSheetAnimationComponent>())
-        {
-            const auto* ownerSprite = shield->ownerBoss->GetComponent<SpriteRenderComponent>();
-            const float ownerScaleX = ownerSprite ? ownerSprite->GetRenderScaleX() : 1.0f;
-            const float ownerScaleY = ownerSprite ? ownerSprite->GetRenderScaleY() : 1.0f;
-            const float visualWorldWidth = ownerTransform->width * ownerTransform->scale * ownerScaleX;
-            const float visualWorldHeight = ownerTransform->height * ownerTransform->scale * ownerScaleY;
-            const float shieldCenterX = transform->x + transform->width * transform->scale * 0.5f;
-            const float shieldCenterY = transform->y + transform->height * transform->scale * 0.5f;
-            // 空中落下中の盾も当たり判定サイズに潰さず、既存の大きい盾見た目を維持する。
-            drawX = viewOriginX + (shieldCenterX - visualWorldWidth * 0.5f - m_flow.cameraX) * viewScale;
-            drawY = viewOriginY + (shieldCenterY - visualWorldHeight * 0.5f - m_flow.cameraY) * viewScale;
-            drawWidth = visualWorldWidth * viewScale;
-            drawHeight = visualWorldHeight * viewScale;
+            const float ownerW = ownerTransform->width * ownerTransform->scale;
+            const float shieldW = transform->width * transform->scale;
+            const float shieldWorldX = ownerBoss->facing == ShieldBossFacing::Right
+                ? ownerTransform->x + ownerW
+                : ownerTransform->x - shieldW;
+            drawX = viewOriginX + (shieldWorldX - m_flow.cameraX) * viewScale;
+            drawY = viewOriginY + (ownerTransform->y - m_flow.cameraY) * viewScale;
         }
     }
-    if ((tag && HasTag(tag, kTagPlayer)) ||
-        entity.GetComponent<ShieldBossComponent>() ||
-        (tag && HasTag(tag, "BossShield")) ||
-        (tag && HasTag(tag, "BossRoarEffect")))
+    if (tag && HasTag(tag, kTagPlayer))
     {
         const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
         if (animation)
