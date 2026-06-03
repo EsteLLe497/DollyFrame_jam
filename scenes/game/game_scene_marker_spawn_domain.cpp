@@ -485,6 +485,7 @@ namespace
     };
 
     bool TryResolveSepiaGroupSizing(
+        char targetMarker,
         char restoredMarkerType,
         SepiaGroupSizing& outSizing)
     {
@@ -524,7 +525,14 @@ namespace
             outSizing.widthTiles = cfg.shutterWidthTiles;
             outSizing.heightTiles = cfg.shutterHeightTiles;
             return true;
-
+        case'+':
+            if (targetMarker == '<')
+            {
+                outSizing.widthTiles = 4.0f;
+                outSizing.heightTiles = cfg.elevatorHeightTiles;
+                return true;
+            }
+            return false;
         default:
             break;
         }
@@ -1631,7 +1639,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
 
             SepiaGroupSizing fixedSizing;
             if (targetRestoredMarkerType != '\0' &&
-                TryResolveSepiaGroupSizing(targetRestoredMarkerType, fixedSizing))
+                TryResolveSepiaGroupSizing(targetMarker,targetRestoredMarkerType, fixedSizing))
             {
                 groupWidthTiles = fixedSizing.widthTiles;
                 groupHeightTiles = fixedSizing.heightTiles;

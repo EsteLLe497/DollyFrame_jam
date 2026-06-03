@@ -603,6 +603,34 @@ SepiaRubbleGroupComponent::SepiaRubbleGroupComponent(
 {
 }
 
+SepiaElevatorComponent::SepiaElevatorComponent(
+    float moveRangeYValue,
+    float moveSpeedValue,
+    float topPauseSecondsValue)
+    : moveRangeY((std::max)(0.0f, moveRangeYValue))
+    , moveSpeed((std::max)(1.0f, moveSpeedValue))
+    , topPauseSeconds((std::max)(0.0f, topPauseSecondsValue))
+{}
+
+void SepiaElevatorComponent::OnAttach(Entity& owner)
+{
+    Component::OnAttach(owner);
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        baseY = transform->y;
+    }
+}
+
+void SepiaElevatorComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Elevator");
+    ImGui::Text("MoveRangeY: %.1f", moveRangeY);
+    ImGui::Text("MoveSpeed: %.1f", moveSpeed);
+    ImGui::Text("TopPause: %.2f", topPauseSeconds);
+    ImGui::Text("CycleStarted: %s", cycleStarted ? "Yes" : "No");
+    ImGui::Text("MovingUp: %s", movingUp ? "Yes" : "No");
+}
+
 namespace
 {
     const char* ToEnemyArchetypeLabel(EnemyArchetype archetype)

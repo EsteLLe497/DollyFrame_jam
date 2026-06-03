@@ -361,7 +361,7 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
     m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/forest.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/ruins.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;

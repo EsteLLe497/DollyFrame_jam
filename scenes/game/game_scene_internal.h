@@ -336,6 +336,7 @@ inline constexpr const char* kTagLaserBeam = "LaserBeam";
 inline constexpr const char* kTagMarkerLight = "MarkerLight";
 inline constexpr const char* kTagStageLight = "StageLight";
 inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
+inline constexpr const char* kTagSepiaElevator = "SepiaElevator";
 
 inline constexpr std::array<char, 32> kMarkerPresets = {
     '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<'
