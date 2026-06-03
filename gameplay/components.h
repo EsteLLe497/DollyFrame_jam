@@ -692,11 +692,6 @@ public:
     float attackRectWidth = 0.0f;
     float attackRectHeight = 0.0f;
 
-    bool combatStarted = false;
-    bool roarPlayed = false;
-    bool roarAnimationActive = false;
-    bool deathAnimationActive = false;
-    bool deathAnimationFinished = false;
     Entity* shieldEntity = nullptr;
 };
 
@@ -1117,21 +1112,12 @@ public:
     struct Clip
     {
         int textureId = -1;
-        std::vector<int> textureIds;
-        bool frameTextureMode = false;
         int columns = 1;
-        int columnsPerTexture = 1;
         int rows = 1;
-        int rowsPerTexture = 1;
-        int texturePageColumns = 1;
         int startFrame = 0;
         int frameCount = 1;
         float fps = 1.0f;
         bool loop = true;
-        float sourceX = 0.0f;
-        float sourceY = 0.0f;
-        float sourceWidth = 1.0f;
-        float sourceHeight = 1.0f;
     };
 
     SpriteSheetAnimationComponent();
@@ -1148,40 +1134,11 @@ public:
         int frameCount,
         float fps,
         bool loop = true);
-    void DefinePagedRowsClip(
-        const std::string& name,
-        const std::vector<int>& textureIds,
-        int columns,
-        int rowsPerTexture,
-        int startFrame,
-        int frameCount,
-        float fps,
-        bool loop = true);
-    void DefinePagedGridClip(
-        const std::string& name,
-        const std::vector<int>& textureIds,
-        int pageColumns,
-        int columnsPerTexture,
-        int rowsPerTexture,
-        int startFrame,
-        int frameCount,
-        float fps,
-        bool loop = true);
-    void DefineFrameTextureClip(
-        const std::string& name,
-        const std::vector<int>& textureIds,
-        float fps,
-        bool loop = true,
-        float sourceX = 0.0f,
-        float sourceY = 0.0f,
-        float sourceWidth = 1.0f,
-        float sourceHeight = 1.0f);
     bool HasClip(const std::string& name) const;
     
     bool Play(const std::string& name, bool restartIfSame = false);
     const std::string& GetCurrentClipName() const;
     int GetCurrentFrameIndex() const;
-    bool IsCurrentClipFinished() const;
     void SetPlaybackSpeed(float speed);
 
 private:

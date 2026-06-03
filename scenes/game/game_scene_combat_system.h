@@ -61,148 +61,6 @@ inline void PlayRangedSpriteAnimation(Entity& entity, const char* clipName, bool
     animation->Play(clipName, restart);
 }
 
-inline const char* GetShieldBossRushClipName(ShieldBossState state)
-{
-    switch (state)
-    {
-    case ShieldBossState::Detect:
-        return "rush_start";
-    case ShieldBossState::Rush:
-        return "rush_attack";
-    case ShieldBossState::RushCooldown:
-        return "rush_end";
-    default:
-        return "idle";
-    }
-}
-
-inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent& boss)
-{
-    constexpr float kBoss1NormalVisualScale = 1.35f;
-    constexpr float kBoss1RoarVisualScale = 1.35f;
-    constexpr float kBoss1DeathVisualScale = 1.68f;
-    constexpr float kBoss1DeathGroundOffsetY = 72.0f;
-
-    if (boss.deathAnimationActive)
-    {
-        if (auto* sprite = entity.GetComponent<SpriteRenderComponent>())
-        {
-            if (const auto* transform = entity.GetComponent<TransformComponent>())
-            {
-                // Death frames have more visual padding, so push the image down and enlarge it.
-                sprite->SetRenderScale(kBoss1DeathVisualScale, kBoss1DeathVisualScale);
-                sprite->SetRenderOffset(
-                    transform->width * (1.0f - kBoss1DeathVisualScale) * 0.5f,
-                    transform->height * (1.0f - kBoss1DeathVisualScale) + kBoss1DeathGroundOffsetY);
-            }
-        }
-        if (auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>())
-        {
-            animation->Play("death");
-        }
-        if (boss.shieldEntity)
-        {
-            if (auto* shieldTint = boss.shieldEntity->GetComponent<TintComponent>())
-            {
-                shieldTint->a = 0.0f;
-            }
-        }
-        return;
-    }
-
-    const bool flipRight = boss.facing == ShieldBossFacing::Right;
-    const char* clipName = GetShieldBossRushClipName(boss.state);
-
-    if (auto* sprite = entity.GetComponent<SpriteRenderComponent>())
-    {
-        if (const auto* transform = entity.GetComponent<TransformComponent>())
-        {
-            const float visualScale = boss.roarAnimationActive ? kBoss1RoarVisualScale : kBoss1NormalVisualScale;
-            sprite->SetRenderScale(visualScale, visualScale);
-            sprite->SetRenderOffset(
-                transform->width * (1.0f - visualScale) * 0.5f,
-                transform->height * (1.0f - visualScale));
-        }
-        // Boss1 sheets face left by default; mirror only when facing right.
-        sprite->SetFlipX(flipRight);
-    }
-    if (auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>())
-    {
-        if (boss.roarAnimationActive)
-        {
-            animation->Play("roar");
-            if (boss.shieldEntity)
-            {
-                if (auto* shieldTint = boss.shieldEntity->GetComponent<TintComponent>())
-                {
-                    shieldTint->a = 0.0f;
-                }
-            }
-            if (animation->IsCurrentClipFinished())
-            {
-                boss.roarAnimationActive = false;
-            }
-            return;
-        }
-        animation->Play(clipName);
-    }
-
-    if (!boss.shieldEntity)
-    {
-        return;
-    }
-
-    if (auto* shieldTint = boss.shieldEntity->GetComponent<TintComponent>())
-    {
-        if (boss.shieldEntity->GetComponent<SpriteSheetAnimationComponent>())
-        {
-            shieldTint->r = 1.0f;
-            shieldTint->g = 1.0f;
-            shieldTint->b = 1.0f;
-            shieldTint->a = 1.0f;
-        }
-        else
-        {
-            shieldTint->r = 0.72f;
-            shieldTint->g = 0.78f;
-            shieldTint->b = 0.90f;
-            shieldTint->a = 1.0f;
-        }
-    }
-
-    if (auto* shieldSprite = boss.shieldEntity->GetComponent<SpriteRenderComponent>())
-    {
-        shieldSprite->SetFlipX(flipRight);
-    }
-    if (auto* shieldAnimation = boss.shieldEntity->GetComponent<SpriteSheetAnimationComponent>())
-    {
-        shieldAnimation->Play(clipName);
-    }
-}
-
-inline void ApplyBossShieldGuardTint(Entity* shieldEntity, TintComponent* shieldTint)
-{
-    if (!shieldTint)
-    {
-        return;
-    }
-
-    if (shieldEntity && shieldEntity->GetComponent<SpriteSheetAnimationComponent>())
-    {
-        // Sprite shields keep their authored colors; only the old white shield is tinted.
-        shieldTint->r = 1.0f;
-        shieldTint->g = 1.0f;
-        shieldTint->b = 1.0f;
-        shieldTint->a = 1.0f;
-        return;
-    }
-
-    shieldTint->r = 0.72f;
-    shieldTint->g = 0.78f;
-    shieldTint->b = 0.90f;
-    shieldTint->a = 1.0f;
-}
-
 inline const char* ToMidBoss2StateLabel(MidBoss2State state)
 {
     switch (state)
@@ -243,7 +101,7 @@ inline float NormalizeAngleRadians(float radians)
     return radians;
 }
 
-template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
+template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
     int tileTexture,
@@ -254,7 +112,6 @@ inline void UpdateEnemies(
     const TransformComponent* playerTransform,
     SnapToGroundFn&& snapToGround,
     PlayEnemyGunFn&& playEnemyGun,
-    PlayShieldBossRoarFn&& playShieldBossRoar,
     CheckPhotoBoxCollisionFn&& checkPhotoBoxCollision,
     IsSolidTileFn&& isSolidTile)
 {
@@ -666,11 +523,6 @@ inline void UpdateEnemies(
         {
             auto* boss = entity->GetComponent<ShieldBossComponent>();
             if (!boss) continue;
-            if (boss->deathAnimationActive)
-            {
-                UpdateShieldBossSpriteAnimation(*entity, *boss);
-                continue;
-            }
 
             const float dx = playerTransform->x - transform->x;
             const float dy = playerTransform->y - transform->y;
@@ -716,7 +568,13 @@ inline void UpdateEnemies(
                     shieldTransform->height = kTileSize * 3.0f;
                     shieldTransform->rotation = 0.0f;
                 }
-                ApplyBossShieldGuardTint(boss->shieldEntity, shieldTint);
+                if (shieldTint)
+                {
+                    shieldTint->r = 0.72f;
+                    shieldTint->g = 0.78f;
+                    shieldTint->b = 0.90f;
+                    shieldTint->a = 1.0f;
+                }
             };
 
             auto isBossNearWall = [&]() -> bool
@@ -875,7 +733,13 @@ inline void UpdateEnemies(
                 }
                 const float shieldW = shieldTransform->width * shieldTransform->scale;
                 const float shieldH = shieldTransform->height * shieldTransform->scale;
-                ApplyBossShieldGuardTint(boss->shieldEntity, shieldTint);
+                if (shieldTint)
+                {
+                    shieldTint->r = 0.72f;
+                    shieldTint->g = 0.78f;
+                    shieldTint->b = 0.90f;
+                    shieldTint->a = 1.0f;
+                }
 
                 if (boss->state == ShieldBossState::JumpAscend)
                 {
@@ -910,7 +774,6 @@ inline void UpdateEnemies(
             };
 
             syncAttachedShieldToBoss();
-            UpdateShieldBossSpriteAnimation(*entity, *boss);
 
             
             if (boss->state == ShieldBossState::Idle ||
@@ -1140,18 +1003,9 @@ inline void UpdateEnemies(
             switch (boss->state)
             {
             case ShieldBossState::Idle:
-                if (inDetectRange || boss->combatStarted)
+                if (inDetectRange)
                 {
-                    const bool firstDetect = !boss->combatStarted;
-                    boss->combatStarted = true;
                     boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
-                    if (firstDetect && !boss->roarPlayed)
-                    {
-                        boss->roarPlayed = true;
-                        boss->roarAnimationActive = true;
-                        playShieldBossRoar(*entity);
-                    }
-                    UpdateShieldBossSpriteAnimation(*entity, *boss);
                     boss->state = ShieldBossState::Detect;
                     boss->stateTimer = 0.0f;
                     boss->rushCount = 0;
@@ -1160,11 +1014,6 @@ inline void UpdateEnemies(
 
             case ShieldBossState::Detect:
                 boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
-                if (boss->roarAnimationActive)
-                {
-                    boss->stateTimer = 0.0f;
-                    break;
-                }
                 if (boss->stateTimer >= 0.5f)
                 {
                     boss->state = ShieldBossState::Rush;
@@ -1303,7 +1152,13 @@ inline void UpdateEnemies(
                             shieldTransform->height = kTileSize * 3.0f;
                             shieldTransform->rotation = 0.0f;
                         }
-                        ApplyBossShieldGuardTint(boss->shieldEntity, shieldTint);
+                        if (shieldTint)
+                        {
+                            shieldTint->r = 0.72f;
+                            shieldTint->g = 0.78f;
+                            shieldTint->b = 0.90f;
+                            shieldTint->a = 1.0f;
+                        }
                     }
                 }
                 break;
