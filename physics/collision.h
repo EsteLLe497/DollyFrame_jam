@@ -1,6 +1,6 @@
 #pragma once
 
-class Entity;
+#include "game_object_fwd.h"
 
 namespace Collision
 {

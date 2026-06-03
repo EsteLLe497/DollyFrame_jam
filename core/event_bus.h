@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-class Entity;
+#include "game_object_fwd.h"
 
 enum class EventType
 {

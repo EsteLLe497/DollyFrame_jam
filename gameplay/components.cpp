@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "components.h"
 
@@ -45,9 +45,9 @@ BarrelComponent::BarrelComponent(
 {
 }
 
-void BarrelComponent::OnAttach(Entity& owner)
+void BarrelComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
@@ -82,9 +82,9 @@ BatteryComponent::BatteryComponent(
 {
 }
 
-void BatteryComponent::OnAttach(Entity& owner)
+void BatteryComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
@@ -118,9 +118,9 @@ BatterySwitchComponent::BatterySwitchComponent(
 {
 }
 
-void BatterySwitchComponent::OnAttach(Entity& owner)
+void BatterySwitchComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
         baseY = transform->y;
@@ -150,9 +150,9 @@ ElevatorComponent::ElevatorComponent(
 {
 }
 
-void ElevatorComponent::OnAttach(Entity& owner)
+void ElevatorComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
         baseY = transform->y;
@@ -196,9 +196,9 @@ ShutterComponent::ShutterComponent(
 {
 }
 
-void ShutterComponent::OnAttach(Entity& owner)
+void ShutterComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
         baseY = transform->y;
@@ -231,9 +231,9 @@ ProtectiveWallComponent::ProtectiveWallComponent(
 {
 }
 
-void ProtectiveWallComponent::OnAttach(Entity& owner)
+void ProtectiveWallComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
         baseY = transform->y;
@@ -507,7 +507,7 @@ PhotoCopyLifetimeComponent::PhotoCopyLifetimeComponent(float lifetimeSeconds)
 
 void PhotoCopyLifetimeComponent::Update(float deltaTime)
 {
-    // マイナス方向へだけ減衰させ、下限は 0 に固定。
+    // Count down only toward zero.
     m_remainingSeconds = std::max(0.0f, m_remainingSeconds - deltaTime);
 }
 
@@ -1343,7 +1343,7 @@ int SpriteSheetAnimationComponent::GetCurrentFrameIndex() const
         return clip.startFrame;
     }
 
-    // 経過秒をフレームへ変換。loop=false の場合は末尾フレームで停止。
+    // Convert elapsed seconds to a frame index; non-looping clips stop at the last frame.
     const float rawFrame = m_elapsedSeconds * clip.fps;
     const int localFrame = clip.loop
         ? static_cast<int>(rawFrame) % clip.frameCount
@@ -1412,7 +1412,7 @@ void SpriteSheetAnimationComponent::ApplyFrameToSprite()
         return;
     }
 
-    // スプライトシート上のフレーム番号を行列インデックスへ変換。
+    // Convert the sprite-sheet frame number to row and column indices.
     const int globalColumn = frameIndex % clip.columns;
     const int globalRow = frameIndex / clip.columns;
     const int columnsPerTexture = (std::max)(1, clip.columnsPerTexture);
@@ -1602,9 +1602,9 @@ RigidBodyComponent::~RigidBodyComponent()
     }
 }
 
-void RigidBodyComponent::OnAttach(Entity& owner)
+void RigidBodyComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     const auto* transform = owner.GetComponent<TransformComponent>();
     if (!m_physicsWorld || !transform)
@@ -1614,7 +1614,7 @@ void RigidBodyComponent::OnAttach(Entity& owner)
 
     b2BodyDef bodyDef = b2DefaultBodyDef();
     bodyDef.type = m_bodyType;
-    // 描画基準（左上）から物理基準（中心）へ変換して初期配置する。
+    // Convert from render origin (top-left) to physics origin (center).
     bodyDef.position = {
         (transform->x + (transform->width * transform->scale * 0.5f)) / kPixelsPerMeter,
         (transform->y + (transform->height * transform->scale * 0.5f)) / kPixelsPerMeter
@@ -1679,7 +1679,7 @@ void RigidBodyComponent::PullTransformFromPhysics()
     const b2Rot rotation = b2Body_GetRotation(m_bodyId);
     const float width = transform->width * transform->scale;
     const float height = transform->height * transform->scale;
-    // 物理中心座標を描画用の左上座標へ戻す。
+    // Convert the physics center position back to the render top-left position.
     transform->x = position.x * kPixelsPerMeter - (width * 0.5f);
     transform->y = position.y * kPixelsPerMeter - (height * 0.5f);
     transform->rotation = b2Rot_GetAngle(rotation);
@@ -1715,9 +1715,9 @@ BoxColliderComponent::BoxColliderComponent(float density, float friction, bool i
 
 BoxColliderComponent::~BoxColliderComponent() = default;
 
-void BoxColliderComponent::OnAttach(Entity& owner)
+void BoxColliderComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     const auto* transform = owner.GetComponent<TransformComponent>();
     const auto* rigidBody = owner.GetComponent<RigidBodyComponent>();
@@ -1783,9 +1783,9 @@ ImageOutlineColliderComponent::~ImageOutlineColliderComponent()
     }
 }
 
-void ImageOutlineColliderComponent::OnAttach(Entity& owner)
+void ImageOutlineColliderComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     const auto* transform = owner.GetComponent<TransformComponent>();
     const auto* rigidBody = owner.GetComponent<RigidBodyComponent>();
@@ -1811,7 +1811,7 @@ void ImageOutlineColliderComponent::OnAttach(Entity& owner)
 
         m_normalizedOutline.clear();
         m_normalizedOutline.reserve(outline.size());
-        // 画像ピクセル座標を [0,1] 正規化で保持し、再利用可能な形にする。
+        // Store image pixel coordinates normalized to [0,1] for reuse.
         for (const ImageOutline::Point& point : outline)
         {
             const float u = static_cast<float>(point.x) / static_cast<float>(imageWidth);
@@ -1837,7 +1837,7 @@ void ImageOutlineColliderComponent::OnAttach(Entity& owner)
     const float halfHeight = worldHeight * 0.5f;
     std::vector<b2Vec2> points;
     points.reserve(m_normalizedOutline.size());
-    // 正規化輪郭をワールドメートル座標に展開し、Chain 形状を作る。
+    // Expand the normalized outline into world meter coordinates and build a chain shape.
     for (const b2Vec2& point : m_normalizedOutline)
     {
         points.push_back({

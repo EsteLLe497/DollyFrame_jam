@@ -366,6 +366,8 @@
     <ClInclude Include="DirectXTex.h" />
     <ClInclude Include="core\entity.h" />
     <ClInclude Include="core\event_bus.h" />
+    <ClInclude Include="core\game_object_fwd.h" />
+    <ClInclude Include="core\game_object.h" />
     <ClInclude Include="scenes\game\game_scene.h" />
     <ClInclude Include="scenes\game\game_scene_internal.h" />
     <ClInclude Include="scenes\game\game_scene_draw_helpers.h" />
