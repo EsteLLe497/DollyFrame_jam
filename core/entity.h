@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <typeindex>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -27,6 +28,7 @@ public:
         auto component = std::make_unique<T>(std::forward<Args>(args)...);
         T& ref = *component;
         component->OnAttach(*this);
+        m_componentLookup.emplace_back(std::type_index(typeid(T)), &ref);
         m_components.push_back(std::move(component));
         ref.Awake();
         if (m_activeSelf && ref.IsEnabled())
@@ -41,10 +43,20 @@ public:
     {
         using ComponentType = std::remove_cv_t<T>;
         static_assert(std::is_base_of_v<MonoBehaviour, ComponentType>, "T must derive from MonoBehaviour");
+        const std::type_index requestedType(typeid(ComponentType));
+        for (const auto& cached : m_componentLookup)
+        {
+            if (cached.first == requestedType)
+            {
+                return static_cast<T*>(cached.second);
+            }
+        }
+
         for (const auto& component : m_components)
         {
             if (auto* typed = dynamic_cast<T*>(component.get()))
             {
+                m_componentLookup.emplace_back(requestedType, typed);
                 return typed;
             }
         }
@@ -56,6 +68,15 @@ public:
     {
         using ComponentType = std::remove_cv_t<T>;
         static_assert(std::is_base_of_v<MonoBehaviour, ComponentType>, "T must derive from MonoBehaviour");
+        const std::type_index requestedType(typeid(ComponentType));
+        for (const auto& cached : m_componentLookup)
+        {
+            if (cached.first == requestedType)
+            {
+                return static_cast<const T*>(cached.second);
+            }
+        }
+
         for (const auto& component : m_components)
         {
             if (auto* typed = dynamic_cast<const T*>(component.get()))
@@ -93,6 +114,7 @@ public:
 private:
     bool m_activeSelf = true;
     std::vector<std::unique_ptr<MonoBehaviour>> m_components;
+    std::vector<std::pair<std::type_index, MonoBehaviour*>> m_componentLookup;
 };
 
 template <typename T, typename... Args>

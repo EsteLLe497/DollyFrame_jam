@@ -188,6 +188,7 @@ void GameScene::RefreshStageRenderProfile()
 void GameScene::BuildCameraMarkers()
 {
     m_cameraFixedRanges.clear();
+    m_fixedRanges.clear();
 
     float tileSize = m_tileMap.GetTileSize();
 
@@ -386,9 +387,15 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
     m_tileMap.LoadFromCsv(gCurrentMapCsvPath, 48.0f);
+    const size_t mapCellCount =
+        static_cast<size_t>((std::max)(0, m_tileMap.GetWidth())) *
+        static_cast<size_t>((std::max)(0, m_tileMap.GetHeight()));
+    m_entities.reserve(128 + mapCellCount / 8);
+    m_pendingEntities.reserve(64);
     RefreshStageRenderProfile();
     gCameraViewWidth = kDefaultCameraViewWidth;
     gCameraViewHeight = kDefaultCameraViewHeight;
+    m_eventBus.Reserve(128);
     m_eventBus.Clear();
     m_physicsWorld.Initialize(0.0f, 0.0f, m_eventBus);
 }

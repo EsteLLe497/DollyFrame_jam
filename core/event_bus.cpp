@@ -4,6 +4,11 @@
 
 #include <algorithm>
 
+void EventBus::Reserve(size_t count)
+{
+    m_events.reserve(count);
+}
+
 void EventBus::Clear()
 {
     m_events.clear();

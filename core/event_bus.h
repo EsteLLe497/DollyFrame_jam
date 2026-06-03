@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -28,6 +29,7 @@ struct Event
 class EventBus
 {
 public:
+    void Reserve(size_t count);
     void Clear();
     void Publish(Event eventData);
     const std::vector<Event>& GetEvents() const;
