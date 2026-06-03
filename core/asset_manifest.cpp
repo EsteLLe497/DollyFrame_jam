@@ -3,6 +3,8 @@
 #include "asset_manifest.h"
 
 #include <fstream>
+#include <iomanip>
+#include <sstream>
 
 #include <nlohmann/json.hpp>
 
@@ -81,6 +83,22 @@ void AssetManifest::LoadDefaults(ResourceManager& resources)
             if (!path.empty())
             {
                 m_textureIds.emplace(key, resources.LoadTexture(ToWideString(path)));
+            }
+        }
+        else if (type == "file_sequence")
+        {
+            const std::string pathPrefix = desc.value("pathPrefix", "");
+            const std::string pathSuffix = desc.value("pathSuffix", "");
+            const int start = desc.value("start", 0);
+            const int count = desc.value("count", 0);
+            const int digits = desc.value("digits", 3);
+            for (int i = 0; i < count; ++i)
+            {
+                std::ostringstream number;
+                number << std::setw(digits) << std::setfill('0') << (start + i);
+                const std::string textureKey = key + "_" + number.str();
+                const std::string path = pathPrefix + number.str() + pathSuffix;
+                m_textureIds.emplace(textureKey, resources.LoadTexture(ToWideString(path)));
             }
         }
     }

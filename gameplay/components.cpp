@@ -1161,12 +1161,138 @@ void SpriteSheetAnimationComponent::DefineClip(
 
     Clip clip;
     clip.textureId = textureId;
+    clip.textureIds = { textureId };
+    clip.frameTextureMode = false;
     clip.columns = (std::max)(1, columns);
+    clip.columnsPerTexture = clip.columns;
     clip.rows = (std::max)(1, rows);
+    clip.rowsPerTexture = clip.rows;
+    clip.texturePageColumns = 1;
     clip.startFrame = (std::max)(0, startFrame);
     clip.frameCount = (std::max)(1, frameCount);
     clip.fps = (std::max)(0.0f, fps);
     clip.loop = loop;
+    m_clips[name] = clip;
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+void SpriteSheetAnimationComponent::DefinePagedRowsClip(
+    const std::string& name,
+    const std::vector<int>& textureIds,
+    int columns,
+    int rowsPerTexture,
+    int startFrame,
+    int frameCount,
+    float fps,
+    bool loop)
+{
+    if (name.empty() || textureIds.empty())
+    {
+        return;
+    }
+
+    Clip clip;
+    clip.textureId = textureIds.front();
+    clip.textureIds = textureIds;
+    clip.frameTextureMode = false;
+    clip.columns = (std::max)(1, columns);
+    clip.columnsPerTexture = clip.columns;
+    clip.rowsPerTexture = (std::max)(1, rowsPerTexture);
+    clip.rows = clip.rowsPerTexture * static_cast<int>(clip.textureIds.size());
+    clip.texturePageColumns = 1;
+    clip.startFrame = (std::max)(0, startFrame);
+    clip.frameCount = (std::max)(1, frameCount);
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    m_clips[name] = clip;
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+void SpriteSheetAnimationComponent::DefinePagedGridClip(
+    const std::string& name,
+    const std::vector<int>& textureIds,
+    int pageColumns,
+    int columnsPerTexture,
+    int rowsPerTexture,
+    int startFrame,
+    int frameCount,
+    float fps,
+    bool loop)
+{
+    if (name.empty() || textureIds.empty())
+    {
+        return;
+    }
+
+    const int safePageColumns = (std::max)(1, pageColumns);
+    const int safeColumnsPerTexture = (std::max)(1, columnsPerTexture);
+    const int safeRowsPerTexture = (std::max)(1, rowsPerTexture);
+    const int pageRows = (std::max)(
+        1,
+        static_cast<int>((textureIds.size() + static_cast<size_t>(safePageColumns) - 1) /
+            static_cast<size_t>(safePageColumns)));
+
+    Clip clip;
+    clip.textureId = textureIds.front();
+    clip.textureIds = textureIds;
+    clip.frameTextureMode = false;
+    clip.columnsPerTexture = safeColumnsPerTexture;
+    clip.rowsPerTexture = safeRowsPerTexture;
+    clip.texturePageColumns = safePageColumns;
+    clip.columns = safeColumnsPerTexture * safePageColumns;
+    clip.rows = safeRowsPerTexture * pageRows;
+    clip.startFrame = (std::max)(0, startFrame);
+    clip.frameCount = (std::max)(1, frameCount);
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    m_clips[name] = clip;
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+void SpriteSheetAnimationComponent::DefineFrameTextureClip(
+    const std::string& name,
+    const std::vector<int>& textureIds,
+    float fps,
+    bool loop,
+    float sourceX,
+    float sourceY,
+    float sourceWidth,
+    float sourceHeight)
+{
+    if (name.empty() || textureIds.empty())
+    {
+        return;
+    }
+
+    Clip clip;
+    clip.textureId = textureIds.front();
+    clip.textureIds = textureIds;
+    clip.frameTextureMode = true;
+    clip.columns = 1;
+    clip.columnsPerTexture = 1;
+    clip.rows = 1;
+    clip.rowsPerTexture = 1;
+    clip.texturePageColumns = 1;
+    clip.startFrame = 0;
+    clip.frameCount = static_cast<int>(textureIds.size());
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    clip.sourceX = std::clamp(sourceX, 0.0f, 1.0f);
+    clip.sourceY = std::clamp(sourceY, 0.0f, 1.0f);
+    clip.sourceWidth = std::clamp(sourceWidth, 0.0f, 1.0f - clip.sourceX);
+    clip.sourceHeight = std::clamp(sourceHeight, 0.0f, 1.0f - clip.sourceY);
     m_clips[name] = clip;
 
     if (m_currentClipName == name)
@@ -1225,6 +1351,27 @@ int SpriteSheetAnimationComponent::GetCurrentFrameIndex() const
     return clip.startFrame + localFrame;
 }
 
+bool SpriteSheetAnimationComponent::IsCurrentClipFinished() const
+{
+    const auto found = m_clips.find(m_currentClipName);
+    if (found == m_clips.end())
+    {
+        return false;
+    }
+
+    const Clip& clip = found->second;
+    if (clip.loop)
+    {
+        return false;
+    }
+    if (clip.frameCount <= 1 || clip.fps <= 0.0f)
+    {
+        return true;
+    }
+
+    return m_elapsedSeconds >= static_cast<float>(clip.frameCount) / clip.fps;
+}
+
 void SpriteSheetAnimationComponent::SetPlaybackSpeed(float speed)
 {
     m_playbackSpeed = (std::max)(0.0f, speed);
@@ -1251,15 +1398,43 @@ void SpriteSheetAnimationComponent::ApplyFrameToSprite()
 
     const Clip& clip = found->second;
     const int frameIndex = GetCurrentFrameIndex();
-    // スプライトシート上のフレーム番号を行列インデックスへ変換。
-    const int column = frameIndex % clip.columns;
-    const int row = frameIndex / clip.columns;
-    const float cellWidth = 1.0f / static_cast<float>(clip.columns);
-    const float cellHeight = 1.0f / static_cast<float>(clip.rows);
-
-    if (clip.textureId >= 0)
+    if (clip.frameTextureMode)
     {
-        sprite->SetTextureId(clip.textureId);
+        const int textureIndex = (std::min)(
+            static_cast<int>(clip.textureIds.size()) - 1,
+            (std::max)(0, frameIndex - clip.startFrame));
+        const int textureId = clip.textureIds[static_cast<size_t>(textureIndex)];
+        if (textureId >= 0)
+        {
+            sprite->SetTextureId(textureId);
+        }
+        sprite->SetSourceRect(clip.sourceX, clip.sourceY, clip.sourceWidth, clip.sourceHeight);
+        return;
+    }
+
+    // スプライトシート上のフレーム番号を行列インデックスへ変換。
+    const int globalColumn = frameIndex % clip.columns;
+    const int globalRow = frameIndex / clip.columns;
+    const int columnsPerTexture = (std::max)(1, clip.columnsPerTexture);
+    const int rowsPerTexture = (std::max)(1, clip.rowsPerTexture);
+    const int pageColumn = globalColumn / columnsPerTexture;
+    const int pageRow = globalRow / rowsPerTexture;
+    const int texturePage = clip.textureIds.empty()
+        ? 0
+        : (std::min)(
+            static_cast<int>(clip.textureIds.size()) - 1,
+            pageRow * (std::max)(1, clip.texturePageColumns) + pageColumn);
+    const int column = globalColumn - pageColumn * columnsPerTexture;
+    const int row = globalRow - pageRow * rowsPerTexture;
+    const float cellWidth = 1.0f / static_cast<float>(columnsPerTexture);
+    const float cellHeight = 1.0f / static_cast<float>(rowsPerTexture);
+
+    const int textureId = clip.textureIds.empty()
+        ? clip.textureId
+        : clip.textureIds[texturePage];
+    if (textureId >= 0)
+    {
+        sprite->SetTextureId(textureId);
     }
 
     sprite->SetSourceRect(

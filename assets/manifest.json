@@ -78,6 +78,58 @@
       "type": "file",
       "path": "assets/texture/enemy2/enemy2_attack.png"
     },
+    "boss1_body_idle": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Body_nb.png"
+    },
+    "boss1_body_rush_start": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Rush_start.png"
+    },
+    "boss1_body_rush_attack": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Rush_attack.png"
+    },
+    "boss1_body_rush_end": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Rush_end.png"
+    },
+    "boss1_body_death": {
+      "type": "file",
+      "path": "assets/texture/boss1/Full/Boss1_death.png"
+    },
+    "boss1_body_roar_frame": {
+      "type": "file_sequence",
+      "pathPrefix": "assets/texture/boss1/Body/RoarFrames/Roar_frame_",
+      "pathSuffix": ".png",
+      "start": 0,
+      "count": 120,
+      "digits": 3
+    },
+    "boss1_roar_effect_frame": {
+      "type": "file_sequence",
+      "pathPrefix": "assets/texture/boss1/Body/RoarEffectFrames/Roar_effect_frame_",
+      "pathSuffix": ".png",
+      "start": 0,
+      "count": 120,
+      "digits": 3
+    },
+    "boss1_shield_idle": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Shield_nb.png"
+    },
+    "boss1_shield_rush_start": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Shield_start.png"
+    },
+    "boss1_shield_rush_attack": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Shield_attack.png"
+    },
+    "boss1_shield_rush_end": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Shield_end.png"
+    },
     "sepia_rubble": {
       "type": "file",
       "path": "assets/texture/SepiaSample1.png"

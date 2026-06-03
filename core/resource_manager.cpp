@@ -2,7 +2,22 @@
 
 #include "resource_manager.h"
 
+#include "logger.h"
 #include "texture.h"
+
+namespace
+{
+    std::string ToLogPath(const std::wstring& path)
+    {
+        std::string result;
+        result.reserve(path.size());
+        for (const wchar_t ch : path)
+        {
+            result.push_back(ch >= 0 && ch <= 0x7F ? static_cast<char>(ch) : '?');
+        }
+        return result;
+    }
+}
 
 ResourceManager::ResourceManager() = default;
 
@@ -39,6 +54,7 @@ int ResourceManager::LoadTexture(const std::wstring& path)
         return id;
     }
 
+    Logger::Warn("Failed to load texture: " + ToLogPath(path));
     m_textureCache.erase(found);
     return id;
 }
