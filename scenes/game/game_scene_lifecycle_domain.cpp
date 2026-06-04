@@ -9,6 +9,7 @@ using namespace game_scene_detail;
 void GameScene::OnEnter(ResourceManager& resources)
 {
     ZoneScoped;
+    const ActiveGameSceneScope activeScene(*this);
 
     ResetSceneState();
     m_lifecycle.loadingResources = &resources;
@@ -98,6 +99,7 @@ void GameScene::FinishLoading()
 
 void GameScene::OnExit()
 {
+    const ActiveGameSceneScope activeScene(*this);
     m_lifecycle.loadingActive = false;
     m_lifecycle.loadingFinished = false;
     m_lifecycle.loadingWarmupFramesRemaining = 0;

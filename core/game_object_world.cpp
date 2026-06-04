@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <unordered_set>
 
 #include "components.h"
 
@@ -47,6 +48,12 @@ void GameObjectWorld::QueueSpawn(std::unique_ptr<Entity> entity)
 
 void GameObjectWorld::FlushPending()
 {
+    if (m_pendingEntities.empty())
+    {
+        return;
+    }
+
+    m_entities.reserve(m_entities.size() + m_pendingEntities.size());
     for (auto& entity : m_pendingEntities)
     {
         m_entities.push_back(std::move(entity));
@@ -109,14 +116,23 @@ void GameObjectWorld::RemoveByPointerList(const std::vector<Entity*>& entitiesTo
         return;
     }
 
+    std::unordered_set<Entity*> removalSet;
+    removalSet.reserve(entitiesToRemove.size());
+    for (Entity* entity : entitiesToRemove)
+    {
+        if (entity)
+        {
+            removalSet.insert(entity);
+        }
+    }
+
     m_entities.erase(
         std::remove_if(
             m_entities.begin(),
             m_entities.end(),
             [&](const std::unique_ptr<Entity>& entity)
             {
-                return entity &&
-                    std::find(entitiesToRemove.begin(), entitiesToRemove.end(), entity.get()) != entitiesToRemove.end();
+                return entity && removalSet.find(entity.get()) != removalSet.end();
             }),
         m_entities.end());
 }

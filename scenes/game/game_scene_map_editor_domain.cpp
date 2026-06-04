@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "DxLib.h"
@@ -131,8 +131,8 @@ bool GameScene::HandleMapEditorModeShortcuts()
             : GameSceneMapEditorState::BrushTarget::Tile;
         m_mapEditor.statusMessage =
             m_mapEditor.brushTarget == GameSceneMapEditorState::BrushTarget::Marker
-            ? "•ÒW‘ÎÛ: ƒ}[ƒJ["
-            : "•ÒW‘ÎÛ: ƒ^ƒCƒ‹";
+            ? "ç·¨é›†å¯¾è±¡: ãƒãƒ¼ã‚«ãƒ¼"
+            : "ç·¨é›†å¯¾è±¡: ã‚¿ã‚¤ãƒ«";
         m_mapEditor.statusMessageTimer = 1.8f;
     }
 
@@ -293,30 +293,30 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
 {
     if (Input_IsKeyPressed(VK_F5))
     {
-        if (m_tileMap.SaveToCsv(gCurrentMapCsvPath))
+        if (m_tileMap.SaveToCsv(m_lifecycle.currentMapCsvPath))
         {
-            m_mapEditor.statusMessage = "•Û‘¶‚µ‚Ü‚µ‚½: " + gCurrentMapCsvPath;
+            m_mapEditor.statusMessage = "ä¿å­˜ã—ã¾ã—ãŸ: " + m_lifecycle.currentMapCsvPath;
             m_mapEditor.statusMessageTimer = 2.4f;
         }
         else
         {
-            m_mapEditor.statusMessage = "•Û‘¶‚É¸”s‚µ‚Ü‚µ‚½";
+            m_mapEditor.statusMessage = "ä¿å­˜ã«å¤±æ•—ã—ã¾ã—ãŸ";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
 
     if (Input_IsKeyPressed(VK_F6))
     {
-        if (m_tileMap.LoadFromCsv(gCurrentMapCsvPath, tileSize))
+        if (m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, tileSize))
         {
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
-            m_mapEditor.statusMessage = "CSV‚ğÄ“Ç‚İ‚İ‚µ‚Ü‚µ‚½";
+            m_mapEditor.statusMessage = "CSVã‚’å†èª­è¾¼ã—ã¾ã—ãŸ";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
         else
         {
-            m_mapEditor.statusMessage = "Ä“Ç‚İ‚İ‚É¸”s‚µ‚Ü‚µ‚½";
+            m_mapEditor.statusMessage = "å†èª­è¾¼ã«å¤±æ•—ã—ã¾ã—ãŸ";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -329,17 +329,17 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
         if (WriteEmptyMapCsv(newMapPath, newWidth, newHeight, 0) &&
             m_tileMap.LoadFromCsv(newMapPath, tileSize))
         {
-            gCurrentMapCsvPath = newMapPath;
+            m_lifecycle.currentMapCsvPath = newMapPath;
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
             m_flow.cameraX = 0.0f;
             m_flow.cameraY = 0.0f;
-            m_mapEditor.statusMessage = "V‹Kƒ}ƒbƒv‚ğì¬: " + newMapPath;
+            m_mapEditor.statusMessage = "æ–°è¦ãƒãƒƒãƒ—ã‚’ä½œæˆ: " + newMapPath;
             m_mapEditor.statusMessageTimer = 3.0f;
         }
         else
         {
-            m_mapEditor.statusMessage = "V‹Kƒ}ƒbƒvì¬‚É¸”s‚µ‚Ü‚µ‚½";
+            m_mapEditor.statusMessage = "æ–°è¦ãƒãƒƒãƒ—ä½œæˆã«å¤±æ•—ã—ã¾ã—ãŸ";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -350,13 +350,13 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
         std::filesystem::create_directories(kEditorMapOutputDir);
         if (m_tileMap.SaveToCsv(duplicatedMapPath))
         {
-            gCurrentMapCsvPath = duplicatedMapPath;
-            m_mapEditor.statusMessage = "•Ê–¼•Û‘¶‚µ‚Ü‚µ‚½: " + duplicatedMapPath;
+            m_lifecycle.currentMapCsvPath = duplicatedMapPath;
+            m_mapEditor.statusMessage = "åˆ¥åä¿å­˜ã—ã¾ã—ãŸ: " + duplicatedMapPath;
             m_mapEditor.statusMessageTimer = 3.0f;
         }
         else
         {
-            m_mapEditor.statusMessage = "•Ê–¼•Û‘¶‚É¸”s‚µ‚Ü‚µ‚½";
+            m_mapEditor.statusMessage = "åˆ¥åä¿å­˜ã«å¤±æ•—ã—ã¾ã—ãŸ";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }

@@ -11,3 +11,13 @@ GameScene::GameScene()
 {
 }
 
+GameSceneTuningState& GameScene::Tuning()
+{
+    return m_tuning;
+}
+
+const GameSceneTuningState& GameScene::Tuning() const
+{
+    return m_tuning;
+}
+

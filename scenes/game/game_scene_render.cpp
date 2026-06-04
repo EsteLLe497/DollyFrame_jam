@@ -30,11 +30,11 @@ namespace
         return 1.0f + c3 * shifted * shifted * shifted + c1 * shifted * shifted;
     }
 
-    void DrawWorldRectOutline(float worldX, float worldY, float worldWidth, float worldHeight, float cameraX, float cameraY, unsigned int color)
+    void DrawWorldRectOutline(const GameScene& scene, float worldX, float worldY, float worldWidth, float worldHeight, float cameraX, float cameraY, unsigned int color)
     {
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const int left = static_cast<int>(std::round(viewOriginX + (worldX - cameraX) * viewScale));
         const int top = static_cast<int>(std::round(viewOriginY + (worldY - cameraY) * viewScale));
         const int right = static_cast<int>(std::round(viewOriginX + (worldX + worldWidth - cameraX) * viewScale));
@@ -43,6 +43,7 @@ namespace
     }
 
     void DrawWorldPolygonOutline(
+        const GameScene& scene,
         const TransformComponent& transform,
         const ImageOutlineColliderComponent& collider,
         float cameraX,
@@ -55,9 +56,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float width = transform.width * transform.scale;
         const float height = transform.height * transform.scale;
         const float centerX = transform.x + width * 0.5f;
@@ -577,6 +578,7 @@ namespace
     }
 
     void DrawFlickerLight(
+        const GameScene& scene,
         const TransformComponent& transform,
         const FlickerLightComponent& light,
         float cameraX,
@@ -588,9 +590,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
         const float flicker = ComputeLightFlicker(timeSeconds, transform, light);
         const float radius = light.radius * viewScale * flicker * 0.42f;
@@ -643,6 +645,7 @@ namespace
     }
 
     void DrawCompactFlickerLight(
+        const GameScene& scene,
         const TransformComponent& transform,
         const FlickerLightComponent& light,
         float cameraX,
@@ -654,9 +657,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
         const float flicker = ComputeLightFlicker(timeSeconds, transform, light);
         const float radius = light.radius * viewScale * flicker * 0.18f;
@@ -688,6 +691,7 @@ namespace
     }
 
     void DrawGodRay(
+        const GameScene& scene,
         const TransformComponent& transform,
         const FlickerLightComponent& light,
         float cameraX,
@@ -699,9 +703,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
         const float pulse = ComputeGodRayPulse(timeSeconds, transform, light);
         const float beamLength = light.godRayLength * viewScale;
@@ -766,6 +770,7 @@ namespace
     }
 
     void DrawStageLightBeam(
+        const GameScene& scene,
         const TransformComponent& transform,
         const StageLightComponent& light,
         float beamLengthWorld,
@@ -777,9 +782,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float beamLength = beamLengthWorld * viewScale;
         const float topWidth = (light.beamTopWidth > 0.0f ? light.beamTopWidth : transform.width) * transform.scale * viewScale;
         const float bottomWidth = (light.beamBottomWidth > 0.0f ? light.beamBottomWidth : transform.width * 3.0f) * transform.scale * viewScale;
@@ -1484,16 +1489,16 @@ void GameScene::DrawEffects() const
     {
         if (godRayCount < maxGodRays)
         {
-            DrawGodRay(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
+            DrawGodRay(*this, *target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
             ++godRayCount;
         }
         if (m_lifecycle.darknessStageEnabled)
         {
-            DrawCompactFlickerLight(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
+            DrawCompactFlickerLight(*this, *target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
         }
         else
         {
-            DrawFlickerLight(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
+            DrawFlickerLight(*this, *target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
         }
     }
 
@@ -1521,7 +1526,7 @@ void GameScene::DrawEffects() const
         }
 
         const float beamLengthWorld = (stageLight->beamLength > 0.0f ? stageLight->beamLength : transform->height * 3.0f) * transform->scale;
-        DrawStageLightBeam(*transform, *stageLight, beamLengthWorld, m_flow.cameraX, m_flow.cameraY);
+        DrawStageLightBeam(*this, *transform, *stageLight, beamLengthWorld, m_flow.cameraX, m_flow.cameraY);
     }
 
     for (const auto& entity : m_world.Entities())
@@ -2531,7 +2536,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             color = GetColor(96, 255, 220);
         }
 
-        DrawWorldRectOutline(
+        DrawWorldRectOutline(*this,
             transform->x,
             transform->y,
             transform->width * transform->scale,
@@ -2542,7 +2547,7 @@ void GameScene::DrawEntity(const Entity& entity) const
 
         if (const auto* imageCollider = entity.GetComponent<ImageOutlineColliderComponent>())
         {
-            DrawWorldPolygonOutline(*transform, *imageCollider, m_flow.cameraX, m_flow.cameraY, color);
+            DrawWorldPolygonOutline(*this, *transform, *imageCollider, m_flow.cameraX, m_flow.cameraY, color);
         }
 
         if (const auto* spear = midBoss2Spear)

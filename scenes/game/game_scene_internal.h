@@ -1,4 +1,4 @@
-#pragma once
+Ôªø#pragma once
 
 #include "game_scene.h"
 
@@ -35,60 +35,81 @@ struct StageTransitionLink
 };
 
 inline std::vector<StageTransitionLink> gStageTransitionLinks;
-inline std::string gCurrentMapCsvPath = "assets/maps/stages/stage_58x25.csv";
-inline char gLastStageTransitionMarker = '\0';
 
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";
 constexpr float kPixelsPerMeter = 100.0f;
-inline float gCameraViewWidth = 1120.0f;
-inline float gCameraViewHeight = 630.0f;
-inline float gDefaultCameraViewWidth = 1920.0f;
-inline float gDefaultCameraViewHeight = 1080.0f;
-inline float gCameraFollowSpeedX = 14.0f;
-inline float gCameraFollowSpeedY = 10.0f;
-inline float gCameraFollowY = 1.0f;
-inline float gPlayerMoveSpeed = 320.0f;
-inline float gPlayerJumpSpeed = -1048.0f;
-inline float gPlayerGravity = 1900.0f;
-inline float gPlayerMaxFallSpeed = 980.0f;
-inline float gPlayerDodgeSpeed = 780.0f;
-inline float gPlayerDodgeDistance = 124.8f;
-inline float gPlayerDodgeInvincibilitySeconds = 0.16f;
-inline float gPlayerDodgeCooldown = 0.45f;
-inline float gCoyoteTimeSeconds = 0.10f;
-inline float gGroundSnapDistance = 8.0f;
-inline float gGroundStepUpHeight = 0.25f;
-inline float gShutterFlashSeconds = 0.18f;
-inline float gCaptureWidthTiles = 5.0f;
-inline float gCaptureHeightTiles = 3.0f;
-inline float gCaptureRapidShotLimit = 4.0f;
-inline float gCaptureRapidWindowSeconds = 1.2f;
-inline float gCaptureOverheatLockSeconds = 1.0f;
-inline float gPrintedPhotoPaddingX = 16.0f;
-inline float gPrintedPhotoPaddingTop = 16.0f;
-inline float gPrintedPhotoFooterHeight = 52.0f;
-inline float gPrintedPhotoMinWidth = 120.0f;
-inline float gPrintedPhotoMinHeight = 144.0f;
-inline float gPrintedPhotoMatteInset = 3.0f;
-inline float gPickupTimeBonus = 8.0f;
-inline float gBarrelGravity = 1900.0f;
-inline float gBarrelMaxFallSpeed = 980.0f;
-inline float gBarrelRollSpeed = 220.0f;
-inline float gBarrelGroundFriction = 720.0f;
-inline int gBarrelContactDamage = 1;
-inline float gBarrelBreakMinFallDistance = 99999.0f;
-inline float gBarrelBreakMinImpactSpeed = 99999.0f;
-inline float gBarrelActivationPaddingX = 320.0f;
-inline float gPastedObjectLifetimeSeconds = 10.0f;
-inline float gPastedObjectPasteAnimationSeconds = 0.24f;
-inline float gRenderShakeOffsetX = 0.0f;
-inline float gRenderShakeOffsetY = 0.0f;
-inline float gRenderViewScaleMultiplier = 1.0f;
-inline bool gRenderZoomAnchorScreenCenter = false;
-inline float gRenderZoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
-inline float gRenderZoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
 constexpr float kHorizontalCollisionEpsilon = 1.0f;
+
+inline GameScene* gActiveGameScene = nullptr;
+
+inline GameScene* GetActiveGameScene()
+{
+    return gActiveGameScene;
+}
+
+inline void SetActiveGameScene(GameScene* scene)
+{
+    gActiveGameScene = scene;
+}
+
+struct ActiveGameSceneScope
+{
+    explicit ActiveGameSceneScope(GameScene& scene)
+        : previous(GetActiveGameScene())
+    {
+        SetActiveGameScene(&scene);
+    }
+
+    ~ActiveGameSceneScope()
+    {
+        SetActiveGameScene(previous);
+    }
+
+    GameScene* previous = nullptr;
+};
+
+#define gCameraViewWidth (game_scene_detail::GetActiveGameScene()->Tuning().cameraViewWidth)
+#define gCameraViewHeight (game_scene_detail::GetActiveGameScene()->Tuning().cameraViewHeight)
+#define gDefaultCameraViewWidth (game_scene_detail::GetActiveGameScene()->Tuning().defaultCameraViewWidth)
+#define gDefaultCameraViewHeight (game_scene_detail::GetActiveGameScene()->Tuning().defaultCameraViewHeight)
+#define gCameraFollowSpeedX (game_scene_detail::GetActiveGameScene()->Tuning().cameraFollowSpeedX)
+#define gCameraFollowSpeedY (game_scene_detail::GetActiveGameScene()->Tuning().cameraFollowSpeedY)
+#define gCameraFollowY (game_scene_detail::GetActiveGameScene()->Tuning().cameraFollowY)
+#define gPlayerMoveSpeed (game_scene_detail::GetActiveGameScene()->Tuning().playerMoveSpeed)
+#define gPlayerJumpSpeed (game_scene_detail::GetActiveGameScene()->Tuning().playerJumpSpeed)
+#define gPlayerGravity (game_scene_detail::GetActiveGameScene()->Tuning().playerGravity)
+#define gPlayerMaxFallSpeed (game_scene_detail::GetActiveGameScene()->Tuning().playerMaxFallSpeed)
+#define gPlayerDodgeSpeed (game_scene_detail::GetActiveGameScene()->Tuning().playerDodgeSpeed)
+#define gPlayerDodgeDistance (game_scene_detail::GetActiveGameScene()->Tuning().playerDodgeDistance)
+#define gPlayerDodgeInvincibilitySeconds (game_scene_detail::GetActiveGameScene()->Tuning().playerDodgeInvincibilitySeconds)
+#define gPlayerDodgeCooldown (game_scene_detail::GetActiveGameScene()->Tuning().playerDodgeCooldown)
+#define gCoyoteTimeSeconds (game_scene_detail::GetActiveGameScene()->Tuning().coyoteTimeSeconds)
+#define gGroundSnapDistance (game_scene_detail::GetActiveGameScene()->Tuning().groundSnapDistance)
+#define gGroundStepUpHeight (game_scene_detail::GetActiveGameScene()->Tuning().groundStepUpHeight)
+#define gShutterFlashSeconds (game_scene_detail::GetActiveGameScene()->Tuning().shutterFlashSeconds)
+#define gCaptureWidthTiles (game_scene_detail::GetActiveGameScene()->Tuning().captureWidthTiles)
+#define gCaptureHeightTiles (game_scene_detail::GetActiveGameScene()->Tuning().captureHeightTiles)
+#define gCaptureRapidShotLimit (game_scene_detail::GetActiveGameScene()->Tuning().captureRapidShotLimit)
+#define gCaptureRapidWindowSeconds (game_scene_detail::GetActiveGameScene()->Tuning().captureRapidWindowSeconds)
+#define gCaptureOverheatLockSeconds (game_scene_detail::GetActiveGameScene()->Tuning().captureOverheatLockSeconds)
+#define gPrintedPhotoPaddingX (game_scene_detail::GetActiveGameScene()->Tuning().printedPhotoPaddingX)
+#define gPrintedPhotoPaddingTop (game_scene_detail::GetActiveGameScene()->Tuning().printedPhotoPaddingTop)
+#define gPrintedPhotoFooterHeight (game_scene_detail::GetActiveGameScene()->Tuning().printedPhotoFooterHeight)
+#define gPrintedPhotoMinWidth (game_scene_detail::GetActiveGameScene()->Tuning().printedPhotoMinWidth)
+#define gPrintedPhotoMinHeight (game_scene_detail::GetActiveGameScene()->Tuning().printedPhotoMinHeight)
+#define gPrintedPhotoMatteInset (game_scene_detail::GetActiveGameScene()->Tuning().printedPhotoMatteInset)
+#define gPickupTimeBonus (game_scene_detail::GetActiveGameScene()->Tuning().pickupTimeBonus)
+#define gBarrelGravity (game_scene_detail::GetActiveGameScene()->Tuning().barrelGravity)
+#define gBarrelMaxFallSpeed (game_scene_detail::GetActiveGameScene()->Tuning().barrelMaxFallSpeed)
+#define gBarrelRollSpeed (game_scene_detail::GetActiveGameScene()->Tuning().barrelRollSpeed)
+#define gBarrelGroundFriction (game_scene_detail::GetActiveGameScene()->Tuning().barrelGroundFriction)
+#define gBarrelContactDamage (game_scene_detail::GetActiveGameScene()->Tuning().barrelContactDamage)
+#define gBarrelBreakMinFallDistance (game_scene_detail::GetActiveGameScene()->Tuning().barrelBreakMinFallDistance)
+#define gBarrelBreakMinImpactSpeed (game_scene_detail::GetActiveGameScene()->Tuning().barrelBreakMinImpactSpeed)
+#define gBarrelActivationPaddingX (game_scene_detail::GetActiveGameScene()->Tuning().barrelActivationPaddingX)
+#define gPastedObjectLifetimeSeconds (game_scene_detail::GetActiveGameScene()->Tuning().pastedObjectLifetimeSeconds)
+#define gPastedObjectPasteAnimationSeconds (game_scene_detail::GetActiveGameScene()->Tuning().pastedObjectPasteAnimationSeconds)
 
 inline float Clamp01(float value)
 {
@@ -691,55 +712,7 @@ inline PhotoCopyOrigin GetEntityCopyOrigin(const Entity& entity)
     return PhotoCopyOrigin::Generic;
 }
 
-inline float GetViewScale()
-{
-    const float marginX = std::clamp(static_cast<float>(SCREEN_WIDTH) * 0.04f, 48.0f, 96.0f);
-    const float marginY = std::clamp(static_cast<float>(SCREEN_HEIGHT) * 0.04f, 36.0f, 72.0f);
-    const float maxWidth = static_cast<float>(SCREEN_WIDTH) - marginX * 2.0f;
-    const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - marginY * 2.0f;
-    //return std::max(1.0f, std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight)) * gRenderViewScaleMultiplier;
-	return std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight) * gRenderViewScaleMultiplier;
-}
-
-inline float GetViewWidth()
-{
-    return gCameraViewWidth * GetViewScale();
-}
-
-inline float GetViewHeight()
-{
-    return gCameraViewHeight * GetViewScale();
-}
-
-inline float GetViewOriginX()
-{
-    if (GetViewWidth() >= static_cast<float>(SCREEN_WIDTH))
-    {
-        if (gRenderZoomAnchorScreenCenter)
-        {
-            return std::round(gRenderZoomAnchorX - GetViewWidth() * 0.5f) + gRenderShakeOffsetX;
-        }
-        return gRenderShakeOffsetX;
-    }
-
-    return std::round((static_cast<float>(SCREEN_WIDTH) - GetViewWidth()) * 0.5f) + gRenderShakeOffsetX;
-}
-
-inline float GetViewOriginY()
-{
-    if (GetViewHeight() >= static_cast<float>(SCREEN_HEIGHT))
-    {
-        if (gRenderZoomAnchorScreenCenter)
-        {
-            return std::round(gRenderZoomAnchorY - GetViewHeight() * 0.5f) + gRenderShakeOffsetY;
-        }
-        return gRenderShakeOffsetY;
-    }
-
-    return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f) + gRenderShakeOffsetY;
-}
-
-// 3/21ÅEΩ«âÔøΩÅEΩFÅEΩÅEΩ^ÅEΩCÅEΩÅEΩÅEΩÃï\ÅEΩÅEΩYÅEΩÅEΩÅEΩWÅEΩÅEΩÊìæ(ÅEΩcÅEΩVÅEΩÅEΩr)
+// 3/21„ÉªÔΩΩÔæá‰ºöÔΩøÔΩΩ„ÉªÔΩΩF„ÉªÔΩΩ„ÉªÔΩΩ^„ÉªÔΩΩC„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩÔæåË°®„ÉªÔΩΩ„ÉªÔΩΩY„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩW„ÉªÔΩΩ„ÉªÔΩΩË¨´ÔΩæ(„ÉªÔΩΩc„ÉªÔΩΩV„ÉªÔΩΩ„ÉªÔΩΩr)
 inline bool TryGetSlopeSurfaceYShared(
     const TileMap& tileMap,
     int column,

@@ -11,6 +11,7 @@ using namespace game_scene_detail;
 
 void GameScene::UpdateTuningHotReload(float deltaTime)
 {
+    const ActiveGameSceneScope activeScene(*this);
     if (!m_debug.showTuningPanel)
     {
         return;
@@ -71,6 +72,7 @@ void GameScene::HandleGlobalSceneShortcuts()
 
 bool GameScene::OnCancelAction()
 {
+    const ActiveGameSceneScope activeScene(*this);
     if (m_mapEditor.active)
     {
         m_mapEditor.active = false;

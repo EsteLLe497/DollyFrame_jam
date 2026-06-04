@@ -179,12 +179,60 @@ struct GameSceneMapEditorState
     std::string statusMessage;
     float statusMessageTimer = 0.0f;
 };
+
+struct GameSceneTuningState
+{
+    float cameraViewWidth = 1120.0f;
+    float cameraViewHeight = 630.0f;
+    float defaultCameraViewWidth = 1920.0f;
+    float defaultCameraViewHeight = 1080.0f;
+    float cameraFollowSpeedX = 14.0f;
+    float cameraFollowSpeedY = 10.0f;
+    float cameraFollowY = 1.0f;
+    float playerMoveSpeed = 320.0f;
+    float playerJumpSpeed = -1048.0f;
+    float playerGravity = 1900.0f;
+    float playerMaxFallSpeed = 980.0f;
+    float playerDodgeSpeed = 780.0f;
+    float playerDodgeDistance = 124.8f;
+    float playerDodgeInvincibilitySeconds = 0.16f;
+    float playerDodgeCooldown = 0.45f;
+    float coyoteTimeSeconds = 0.10f;
+    float groundSnapDistance = 8.0f;
+    float groundStepUpHeight = 0.25f;
+    float shutterFlashSeconds = 0.18f;
+    float captureWidthTiles = 5.0f;
+    float captureHeightTiles = 3.0f;
+    float captureRapidShotLimit = 4.0f;
+    float captureRapidWindowSeconds = 1.2f;
+    float captureOverheatLockSeconds = 1.0f;
+    float printedPhotoPaddingX = 16.0f;
+    float printedPhotoPaddingTop = 16.0f;
+    float printedPhotoFooterHeight = 52.0f;
+    float printedPhotoMinWidth = 120.0f;
+    float printedPhotoMinHeight = 144.0f;
+    float printedPhotoMatteInset = 3.0f;
+    float pickupTimeBonus = 8.0f;
+    float barrelGravity = 1900.0f;
+    float barrelMaxFallSpeed = 980.0f;
+    float barrelRollSpeed = 220.0f;
+    float barrelGroundFriction = 720.0f;
+    int barrelContactDamage = 1;
+    float barrelBreakMinFallDistance = 99999.0f;
+    float barrelBreakMinImpactSpeed = 99999.0f;
+    float barrelActivationPaddingX = 320.0f;
+    float pastedObjectLifetimeSeconds = 10.0f;
+    float pastedObjectPasteAnimationSeconds = 0.24f;
+};
+
 struct GameSceneLifecycleState
 {
     bool hasPendingStageTransition = false;
     std::string pendingStageTransitionMapCsv;
     char pendingStageTransitionSpawnMarker = '\0';
     char pendingStageTransitionMarker = '\0';
+    std::string currentMapCsvPath = "assets/maps/stages/stage_58x25.csv";
+    char lastStageTransitionMarker = '\0';
     bool darknessStageEnabled = false;
     ResourceManager* loadingResources = nullptr;
     bool loadingActive = false;
@@ -193,4 +241,14 @@ struct GameSceneLifecycleState
     int loadingStep = 0;
     float loadingElapsed = 0.0f;
     float loadingProgress = 0.0f;
+};
+
+struct GameSceneRenderState
+{
+    float shakeOffsetX = 0.0f;
+    float shakeOffsetY = 0.0f;
+    float viewScaleMultiplier = 1.0f;
+    bool zoomAnchorScreenCenter = false;
+    float zoomAnchorX = 0.0f;
+    float zoomAnchorY = 0.0f;
 };

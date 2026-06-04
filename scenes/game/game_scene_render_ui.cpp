@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_render_ui_helpers.h"
@@ -1004,7 +1004,7 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     DrawSepiaFilmNoise(effectLeft, effectTop, effectRight, effectBottom, frame);
     DrawSepiaFilmDust(effectLeft, effectTop, effectRight, effectBottom, frame);
     DrawSepiaFilmScratches(effectLeft, effectTop, effectRight, effectBottom, frame);
-    // ƒtƒŒ[ƒ€“à‚ÌŠ¢âI‚ğ‘«êƒeƒNƒXƒ`ƒƒ‚ÅƒvƒŒƒrƒ…[•`‰æ
+    // ãƒ•ãƒ¬ãƒ¼ãƒ å†…ã®ç“¦ç¤«ã‚’è¶³å ´ãƒ†ã‚¯ã‚¹ãƒãƒ£ã§ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼æç”»
     for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, kTagSepiaRubble))
@@ -1032,7 +1032,7 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         {
             continue;
         }
-        // ƒtƒŒ[ƒ€‚Æd‚È‚Á‚½Š¢âI•”•ª‚Ì‚İ‚ğ•`‰æ
+        // ãƒ•ãƒ¬ãƒ¼ãƒ ã¨é‡ãªã£ãŸç“¦ç¤«éƒ¨åˆ†ã®ã¿ã‚’æç”»
 		const float objectWorldX = t->width * t->scale;
 		const float objectWorldY = t->height * t->scale;
         if (objectWorldX <= 0.0f || objectWorldY <= 0.0f)
@@ -1878,7 +1878,7 @@ void GameScene::DrawBackdrop() const
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-// DrawBackdropBaseInView ‚ğ’u‚«Š·‚¦‚éiŠY“–ŠÖ”‘S‘Ìj
+// DrawBackdropBaseInView ã‚’ç½®ãæ›ãˆã‚‹ï¼ˆè©²å½“é–¢æ•°å…¨ä½“ï¼‰
 void GameScene::DrawBackdropBaseInView(
     float viewOriginX,
     float viewOriginY,
@@ -1886,11 +1886,11 @@ void GameScene::DrawBackdropBaseInView(
     float viewHeight,
     float viewScale) const
 {
-    // ã‚­ãƒ£ãƒE‚·ãƒ¥ã•ã‚ŒãŸèƒŒæ™¯ãƒE‚¯ã‚¹ãƒãƒ£IDã‚’å„ªå…ˆã—ã¦ä½¿ãE¼ˆãªã‘ã‚Œã° manifest ã®æ—¢å®šã‚­ãƒ¼ã«ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯EE
+    // ç¹§ï½­ç¹ï½£ç¹ãƒ»ã™ç¹ï½¥ç¸ºè¼”ï½Œç¸ºæº¯ãƒ¬è­ï½¯ç¹ãƒ»ã‘ç¹§ï½¹ç¹âˆšÎ•IDç¹§è²â”èœˆåŒ»ï¼ ç¸ºï½¦è´ï½¿ç¸ºãƒ»ï½¼åŒ»â†‘ç¸ºä»£ï½Œç¸ºï½° manifest ç¸ºï½®è­Œï½¢è³å£¹ãç¹ï½¼ç¸ºï½«ç¹è¼”ã‹ç¹ï½¼ç¹ï½«ç¹èˆŒãƒ£ç¹§ï½¯ãƒ»ãƒ»
     int bgTexture = m_camera.backdropTextureId >= 0 ? m_camera.backdropTextureId : m_assets.GetTexture("sinrin10");
     int bg1Texture = m_camera.backdropTexture1Id >= 0 ? m_camera.backdropTexture1Id : m_assets.GetTexture("sinrin11");
 
-    // ã•ã‚‰ã«å¿µã®ãŸã‚ manifest ã«ç™»éŒ²ã•ã‚Œã¦ãEªã‘ã‚Œã°æ—¢å®šã«æˆ»ãE
+    // ç¸ºè¼”ï½‰ç¸ºï½«è ¢ï½µç¸ºï½®ç¸ºæº˜ï½ manifest ç¸ºï½«é€‹ï½»éª­ï½²ç¸ºè¼”ï½Œç¸ºï½¦ç¸ºãƒ»â†‘ç¸ºä»£ï½Œç¸ºï½°è­Œï½¢è³å£¹â†“è¬Œï½»ç¸ºãƒ»
     if (bgTexture < 0) bgTexture = m_assets.GetTexture("sinrin10");
     if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("sinrin11");
 
@@ -1912,13 +1912,13 @@ void GameScene::DrawBackdropBaseInView(
     const float drawW1 = viewWidth;
     const float drawH1 = viewHeight;
 
-    // ƒpƒ‰ƒ‰ƒbƒNƒXi—áj
+    // ãƒ‘ãƒ©ãƒ©ãƒƒã‚¯ã‚¹ï¼ˆä¾‹ï¼‰
     const float parallaxX = 0.45f;
     const float parallaxY = 0.45f;
     const float parallaxX1 = 0.85f;
     const float parallaxY1 = 0.45f;
 
-    // ƒJƒƒ‰ˆÊ’u¨UVƒIƒtƒZƒbƒgi0..1j
+    // ã‚«ãƒ¡ãƒ©ä½ç½®â†’UVã‚ªãƒ•ã‚»ãƒƒãƒˆï¼ˆ0..1ï¼‰
     auto calcScroll = [](float worldPos, float parallax, float texSize)->float
     {
         if (parallax == 0.0f) return 0.0f;
@@ -1932,16 +1932,16 @@ void GameScene::DrawBackdropBaseInView(
 
     const float scrollU1 = calcScroll(m_flow.cameraX, parallaxX1, static_cast<float>(texW1));
     const float scrollV1 = calcScroll(-m_flow.cameraY, parallaxY1, static_cast<float>(texH1));
-    // view ‚É‘Î‚·‚é UV ‚ÌƒXƒpƒ“i= ‰æ–Ê• / ƒeƒNƒXƒ`ƒƒ•j
+    // view ã«å¯¾ã™ã‚‹ UV ã®ã‚¹ãƒ‘ãƒ³ï¼ˆ= ç”»é¢å¹… / ãƒ†ã‚¯ã‚¹ãƒãƒ£å¹…ï¼‰
     const float uSpan = drawW / static_cast<float>(texW);
     const float vSpan = drawH / static_cast<float>(texH);
     const float uSpan1 = drawW1 / static_cast<float>(texW1);
     const float vSpan1 = drawH1 / static_cast<float>(texH1);
 
-    // Y ‚ğ‰º‚É‚¸‚ç‚·ƒIƒtƒZƒbƒgi•K—v‚È‚çj
+    // Y ã‚’ä¸‹ã«ãšã‚‰ã™ã‚ªãƒ•ã‚»ãƒƒãƒˆï¼ˆå¿…è¦ãªã‚‰ï¼‰
     const float bg1OffsetY = 24.0f * viewScale;
 
-    // “à•”F1‰ñ•ª‚Ìuv‰ò‚ğl•ªŠ„‚µ‚Ä•`‚­ƒwƒ‹ƒp[itx,ty‚Í [0..inf) ‚ğ‹–—e‚µA¬”•”‚Åˆµ‚¤j
+    // å†…éƒ¨ï¼š1å›åˆ†ã®uvå¡Šã‚’å››åˆ†å‰²ã—ã¦æããƒ˜ãƒ«ãƒ‘ãƒ¼ï¼ˆtx,tyã¯ [0..inf) ã‚’è¨±å®¹ã—ã€å°æ•°éƒ¨ã§æ‰±ã†ï¼‰
     const auto drawTiledChunk = [&](int textureId, float destX, float destY, float destW, float destH, float tx, float ty, float tw, float th)
     {
         // normalize to fractional part in [0,1)
@@ -1962,29 +1962,29 @@ void GameScene::DrawBackdropBaseInView(
         const float h1 = destH * (v1 / th);
         const float h2 = destH - h1;
 
-        // ¶ã
+        // å·¦ä¸Š
         if (w1 > 0.5f && h1 > 0.5f)
         {
             SpriteDraw(textureId, destX, destY, w1, h1, tx, ty, u1, v1, false, 0.0f);
         }
-        // ‰Eã
+        // å³ä¸Š
         if (u2 > 0.0001f && w2 > 0.5f && h1 > 0.5f)
         {
             SpriteDraw(textureId, destX + w1, destY, w2, h1, 0.0f, ty, u2, v1, false, 0.0f);
         }
-        // ¶‰º
+        // å·¦ä¸‹
         if (v2 > 0.0001f && h2 > 0.5f && w1 > 0.5f)
         {
             SpriteDraw(textureId, destX, destY + h1, w1, h2, tx, 0.0f, u1, v2, false, 0.0f);
         }
-        // ‰E‰º
+        // å³ä¸‹
         if (u2 > 0.0001f && v2 > 0.0001f && w2 > 0.5f && h2 > 0.5f)
         {
             SpriteDraw(textureId, destX + w1, destY + h1, w2, h2, 0.0f, 0.0f, u2, v2, false, 0.0f);
         }
     };
 
-    // ”Ä—pFuSpan/vSpan ‚ª 1 ‚ğ’´‚¦‚éê‡‚É‰ñ”•ªƒ^ƒCƒ‹‚µ‚Ä•`‰æ‚·‚éƒ‹[ƒv
+    // æ±ç”¨ï¼šuSpan/vSpan ãŒ 1 ã‚’è¶…ãˆã‚‹å ´åˆã«å›æ•°åˆ†ã‚¿ã‚¤ãƒ«ã—ã¦æç”»ã™ã‚‹ãƒ«ãƒ¼ãƒ—
     const auto drawTiledRepeating = [&](int textureId, float destX, float destY, float destW, float destH, float baseTx, float baseTy, float totalTw, float totalTh)
     {
         const int repsX = std::max(1, static_cast<int>(std::ceil(totalTw)));
@@ -2012,10 +2012,10 @@ void GameScene::DrawBackdropBaseInView(
         }
     };
 
-    // ”wŒii‰œj‚ğ•`‰æ
+    // èƒŒæ™¯ï¼ˆå¥¥ï¼‰ã‚’æç”»
     drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
 
-    // ”wŒi‘OŒiiè‘Oj‚ğ•`‰æiY ‚ğ‰º‚ÉƒIƒtƒZƒbƒgj
+    // èƒŒæ™¯å‰æ™¯ï¼ˆæ‰‹å‰ï¼‰ã‚’æç”»ï¼ˆY ã‚’ä¸‹ã«ã‚ªãƒ•ã‚»ãƒƒãƒˆï¼‰
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
 }
 
@@ -2045,7 +2045,7 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
             const StageTransitionLink* transition = nullptr;
             for (const StageTransitionLink& link : gStageTransitionLinks)
             {
-                const bool sourceMatches = link.sourceMapCsv == "*" || link.sourceMapCsv == gCurrentMapCsvPath;
+                const bool sourceMatches = link.sourceMapCsv == "*" || link.sourceMapCsv == m_lifecycle.currentMapCsvPath;
                 if (sourceMatches && link.marker == marker)
                 {
                     transition = &link;
