@@ -48,12 +48,10 @@ namespace
     inline constexpr int kBoss1DeathSheetRows = 12;
     inline constexpr int kBoss1DeathFrameCount = 120;
     inline constexpr int kBoss1AppearSheetColumns = 10;
-    inline constexpr int kBoss1AppearFirstPageRows = 8;
-    inline constexpr int kBoss1AppearSecondPageRows = 7;
+    inline constexpr int kBoss1AppearSheetRows = 15;
     inline constexpr int kBoss1AppearFrameCount = 150;
     inline constexpr int kBoss1RoarSheetColumns = 10;
-    inline constexpr int kBoss1RoarFirstPageRows = 8;
-    inline constexpr int kBoss1RoarSecondPageRows = 7;
+    inline constexpr int kBoss1RoarSheetRows = 15;
     inline constexpr int kBoss1RoarFrameCount = 150;
     inline constexpr float kBoss1RushStartFps = 24.0f;
     inline constexpr float kBoss1RushAttackFps = 30.0f;
@@ -351,35 +349,23 @@ void GameScene::ConfigureShieldBossSpriteAnimation(Entity& enemy)
         kBoss1DeathFrameCount,
         kBoss1DeathFps,
         false);
-    DefineLazyRowsClip(
+    DefineLazySingleSheetClip(
         *animation,
         "appear",
-        std::vector<std::string>{
-            "boss1_body_appear_page_0",
-            "boss1_body_appear_page_1",
-        },
+        "boss1_body_start",
         resolveTexture,
         kBoss1AppearSheetColumns,
-        std::vector<int>{
-            kBoss1AppearFirstPageRows,
-            kBoss1AppearSecondPageRows,
-        },
+        kBoss1AppearSheetRows,
         kBoss1AppearFrameCount,
         kBoss1AppearFps,
         false);
-    DefineLazyRowsClip(
+    DefineLazySingleSheetClip(
         *animation,
         "roar",
-        std::vector<std::string>{
-            "boss1_body_roar_page_0",
-            "boss1_body_roar_page_1",
-        },
+        "boss1_body_start",
         resolveTexture,
         kBoss1RoarSheetColumns,
-        std::vector<int>{
-            kBoss1RoarFirstPageRows,
-            kBoss1RoarSecondPageRows,
-        },
+        kBoss1RoarSheetRows,
         kBoss1RoarFrameCount,
         kBoss1RoarFps,
         false);
