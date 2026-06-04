@@ -203,6 +203,7 @@ void PrefabFactory::LoadDefinitions()
         return;
     }
 
+    m_definitions.reserve(prefabs.size());
     for (auto it = prefabs.begin(); it != prefabs.end(); ++it)
     {
         const auto& data = it.value();
@@ -463,6 +464,8 @@ void PrefabFactory::LoadDefinitions()
 
 void PrefabFactory::LoadBuiltInDefaults()
 {
+    m_definitions.reserve(5);
+
     PrefabDefinition player;
     player.tag = "Player";
     player.textureKey = "player";

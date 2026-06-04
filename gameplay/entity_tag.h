@@ -9,6 +9,7 @@ enum class EntityTag
     Enemy,
     PhotoBox,
     Goal,
+    Checkpoint,
     PhotoSource,
     Hazard,
     Bullet,
@@ -47,6 +48,7 @@ inline const char* EntityTagToString(EntityTag tag)
     case EntityTag::Enemy: return "Enemy";
     case EntityTag::PhotoBox: return "PhotoBox";
     case EntityTag::Goal: return "Goal";
+    case EntityTag::Checkpoint: return "Checkpoint";
     case EntityTag::PhotoSource: return "PhotoSource";
     case EntityTag::Hazard: return "Hazard";
     case EntityTag::Bullet: return "Bullet";
@@ -85,6 +87,7 @@ inline EntityTag EntityTagFromString(std::string_view tag)
     if (tag == "Enemy") return EntityTag::Enemy;
     if (tag == "PhotoBox") return EntityTag::PhotoBox;
     if (tag == "Goal") return EntityTag::Goal;
+    if (tag == "Checkpoint") return EntityTag::Checkpoint;
     if (tag == "PhotoSource") return EntityTag::PhotoSource;
     if (tag == "Hazard") return EntityTag::Hazard;
     if (tag == "Bullet") return EntityTag::Bullet;

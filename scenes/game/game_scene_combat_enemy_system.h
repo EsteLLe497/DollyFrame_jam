@@ -7,6 +7,8 @@ namespace game_scene_combat_system
 template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
+    const std::vector<Entity*>& enemyEntities,
+    const std::vector<Entity*>& interactionEntities,
     int tileTexture,
     float mapWidth,
     float mapHeight,
@@ -32,7 +34,7 @@ inline void UpdateEnemies(
     constexpr float kMidBoss2GroundOffsetGridY = 4.0f;
     constexpr float kMidBoss2HoverHeightGrid = 11.0f;
 
-    for (const auto& entity : entities)
+    for (Entity* entity : enemyEntities)
     {
         if (!entity)
         {
@@ -403,7 +405,7 @@ inline void UpdateEnemies(
                 auto& proj = bullet->AddComponent<ProjectileComponent>(velX, velY, 1, ProjectileComponent::Owner::BlasterRobot);
                 proj.pierceRemaining = 2;
                 proj.maxEnemyHits = 2;
-                proj.sourceEntity = entity.get();
+                proj.sourceEntity = entity;
                 newBullets.push_back(std::move(bullet));
             }
         }
@@ -516,9 +518,9 @@ inline void UpdateEnemies(
 
             auto findHitNonWallObject = [&]() -> Entity*
             {
-                for (const auto& other : entities)
+                for (Entity* other : interactionEntities)
                 {
-                    if (!other || other.get() == entity.get() || other.get() == boss->shieldEntity)
+                    if (!other || other == entity || other == boss->shieldEntity)
                     {
                         continue;
                     }
@@ -530,7 +532,7 @@ inline void UpdateEnemies(
                     if (IntersectsBounds(*transform, *otherTransform) ||
                         (shieldTransform && IntersectsBounds(*shieldTransform, *otherTransform)))
                     {
-                        return other.get();
+                        return other;
                     }
                 }
                 return nullptr;
@@ -542,9 +544,9 @@ inline void UpdateEnemies(
                 {
                     return;
                 }
-                for (const auto& other : entities)
+                for (Entity* other : interactionEntities)
                 {
-                    if (!other || other.get() == entity.get() || other.get() == boss->shieldEntity)
+                    if (!other || other == entity || other == boss->shieldEntity)
                     {
                         continue;
                     }
@@ -557,9 +559,9 @@ inline void UpdateEnemies(
                     {
                         continue;
                     }
-                    if (std::find(entitiesToRemove.begin(), entitiesToRemove.end(), other.get()) == entitiesToRemove.end())
+                    if (std::find(entitiesToRemove.begin(), entitiesToRemove.end(), other) == entitiesToRemove.end())
                     {
-                        entitiesToRemove.push_back(other.get());
+                        entitiesToRemove.push_back(other);
                     }
                 }
             };
@@ -725,11 +727,11 @@ inline void UpdateEnemies(
                 Entity* hitObject = findHitNonWallObject();
                 if (hitPlayer || hitObject)
                 {
-                    if (hitObject && HasTag(*hitObject, "PhotoBox") &&
-                        std::find(entitiesToRemove.begin(), entitiesToRemove.end(), hitObject) == entitiesToRemove.end())
-                    {
-                        entitiesToRemove.push_back(hitObject);
-                    }
+                        if (hitObject && HasTag(*hitObject, "PhotoBox") &&
+                            std::find(entitiesToRemove.begin(), entitiesToRemove.end(), hitObject) == entitiesToRemove.end())
+                        {
+                            entitiesToRemove.push_back(hitObject);
+                        }
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
@@ -1010,7 +1012,7 @@ inline void UpdateEnemies(
                         shockwave->AddComponent<TintComponent>(0.18f, 0.95f, 1.0f, 0.75f);
                         shockwave->AddComponent<SpriteRenderComponent>(tileTexture);
                         auto& shockComp = shockwave->AddComponent<ShieldShockwaveComponent>();
-                        shockComp.ownerBoss = entity.get();
+                        shockComp.ownerBoss = entity;
                         shockComp.damage = 1;
                         shockComp.lifetime = 0.25f;
                         newShields.push_back(std::move(shockwave));
@@ -1357,7 +1359,7 @@ inline void UpdateEnemies(
                         0.0f,
                         boss->params.spearDamage,
                         ProjectileComponent::Owner::Enemy);
-                    projectile.sourceEntity = entity.get();
+                    projectile.sourceEntity = entity;
                     auto& spearComponent = spear->AddComponent<MidBoss2SpearComponent>();
                     spearComponent.launched = false;
                     spearComponent.fadeRemaining = boss->params.spearFadeTime;

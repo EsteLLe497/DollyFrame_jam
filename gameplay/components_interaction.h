@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -255,6 +256,8 @@ public:
     bool Is(EntityTag value) const;
     bool Is(const char* value) const;
 
-    std::string tag;
     EntityTag tagId = EntityTag::Unknown;
+
+private:
+    std::unique_ptr<std::string> m_customTag;
 };
