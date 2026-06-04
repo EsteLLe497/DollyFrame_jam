@@ -94,6 +94,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="game_scene_camerawork.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -355,6 +356,7 @@
     <ClInclude Include="core\audio.h" />
     <ClInclude Include="core\application.h" />
     <ClInclude Include="core\asset_manifest.h" />
+    <ClInclude Include="game_scene_camerawork.h" />
     <ClInclude Include="physics\image_outline.h" />
     <ClInclude Include="physics\collision.h" />
     <ClInclude Include="core\component.h" />
@@ -364,6 +366,8 @@
     <ClInclude Include="DirectXTex.h" />
     <ClInclude Include="core\entity.h" />
     <ClInclude Include="core\event_bus.h" />
+    <ClInclude Include="core\game_object_fwd.h" />
+    <ClInclude Include="core\game_object.h" />
     <ClInclude Include="scenes\game\game_scene.h" />
     <ClInclude Include="scenes\game\game_scene_internal.h" />
     <ClInclude Include="scenes\game\game_scene_draw_helpers.h" />
@@ -394,8 +398,6 @@
     <ClInclude Include="third_party\imgui\imgui.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
-    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>
-
-

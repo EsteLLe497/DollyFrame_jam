@@ -1,6 +1,5 @@
 #pragma once
 
-#include "asset_manifest.h"
 #include "event_bus.h"
 #include "scene.h"
 
@@ -34,10 +33,8 @@ private:
     void PublishSceneChange(const char* sceneId);
     void ToggleBgm();
 
-    AssetManifest m_assets;
     EventBus m_eventBus;
     int m_whiteTexture;
-    int m_titleTexture;
     float m_blinkTimer;
     float m_sceneTime;
     bool m_showPrompt;

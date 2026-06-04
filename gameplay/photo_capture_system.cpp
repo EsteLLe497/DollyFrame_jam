@@ -193,11 +193,159 @@ namespace
         }
         return assets.GetTexture(baseKey);
     }
+
+    bool ApplySepiaRestoredMarkerCaptureSpec(
+        const SepiaRubbleGroupComponent& sepiaGroup,
+        int restoredTextureId,
+        int textureId,
+        CapturedPhotoItem& item)
+    {
+        switch (sepiaGroup.restoredMarkerType)
+        {
+        case 'M':
+            item.spawnArchetype = CapturedSpawnArchetype::Log;
+            item.textureId = textureId;
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Generic;
+            item.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
+            item.tintR = 0.54f;
+            item.tintG = 0.34f;
+            item.tintB = 0.16f;
+            item.tintA = 1.0f;
+            item.sepiaRestoredMarkerObject = true;
+            return true;
+        case '+':
+            item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
+            item.textureId = restoredTextureId;
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Generic;
+            item.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
+            item.tintA = 1.0f;
+            item.sepiaRestoredMarkerObject = true;
+            return true;
+            // ここに書いてください
+        default:
+            return false;
+        }
+    }
+
+    bool SpawnRestoredSepiaMarkerObject(
+        std::vector<std::unique_ptr<Entity>>& pendingEntities,
+        int whiteTexture,
+        float tileSize,
+        float& restoredLifetimeSeconds,
+        char restoredMarkerType,
+        int restoredMarkerParameter,
+        int column,
+        int row)
+    {
+        if (tileSize <= 0.0f)
+        {
+            return false;
+        }
+
+        switch ((std::toupper(static_cast<unsigned char>(restoredMarkerType))))
+        {
+        case 'M':
+        {
+            const float spawnX = static_cast<float>(column) * tileSize;
+            const float spawnY = static_cast<float>(row) * tileSize;
+
+            auto log = std::make_unique<Entity>();
+            log->AddComponent<TagComponent>(kTagLog);
+            log->AddComponent<TransformComponent>(
+                spawnX,
+                spawnY,
+                tileSize * 4.0f,
+                tileSize);
+            log->AddComponent<TintComponent>(0.54f, 0.34f, 0.16f, 1.0f);
+            log->AddComponent<SpriteRenderComponent>(whiteTexture);
+            log->AddComponent<ImageOutlineColliderComponent>(
+                std::vector<b2Vec2>{
+                    { 0.0f, 0.0f },
+                    { 1.0f, 0.0f },
+                    { 1.0f, 1.0f },
+                { 0.0f, 1.0f }},
+                0.5f);
+            log->AddComponent<BarrelComponent>(
+                gBarrelGravity,
+                gBarrelMaxFallSpeed,
+                0.0f,
+                0.0f,
+                1,
+                99999.0f,
+                99999.0f);
+            log->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
+
+            if (auto* barrel = log->GetComponent<BarrelComponent>())
+            {
+                barrel->active = true;
+                barrel->respawnEnabled = false;
+                barrel->respawnWhenOffscreen = false;
+                barrel->spawnX = spawnX;
+                barrel->spawnY = spawnY;
+            }
+
+            pendingEntities.push_back(std::move(log));
+            return true;
+        }
+        case '+':
+        {
+            constexpr float kSepiaElevatorWidthTiles = 4.0f;
+            constexpr float kSepiaElevatorHeightTiles = 1.0f;
+            constexpr float kSepiaElevatorSpeedTilesPerSec = 2.5f;
+            constexpr float kSepiaElevatorTopPauseSeconds = 1.0f;
+            constexpr float ColorR = 0.42f;
+            constexpr float ColorG = 0.46f;
+            constexpr float ColorB = 0.52f;
+            const float spawnX = static_cast<float>(column) * tileSize;
+            const float spawnY = static_cast<float>(row) * tileSize;
+            const int moveRangeTiles = restoredMarkerParameter > 0
+                ? restoredMarkerParameter : 3;
+            const float extraTime = static_cast<float>(moveRangeTiles) * 0.25f;
+
+            auto elevatorEntity = std::make_unique<Entity>();
+            elevatorEntity->AddComponent<TagComponent>(kTagSepiaElevator);
+            elevatorEntity->AddComponent<TransformComponent>(
+                spawnX,
+                spawnY,
+                tileSize * kSepiaElevatorWidthTiles,
+                tileSize * kSepiaElevatorHeightTiles);
+            elevatorEntity->AddComponent<TintComponent>(
+                ColorR,
+                ColorG,
+                ColorB,
+                1.0f);
+            elevatorEntity->AddComponent<SpriteRenderComponent>(whiteTexture);
+            elevatorEntity->AddComponent<SepiaElevatorComponent>(
+                tileSize * static_cast<float>(moveRangeTiles),
+                tileSize * kSepiaElevatorSpeedTilesPerSec,
+                kSepiaElevatorTopPauseSeconds);
+            elevatorEntity->AddComponent<PhotoCopyLifetimeComponent>(restoredLifetimeSeconds + extraTime);
+            restoredLifetimeSeconds = restoredLifetimeSeconds + extraTime;
+            pendingEntities.push_back(std::move(elevatorEntity));
+
+            return true;
+        }
+        default:
+            return false;
+        }
+    }
 }
 
 void PhotoCaptureSystem::HandleCapture(GameScene& scene)
 {
-    if (!scene.m_flow.cameraMode || !Input_IsActionPressed(InputAction::CapturePhoto))
+    if (!Input_IsActionPressed(InputAction::CapturePhoto))
+    {
+        return;
+    }
+
+    if (scene.m_photo.placement.active)
     {
         return;
     }
@@ -218,6 +366,26 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         return;
     }
 
+    if (scene.m_flow.captureLockoutRemaining > 0.0f)
+    {
+        return;
+    }
+
+    if (scene.m_flow.captureRapidTimer <= 0.0f)
+    {
+        scene.m_flow.captureRapidCount = 0;
+    }
+
+    ++scene.m_flow.captureRapidCount;
+    scene.m_flow.captureRapidTimer = gCaptureRapidWindowSeconds;
+    if (scene.m_flow.captureRapidCount > static_cast<int>(std::round(gCaptureRapidShotLimit)))
+    {
+        scene.m_flow.captureLockoutRemaining = gCaptureOverheatLockSeconds;
+        scene.m_flow.captureRapidCount = 0;
+        scene.m_flow.captureRapidTimer = 0.0f;
+        return;
+    }
+
     Entity* player = scene.FindEntityByTag("Player");
     if (!player)
     {
@@ -235,9 +403,9 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float frameWidth = 0.0f;
     float frameHeight = 0.0f;
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
+    bool restoredSepiaBackground = false;
     scene.m_flow.cameraMode = false;
-    const bool restoredSepiaBackground = false;
-	bool hasSepiaRubbleInFrame = false;
+    bool hasSepiaRubbleInFrame = false;
     for (const auto& entity : scene.m_entities)
     {
 
@@ -260,7 +428,6 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
             hasSepiaRubbleInFrame = true;
             break;
         }
-
     }
 
     const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
@@ -294,7 +461,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     scene.m_photo.capture.containsEnemyAttackPaste = false;
     float capturedMaxRight = 0.0f;
     float capturedMaxBottom = 0.0f;
-    CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom,restoredSepiaBackground);
+    CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom, restoredSepiaBackground);
 
     CaptureTilesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom);
 
@@ -323,7 +490,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     float frameHeight,
     float& capturedMaxRight,
     float& capturedMaxBottom,
-    bool restoredSepiaBackground)
+    bool& restoredSepiaBackground)
 {
     std::vector<Entity*> entitiesToRemove;
     for (const auto& entity : scene.m_entities)
@@ -429,6 +596,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
         const bool capturedSepiaRubble = entity->GetComponent<SepiaRubbleComponent>() != nullptr;
         auto* sepiaGroup = entity->GetComponent<SepiaRubbleGroupComponent>();
+        const bool capturedNumericSepiaRubble = capturedSepiaRubble && sepiaGroup &&
+                   sepiaGroup->markerType == '>' && sepiaGroup->restoredMarkerType == '\0';
         if (sepiaGroup && sepiaGroup->markerType == '<')
         { 
             if (scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia)
@@ -447,40 +616,56 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     }
 
                     const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
-
+                    float restoredLifetimeSeconds = gPastedObjectLifetimeSeconds;
                     if (!sepiaGroup->cellColumns.empty() &&
                         sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size() &&
                         sepiaGroup->cellColumns.size() == sepiaGroup->cellRestoredTileValues.size())
                     {
+                        const bool hasCellRestoredMarkerTypes =
+                            sepiaGroup->cellRestoredMarkerTypes.size() == sepiaGroup->cellColumns.size();
+
+                        const bool hasCellRestoredMarkerParameters =
+                            sepiaGroup->cellRestoredMarkerParameters.size() == sepiaGroup->cellColumns.size();
+
                         for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
                         {
-                            const int v = sepiaGroup->cellRestoredTileValues[ci];
-                            const int tileValueToSet = (v > 0) ? v : 1; // v<=0 はフォールバック
-                            scene.m_tileMap.SetTile(sepiaGroup->cellColumns[ci], sepiaGroup->cellRows[ci], tileValueToSet);
-                        }
-                    }
-                    else if (!sepiaGroup->cellColumns.empty() &&
-                        sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
-                    {
-                        const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
-                        for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
-                        {
-                            scene.m_tileMap.SetTile(sepiaGroup->cellColumns[ci], sepiaGroup->cellRows[ci], tileValueToSet);
-                        }
-                    }
-                    else
-                    {
-                        const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
-                        for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
-                        {
-                            for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
+                            const int column = sepiaGroup->cellColumns[ci];
+                            const int row = sepiaGroup->cellRows[ci];
+
+                            const char restoredMarkerType =
+                                hasCellRestoredMarkerTypes
+                                ? sepiaGroup->cellRestoredMarkerTypes[ci]
+                                : '\0';
+
+                            if (restoredMarkerType != '\0')
                             {
-                                scene.m_tileMap.SetTile(col, row, tileValueToSet);
+                                const int restoredMarkerParameter = hasCellRestoredMarkerParameters
+                                ? sepiaGroup->cellRestoredMarkerParameters[ci] : 0;
+
+                                if (SpawnRestoredSepiaMarkerObject(
+                                    scene.m_pendingEntities,
+                                    scene.m_whiteTexture, 
+                                    tileSize,
+                                    restoredLifetimeSeconds,
+                                    restoredMarkerType,
+                                    restoredMarkerParameter,
+                                    column,
+                                    row))
+                                {
+                                    scene.m_tileMap.SetTile(column, row, 0);
+                                    scene.m_tileMap.SetMarker(column, row, restoredMarkerType, restoredMarkerParameter);
+                                }
+                            }
+                            else
+                            {
+                                const int v = sepiaGroup->cellRestoredTileValues[ci];
+                                const int tileValueToSet = (v > 0) ? v : 1;
+                                scene.m_tileMap.SetTile(column, row, tileValueToSet);
                             }
                         }
                     }
                     sepiaGroup->isRestored = true;
-                    sepiaGroup->restoredLifetime = gPastedObjectLifetimeSeconds;
+                    sepiaGroup->restoredLifetime = restoredLifetimeSeconds;
 					restoredSepiaBackground = true;
                     if (auto* tint = entity->GetComponent<TintComponent>())
                     {
@@ -498,6 +683,67 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 }
             }
             continue;
+        }
+        if (scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia)
+        {
+            if (sepiaGroup && sepiaGroup->markerType == '>' &&
+                sepiaGroup->restoredMarkerType == '\0' && sepiaGroup->restoredTileValue > 0)
+            {
+                const int tileValue = sepiaGroup->restoredTileValue;
+
+
+                item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
+                item.textureId = scene.m_tileTexture;
+                item.role = GetTileCopyRole(tileValue);
+                item.layer = PhotoCopyLayer::Foreground;
+                item.origin = GetTileCopyOrigin(tileValue);
+                item.appliedTheme = scene.m_photo.capture.selectedTheme;
+                item.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
+                item.relativeX = overlapLeft - frameX;
+                item.relativeY = overlapTop - frameY;
+                item.width = overlapWidth;
+                item.height = overlapHeight;
+                item.rotation = targetTransform->rotation;
+                item.sourceX = 0.0f;
+                item.sourceY = 0.0f;
+                item.sourceWidth = 1.0f;
+                item.sourceHeight = 1.0f;
+                GetTileCaptureTint(tileValue, item.tintR, item.tintG, item.tintB, item.tintA);
+                item.sepiaRestoredTileValue = tileValue;
+                item.sourceTileValue = tileValue;
+
+                scene.m_photo.capture.items.push_back(item);
+                capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
+                capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
+                continue;
+            }
+
+            if (sepiaGroup && sepiaGroup->markerType == '>' && sepiaGroup->restoredMarkerType != '\0')
+            {
+                if (ApplySepiaRestoredMarkerCaptureSpec(
+                    *sepiaGroup,
+                    ResolveSepiaTextureId(scene.m_assets, true, sepiaGroup->imageNo),
+                    scene.m_whiteTexture, item))
+                {
+                    item.relativeX = overlapLeft - frameX;
+                    item.relativeY = overlapTop - frameY;
+                    item.width = overlapWidth;
+                    item.height = overlapHeight;
+                    item.rotation = targetTransform->rotation;
+                    item.sourceX = sprite->GetSourceX() + sprite->GetSourceWidth() * localLeft;
+                    item.sourceY = sprite->GetSourceY() + sprite->GetSourceHeight() * localTop;
+                    item.sourceWidth = sprite->GetSourceWidth() * localWidth;
+                    item.sourceHeight = sprite->GetSourceHeight() * localHeight;
+                    
+                    scene.m_photo.capture.items.push_back(item);
+                    scene.m_photo.capture.containsEnemyAttackPaste =
+                        scene.m_photo.capture.containsEnemyAttackPaste || item.enemyAttackPaste;
+
+                    capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
+                    capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
+                }
+                continue;
+            }
         }
         if (capturedSepiaRubble && scene.m_photo.capture.selectedTheme != PhotoFilterTheme::Sepia)
         {
@@ -584,7 +830,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if (capturedSepiaRubble)
         {
             item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
-			item.textureId = scene.m_assets.GetTexture("sepia_ground");
+            item.textureId = capturedNumericSepiaRubble
+                ? ResolveSepiaTextureId(scene.m_assets, true, sepiaGroup->imageNo)
+                : scene.m_assets.GetTexture("sepia_ground");
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
@@ -641,6 +889,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         item.sourceWidth = sprite->GetSourceWidth() * localWidth;
         item.sourceHeight = sprite->GetSourceHeight() * localHeight;
         item.sourceTileValue = tileValueComponent ? tileValueComponent->tileValue : 0;
+        if (capturedNumericSepiaRubble)
+        {
+            item.sepiaRestoredTileValue = sepiaGroup->restoredTileValue;
+        }
         BuildCapturedOutlineFromEntity(*entity, localLeft, localTop, localWidth, localHeight, item.collisionOutline);
         if (damagePlatform)
         {
@@ -795,7 +1047,7 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
                 continue;
             }
 
-            if (tileValue == 1 || tileValue == 8)
+            if (tileValue == 1 || tileValue == 8 || tileValue == 11)
             {
                 continue;
             }

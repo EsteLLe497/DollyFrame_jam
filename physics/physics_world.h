@@ -4,8 +4,6 @@
 
 #include "event_bus.h"
 
-class Entity;
-
 class PhysicsWorld
 {
 public:

@@ -138,9 +138,6 @@
     <ClCompile Include="scenes\game\game_scene_gimmick_domain.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
-    <ClCompile Include="scenes\game\game_scene_update_domains.cpp">
-      <Filter>Source Files\Scenes\Game</Filter>
-    </ClCompile>
     <ClCompile Include="core\game_session.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -333,6 +330,51 @@
     <ClCompile Include="third_party\tracy\public\TracyClient.cpp">
       <Filter>Source Files\Third Party</Filter>
     </ClCompile>
+    <ClCompile Include="physics\image_outline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_facade_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_flow_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_gameplay_pipeline_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_photo_control_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_control_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_effects_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_debug_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_entity_query_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_lifecycle_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_entry_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_menu_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_map_editor_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_marker_spawn_domain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="game_scene_camerawork.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -369,6 +411,12 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="core\event_bus.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\game_object_fwd.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\game_object.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="scenes\game\game_scene.h">
@@ -455,7 +503,11 @@
     <ClInclude Include="third_party\imgui\imgui.h">
       <Filter>Header Files\Third Party</Filter>
     </ClInclude>
+    <ClInclude Include="physics\image_outline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="game_scene_camerawork.h">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClInclude>
   </ItemGroup>
-  </Project>
-
-
+</Project>

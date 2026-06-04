@@ -69,31 +69,55 @@ namespace
         return sizing;
     }
 
-    struct SepiaBackgroundMarkerParameter
+    struct SepiaMarkerParameter
     {
         int imageNo = 0;
-        int restoredTileValue = 2; // 仮
+        int restoredTileValue = 0;
+        char restoredMarkerType = '\0';
+        int restoredMarkerParameter = 0;
         bool valid = true;
     };
 
-    inline SepiaBackgroundMarkerParameter ResolveSepiaBackgroundMarkerParameter(int markerParameter)
+    inline SepiaMarkerParameter ResolveSepiaMarkerParameter(char marker2, int markerParameter, int markerParameter2)
     {
         constexpr int kDefaultImageNo = 0;
-        constexpr int kDefaultRestoredTileValue = 2;
+        constexpr int kDefaultRestoredTileValue = 0;
         constexpr int kMinImageNo = 0;
         constexpr int kMaxImageNo = 9;
         constexpr int kMinRestoredTileValue = 1;
-        constexpr int kMaxRestoredTileValue = 9;
+        constexpr int kMaxRestoredTileValue = 99;
 
-        const int encoded = markerParameter < 0 ? 0 : markerParameter;
-
-        SepiaBackgroundMarkerParameter parameter;
+        SepiaMarkerParameter parameter;
         parameter.imageNo = kDefaultImageNo;
         parameter.restoredTileValue = kDefaultRestoredTileValue;
         parameter.valid = true;
 
+        if (marker2 != '\0')
+        {
+            if (markerParameter != 0)
+            {
+                parameter.valid = false;
+                return parameter;
+            }
+            parameter.imageNo = -1;
+            parameter.restoredTileValue = 0;
+            parameter.restoredMarkerType = static_cast<char>(
+                std::toupper(static_cast<unsigned char>(marker2)));
+            parameter.restoredMarkerParameter = markerParameter2;
+            return parameter;
+        }
+
+        if (markerParameter2 != 0)
+        {
+            parameter.valid = false;
+            return parameter;
+        }
+
+        const int encoded = markerParameter < 0 ? 0 : markerParameter;
+
         if (encoded == 0)
         {
+            parameter.valid = false;
             return parameter;
         }
 
@@ -107,27 +131,23 @@ namespace
             return parameter;
         }
 
-        if (encoded >= 10 && encoded < 100)
+        if (encoded >= 10 && encoded < 1000)
         {
-            const int imageDigit = encoded / 10;
-            const int tileDigit = encoded % 10;
-
-            if (tileDigit == 0)
+            const int restoredTileValue = encoded / 10;
+            const int imageDigit = encoded % 10;
+            if (restoredTileValue == 0)
             {
                 parameter.valid = false;
                 return parameter;
             }
-
             parameter.imageNo = std::clamp(
                 imageDigit,
                 kMinImageNo,
                 kMaxImageNo);
-
             parameter.restoredTileValue = std::clamp(
-                tileDigit,
+                restoredTileValue,
                 kMinRestoredTileValue,
                 kMaxRestoredTileValue);
-
             return parameter;
         }
 
@@ -135,16 +155,18 @@ namespace
         return parameter;
     }
 
-    struct SepiaBackgroundMarkerCell
+    struct SepiaMarkerCell
     {
 		int column = 0;
         int row = 0;
-		int imageNo = 0;
-		int restoredTileValue = 2; // 仮
+		int imageNo = -1;
+        int restoredTileValue = 0;
+        char restoredMarkerType = '\0';
+        int restoredMarkerParameter = 0;
     };
 
-    bool TryGetSepiaBackgroundMarkerCell( const TileMap& tileMap, int column, int row, 
-        SepiaBackgroundMarkerCell& outCell)
+    bool TryGetSepiaMarkerCell( const TileMap& tileMap, int column, int row, 
+        SepiaMarkerCell& outCell)
     {
         if (column < 0 ||
             row < 0 ||
@@ -158,24 +180,34 @@ namespace
             std::toupper(static_cast<unsigned char>(
                 tileMap.GetMarker(column, row))));
 
-        if (marker != '<')
+        if (marker != '>' && marker != '<')
         {
             return false;
         }
 
-        const SepiaBackgroundMarkerParameter parameter =
-            ResolveSepiaBackgroundMarkerParameter(
-                tileMap.GetMarkerParameter(column, row));
-
+        const SepiaMarkerParameter parameter = ResolveSepiaMarkerParameter(
+            tileMap.GetMarker2(column,row),
+            tileMap.GetMarkerParameter(column,row),
+            tileMap.GetMarkerParameter2(column,row)
+                );
+   
         if (!parameter.valid)
         {
             return false;
         }
-
+        if (parameter.restoredMarkerType != '\0')
+        {
+            if (!IsRestoreSepiaObjectMarker(parameter.restoredMarkerType))
+            {
+                return false;
+            }
+        }
         outCell.column = column;
         outCell.row = row;
         outCell.imageNo = parameter.imageNo;
         outCell.restoredTileValue = parameter.restoredTileValue;
+        outCell.restoredMarkerType = parameter.restoredMarkerType;
+        outCell.restoredMarkerParameter = parameter.restoredMarkerParameter;
         return true;
     }
 
@@ -442,6 +474,89 @@ namespace
 
         return laserSwitchLinkIds[static_cast<size_t>(nearestIndex)];
     }
+
+    struct SepiaGroupSizing
+    {
+        float widthTiles = 1.0f;
+        float heightTiles = 1.0f;
+    };
+
+    bool TryResolveSepiaTileSizing(
+        char targetMarker,
+        int restoredTileValue,
+        SepiaGroupSizing& outSizing)
+    {
+        if (targetMarker == '<' && restoredTileValue == 11)
+        {
+            outSizing.widthTiles = 9.0f;
+            outSizing.heightTiles = 5.0f;
+            return true;
+        }
+        return false;
+    }
+
+    bool TryResolveSepiaGroupSizing(
+        char targetMarker,
+        char restoredMarkerType,
+        SepiaGroupSizing& outSizing)
+    {
+        const char marker = static_cast<char>(
+            std::toupper(static_cast<unsigned char>(restoredMarkerType)));
+
+        const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+
+        switch (marker)
+        {
+        case 'M':
+            outSizing.widthTiles = 4.0f;
+            outSizing.heightTiles = 1.0f;
+            return true;
+        case 'K':
+        case 'X':
+            outSizing.widthTiles = cfg.batterySwitchWidthTiles;
+            outSizing.heightTiles = cfg.batterySwitchHeightTiles;
+            return true;
+
+        case 'L':
+            outSizing.widthTiles = cfg.elevatorWidthTiles;
+            outSizing.heightTiles = cfg.elevatorHeightTiles;
+            return true;
+
+        case 'Q':
+            outSizing.widthTiles = 4.0f;
+            outSizing.heightTiles = cfg.elevatorHeightTiles;
+            return true;
+
+        case 'O':
+            outSizing.widthTiles = cfg.laserSwitchWidthTiles;
+            outSizing.heightTiles = cfg.laserSwitchHeightTiles;
+            return true;
+
+        case 'J':
+            outSizing.widthTiles = cfg.shutterWidthTiles;
+            outSizing.heightTiles = cfg.shutterHeightTiles;
+            return true;
+        case'+':
+            if (targetMarker == '<')
+            {
+                outSizing.widthTiles = 4.0f;
+                outSizing.heightTiles = cfg.elevatorHeightTiles;
+                return true;
+            }
+            return false;
+        default:
+            break;
+        }
+
+        if (IsEnemyMarker(marker))
+        {
+            outSizing.widthTiles = 1.0f;
+            outSizing.heightTiles = 1.0f;
+            return true;
+        }
+
+        return false;
+    }
 }
 
 void GameScene::RefreshMarkerDrivenSystems()
@@ -581,7 +696,11 @@ void GameScene::RefreshEnemiesFromMarkers()
                     transform->y,
                     kShieldW,
                     kShieldH);
-                shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
+                shieldEntity->AddComponent<TintComponent>(
+                    0.72f,
+                    0.78f,
+                    0.90f,
+                    bossComp->appearAnimationActive ? 0.0f : 1.0f);
                 shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
                 auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
                 shieldComp.attached = true;
@@ -1400,35 +1519,6 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
         return;
     }
 
-    // 既存 '+' は現状仕様どおり 1マーカー = 1 Entity のまま生成する。
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
-    {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
-        {
-            const char marker = static_cast<char>(
-                std::toupper(static_cast<unsigned char>(
-                    m_tileMap.GetMarker(column, row))));
-
-            if (marker != '+')
-            {
-                continue;
-            }
-
-            const float markerX = static_cast<float>(column) * tileSize;
-            const float markerY = static_cast<float>(row) * tileSize;
-
-            auto rubble = std::make_unique<Entity>();
-            rubble->AddComponent<TagComponent>(kTagSepiaRubble);
-            rubble->AddComponent<TransformComponent>(markerX, markerY, tileSize, tileSize);
-            rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
-            rubble->AddComponent<SpriteRenderComponent>(
-                m_assets.GetTexture("sepia_rubble"));
-            rubble->AddComponent<SepiaRubbleComponent>();
-
-            m_entities.push_back(std::move(rubble));
-        }
-    }
-
     const int mapWidth = m_tileMap.GetWidth();
     const int mapHeight = m_tileMap.GetHeight();
 
@@ -1464,8 +1554,8 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 continue;
             }
             
-            SepiaBackgroundMarkerCell startCell;
-            if (!TryGetSepiaBackgroundMarkerCell(
+            SepiaMarkerCell startCell;
+            if (!TryGetSepiaMarkerCell(
                 m_tileMap,
                 column,
                 row,
@@ -1474,24 +1564,27 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 visited[startIndex] = true;
                 continue;
             }
-
+            
+            const char targetMarker = m_tileMap.GetMarker(column, row);
             const int targetImageNo = startCell.imageNo;
             const int restoredTileValue = startCell.restoredTileValue;
+            const char targetRestoredMarkerType = startCell.restoredMarkerType;
+            const int targetRestoredMarkerParameter = startCell.restoredMarkerParameter;
 
             int minColumn = column;
             int minRow = row;
             int maxColumn = column;
             int maxRow = row;
 
-            std::vector<SepiaBackgroundMarkerCell> groupCells;
-            std::vector<SepiaBackgroundMarkerCell> stack;
+            std::vector<SepiaMarkerCell> groupCells;
+            std::vector<SepiaMarkerCell> stack;
 
             visited[startIndex] = true;
             stack.push_back(startCell);
 
             while (!stack.empty())
             {
-                const SepiaBackgroundMarkerCell current = stack.back();
+                const SepiaMarkerCell current = stack.back();
                 stack.pop_back();
 
                 groupCells.push_back(current);
@@ -1505,7 +1598,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 {
                     const int nextColumn = current.column + offset[0];
                     const int nextRow = current.row + offset[1];
-
+                    
                     if (nextColumn < 0 ||
                         nextRow < 0 ||
                         nextColumn >= mapWidth ||
@@ -1514,14 +1607,15 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                         continue;
                     }
 
+                    const char nextMarker = m_tileMap.GetMarker(nextColumn, nextRow);
                     const size_t nextIndex = toIndex(nextColumn, nextRow);
                     if (visited[nextIndex])
                     {
                         continue;
                     }
 
-                    SepiaBackgroundMarkerCell nextCell;
-                    if (!TryGetSepiaBackgroundMarkerCell(
+                    SepiaMarkerCell nextCell;
+                    if (!TryGetSepiaMarkerCell(
                         m_tileMap,
                         nextColumn,
                         nextRow,
@@ -1530,12 +1624,14 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                         visited[nextIndex] = true;
                         continue;
                     }
-
-                    if (nextCell.imageNo != targetImageNo)
+					
+                    if ((nextCell.imageNo != targetImageNo) || 
+                        (nextCell.restoredMarkerType != targetRestoredMarkerType) || 
+                        (nextCell.restoredMarkerParameter != targetRestoredMarkerParameter) ||
+                        (nextMarker != targetMarker))
                     {
                         continue;
                     }
-
                     visited[nextIndex] = true;
                     stack.push_back(nextCell);
                 }
@@ -1546,14 +1642,47 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 continue;
             }
 
-            // Compute group bounds (kept for informational / future use), but
-            // spawn individual entities per marker (same behavior as '+').
-            const float groupX = static_cast<float>(minColumn) * tileSize;
-            const float groupY = static_cast<float>(minRow) * tileSize;
-            const float groupWidth =
-                static_cast<float>(maxColumn - minColumn + 1) * tileSize;
-            const float groupHeight =
-                static_cast<float>(maxRow - minRow + 1) * tileSize;
+            int groupMinColumn = minColumn;
+            int groupMinRow = minRow;
+            int groupMaxColumn = maxColumn;
+            int groupMaxRow = maxRow;
+
+            float groupWidthTiles =
+                static_cast<float>(groupMaxColumn - groupMinColumn + 1);
+            float groupHeightTiles =
+                static_cast<float>(groupMaxRow - groupMinRow + 1);
+
+            SepiaGroupSizing fixedSizing;
+            if (TryResolveSepiaTileSizing(targetMarker, restoredTileValue, fixedSizing) ||
+                (targetRestoredMarkerType != '\0' &&
+                    TryResolveSepiaGroupSizing(targetMarker, targetRestoredMarkerType, fixedSizing)))
+            {
+                groupWidthTiles = fixedSizing.widthTiles;
+                groupHeightTiles = fixedSizing.heightTiles;
+
+                int fixedWidthTileCount = static_cast<int>(fixedSizing.widthTiles);
+                if (static_cast<float>(fixedWidthTileCount) < fixedSizing.widthTiles)
+                {
+                    ++fixedWidthTileCount;
+                }
+                fixedWidthTileCount = (std::max)(1, fixedWidthTileCount);
+
+                int fixedHeightTileCount = static_cast<int>(fixedSizing.heightTiles);
+                if (static_cast<float>(fixedHeightTileCount) < fixedSizing.heightTiles)
+                {
+                    ++fixedHeightTileCount;
+                }
+                fixedHeightTileCount = (std::max)(1, fixedHeightTileCount);
+
+                groupMaxColumn = groupMinColumn + fixedWidthTileCount - 1;
+                groupMaxRow = groupMinRow + fixedHeightTileCount - 1;
+            }
+
+            float groupX = static_cast<float>(groupMinColumn) * tileSize;
+            float groupY = static_cast<float>(groupMinRow) * tileSize;
+            float groupWidth = groupWidthTiles * tileSize;
+            float groupHeight = groupHeightTiles * tileSize;
+            const int sepiaRubbleTextureId = m_assets.GetTexture("sepia_rubble");
 
             auto rubble = std::make_unique<Entity>();
             rubble->AddComponent<TagComponent>(kTagSepiaRubble);
@@ -1565,22 +1694,28 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             rubble->AddComponent<SpriteRenderComponent>(m_assets.GetTexture("sepia_rubble"));
             rubble->AddComponent<SepiaRubbleComponent>();
 
+
             auto& groupComp = rubble->AddComponent<SepiaRubbleGroupComponent>(
-                '<',
+                targetMarker,
                 targetImageNo,          // startCell.imageNo と同じ
                 restoredTileValue,      // startCell.restoredTileValue
-                minColumn, minRow, maxColumn, maxRow,
+                targetRestoredMarkerType,
+                targetRestoredMarkerParameter,
+                groupMinColumn, groupMinRow, groupMaxColumn, groupMaxRow,
                 false);
 
-            // 空洞復元、セル座標を詰める
             groupComp.cellColumns.reserve(groupCells.size());
             groupComp.cellRows.reserve(groupCells.size());
-			groupComp.cellRestoredTileValues.reserve(groupCells.size());
-            for (const SepiaBackgroundMarkerCell& cell : groupCells)
+            groupComp.cellRestoredTileValues.reserve(groupCells.size());
+            groupComp.cellRestoredMarkerTypes.reserve(groupCells.size());
+            groupComp.cellRestoredMarkerParameters.reserve(groupCells.size());
+            for (const SepiaMarkerCell& cell : groupCells)
             {
                 groupComp.cellColumns.push_back(cell.column);
                 groupComp.cellRows.push_back(cell.row);
                 groupComp.cellRestoredTileValues.push_back(cell.restoredTileValue);
+                groupComp.cellRestoredMarkerTypes.push_back(cell.restoredMarkerType);
+                groupComp.cellRestoredMarkerParameters.push_back(cell.restoredMarkerParameter);
             }
 
             m_entities.push_back(std::move(rubble));

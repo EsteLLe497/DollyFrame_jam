@@ -20,33 +20,10 @@ namespace
 
 void GameScene::UpdateCameraMode()
 {
-    const bool wasCameraMode = m_flow.cameraMode;
-    const bool holdCameraDown = Input_IsActionDown(InputAction::HoldCamera);
-    const bool captureReleasePlaying = m_player.captureAnimationActive && m_player.captureAnimationReleased;
-    m_flow.cameraMode = captureReleasePlaying ? false : holdCameraDown;
     if (m_flow.cameraMode)
     {
-        m_photo.placement.active = false;
-        m_photo.placement.valid = false;
-        m_player.pasteAnimationActive = false;
-        m_player.pasteAnimationReleased = false;
-        m_player.pasteAnimationEnemyAttack = false;
-        m_player.afterimages.clear();
-    }
-    if (m_flow.cameraMode && !wasCameraMode)
-    {
-        m_player.captureAnimationActive = true;
-        m_player.captureAnimationReleased = false;
-        m_player.pasteAnimationActive = false;
-        m_player.pasteAnimationReleased = false;
-        m_player.pasteAnimationEnemyAttack = false;
-        m_player.afterimages.clear();
         ++m_flow.cameraModeSessionId;
-    }
-    else if (!m_flow.cameraMode &&
-        wasCameraMode &&
-        !(m_player.captureAnimationActive && m_player.captureAnimationReleased))
-    {
+        m_flow.cameraMode = false;
         m_player.captureAnimationActive = false;
         m_player.captureAnimationReleased = false;
     }
@@ -55,16 +32,21 @@ void GameScene::UpdateCameraMode()
 float GameScene::UpdatePhotoModes(float deltaTime)
 {
     UpdateCameraMode();
+    m_flow.captureRapidTimer = std::max(0.0f, m_flow.captureRapidTimer - deltaTime);
+    m_flow.captureLockoutRemaining = std::max(0.0f, m_flow.captureLockoutRemaining - deltaTime);
+    if (m_flow.captureRapidTimer <= 0.0f)
+    {
+        m_flow.captureRapidCount = 0;
+    }
 
     // 3状態（撮影/配置/現像プレビュー）から、トレイ表示とスロー演出を一元決定する。
-    const bool placementHeld = !m_flow.cameraMode && m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement);
-    const bool placementActive = placementHeld || m_photo.placement.active;
+    const bool placementActive = m_photo.placement.active;
     const bool previewActive = m_photo.pendingStore.active && m_flow.developedPhotoPreviewRemaining > 0.0f;
     const bool previewOrbAttached =
         previewActive &&
         m_flow.developedPhotoPreviewRemaining <= 0.34f;
-    const bool showPhotoTray = (previewActive && !previewOrbAttached) || m_flow.cameraMode || placementActive;
-    const float trayTarget = showPhotoTray ? 1.0f : 0.0f;
+    const bool showPhotoTray = true;
+    const float trayTarget = 1.0f;
     m_flow.photoTrayReveal += (trayTarget - m_flow.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
     if (showPhotoTray)
     {
@@ -84,7 +66,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
 
 void GameScene::UpdateCaptureFinderZoomInput()
 {
-    if (!m_flow.cameraMode)
+    if (Input_IsKeyDown(VK_RBUTTON) || m_photo.placement.active)
     {
         return;
     }

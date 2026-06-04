@@ -1,9 +1,10 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
-class Entity;
+#include "game_object_fwd.h"
 
 enum class EventType
 {
@@ -28,6 +29,7 @@ struct Event
 class EventBus
 {
 public:
+    void Reserve(size_t count);
     void Clear();
     void Publish(Event eventData);
     const std::vector<Event>& GetEvents() const;

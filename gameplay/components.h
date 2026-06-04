@@ -1,12 +1,13 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include <box2d/box2d.h>
 
-#include "component.h"
+#include "game_object.h"
 
 class PhysicsWorld;
 class EventBus;
@@ -112,7 +113,7 @@ enum class GimmickType
 // ============================================================================
 // Physics / Shared Basics
 // ============================================================================
-class BarrelComponent final : public Component
+class BarrelComponent final : public MonoBehaviour
 {
 public:
     BarrelComponent(
@@ -124,7 +125,7 @@ public:
         float breakMinFallDistance,
         float breakMinImpactSpeed);
 
-    void OnAttach(Entity& owner) override;
+    void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
 
     float velocityX = 0.0f;
@@ -148,7 +149,7 @@ public:
     bool respawnWhenOffscreen = false;
 };
 
-class BatteryComponent final : public Component
+class BatteryComponent final : public MonoBehaviour
 {
 public:
     BatteryComponent(
@@ -158,7 +159,7 @@ public:
         float fallDamageSpeed,
         int contactDamage);
 
-    void OnAttach(Entity& owner) override;
+    void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
 
     float velocityX = 0.0f;
@@ -173,7 +174,7 @@ public:
     float spawnY = 0.0f;
 };
 
-class BatterySwitchComponent final : public Component
+class BatterySwitchComponent final : public MonoBehaviour
 {
 public:
     BatterySwitchComponent(
@@ -184,7 +185,7 @@ public:
         float releaseSpeed,
         bool controlsLaserPower = false);
 
-    void OnAttach(Entity& owner) override;
+    void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
 
     int linkId = 0;
@@ -201,7 +202,7 @@ public:
     bool controlsLaserPower = false;
 };
 
-class ElevatorComponent final : public Component
+class ElevatorComponent final : public MonoBehaviour
 {
 public:
     ElevatorComponent(
@@ -210,7 +211,7 @@ public:
         float moveSpeed,
         float topPauseSeconds);
 
-    void OnAttach(Entity& owner) override;
+    void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
 
     int linkId = 0;
@@ -225,7 +226,7 @@ public:
     bool wasPowered = false;
 };
 
-class LaserSwitchComponent final : public Component
+class LaserSwitchComponent final : public MonoBehaviour
 {
 public:
     explicit LaserSwitchComponent(int linkId);
@@ -236,7 +237,7 @@ public:
     bool isOn = false;
 };
 
-class ShutterComponent final : public Component
+class ShutterComponent final : public MonoBehaviour
 {
 public:
     ShutterComponent(
@@ -246,7 +247,7 @@ public:
         bool useBossDefeatSignal,
         bool opensWhenUnpowered = false);
 
-    void OnAttach(Entity& owner) override;
+    void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
 
     int linkId = 0;
@@ -258,7 +259,7 @@ public:
     bool opensWhenUnpowered = false;
 };
 
-class ProtectiveWallComponent final : public Component
+class ProtectiveWallComponent final : public MonoBehaviour
 {
 public:
     ProtectiveWallComponent(
@@ -268,7 +269,7 @@ public:
         float moveSpeed,
         bool startsOn = false);
 
-    void OnAttach(Entity& owner) override;
+    void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
     void ApplyDamage(int amount);
     int GetCurrentDurability() const;
@@ -296,7 +297,7 @@ enum class LaserTurretFireDirection
     Right
 };
 
-class LaserTurretComponent final : public Component
+class LaserTurretComponent final : public MonoBehaviour
 {
 public:
     LaserTurretComponent(
@@ -314,19 +315,19 @@ public:
     bool shootsLeft = false;
     bool requiresLaserPower = false;
     float playerDamageTimer = 0.0f;
-    std::unordered_map<const Entity*, float> enemyDamageTimers;
+    std::unordered_map<const GameObject*, float> enemyDamageTimers;
     float sparkTimer = 0.0f;
     bool active = true;
     bool fireToLeft = false;
     LaserTurretFireDirection fireDirection = LaserTurretFireDirection::Down;
     float warmupRemaining = 0.0f;
     float enemyKnockbackSpeed = 0.0f;
-    Entity* beamEntity = nullptr;
+    GameObject* beamEntity = nullptr;
     float beamOriginOffsetX = 0.0f;
     float beamOriginOffsetY = 0.0f;
 };
 
-class LaserBeamComponent final : public Component
+class LaserBeamComponent final : public MonoBehaviour
 {
 public:
     LaserBeamComponent(
@@ -337,10 +338,10 @@ public:
 
     float damagePerSecond = 1.0f;
     float enemyKnockbackSpeed = 0.0f;
-    std::unordered_map<const Entity*, float> enemyDamageTimers;
+    std::unordered_map<const GameObject*, float> enemyDamageTimers;
 };
 
-class BossBeamCaptureComponent final : public Component
+class BossBeamCaptureComponent final : public MonoBehaviour
 {
 public:
     BossBeamCaptureComponent() = default;
@@ -348,7 +349,7 @@ public:
     bool captureEnabled = false;
 };
 
-class TransformComponent final : public Component
+class TransformComponent final : public MonoBehaviour
 {
 public:
     TransformComponent(float x, float y, float width, float height);
@@ -361,7 +362,7 @@ public:
     float scale;
 };
 
-class TintComponent final : public Component
+class TintComponent final : public MonoBehaviour
 {
 public:
     TintComponent(float rValue, float gValue, float bValue, float aValue);
@@ -372,7 +373,7 @@ public:
     float a;
 };
 
-class FlickerLightComponent final : public Component
+class FlickerLightComponent final : public MonoBehaviour
 {
 public:
     FlickerLightComponent(
@@ -411,7 +412,7 @@ public:
     float godRaySoftness;
 };
 
-class MarkerLightComponent final : public Component
+class MarkerLightComponent final : public MonoBehaviour
 {
 public:
     MarkerLightComponent(float radius, float intensity, int linkId = -1);
@@ -424,7 +425,7 @@ public:
     bool activated = false;
 };
 
-class StageLightComponent final : public Component
+class StageLightComponent final : public MonoBehaviour
 {
 public:
     StageLightComponent(
@@ -453,7 +454,7 @@ public:
     float intensity;
 };
 
-class TagComponent final : public Component
+class TagComponent final : public MonoBehaviour
 {
 public:
     explicit TagComponent(const char* value);
@@ -464,7 +465,7 @@ public:
 // ============================================================================
 // Photo System Components
 // ============================================================================
-class PhotoCopyRoleComponent final : public Component
+class PhotoCopyRoleComponent final : public MonoBehaviour
 {
 public:
     explicit PhotoCopyRoleComponent(PhotoCopyRole roleValue);
@@ -472,7 +473,7 @@ public:
     PhotoCopyRole role;
 };
 
-class PhotoCopyLayerComponent final : public Component
+class PhotoCopyLayerComponent final : public MonoBehaviour
 {
 public:
     explicit PhotoCopyLayerComponent(PhotoCopyLayer layerValue);
@@ -480,7 +481,7 @@ public:
     PhotoCopyLayer layer;
 };
 
-class PhotoCopyGroupComponent final : public Component
+class PhotoCopyGroupComponent final : public MonoBehaviour
 {
 public:
     explicit PhotoCopyGroupComponent(int groupIdValue);
@@ -488,7 +489,7 @@ public:
     int groupId;
 };
 
-class PhotoPasteOrderComponent final : public Component
+class PhotoPasteOrderComponent final : public MonoBehaviour
 {
 public:
     explicit PhotoPasteOrderComponent(int orderValue);
@@ -496,7 +497,7 @@ public:
     int order;
 };
 
-class PhotoCopyLifetimeComponent final : public Component
+class PhotoCopyLifetimeComponent final : public MonoBehaviour
 {
 public:
     explicit PhotoCopyLifetimeComponent(float lifetimeSeconds);
@@ -513,7 +514,7 @@ private:
     float m_remainingSeconds;
 };
 
-class PhotoPasteAnimationComponent final : public Component
+class PhotoPasteAnimationComponent final : public MonoBehaviour
 {
 public:
     explicit PhotoPasteAnimationComponent(float durationSeconds);
@@ -528,7 +529,7 @@ private:
     float m_elapsedSeconds;
 };
 
-class PhotoCopyOriginComponent final : public Component
+class PhotoCopyOriginComponent final : public MonoBehaviour
 {
 public:
     explicit PhotoCopyOriginComponent(PhotoCopyOrigin originValue);
@@ -536,7 +537,7 @@ public:
     PhotoCopyOrigin origin;
 };
 
-class PhotoCopyTileValueComponent final : public Component
+class PhotoCopyTileValueComponent final : public MonoBehaviour
 {
 public:
     explicit PhotoCopyTileValueComponent(int tileValue);
@@ -544,7 +545,7 @@ public:
     int tileValue;
 };
 
-class DamagePlatformComponent final : public Component
+class DamagePlatformComponent final : public MonoBehaviour
 {
 public:
     explicit DamagePlatformComponent(int tileSpanValue);
@@ -552,7 +553,7 @@ public:
     int tileSpan;
 };
 
-class SpikeStripComponent final : public Component
+class SpikeStripComponent final : public MonoBehaviour
 {
 public:
     explicit SpikeStripComponent(int tileSpanValue);
@@ -560,7 +561,7 @@ public:
     int tileSpan;
 };
 
-class VanishOnCaptureComponent final : public Component
+class VanishOnCaptureComponent final : public MonoBehaviour
 {
 public:
     explicit VanishOnCaptureComponent(bool enabled = true);
@@ -568,7 +569,7 @@ public:
     bool enabled;
 };
 
-class PhotoCopyEffectComponent final : public Component
+class PhotoCopyEffectComponent final : public MonoBehaviour
 {
 public:
     explicit PhotoCopyEffectComponent(PhotoFilterTheme themeValue = PhotoFilterTheme::None);
@@ -584,7 +585,7 @@ private:
 // ============================================================================
 // Enemy / Combat Domain
 // ============================================================================
-class EnemyComponent final : public Component
+class EnemyComponent final : public MonoBehaviour
 {
 public:
     EnemyComponent(EnemyArchetype archetype, int contactDamage = 1);
@@ -642,7 +643,7 @@ private:
     AIState m_aiState = AIState::Idle;
 };
 
-class ShieldBossComponent final : public Component
+class ShieldBossComponent final : public MonoBehaviour
 {
 public:
     ShieldBossComponent() = default;
@@ -692,7 +693,14 @@ public:
     float attackRectWidth = 0.0f;
     float attackRectHeight = 0.0f;
 
-    Entity* shieldEntity = nullptr;
+    bool combatStarted = false;
+    bool appearAnimationActive = false;
+    bool appearAnimationFinished = false;
+    bool roarPlayed = false;
+    bool roarAnimationActive = false;
+    bool deathAnimationActive = false;
+    bool deathAnimationFinished = false;
+    GameObject* shieldEntity = nullptr;
 };
 
 enum class ShieldAttackType
@@ -711,12 +719,12 @@ enum class CapturedShieldMode
     JumpBurst,
 };
 
-class ShieldComponent final : public Component
+class ShieldComponent final : public MonoBehaviour
 {
 public:
     ShieldComponent() = default;
 
-    Entity* ownerBoss = nullptr;
+    GameObject* ownerBoss = nullptr;
     bool attached = true;
     bool gravityEnabled = false;
     ShieldAttackType attackType = ShieldAttackType::None;
@@ -745,25 +753,25 @@ public:
     float hoverElapsed = 0.0f;
     float hoverDuration = 0.0f;
     float descendSpeed = 0.0f;
-    std::vector<Entity*> hitEntities;
+    std::vector<GameObject*> hitEntities;
 };
 
-class ShieldShockwaveComponent final : public Component
+class ShieldShockwaveComponent final : public MonoBehaviour
 {
 public:
     ShieldShockwaveComponent() = default;
 
-    Entity* ownerBoss = nullptr;
+    GameObject* ownerBoss = nullptr;
     int damage = 1;
     float knockbackGrids = 3.0f;
     float elapsed = 0.0f;
     float lifetime = 0.2f;
     bool damagesPlayer = true;
     bool hitPlayer = false;
-    std::vector<Entity*> hitEntities;
+    std::vector<GameObject*> hitEntities;
 };
 
-class MidBoss2Component final : public Component
+class MidBoss2Component final : public MonoBehaviour
 {
 public:
     struct Params
@@ -807,12 +815,12 @@ public:
     float homeY = 0.0f;
     bool initializedHome = false;
     bool beamEntitiesSpawned = false;
-    Entity* beamTurretEntity = nullptr;
-    Entity* beamEntity = nullptr;
+    GameObject* beamTurretEntity = nullptr;
+    GameObject* beamEntity = nullptr;
     bool captureWindowActive = false;
 };
 
-class MidBoss2SpearComponent final : public Component
+class MidBoss2SpearComponent final : public MonoBehaviour
 {
 public:
     MidBoss2SpearComponent() = default;
@@ -830,7 +838,7 @@ public:
     float travelDistance = 0.0f;
 };
 
-class GhostComponent final : public Component
+class GhostComponent final : public MonoBehaviour
 {
 public:
     GhostComponent() = default;
@@ -843,7 +851,7 @@ public:
     int dropMax = 30;
 };
 
-class BlasterRobotComponent final : public Component
+class BlasterRobotComponent final : public MonoBehaviour
 {
 public:
     BlasterRobotComponent() = default;
@@ -860,7 +868,7 @@ public:
 };
 
 
-class DropItemComponent final : public Component
+class DropItemComponent final : public MonoBehaviour
 {
 public:
     DropItemComponent(int value, float velocityX, float velocityY)
@@ -891,7 +899,7 @@ private:
 };
 
 
-class ProjectileComponent final : public Component
+class ProjectileComponent final : public MonoBehaviour
 {
 public:
     enum class Owner
@@ -917,7 +925,7 @@ public:
     Owner GetOwner() const { return m_owner; }
     int pierceRemaining = 0;    
     int maxEnemyHits = 0;    
-    Entity* sourceEntity = nullptr; 
+    GameObject* sourceEntity = nullptr; 
 
 private:
     float m_velocityX;
@@ -929,7 +937,7 @@ private:
 // ============================================================================
 // Stage Gimmick Domain
 // ============================================================================
-class GimmickComponent final : public Component
+class GimmickComponent final : public MonoBehaviour
 {
 public:
     GimmickComponent(GimmickType type, bool startsEnabled = true, bool oneShot = false);
@@ -950,7 +958,7 @@ private:
     bool m_consumed;
 };
 
-class CheckpointComponent final : public Component
+class CheckpointComponent final : public MonoBehaviour
 {
 public:
     CheckpointComponent(int checkpointId, float respawnX, float respawnY);
@@ -963,7 +971,7 @@ public:
     bool activated;
 };
 
-class PhotoFilterComponent final : public Component
+class PhotoFilterComponent final : public MonoBehaviour
 {
 public:
     PhotoFilterComponent(PhotoFilterTheme theme, PhotoCopyRole outputRole, PhotoCopyLayer outputLayer, float tintR, float tintG, float tintB, float tintA);
@@ -987,43 +995,69 @@ private:
     float m_tintA;
 };
 
-class SepiaRubbleComponent final : public Component
+class SepiaRubbleComponent final : public MonoBehaviour
 {
 public:
 	SepiaRubbleComponent() = default;
 };
 
-class SepiaRubbleGroupComponent final : public Component
+class SepiaRubbleGroupComponent final : public MonoBehaviour
 {
 public:
     SepiaRubbleGroupComponent(
         char markerTypeValue,
         int imageNoValue,
-		int restoredTileValue,
-		int minColumnValue,
-		int minRowValue,
-		int maxColumnValue,
-		int maxRowValue,
+        int restoredTileValue,
+        char restoredMarkerTypeValue,
+        int restoredMarkerParameterValue,
+        int minColumnValue,
+        int minRowValue,
+        int maxColumnValue,
+        int maxRowValue,
         bool isRestoredValue);
 
-	char markerType = '\0';
-	int imageNo = 0;
-	int restoredTileValue = 0;
+    char markerType = '\0';
+    int imageNo = 0;
+    int restoredTileValue = 0;
+    char restoredMarkerType = '\0';
+    int restoredMarkerParameter = 0;
     int minColumn = 0;
     int minRow = 0;
     int maxColumn = 0;
     int maxRow = 0;
-	bool isRestored = false;
+    bool isRestored = false;
     float restoredLifetime = 0.0f;
-	std::vector<int> cellColumns;
-	std::vector<int> cellRows;
+    std::vector<int> cellColumns;
+    std::vector<int> cellRows;
     std::vector<int> cellRestoredTileValues;
+    std::vector<char> cellRestoredMarkerTypes;
+    std::vector<int> cellRestoredMarkerParameters;
 };
 
+class SepiaElevatorComponent final : public Component
+{
+public:
+    SepiaElevatorComponent(
+        float moveRangeY,
+        float moveSpeed,
+        float topPauseSeconds);
+
+    void OnAttach(Entity& owner) override;
+    void DrawDebugUI() override;
+
+    float moveRangeY = 144.0f;
+    float moveSpeed = 140.0f;
+    float topPauseSeconds = 1.0f;
+    float baseY = 0.0f;
+    bool cycleStarted = false;
+    bool movingUp = true;
+    float pauseTimer = 0.0f;
+    bool wasPlayerTouching = false;
+};
 // ============================================================================
 // Gameplay Common Domain
 // ============================================================================
-class HealthComponent final : public Component
+class HealthComponent final : public MonoBehaviour
 {
 public:
     explicit HealthComponent(int maxHealth);
@@ -1041,7 +1075,7 @@ private:
     int m_currentHealth;
 };
 
-class DamageCooldownComponent final : public Component
+class DamageCooldownComponent final : public MonoBehaviour
 {
 public:
     explicit DamageCooldownComponent(float cooldownSeconds);
@@ -1062,7 +1096,7 @@ private:
 // ============================================================================
 // Rendering / Animation Domain
 // ============================================================================
-class SpriteRenderComponent final : public Component
+class SpriteRenderComponent final : public MonoBehaviour
 {
 public:
     explicit SpriteRenderComponent(int textureId);
@@ -1100,18 +1134,30 @@ private:
     float m_renderRotationOffset;
 };
 
-class SpriteSheetAnimationComponent final : public Component
+class SpriteSheetAnimationComponent final : public MonoBehaviour
 {
 public:
     struct Clip
     {
         int textureId = -1;
+        std::vector<int> textureIds;
+        std::vector<std::string> textureKeys;
+        std::function<int(const std::string&)> textureResolver;
+        bool frameTextureMode = false;
+        std::vector<int> textureRows;
         int columns = 1;
+        int columnsPerTexture = 1;
         int rows = 1;
+        int rowsPerTexture = 1;
+        int texturePageColumns = 1;
         int startFrame = 0;
         int frameCount = 1;
         float fps = 1.0f;
         bool loop = true;
+        float sourceX = 0.0f;
+        float sourceY = 0.0f;
+        float sourceWidth = 1.0f;
+        float sourceHeight = 1.0f;
     };
 
     SpriteSheetAnimationComponent();
@@ -1128,11 +1174,69 @@ public:
         int frameCount,
         float fps,
         bool loop = true);
+    void DefinePagedRowsClip(
+        const std::string& name,
+        const std::vector<int>& textureIds,
+        int columns,
+        int rowsPerTexture,
+        int startFrame,
+        int frameCount,
+        float fps,
+        bool loop = true);
+    void DefinePagedRowsClip(
+        const std::string& name,
+        const std::vector<int>& textureIds,
+        int columns,
+        const std::vector<int>& rowsPerTexture,
+        int startFrame,
+        int frameCount,
+        float fps,
+        bool loop = true);
+    void DefineLazyPagedRowsClip(
+        const std::string& name,
+        const std::vector<std::string>& textureKeys,
+        std::function<int(const std::string&)> textureResolver,
+        int columns,
+        const std::vector<int>& rowsPerTexture,
+        int startFrame,
+        int frameCount,
+        float fps,
+        bool loop = true);
+    void DefinePagedGridClip(
+        const std::string& name,
+        const std::vector<int>& textureIds,
+        int pageColumns,
+        int columnsPerTexture,
+        int rowsPerTexture,
+        int startFrame,
+        int frameCount,
+        float fps,
+        bool loop = true);
+    void DefineFrameTextureClip(
+        const std::string& name,
+        const std::vector<int>& textureIds,
+        float fps,
+        bool loop = true,
+        float sourceX = 0.0f,
+        float sourceY = 0.0f,
+        float sourceWidth = 1.0f,
+        float sourceHeight = 1.0f);
+    void DefineLazyFrameTextureClip(
+        const std::string& name,
+        const std::vector<std::string>& textureKeys,
+        std::function<int(const std::string&)> textureResolver,
+        float fps,
+        bool loop = true,
+        float sourceX = 0.0f,
+        float sourceY = 0.0f,
+        float sourceWidth = 1.0f,
+        float sourceHeight = 1.0f);
     bool HasClip(const std::string& name) const;
     
     bool Play(const std::string& name, bool restartIfSame = false);
     const std::string& GetCurrentClipName() const;
     int GetCurrentFrameIndex() const;
+    bool IsCurrentClipFinished() const;
     void SetPlaybackSpeed(float speed);
 
 private:
@@ -1144,7 +1248,7 @@ private:
     float m_playbackSpeed;
 };
 
-class PlayerControllerComponent final : public Component
+class PlayerControllerComponent final : public MonoBehaviour
 {
 public:
     explicit PlayerControllerComponent(EventBus& eventBus);
@@ -1159,7 +1263,7 @@ private:
 // ============================================================================
 // Movement / Physics Domain
 // ============================================================================
-class EnemyMoverComponent final : public Component
+class EnemyMoverComponent final : public MonoBehaviour
 {
 public:
     EnemyMoverComponent(float originX, float originY, float amplitudeX, float amplitudeY, float frequency);
@@ -1181,13 +1285,13 @@ private:
     bool m_frozen;
 };
 
-class RigidBodyComponent final : public Component
+class RigidBodyComponent final : public MonoBehaviour
 {
 public:
     RigidBodyComponent(PhysicsWorld& physicsWorld, b2BodyType bodyType, bool fixedRotation, float gravityScale = 1.0f);
     ~RigidBodyComponent() override;
 
-    void OnAttach(Entity& owner) override;
+    void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
     
     void PushTransformToPhysics();
@@ -1206,13 +1310,13 @@ private:
     b2BodyId m_bodyId;
 };
 
-class BoxColliderComponent final : public Component
+class BoxColliderComponent final : public MonoBehaviour
 {
 public:
     BoxColliderComponent(float density, float friction, bool isSensor = false);
     ~BoxColliderComponent() override;
 
-    void OnAttach(Entity& owner) override;
+    void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
     b2ShapeId GetShapeId() const;
 
@@ -1223,14 +1327,14 @@ private:
     b2ShapeId m_shapeId;
 };
 
-class ImageOutlineColliderComponent final : public Component
+class ImageOutlineColliderComponent final : public MonoBehaviour
 {
 public:
     ImageOutlineColliderComponent(std::string imagePath, float friction, int alphaThreshold = 16, int vertexStride = 4);
     ImageOutlineColliderComponent(std::vector<b2Vec2> normalizedOutline, float friction);
     ~ImageOutlineColliderComponent() override;
 
-    void OnAttach(Entity& owner) override;
+    void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
     b2ChainId GetChainId() const;
    

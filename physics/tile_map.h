@@ -16,6 +16,8 @@ struct TileMapData
     std::vector<int> tiles;
     std::vector<char> markers;
     std::vector<int> markerParameters;
+	std::vector<char> markers2;
+	std::vector<int> markerParameters2;
     int width = 0;
     int height = 0;
     float tileSize = 0.0f;
@@ -45,6 +47,11 @@ public:
     bool SetMarker(int column, int row, char markerValue);
     bool SetMarker(int column, int row, char markerValue, int markerParameter);
     bool SetMarkerParameter(int column, int row, int markerParameter);
+    char GetMarker2(int column, int row) const;
+    int GetMarkerParameter2(int column, int row) const;
+    bool SetMarker2(int column, int row, char markerValue);
+    bool SetMarker2(int column, int row, char markerValue, int markerParameter);
+    bool SetMarkerParameter2(int column, int row, int markerParameter);
     bool IsSolid(int column, int row) const;
     static TileTriangleShape GetTriangleShape(int tileValue);
 

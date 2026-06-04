@@ -117,6 +117,8 @@ struct CapturedPhotoItem
     int sourceTileValue = 0;
     int damagePlatformTileSpan = 0;
     int spikeStripTileSpan = 0;
+    int sepiaRestoredTileValue = 0;
+    bool sepiaRestoredMarkerObject = false;
     float rotation = 0.0f;
     bool flipX = false;
     bool vanishOnCapture = false;
@@ -173,6 +175,7 @@ struct PhotoPlacementState
     float rotation = 0.0f;
     int sessionId = 0;
     bool blockedByUi = false;
+    bool draggingFromTray = false;
     float invalidFlashRemaining = 0.0f;
     float confirmFlashRemaining = 0.0f;
 };
@@ -188,6 +191,7 @@ struct PhotoGroupState
 struct PendingPhotoStoreState
 {
     bool active = false;
+    bool commitOnComplete = false;
     int slotIndex = 0;
     PhotoCaptureState capture;
 };

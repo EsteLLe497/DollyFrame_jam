@@ -14,6 +14,7 @@
 #include "game_scene_photo_state.h"
 #include "game_scene_state.h"
 #include "tile_map.h"
+#include "game_scene_camerawork.h"
 
 class TransformComponent;
 class PhotoSystem;
@@ -54,27 +55,11 @@ private:
         float cameraX = 0.0f;
         float cameraY = 0.0f;
 
-        float backCameraX = 0.0f;
-        bool followY = false;
         bool followPlayer = false;
-        float viewWidth = 0.0f;
-        float viewHeight = 0.0f;
         int cameraNum = 0;
     };
 
-    struct CameraZoomMarker
-    {
-        float x;
-        float y;
-        float width;
-        float height;
-
-        float viewWidth;
-        float viewHeight;
-
-        bool wasInside = false;
-        bool isReset = false;
-    };
+   
 
     // Core lifecycle / facade
     void ResetSceneState();
@@ -88,6 +73,10 @@ private:
     void ResetFrameRendering();
 
     // Lifecycle / setup
+    void UpdateLoading(float deltaTime);
+    void AdvanceLoadingStep();
+    void FinishLoading();
+    void DrawLoadingScreen() const;
     void LoadTuningState();
     void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
@@ -125,6 +114,8 @@ private:
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void ConfigureWalkerSpriteAnimation(Entity& enemy);
     void ConfigureRangedSpriteAnimation(Entity& enemy);
+    void ConfigureShieldBossSpriteAnimation(Entity& enemy);
+    void ConfigureBossShieldSpriteAnimation(Entity& shield);
     void UpdateEnemies();
     int HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight);
     void UpdateBullets();
@@ -154,7 +145,6 @@ private:
     void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
-	bool RestoreSepiaBackgroundGroupInFrame(float frameX, float frameY, float frameWidth, float frameHeight);
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();
@@ -320,6 +310,13 @@ private:
     char m_pendingStageTransitionSpawnMarker = '\0';
     char m_pendingStageTransitionMarker = '\0';
     bool m_darknessStageEnabled = false;
+    ResourceManager* m_loadingResources = nullptr;
+    bool m_loadingActive = false;
+    bool m_loadingFinished = false;
+    mutable int m_loadingWarmupFramesRemaining = 0;
+    int m_loadingStep = 0;
+    float m_loadingElapsed = 0.0f;
+    float m_loadingProgress = 0.0f;
 
     int m_cameraFixedLockNum = -1;
     void ActivateCameraRange(int cameraNum);
@@ -331,4 +328,13 @@ private:
 
     int m_backdropTextureId = -1;
     int m_backdropTexture1Id = -1;
+    static constexpr float easingTime = 0.35f;
+    bool m_easingActive = false;
+    float m_easingElapsedTime = 0.0f;
+    float m_easingStartX = 0.0f;
+    float m_easingStartY = 0.0f;
+    float m_easingTargetX = 0.0f;
+    float m_easingTargetY = 0.0f;
+    int m_prevCameraIndex = -1;
+    std::vector<fixedCameraRange> m_fixedRanges;
 };

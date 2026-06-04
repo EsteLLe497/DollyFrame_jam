@@ -1,7 +1,8 @@
 #pragma once
 
+#include "game_object_fwd.h"
+
 class GameScene;
-class Entity;
 
 class PhotoCaptureSystem
 {
@@ -17,7 +18,7 @@ private:
         float frameHeight,
         float& capturedMaxRight,
         float& capturedMaxBottom,
-        bool restoredSepiaBackground);
+        bool& restoredSepiaBackground);
 
     static void CaptureTilesInFrame(
         GameScene& scene,

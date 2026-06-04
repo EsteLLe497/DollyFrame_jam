@@ -218,7 +218,8 @@ void GameScene::StoreCapturedPhoto()
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.capture.items)
     {
-        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround ||
+            item.sepiaRestoredMarkerObject)
         {
             hasSepiaGroundItem = true;
             break;
@@ -268,8 +269,10 @@ void GameScene::StoreCapturedPhoto()
     }
 
     m_photo.pendingStore.active = true;
+    m_photo.pendingStore.commitOnComplete = false;
     m_photo.pendingStore.slotIndex = slotToStore;
     m_photo.pendingStore.capture = m_photo.capture;
+    m_photo.savedCaptures[slotToStore] = m_photo.capture;
     m_photo.selectedCaptureSlot = slotToStore;
     m_photo.nextCaptureSlot = (slotToStore + 1) % static_cast<int>(m_photo.savedCaptures.size());
 }
@@ -278,6 +281,11 @@ void GameScene::CommitPendingCapturedPhoto()
 {
     if (!m_photo.pendingStore.active)
     {
+        return;
+    }
+    if (!m_photo.pendingStore.commitOnComplete)
+    {
+        m_photo.pendingStore = PendingPhotoStoreState{};
         return;
     }
     // 確認

@@ -61,6 +61,9 @@ inline float gGroundStepUpHeight = 0.25f;
 inline float gShutterFlashSeconds = 0.18f;
 inline float gCaptureWidthTiles = 5.0f;
 inline float gCaptureHeightTiles = 3.0f;
+inline float gCaptureRapidShotLimit = 4.0f;
+inline float gCaptureRapidWindowSeconds = 1.2f;
+inline float gCaptureOverheatLockSeconds = 1.0f;
 inline float gPrintedPhotoPaddingX = 16.0f;
 inline float gPrintedPhotoPaddingTop = 16.0f;
 inline float gPrintedPhotoFooterHeight = 52.0f;
@@ -133,7 +136,7 @@ inline float GetPlayerDodgeDuration()
 
 inline auto BuildGameSceneTuningEntries()
 {
-    return std::array<GameSceneTuningEntry, 25>
+    return std::array<GameSceneTuningEntry, 28>
     {{
         { "Camera Width", &gCameraViewWidth, 20.0f, 640.0f, 1920.0f },
         { "Camera Height", &gCameraViewHeight, 20.0f, 360.0f, 1080.0f },
@@ -153,6 +156,9 @@ inline auto BuildGameSceneTuningEntries()
         { "Step Up", &gGroundStepUpHeight, 0.25f, 0.0f, 8.0f },
         { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
         { "Capture H Tiles", &gCaptureHeightTiles, 0.25f, 1.0f, 16.0f },
+        { "Capture Limit", &gCaptureRapidShotLimit, 1.0f, 1.0f, 20.0f },
+        { "Capture Window", &gCaptureRapidWindowSeconds, 0.1f, 0.1f, 10.0f },
+        { "Capture Lock", &gCaptureOverheatLockSeconds, 0.1f, 0.0f, 10.0f },
         { "Print Pad X", &gPrintedPhotoPaddingX, 1.0f, 0.0f, 80.0f },
         { "Print Pad Top", &gPrintedPhotoPaddingTop, 1.0f, 0.0f, 80.0f },
         { "Print Footer", &gPrintedPhotoFooterHeight, 2.0f, 0.0f, 160.0f },
@@ -182,7 +188,6 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
         r = 0.34f;
         g = 0.86f;
         b = 0.66f;
-        break;
         break;
     case 4:
         r = 0.88f;
@@ -218,6 +223,11 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
         r = 0.08f;
         g = 0.09f;
         b = 0.13f;
+        break;
+    case 11:
+        r = 0.22f;
+        g = 0.40f;
+        b = 0.76f;
         break;
     default:
         r = 0.70f;
@@ -330,9 +340,10 @@ inline constexpr const char* kTagLaserBeam = "LaserBeam";
 inline constexpr const char* kTagMarkerLight = "MarkerLight";
 inline constexpr const char* kTagStageLight = "StageLight";
 inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
+inline constexpr const char* kTagSepiaElevator = "SepiaElevator";
 
 inline constexpr std::array<char, 32> kMarkerPresets = {
-    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','+','<'
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<'
 };
 inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -340,6 +351,44 @@ inline bool IsMarkerInSet(char marker, std::string_view set)
 {
     const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
     return set.find(normalized) != std::string_view::npos;
+}
+
+struct TileMarker
+{
+    int column = 0;
+    int row = 0;
+    char marker = '\0';
+    int parameter = 0;
+};
+
+inline std::vector<TileMarker> CollectTileMarkers(const TileMap& tileMap, bool uppercaseMarkers = false)
+{
+    std::vector<TileMarker> markers;
+    markers.reserve(static_cast<size_t>(tileMap.GetWidth() * tileMap.GetHeight()) / 8);
+
+    for (int row = 0; row < tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < tileMap.GetWidth(); ++column)
+        {
+            char marker = tileMap.GetMarker(column, row);
+            if (marker == '\0')
+            {
+                continue;
+            }
+            if (uppercaseMarkers)
+            {
+                marker = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+            }
+
+            markers.push_back(TileMarker{
+                column,
+                row,
+                marker,
+                tileMap.GetMarkerParameter(column, row) });
+        }
+    }
+
+    return markers;
 }
 
 inline int MarkerToPresetIndex(char marker)
@@ -418,7 +467,7 @@ inline bool IsProtectiveWallMarker(char marker)
 
 inline bool IsSepiaRubbleMarker(char marker)
 {
-    return marker == '+';
+    return marker == '>';
 }
 
 inline bool IsSepiaBackgroundMarker(char marker)
@@ -441,6 +490,7 @@ inline bool IsParameterizedEditorMarker(char marker)
     case '&':
     case 'U':
     case 'Z':
+    case '>':
     case '<':
         return true;
     default:
@@ -469,11 +519,32 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
         return std::clamp(parameter, 0, 1);
     case '&':
         return std::clamp(parameter, -99, 99);
-    case '<':
+    case '>':
         return std::clamp(parameter, 0, 99);
+    case '<':
+        return std::clamp(parameter, 0, 999);
     default:
         return 0;
     }
+}
+
+inline bool IsRestoreSepiaObjectMarker(char marker)
+{
+    const char normalizedMarker = static_cast<char>(
+        std::toupper(static_cast<unsigned char>(marker)));
+
+    switch (normalizedMarker)
+    {
+    case 'M':
+    case 'L':
+    case 'Q':
+    case '+':
+        return true;
+    default:
+        break;
+    }
+
+    return false;
 }
 
 inline int EncodeStageLightMarkerParameter(int lightTiles, int fixtureTiles)
@@ -666,7 +737,7 @@ inline bool TryGetSlopeSurfaceYShared(
     float& outSurfaceY)
 {
     const float tileSize = tileMap.GetTileSize();
-    constexpr int kMaxSpan = 5;
+    constexpr int kMaxSpan = 10;
     const int originColumnStart = std::max(0, column - (kMaxSpan - 1));
     const int originRowStart = std::max(0, row - (kMaxSpan - 1));
 
