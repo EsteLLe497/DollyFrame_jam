@@ -233,10 +233,12 @@ namespace
             return false;
         }
     }
+
     bool SpawnRestoredSepiaMarkerObject(
         std::vector<std::unique_ptr<Entity>>& pendingEntities,
         int whiteTexture,
         float tileSize,
+        float& restoredLifetimeSeconds,
         char restoredMarkerType,
         int restoredMarkerParameter,
         int column,
@@ -268,7 +270,7 @@ namespace
                     { 0.0f, 0.0f },
                     { 1.0f, 0.0f },
                     { 1.0f, 1.0f },
-                    { 0.0f, 1.0f }},
+                { 0.0f, 1.0f }},
                 0.5f);
             log->AddComponent<BarrelComponent>(
                 gBarrelGravity,
@@ -290,6 +292,44 @@ namespace
             }
 
             pendingEntities.push_back(std::move(log));
+            return true;
+        }
+        case '+':
+        {
+            constexpr float kSepiaElevatorWidthTiles = 4.0f;
+            constexpr float kSepiaElevatorHeightTiles = 1.0f;
+            constexpr float kSepiaElevatorSpeedTilesPerSec = 2.5f;
+            constexpr float kSepiaElevatorTopPauseSeconds = 1.0f;
+            constexpr float ColorR = 0.42f;
+            constexpr float ColorG = 0.46f;
+            constexpr float ColorB = 0.52f;
+            const float spawnX = static_cast<float>(column) * tileSize;
+            const float spawnY = static_cast<float>(row) * tileSize;
+            const int moveRangeTiles = restoredMarkerParameter > 0
+                ? restoredMarkerParameter : 3;
+            const float extraTime = static_cast<float>(moveRangeTiles) * 0.25f;
+
+            auto elevatorEntity = std::make_unique<Entity>();
+            elevatorEntity->AddComponent<TagComponent>(kTagSepiaElevator);
+            elevatorEntity->AddComponent<TransformComponent>(
+                spawnX,
+                spawnY,
+                tileSize * kSepiaElevatorWidthTiles,
+                tileSize * kSepiaElevatorHeightTiles);
+            elevatorEntity->AddComponent<TintComponent>(
+                ColorR,
+                ColorG,
+                ColorB,
+                1.0f);
+            elevatorEntity->AddComponent<SpriteRenderComponent>(whiteTexture);
+            elevatorEntity->AddComponent<SepiaElevatorComponent>(
+                tileSize * static_cast<float>(moveRangeTiles),
+                tileSize * kSepiaElevatorSpeedTilesPerSec,
+                kSepiaElevatorTopPauseSeconds);
+            elevatorEntity->AddComponent<PhotoCopyLifetimeComponent>(restoredLifetimeSeconds + extraTime);
+            restoredLifetimeSeconds = restoredLifetimeSeconds + extraTime;
+            pendingEntities.push_back(std::move(elevatorEntity));
+
             return true;
         }
         default:
@@ -576,7 +616,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     }
 
                     const int tileValueToSet = sepiaGroup->restoredTileValue > 0 ? sepiaGroup->restoredTileValue : 1;
-
+                    float restoredLifetimeSeconds = gPastedObjectLifetimeSeconds;
                     if (!sepiaGroup->cellColumns.empty() &&
                         sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size() &&
                         sepiaGroup->cellColumns.size() == sepiaGroup->cellRestoredTileValues.size())
@@ -604,17 +644,16 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
                                 if (SpawnRestoredSepiaMarkerObject(
                                     scene.m_pendingEntities,
-                                    scene.m_whiteTexture,
+                                    scene.m_whiteTexture, 
                                     tileSize,
+                                    restoredLifetimeSeconds,
                                     restoredMarkerType,
                                     restoredMarkerParameter,
                                     column,
                                     row))
                                 {
-
                                     scene.m_tileMap.SetTile(column, row, 0);
                                     scene.m_tileMap.SetMarker(column, row, restoredMarkerType, restoredMarkerParameter);
-
                                 }
                             }
                             else
@@ -626,7 +665,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                         }
                     }
                     sepiaGroup->isRestored = true;
-                    sepiaGroup->restoredLifetime = gPastedObjectLifetimeSeconds;
+                    sepiaGroup->restoredLifetime = restoredLifetimeSeconds;
 					restoredSepiaBackground = true;
                     if (auto* tint = entity->GetComponent<TintComponent>())
                     {
@@ -1008,7 +1047,7 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
                 continue;
             }
 
-            if (tileValue == 1 || tileValue == 8)
+            if (tileValue == 1 || tileValue == 8 || tileValue == 11)
             {
                 continue;
             }

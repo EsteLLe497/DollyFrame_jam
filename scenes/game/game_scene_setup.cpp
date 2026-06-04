@@ -835,6 +835,29 @@ void GameScene::InitializeStageEntities()
     RefreshLinkedGimmicksFromMarkers();
     RefreshLaserTurretsFromMarkers();
     BuildCameraMarkers();
+
+    // Choose backdrop keys from gCurrentMapCsvPath and cache texture IDs
+    auto ResolveBackdropKeysForMap = [](const std::string& mapPath) -> std::pair<std::string, std::string>
+    {
+        std::string stem;
+        try { stem = std::filesystem::path(mapPath).stem().string(); } catch (...) { stem = mapPath; }
+        std::transform(stem.begin(), stem.end(), stem.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
+
+        // CSV 名に "forest" または "ruins" を含めて識別しているとのことなのでそれに合わせる
+		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };//マップのCSVファイル名に "ruins" を含む場合は廃墟の背景と前景を使用
+        if (stem.find("forest") != std::string::npos) return { "sinrin10", "sinrin11" };
+        // デフォルト
+        return { "sinrin10", "sinrin11" };
+    };
+
+    {
+        const auto keys = ResolveBackdropKeysForMap(gCurrentMapCsvPath);
+        m_backdropTextureId = m_assets.GetTexture(keys.first);
+        m_backdropTexture1Id = m_assets.GetTexture(keys.second);
+        // manifest 未登録なら既存キーにフォールバック
+        if (m_backdropTextureId < 0) m_backdropTextureId = m_assets.GetTexture("sinrin10");
+        if (m_backdropTexture1Id < 0) m_backdropTexture1Id = m_assets.GetTexture("sinrin11");
+    }
 }
 
 Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y)

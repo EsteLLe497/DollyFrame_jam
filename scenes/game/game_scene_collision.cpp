@@ -9,7 +9,7 @@ namespace
 {
     constexpr int kGroundProbeCount = 3;
 
-    constexpr int kMaxTriangleSpanTiles = 5;
+    constexpr int kMaxTriangleSpanTiles = 10;
 
     struct CollisionPoint
     {
@@ -1377,7 +1377,8 @@ bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
         HasTag(entity, kTagElevator) ||
         HasTag(entity, kTagLaserSwitch) ||
         HasTag(entity, kTagShutter) ||
-        HasTag(entity, kTagLaserTurret);
+        HasTag(entity, kTagLaserTurret) ||
+        HasTag(entity, kTagSepiaElevator);
 }
 
 void GameScene::GetGroundPlatformBounds(std::vector<TransformComponent>& bounds) const

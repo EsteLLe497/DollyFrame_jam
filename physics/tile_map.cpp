@@ -335,6 +335,11 @@ void GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
         g = 0.04f;
         b = 0.08f;
         break;
+    case 11:
+        r = 0.22f;
+        g = 0.40f;
+        b = 0.76f;
+        break;
     default:
         r = 0.70f;
         g = 0.74f;
@@ -852,6 +857,8 @@ TileTriangleShape TileMap::GetTriangleShape(int tileValue)
         return TileTriangleShape{ true, 2, 2, true };
     case 9:
         return TileTriangleShape{ true, 5, 5, false };
+    case 11:
+        return TileTriangleShape{ true, 10, 6, true };
     default:
         return TileTriangleShape{};
     }
