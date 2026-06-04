@@ -1874,8 +1874,13 @@ void GameScene::DrawBackdropBaseInView(
     float viewHeight,
     float viewScale) const
 {
-    const int bgTexture = m_assets.GetTexture("sinrin10");
-    const int bg1Texture = m_assets.GetTexture("sinrin11");
+    // キャッシュされた背景テクスチャIDを優先して使う（なければ manifest の既定キーにフォールバック）
+    int bgTexture = m_backdropTextureId >= 0 ? m_backdropTextureId : m_assets.GetTexture("sinrin10");
+    int bg1Texture = m_backdropTexture1Id >= 0 ? m_backdropTexture1Id : m_assets.GetTexture("sinrin11");
+
+    // さらに念のため manifest に登録されていなければ既定に戻す
+    if (bgTexture < 0) bgTexture = m_assets.GetTexture("sinrin10");
+    if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("sinrin11");
 
     if (bgTexture < 0 || bg1Texture < 0)
     {

@@ -328,4 +328,7 @@ private:
     bool m_isZoomed = false;
     float m_zoomedViewWidth = 2560.0f;
     float m_zoomedViewHeight = 1440.0f;
+
+    int m_backdropTextureId = -1;
+    int m_backdropTexture1Id = -1;
 };
