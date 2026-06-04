@@ -8,6 +8,7 @@ using namespace game_scene_detail;
 
 void GameScene::DrawDebugUI()
 {
+    const ActiveGameSceneScope activeScene(*this);
     const auto toMidBoss2StateLabel = [](MidBoss2State state) -> const char*
     {
         switch (state)

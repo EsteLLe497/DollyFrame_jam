@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -182,7 +182,7 @@ namespace
 
 void GameScene::RefreshStageRenderProfile()
 {
-    m_lifecycle.darknessStageEnabled = IsDarknessStageMapPath(gCurrentMapCsvPath);
+    m_lifecycle.darknessStageEnabled = IsDarknessStageMapPath(m_lifecycle.currentMapCsvPath);
 }
 
 void GameScene::BuildCameraMarkers()
@@ -192,18 +192,18 @@ void GameScene::BuildCameraMarkers()
 
     float tileSize = m_tileMap.GetTileSize();
 
-    //カメラ1
+    //繧ｫ繝｡繝ｩ1
     {
         fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(-2, 6, tileSize); // 左上タイル
-        cameraRange.SetEndTiles(22, 18, tileSize);   // 右下タイル
+        cameraRange.SetStartTiles(-2, 6, tileSize); // 蟾ｦ荳翫ち繧､繝ｫ
+        cameraRange.SetEndTiles(22, 18, tileSize);   // 蜿ｳ荳九ち繧､繝ｫ
         cameraRange.SetCameraNum(0);
         cameraRange.SetFollowPlayer(false);
 
         m_camera.fixedRanges.push_back(cameraRange);
     }
 
-    //カメラ2
+    //繧ｫ繝｡繝ｩ2
     {
         fixedCameraRange cameraRange;
         cameraRange.SetStartTiles(22, 6, tileSize);
@@ -214,7 +214,7 @@ void GameScene::BuildCameraMarkers()
         m_camera.fixedRanges.push_back(cameraRange);
     }
 
-    //カメラ3
+    //繧ｫ繝｡繝ｩ3
     {
         fixedCameraRange cameraRange;
         cameraRange.SetStartTiles(72, 2, tileSize);
@@ -228,7 +228,7 @@ void GameScene::BuildCameraMarkers()
         m_camera.fixedRanges.push_back(cameraRange);
     }
 
-    //カメラ4
+    //繧ｫ繝｡繝ｩ4
     {
         fixedCameraRange cameraRange;
         cameraRange.SetStartTiles(113, 4, tileSize);
@@ -241,7 +241,7 @@ void GameScene::BuildCameraMarkers()
         m_camera.fixedRanges.push_back(cameraRange);
     }
 
-    //カメラ5
+    //繧ｫ繝｡繝ｩ5
     {
         fixedCameraRange cameraRange;
         cameraRange.SetStartTiles(131, 10, tileSize);
@@ -338,6 +338,7 @@ void GameScene::ResetSceneState()
     m_mapEditor.selectedStageLightFixtureTiles = 1;
     m_mapEditor.statusMessage.clear();
     m_mapEditor.statusMessageTimer = 0.0f;
+    m_tuning = GameSceneTuningState{};
     m_camera.transitionMarkers.clear();
 
     m_camera.hasPreviousPlayerCameraProbe = false;
@@ -362,14 +363,21 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/forest_boss.csv";
-    gLastStageTransitionMarker = '\0';
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest_boss.csv";
+    m_lifecycle.lastStageTransitionMarker = '\0';
+    m_render.shakeOffsetX = 0.0f;
+    m_render.shakeOffsetY = 0.0f;
+    m_render.viewScaleMultiplier = 1.0f;
+    m_render.zoomAnchorScreenCenter = false;
+    m_render.zoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
+    m_render.zoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
 }
 
 void GameScene::LoadTuningState()
 {
+    const ActiveGameSceneScope activeScene(*this);
     LoadTuningJsonFile();
     std::error_code ec;
     const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
@@ -386,7 +394,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_assets.LoadDefaults(resources);
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
-    m_tileMap.LoadFromCsv(gCurrentMapCsvPath, 48.0f);
+    m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, 48.0f);
     const size_t mapCellCount =
         static_cast<size_t>((std::max)(0, m_tileMap.GetWidth())) *
         static_cast<size_t>((std::max)(0, m_tileMap.GetHeight()));
@@ -402,7 +410,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
 void GameScene::InitializeStageEntities()
 {
     PrefabFactory prefabs(m_assets, m_physicsWorld, m_eventBus);
-    const bool isDebugStageMap = gCurrentMapCsvPath == "assets/maps/stage_a.csv";
+    const bool isDebugStageMap = m_lifecycle.currentMapCsvPath == "assets/maps/stage_a.csv";
     const auto spawnRespawnableBarrel = [&](float x, float y)
     {
         Entity& barrel = SpawnStagePrefab(prefabs, "sandbox_barrel", x, y);
@@ -638,7 +646,7 @@ void GameScene::InitializeStageEntities()
                 }
             }
         }
-        else if (marker == 'A') // ゴースチE
+        else if (marker == 'A') // 繧ｴ繝ｼ繧ｹ繝・
         {
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
@@ -654,7 +662,7 @@ void GameScene::InitializeStageEntities()
                 }
             }
         }
-        else if (marker == 'D') // ブラロチE
+        else if (marker == 'D') // 繝悶Λ繝ｭ繝・
         {
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
@@ -663,7 +671,7 @@ void GameScene::InitializeStageEntities()
                 static_cast<float>(row) * tileSize);
             if (auto* transform = enemy.GetComponent<TransformComponent>())
             {
-                // FindSpawnPositionを使わずCSVの座標をそ�Eまま使ぁE
+                // FindSpawnPosition繧剃ｽｿ繧上★CSV縺ｮ蠎ｧ讓吶ｒ縺昴・縺ｾ縺ｾ菴ｿ縺・
                 transform->x = static_cast<float>(column) * tileSize;
                 transform->y = static_cast<float>(row) * tileSize;
                 if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
@@ -673,7 +681,7 @@ void GameScene::InitializeStageEntities()
                 }
                 if (auto* blasterRobot = enemy.GetComponent<BlasterRobotComponent>())
                 {
-                    // 天井判定：�Eーカーの上�Eタイルが壁なら天井設置
+                    // 螟ｩ莠募愛螳夲ｼ壹・繝ｼ繧ｫ繝ｼ縺ｮ荳翫・繧ｿ繧､繝ｫ縺悟｣√↑繧牙､ｩ莠戊ｨｭ鄂ｮ
                     if (row > 0 && m_tileMap.GetTile(column, row - 1) > 0)
                     {
                         blasterRobot->mountedOnCeiling = true;
@@ -835,25 +843,25 @@ void GameScene::InitializeStageEntities()
     RefreshLaserTurretsFromMarkers();
     BuildCameraMarkers();
 
-    // Choose backdrop keys from gCurrentMapCsvPath and cache texture IDs
+    // Choose backdrop keys from m_lifecycle.currentMapCsvPath and cache texture IDs
     auto ResolveBackdropKeysForMap = [](const std::string& mapPath) -> std::pair<std::string, std::string>
     {
         std::string stem;
         try { stem = std::filesystem::path(mapPath).stem().string(); } catch (...) { stem = mapPath; }
         std::transform(stem.begin(), stem.end(), stem.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
 
-        // CSV 名に "forest" また�E "ruins" を含めて識別してぁE��とのことなのでそれに合わせる
-		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };//マップ�ECSVファイル名に "ruins" を含む場合�E廁E���E背景と前景を使用
+        // CSV 蜷阪↓ "forest" 縺ｾ縺溘・ "ruins" 繧貞性繧√※隴伜挨縺励※縺・ｋ縺ｨ縺ｮ縺薙→縺ｪ縺ｮ縺ｧ縺昴ｌ縺ｫ蜷医ｏ縺帙ｋ
+		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };//繝槭ャ繝励・CSV繝輔ぃ繧､繝ｫ蜷阪↓ "ruins" 繧貞性繧蝣ｴ蜷医・蟒・｢溘・閭梧勹縺ｨ蜑肴勹繧剃ｽｿ逕ｨ
         if (stem.find("forest") != std::string::npos) return { "sinrin10", "sinrin11" };
-        // チE��ォルチE
+        // 繝・ヵ繧ｩ繝ｫ繝・
         return { "sinrin10", "sinrin11" };
     };
 
     {
-        const auto keys = ResolveBackdropKeysForMap(gCurrentMapCsvPath);
+        const auto keys = ResolveBackdropKeysForMap(m_lifecycle.currentMapCsvPath);
         m_camera.backdropTextureId = m_assets.GetTexture(keys.first);
         m_camera.backdropTexture1Id = m_assets.GetTexture(keys.second);
-        // manifest 未登録なら既存キーにフォールバック
+        // manifest 譛ｪ逋ｻ骭ｲ縺ｪ繧画里蟄倥く繝ｼ縺ｫ繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ
         if (m_camera.backdropTextureId < 0) m_camera.backdropTextureId = m_assets.GetTexture("sinrin10");
         if (m_camera.backdropTexture1Id < 0) m_camera.backdropTexture1Id = m_assets.GetTexture("sinrin11");
     }

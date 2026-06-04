@@ -356,9 +356,9 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         return;
     }
 
-    const float viewScale = GetViewScale();
-    const float viewOriginX = GetViewOriginX();
-    const float viewOriginY = GetViewOriginY();
+    const float viewScale = scene.GetViewScale();
+    const float viewOriginX = scene.GetViewOriginX();
+    const float viewOriginY = scene.GetViewOriginY();
     float previewWidth = 0.0f;
     float previewHeight = 0.0f;
     std::vector<CapturedPhotoItem> previewItems = photo_shared::BuildPlacementItems(

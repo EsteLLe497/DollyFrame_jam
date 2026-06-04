@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
@@ -252,7 +252,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             }
         }
 
-        // ŒÂ””»’è‚ªˆêu“rØ‚ê‚Ä‚àƒ`ƒ‰‚Â‚©‚È‚¢‚æ‚¤A’Z‚¢•ÛŽŽžŠÔ‚ðÝ‚¯‚éB
+        // å€‹æ•°åˆ¤å®šãŒä¸€çž¬é€”åˆ‡ã‚Œã¦ã‚‚ãƒãƒ©ã¤ã‹ãªã„ã‚ˆã†ã€çŸ­ã„ä¿æŒæ™‚é–“ã‚’è¨­ã‘ã‚‹ã€‚
         switchComponent->insertedBatteryCount = batteriesOnTop;
         const bool hasRequiredBatteries = switchComponent->insertedBatteryCount >= switchComponent->requiredBatteryCount;
         if (hasRequiredBatteries)
@@ -815,21 +815,21 @@ bool GameScene::TryQueueStageTransition(Entity& player)
 
     if (gStageTransitionLinks.empty())
     {
-        gLastStageTransitionMarker = '\0';
+        m_lifecycle.lastStageTransitionMarker = '\0';
         return false;
     }
 
     auto* playerTransform = player.GetComponent<TransformComponent>();
     if (!playerTransform)
     {
-        gLastStageTransitionMarker = '\0';
+        m_lifecycle.lastStageTransitionMarker = '\0';
         return false;
     }
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
     {
-        gLastStageTransitionMarker = '\0';
+        m_lifecycle.lastStageTransitionMarker = '\0';
         return false;
     }
 
@@ -840,11 +840,11 @@ bool GameScene::TryQueueStageTransition(Entity& player)
     const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
     if (marker == '\0')
     {
-        gLastStageTransitionMarker = '\0';
+        m_lifecycle.lastStageTransitionMarker = '\0';
         return false;
     }
 
-    if (marker == gLastStageTransitionMarker)
+    if (marker == m_lifecycle.lastStageTransitionMarker)
     {
         return false;
     }
@@ -854,7 +854,7 @@ bool GameScene::TryQueueStageTransition(Entity& player)
     {
         const bool sourceMatches =
             link.sourceMapCsv == "*" ||
-            link.sourceMapCsv == gCurrentMapCsvPath;
+            link.sourceMapCsv == m_lifecycle.currentMapCsvPath;
         if (!sourceMatches || link.marker != marker)
         {
             continue;
@@ -873,7 +873,7 @@ bool GameScene::TryQueueStageTransition(Entity& player)
     m_lifecycle.pendingStageTransitionMapCsv = matchedLink->destinationMapCsv;
     m_lifecycle.pendingStageTransitionSpawnMarker = matchedLink->spawnMarker;
     m_lifecycle.pendingStageTransitionMarker = marker;
-    gLastStageTransitionMarker = marker;
+    m_lifecycle.lastStageTransitionMarker = marker;
     m_flow.stageTransitionActive = true;
     m_flow.stageTransitionTimer = kStageTransitionFadeOutDuration;
     m_flow.stageTransitionFadeInTimer = 0.0f;
@@ -894,8 +894,8 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     }
 
     const GameSessionState session = GameSession_Get();
-    gCurrentMapCsvPath = destinationMapCsv;
-    gLastStageTransitionMarker = marker;
+    m_lifecycle.currentMapCsvPath = destinationMapCsv;
+    m_lifecycle.lastStageTransitionMarker = marker;
     RefreshStageRenderProfile();
 
     m_world.Clear();
@@ -939,7 +939,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_eventBus.Clear();
     m_physicsWorld.Shutdown();
     m_physicsWorld.Initialize(0.0f, 0.0f, m_eventBus);
-    if (!m_tileMap.LoadFromCsv(gCurrentMapCsvPath, tileSize))
+    if (!m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, tileSize))
     {
         return false;
     }
@@ -1017,7 +1017,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     GameSession_SetTimeRemaining(session.timeRemaining);
     Entity* currentPlayer = FindEntityByTag(kTagPlayer);
     m_eventBus.Publish({ EventType::PlaySoundRequest, currentPlayer, nullptr, "scene_change", 0.0f, 0.0f });
-    m_eventBus.Publish({ EventType::LogMessage, currentPlayer, nullptr, std::string("Stage transition: ") + gCurrentMapCsvPath, 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::LogMessage, currentPlayer, nullptr, std::string("Stage transition: ") + m_lifecycle.currentMapCsvPath, 0.0f, 0.0f });
     return true;
 }
 

@@ -2,6 +2,7 @@
 
 #include "game_scene_internal.h"
 
+#include <array>
 #include <algorithm>
 #include <cctype>
 #include <limits>
@@ -504,48 +505,45 @@ namespace
             std::toupper(static_cast<unsigned char>(restoredMarkerType)));
 
         const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
-
-        switch (marker)
+        struct SepiaGroupSizingRule
         {
-        case 'M':
-            outSizing.widthTiles = 4.0f;
-            outSizing.heightTiles = 1.0f;
-            return true;
-        case 'K':
-        case 'X':
-            outSizing.widthTiles = cfg.batterySwitchWidthTiles;
-            outSizing.heightTiles = cfg.batterySwitchHeightTiles;
-            return true;
+            char marker;
+            float widthTiles;
+            float heightTiles;
+        };
 
-        case 'L':
-            outSizing.widthTiles = cfg.elevatorWidthTiles;
-            outSizing.heightTiles = cfg.elevatorHeightTiles;
-            return true;
+        const std::array<SepiaGroupSizingRule, 6> rules
+        {
+            SepiaGroupSizingRule{ 'M', 4.0f, 1.0f },
+            SepiaGroupSizingRule{ 'K', cfg.batterySwitchWidthTiles, cfg.batterySwitchHeightTiles },
+            SepiaGroupSizingRule{ 'X', cfg.batterySwitchWidthTiles, cfg.batterySwitchHeightTiles },
+            SepiaGroupSizingRule{ 'L', cfg.elevatorWidthTiles, cfg.elevatorHeightTiles },
+            SepiaGroupSizingRule{ 'Q', 4.0f, cfg.elevatorHeightTiles },
+            SepiaGroupSizingRule{ 'O', cfg.laserSwitchWidthTiles, cfg.laserSwitchHeightTiles },
+        };
 
-        case 'Q':
-            outSizing.widthTiles = 4.0f;
-            outSizing.heightTiles = cfg.elevatorHeightTiles;
-            return true;
+        for (const SepiaGroupSizingRule& rule : rules)
+        {
+            if (marker == rule.marker)
+            {
+                outSizing.widthTiles = rule.widthTiles;
+                outSizing.heightTiles = rule.heightTiles;
+                return true;
+            }
+        }
 
-        case 'O':
-            outSizing.widthTiles = cfg.laserSwitchWidthTiles;
-            outSizing.heightTiles = cfg.laserSwitchHeightTiles;
-            return true;
-
-        case 'J':
+        if (marker == 'J')
+        {
             outSizing.widthTiles = cfg.shutterWidthTiles;
             outSizing.heightTiles = cfg.shutterHeightTiles;
             return true;
-        case'+':
-            if (targetMarker == '<')
-            {
-                outSizing.widthTiles = 4.0f;
-                outSizing.heightTiles = cfg.elevatorHeightTiles;
-                return true;
-            }
-            return false;
-        default:
-            break;
+        }
+
+        if (marker == '+' && targetMarker == '<')
+        {
+            outSizing.widthTiles = 4.0f;
+            outSizing.heightTiles = cfg.elevatorHeightTiles;
+            return true;
         }
 
         if (IsEnemyMarker(marker))
@@ -679,6 +677,44 @@ void GameScene::RefreshEnemiesFromMarkers()
                     }
                 }
             };
+
+            struct EnemySpawnRule
+            {
+                char marker;
+                const char* prefabId;
+                void (GameScene::*configure)(Entity&) = nullptr;
+            };
+
+            const std::array<EnemySpawnRule, 5> enemySpawnRules
+            {
+                EnemySpawnRule{ 'W', "sandbox_enemy_walker", &GameScene::ConfigureWalkerSpriteAnimation },
+                EnemySpawnRule{ 'R', "sandbox_enemy_ranged", &GameScene::ConfigureRangedSpriteAnimation },
+                EnemySpawnRule{ '$', "sandbox_enemy_charger", nullptr },
+                EnemySpawnRule{ 'A', "sandbox_enemy_ghost", nullptr },
+                EnemySpawnRule{ 'D', "sandbox_enemy_blaster_robot", nullptr },
+            };
+
+            const auto trySpawnRegularEnemy = [&](char spawnMarker) -> bool
+            {
+                for (const EnemySpawnRule& rule : enemySpawnRules)
+                {
+                    if (spawnMarker != rule.marker)
+                    {
+                        continue;
+                    }
+
+                    Entity& enemy = SpawnStagePrefab(prefabs, rule.prefabId, markerX, markerY);
+                    if (rule.configure)
+                    {
+                        (this->*rule.configure)(enemy);
+                    }
+                    placeEnemyAtMarker(enemy);
+                    return true;
+                }
+
+                return false;
+            };
+
             const auto attachShieldToBoss = [&](Entity& boss)
             {
                 auto* bossComp = boss.GetComponent<ShieldBossComponent>();
@@ -712,24 +748,12 @@ void GameScene::RefreshEnemiesFromMarkers()
                 m_world.Spawn(std::move(shieldEntity));
             };
 
-            if (marker == 'W')
+            if (trySpawnRegularEnemy(marker))
             {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_walker", markerX, markerY);
-                ConfigureWalkerSpriteAnimation(enemy);
-                placeEnemyAtMarker(enemy);
+                continue;
             }
-            else if (marker == 'R')
-            {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", markerX, markerY);
-                ConfigureRangedSpriteAnimation(enemy);
-                placeEnemyAtMarker(enemy);
-            }
-            else if (marker == '$')
-            {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_charger", markerX, markerY);
-                placeEnemyAtMarker(enemy);
-            }
-            else if (marker == 'N' || marker == '?')
+
+            if (marker == 'N' || marker == '?')
             {
                 if (m_flow.shieldBossDefeatedThisScene)
                 {
@@ -743,16 +767,6 @@ void GameScene::RefreshEnemiesFromMarkers()
             {
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_mid_boss2", markerX, markerY);
                 placeEnemyAtMarker(boss);
-            }
-			else if (marker == 'A')
-            {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ghost", markerX, markerY);
-                placeEnemyAtMarker(enemy);
-            }
-            else if (marker == 'D')
-            {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_blaster_robot", markerX, markerY);
-                placeEnemyAtMarker(enemy);
             }
         }
     }
@@ -1687,7 +1701,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             auto rubble = std::make_unique<Entity>();
             rubble->AddComponent<TagComponent>(kTagSepiaRubble);
 
-            // äOê⁄ãÈå`ÉTÉCÉYÇ≈TransformÇçÏÇÈÅiÇ∑Ç≈Ç… groupX/Y/Width/Height ÇÕåvéZçœÇ›Åj
+            // Â§ñÊé•Áü©ÂΩ¢„Çµ„Ç§„Ç∫„ÅßTransform„Çí‰Ωú„ÇãÔºà„Åô„Åß„Å´ groupX/Y/Width/Height „ÅØË®àÁÆóÊ∏à„ÅøÔºâ
             rubble->AddComponent<TransformComponent>(groupX, groupY, groupWidth, groupHeight);
 
             rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
@@ -1697,7 +1711,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
 
             auto& groupComp = rubble->AddComponent<SepiaRubbleGroupComponent>(
                 targetMarker,
-                targetImageNo,          // startCell.imageNo Ç∆ìØÇ∂
+                targetImageNo,          // startCell.imageNo „Å®Âêå„Åò
                 restoredTileValue,      // startCell.restoredTileValue
                 targetRestoredMarkerType,
                 targetRestoredMarkerParameter,

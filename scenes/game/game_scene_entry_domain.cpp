@@ -40,6 +40,7 @@ const char* GameScene::GetSceneId() const
 void GameScene::Update(float deltaTime)
 {
     ZoneScoped;
+    const ActiveGameSceneScope activeScene(*this);
 
     if (m_lifecycle.loadingActive)
     {
@@ -60,6 +61,7 @@ void GameScene::Update(float deltaTime)
 
 void GameScene::Draw()
 {
+    const ActiveGameSceneScope activeScene(*this);
     if (m_lifecycle.loadingActive)
     {
         if (m_lifecycle.loadingFinished && m_lifecycle.loadingWarmupFramesRemaining > 0)
@@ -128,6 +130,7 @@ void GameScene::DrawLoadingScreen() const
 
 EventBus* GameScene::GetEventBus()
 {
+    const ActiveGameSceneScope activeScene(*this);
     return &m_eventBus;
 }
 

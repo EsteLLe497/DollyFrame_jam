@@ -37,6 +37,13 @@ public:
     void DrawDebugUI() override;
     bool OnCancelAction() override;
     EventBus* GetEventBus() override;
+    GameSceneTuningState& Tuning();
+    const GameSceneTuningState& Tuning() const;
+    float GetViewScale() const;
+    float GetViewWidth() const;
+    float GetViewHeight() const;
+    float GetViewOriginX() const;
+    float GetViewOriginY() const;
 
 private:
     // Camera marker data
@@ -288,6 +295,8 @@ private:
     GameSceneEffectsState m_effects;
     GameSceneMapEditorState m_mapEditor;
     GameSceneUiState m_ui;
+    GameSceneRenderState m_render;
+    GameSceneTuningState m_tuning;
     struct CameraRuntimeState
     {
         std::vector<fixedCameraRange> fixedRanges;
