@@ -1,4 +1,4 @@
-ï»¿#include "pch.h"
+#include "pch.h"
 
 #include "photo_capture_system.h"
 
@@ -228,7 +228,7 @@ namespace
             item.tintA = 1.0f;
             item.sepiaRestoredMarkerObject = true;
             return true;
-            // ã“ã“ã«æ›¸ã„ã¦ãã ã•ã„
+            // ‚±‚±‚É‘‚¢‚Ä‚­‚¾‚³‚¢
         default:
             return false;
         }
@@ -366,23 +366,23 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         return;
     }
 
-    if (scene.m_flow.captureLockoutRemaining > 0.0f)
+    if (scene.m_ui.captureLockoutRemaining > 0.0f)
     {
         return;
     }
 
-    if (scene.m_flow.captureRapidTimer <= 0.0f)
+    if (scene.m_ui.captureRapidTimer <= 0.0f)
     {
-        scene.m_flow.captureRapidCount = 0;
+        scene.m_ui.captureRapidCount = 0;
     }
 
-    ++scene.m_flow.captureRapidCount;
-    scene.m_flow.captureRapidTimer = gCaptureRapidWindowSeconds;
-    if (scene.m_flow.captureRapidCount > static_cast<int>(std::round(gCaptureRapidShotLimit)))
+    ++scene.m_ui.captureRapidCount;
+    scene.m_ui.captureRapidTimer = gCaptureRapidWindowSeconds;
+    if (scene.m_ui.captureRapidCount > static_cast<int>(std::round(gCaptureRapidShotLimit)))
     {
-        scene.m_flow.captureLockoutRemaining = gCaptureOverheatLockSeconds;
-        scene.m_flow.captureRapidCount = 0;
-        scene.m_flow.captureRapidTimer = 0.0f;
+        scene.m_ui.captureLockoutRemaining = gCaptureOverheatLockSeconds;
+        scene.m_ui.captureRapidCount = 0;
+        scene.m_ui.captureRapidTimer = 0.0f;
         return;
     }
 
@@ -406,7 +406,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     bool restoredSepiaBackground = false;
     scene.m_flow.cameraMode = false;
     bool hasSepiaRubbleInFrame = false;
-    for (const auto& entity : scene.m_entities)
+    for (const auto& entity : scene.m_world.Entities())
     {
 
         if (!entity || !entity->GetComponent<SepiaRubbleComponent>())
@@ -430,7 +430,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         }
     }
 
-    const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
+    const bool flashEnabled = scene.m_ui.cameraFlash.unlocked && scene.m_ui.cameraFlash.enabled;
     const bool sepiaDryRun =
         !hasSepiaRubbleInFrame &&
         (scene.m_debug.sepiaFilmFilterDryRunEnabled ||
@@ -446,8 +446,8 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         scene.m_photo.placement.active = false;
         scene.m_photo.placement.valid = false;
         scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
-        scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
-        scene.m_flow.developedPhotoPreviewRemaining = 0.0f;
+        scene.m_ui.shutterFlashRemaining = gShutterFlashSeconds;
+        scene.m_ui.developedPhotoPreviewRemaining = 0.0f;
         if (flashEnabled)
         {
             scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
@@ -470,7 +470,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         if (flashEnabled || defeatedGhostInFinder || restoredSepiaBackground)
         {
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
-            scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
+            scene.m_ui.shutterFlashRemaining = gShutterFlashSeconds;
             if (flashEnabled)
             {
                 scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
@@ -493,7 +493,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     bool& restoredSepiaBackground)
 {
     std::vector<Entity*> entitiesToRemove;
-    for (const auto& entity : scene.m_entities)
+    for (const auto& entity : scene.m_world.Entities())
     {
         if (!entity || HasTag(*entity, "Player") || HasTag(*entity, kTagDropItem))
         {
@@ -643,8 +643,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                                 ? sepiaGroup->cellRestoredMarkerParameters[ci] : 0;
 
                                 if (SpawnRestoredSepiaMarkerObject(
-                                    scene.m_pendingEntities,
-                                    scene.m_whiteTexture, 
+                                    scene.m_world.PendingEntities(),
+                                    scene.m_whiteTexture,
                                     tileSize,
                                     restoredLifetimeSeconds,
                                     restoredMarkerType,
@@ -1006,10 +1006,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     }
     if (!entitiesToRemove.empty())
     {
-        scene.m_entities.erase(
+        scene.m_world.Entities().erase(
             std::remove_if(
-                scene.m_entities.begin(),
-                scene.m_entities.end(),
+                scene.m_world.Entities().begin(),
+                scene.m_world.Entities().end(),
                 [&](const std::unique_ptr<Entity>& candidate)
                 {
                     if (!candidate)
@@ -1018,7 +1018,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     }
                     return std::find(entitiesToRemove.begin(), entitiesToRemove.end(), candidate.get()) != entitiesToRemove.end();
                 }),
-            scene.m_entities.end());
+            scene.m_world.Entities().end());
     }
 }
 
@@ -1117,11 +1117,11 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     scene.StoreCapturedPhoto();
 
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
-    scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
-    if (scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled)
+    scene.m_ui.shutterFlashRemaining = gShutterFlashSeconds;
+    if (scene.m_ui.cameraFlash.unlocked && scene.m_ui.cameraFlash.enabled)
     {
         scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
     }
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
-    scene.m_flow.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
+    scene.m_ui.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
 }

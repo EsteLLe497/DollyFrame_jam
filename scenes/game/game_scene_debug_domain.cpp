@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -39,7 +39,7 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Stage: solve one gimmick at a time from left to right");
     ImGui::Text("Restart: R  Title: T");
     ImGui::Text("Collision Debug: F3 (%s)", m_debug.showCollisionDebug ? "On" : "Off");
-    ImGui::Text("Entity Count: %d", static_cast<int>(m_entities.size()));
+    ImGui::Text("Entity Count: %d", static_cast<int>(m_world.Entities().size()));
     ImGui::Text("CSV TileMap: %s", m_tileMap.IsLoaded() ? "Loaded" : "Missing");
     ImGui::Text("TileMap Size: %d x %d (tile %.0f)",
         m_tileMap.GetWidth(),
@@ -62,7 +62,7 @@ void GameScene::DrawDebugUI()
             m_photo.savedCaptures.end(),
             [](const PhotoCaptureState& capture) { return capture.hasPhoto; })));
     ImGui::Text("Selected Slot: %d", m_photo.selectedCaptureSlot + 1);
-    ImGui::Text("Developed Preview: %.2f", m_flow.developedPhotoPreviewRemaining);
+    ImGui::Text("Developed Preview: %.2f", m_ui.developedPhotoPreviewRemaining);
     ImGui::Text("Selected Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));
     ImGui::Text("Captured Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.capturedTheme));
     ImGui::Text("Spawned Copy: %s", m_photo.groups.hasSpawnedCopy ? "Active" : "None");
@@ -113,7 +113,7 @@ void GameScene::DrawDebugUI()
 
     ImGui::Text("Events This Frame: %d", static_cast<int>(m_eventBus.GetEvents().size()));
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {

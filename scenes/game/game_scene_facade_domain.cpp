@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
@@ -66,7 +66,7 @@ float GameScene::PrepareGameplayDeltaTime(float deltaTime)
 
 void GameScene::TickEntities(float effectiveGameplayDeltaTime)
 {
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         entity->Update(effectiveGameplayDeltaTime);
     }
@@ -130,7 +130,7 @@ void GameScene::DrawWorldAndUiLayers()
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Shadow);
     DrawBossShockwavesUnderlay();
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (entity && (HasTag(*entity, kTagPhotoBox) ||
             entity->GetComponent<PhotoPasteOrderComponent>() ||

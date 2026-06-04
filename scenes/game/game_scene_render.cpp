@@ -1,4 +1,4 @@
-Ôªø#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "photo_filter_rules.h"
@@ -1288,7 +1288,7 @@ namespace
 
 void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
 {
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, kTagPhotoBox))
         {
@@ -1313,7 +1313,7 @@ void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
 
 void GameScene::DrawBossShockwavesUnderlay() const
 {
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, "BossShockwave"))
         {
@@ -1334,10 +1334,10 @@ void GameScene::DrawPastedEntitiesFront() const
     };
 
     std::vector<DrawTarget> drawTargets;
-    drawTargets.reserve(m_entities.size());
+    drawTargets.reserve(m_world.Entities().size());
 
     // Only entities with PhotoPasteOrder are drawn in the pasted-front pass.
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -1412,7 +1412,7 @@ void GameScene::DrawEffects() const
     const float viewCenterWorldX = m_flow.cameraX + GetViewWidth() / std::max(0.001f, viewScale) * 0.5f;
     const float viewCenterWorldY = m_flow.cameraY + GetViewHeight() / std::max(0.001f, viewScale) * 0.5f;
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -1464,7 +1464,7 @@ void GameScene::DrawEffects() const
             });
     }
 
-    const int maxLightEffects = m_darknessStageEnabled ? 6 : 16;
+    const int maxLightEffects = m_lifecycle.darknessStageEnabled ? 6 : 16;
     if (lightTargets.size() > static_cast<size_t>(maxLightEffects))
     {
         std::partial_sort(
@@ -1479,7 +1479,7 @@ void GameScene::DrawEffects() const
     }
 
     int godRayCount = 0;
-    const int maxGodRays = m_darknessStageEnabled ? 0 : 8;
+    const int maxGodRays = m_lifecycle.darknessStageEnabled ? 0 : 8;
     for (const LightDrawTarget& target : lightTargets)
     {
         if (godRayCount < maxGodRays)
@@ -1487,7 +1487,7 @@ void GameScene::DrawEffects() const
             DrawGodRay(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
             ++godRayCount;
         }
-        if (m_darknessStageEnabled)
+        if (m_lifecycle.darknessStageEnabled)
         {
             DrawCompactFlickerLight(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
         }
@@ -1497,7 +1497,7 @@ void GameScene::DrawEffects() const
         }
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -1524,7 +1524,7 @@ void GameScene::DrawEffects() const
         DrawStageLightBeam(*transform, *stageLight, beamLengthWorld, m_flow.cameraX, m_flow.cameraY);
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -1548,7 +1548,7 @@ void GameScene::DrawEffects() const
             m_flow.cameraY);
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -2573,7 +2573,7 @@ void GameScene::DrawEnemyAttackRects() const
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity) continue;
 
@@ -2590,7 +2590,7 @@ void GameScene::DrawEnemyAttackRects() const
                 GetColor(255, 80, 80), TRUE);
         }
 
-        // „ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ{„ÉªÔΩΩX„ÉªÔΩΩU„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ
+        // ÅEΩÅEΩÅEΩ{ÅEΩXÅEΩUÅEΩÅEΩÅEΩÅEΩÅEΩÅEΩ
         const auto* boss = entity->GetComponent<ShieldBossComponent>();
         if (boss && boss->attackRectActive)
         {
@@ -2601,10 +2601,10 @@ void GameScene::DrawEnemyAttackRects() const
 
             const unsigned int color =
                 boss->state == ShieldBossState::Rush
-                ? GetColor(255, 80, 80)    // „ÉªÔΩΩÔæãÈÄ≤„ÉªÔΩΩÔæç„Ç™„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩW
+                ? GetColor(255, 80, 80)    // ÅEΩÀêiÅEΩÕÉIÅEΩÅEΩÅEΩÅEΩÅEΩW
                 : boss->state == ShieldBossState::SlamPhase1
-                ? GetColor(255, 140, 0)    // „ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ@„ÉªÔΩΩÔæç„Ç™„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩW
-                : GetColor(180, 0, 255);   // „ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩA„ÉªÔΩΩÔæçË∂£ÔΩøÔΩΩ
+                ? GetColor(255, 140, 0)    // ÅEΩÅEΩÅEΩÅEΩ@ÅEΩÕÉIÅEΩÅEΩÅEΩÅEΩÅEΩW
+                : GetColor(180, 0, 255);   // ÅEΩÅEΩÅEΩÅEΩAÅEΩÕéÔøΩ
 
             DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH,
                 color, TRUE);

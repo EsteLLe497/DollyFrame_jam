@@ -1,4 +1,4 @@
-ï»¿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -81,11 +81,11 @@ void GameScene::DrawPlayerHpBar() const
         FALSE);
 
     const float targetRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
-    const float displayRatio = m_flow.hpUiInitialized ? m_flow.hpDisplayRatio : targetRatio;
-    const float lagRatio = m_flow.hpUiInitialized ? m_flow.hpDamageLagRatio : targetRatio;
-    const float flash = m_flow.hpDamageFlash;
+    const float displayRatio = m_ui.hpUiInitialized ? m_ui.hpDisplayRatio : targetRatio;
+    const float lagRatio = m_ui.hpUiInitialized ? m_ui.hpDamageLagRatio : targetRatio;
+    const float flash = m_ui.hpDamageFlash;
 
-    // ãƒãƒ¼èƒŒæ™¯
+    // ƒo[”wŒi
     DrawBox(
         static_cast<int>(std::round(barX)),
         static_cast<int>(std::round(barY)),
@@ -94,7 +94,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(38, 46, 58),
         TRUE);
 
-    // è¢«å¼¾é…å»¶ãƒãƒ¼ï¼ˆæ¸›ã£ãŸé‡ãŒä¸€ç¬æ®‹ã‚‹ï¼‰
+    // ”í’e’x‰„ƒo[iŒ¸‚Á‚½—Ê‚ªˆêuc‚éj
     DrawBox(
         static_cast<int>(std::round(barX)),
         static_cast<int>(std::round(barY)),
@@ -103,7 +103,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(232, 94, 84),
         TRUE);
 
-    // ç¾åœ¨HPãƒãƒ¼ï¼ˆå‰²åˆã§è‰²ã‚’å¤‰åŒ–ï¼‰
+    // Œ»İHPƒo[iŠ„‡‚ÅF‚ğ•Ï‰»j
     const float clampedRatio = std::clamp(displayRatio, 0.0f, 1.0f);
     const int hpR = static_cast<int>(std::round(230.0f - 160.0f * clampedRatio));
     const int hpG = static_cast<int>(std::round(76.0f + 144.0f * clampedRatio));
@@ -116,7 +116,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(hpR, hpG, hpB),
         TRUE);
 
-    // ãƒã‚¤ãƒ©ã‚¤ãƒˆ
+    // ƒnƒCƒ‰ƒCƒg
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 84);
     DrawBox(
         static_cast<int>(std::round(barX)),
@@ -127,7 +127,7 @@ void GameScene::DrawPlayerHpBar() const
         TRUE);
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
-    // è¢«å¼¾ãƒ•ãƒ©ãƒƒã‚·ãƒ¥
+    // ”í’eƒtƒ‰ƒbƒVƒ…
     if (flash > 0.0f)
     {
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(150.0f * flash)));
@@ -141,7 +141,7 @@ void GameScene::DrawPlayerHpBar() const
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
-    // ç›®ç››ã‚Š
+    // –Ú·‚è
     for (int i = 1; i < maxHp; ++i)
     {
         const float x = barX + kBarWidth * (static_cast<float>(i) / static_cast<float>(maxHp));

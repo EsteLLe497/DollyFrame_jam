@@ -1,4 +1,4 @@
-ï»¿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_render_ui_helpers.h"
@@ -852,7 +852,7 @@ namespace
 
 void GameScene::DrawStageDarknessOverlay() const
 {
-    if (!m_darknessStageEnabled)
+    if (!m_lifecycle.darknessStageEnabled)
     {
         return;
     }
@@ -899,9 +899,9 @@ void GameScene::DrawStageDarknessOverlay() const
     const float viewScale = GetViewScale();
     int maxDarknessAlpha = kBaseDarknessAlpha;
 
-    if (m_flow.cameraFlash.enabled && m_flow.cameraFlash.pulseRemaining > 0.0f && m_flow.cameraFlash.pulseDuration > 0.0f)
+    if (m_ui.cameraFlash.enabled && m_ui.cameraFlash.pulseRemaining > 0.0f && m_ui.cameraFlash.pulseDuration > 0.0f)
     {
-        const float flashT = Clamp01(m_flow.cameraFlash.pulseRemaining / m_flow.cameraFlash.pulseDuration);
+        const float flashT = Clamp01(m_ui.cameraFlash.pulseRemaining / m_ui.cameraFlash.pulseDuration);
         const float flashEase = flashT * flashT * (3.0f - 2.0f * flashT);
         maxDarknessAlpha = static_cast<int>(std::round(std::lerp(228.0f, 160.0f, flashEase)));
     }
@@ -923,7 +923,7 @@ void GameScene::DrawStageDarknessOverlay() const
 
     std::vector<OverlayLightSource> overlayLights;
     overlayLights.reserve(kMaxDarknessOverlayLights * 2);
-    CollectDarknessOverlayLights(m_entities, ctx, overlayLights);
+    CollectDarknessOverlayLights(m_world.Entities(), ctx, overlayLights);
 
     const int renderedLightLimit = (std::min)(kMaxDarknessOverlayLights, kDarknessOverlayActiveLightLimit);
     if (overlayLights.size() > static_cast<size_t>(renderedLightLimit))
@@ -1004,8 +1004,8 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     DrawSepiaFilmNoise(effectLeft, effectTop, effectRight, effectBottom, frame);
     DrawSepiaFilmDust(effectLeft, effectTop, effectRight, effectBottom, frame);
     DrawSepiaFilmScratches(effectLeft, effectTop, effectRight, effectBottom, frame);
-    // ãƒ•ãƒ¬ãƒ¼ãƒ å†…ã®ç“¦ç¤«ã‚’è¶³å ´ãƒ†ã‚¯ã‚¹ãƒãƒ£ã§ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼æç”»
-    for (const auto& entity : m_entities)
+    // ƒtƒŒ[ƒ€“à‚ÌŠ¢âI‚ğ‘«êƒeƒNƒXƒ`ƒƒ‚ÅƒvƒŒƒrƒ…[•`‰æ
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, kTagSepiaRubble))
         {
@@ -1032,7 +1032,7 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         {
             continue;
         }
-        // ãƒ•ãƒ¬ãƒ¼ãƒ ã¨é‡ãªã£ãŸç“¦ç¤«éƒ¨åˆ†ã®ã¿ã‚’æç”»
+        // ƒtƒŒ[ƒ€‚Æd‚È‚Á‚½Š¢âI•”•ª‚Ì‚İ‚ğ•`‰æ
 		const float objectWorldX = t->width * t->scale;
 		const float objectWorldY = t->height * t->scale;
         if (objectWorldX <= 0.0f || objectWorldY <= 0.0f)
@@ -1064,7 +1064,7 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
 
 void GameScene::DrawMarkerLightOutlines() const
 {
-    if (!m_darknessStageEnabled)
+    if (!m_lifecycle.darknessStageEnabled)
     {
         return;
     }
@@ -1074,7 +1074,7 @@ void GameScene::DrawMarkerLightOutlines() const
     const float viewOriginY = GetViewOriginY();
     const unsigned int outlineColor = GetColor(248, 248, 252);
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, kTagMarkerLight))
         {
@@ -1214,7 +1214,7 @@ void GameScene::DrawCaptureOverlay() const
     const int right = static_cast<int>(std::round(drawX + drawWidth));
     const int bottom = static_cast<int>(std::round(drawY + drawHeight));
 
-    const float shutterT = Clamp01(m_flow.shutterFlashRemaining / gShutterFlashSeconds);
+    const float shutterT = Clamp01(m_ui.shutterFlashRemaining / gShutterFlashSeconds);
     const float frameInset = 10.0f * shutterT * viewScale;
     const float innerX = drawX + frameInset;
     const float innerY = drawY + frameInset;
@@ -1322,7 +1322,7 @@ void GameScene::DrawCaptureOverlay() const
         }
     }
 
-    if (m_flow.shutterFlashRemaining > 0.0f)
+    if (m_ui.shutterFlashRemaining > 0.0f)
     {
         Shader_ResetStyle();
         Shader_SetTint(overlayR, overlayG, overlayB, 0.10f + shutterT * 0.55f);
@@ -1451,18 +1451,18 @@ void GameScene::DrawTuningPanel()
 
 void GameScene::DrawDevelopedPhotoPreview() const
 {
-    if (m_flow.developedPhotoPreviewRemaining <= 0.0f || !m_photo.pendingStore.active || m_photo.pendingStore.capture.items.empty())
+    if (m_ui.developedPhotoPreviewRemaining <= 0.0f || !m_photo.pendingStore.active || m_photo.pendingStore.capture.items.empty())
     {
         return;
     }
 
     const PhotoCaptureState& previewCapture = m_photo.pendingStore.capture;
     constexpr float kPreviewLifetime = 4.2f;
-    const float progress = 1.0f - Clamp01(m_flow.developedPhotoPreviewRemaining / kPreviewLifetime);
+    const float progress = 1.0f - Clamp01(m_ui.developedPhotoPreviewRemaining / kPreviewLifetime);
     const float cardPhaseT = Clamp01(progress / 0.34f);
     const float orbPhaseT = Clamp01((progress - 0.14f) / 0.30f);
     const float orbArriveT = Clamp01((progress - 0.34f) / 0.10f);
-    const float finalFade = Clamp01(m_flow.developedPhotoPreviewRemaining / 0.34f);
+    const float finalFade = Clamp01(m_ui.developedPhotoPreviewRemaining / 0.34f);
 
     float accentR = 0.32f;
     float accentG = 0.92f;
@@ -1471,7 +1471,7 @@ void GameScene::DrawDevelopedPhotoPreview() const
 
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
     const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     const float targetSlotX = trayX + m_photo.pendingStore.slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
     const float targetCenterX = targetSlotX + 98.0f;
@@ -1702,14 +1702,14 @@ void GameScene::DrawDevelopedPhotoPreview() const
 
 bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 {
-    if (m_flow.photoTrayReveal <= 0.05f)
+    if (m_ui.photoTrayReveal <= 0.05f)
     {
         return false;
     }
 
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
     const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     return
         screenX >= trayX &&
@@ -1720,7 +1720,7 @@ bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 
 void GameScene::DrawPhotoStorageTray() const
 {
-    if (m_flow.photoTrayReveal <= 0.01f)
+    if (m_ui.photoTrayReveal <= 0.01f)
     {
         return;
     }
@@ -1728,9 +1728,9 @@ void GameScene::DrawPhotoStorageTray() const
     constexpr float kInnerPadding = 10.0f;
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
     const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
-    const int textBright = static_cast<int>(150.0f + m_flow.photoTrayReveal * 105.0f);
+    const int textBright = static_cast<int>(150.0f + m_ui.photoTrayReveal * 105.0f);
     const int textBrightCool = std::min(255, textBright + 10);
 
     const int trayBackdropTexture = m_assets.GetTexture("photo_tray_backdrop");
@@ -1744,7 +1744,7 @@ void GameScene::DrawPhotoStorageTray() const
             const float drawHeight = drawWidth * (textureHeight / textureWidth);
             const float drawY = static_cast<float>(SCREEN_HEIGHT) - drawHeight;
             Shader_ResetStyle();
-            Shader_SetTint(1.0f, 1.0f, 1.0f, m_flow.photoTrayReveal);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, m_ui.photoTrayReveal);
            // SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
             Shader_ResetStyle();
         }
@@ -1878,7 +1878,7 @@ void GameScene::DrawBackdrop() const
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-// DrawBackdropBaseInView ã‚’ç½®ãæ›ãˆã‚‹ï¼ˆè©²å½“é–¢æ•°å…¨ä½“ï¼‰
+// DrawBackdropBaseInView ‚ğ’u‚«Š·‚¦‚éiŠY“–ŠÖ”‘S‘Ìj
 void GameScene::DrawBackdropBaseInView(
     float viewOriginX,
     float viewOriginY,
@@ -1886,11 +1886,11 @@ void GameScene::DrawBackdropBaseInView(
     float viewHeight,
     float viewScale) const
 {
-    // ã‚­ãƒ£ãƒƒã‚·ãƒ¥ã•ã‚ŒãŸèƒŒæ™¯ãƒ†ã‚¯ã‚¹ãƒãƒ£IDã‚’å„ªå…ˆã—ã¦ä½¿ã†ï¼ˆãªã‘ã‚Œã° manifest ã®æ—¢å®šã‚­ãƒ¼ã«ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯ï¼‰
-    int bgTexture = m_backdropTextureId >= 0 ? m_backdropTextureId : m_assets.GetTexture("sinrin10");
-    int bg1Texture = m_backdropTexture1Id >= 0 ? m_backdropTexture1Id : m_assets.GetTexture("sinrin11");
+    // ã‚­ãƒ£ãƒE‚·ãƒ¥ã•ã‚ŒãŸèƒŒæ™¯ãƒE‚¯ã‚¹ãƒãƒ£IDã‚’å„ªå…ˆã—ã¦ä½¿ãE¼ˆãªã‘ã‚Œã° manifest ã®æ—¢å®šã‚­ãƒ¼ã«ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯EE
+    int bgTexture = m_camera.backdropTextureId >= 0 ? m_camera.backdropTextureId : m_assets.GetTexture("sinrin10");
+    int bg1Texture = m_camera.backdropTexture1Id >= 0 ? m_camera.backdropTexture1Id : m_assets.GetTexture("sinrin11");
 
-    // ã•ã‚‰ã«å¿µã®ãŸã‚ manifest ã«ç™»éŒ²ã•ã‚Œã¦ã„ãªã‘ã‚Œã°æ—¢å®šã«æˆ»ã™
+    // ã•ã‚‰ã«å¿µã®ãŸã‚ manifest ã«ç™»éŒ²ã•ã‚Œã¦ãEªã‘ã‚Œã°æ—¢å®šã«æˆ»ãE
     if (bgTexture < 0) bgTexture = m_assets.GetTexture("sinrin10");
     if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("sinrin11");
 
@@ -1912,13 +1912,13 @@ void GameScene::DrawBackdropBaseInView(
     const float drawW1 = viewWidth;
     const float drawH1 = viewHeight;
 
-    // ãƒ‘ãƒ©ãƒ©ãƒƒã‚¯ã‚¹ï¼ˆä¾‹ï¼‰
+    // ƒpƒ‰ƒ‰ƒbƒNƒXi—áj
     const float parallaxX = 0.45f;
     const float parallaxY = 0.45f;
     const float parallaxX1 = 0.85f;
     const float parallaxY1 = 0.45f;
 
-    // ã‚«ãƒ¡ãƒ©ä½ç½®â†’UVã‚ªãƒ•ã‚»ãƒƒãƒˆï¼ˆ0..1ï¼‰
+    // ƒJƒƒ‰ˆÊ’u¨UVƒIƒtƒZƒbƒgi0..1j
     auto calcScroll = [](float worldPos, float parallax, float texSize)->float
     {
         if (parallax == 0.0f) return 0.0f;
@@ -1932,16 +1932,16 @@ void GameScene::DrawBackdropBaseInView(
 
     const float scrollU1 = calcScroll(m_flow.cameraX, parallaxX1, static_cast<float>(texW1));
     const float scrollV1 = calcScroll(-m_flow.cameraY, parallaxY1, static_cast<float>(texH1));
-    // view ã«å¯¾ã™ã‚‹ UV ã®ã‚¹ãƒ‘ãƒ³ï¼ˆ= ç”»é¢å¹… / ãƒ†ã‚¯ã‚¹ãƒãƒ£å¹…ï¼‰
+    // view ‚É‘Î‚·‚é UV ‚ÌƒXƒpƒ“i= ‰æ–Ê• / ƒeƒNƒXƒ`ƒƒ•j
     const float uSpan = drawW / static_cast<float>(texW);
     const float vSpan = drawH / static_cast<float>(texH);
     const float uSpan1 = drawW1 / static_cast<float>(texW1);
     const float vSpan1 = drawH1 / static_cast<float>(texH1);
 
-    // Y ã‚’ä¸‹ã«ãšã‚‰ã™ã‚ªãƒ•ã‚»ãƒƒãƒˆï¼ˆå¿…è¦ãªã‚‰ï¼‰
+    // Y ‚ğ‰º‚É‚¸‚ç‚·ƒIƒtƒZƒbƒgi•K—v‚È‚çj
     const float bg1OffsetY = 24.0f * viewScale;
 
-    // å†…éƒ¨ï¼š1å›åˆ†ã®uvå¡Šã‚’å››åˆ†å‰²ã—ã¦æããƒ˜ãƒ«ãƒ‘ãƒ¼ï¼ˆtx,tyã¯ [0..inf) ã‚’è¨±å®¹ã—ã€å°æ•°éƒ¨ã§æ‰±ã†ï¼‰
+    // “à•”F1‰ñ•ª‚Ìuv‰ò‚ğl•ªŠ„‚µ‚Ä•`‚­ƒwƒ‹ƒp[itx,ty‚Í [0..inf) ‚ğ‹–—e‚µA¬”•”‚Åˆµ‚¤j
     const auto drawTiledChunk = [&](int textureId, float destX, float destY, float destW, float destH, float tx, float ty, float tw, float th)
     {
         // normalize to fractional part in [0,1)
@@ -1962,29 +1962,29 @@ void GameScene::DrawBackdropBaseInView(
         const float h1 = destH * (v1 / th);
         const float h2 = destH - h1;
 
-        // å·¦ä¸Š
+        // ¶ã
         if (w1 > 0.5f && h1 > 0.5f)
         {
             SpriteDraw(textureId, destX, destY, w1, h1, tx, ty, u1, v1, false, 0.0f);
         }
-        // å³ä¸Š
+        // ‰Eã
         if (u2 > 0.0001f && w2 > 0.5f && h1 > 0.5f)
         {
             SpriteDraw(textureId, destX + w1, destY, w2, h1, 0.0f, ty, u2, v1, false, 0.0f);
         }
-        // å·¦ä¸‹
+        // ¶‰º
         if (v2 > 0.0001f && h2 > 0.5f && w1 > 0.5f)
         {
             SpriteDraw(textureId, destX, destY + h1, w1, h2, tx, 0.0f, u1, v2, false, 0.0f);
         }
-        // å³ä¸‹
+        // ‰E‰º
         if (u2 > 0.0001f && v2 > 0.0001f && w2 > 0.5f && h2 > 0.5f)
         {
             SpriteDraw(textureId, destX + w1, destY + h1, w2, h2, 0.0f, 0.0f, u2, v2, false, 0.0f);
         }
     };
 
-    // æ±ç”¨ï¼šuSpan/vSpan ãŒ 1 ã‚’è¶…ãˆã‚‹å ´åˆã«å›æ•°åˆ†ã‚¿ã‚¤ãƒ«ã—ã¦æç”»ã™ã‚‹ãƒ«ãƒ¼ãƒ—
+    // ”Ä—pFuSpan/vSpan ‚ª 1 ‚ğ’´‚¦‚éê‡‚É‰ñ”•ªƒ^ƒCƒ‹‚µ‚Ä•`‰æ‚·‚éƒ‹[ƒv
     const auto drawTiledRepeating = [&](int textureId, float destX, float destY, float destW, float destH, float baseTx, float baseTy, float totalTw, float totalTh)
     {
         const int repsX = std::max(1, static_cast<int>(std::ceil(totalTw)));
@@ -2012,10 +2012,10 @@ void GameScene::DrawBackdropBaseInView(
         }
     };
 
-    // èƒŒæ™¯ï¼ˆå¥¥ï¼‰ã‚’æç”»
+    // ”wŒii‰œj‚ğ•`‰æ
     drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
 
-    // èƒŒæ™¯å‰æ™¯ï¼ˆæ‰‹å‰ï¼‰ã‚’æç”»ï¼ˆY ã‚’ä¸‹ã«ã‚ªãƒ•ã‚»ãƒƒãƒˆï¼‰
+    // ”wŒi‘OŒiiè‘Oj‚ğ•`‰æiY ‚ğ‰º‚ÉƒIƒtƒZƒbƒgj
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
 }
 
@@ -2238,8 +2238,8 @@ void GameScene::DrawPhotoFilterPanelInView() const
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
 {
     static_cast<void>(playerTransform);
-    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_flow.captureFinderScale;
-    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_flow.captureFinderScale;
+    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_ui.captureFinderScale;
+    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_ui.captureFinderScale;
 
     const float cursorStartWorldX = m_flow.cameraX + gCameraViewWidth * 0.5f;
     const float cursorStartWorldY = m_flow.cameraY + gCameraViewHeight * 0.5f;
@@ -2335,7 +2335,7 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     TransformComponent captureFrame(frameX, frameY, frameWidth, frameHeight);
     Entity* bestTarget = nullptr;
     float bestDistance = 1000000.0f;
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (HasTag(*entity, kTagPlayer) ||
             HasTag(*entity, kTagEnemy) ||
@@ -2393,7 +2393,7 @@ void GameScene::DrawBatterySwitchCounters() const
     const float viewOriginY = GetViewOriginY();
     const float tileOffsetY = m_tileMap.GetTileSize() * 2.0f * viewScale;
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, kTagBatterySwitch))
         {

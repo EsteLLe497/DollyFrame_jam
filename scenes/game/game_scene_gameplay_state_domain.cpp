@@ -1,4 +1,4 @@
-ï»¿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_photo_tray_system.h"
@@ -168,7 +168,7 @@ void GameScene::TryUseAttackCaptureSlot()
             shieldEntity->AddComponent<PhotoCopyLifetimeComponent>(2.0f);
         }
 
-        m_entities.push_back(std::move(shieldEntity));
+        m_world.Spawn(std::move(shieldEntity));
         finishAttackUse();
         return;
     }
@@ -196,7 +196,7 @@ void GameScene::TryUseAttackCaptureSlot()
     attackEntity->AddComponent<TintComponent>(1.0f, 0.55f, 0.15f, 0.72f);
     attackEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
     attackEntity->AddComponent<PhotoCopyLifetimeComponent>(kAttackLifetime);
-    m_entities.push_back(std::move(attackEntity));
+    m_world.Spawn(std::move(attackEntity));
 
     finishAttackUse();
 }
@@ -208,13 +208,13 @@ void GameScene::StartCameraFlashPulse(float durationSeconds)
         return;
     }
 
-    m_flow.cameraFlash.pulseDuration = (std::max)(m_flow.cameraFlash.pulseDuration, durationSeconds);
-    m_flow.cameraFlash.pulseRemaining = (std::max)(m_flow.cameraFlash.pulseRemaining, durationSeconds);
+    m_ui.cameraFlash.pulseDuration = (std::max)(m_ui.cameraFlash.pulseDuration, durationSeconds);
+    m_ui.cameraFlash.pulseRemaining = (std::max)(m_ui.cameraFlash.pulseRemaining, durationSeconds);
 }
 
 void GameScene::StoreCapturedPhoto()
 {
-	// ã‚­ãƒ£ãƒ—ãƒãƒ£ã—ãŸå†™çœŸã«ã‚»ãƒ”ã‚¢åœ°é¢ã‚¢ã‚¤ãƒ†ãƒ ãŒå«ã¾ã‚Œã¦ã„ã‚‹ã‹
+	// ƒLƒƒƒvƒ`ƒƒ‚µ‚½Ê^‚ÉƒZƒsƒA’n–ÊƒAƒCƒeƒ€‚ªŠÜ‚Ü‚ê‚Ä‚¢‚é‚©
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.capture.items)
     {
@@ -288,7 +288,7 @@ void GameScene::CommitPendingCapturedPhoto()
         m_photo.pendingStore = PendingPhotoStoreState{};
         return;
     }
-    // ç¢ºèª
+    // Šm”F
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.pendingStore.capture.items)
     {
@@ -381,7 +381,7 @@ void GameScene::UpdatePhotoTraySelection()
 {
     game_scene_photo_tray_system::UpdateSelection(
         m_photo,
-        m_flow.photoTrayReveal,
+        m_ui.photoTrayReveal,
         [this](int slotIndex)
         {
             SetSelectedPhotoSlot(slotIndex);
@@ -407,7 +407,7 @@ void GameScene::HandleAttackHits()
     const float playerTop = playerTransform->y;
     const float playerBottom = playerTransform->y + playerTransform->height * playerTransform->scale;
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -466,7 +466,7 @@ void GameScene::RefreshPhotoGroupState()
     m_photo.groups.hasSpawnedCopy = FindEntityByTag(kTagPhotoBox) != nullptr;
     int maxGroupId = 0;
     std::vector<int> groups;
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, kTagPhotoBox))
         {
@@ -494,7 +494,7 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
         return;
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -517,7 +517,7 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
             if (!sepiaGroup->cellColumns.empty() &&
                 sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
             {
-                // ã‚»ãƒ«å˜ä½ã§å¾©å…ƒã—ãŸãªã‚‰ã€ã‚»ãƒ«å˜ä½ã§æˆ»ã™ï¼ˆç©ºæ´ã‚’æ½°ã•ãªã„ï¼‰
+                // ƒZƒ‹’PˆÊ‚Å•œŒ³‚µ‚½‚È‚çAƒZƒ‹’PˆÊ‚Å–ß‚·i‹ó“´‚ğ’×‚³‚È‚¢j
                 for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
                 {
                     const int col = sepiaGroup->cellColumns[ci];
@@ -528,7 +528,7 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
             }
             else
             {
-                // cell é…åˆ—ãŒç„¡ã„å ´åˆã¯å¾“æ¥ã©ãŠã‚Š min/max çŸ©å½¢ã§æˆ»ã™
+                // cell ”z—ñ‚ª–³‚¢ê‡‚Í]—ˆ‚Ç‚¨‚è min/max ‹éŒ`‚Å–ß‚·
                 for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
                 {
                     for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)

@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -38,11 +38,5 @@ void GameScene::ResolveGameplayOutcomes(float gameplayDeltaTime)
 
 void GameScene::FlushPendingEntities()
 {
-    // Flush entities queued during gameplay update.
-    for (auto& entity : m_pendingEntities)
-    {
-        m_entities.push_back(std::move(entity));
-    }
-    m_pendingEntities.clear();
+    m_world.FlushPending();
 }
-
