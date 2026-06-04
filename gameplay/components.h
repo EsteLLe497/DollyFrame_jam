@@ -1034,6 +1034,26 @@ public:
     std::vector<int> cellRestoredMarkerParameters;
 };
 
+class SepiaElevatorComponent final : public Component
+{
+public:
+    SepiaElevatorComponent(
+        float moveRangeY,
+        float moveSpeed,
+        float topPauseSeconds);
+
+    void OnAttach(Entity& owner) override;
+    void DrawDebugUI() override;
+
+    float moveRangeY = 144.0f;
+    float moveSpeed = 140.0f;
+    float topPauseSeconds = 1.0f;
+    float baseY = 0.0f;
+    bool cycleStarted = false;
+    bool movingUp = true;
+    float pauseTimer = 0.0f;
+    bool wasPlayerTouching = false;
+};
 // ============================================================================
 // Gameplay Common Domain
 // ============================================================================

@@ -571,6 +571,69 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
     {
         RefreshProtectiveWallsFromMarkers();
     }
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* sepiaElevator = entity->GetComponent<SepiaElevatorComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!sepiaElevator || !transform)
+        {
+            continue;
+        }
+
+        const float previousY = transform->y;
+     
+        const bool playerTouchingElevator =
+            isPlayerOnTopOfPlatform(*transform, std::max(kPlatformTopToleranceMin + 2.0f, tileSize * 0.28f));
+        const bool touchTriggeredThisFrame =
+            playerTouchingElevator &&
+            !sepiaElevator->wasPlayerTouching;
+        if (!sepiaElevator->cycleStarted && touchTriggeredThisFrame)
+        {
+            sepiaElevator->cycleStarted = true;
+            sepiaElevator->pauseTimer = 0.0f;
+        }
+
+        if (sepiaElevator->cycleStarted)
+        {
+            if (sepiaElevator->movingUp)
+            {
+                const float topY = sepiaElevator->baseY - sepiaElevator->moveRangeY;
+                transform->y = std::max(topY, transform->y - sepiaElevator->moveSpeed * deltaTime);
+                if (transform->y <= topY + 0.5f)
+                {
+                    transform->y = topY;
+                    sepiaElevator->movingUp = false;
+                    sepiaElevator->cycleStarted = false;
+                }
+            }
+            else
+            {
+                transform->y = std::min(sepiaElevator->baseY, transform->y + sepiaElevator->moveSpeed * deltaTime);
+                if (transform->y >= sepiaElevator->baseY - 0.5f)
+                {
+                    transform->y = sepiaElevator->baseY;
+                    sepiaElevator->movingUp = true;
+                    sepiaElevator->cycleStarted = false;
+                }
+            }
+        }
+
+        sepiaElevator->wasPlayerTouching = playerTouchingElevator;
+        const float deltaY = transform->y - previousY;
+        carryPlayerByPlatformDeltaY(
+            *transform,
+            previousY,
+            transform->y,
+            deltaY,
+            std::max(kPlatformTopToleranceMin, tileSize * 0.24f),
+            kPlatformPlayerInsetX);
+    }
 }
 
 const Entity* GameScene::FindNearestMarkerLightEntity(
