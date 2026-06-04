@@ -305,6 +305,15 @@ namespace
         outShutterMarkers.clear();
         outProtectiveWallMarkers.clear();
 
+        const size_t estimatedMarkerCount =
+            static_cast<size_t>((std::max)(0, tileMap.GetWidth())) *
+            static_cast<size_t>((std::max)(0, tileMap.GetHeight()));
+        outSwitchMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outElevatorMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outLaserSwitchMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outShutterMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outProtectiveWallMarkers.reserve(estimatedMarkerCount / 32 + 1);
+
         for (int row = 0; row < tileMap.GetHeight(); ++row)
         {
             for (int column = 0; column < tileMap.GetWidth(); ++column)
@@ -555,6 +564,140 @@ namespace
 
         return false;
     }
+}
+
+void GameScene::SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    auto switchEntity = std::make_unique<Entity>();
+    switchEntity->AddComponent<TagComponent>(kTagBatterySwitch);
+    switchEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * cfg.batterySwitchWidthTiles,
+        tileSize * cfg.batterySwitchHeightTiles);
+    switchEntity->AddComponent<TintComponent>(
+        cfg.batterySwitchColor.r,
+        cfg.batterySwitchColor.g,
+        cfg.batterySwitchColor.b,
+        1.0f);
+    switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    switchEntity->AddComponent<BatterySwitchComponent>(
+        linkId,
+        requiredBatteryCount,
+        tileSize * cfg.batterySwitchPressDepthRatio,
+        cfg.batterySwitchPressSpeed,
+        cfg.batterySwitchReleaseSpeed,
+        controlsLaserPower);
+    m_world.Spawn(std::move(switchEntity));
+}
+
+void GameScene::SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    auto elevatorEntity = std::make_unique<Entity>();
+    elevatorEntity->AddComponent<TagComponent>(kTagElevator);
+    elevatorEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * widthTiles,
+        tileSize * cfg.elevatorHeightTiles);
+    elevatorEntity->AddComponent<TintComponent>(
+        cfg.elevatorColor.r,
+        cfg.elevatorColor.g,
+        cfg.elevatorColor.b,
+        1.0f);
+    elevatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    elevatorEntity->AddComponent<ElevatorComponent>(
+        linkId,
+        tileSize * static_cast<float>(moveRangeTiles),
+        tileSize * cfg.elevatorSpeedTilesPerSec,
+        cfg.elevatorTopPauseSeconds);
+    m_world.Spawn(std::move(elevatorEntity));
+}
+
+void GameScene::SpawnLaserSwitchMarker(float x, float y, int linkId, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    auto switchEntity = std::make_unique<Entity>();
+    switchEntity->AddComponent<TagComponent>(kTagLaserSwitch);
+    switchEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * cfg.laserSwitchWidthTiles,
+        tileSize * cfg.laserSwitchHeightTiles);
+    switchEntity->AddComponent<TintComponent>(
+        cfg.laserSwitchColor.r,
+        cfg.laserSwitchColor.g,
+        cfg.laserSwitchColor.b,
+        1.0f);
+    switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    switchEntity->AddComponent<LaserSwitchComponent>(linkId);
+    m_world.Spawn(std::move(switchEntity));
+}
+
+void GameScene::SpawnShutterMarker(
+    float x,
+    float y,
+    int moveRangeTiles,
+    int linkId,
+    bool useBossDefeatSignal,
+    bool opensWhenUnpowered,
+    float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    const int effectiveMoveRangeTiles = (std::max)(1, moveRangeTiles);
+    auto shutterEntity = std::make_unique<Entity>();
+    shutterEntity->AddComponent<TagComponent>(kTagShutter);
+    shutterEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * cfg.shutterWidthTiles,
+        tileSize * cfg.shutterHeightTiles);
+    shutterEntity->AddComponent<TintComponent>(
+        cfg.shutterColor.r,
+        cfg.shutterColor.g,
+        cfg.shutterColor.b,
+        1.0f);
+    shutterEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    shutterEntity->AddComponent<ShutterComponent>(
+        linkId,
+        tileSize * static_cast<float>(effectiveMoveRangeTiles),
+        tileSize * cfg.shutterSpeedTilesPerSec,
+        useBossDefeatSignal,
+        opensWhenUnpowered);
+    m_world.Spawn(std::move(shutterEntity));
+}
+
+void GameScene::SpawnProtectiveWallMarker(float x, float y, int durability, int linkId, int widthTiles, int markerHeightTiles, int heightTiles, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    const float markerWidth = tileSize * static_cast<float>((std::max)(1, widthTiles));
+    const float markerHeight = tileSize * static_cast<float>((std::max)(1, markerHeightTiles));
+    const float wallWidth = tileSize * static_cast<float>((std::max)(1, widthTiles));
+    const float wallHeight = tileSize * static_cast<float>((std::max)(1, heightTiles));
+    const float wallX = x + markerWidth * 0.5f - wallWidth * 0.5f;
+    const float wallY = y + markerHeight - tileSize - wallHeight;
+    auto wallEntity = std::make_unique<Entity>();
+    wallEntity->AddComponent<TagComponent>(kTagProtectiveWall);
+    wallEntity->AddComponent<TransformComponent>(
+        wallX,
+        wallY,
+        wallWidth,
+        wallHeight);
+    wallEntity->AddComponent<TintComponent>(
+        cfg.protectiveWallColor.r,
+        cfg.protectiveWallColor.g,
+        cfg.protectiveWallColor.b,
+        1.0f);
+    wallEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    wallEntity->AddComponent<ProtectiveWallComponent>(
+        linkId,
+        durability,
+        wallHeight,
+        tileSize * cfg.protectiveWallSpeedTilesPerSec,
+        false);
+    m_world.Spawn(std::move(wallEntity));
 }
 
 void GameScene::RefreshMarkerDrivenSystems()
@@ -1187,7 +1330,6 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
     {
         return;
     }
-    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
 
     std::vector<SwitchMarker> switchMarkers;
     std::vector<ElevatorMarker> elevatorMarkers;
@@ -1202,146 +1344,35 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         laserSwitchMarkers,
         shutterMarkers,
         protectiveWallMarkers);
-
-    const auto spawnBatterySwitch = [&](const SwitchMarker& marker, int linkId)
-    {
-        auto switchEntity = std::make_unique<Entity>();
-        switchEntity->AddComponent<TagComponent>(kTagBatterySwitch);
-        switchEntity->AddComponent<TransformComponent>(
-            marker.x,
-            marker.y,
-            tileSize * cfg.batterySwitchWidthTiles,
-            tileSize * cfg.batterySwitchHeightTiles);
-        switchEntity->AddComponent<TintComponent>(
-            cfg.batterySwitchColor.r,
-            cfg.batterySwitchColor.g,
-            cfg.batterySwitchColor.b,
-            1.0f);
-        switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        switchEntity->AddComponent<BatterySwitchComponent>(
-            linkId,
-            marker.requiredBatteryCount,
-            tileSize * cfg.batterySwitchPressDepthRatio,
-            cfg.batterySwitchPressSpeed,
-            cfg.batterySwitchReleaseSpeed,
-            marker.controlsLaserPower);
-        m_world.Spawn(std::move(switchEntity));
-    };
-
-    const auto spawnElevator = [&](const ElevatorMarker& marker, int linkId)
-    {
-        auto elevatorEntity = std::make_unique<Entity>();
-        elevatorEntity->AddComponent<TagComponent>(kTagElevator);
-        elevatorEntity->AddComponent<TransformComponent>(
-            marker.x,
-            marker.y,
-            tileSize * marker.widthTiles,
-            tileSize * cfg.elevatorHeightTiles);
-        elevatorEntity->AddComponent<TintComponent>(
-            cfg.elevatorColor.r,
-            cfg.elevatorColor.g,
-            cfg.elevatorColor.b,
-            1.0f);
-        elevatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        elevatorEntity->AddComponent<ElevatorComponent>(
-            linkId,
-            tileSize * static_cast<float>(marker.moveRangeTiles),
-            tileSize * cfg.elevatorSpeedTilesPerSec,
-            cfg.elevatorTopPauseSeconds);
-        m_world.Spawn(std::move(elevatorEntity));
-    };
-
-    const auto spawnLaserSwitch = [&](const LaserSwitchMarker& marker, int linkId)
-    {
-        auto switchEntity = std::make_unique<Entity>();
-        switchEntity->AddComponent<TagComponent>(kTagLaserSwitch);
-        switchEntity->AddComponent<TransformComponent>(
-            marker.x,
-            marker.y,
-            tileSize * cfg.laserSwitchWidthTiles,
-            tileSize * cfg.laserSwitchHeightTiles);
-        switchEntity->AddComponent<TintComponent>(
-            cfg.laserSwitchColor.r,
-            cfg.laserSwitchColor.g,
-            cfg.laserSwitchColor.b,
-            1.0f);
-        switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        switchEntity->AddComponent<LaserSwitchComponent>(linkId);
-        m_world.Spawn(std::move(switchEntity));
-    };
-
-    const auto spawnShutter = [&](const ShutterMarker& marker, int linkId)
-    {
-        const int moveRangeTiles = (std::max)(1, marker.moveRangeTiles);
-        auto shutterEntity = std::make_unique<Entity>();
-        shutterEntity->AddComponent<TagComponent>(kTagShutter);
-        shutterEntity->AddComponent<TransformComponent>(
-            marker.x,
-            marker.y,
-            tileSize * cfg.shutterWidthTiles,
-            tileSize * cfg.shutterHeightTiles);
-        shutterEntity->AddComponent<TintComponent>(
-            cfg.shutterColor.r,
-            cfg.shutterColor.g,
-            cfg.shutterColor.b,
-            1.0f);
-        shutterEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        shutterEntity->AddComponent<ShutterComponent>(
-            linkId,
-            tileSize * static_cast<float>(moveRangeTiles),
-            tileSize * cfg.shutterSpeedTilesPerSec,
-            marker.useBossDefeatSignal,
-            marker.opensWhenUnpowered);
-        m_world.Spawn(std::move(shutterEntity));
-    };
-
-    const auto spawnProtectiveWall = [&](const ProtectiveWallMarker& marker, int linkId)
-    {
-        const float markerWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
-        const float markerHeight = tileSize * static_cast<float>((std::max)(1, marker.markerHeightTiles));
-        const float wallWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
-        const float wallHeight = tileSize * static_cast<float>((std::max)(1, marker.heightTiles));
-        const float wallX = marker.x + markerWidth * 0.5f - wallWidth * 0.5f;
-        // Anchor the wall to the ground surface of the placed marker band.
-        const float wallY = marker.y + markerHeight - tileSize - wallHeight;
-        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : linkId;
-        auto wallEntity = std::make_unique<Entity>();
-        wallEntity->AddComponent<TagComponent>(kTagProtectiveWall);
-        wallEntity->AddComponent<TransformComponent>(
-            wallX,
-            wallY,
-            wallWidth,
-            wallHeight);
-        wallEntity->AddComponent<TintComponent>(
-            cfg.protectiveWallColor.r,
-            cfg.protectiveWallColor.g,
-            cfg.protectiveWallColor.b,
-            1.0f);
-        wallEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        wallEntity->AddComponent<ProtectiveWallComponent>(
-            effectiveLinkId,
-            marker.durability,
-            wallHeight,
-            tileSize * cfg.protectiveWallSpeedTilesPerSec,
-            false);
-        m_world.Spawn(std::move(wallEntity));
-    };
-
     for (int index = 0; index < static_cast<int>(switchMarkers.size()); ++index)
     {
-        spawnBatterySwitch(switchMarkers[static_cast<size_t>(index)], index);
+        const SwitchMarker& marker = switchMarkers[static_cast<size_t>(index)];
+        SpawnBatterySwitchMarker(
+            marker.x,
+            marker.y,
+            marker.requiredBatteryCount,
+            marker.controlsLaserPower,
+            index,
+            tileSize);
     }
 
     for (int index = 0; index < static_cast<int>(elevatorMarkers.size()); ++index)
     {
-        spawnElevator(elevatorMarkers[static_cast<size_t>(index)], index);
+        const ElevatorMarker& marker = elevatorMarkers[static_cast<size_t>(index)];
+        SpawnElevatorMarker(
+            marker.x,
+            marker.y,
+            marker.moveRangeTiles,
+            marker.widthTiles,
+            index,
+            tileSize);
     }
 
     for (int index = 0; index < static_cast<int>(laserSwitchMarkers.size()); ++index)
     {
         const LaserSwitchMarker& marker = laserSwitchMarkers[static_cast<size_t>(index)];
         const int linkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : index;
-        spawnLaserSwitch(marker, linkId);
+        SpawnLaserSwitchMarker(marker.x, marker.y, linkId, tileSize);
     }
 
     const std::vector<int> laserSwitchLinkIds = BuildLaserSwitchLinkIds(laserSwitchMarkers);
@@ -1354,12 +1385,29 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             index,
             laserSwitchMarkers,
             laserSwitchLinkIds);
-        spawnShutter(marker, linkId);
+        SpawnShutterMarker(
+            marker.x,
+            marker.y,
+            marker.moveRangeTiles,
+            linkId,
+            marker.useBossDefeatSignal,
+            marker.opensWhenUnpowered,
+            tileSize);
     }
 
     for (int index = 0; index < static_cast<int>(protectiveWallMarkers.size()); ++index)
     {
-        spawnProtectiveWall(protectiveWallMarkers[static_cast<size_t>(index)], index);
+        const ProtectiveWallMarker& marker = protectiveWallMarkers[static_cast<size_t>(index)];
+        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : index;
+        SpawnProtectiveWallMarker(
+            marker.x,
+            marker.y,
+            marker.durability,
+            effectiveLinkId,
+            marker.widthTiles,
+            marker.markerHeightTiles,
+            marker.heightTiles,
+            tileSize);
     }
 }
 
@@ -1399,41 +1447,19 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
         shutterMarkers,
         protectiveWallMarkers);
 
-    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
-    const auto spawnProtectiveWall = [&](const ProtectiveWallMarker& marker, int linkId)
-    {
-        const float markerWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
-        const float markerHeight = tileSize * static_cast<float>((std::max)(1, marker.markerHeightTiles));
-        const float wallWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
-        const float wallHeight = tileSize * static_cast<float>((std::max)(1, marker.heightTiles));
-        const float wallX = marker.x + markerWidth * 0.5f - wallWidth * 0.5f;
-        const float wallY = marker.y + markerHeight - tileSize - wallHeight;
-        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : linkId;
-        auto wallEntity = std::make_unique<Entity>();
-        wallEntity->AddComponent<TagComponent>(kTagProtectiveWall);
-        wallEntity->AddComponent<TransformComponent>(
-            wallX,
-            wallY,
-            wallWidth,
-            wallHeight);
-        wallEntity->AddComponent<TintComponent>(
-            cfg.protectiveWallColor.r,
-            cfg.protectiveWallColor.g,
-            cfg.protectiveWallColor.b,
-            1.0f);
-        wallEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        wallEntity->AddComponent<ProtectiveWallComponent>(
-            effectiveLinkId,
-            marker.durability,
-            wallHeight,
-            tileSize * cfg.protectiveWallSpeedTilesPerSec,
-            false);
-        m_world.Spawn(std::move(wallEntity));
-    };
-
     for (int index = 0; index < static_cast<int>(protectiveWallMarkers.size()); ++index)
     {
-        spawnProtectiveWall(protectiveWallMarkers[static_cast<size_t>(index)], index);
+        const ProtectiveWallMarker& marker = protectiveWallMarkers[static_cast<size_t>(index)];
+        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : index;
+        SpawnProtectiveWallMarker(
+            marker.x,
+            marker.y,
+            marker.durability,
+            effectiveLinkId,
+            marker.widthTiles,
+            marker.markerHeightTiles,
+            marker.heightTiles,
+            tileSize);
     }
 }
 
