@@ -27,6 +27,7 @@ enum class EntityTag
     MarkerLight,
     StageLight,
     SepiaRubble,
+    SepiaElevator,
     Filter,
     Barrel,
     Shield,
@@ -64,6 +65,7 @@ inline const char* EntityTagToString(EntityTag tag)
     case EntityTag::MarkerLight: return "MarkerLight";
     case EntityTag::StageLight: return "StageLight";
     case EntityTag::SepiaRubble: return "SepiaRubble";
+    case EntityTag::SepiaElevator: return "SepiaElevator";
     case EntityTag::Filter: return "Filter";
     case EntityTag::Barrel: return "Barrel";
     case EntityTag::Shield: return "Shield";
@@ -101,6 +103,7 @@ inline EntityTag EntityTagFromString(std::string_view tag)
     if (tag == "MarkerLight") return EntityTag::MarkerLight;
     if (tag == "StageLight") return EntityTag::StageLight;
     if (tag == "SepiaRubble") return EntityTag::SepiaRubble;
+    if (tag == "SepiaElevator") return EntityTag::SepiaElevator;
     if (tag == "Filter") return EntityTag::Filter;
     if (tag == "Barrel") return EntityTag::Barrel;
     if (tag == "Shield") return EntityTag::Shield;

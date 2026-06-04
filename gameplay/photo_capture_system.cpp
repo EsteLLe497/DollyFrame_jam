@@ -1,4 +1,4 @@
-#include "pch.h"
+Ôªø#include "pch.h"
 
 #include "photo_capture_system.h"
 
@@ -228,7 +228,7 @@ namespace
             item.tintA = 1.0f;
             item.sepiaRestoredMarkerObject = true;
             return true;
-            // Ç±Ç±Ç…èëÇ¢ÇƒÇ≠ÇæÇ≥Ç¢
+            // „Åì„Åì„Å´Êõ∏„ÅÑ„Å¶„Åè„Å†„Åï„ÅÑ
         default:
             return false;
         }
@@ -1004,22 +1004,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             entitiesToRemove.push_back(entity.get());
         }
     }
-    if (!entitiesToRemove.empty())
-    {
-        scene.m_world.Entities().erase(
-            std::remove_if(
-                scene.m_world.Entities().begin(),
-                scene.m_world.Entities().end(),
-                [&](const std::unique_ptr<Entity>& candidate)
-                {
-                    if (!candidate)
-                    {
-                        return false;
-                    }
-                    return std::find(entitiesToRemove.begin(), entitiesToRemove.end(), candidate.get()) != entitiesToRemove.end();
-                }),
-            scene.m_world.Entities().end());
-    }
+    scene.m_world.RemoveByPointerList(entitiesToRemove);
 }
 
 void PhotoCaptureSystem::CaptureTilesInFrame(
@@ -1125,3 +1110,4 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
     scene.m_ui.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
 }
+

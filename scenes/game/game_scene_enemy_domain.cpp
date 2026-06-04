@@ -1,4 +1,4 @@
-#include "pch.h"
+Ôªø#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
@@ -296,7 +296,7 @@ void GameScene::ConfigureShieldBossSpriteAnimation(Entity& enemy)
         animation = &enemy.AddComponent<SpriteSheetAnimationComponent>();
     }
 
-    // ñ{ëÃÇÃìñÇΩÇËîªíËÇÕà€éùÇµÅAï`âÊÇæÇØë´å≥äÓèÄÇ≈ëÂÇ´Ç≠å©ÇπÇÈÅB
+    // Êú¨‰Ωì„ÅÆÂΩì„Åü„ÇäÂà§ÂÆö„ÅØÁ∂≠ÊåÅ„Åó„ÄÅÊèèÁîª„Å†„ÅëË∂≥ÂÖÉÂü∫Ê∫ñ„ÅßÂ§ß„Åç„ÅèË¶ã„Åõ„Çã„ÄÇ
     sprite->SetRenderScale(kBoss1BodyVisualScale, kBoss1BodyVisualScale);
     sprite->SetRenderOffset(
         transform->width * (1.0f - kBoss1BodyVisualScale) * 0.5f,
@@ -307,7 +307,7 @@ void GameScene::ConfigureShieldBossSpriteAnimation(Entity& enemy)
     const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
     const BossTextureResolver resolveTexture = [this](const std::string& key) { return m_assets.GetTexture(key); };
 
-    // RushånÇ∆RoarÇÕèÛë‘ñºÇ…äÒÇπÇƒÅAêÌì¨èÛë‘Ç©ÇÁìØä˙ÇµÇ‚Ç∑Ç≠Ç∑ÇÈÅB
+    // RushÁ≥ª„Å®Roar„ÅØÁä∂ÊÖãÂêç„Å´ÂØÑ„Åõ„Å¶„ÄÅÊà¶ÈóòÁä∂ÊÖã„Åã„ÇâÂêåÊúü„Åó„ÇÑ„Åô„Åè„Åô„Çã„ÄÇ
     animation->DefineClip("idle", resolvedIdleTexture, kBoss1IdleSheetColumns, kBoss1IdleSheetRows, 0, kBoss1IdleFrameCount, kBoss1IdleFps, true);
     DefineLazySingleSheetClip(
         *animation,
@@ -409,7 +409,7 @@ void GameScene::ConfigureBossShieldSpriteAnimation(Entity& shield)
     const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
     const BossTextureResolver resolveTexture = [this](const std::string& key) { return m_assets.GetTexture(key); };
 
-    // èÇÇÕñ{ëÃÇ∆ìØÇ∂ÉLÉÉÉìÉoÉXÇÃï™äÑëfçﬁÇ»ÇÃÇ≈ÅAìØÇ∂ÉtÉåÅ[ÉÄíËã`Ç≈ìØä˙Ç∑ÇÈÅB
+    // Áõæ„ÅØÊú¨‰Ωì„Å®Âêå„Åò„Ç≠„É£„É≥„Éê„Çπ„ÅÆÂàÜÂâ≤Á¥†Êùê„Å™„ÅÆ„Åß„ÄÅÂêå„Åò„Éï„É¨„Éº„É†ÂÆöÁæ©„ÅßÂêåÊúü„Åô„Çã„ÄÇ
     animation->DefineClip("idle", resolvedIdleTexture, kBoss1IdleSheetColumns, kBoss1IdleSheetRows, 0, kBoss1IdleFrameCount, kBoss1IdleFps, true);
     DefineLazySingleSheetClip(
         *animation,
@@ -462,7 +462,7 @@ void GameScene::UpdateEnemies()
             continue;
         }
 
-        // Ç«ÇÃê∂ê¨åoòHÇ≈Ç‡É{ÉX1Ç™ÉVÅ[Égä€èoÇµÇ…Ç»ÇÁÇ»Ç¢ÇÊÇ§ÅAçXêVì¸å˚Ç≈ï‚äÆÇ∑ÇÈÅB
+        // „Å©„ÅÆÁîüÊàêÁµåË∑Ø„Åß„ÇÇ„Éú„Çπ1„Åå„Ç∑„Éº„Éà‰∏∏Âá∫„Åó„Å´„Å™„Çâ„Å™„ÅÑ„Çà„ÅÜ„ÄÅÊõ¥Êñ∞ÂÖ•Âè£„ÅßË£úÂÆå„Åô„Çã„ÄÇ
         if (!entity->GetComponent<SpriteSheetAnimationComponent>())
         {
             ConfigureShieldBossSpriteAnimation(*entity);
@@ -513,6 +513,7 @@ void GameScene::UpdateEnemies()
         }
     }
 
+    std::vector<Entity*> photoBoxesToRemove;
     game_scene_combat_system::UpdateEnemies(
         m_world.Entities(),
         m_tileTexture,
@@ -533,8 +534,7 @@ void GameScene::UpdateEnemies()
         {
             static_cast<void>(bossEntity);
         },
-        
-        [this](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
+        [this, &photoBoxesToRemove](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
         {
             for (auto it = m_world.Entities().begin(); it != m_world.Entities().end(); ++it)
             {
@@ -552,7 +552,7 @@ void GameScene::UpdateEnemies()
                 {
                     if (isPhotoBox)
                     {
-                        it = m_world.Entities().erase(it);
+                        photoBoxesToRemove.push_back(it->get());
                     }
                     return true;
                 }
@@ -563,6 +563,8 @@ void GameScene::UpdateEnemies()
         {
             return IsSolidTile(column, row);
         });
+
+    m_world.RemoveByPointerList(photoBoxesToRemove);
 }
 
 int GameScene::HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight)
@@ -570,9 +572,9 @@ int GameScene::HandleFinderDefeatGhosts(float frameX, float frameY, float frameW
     TransformComponent finderBounds(frameX, frameY, frameWidth, frameHeight);
     int defeatedGhostCount = 0;
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
-        if (!entity || !HasTag(*entity, kTagEnemy)) continue;
+        if (!entity) continue;
 
         auto* enemy = entity->GetComponent<EnemyComponent>();
         if (!enemy || !enemy->IsEnabled()) continue;
@@ -657,9 +659,9 @@ void GameScene::UpdateDropItems()
 
     std::vector<Entity*> collected;
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::DropItem))
     {
-        if (!entity || !HasTag(*entity, kTagDropItem)) continue;
+        if (!entity) continue;
 
         auto* transform = entity->GetComponent<TransformComponent>();
         auto* drop = entity->GetComponent<DropItemComponent>();
@@ -675,7 +677,7 @@ void GameScene::UpdateDropItems()
 
             if (dist < kCollectRange)
             {
-                collected.push_back(entity.get());
+                collected.push_back(entity);
                 continue;
             }
 
@@ -722,27 +724,11 @@ void GameScene::UpdateDropItems()
         const float mapHeight = GetMapPixelHeight();
         if (transform->y > mapHeight)
         {
-            collected.push_back(entity.get());
+            collected.push_back(entity);
         }
     }
 
-    if (!collected.empty())
-    {
-        m_world.Entities().erase(
-            std::remove_if(
-                m_world.Entities().begin(),
-                m_world.Entities().end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    for (Entity* ptr : collected)
-                    {
-                        if (e.get() == ptr) return true;
-                    }
-                    return false;
-                }),
-            m_world.Entities().end());
-    }
+    m_world.RemoveByPointerList(collected);
 }
 
 int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
@@ -1244,19 +1230,7 @@ void GameScene::UpdateShields(float deltaTime)
         m_world.Spawn(std::move(shockwave));
     }
 
-    if (!objectsToRemove.empty())
-    {
-        m_world.Entities().erase(
-            std::remove_if(
-                m_world.Entities().begin(),
-                m_world.Entities().end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    return std::find(objectsToRemove.begin(), objectsToRemove.end(), e.get()) != objectsToRemove.end();
-                }),
-            m_world.Entities().end());
-    }
+    m_world.RemoveByPointerList(objectsToRemove);
 
     std::vector<Entity*> shockwavesToRemove;
     for (const auto& entity : m_world.Entities())
@@ -1339,51 +1313,9 @@ void GameScene::UpdateShields(float deltaTime)
         }
     }
 
-    if (!objectsToRemove.empty())
-    {
-        m_world.Entities().erase(
-            std::remove_if(
-                m_world.Entities().begin(),
-                m_world.Entities().end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    return std::find(objectsToRemove.begin(), objectsToRemove.end(), e.get()) != objectsToRemove.end();
-                }),
-            m_world.Entities().end());
-    }
-
-    if (!shieldsToRemove.empty())
-    {
-        m_world.Entities().erase(
-            std::remove_if(
-                m_world.Entities().begin(),
-                m_world.Entities().end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    return std::find(shieldsToRemove.begin(), shieldsToRemove.end(), e.get()) != shieldsToRemove.end();
-                }),
-            m_world.Entities().end());
-    }
-
-    if (!shockwavesToRemove.empty())
-    {
-        m_world.Entities().erase(
-            std::remove_if(
-                m_world.Entities().begin(),
-                m_world.Entities().end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    for (Entity* ptr : shockwavesToRemove)
-                    {
-                        if (e.get() == ptr) return true;
-                    }
-                    return false;
-                }),
-            m_world.Entities().end());
-    }
+    m_world.RemoveByPointerList(objectsToRemove);
+    m_world.RemoveByPointerList(shieldsToRemove);
+    m_world.RemoveByPointerList(shockwavesToRemove);
 }
 void GameScene::HandleEnemyPlayerCollisions(Entity& player)
 {
@@ -1393,9 +1325,9 @@ void GameScene::HandleEnemyPlayerCollisions(Entity& player)
         return;
     }
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
-        if (!entity || entity.get() == &player)
+        if (!entity || entity == &player)
         {
             continue;
         }
@@ -1420,7 +1352,7 @@ void GameScene::HandleEnemyPlayerCollisions(Entity& player)
 
         ApplyHazardDamageToPlayer(
             player,
-            entity.get(),
+            entity,
             "GameScene player damaged by enemy",
             enemy->GetContactDamage());
     }
@@ -1430,28 +1362,25 @@ void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
 {
     const auto* playerTransform = player.GetComponent<TransformComponent>();
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack))
     {
         if (!entity) continue;
-
-        const auto* tag = entity->GetComponent<TagComponent>();
-        if (!tag || !tag->Is("WalkerMeleeAttack")) continue;
 
         const auto* meleeTransform = entity->GetComponent<TransformComponent>();
         if (!meleeTransform) continue;
 
-        // ÉvÉåÉCÉÑÅ[Ç÷ÇÃÉ_ÉÅÅ[ÉW
+        // „Éó„É¨„Ç§„É§„Éº„Å∏„ÅÆ„ÉÄ„É°„Éº„Ç∏
         if (playerTransform && IntersectsRect(*playerTransform, *meleeTransform))
         {
             ApplyHazardDamageToPlayer(
                 player,
-                entity.get(),
+                entity,
                 "GameScene player damaged by WalkerMeleeAttack",
                 1);
         }
 
-        // ìGÇ÷ÇÃÉ_ÉÅÅ[ÉW
-        for (const auto& target : m_world.Entities())
+        // Êïµ„Å∏„ÅÆ„ÉÄ„É°„Éº„Ç∏
+        for (Entity* target : m_world.EntitiesByTag(EntityTag::Enemy))
         {
             if (!target) continue;
 
@@ -1463,7 +1392,7 @@ void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
 
             if (!IntersectsRect(*meleeTransform, *enemyTransform)) continue;
 
-            HandleEnemyDamage(*target, entity.get(), 1, "WalkerMeleeAttack hit enemy");
+            HandleEnemyDamage(*target, entity, 1, "WalkerMeleeAttack hit enemy");
         }
     }
 }
@@ -1517,46 +1446,42 @@ void GameScene::RemoveDefeatedEnemies()
         }
     }
 
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [&](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [&](const std::unique_ptr<Entity>& entity)
+        {
+            const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
+            if (enemy && enemy->IsDefeated() && !enemy->respawnEnabled)
             {
-                const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
-                if (enemy && enemy->IsDefeated() && !enemy->respawnEnabled)
+                return true;
+            }
+            const auto* shield = entity ? entity->GetComponent<ShieldComponent>() : nullptr;
+            if (shield && HasTag(*entity, "BossShield"))
+            {
+                bool ownerFound = false;
+                bool ownerDefeated = true;
+                for (const auto& candidate : m_world.Entities())
+                {
+                    if (!candidate || candidate.get() != shield->ownerBoss)
+                    {
+                        continue;
+                    }
+                    ownerFound = true;
+                    const auto* ownerEnemy = candidate->GetComponent<EnemyComponent>();
+                    ownerDefeated = !ownerEnemy || ownerEnemy->IsDefeated();
+                    break;
+                }
+                if (!ownerFound || ownerDefeated)
                 {
                     return true;
                 }
-                const auto* shield = entity ? entity->GetComponent<ShieldComponent>() : nullptr;
-                if (shield && HasTag(*entity, "BossShield"))
-                {
-                    bool ownerFound = false;
-                    bool ownerDefeated = true;
-                    for (const auto& candidate : m_world.Entities())
-                    {
-                        if (!candidate || candidate.get() != shield->ownerBoss)
-                        {
-                            continue;
-                        }
-                        ownerFound = true;
-                        const auto* ownerEnemy = candidate->GetComponent<EnemyComponent>();
-                        ownerDefeated = !ownerEnemy || ownerEnemy->IsDefeated();
-                        break;
-                    }
-                    if (!ownerFound || ownerDefeated)
-                    {
-                        return true;
-                    }
-                }
-                const auto* lifetime = entity ? entity->GetComponent<PhotoCopyLifetimeComponent>() : nullptr;
-                if (!lifetime)
-                {
-                    return false;
-                }
-                return lifetime->IsExpired();
-            }),
-        m_world.Entities().end());
+            }
+            const auto* lifetime = entity ? entity->GetComponent<PhotoCopyLifetimeComponent>() : nullptr;
+            if (!lifetime)
+            {
+                return false;
+            }
+            return lifetime->IsExpired();
+        });
 
     RefreshPhotoGroupState();
 }
@@ -1720,4 +1645,5 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
 }
+
 

@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 
 #include "photo_paste_system.h"
 
@@ -705,20 +705,16 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     if (scene.m_photo.groups.activeGroupCount >= kMaxPhotoGroups)
     {
         const int groupToRemove = scene.m_photo.groups.nextGroupId - scene.m_photo.groups.activeGroupCount;
-        scene.m_world.Entities().erase(
-            std::remove_if(
-                scene.m_world.Entities().begin(),
-                scene.m_world.Entities().end(),
-                [&](const std::unique_ptr<Entity>& entity)
+        scene.m_world.EraseIf(
+            [&](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity || !HasTag(*entity, "PhotoBox"))
                 {
-                    if (!entity || !HasTag(*entity, "PhotoBox"))
-                    {
-                        return false;
-                    }
-                    const auto* group = entity->GetComponent<PhotoCopyGroupComponent>();
-                    return group && group->groupId == groupToRemove;
-                }),
-            scene.m_world.Entities().end());
+                    return false;
+                }
+                const auto* group = entity->GetComponent<PhotoCopyGroupComponent>();
+                return group && group->groupId == groupToRemove;
+            });
         scene.m_photo.groups.activeGroupCount = std::max(0, scene.m_photo.groups.activeGroupCount - 1);
     }
 
@@ -1294,3 +1290,4 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, lastSpawnedEntity, "test_tone", 0.0f, 0.0f });
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, lastSpawnedEntity, "Spawned filtered reconstruction", 0.0f, 0.0f });
 }
+
