@@ -90,7 +90,7 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
 
     if (health->IsDead())
     {
-        for (const auto& entity : m_world.Entities())
+        for (Entity* entity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
         {
             if (!entity)
             {

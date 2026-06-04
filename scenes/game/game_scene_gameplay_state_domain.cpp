@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_photo_tray_system.h"
@@ -214,7 +214,7 @@ void GameScene::StartCameraFlashPulse(float durationSeconds)
 
 void GameScene::StoreCapturedPhoto()
 {
-	// ƒLƒƒƒvƒ`ƒƒ‚µ‚½Ê^‚ÉƒZƒsƒA’n–ÊƒAƒCƒeƒ€‚ªŠÜ‚Ü‚ê‚Ä‚¢‚é‚©
+	// ã‚­ãƒ£ãƒ—ãƒãƒ£ã—ãŸå†™çœŸã«ã‚»ãƒ”ã‚¢åœ°é¢ã‚¢ã‚¤ãƒ†ãƒ ãŒå«ã¾ã‚Œã¦ã„ã‚‹ã‹
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.capture.items)
     {
@@ -288,7 +288,7 @@ void GameScene::CommitPendingCapturedPhoto()
         m_photo.pendingStore = PendingPhotoStoreState{};
         return;
     }
-    // Šm”F
+    // ç¢ºèª
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.pendingStore.capture.items)
     {
@@ -407,7 +407,7 @@ void GameScene::HandleAttackHits()
     const float playerTop = playerTransform->y;
     const float playerBottom = playerTransform->y + playerTransform->height * playerTransform->scale;
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
     {
         if (!entity)
         {
@@ -430,7 +430,7 @@ void GameScene::HandleAttackHits()
 
             if (intersects)
             {
-                HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by melee attack");
+                HandlePlayerDamage(*player, entity, "GameScene player damaged by melee attack");
             }
         }
     }
@@ -517,7 +517,7 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
             if (!sepiaGroup->cellColumns.empty() &&
                 sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
             {
-                // ƒZƒ‹’PˆÊ‚Å•œŒ³‚µ‚½‚È‚çAƒZƒ‹’PˆÊ‚Å–ß‚·i‹ó“´‚ğ’×‚³‚È‚¢j
+                // ã‚»ãƒ«å˜ä½ã§å¾©å…ƒã—ãŸãªã‚‰ã€ã‚»ãƒ«å˜ä½ã§æˆ»ã™ï¼ˆç©ºæ´ã‚’æ½°ã•ãªã„ï¼‰
                 for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
                 {
                     const int col = sepiaGroup->cellColumns[ci];
@@ -528,7 +528,7 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
             }
             else
             {
-                // cell ”z—ñ‚ª–³‚¢ê‡‚Í]—ˆ‚Ç‚¨‚è min/max ‹éŒ`‚Å–ß‚·
+                // cell é…åˆ—ãŒç„¡ã„å ´åˆã¯å¾“æ¥ã©ãŠã‚Š min/max çŸ©å½¢ã§æˆ»ã™
                 for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
                 {
                     for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)
@@ -548,3 +548,4 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
         }
     }
 }
+
