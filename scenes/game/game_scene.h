@@ -318,6 +318,16 @@ private:
     float m_loadingElapsed = 0.0f;
     float m_loadingProgress = 0.0f;
 
+    int m_cameraFixedLockNum = -1;
+    void ActivateCameraRange(int cameraNum);
+    std::vector<CameraZoomMarker> m_zoomMarkers;
+    void RecalculateViewScale();
+    bool m_isZoomed = false;
+    float m_zoomedViewWidth = 2560.0f;
+    float m_zoomedViewHeight = 1440.0f;
+
+    int m_backdropTextureId = -1;
+    int m_backdropTexture1Id = -1;
     static constexpr float easingTime = 0.35f;
     bool m_easingActive = false;
     float m_easingElapsedTime = 0.0f;
