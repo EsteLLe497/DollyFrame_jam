@@ -1727,6 +1727,14 @@ void GameScene::DrawEntity(const Entity& entity) const
         return;
     }
 
+    const auto* tint = entity.GetComponent<TintComponent>();
+    const auto* enemyComponent = entity.GetComponent<EnemyComponent>();
+    const auto* photoFilter = entity.GetComponent<PhotoFilterComponent>();
+    const auto* damagePlatform = entity.GetComponent<DamagePlatformComponent>();
+    const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
+    const auto* photoCopyTile = entity.GetComponent<PhotoCopyTileValueComponent>();
+    const auto* midBoss2Spear = entity.GetComponent<MidBoss2SpearComponent>();
+
     Shader_ResetStyle();
     float alphaMultiplier = 1.0f;
     float lifeProgress = 0.0f;
@@ -1849,7 +1857,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                 drawHeight,
                 transform->rotation,
                 *stageLight,
-                entity.GetComponent<TintComponent>(),
+                tint,
                 alphaMultiplier);
             Shader_ResetStyle();
             return;
@@ -1888,7 +1896,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
         }
 
-        if (const auto* tint = entity.GetComponent<TintComponent>())
+        if (tint)
         {
             Shader_SetTint(tint->r, tint->g, tint->b, tint->a);
         }
@@ -1918,42 +1926,37 @@ void GameScene::DrawEntity(const Entity& entity) const
     {
         Shader_SetOutline(0.18f, 0.90f, 1.0f, 1.0f, 1.4f);
     }
-    else if (entity.GetComponent<PhotoFilterComponent>())
+    else if (photoFilter)
     {
-        if (const auto* filter = entity.GetComponent<PhotoFilterComponent>())
+        switch (photoFilter->GetTheme())
         {
-            switch (filter->GetTheme())
-            {
-            case PhotoFilterTheme::Hot:
-                Shader_SetOutline(1.0f, 0.40f, 0.18f, 1.0f, 1.9f);
-                Shader_SetFlash(1.0f, 0.28f, 0.10f, 1.0f, 0.26f);
-                break;
-            case PhotoFilterTheme::Cold:
-                Shader_SetOutline(0.70f, 0.92f, 1.0f, 1.0f, 1.9f);
-                Shader_SetFlash(0.18f, 0.74f, 1.0f, 1.0f, 0.18f);
-                break;
-            case PhotoFilterTheme::Invert:
-                Shader_SetOutline(0.92f, 0.92f, 0.96f, 1.0f, 1.8f);
-                Shader_SetFlash(0.72f, 0.72f, 0.78f, 1.0f, 0.16f);
-                break;
-            case PhotoFilterTheme::Sepia:
-                Shader_SetOutline(0.88f, 0.66f, 0.34f, 1.0f, 1.9f);
-                Shader_SetFlash(0.74f, 0.56f, 0.28f, 1.0f, 0.16f);
-                break;
-            case PhotoFilterTheme::None:
-            default:
-                Shader_SetOutline(0.26f, 1.0f, 0.92f, 1.0f, 1.8f);
-                Shader_SetFlash(0.18f, 0.92f, 0.88f, 1.0f, 0.22f);
-                break;
-            }
+        case PhotoFilterTheme::Hot:
+            Shader_SetOutline(1.0f, 0.40f, 0.18f, 1.0f, 1.9f);
+            Shader_SetFlash(1.0f, 0.28f, 0.10f, 1.0f, 0.26f);
+            break;
+        case PhotoFilterTheme::Cold:
+            Shader_SetOutline(0.70f, 0.92f, 1.0f, 1.0f, 1.9f);
+            Shader_SetFlash(0.18f, 0.74f, 1.0f, 1.0f, 0.18f);
+            break;
+        case PhotoFilterTheme::Invert:
+            Shader_SetOutline(0.92f, 0.92f, 0.96f, 1.0f, 1.8f);
+            Shader_SetFlash(0.72f, 0.72f, 0.78f, 1.0f, 0.16f);
+            break;
+        case PhotoFilterTheme::Sepia:
+            Shader_SetOutline(0.88f, 0.66f, 0.34f, 1.0f, 1.9f);
+            Shader_SetFlash(0.74f, 0.56f, 0.28f, 1.0f, 0.16f);
+            break;
+        case PhotoFilterTheme::None:
+        default:
+            Shader_SetOutline(0.26f, 1.0f, 0.92f, 1.0f, 1.8f);
+            Shader_SetFlash(0.18f, 0.92f, 0.88f, 1.0f, 0.22f);
+            break;
         }
     }
     else if (tag && HasTag(tag, kTagPhotoBox))
     {
         const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
         const auto* photoOrigin = entity.GetComponent<PhotoCopyOriginComponent>();
-        const auto* tint = entity.GetComponent<TintComponent>();
-
         ApplyPhotoBoxRoleStyle(entity.GetComponent<PhotoCopyRoleComponent>());
         ApplyPhotoBoxLayerStyle(photoLayer, photoOrigin, tint);
         ApplyPhotoBoxThemeStyle(entity.GetComponent<PhotoCopyEffectComponent>());
@@ -1978,9 +1981,9 @@ void GameScene::DrawEntity(const Entity& entity) const
         if (projectile)
         {
             const float angle = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
-            if (entity.GetComponent<MidBoss2SpearComponent>())
+            if (midBoss2Spear)
             {
-                const auto* spear = entity.GetComponent<MidBoss2SpearComponent>();
+                const auto* spear = midBoss2Spear;
                 const float spearAngle = transform->rotation;
                 const float centerX = drawX + drawWidth * 0.5f;
                 const float centerY = drawY + drawHeight * 0.5f;
@@ -2108,12 +2111,13 @@ void GameScene::DrawEntity(const Entity& entity) const
                     TRUE);
 
                 const float particleRadius = std::max(drawWidth, drawHeight) * std::lerp(0.85f, 0.42f, progress);
+                const float spearTimeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
                 constexpr int kParticleCount = 8;
                 for (int index = 0; index < kParticleCount; ++index)
                 {
                     const float seed = static_cast<float>(index) / static_cast<float>(kParticleCount);
-                    const float cycle = std::fmod(static_cast<float>(GetNowCount()) * 0.0018f + seed * 1.37f, 1.0f);
-                    const float travelT = isForming ? (1.0f - std::pow(cycle, 1.6f)) : (0.16f + 0.18f * std::sin(seed * 19.0f + static_cast<float>(GetNowCount()) * 0.006f));
+                    const float cycle = std::fmod(spearTimeSeconds * 1.8f + seed * 1.37f, 1.0f);
+                    const float travelT = isForming ? (1.0f - std::pow(cycle, 1.6f)) : (0.16f + 0.18f * std::sin(seed * 19.0f + spearTimeSeconds * 6.0f));
                     const float particleAngle = seed * 6.28318530718f + std::sin(seed * 29.0f) * 0.45f;
                     float orbitX = centerX + std::cos(particleAngle) * particleRadius;
                     float orbitY = centerY + std::sin(particleAngle) * particleRadius * 0.55f;
@@ -2317,7 +2321,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         if (cooldown->GetRemainingSeconds() > 0.0f)
         {
             const bool isPlayer = tag && HasTag(tag, kTagPlayer);
-            const bool isEnemy = entity.GetComponent<EnemyComponent>() != nullptr;
+            const bool isEnemy = enemyComponent != nullptr;
             const float cooldownSeconds = std::max(0.001f, cooldown->GetCooldownSeconds());
             const float flashT = Clamp01(cooldown->GetRemainingSeconds() / cooldownSeconds);
             if (isPlayer)
@@ -2339,7 +2343,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
-    if (const auto* tint = entity.GetComponent<TintComponent>())
+    if (tint)
     {
         Shader_SetTint(tint->r, tint->g, tint->b, tint->a * alphaMultiplier);
     }
@@ -2353,37 +2357,37 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawY,
             drawWidth,
             drawHeight,
-            entity.GetComponent<DamagePlatformComponent>(),
-            entity.GetComponent<TintComponent>(),
+            damagePlatform,
+            tint,
             sprite->GetSourceX(),
             sprite->GetSourceY(),
             sprite->GetSourceWidth(),
             sprite->GetSourceHeight(),
             transform->rotation,
-            entity.GetComponent<TintComponent>() ? entity.GetComponent<TintComponent>()->a * alphaMultiplier : alphaMultiplier) &&
+            tint ? tint->a * alphaMultiplier : alphaMultiplier) &&
         !DrawSpikeStripShape(
             drawX,
             drawY,
             drawWidth,
             drawHeight,
-            entity.GetComponent<SpikeStripComponent>(),
-            entity.GetComponent<TintComponent>(),
+            spikeStrip,
+            tint,
             sprite->GetSourceX(),
             sprite->GetSourceY(),
             sprite->GetSourceWidth(),
             sprite->GetSourceHeight(),
             transform->rotation,
-            entity.GetComponent<TintComponent>() ? entity.GetComponent<TintComponent>()->a * alphaMultiplier : alphaMultiplier) &&
+            tint ? tint->a * alphaMultiplier : alphaMultiplier) &&
         !DrawSlopeTriangle(
             drawX,
             drawY,
             drawWidth,
             drawHeight,
-            entity.GetComponent<PhotoCopyTileValueComponent>() ? entity.GetComponent<PhotoCopyTileValueComponent>()->tileValue : 0,
-            entity.GetComponent<TintComponent>(),
+            photoCopyTile ? photoCopyTile->tileValue : 0,
+            tint,
             sprite->GetFlipX(),
             transform->rotation,
-            entity.GetComponent<TintComponent>() ? entity.GetComponent<TintComponent>()->a * alphaMultiplier : alphaMultiplier))
+            tint ? tint->a * alphaMultiplier : alphaMultiplier))
     {
         SpriteDraw(
             sprite->GetTextureId(),
@@ -2399,7 +2403,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             transform->rotation);
     }
 
-    if (const auto* enemy = entity.GetComponent<EnemyComponent>())
+    if (const auto* enemy = enemyComponent)
     {
         const auto* boss = entity.GetComponent<MidBoss2Component>();
         if (boss &&
@@ -2524,9 +2528,9 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
 
     const bool shouldDrawCollisionDebug = m_debug.showCollisionDebug && (
-        entity.GetComponent<PhotoFilterComponent>() ||
-        entity.GetComponent<EnemyComponent>() ||
-        entity.GetComponent<MidBoss2SpearComponent>() ||
+        photoFilter ||
+        enemyComponent ||
+        midBoss2Spear ||
         (tag && (HasTag(tag, kTagPlayer) || HasTag(tag, kTagPhotoSource) || HasTag(tag, kTagPhotoBox) || HasTag(tag, kTagLaserBeam))));
     if (shouldDrawCollisionDebug)
     {
@@ -2547,17 +2551,17 @@ void GameScene::DrawEntity(const Entity& entity) const
         {
             color = GetColor(255, 72, 72);
         }
-        else if (entity.GetComponent<MidBoss2SpearComponent>())
+        else if (midBoss2Spear)
         {
             color = GetColor(255, 220, 120);
         }
-        else if (const auto* enemy = entity.GetComponent<EnemyComponent>())
+        else if (const auto* enemy = enemyComponent)
         {
             color = enemy->GetArchetype() == EnemyArchetype::MidBoss2
                 ? GetColor(255, 120, 255)
                 : GetColor(120, 220, 255);
         }
-        else if (entity.GetComponent<PhotoFilterComponent>())
+        else if (photoFilter)
         {
             color = GetColor(96, 255, 220);
         }
@@ -2576,7 +2580,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             DrawWorldPolygonOutline(*transform, *imageCollider, m_flow.cameraX, m_flow.cameraY, color);
         }
 
-        if (const auto* spear = entity.GetComponent<MidBoss2SpearComponent>())
+        if (const auto* spear = midBoss2Spear)
         {
             const float viewScaleLocal = GetViewScale();
             const float viewOriginXLocal = GetViewOriginX();

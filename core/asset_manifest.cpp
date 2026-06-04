@@ -26,7 +26,9 @@ namespace
 
 void AssetManifest::LoadDefaults(ResourceManager& resources)
 {
+    m_resources = &resources;
     m_textureIds.clear();
+    m_texturePaths.clear();
 
     std::ifstream ifs("assets/manifest.json");
     if (!ifs)
@@ -82,7 +84,7 @@ void AssetManifest::LoadDefaults(ResourceManager& resources)
             const std::string path = desc.value("path", "");
             if (!path.empty())
             {
-                m_textureIds.emplace(key, resources.LoadTexture(ToWideString(path)));
+                m_texturePaths.emplace(key, path);
             }
         }
         else if (type == "file_sequence")
@@ -98,7 +100,7 @@ void AssetManifest::LoadDefaults(ResourceManager& resources)
                 number << std::setw(digits) << std::setfill('0') << (start + i);
                 const std::string textureKey = key + "_" + number.str();
                 const std::string path = pathPrefix + number.str() + pathSuffix;
-                m_textureIds.emplace(textureKey, resources.LoadTexture(ToWideString(path)));
+                m_texturePaths.emplace(textureKey, path);
             }
         }
     }
@@ -109,10 +111,21 @@ void AssetManifest::LoadDefaults(ResourceManager& resources)
 int AssetManifest::GetTexture(const std::string& key) const
 {
     const auto found = m_textureIds.find(key);
-    if (found == m_textureIds.end())
+    if (found != m_textureIds.end())
+    {
+        return found->second;
+    }
+
+    const auto path = m_texturePaths.find(key);
+    if (path == m_texturePaths.end() || m_resources == nullptr)
     {
         return -1;
     }
 
-    return found->second;
+    const int textureId = m_resources->LoadTexture(ToWideString(path->second));
+    if (textureId >= 0)
+    {
+        m_textureIds.emplace(key, textureId);
+    }
+    return textureId;
 }

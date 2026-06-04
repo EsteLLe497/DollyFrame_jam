@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "audio.h"
@@ -644,101 +644,104 @@ void GameScene::RefreshEnemiesFromMarkers()
     }
 
     PrefabFactory prefabs(m_assets, m_physicsWorld, m_eventBus);
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    const std::vector<TileMarker> tileMarkers = CollectTileMarkers(m_tileMap, true);
+    const auto placeEnemyAtMarker = [&](Entity& enemy, const TileMarker& tileMarker)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        const float markerX = static_cast<float>(tileMarker.column) * tileSize;
+        if (auto* transform = enemy.GetComponent<TransformComponent>())
         {
-            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-            const float markerX = static_cast<float>(column) * tileSize;
-            const float markerY = static_cast<float>(row) * tileSize;
+            transform->x = markerX + (tileSize - transform->width * transform->scale) * 0.5f;
+            float spawnX = transform->x;
+            float spawnY = transform->y;
+            if (FindSpawnPosition(
+                transform->x,
+                transform->width * transform->scale,
+                transform->height * transform->scale,
+                spawnX,
+                spawnY))
+            {
+                transform->x = spawnX;
+                transform->y = spawnY;
+            }
+            SnapEnemyToGround(*transform);
+            if (auto* enemyComponent = enemy.GetComponent<EnemyComponent>())
+            {
+                enemyComponent->spawnX = transform->x;
+                enemyComponent->spawnY = transform->y;
+                if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)
+                {
+                    enemyComponent->respawnEnabled = false;
+                }
+            }
+        }
+    };
+    const auto attachShieldToBoss = [&](Entity& boss)
+    {
+        auto* bossComp = boss.GetComponent<ShieldBossComponent>();
+        auto* transform = boss.GetComponent<TransformComponent>();
+        if (!bossComp || !transform || bossComp->shieldEntity)
+        {
+            return;
+        }
+        constexpr float kShieldW = 48.0f;
+        constexpr float kShieldH = 144.0f;
+        auto shieldEntity = std::make_unique<Entity>();
+        shieldEntity->AddComponent<TagComponent>("BossShield");
+        shieldEntity->AddComponent<TransformComponent>(
+            transform->x - kShieldW,
+            transform->y,
+            kShieldW,
+            kShieldH);
+        shieldEntity->AddComponent<TintComponent>(
+            0.72f,
+            0.78f,
+            0.90f,
+            bossComp->appearAnimationActive ? 0.0f : 1.0f);
+        shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        ConfigureBossShieldSpriteAnimation(*shieldEntity);
+        auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
+        shieldComp.attached = true;
+        shieldComp.ownerBoss = &boss;
+        shieldComp.contactDamage = 1;
+        shieldComp.followOffsetX = -kShieldW;
+        shieldComp.followOffsetY = 0.0f;
+        bossComp->shieldEntity = shieldEntity.get();
+        m_entities.push_back(std::move(shieldEntity));
+    };
 
-            const auto placeEnemyAtMarker = [&](Entity& enemy)
-            {
-                if (auto* transform = enemy.GetComponent<TransformComponent>())
-                {
-                    transform->x = markerX + (tileSize - transform->width * transform->scale) * 0.5f;
-                    float spawnX = transform->x;
-                    float spawnY = transform->y;
-                    if (FindSpawnPosition(
-                        transform->x,
-                        transform->width * transform->scale,
-                        transform->height * transform->scale,
-                        spawnX,
-                        spawnY))
-                    {
-                        transform->x = spawnX;
-                        transform->y = spawnY;
-                    }
-                    SnapEnemyToGround(*transform);
-                    if (auto* enemyComponent = enemy.GetComponent<EnemyComponent>())
-                    {
-                        enemyComponent->spawnX = transform->x;
-                        enemyComponent->spawnY = transform->y;
-                        if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)
-                        {
-                            enemyComponent->respawnEnabled = false;
-                        }
-                    }
-                }
-            };
-            const auto attachShieldToBoss = [&](Entity& boss)
-            {
-                auto* bossComp = boss.GetComponent<ShieldBossComponent>();
-                auto* transform = boss.GetComponent<TransformComponent>();
-                if (!bossComp || !transform || bossComp->shieldEntity)
-                {
-                    return;
-                }
-                constexpr float kShieldW = 48.0f;
-                constexpr float kShieldH = 144.0f;
-                auto shieldEntity = std::make_unique<Entity>();
-                shieldEntity->AddComponent<TagComponent>("BossShield");
-                shieldEntity->AddComponent<TransformComponent>(
-                    transform->x - kShieldW,
-                    transform->y,
-                    kShieldW,
-                    kShieldH);
-                shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
-                shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-                ConfigureBossShieldSpriteAnimation(*shieldEntity);
-                auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
-                shieldComp.attached = true;
-                shieldComp.ownerBoss = &boss;
-                shieldComp.contactDamage = 1;
-                shieldComp.followOffsetX = -kShieldW;
-                shieldComp.followOffsetY = 0.0f;
-                bossComp->shieldEntity = shieldEntity.get();
-                m_entities.push_back(std::move(shieldEntity));
-            };
+    for (const TileMarker& tileMarker : tileMarkers)
+    {
+        const char marker = tileMarker.marker;
+        const float markerX = static_cast<float>(tileMarker.column) * tileSize;
+        const float markerY = static_cast<float>(tileMarker.row) * tileSize;
 
-            if (marker == 'W')
+        if (marker == 'W')
+        {
+            Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_walker", markerX, markerY);
+            ConfigureWalkerSpriteAnimation(enemy);
+            placeEnemyAtMarker(enemy, tileMarker);
+        }
+        else if (marker == 'R')
+        {
+            Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", markerX, markerY);
+            ConfigureRangedSpriteAnimation(enemy);
+            placeEnemyAtMarker(enemy, tileMarker);
+        }
+        else if (marker == 'N')
+        {
+            if (m_flow.shieldBossDefeatedThisScene)
             {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_walker", markerX, markerY);
-                ConfigureWalkerSpriteAnimation(enemy);
-                placeEnemyAtMarker(enemy);
+                continue;
             }
-            else if (marker == 'R')
-            {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", markerX, markerY);
-                ConfigureRangedSpriteAnimation(enemy);
-                placeEnemyAtMarker(enemy);
-            }
-            else if (marker == 'N')
-            {
-                if (m_flow.shieldBossDefeatedThisScene)
-                {
-                    continue;
-                }
-                Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
-                ConfigureShieldBossSpriteAnimation(boss);
-                placeEnemyAtMarker(boss);
-                attachShieldToBoss(boss);
-            }
-            else if (marker == 'F')
-            {
-                Entity& boss = SpawnStagePrefab(prefabs, "sandbox_mid_boss2", markerX, markerY);
-                placeEnemyAtMarker(boss);
-            }
+            Entity& boss = SpawnStagePrefab(prefabs, "sandbox_shield_boss", markerX, markerY);
+            ConfigureShieldBossSpriteAnimation(boss);
+            placeEnemyAtMarker(boss, tileMarker);
+            attachShieldToBoss(boss);
+        }
+        else if (marker == 'F')
+        {
+            Entity& boss = SpawnStagePrefab(prefabs, "sandbox_mid_boss2", markerX, markerY);
+            placeEnemyAtMarker(boss, tileMarker);
         }
     }
 }
@@ -765,33 +768,30 @@ void GameScene::RefreshBatteriesFromMarkers()
         return;
     }
 
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    const std::vector<TileMarker> tileMarkers = CollectTileMarkers(m_tileMap, true);
+    for (const TileMarker& tileMarker : tileMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        if (tileMarker.marker != 'Y')
         {
-            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-            if (marker != 'Y')
-            {
-                continue;
-            }
-
-            auto battery = std::make_unique<Entity>();
-            battery->AddComponent<TagComponent>(kTagBattery);
-            battery->AddComponent<TransformComponent>(
-                static_cast<float>(column) * tileSize,
-                static_cast<float>(row) * tileSize,
-                tileSize,
-                tileSize);
-            battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
-            battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            battery->AddComponent<BatteryComponent>(
-                1900.0f,
-                980.0f,
-                260.0f,
-                320.0f,
-                1);
-            m_entities.push_back(std::move(battery));
+            continue;
         }
+
+        auto battery = std::make_unique<Entity>();
+        battery->AddComponent<TagComponent>(kTagBattery);
+        battery->AddComponent<TransformComponent>(
+            static_cast<float>(tileMarker.column) * tileSize,
+            static_cast<float>(tileMarker.row) * tileSize,
+            tileSize,
+            tileSize);
+        battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
+        battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        battery->AddComponent<BatteryComponent>(
+            1900.0f,
+            980.0f,
+            260.0f,
+            320.0f,
+            1);
+        m_entities.push_back(std::move(battery));
     }
 }
 
@@ -817,48 +817,45 @@ void GameScene::RefreshLogsFromMarkers()
         return;
     }
 
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    const std::vector<TileMarker> tileMarkers = CollectTileMarkers(m_tileMap, true);
+    for (const TileMarker& tileMarker : tileMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        if (tileMarker.marker != 'M')
         {
-            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-            if (marker != 'M')
-            {
-                continue;
-            }
-
-            auto log = std::make_unique<Entity>();
-            log->AddComponent<TagComponent>(kTagLog);
-            log->AddComponent<TransformComponent>(
-                static_cast<float>(column) * tileSize,
-                static_cast<float>(row) * tileSize,
-                tileSize * 4.0f,
-                tileSize);
-            log->AddComponent<TintComponent>(0.54f, 0.34f, 0.16f, 1.0f);
-            log->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            log->AddComponent<ImageOutlineColliderComponent>(
-                std::vector<b2Vec2>{
-                    { 0.0f, 0.0f },
-                    { 1.0f, 0.0f },
-                    { 1.0f, 1.0f },
-                    { 0.0f, 1.0f }},
-                0.5f);
-            log->AddComponent<BarrelComponent>(
-                gBarrelGravity,
-                gBarrelMaxFallSpeed,
-                0.0f,
-                0.0f,
-                1,
-                99999.0f,
-                99999.0f);
-            if (auto* barrel = log->GetComponent<BarrelComponent>())
-            {
-                barrel->active = true;
-                barrel->respawnEnabled = false;
-                barrel->respawnWhenOffscreen = false;
-            }
-            m_entities.push_back(std::move(log));
+            continue;
         }
+
+        auto log = std::make_unique<Entity>();
+        log->AddComponent<TagComponent>(kTagLog);
+        log->AddComponent<TransformComponent>(
+            static_cast<float>(tileMarker.column) * tileSize,
+            static_cast<float>(tileMarker.row) * tileSize,
+            tileSize * 4.0f,
+            tileSize);
+        log->AddComponent<TintComponent>(0.54f, 0.34f, 0.16f, 1.0f);
+        log->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        log->AddComponent<ImageOutlineColliderComponent>(
+            std::vector<b2Vec2>{
+                { 0.0f, 0.0f },
+                { 1.0f, 0.0f },
+                { 1.0f, 1.0f },
+                { 0.0f, 1.0f }},
+            0.5f);
+        log->AddComponent<BarrelComponent>(
+            gBarrelGravity,
+            gBarrelMaxFallSpeed,
+            0.0f,
+            0.0f,
+            1,
+            99999.0f,
+            99999.0f);
+        if (auto* barrel = log->GetComponent<BarrelComponent>())
+        {
+            barrel->active = true;
+            barrel->respawnEnabled = false;
+            barrel->respawnWhenOffscreen = false;
+        }
+        m_entities.push_back(std::move(log));
     }
 }
 
@@ -901,28 +898,25 @@ void GameScene::RefreshElevatorGimmicksFromMarkers()
 
     std::vector<SwitchMarker> switchMarkers;
     std::vector<ElevatorMarker> elevatorMarkers;
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    const std::vector<TileMarker> tileMarkers = CollectTileMarkers(m_tileMap, true);
+    for (const TileMarker& tileMarker : tileMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        const char marker = tileMarker.marker;
+        const float markerX = static_cast<float>(tileMarker.column) * tileSize;
+        const float markerY = static_cast<float>(tileMarker.row) * tileSize;
+        if (marker == 'K')
         {
-            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-            const float markerX = static_cast<float>(column) * tileSize;
-            const float markerY = static_cast<float>(row) * tileSize;
-            if (marker == 'K')
-            {
-                switchMarkers.push_back(SwitchMarker{
-                    markerX,
-                    markerY + tileSize * 0.5f,
-                    (std::max)(1, m_tileMap.GetMarkerParameter(column, row)) });
-            }
-            else if (marker == 'L')
-            {
-                const int markerParameter = m_tileMap.GetMarkerParameter(column, row);
-                elevatorMarkers.push_back(ElevatorMarker{
-                    markerX,
-                    markerY,
-                    markerParameter > 0 ? markerParameter : 3 });
-            }
+            switchMarkers.push_back(SwitchMarker{
+                markerX,
+                markerY + tileSize * 0.5f,
+                (std::max)(1, tileMarker.parameter) });
+        }
+        else if (marker == 'L')
+        {
+            elevatorMarkers.push_back(ElevatorMarker{
+                markerX,
+                markerY,
+                tileMarker.parameter > 0 ? tileMarker.parameter : 3 });
         }
     }
 
@@ -995,53 +989,51 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
         return;
     }
 
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    const std::vector<TileMarker> tileMarkers = CollectTileMarkers(m_tileMap, true);
+    for (const TileMarker& tileMarker : tileMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        const char marker = tileMarker.marker;
+        if (!IsDamagePlatformMarker(marker))
         {
-            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
-            if (!IsDamagePlatformMarker(marker))
-            {
-                continue;
-            }
-
-            const float markerX = static_cast<float>(column) * tileSize;
-            const float markerY = static_cast<float>(row) * tileSize;
-            const int tileSpan = GetDamagePlatformTileSpanFromMarker(marker);
-
-            auto damagePlatformBase = std::make_unique<Entity>();
-            damagePlatformBase->AddComponent<TagComponent>(kTagDamagePlatform);
-            damagePlatformBase->AddComponent<TransformComponent>(
-                markerX,
-                markerY + tileSize,
-                tileSize * static_cast<float>(tileSpan),
-                tileSize);
-            damagePlatformBase->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
-            damagePlatformBase->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            damagePlatformBase->AddComponent<ImageOutlineColliderComponent>(
-                std::vector<b2Vec2>{
-                    { 0.0f, 0.0f },
-                    { 1.0f, 0.0f },
-                    { 1.0f, 1.0f },
-                    { 0.0f, 1.0f }},
-                0.2f);
-            damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
-            m_entities.push_back(std::move(damagePlatformBase));
-
-            auto damagePlatformSpike = std::make_unique<Entity>();
-            damagePlatformSpike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
-            damagePlatformSpike->AddComponent<TransformComponent>(
-                markerX,
-                markerY,
-                tileSize * static_cast<float>(tileSpan),
-                tileSize);
-            damagePlatformSpike->AddComponent<TintComponent>(0.86f, 0.16f, 0.18f, 1.0f);
-            damagePlatformSpike->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
-            damagePlatformSpike->AddComponent<SpikeStripComponent>(tileSpan);
-            damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
-            m_entities.push_back(std::move(damagePlatformSpike));
+            continue;
         }
+
+        const float markerX = static_cast<float>(tileMarker.column) * tileSize;
+        const float markerY = static_cast<float>(tileMarker.row) * tileSize;
+        const int tileSpan = GetDamagePlatformTileSpanFromMarker(marker);
+
+        auto damagePlatformBase = std::make_unique<Entity>();
+        damagePlatformBase->AddComponent<TagComponent>(kTagDamagePlatform);
+        damagePlatformBase->AddComponent<TransformComponent>(
+            markerX,
+            markerY + tileSize,
+            tileSize * static_cast<float>(tileSpan),
+            tileSize);
+        damagePlatformBase->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
+        damagePlatformBase->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        damagePlatformBase->AddComponent<ImageOutlineColliderComponent>(
+            std::vector<b2Vec2>{
+                { 0.0f, 0.0f },
+                { 1.0f, 0.0f },
+                { 1.0f, 1.0f },
+                { 0.0f, 1.0f }},
+            0.2f);
+        damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
+        m_entities.push_back(std::move(damagePlatformBase));
+
+        auto damagePlatformSpike = std::make_unique<Entity>();
+        damagePlatformSpike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
+        damagePlatformSpike->AddComponent<TransformComponent>(
+            markerX,
+            markerY,
+            tileSize * static_cast<float>(tileSpan),
+            tileSize);
+        damagePlatformSpike->AddComponent<TintComponent>(0.86f, 0.16f, 0.18f, 1.0f);
+        damagePlatformSpike->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
+        damagePlatformSpike->AddComponent<SpikeStripComponent>(tileSpan);
+        damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
+        m_entities.push_back(std::move(damagePlatformSpike));
     }
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -693,6 +694,8 @@ public:
     float attackRectHeight = 0.0f;
 
     bool combatStarted = false;
+    bool appearAnimationActive = false;
+    bool appearAnimationFinished = false;
     bool roarPlayed = false;
     bool roarAnimationActive = false;
     bool deathAnimationActive = false;
@@ -1118,7 +1121,10 @@ public:
     {
         int textureId = -1;
         std::vector<int> textureIds;
+        std::vector<std::string> textureKeys;
+        std::function<int(const std::string&)> textureResolver;
         bool frameTextureMode = false;
+        std::vector<int> textureRows;
         int columns = 1;
         int columnsPerTexture = 1;
         int rows = 1;
@@ -1157,6 +1163,25 @@ public:
         int frameCount,
         float fps,
         bool loop = true);
+    void DefinePagedRowsClip(
+        const std::string& name,
+        const std::vector<int>& textureIds,
+        int columns,
+        const std::vector<int>& rowsPerTexture,
+        int startFrame,
+        int frameCount,
+        float fps,
+        bool loop = true);
+    void DefineLazyPagedRowsClip(
+        const std::string& name,
+        const std::vector<std::string>& textureKeys,
+        std::function<int(const std::string&)> textureResolver,
+        int columns,
+        const std::vector<int>& rowsPerTexture,
+        int startFrame,
+        int frameCount,
+        float fps,
+        bool loop = true);
     void DefinePagedGridClip(
         const std::string& name,
         const std::vector<int>& textureIds,
@@ -1170,6 +1195,16 @@ public:
     void DefineFrameTextureClip(
         const std::string& name,
         const std::vector<int>& textureIds,
+        float fps,
+        bool loop = true,
+        float sourceX = 0.0f,
+        float sourceY = 0.0f,
+        float sourceWidth = 1.0f,
+        float sourceHeight = 1.0f);
+    void DefineLazyFrameTextureClip(
+        const std::string& name,
+        const std::vector<std::string>& textureKeys,
+        std::function<int(const std::string&)> textureResolver,
         float fps,
         bool loop = true,
         float sourceX = 0.0f,

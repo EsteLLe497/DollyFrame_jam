@@ -12,5 +12,7 @@ public:
     int GetTexture(const std::string& key) const;
 
 private:
-    std::unordered_map<std::string, int> m_textureIds;
+    ResourceManager* m_resources = nullptr;
+    mutable std::unordered_map<std::string, int> m_textureIds;
+    std::unordered_map<std::string, std::string> m_texturePaths;
 };

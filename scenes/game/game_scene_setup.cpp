@@ -428,20 +428,18 @@ void GameScene::InitializeStageEntities()
     bool goalMarkerFound = false;
     const float tileSize = m_tileMap.GetTileSize();
     const float goalSize = tileSize;
+    const std::vector<TileMarker> stageMarkers = CollectTileMarkers(m_tileMap);
 
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    for (const TileMarker& stageMarker : stageMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        if (stageMarker.marker != 'G')
         {
-            if (m_tileMap.GetMarker(column, row) != 'G')
-            {
-                continue;
-            }
-
-            goalX = static_cast<float>(column) * tileSize;
-            goalY = static_cast<float>(row) * tileSize;
-            goalMarkerFound = true;
+            continue;
         }
+
+        goalX = static_cast<float>(stageMarker.column) * tileSize;
+        goalY = static_cast<float>(stageMarker.row) * tileSize;
+        goalMarkerFound = true;
     }
 
     if (!goalMarkerFound)
@@ -465,21 +463,16 @@ void GameScene::InitializeStageEntities()
 
     float playerSpawnX = AlignToGrid(192.0f, tileSize);
     float playerSpawnY = AlignToGrid(336.0f, tileSize);
-    bool playerSpawnMarkerFound = false;
-    for (int row = 0; row < m_tileMap.GetHeight() && !playerSpawnMarkerFound; ++row)
+    for (const TileMarker& stageMarker : stageMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        if (stageMarker.marker != '*')
         {
-            if (m_tileMap.GetMarker(column, row) != '*')
-            {
-                continue;
-            }
-
-            playerSpawnX = static_cast<float>(column) * tileSize;
-            playerSpawnY = static_cast<float>(row) * tileSize;
-            playerSpawnMarkerFound = true;
-            break;
+            continue;
         }
+
+        playerSpawnX = static_cast<float>(stageMarker.column) * tileSize;
+        playerSpawnY = static_cast<float>(stageMarker.row) * tileSize;
+        break;
     }
 
     Entity& player = SpawnStagePrefab(
@@ -505,18 +498,13 @@ void GameScene::InitializeStageEntities()
     m_flow.hasCheckpoint = false;
     m_flow.activeCheckpointId = -1;
 
-    bool hasBarrelMarker = false;
-    for (int row = 0; row < m_tileMap.GetHeight() && !hasBarrelMarker; ++row)
-    {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+    const bool hasBarrelMarker = std::any_of(
+        stageMarkers.begin(),
+        stageMarkers.end(),
+        [](const TileMarker& stageMarker)
         {
-            if (m_tileMap.GetMarker(column, row) == 'B')
-            {
-                hasBarrelMarker = true;
-                break;
-            }
-        }
-    }
+            return stageMarker.marker == 'B';
+        });
 
     if (isDebugStageMap && !hasBarrelMarker)
     {
@@ -524,311 +512,274 @@ void GameScene::InitializeStageEntities()
             AlignToGrid(432.0f, tileSize),
             AlignToGrid(240.0f, tileSize));
     }
+
+    const auto placeGroundedEnemyAtMarker = [&](Entity& enemy, int column, int row) -> TransformComponent*
+    {
+        auto* transform = enemy.GetComponent<TransformComponent>();
+        if (!transform)
+        {
+            return nullptr;
+        }
+
+        transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
+        float spawnX = transform->x;
+        float spawnY = transform->y;
+        if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
+        {
+            transform->x = spawnX;
+            transform->y = spawnY;
+        }
+        SnapEnemyToGround(*transform);
+        return transform;
+    };
+
     // Spawn walker/ranged enemies from CSV markers.
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    for (const TileMarker& stageMarker : stageMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        const int column = stageMarker.column;
+        const int row = stageMarker.row;
+        const char marker = stageMarker.marker;
+        if (marker == 'W') // Walker
         {
-            const char marker = m_tileMap.GetMarker(column, row);
-            if (marker == 'W') // Walker
+            Entity& enemy = SpawnStagePrefab(
+                prefabs,
+                "sandbox_enemy_walker",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            ConfigureWalkerSpriteAnimation(enemy);
+            placeGroundedEnemyAtMarker(enemy, column, row);
+        }
+        else if (marker == 'R') // Ranged
+        {
+            Entity& enemy = SpawnStagePrefab(
+                prefabs,
+                "sandbox_enemy_ranged",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            ConfigureRangedSpriteAnimation(enemy);
+            placeGroundedEnemyAtMarker(enemy, column, row);
+        }
+        else if (marker == '$') // Charger
+        {
+            Entity& enemy = SpawnStagePrefab(
+                prefabs,
+                "sandbox_enemy_charger",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            if (auto* transform = placeGroundedEnemyAtMarker(enemy, column, row))
             {
-                Entity& enemy = SpawnStagePrefab(
-                    prefabs,
-                    "sandbox_enemy_walker",
-                    static_cast<float>(column) * tileSize,
-                    static_cast<float>(row) * tileSize);
-                ConfigureWalkerSpriteAnimation(enemy);
-                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
                 {
-                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
-                    float spawnX = transform->x;
-                    float spawnY = transform->y;
-                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
-                    {
-                        transform->x = spawnX;
-                        transform->y = spawnY;
-                    }
-                    SnapEnemyToGround(*transform);
+                    enemyComp->spawnX = transform->x;
+                    enemyComp->spawnY = transform->y;
                 }
             }
-            else if (marker == 'R') // Ranged
+        }
+        else if (marker == 'N' || marker == '?') // ShieldBoss
+        {
+            if (m_flow.shieldBossDefeatedThisScene)
             {
-                Entity& enemy = SpawnStagePrefab(
-                    prefabs,
-                    "sandbox_enemy_ranged",
-                    static_cast<float>(column) * tileSize,
-                    static_cast<float>(row) * tileSize);
-                ConfigureRangedSpriteAnimation(enemy);
-                if (auto* transform = enemy.GetComponent<TransformComponent>())
-                {
-                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
-                    float spawnX = transform->x;
-                    float spawnY = transform->y;
-                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
-                    {
-                        transform->x = spawnX;
-                        transform->y = spawnY;
-                    }
-                    SnapEnemyToGround(*transform);
-                }
+                continue;
             }
-            else if (marker == '$') // Charger
+            Entity& boss = SpawnStagePrefab(
+                prefabs,
+                "sandbox_shield_boss",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            if (auto* transform = placeGroundedEnemyAtMarker(boss, column, row))
             {
-                Entity& enemy = SpawnStagePrefab(
-                    prefabs,
-                    "sandbox_enemy_charger",
-                    static_cast<float>(column) * tileSize,
-                    static_cast<float>(row) * tileSize);
-                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                if (auto* enemy = boss.GetComponent<EnemyComponent>())
                 {
-                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
-                    float spawnX = transform->x;
-                    float spawnY = transform->y;
-                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
-                    {
-                        transform->x = spawnX;
-                        transform->y = spawnY;
-                    }
-                    SnapEnemyToGround(*transform);
-                    if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
-                    {
-                        enemyComp->spawnX = transform->x;
-                        enemyComp->spawnY = transform->y;
-                    }
+                    enemy->spawnX = transform->x;
+                    enemy->spawnY = transform->y;
+                    enemy->respawnEnabled = false;
                 }
-            }
-            else if (marker == 'N' || marker == '?') // ShieldBoss
-            {
-                if (m_flow.shieldBossDefeatedThisScene)
-                {
-                    continue;
-                }
-                Entity& boss = SpawnStagePrefab(
-                    prefabs,
-                    "sandbox_shield_boss",
-                    static_cast<float>(column) * tileSize,
-                    static_cast<float>(row) * tileSize);
-                if (auto* transform = boss.GetComponent<TransformComponent>())
-                {
-                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
-                    float spawnX = transform->x;
-                    float spawnY = transform->y;
-                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
-                    {
-                        transform->x = spawnX;
-                        transform->y = spawnY;
-                    }
-                    SnapEnemyToGround(*transform);
-                    if (auto* enemy = boss.GetComponent<EnemyComponent>())
-                    {
-                        enemy->spawnX = transform->x;
-                        enemy->spawnY = transform->y;
-                        enemy->respawnEnabled = false;
-                    }
 
-                    if (auto* bossComp = boss.GetComponent<ShieldBossComponent>())
-                    {
-                        constexpr float kShieldW = 48.0f;
-                        constexpr float kShieldH = 144.0f;
-                        auto shieldEntity = std::make_unique<Entity>();
-                        shieldEntity->AddComponent<TagComponent>("BossShield");
-                        shieldEntity->AddComponent<TransformComponent>(
-                            transform->x - kShieldW,
-                            transform->y,
-                            kShieldW,
-                            kShieldH);
-                        shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
-                        shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-                        auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
-                        shieldComp.attached = true;
-                        shieldComp.ownerBoss = &boss;
-                        shieldComp.contactDamage = 1;
-                        shieldComp.followOffsetX = -kShieldW;
-                        shieldComp.followOffsetY = 0.0f;
-                        bossComp->shieldEntity = shieldEntity.get();
-                        m_entities.push_back(std::move(shieldEntity));
-                    }
+                if (auto* bossComp = boss.GetComponent<ShieldBossComponent>())
+                {
+                    constexpr float kShieldW = 48.0f;
+                    constexpr float kShieldH = 144.0f;
+                    auto shieldEntity = std::make_unique<Entity>();
+                    shieldEntity->AddComponent<TagComponent>("BossShield");
+                    shieldEntity->AddComponent<TransformComponent>(
+                        transform->x - kShieldW,
+                        transform->y,
+                        kShieldW,
+                        kShieldH);
+                    shieldEntity->AddComponent<TintComponent>(
+                        0.72f,
+                        0.78f,
+                        0.90f,
+                        bossComp->appearAnimationActive ? 0.0f : 1.0f);
+                    shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+                    auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
+                    shieldComp.attached = true;
+                    shieldComp.ownerBoss = &boss;
+                    shieldComp.contactDamage = 1;
+                    shieldComp.followOffsetX = -kShieldW;
+                    shieldComp.followOffsetY = 0.0f;
+                    bossComp->shieldEntity = shieldEntity.get();
+                    m_entities.push_back(std::move(shieldEntity));
                 }
             }
-            else if (marker == '!') // MidBoss2
+        }
+        else if (marker == '!') // MidBoss2
+        {
+            Entity& boss = SpawnStagePrefab(
+                prefabs,
+                "sandbox_mid_boss2",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            if (auto* transform = placeGroundedEnemyAtMarker(boss, column, row))
             {
-                Entity& boss = SpawnStagePrefab(
-                    prefabs,
-                    "sandbox_mid_boss2",
-                    static_cast<float>(column) * tileSize,
-                    static_cast<float>(row) * tileSize);
-                if (auto* transform = boss.GetComponent<TransformComponent>())
+                if (auto* enemy = boss.GetComponent<EnemyComponent>())
                 {
-                    transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
-                    float spawnX = transform->x;
-                    float spawnY = transform->y;
-                    if (FindSpawnPosition(transform->x, transform->width * transform->scale, transform->height * transform->scale, spawnX, spawnY))
-                    {
-                        transform->x = spawnX;
-                        transform->y = spawnY;
-                    }
-                    SnapEnemyToGround(*transform);
-                    if (auto* enemy = boss.GetComponent<EnemyComponent>())
-                    {
-                        enemy->spawnX = transform->x;
-                        enemy->spawnY = transform->y;
-                    }
+                    enemy->spawnX = transform->x;
+                    enemy->spawnY = transform->y;
                 }
             }
-            else if (marker == 'A') // ゴースト
+        }
+        else if (marker == 'A') // ゴースト
+        {
+            Entity& enemy = SpawnStagePrefab(
+                prefabs,
+                "sandbox_enemy_ghost",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            if (auto* transform = enemy.GetComponent<TransformComponent>())
             {
-                Entity& enemy = SpawnStagePrefab(
-                    prefabs,
-                    "sandbox_enemy_ghost",
-                    static_cast<float>(column) * tileSize,
-                    static_cast<float>(row) * tileSize);
-                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
                 {
-                    if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
-                    {
-                        enemyComp->spawnX = transform->x;
-                        enemyComp->spawnY = transform->y;
-                    }
+                    enemyComp->spawnX = transform->x;
+                    enemyComp->spawnY = transform->y;
                 }
             }
-            else if (marker == 'D') // ブラロボ
+        }
+        else if (marker == 'D') // ブラロボ
+        {
+            Entity& enemy = SpawnStagePrefab(
+                prefabs,
+                "sandbox_enemy_blaster_robot",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            if (auto* transform = enemy.GetComponent<TransformComponent>())
             {
-                Entity& enemy = SpawnStagePrefab(
-                    prefabs,
-                    "sandbox_enemy_blaster_robot",
-                    static_cast<float>(column) * tileSize,
-                    static_cast<float>(row) * tileSize);
-                if (auto* transform = enemy.GetComponent<TransformComponent>())
+                // FindSpawnPositionを使わずCSVの座標をそのまま使う
+                transform->x = static_cast<float>(column) * tileSize;
+                transform->y = static_cast<float>(row) * tileSize;
+                if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
                 {
-                    // FindSpawnPositionを使わずCSVの座標をそのまま使う
-                    transform->x = static_cast<float>(column) * tileSize;
-                    transform->y = static_cast<float>(row) * tileSize;
-                    if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
+                    enemyComp->spawnX = transform->x;
+                    enemyComp->spawnY = transform->y;
+                }
+                if (auto* blasterRobot = enemy.GetComponent<BlasterRobotComponent>())
+                {
+                    // 天井判定：マーカーの上のタイルが壁なら天井設置
+                    if (row > 0 && m_tileMap.GetTile(column, row - 1) > 0)
                     {
-                        enemyComp->spawnX = transform->x;
-                        enemyComp->spawnY = transform->y;
-                    }
-                    if (auto* blasterRobot = enemy.GetComponent<BlasterRobotComponent>())
-                    {
-                        // 天井判定：マーカーの上のタイルが壁なら天井設置
-                        if (row > 0 && m_tileMap.GetTile(column, row - 1) > 0)
-                        {
-                            blasterRobot->mountedOnCeiling = true;
-                        }
+                        blasterRobot->mountedOnCeiling = true;
                     }
                 }
             }
         }
     }
 
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    for (const TileMarker& stageMarker : stageMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        if (stageMarker.marker != 'Y')
         {
-            if (m_tileMap.GetMarker(column, row) != 'Y')
-            {
-                continue;
-            }
-
-            auto battery = std::make_unique<Entity>();
-            battery->AddComponent<TagComponent>(kTagBattery);
-            battery->AddComponent<TransformComponent>(
-                AlignToGrid(static_cast<float>(column) * tileSize, tileSize),
-                AlignToGrid(static_cast<float>(row) * tileSize, tileSize),
-                tileSize,
-                tileSize);
-            battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
-            battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            battery->AddComponent<BatteryComponent>(
-                1900.0f,
-                980.0f,
-                260.0f,
-                320.0f,
-                1);
-            if (m_darknessStageEnabled)
-            {
-                battery->AddComponent<FlickerLightComponent>(
-                    56.0f,
-                    0.42f,
-                    0.08f,
-                    3.2f,
-                    0.0f,
-                    0.0f,
-                    0.34f,
-                    0.88f,
-                    1.0f,
-                    false,
-                    0.0f,
-                    0.0f,
-                    0.0f,
-                    0.0f,
-                    0.0f);
-            }
-            m_entities.push_back(std::move(battery));
+            continue;
         }
+
+        auto battery = std::make_unique<Entity>();
+        battery->AddComponent<TagComponent>(kTagBattery);
+        battery->AddComponent<TransformComponent>(
+            AlignToGrid(static_cast<float>(stageMarker.column) * tileSize, tileSize),
+            AlignToGrid(static_cast<float>(stageMarker.row) * tileSize, tileSize),
+            tileSize,
+            tileSize);
+        battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
+        battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        battery->AddComponent<BatteryComponent>(
+            1900.0f,
+            980.0f,
+            260.0f,
+            320.0f,
+            1);
+        if (m_darknessStageEnabled)
+        {
+            battery->AddComponent<FlickerLightComponent>(
+                56.0f,
+                0.42f,
+                0.08f,
+                3.2f,
+                0.0f,
+                0.0f,
+                0.34f,
+                0.88f,
+                1.0f,
+                false,
+                0.0f,
+                0.0f,
+                0.0f,
+                0.0f,
+                0.0f);
+        }
+        m_entities.push_back(std::move(battery));
     }
 
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    for (const TileMarker& stageMarker : stageMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        if (stageMarker.marker != 'B')
         {
-            if (m_tileMap.GetMarker(column, row) != 'B')
-            {
-                continue;
-            }
-
-            spawnRespawnableBarrel(
-                AlignToGrid(static_cast<float>(column) * tileSize, tileSize),
-                AlignToGrid(static_cast<float>(row) * tileSize, tileSize));
+            continue;
         }
+
+        spawnRespawnableBarrel(
+            AlignToGrid(static_cast<float>(stageMarker.column) * tileSize, tileSize),
+            AlignToGrid(static_cast<float>(stageMarker.row) * tileSize, tileSize));
     }
 
     RefreshLogsFromMarkers();
     RefreshMarkerLightsFromMarkers();
     RefreshStageLightsFromMarkers();
 
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    for (const TileMarker& stageMarker : stageMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        if (stageMarker.marker != 'V')
         {
-            if (m_tileMap.GetMarker(column, row) != 'V')
-            {
-                continue;
-            }
-
-            Entity& vanishObject = SpawnStagePrefab(
-                prefabs,
-                "sandbox_vanish_object",
-                AlignToGrid(static_cast<float>(column) * tileSize, tileSize),
-                AlignToGrid(static_cast<float>(row) * tileSize, tileSize));
-            vanishObject.AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
-            vanishObject.AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
-            vanishObject.AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
-            vanishObject.AddComponent<PhotoCopyEffectComponent>(PhotoFilterTheme::None);
-            vanishObject.AddComponent<VanishOnCaptureComponent>(true);
+            continue;
         }
+
+        Entity& vanishObject = SpawnStagePrefab(
+            prefabs,
+            "sandbox_vanish_object",
+            AlignToGrid(static_cast<float>(stageMarker.column) * tileSize, tileSize),
+            AlignToGrid(static_cast<float>(stageMarker.row) * tileSize, tileSize));
+        vanishObject.AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+        vanishObject.AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
+        vanishObject.AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
+        vanishObject.AddComponent<PhotoCopyEffectComponent>(PhotoFilterTheme::None);
+        vanishObject.AddComponent<VanishOnCaptureComponent>(true);
     }
 
     int checkpointId = 0;
-    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    for (const TileMarker& stageMarker : stageMarkers)
     {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        if (stageMarker.marker != 'C')
         {
-            if (m_tileMap.GetMarker(column, row) != 'C')
-            {
-                continue;
-            }
-
-            const float checkpointX = AlignToGrid(static_cast<float>(column) * tileSize, tileSize);
-            const float checkpointY = AlignToGrid(static_cast<float>(row) * tileSize - tileSize, tileSize);
-            Entity& checkpoint = SpawnStagePrefab(
-                prefabs,
-                "sandbox_checkpoint",
-                checkpointX,
-                checkpointY);
-            checkpoint.AddComponent<CheckpointComponent>(checkpointId, checkpointX, checkpointY);
-            ++checkpointId;
+            continue;
         }
+
+        const float checkpointX = AlignToGrid(static_cast<float>(stageMarker.column) * tileSize, tileSize);
+        const float checkpointY = AlignToGrid(static_cast<float>(stageMarker.row) * tileSize - tileSize, tileSize);
+        Entity& checkpoint = SpawnStagePrefab(
+            prefabs,
+            "sandbox_checkpoint",
+            checkpointX,
+            checkpointY);
+        checkpoint.AddComponent<CheckpointComponent>(checkpointId, checkpointX, checkpointY);
+        ++checkpointId;
     }
 
     Entity& goal = SpawnStagePrefab(
@@ -857,19 +808,6 @@ void GameScene::InitializeStageEntities()
         SetEntityTint(apple, 1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    bool hasDamageFootholdMarker = false;
-    for (int row = 0; row < m_tileMap.GetHeight() && !hasDamageFootholdMarker; ++row)
-    {
-        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
-        {
-            const char marker = m_tileMap.GetMarker(column, row);
-            if (IsDamagePlatformMarker(marker))
-            {
-                hasDamageFootholdMarker = true;
-                break;
-            }
-        }
-    }
     RefreshDamageFootholdsFromMarkers();
 	RefleshSepiaRubblesFromMarkers();
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 

@@ -111,6 +111,46 @@ inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent&
     }
 
     const bool flipRight = boss.facing == ShieldBossFacing::Right;
+    if (boss.appearAnimationActive)
+    {
+        if (auto* sprite = entity.GetComponent<SpriteRenderComponent>())
+        {
+            if (const auto* transform = entity.GetComponent<TransformComponent>())
+            {
+                sprite->SetRenderScale(kBoss1NormalVisualScale, kBoss1NormalVisualScale);
+                sprite->SetRenderOffset(
+                    transform->width * (1.0f - kBoss1NormalVisualScale) * 0.5f,
+                    transform->height * (1.0f - kBoss1NormalVisualScale));
+            }
+            sprite->SetFlipX(flipRight);
+        }
+        if (boss.shieldEntity)
+        {
+            if (auto* shieldTint = boss.shieldEntity->GetComponent<TintComponent>())
+            {
+                shieldTint->a = 0.0f;
+            }
+        }
+        if (auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>())
+        {
+            animation->Play("appear");
+            if (animation->IsCurrentClipFinished())
+            {
+                boss.appearAnimationActive = false;
+                boss.appearAnimationFinished = true;
+                animation->Play("idle", true);
+                if (boss.shieldEntity)
+                {
+                    if (auto* shieldTint = boss.shieldEntity->GetComponent<TintComponent>())
+                    {
+                        shieldTint->a = 1.0f;
+                    }
+                }
+            }
+        }
+        return;
+    }
+
     const char* clipName = GetShieldBossRushClipName(boss.state);
 
     if (auto* sprite = entity.GetComponent<SpriteRenderComponent>())
@@ -667,6 +707,11 @@ inline void UpdateEnemies(
             auto* boss = entity->GetComponent<ShieldBossComponent>();
             if (!boss) continue;
             if (boss->deathAnimationActive)
+            {
+                UpdateShieldBossSpriteAnimation(*entity, *boss);
+                continue;
+            }
+            if (boss->appearAnimationActive)
             {
                 UpdateShieldBossSpriteAnimation(*entity, *boss);
                 continue;
