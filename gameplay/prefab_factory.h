@@ -9,7 +9,6 @@
 #include "components.h"
 
 class AssetManifest;
-class Entity;
 class EventBus;
 class PhysicsWorld;
 

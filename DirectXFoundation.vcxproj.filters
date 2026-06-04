@@ -413,6 +413,12 @@
     <ClInclude Include="core\event_bus.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="core\game_object_fwd.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\game_object.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="scenes\game\game_scene.h">
       <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>

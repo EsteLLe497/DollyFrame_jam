@@ -3,8 +3,11 @@
 #include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <functional>
+#include <utility>
 
 using namespace game_scene_detail;
 
@@ -28,6 +31,38 @@ namespace
     inline constexpr int kEnemy2AttackSheetRows = 8;
     inline constexpr int kEnemy2AttackFrameCount = 80;
     inline constexpr float kEnemy2AttackFps = 18.0f;
+    inline constexpr int kBoss1IdleSheetColumns = 5;
+    inline constexpr int kBoss1IdleSheetRows = 6;
+    inline constexpr int kBoss1IdleFrameCount = 30;
+    inline constexpr float kBoss1IdleFps = 10.0f;
+    inline constexpr int kBoss1RushStartSheetColumns = 8;
+    inline constexpr int kBoss1RushStartSheetRows = 8;
+    inline constexpr int kBoss1RushStartFrameCount = 64;
+    inline constexpr int kBoss1RushAttackSheetColumns = 6;
+    inline constexpr int kBoss1RushAttackSheetRows = 10;
+    inline constexpr int kBoss1RushAttackFrameCount = 60;
+    inline constexpr int kBoss1RushEndSheetColumns = 5;
+    inline constexpr int kBoss1RushEndSheetRows = 11;
+    inline constexpr int kBoss1RushEndFrameCount = 55;
+    inline constexpr int kBoss1DeathSheetColumns = 10;
+    inline constexpr int kBoss1DeathSheetRows = 12;
+    inline constexpr int kBoss1DeathFrameCount = 120;
+    inline constexpr int kBoss1AppearSheetColumns = 10;
+    inline constexpr int kBoss1AppearFirstPageRows = 8;
+    inline constexpr int kBoss1AppearSecondPageRows = 7;
+    inline constexpr int kBoss1AppearFrameCount = 150;
+    inline constexpr int kBoss1RoarSheetColumns = 10;
+    inline constexpr int kBoss1RoarFirstPageRows = 8;
+    inline constexpr int kBoss1RoarSecondPageRows = 7;
+    inline constexpr int kBoss1RoarFrameCount = 150;
+    inline constexpr float kBoss1RushStartFps = 24.0f;
+    inline constexpr float kBoss1RushAttackFps = 30.0f;
+    inline constexpr float kBoss1RushEndFps = 24.0f;
+    inline constexpr float kBoss1DeathFps = 24.0f;
+    inline constexpr float kBoss1AppearFps = 30.0f;
+    inline constexpr float kBoss1RoarFps = 24.0f;
+    inline constexpr float kBoss1BodyVisualScale = 1.35f;
+    inline constexpr float kBoss1RoarVisualScale = 1.35f;
 
     constexpr float kEnemyDefeatHitStopSeconds = 0.08f;
     constexpr float kEnemyDefeatShakeSeconds = 0.18f;
@@ -126,6 +161,55 @@ namespace
         flow.screenShakeDuration = kEnemyDefeatShakeSeconds;
         flow.screenShakeAmplitude = kEnemyDefeatShakeAmplitude;
     }
+
+    using BossTextureResolver = std::function<int(const std::string&)>;
+
+    void DefineLazyRowsClip(
+        SpriteSheetAnimationComponent& animation,
+        const char* name,
+        std::vector<std::string> textureKeys,
+        const BossTextureResolver& textureResolver,
+        int columns,
+        std::vector<int> rowsPerTexture,
+        int frameCount,
+        float fps,
+        bool loop)
+    {
+        animation.DefineLazyPagedRowsClip(
+            name,
+            std::move(textureKeys),
+            textureResolver,
+            columns,
+            std::move(rowsPerTexture),
+            0,
+            frameCount,
+            fps,
+            loop);
+    }
+
+    void DefineLazySingleSheetClip(
+        SpriteSheetAnimationComponent& animation,
+        const char* name,
+        const char* textureKey,
+        const BossTextureResolver& textureResolver,
+        int columns,
+        int rows,
+        int frameCount,
+        float fps,
+        bool loop)
+    {
+        DefineLazyRowsClip(
+            animation,
+            name,
+            std::vector<std::string>{ textureKey },
+            textureResolver,
+            columns,
+            std::vector<int>{ rows },
+            frameCount,
+            fps,
+            loop);
+    }
+
 }
 
 void GameScene::ConfigureWalkerSpriteAnimation(Entity& enemy)
@@ -199,10 +283,250 @@ void GameScene::ConfigureRangedSpriteAnimation(Entity& enemy)
     animation->Play("idle", true);
 }
 
+void GameScene::ConfigureShieldBossSpriteAnimation(Entity& enemy)
+{
+    auto* sprite = enemy.GetComponent<SpriteRenderComponent>();
+    const auto* transform = enemy.GetComponent<TransformComponent>();
+    if (!sprite || !transform)
+    {
+        return;
+    }
+
+    auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>();
+    if (!animation)
+    {
+        animation = &enemy.AddComponent<SpriteSheetAnimationComponent>();
+    }
+
+    // 本体の当たり判定は維持し、描画だけ足元基準で大きく見せる。
+    sprite->SetRenderScale(kBoss1BodyVisualScale, kBoss1BodyVisualScale);
+    sprite->SetRenderOffset(
+        transform->width * (1.0f - kBoss1BodyVisualScale) * 0.5f,
+        transform->height * (1.0f - kBoss1BodyVisualScale));
+
+    const int idleTexture = m_assets.GetTexture("boss1_body_idle");
+    const int fallbackTexture = sprite->GetTextureId();
+    const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
+    const BossTextureResolver resolveTexture = [this](const std::string& key) { return m_assets.GetTexture(key); };
+
+    // Rush系とRoarは状態名に寄せて、戦闘状態から同期しやすくする。
+    animation->DefineClip("idle", resolvedIdleTexture, kBoss1IdleSheetColumns, kBoss1IdleSheetRows, 0, kBoss1IdleFrameCount, kBoss1IdleFps, true);
+    DefineLazySingleSheetClip(
+        *animation,
+        "rush_start",
+        "boss1_body_rush_start",
+        resolveTexture,
+        kBoss1RushStartSheetColumns,
+        kBoss1RushStartSheetRows,
+        kBoss1RushStartFrameCount,
+        kBoss1RushStartFps,
+        false);
+    DefineLazySingleSheetClip(
+        *animation,
+        "rush_attack",
+        "boss1_body_rush_attack",
+        resolveTexture,
+        kBoss1RushAttackSheetColumns,
+        kBoss1RushAttackSheetRows,
+        kBoss1RushAttackFrameCount,
+        kBoss1RushAttackFps,
+        true);
+    DefineLazySingleSheetClip(
+        *animation,
+        "rush_end",
+        "boss1_body_rush_end",
+        resolveTexture,
+        kBoss1RushEndSheetColumns,
+        kBoss1RushEndSheetRows,
+        kBoss1RushEndFrameCount,
+        kBoss1RushEndFps,
+        false);
+    DefineLazySingleSheetClip(
+        *animation,
+        "death",
+        "boss1_body_death",
+        resolveTexture,
+        kBoss1DeathSheetColumns,
+        kBoss1DeathSheetRows,
+        kBoss1DeathFrameCount,
+        kBoss1DeathFps,
+        false);
+    DefineLazyRowsClip(
+        *animation,
+        "appear",
+        std::vector<std::string>{
+            "boss1_body_appear_page_0",
+            "boss1_body_appear_page_1",
+        },
+        resolveTexture,
+        kBoss1AppearSheetColumns,
+        std::vector<int>{
+            kBoss1AppearFirstPageRows,
+            kBoss1AppearSecondPageRows,
+        },
+        kBoss1AppearFrameCount,
+        kBoss1AppearFps,
+        false);
+    DefineLazyRowsClip(
+        *animation,
+        "roar",
+        std::vector<std::string>{
+            "boss1_body_roar_page_0",
+            "boss1_body_roar_page_1",
+        },
+        resolveTexture,
+        kBoss1RoarSheetColumns,
+        std::vector<int>{
+            kBoss1RoarFirstPageRows,
+            kBoss1RoarSecondPageRows,
+        },
+        kBoss1RoarFrameCount,
+        kBoss1RoarFps,
+        false);
+
+    if (auto* boss = enemy.GetComponent<ShieldBossComponent>();
+        boss && !boss->appearAnimationFinished && animation->HasClip("appear"))
+    {
+        boss->appearAnimationActive = true;
+        animation->Play("appear", true);
+    }
+    else
+    {
+        animation->Play("idle", true);
+    }
+}
+
+void GameScene::ConfigureBossShieldSpriteAnimation(Entity& shield)
+{
+    auto* sprite = shield.GetComponent<SpriteRenderComponent>();
+    const auto* transform = shield.GetComponent<TransformComponent>();
+    if (!sprite || !transform)
+    {
+        return;
+    }
+
+    auto* animation = shield.GetComponent<SpriteSheetAnimationComponent>();
+    if (!animation)
+    {
+        animation = &shield.AddComponent<SpriteSheetAnimationComponent>();
+    }
+
+    constexpr float kBoss1BodyHeight = 192.0f;
+    const float shieldVisualScale = (kBoss1BodyHeight * kBoss1BodyVisualScale) / transform->height;
+    sprite->SetRenderScale(shieldVisualScale, shieldVisualScale);
+    sprite->SetRenderOffset(
+        144.0f * 0.5f - transform->width * shieldVisualScale * 0.5f,
+        kBoss1BodyHeight - transform->height * shieldVisualScale);
+
+    const int idleTexture = m_assets.GetTexture("boss1_shield_idle");
+    const int fallbackTexture = sprite->GetTextureId();
+    const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
+    const BossTextureResolver resolveTexture = [this](const std::string& key) { return m_assets.GetTexture(key); };
+
+    // 盾は本体と同じキャンバスの分割素材なので、同じフレーム定義で同期する。
+    animation->DefineClip("idle", resolvedIdleTexture, kBoss1IdleSheetColumns, kBoss1IdleSheetRows, 0, kBoss1IdleFrameCount, kBoss1IdleFps, true);
+    DefineLazySingleSheetClip(
+        *animation,
+        "rush_start",
+        "boss1_shield_rush_start",
+        resolveTexture,
+        kBoss1RushStartSheetColumns,
+        kBoss1RushStartSheetRows,
+        kBoss1RushStartFrameCount,
+        kBoss1RushStartFps,
+        false);
+    DefineLazySingleSheetClip(
+        *animation,
+        "rush_attack",
+        "boss1_shield_rush_attack",
+        resolveTexture,
+        kBoss1RushAttackSheetColumns,
+        kBoss1RushAttackSheetRows,
+        kBoss1RushAttackFrameCount,
+        kBoss1RushAttackFps,
+        true);
+    DefineLazySingleSheetClip(
+        *animation,
+        "rush_end",
+        "boss1_shield_rush_end",
+        resolveTexture,
+        kBoss1RushEndSheetColumns,
+        kBoss1RushEndSheetRows,
+        kBoss1RushEndFrameCount,
+        kBoss1RushEndFps,
+        false);
+    animation->Play("idle", true);
+}
+
 void GameScene::UpdateEnemies()
 {
     Entity* player = FindEntityByTag(kTagPlayer);
     const TransformComponent* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+
+    for (const auto& entity : m_entities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || enemy->GetArchetype() != EnemyArchetype::ShieldBoss)
+        {
+            continue;
+        }
+
+        // どの生成経路でもボス1がシート丸出しにならないよう、更新入口で補完する。
+        if (!entity->GetComponent<SpriteSheetAnimationComponent>())
+        {
+            ConfigureShieldBossSpriteAnimation(*entity);
+        }
+        if (auto* boss = entity->GetComponent<ShieldBossComponent>())
+        {
+            if (boss->shieldEntity && !boss->shieldEntity->GetComponent<SpriteSheetAnimationComponent>())
+            {
+                ConfigureBossShieldSpriteAnimation(*boss->shieldEntity);
+            }
+            if (boss->appearAnimationActive)
+            {
+                game_scene_combat_system::UpdateShieldBossSpriteAnimation(*entity, *boss);
+                continue;
+            }
+            if (boss->deathAnimationActive)
+            {
+                auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>();
+                if (animation)
+                {
+                    animation->Play("death");
+                    if (animation->IsCurrentClipFinished())
+                    {
+                        boss->deathAnimationActive = false;
+                        boss->deathAnimationFinished = true;
+                        enemy->MarkDefeated();
+                        enemy->respawnEnabled = false;
+                        m_flow.shieldBossDefeatedThisScene = true;
+
+                        if (const auto* transform = entity->GetComponent<TransformComponent>())
+                        {
+                            SpawnDropItems(
+                                transform->x + transform->width * transform->scale * 0.5f,
+                                transform->y + transform->height * transform->scale * 0.5f,
+                                GetEnemyDropCount(enemy->GetArchetype()));
+                        }
+                        TriggerEnemyDefeatFeedback(m_flow);
+                    }
+                }
+                if (boss->shieldEntity)
+                {
+                    if (auto* shieldTint = boss->shieldEntity->GetComponent<TintComponent>())
+                    {
+                        shieldTint->a = 0.0f;
+                    }
+                }
+            }
+        }
+    }
+
     game_scene_combat_system::UpdateEnemies(
         m_entities,
         m_tileTexture,
@@ -218,6 +542,10 @@ void GameScene::UpdateEnemies()
         [this](Entity& enemyEntity)
         {
             m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, "enemy_gun", 0.0f, 0.0f });
+        },
+        [this](Entity& bossEntity)
+        {
+            static_cast<void>(bossEntity);
         },
         
         [this](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
@@ -1254,6 +1582,13 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     {
         return;
     }
+    if (auto* shieldBoss = enemy.GetComponent<ShieldBossComponent>())
+    {
+        if (shieldBoss->deathAnimationActive || shieldBoss->deathAnimationFinished)
+        {
+            return;
+        }
+    }
 
     auto* damageFlash = enemy.GetComponent<DamageCooldownComponent>();
     if (!damageFlash)
@@ -1281,6 +1616,26 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         health->ApplyDamage(amount);
         if (health->IsDead())
         {
+            if (auto* shieldBoss = enemy.GetComponent<ShieldBossComponent>())
+            {
+                shieldBoss->deathAnimationActive = true;
+                shieldBoss->stateTimer = 0.0f;
+                if (auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>())
+                {
+                    animation->Play("death", true);
+                }
+                if (shieldBoss->shieldEntity)
+                {
+                    if (auto* shieldTint = shieldBoss->shieldEntity->GetComponent<TintComponent>())
+                    {
+                        shieldTint->a = 0.0f;
+                    }
+                }
+                m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
+                m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
+                return;
+            }
+
             enemyComponent->MarkDefeated();
             defeatedThisHit = true;
             if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)

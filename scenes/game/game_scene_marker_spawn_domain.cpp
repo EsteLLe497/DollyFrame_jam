@@ -677,7 +677,11 @@ void GameScene::RefreshEnemiesFromMarkers()
                     transform->y,
                     kShieldW,
                     kShieldH);
-                shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
+                shieldEntity->AddComponent<TintComponent>(
+                    0.72f,
+                    0.78f,
+                    0.90f,
+                    bossComp->appearAnimationActive ? 0.0f : 1.0f);
                 shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
                 auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
                 shieldComp.attached = true;

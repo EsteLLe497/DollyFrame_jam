@@ -189,7 +189,6 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
         g = 0.86f;
         b = 0.66f;
         break;
-        break;
     case 4:
         r = 0.88f;
         g = 0.24f;
@@ -346,6 +345,44 @@ inline bool IsMarkerInSet(char marker, std::string_view set)
 {
     const char normalized = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
     return set.find(normalized) != std::string_view::npos;
+}
+
+struct TileMarker
+{
+    int column = 0;
+    int row = 0;
+    char marker = '\0';
+    int parameter = 0;
+};
+
+inline std::vector<TileMarker> CollectTileMarkers(const TileMap& tileMap, bool uppercaseMarkers = false)
+{
+    std::vector<TileMarker> markers;
+    markers.reserve(static_cast<size_t>(tileMap.GetWidth() * tileMap.GetHeight()) / 8);
+
+    for (int row = 0; row < tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < tileMap.GetWidth(); ++column)
+        {
+            char marker = tileMap.GetMarker(column, row);
+            if (marker == '\0')
+            {
+                continue;
+            }
+            if (uppercaseMarkers)
+            {
+                marker = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
+            }
+
+            markers.push_back(TileMarker{
+                column,
+                row,
+                marker,
+                tileMap.GetMarkerParameter(column, row) });
+        }
+    }
+
+    return markers;
 }
 
 inline int MarkerToPresetIndex(char marker)

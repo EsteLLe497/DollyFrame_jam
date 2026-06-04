@@ -11,6 +11,11 @@ using namespace game_scene_detail;
 
 void GameScene::UpdateTuningHotReload(float deltaTime)
 {
+    if (!m_debug.showTuningPanel)
+    {
+        return;
+    }
+
     m_debug.tuningReloadTimer = std::max(0.0f, m_debug.tuningReloadTimer - deltaTime);
     if (m_debug.tuningReloadTimer > 0.0f)
     {

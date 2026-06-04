@@ -1,7 +1,8 @@
 #pragma once
 
+#include "game_object_fwd.h"
+
 class GameScene;
-class Entity;
 
 class PhotoPasteSystem
 {

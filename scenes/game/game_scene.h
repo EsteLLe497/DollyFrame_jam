@@ -73,6 +73,10 @@ private:
     void ResetFrameRendering();
 
     // Lifecycle / setup
+    void UpdateLoading(float deltaTime);
+    void AdvanceLoadingStep();
+    void FinishLoading();
+    void DrawLoadingScreen() const;
     void LoadTuningState();
     void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
@@ -110,6 +114,8 @@ private:
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void ConfigureWalkerSpriteAnimation(Entity& enemy);
     void ConfigureRangedSpriteAnimation(Entity& enemy);
+    void ConfigureShieldBossSpriteAnimation(Entity& enemy);
+    void ConfigureBossShieldSpriteAnimation(Entity& shield);
     void UpdateEnemies();
     int HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight);
     void UpdateBullets();
@@ -304,6 +310,13 @@ private:
     char m_pendingStageTransitionSpawnMarker = '\0';
     char m_pendingStageTransitionMarker = '\0';
     bool m_darknessStageEnabled = false;
+    ResourceManager* m_loadingResources = nullptr;
+    bool m_loadingActive = false;
+    bool m_loadingFinished = false;
+    mutable int m_loadingWarmupFramesRemaining = 0;
+    int m_loadingStep = 0;
+    float m_loadingElapsed = 0.0f;
+    float m_loadingProgress = 0.0f;
 
     static constexpr float easingTime = 0.35f;
     bool m_easingActive = false;

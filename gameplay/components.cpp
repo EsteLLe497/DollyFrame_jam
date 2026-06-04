@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "components.h"
 
@@ -45,9 +45,9 @@ BarrelComponent::BarrelComponent(
 {
 }
 
-void BarrelComponent::OnAttach(Entity& owner)
+void BarrelComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
@@ -82,9 +82,9 @@ BatteryComponent::BatteryComponent(
 {
 }
 
-void BatteryComponent::OnAttach(Entity& owner)
+void BatteryComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
@@ -118,9 +118,9 @@ BatterySwitchComponent::BatterySwitchComponent(
 {
 }
 
-void BatterySwitchComponent::OnAttach(Entity& owner)
+void BatterySwitchComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
         baseY = transform->y;
@@ -150,9 +150,9 @@ ElevatorComponent::ElevatorComponent(
 {
 }
 
-void ElevatorComponent::OnAttach(Entity& owner)
+void ElevatorComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
         baseY = transform->y;
@@ -196,9 +196,9 @@ ShutterComponent::ShutterComponent(
 {
 }
 
-void ShutterComponent::OnAttach(Entity& owner)
+void ShutterComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
         baseY = transform->y;
@@ -231,9 +231,9 @@ ProtectiveWallComponent::ProtectiveWallComponent(
 {
 }
 
-void ProtectiveWallComponent::OnAttach(Entity& owner)
+void ProtectiveWallComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
         baseY = transform->y;
@@ -507,7 +507,7 @@ PhotoCopyLifetimeComponent::PhotoCopyLifetimeComponent(float lifetimeSeconds)
 
 void PhotoCopyLifetimeComponent::Update(float deltaTime)
 {
-    // マイナス方向へだけ減衰させ、下限は 0 に固定。
+    // Count down only toward zero.
     m_remainingSeconds = std::max(0.0f, m_remainingSeconds - deltaTime);
 }
 
@@ -1161,13 +1161,269 @@ void SpriteSheetAnimationComponent::DefineClip(
 
     Clip clip;
     clip.textureId = textureId;
+    clip.textureIds = { textureId };
+    clip.frameTextureMode = false;
     clip.columns = (std::max)(1, columns);
+    clip.columnsPerTexture = clip.columns;
     clip.rows = (std::max)(1, rows);
+    clip.rowsPerTexture = clip.rows;
+    clip.texturePageColumns = 1;
     clip.startFrame = (std::max)(0, startFrame);
     clip.frameCount = (std::max)(1, frameCount);
     clip.fps = (std::max)(0.0f, fps);
     clip.loop = loop;
     m_clips[name] = clip;
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+void SpriteSheetAnimationComponent::DefinePagedRowsClip(
+    const std::string& name,
+    const std::vector<int>& textureIds,
+    int columns,
+    int rowsPerTexture,
+    int startFrame,
+    int frameCount,
+    float fps,
+    bool loop)
+{
+    if (name.empty() || textureIds.empty())
+    {
+        return;
+    }
+
+    Clip clip;
+    clip.textureId = textureIds.front();
+    clip.textureIds = textureIds;
+    clip.frameTextureMode = false;
+    clip.columns = (std::max)(1, columns);
+    clip.columnsPerTexture = clip.columns;
+    clip.rowsPerTexture = (std::max)(1, rowsPerTexture);
+    clip.rows = clip.rowsPerTexture * static_cast<int>(clip.textureIds.size());
+    clip.texturePageColumns = 1;
+    clip.startFrame = (std::max)(0, startFrame);
+    clip.frameCount = (std::max)(1, frameCount);
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    m_clips[name] = clip;
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+void SpriteSheetAnimationComponent::DefinePagedRowsClip(
+    const std::string& name,
+    const std::vector<int>& textureIds,
+    int columns,
+    const std::vector<int>& rowsPerTexture,
+    int startFrame,
+    int frameCount,
+    float fps,
+    bool loop)
+{
+    if (name.empty() || textureIds.empty() || rowsPerTexture.empty())
+    {
+        return;
+    }
+
+    Clip clip;
+    clip.textureId = textureIds.front();
+    clip.textureIds = textureIds;
+    clip.frameTextureMode = false;
+    clip.columns = (std::max)(1, columns);
+    clip.columnsPerTexture = clip.columns;
+    clip.texturePageColumns = 1;
+    clip.textureRows.reserve(clip.textureIds.size());
+    clip.rows = 0;
+    for (size_t i = 0; i < clip.textureIds.size(); ++i)
+    {
+        const int rowCount = rowsPerTexture[(std::min)(i, rowsPerTexture.size() - 1)];
+        clip.textureRows.push_back((std::max)(1, rowCount));
+        clip.rows += clip.textureRows.back();
+    }
+    clip.rowsPerTexture = clip.textureRows.front();
+    clip.startFrame = (std::max)(0, startFrame);
+    clip.frameCount = (std::max)(1, frameCount);
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    m_clips[name] = clip;
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+void SpriteSheetAnimationComponent::DefineLazyPagedRowsClip(
+    const std::string& name,
+    const std::vector<std::string>& textureKeys,
+    std::function<int(const std::string&)> textureResolver,
+    int columns,
+    const std::vector<int>& rowsPerTexture,
+    int startFrame,
+    int frameCount,
+    float fps,
+    bool loop)
+{
+    if (name.empty() || textureKeys.empty() || rowsPerTexture.empty() || !textureResolver)
+    {
+        return;
+    }
+
+    Clip clip;
+    clip.textureIds.assign(textureKeys.size(), -1);
+    clip.textureKeys = textureKeys;
+    clip.textureResolver = std::move(textureResolver);
+    clip.frameTextureMode = false;
+    clip.columns = (std::max)(1, columns);
+    clip.columnsPerTexture = clip.columns;
+    clip.texturePageColumns = 1;
+    clip.textureRows.reserve(textureKeys.size());
+    clip.rows = 0;
+    for (size_t i = 0; i < textureKeys.size(); ++i)
+    {
+        const int rowCount = rowsPerTexture[(std::min)(i, rowsPerTexture.size() - 1)];
+        clip.textureRows.push_back((std::max)(1, rowCount));
+        clip.rows += clip.textureRows.back();
+    }
+    clip.rowsPerTexture = clip.textureRows.front();
+    clip.startFrame = (std::max)(0, startFrame);
+    clip.frameCount = (std::max)(1, frameCount);
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    m_clips[name] = std::move(clip);
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+void SpriteSheetAnimationComponent::DefinePagedGridClip(
+    const std::string& name,
+    const std::vector<int>& textureIds,
+    int pageColumns,
+    int columnsPerTexture,
+    int rowsPerTexture,
+    int startFrame,
+    int frameCount,
+    float fps,
+    bool loop)
+{
+    if (name.empty() || textureIds.empty())
+    {
+        return;
+    }
+
+    const int safePageColumns = (std::max)(1, pageColumns);
+    const int safeColumnsPerTexture = (std::max)(1, columnsPerTexture);
+    const int safeRowsPerTexture = (std::max)(1, rowsPerTexture);
+    const int pageRows = (std::max)(
+        1,
+        static_cast<int>((textureIds.size() + static_cast<size_t>(safePageColumns) - 1) /
+            static_cast<size_t>(safePageColumns)));
+
+    Clip clip;
+    clip.textureId = textureIds.front();
+    clip.textureIds = textureIds;
+    clip.frameTextureMode = false;
+    clip.columnsPerTexture = safeColumnsPerTexture;
+    clip.rowsPerTexture = safeRowsPerTexture;
+    clip.texturePageColumns = safePageColumns;
+    clip.columns = safeColumnsPerTexture * safePageColumns;
+    clip.rows = safeRowsPerTexture * pageRows;
+    clip.startFrame = (std::max)(0, startFrame);
+    clip.frameCount = (std::max)(1, frameCount);
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    m_clips[name] = clip;
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+void SpriteSheetAnimationComponent::DefineFrameTextureClip(
+    const std::string& name,
+    const std::vector<int>& textureIds,
+    float fps,
+    bool loop,
+    float sourceX,
+    float sourceY,
+    float sourceWidth,
+    float sourceHeight)
+{
+    if (name.empty() || textureIds.empty())
+    {
+        return;
+    }
+
+    Clip clip;
+    clip.textureId = textureIds.front();
+    clip.textureIds = textureIds;
+    clip.frameTextureMode = true;
+    clip.columns = 1;
+    clip.columnsPerTexture = 1;
+    clip.rows = 1;
+    clip.rowsPerTexture = 1;
+    clip.texturePageColumns = 1;
+    clip.startFrame = 0;
+    clip.frameCount = static_cast<int>(textureIds.size());
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    clip.sourceX = std::clamp(sourceX, 0.0f, 1.0f);
+    clip.sourceY = std::clamp(sourceY, 0.0f, 1.0f);
+    clip.sourceWidth = std::clamp(sourceWidth, 0.0f, 1.0f - clip.sourceX);
+    clip.sourceHeight = std::clamp(sourceHeight, 0.0f, 1.0f - clip.sourceY);
+    m_clips[name] = clip;
+
+    if (m_currentClipName == name)
+    {
+        ApplyFrameToSprite();
+    }
+}
+
+void SpriteSheetAnimationComponent::DefineLazyFrameTextureClip(
+    const std::string& name,
+    const std::vector<std::string>& textureKeys,
+    std::function<int(const std::string&)> textureResolver,
+    float fps,
+    bool loop,
+    float sourceX,
+    float sourceY,
+    float sourceWidth,
+    float sourceHeight)
+{
+    if (name.empty() || textureKeys.empty() || !textureResolver)
+    {
+        return;
+    }
+
+    Clip clip;
+    clip.textureIds.assign(textureKeys.size(), -1);
+    clip.textureKeys = textureKeys;
+    clip.textureResolver = std::move(textureResolver);
+    clip.frameTextureMode = true;
+    clip.columns = 1;
+    clip.columnsPerTexture = 1;
+    clip.rows = 1;
+    clip.rowsPerTexture = 1;
+    clip.texturePageColumns = 1;
+    clip.startFrame = 0;
+    clip.frameCount = static_cast<int>(textureKeys.size());
+    clip.fps = (std::max)(0.0f, fps);
+    clip.loop = loop;
+    clip.sourceX = std::clamp(sourceX, 0.0f, 1.0f);
+    clip.sourceY = std::clamp(sourceY, 0.0f, 1.0f);
+    clip.sourceWidth = std::clamp(sourceWidth, 0.0f, 1.0f - clip.sourceX);
+    clip.sourceHeight = std::clamp(sourceHeight, 0.0f, 1.0f - clip.sourceY);
+    m_clips[name] = std::move(clip);
 
     if (m_currentClipName == name)
     {
@@ -1217,12 +1473,33 @@ int SpriteSheetAnimationComponent::GetCurrentFrameIndex() const
         return clip.startFrame;
     }
 
-    // 経過秒をフレームへ変換。loop=false の場合は末尾フレームで停止。
+    // Convert elapsed seconds to a frame index; non-looping clips stop at the last frame.
     const float rawFrame = m_elapsedSeconds * clip.fps;
     const int localFrame = clip.loop
         ? static_cast<int>(rawFrame) % clip.frameCount
         : (std::min)(clip.frameCount - 1, static_cast<int>(rawFrame));
     return clip.startFrame + localFrame;
+}
+
+bool SpriteSheetAnimationComponent::IsCurrentClipFinished() const
+{
+    const auto found = m_clips.find(m_currentClipName);
+    if (found == m_clips.end())
+    {
+        return false;
+    }
+
+    const Clip& clip = found->second;
+    if (clip.loop)
+    {
+        return false;
+    }
+    if (clip.frameCount <= 1 || clip.fps <= 0.0f)
+    {
+        return true;
+    }
+
+    return m_elapsedSeconds >= static_cast<float>(clip.frameCount) / clip.fps;
 }
 
 void SpriteSheetAnimationComponent::SetPlaybackSpeed(float speed)
@@ -1249,17 +1526,100 @@ void SpriteSheetAnimationComponent::ApplyFrameToSprite()
         return;
     }
 
-    const Clip& clip = found->second;
+    Clip& clip = found->second;
     const int frameIndex = GetCurrentFrameIndex();
-    // スプライトシート上のフレーム番号を行列インデックスへ変換。
-    const int column = frameIndex % clip.columns;
-    const int row = frameIndex / clip.columns;
-    const float cellWidth = 1.0f / static_cast<float>(clip.columns);
-    const float cellHeight = 1.0f / static_cast<float>(clip.rows);
-
-    if (clip.textureId >= 0)
+    if (clip.frameTextureMode)
     {
-        sprite->SetTextureId(clip.textureId);
+        const int textureIndex = (std::min)(
+            static_cast<int>(clip.textureIds.size()) - 1,
+            (std::max)(0, frameIndex - clip.startFrame));
+        const size_t textureSlot = static_cast<size_t>(textureIndex);
+        if (clip.textureIds[textureSlot] < 0 &&
+            textureSlot < clip.textureKeys.size() &&
+            clip.textureResolver)
+        {
+            clip.textureIds[textureSlot] = clip.textureResolver(clip.textureKeys[textureSlot]);
+        }
+        const int textureId = clip.textureIds[textureSlot];
+        if (textureId >= 0)
+        {
+            sprite->SetTextureId(textureId);
+        }
+        sprite->SetSourceRect(clip.sourceX, clip.sourceY, clip.sourceWidth, clip.sourceHeight);
+        return;
+    }
+
+    const int columnsPerTexture = (std::max)(1, clip.columnsPerTexture);
+    int texturePage = 0;
+    int column = 0;
+    int row = 0;
+    int rowsInSelectedTexture = (std::max)(1, clip.rowsPerTexture);
+
+    if (!clip.textureRows.empty())
+    {
+        int remainingFrame = (std::max)(0, frameIndex);
+        for (size_t page = 0; page < clip.textureRows.size(); ++page)
+        {
+            const int pageRows = (std::max)(1, clip.textureRows[page]);
+            const int pageFrameCount = columnsPerTexture * pageRows;
+            if (remainingFrame < pageFrameCount)
+            {
+                texturePage = static_cast<int>(page);
+                rowsInSelectedTexture = pageRows;
+                column = remainingFrame % columnsPerTexture;
+                row = remainingFrame / columnsPerTexture;
+                break;
+            }
+
+            remainingFrame -= pageFrameCount;
+            if (page + 1 == clip.textureRows.size())
+            {
+                texturePage = static_cast<int>(page);
+                rowsInSelectedTexture = pageRows;
+                const int lastFrame = (std::max)(0, pageFrameCount - 1);
+                column = lastFrame % columnsPerTexture;
+                row = lastFrame / columnsPerTexture;
+            }
+        }
+    }
+    else
+    {
+        // Convert the sprite-sheet frame number to row and column indices.
+        const int globalColumn = frameIndex % clip.columns;
+        const int globalRow = frameIndex / clip.columns;
+        rowsInSelectedTexture = (std::max)(1, clip.rowsPerTexture);
+        const int pageColumn = globalColumn / columnsPerTexture;
+        const int pageRow = globalRow / rowsInSelectedTexture;
+        texturePage = clip.textureIds.empty()
+            ? 0
+            : (std::min)(
+                static_cast<int>(clip.textureIds.size()) - 1,
+                pageRow * (std::max)(1, clip.texturePageColumns) + pageColumn);
+        column = globalColumn - pageColumn * columnsPerTexture;
+        row = globalRow - pageRow * rowsInSelectedTexture;
+    }
+
+    if (!clip.textureIds.empty())
+    {
+        texturePage = std::clamp(texturePage, 0, static_cast<int>(clip.textureIds.size()) - 1);
+        const size_t textureSlot = static_cast<size_t>(texturePage);
+        if (clip.textureIds[textureSlot] < 0 &&
+            textureSlot < clip.textureKeys.size() &&
+            clip.textureResolver)
+        {
+            clip.textureIds[textureSlot] = clip.textureResolver(clip.textureKeys[textureSlot]);
+        }
+    }
+
+    const float cellWidth = 1.0f / static_cast<float>(columnsPerTexture);
+    const float cellHeight = 1.0f / static_cast<float>(rowsInSelectedTexture);
+
+    const int textureId = clip.textureIds.empty()
+        ? clip.textureId
+        : clip.textureIds[static_cast<size_t>(texturePage)];
+    if (textureId >= 0)
+    {
+        sprite->SetTextureId(textureId);
     }
 
     sprite->SetSourceRect(
@@ -1427,9 +1787,9 @@ RigidBodyComponent::~RigidBodyComponent()
     }
 }
 
-void RigidBodyComponent::OnAttach(Entity& owner)
+void RigidBodyComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     const auto* transform = owner.GetComponent<TransformComponent>();
     if (!m_physicsWorld || !transform)
@@ -1439,7 +1799,7 @@ void RigidBodyComponent::OnAttach(Entity& owner)
 
     b2BodyDef bodyDef = b2DefaultBodyDef();
     bodyDef.type = m_bodyType;
-    // 描画基準（左上）から物理基準（中心）へ変換して初期配置する。
+    // Convert from render origin (top-left) to physics origin (center).
     bodyDef.position = {
         (transform->x + (transform->width * transform->scale * 0.5f)) / kPixelsPerMeter,
         (transform->y + (transform->height * transform->scale * 0.5f)) / kPixelsPerMeter
@@ -1504,7 +1864,7 @@ void RigidBodyComponent::PullTransformFromPhysics()
     const b2Rot rotation = b2Body_GetRotation(m_bodyId);
     const float width = transform->width * transform->scale;
     const float height = transform->height * transform->scale;
-    // 物理中心座標を描画用の左上座標へ戻す。
+    // Convert the physics center position back to the render top-left position.
     transform->x = position.x * kPixelsPerMeter - (width * 0.5f);
     transform->y = position.y * kPixelsPerMeter - (height * 0.5f);
     transform->rotation = b2Rot_GetAngle(rotation);
@@ -1540,9 +1900,9 @@ BoxColliderComponent::BoxColliderComponent(float density, float friction, bool i
 
 BoxColliderComponent::~BoxColliderComponent() = default;
 
-void BoxColliderComponent::OnAttach(Entity& owner)
+void BoxColliderComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     const auto* transform = owner.GetComponent<TransformComponent>();
     const auto* rigidBody = owner.GetComponent<RigidBodyComponent>();
@@ -1608,9 +1968,9 @@ ImageOutlineColliderComponent::~ImageOutlineColliderComponent()
     }
 }
 
-void ImageOutlineColliderComponent::OnAttach(Entity& owner)
+void ImageOutlineColliderComponent::OnAttach(GameObject& owner)
 {
-    Component::OnAttach(owner);
+    MonoBehaviour::OnAttach(owner);
 
     const auto* transform = owner.GetComponent<TransformComponent>();
     const auto* rigidBody = owner.GetComponent<RigidBodyComponent>();
@@ -1636,7 +1996,7 @@ void ImageOutlineColliderComponent::OnAttach(Entity& owner)
 
         m_normalizedOutline.clear();
         m_normalizedOutline.reserve(outline.size());
-        // 画像ピクセル座標を [0,1] 正規化で保持し、再利用可能な形にする。
+        // Store image pixel coordinates normalized to [0,1] for reuse.
         for (const ImageOutline::Point& point : outline)
         {
             const float u = static_cast<float>(point.x) / static_cast<float>(imageWidth);
@@ -1662,7 +2022,7 @@ void ImageOutlineColliderComponent::OnAttach(Entity& owner)
     const float halfHeight = worldHeight * 0.5f;
     std::vector<b2Vec2> points;
     points.reserve(m_normalizedOutline.size());
-    // 正規化輪郭をワールドメートル座標に展開し、Chain 形状を作る。
+    // Expand the normalized outline into world meter coordinates and build a chain shape.
     for (const b2Vec2& point : m_normalizedOutline)
     {
         points.push_back({
