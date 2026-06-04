@@ -44,6 +44,7 @@ public:
     float GetViewHeight() const;
     float GetViewOriginX() const;
     float GetViewOriginY() const;
+    const std::vector<Entity*>& EntitiesByTag(EntityTag tag) const;
 
 private:
     // Camera marker data

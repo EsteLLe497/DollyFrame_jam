@@ -107,12 +107,13 @@ Entity* GameObjectWorld::FindByTag(const char* tag) const
             continue;
         }
 
-        const auto* entityTag = entity->GetComponent<TagComponent>();
-        if (entityTag && entityTag->Is(tag))
+        const auto* entityTagComponent = entity->GetComponent<TagComponent>();
+        if (entityTagComponent && entityTagComponent->Is(tag))
         {
             return entity.get();
         }
     }
+
     return nullptr;
 }
 

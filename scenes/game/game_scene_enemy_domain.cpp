@@ -448,8 +448,75 @@ void GameScene::UpdateEnemies()
 {
     Entity* player = FindEntityByTag(kTagPlayer);
     const TransformComponent* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    std::vector<Entity*> interactionEntities;
+    interactionEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        enemyEntities.size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size() +
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::DropItem).size() +
+        m_world.EntitiesByTag(EntityTag::BatterySwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Elevator).size() +
+        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Shutter).size() +
+        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size() +
+        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
+        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
+        m_world.EntitiesByTag(EntityTag::StageLight).size() +
+        m_world.EntitiesByTag(EntityTag::MarkerLight).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaRubble).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        m_world.EntitiesByTag(EntityTag::Goal).size() +
+        m_world.EntitiesByTag(EntityTag::PhotoSource).size() +
+        m_world.EntitiesByTag(EntityTag::Hazard).size() +
+        m_world.EntitiesByTag(EntityTag::Bullet).size() +
+        m_world.EntitiesByTag(EntityTag::Shield).size() +
+        m_world.EntitiesByTag(EntityTag::BossShield).size() +
+        m_world.EntitiesByTag(EntityTag::Boss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size() +
+        m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack).size() +
+        m_world.EntitiesByTag(EntityTag::BossShockwave).size());
+    auto appendInteractionEntities = [&](EntityTag tag)
+    {
+        for (Entity* candidate : m_world.EntitiesByTag(tag))
+        {
+            if (candidate)
+            {
+                interactionEntities.push_back(candidate);
+            }
+        }
+    };
+    appendInteractionEntities(EntityTag::PhotoBox);
+    appendInteractionEntities(EntityTag::Enemy);
+    appendInteractionEntities(EntityTag::Battery);
+    appendInteractionEntities(EntityTag::Barrel);
+    appendInteractionEntities(EntityTag::DropItem);
+    appendInteractionEntities(EntityTag::BatterySwitch);
+    appendInteractionEntities(EntityTag::Elevator);
+    appendInteractionEntities(EntityTag::LaserSwitch);
+    appendInteractionEntities(EntityTag::Shutter);
+    appendInteractionEntities(EntityTag::ProtectiveWall);
+    appendInteractionEntities(EntityTag::LaserTurret);
+    appendInteractionEntities(EntityTag::LaserBeam);
+    appendInteractionEntities(EntityTag::StageLight);
+    appendInteractionEntities(EntityTag::MarkerLight);
+    appendInteractionEntities(EntityTag::SepiaRubble);
+    appendInteractionEntities(EntityTag::SepiaElevator);
+    appendInteractionEntities(EntityTag::Goal);
+    appendInteractionEntities(EntityTag::PhotoSource);
+    appendInteractionEntities(EntityTag::Hazard);
+    appendInteractionEntities(EntityTag::Bullet);
+    appendInteractionEntities(EntityTag::Shield);
+    appendInteractionEntities(EntityTag::BossShield);
+    appendInteractionEntities(EntityTag::Boss1Shield);
+    appendInteractionEntities(EntityTag::MidBoss1Shield);
+    appendInteractionEntities(EntityTag::CapturedShield);
+    appendInteractionEntities(EntityTag::WalkerMeleeAttack);
+    appendInteractionEntities(EntityTag::BossShockwave);
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : enemyEntities)
     {
         if (!entity)
         {
@@ -514,8 +581,11 @@ void GameScene::UpdateEnemies()
     }
 
     std::vector<Entity*> photoBoxesToRemove;
+
     game_scene_combat_system::UpdateEnemies(
         m_world.Entities(),
+        enemyEntities,
+        interactionEntities,
         m_tileTexture,
         GetMapPixelWidth(),
         GetMapPixelHeight(),
@@ -534,25 +604,25 @@ void GameScene::UpdateEnemies()
         {
             static_cast<void>(bossEntity);
         },
-        [this, &photoBoxesToRemove](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
+        [this, &photoBoxesToRemove, &interactionEntities](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
         {
-            for (auto it = m_world.Entities().begin(); it != m_world.Entities().end(); ++it)
+            for (Entity* candidate : interactionEntities)
             {
-                if (!*it) continue;
-                const bool isPhotoBox = HasTag(**it, kTagPhotoBox);
+                if (!candidate) continue;
+                const bool isPhotoBox = HasTag(*candidate, EntityTag::PhotoBox);
                 const bool isGroundedCapturedShield =
-                    HasTag(**it, "CapturedShield") &&
-                    (*it)->GetComponent<ShieldComponent>() &&
-                    (*it)->GetComponent<ShieldComponent>()->photoSpawned &&
-                    (*it)->GetComponent<ShieldComponent>()->grounded;
+                    HasTag(*candidate, EntityTag::CapturedShield) &&
+                    candidate->GetComponent<ShieldComponent>() &&
+                    candidate->GetComponent<ShieldComponent>()->photoSpawned &&
+                    candidate->GetComponent<ShieldComponent>()->grounded;
                 if (!isPhotoBox && !isGroundedCapturedShield) continue;
-                const auto* photoTransform = (*it)->GetComponent<TransformComponent>();
+                const auto* photoTransform = candidate->GetComponent<TransformComponent>();
                 if (!photoTransform) continue;
                 if (IntersectsRect(bossTransform, *photoTransform))
                 {
                     if (isPhotoBox)
                     {
-                        photoBoxesToRemove.push_back(it->get());
+                        photoBoxesToRemove.push_back(candidate);
                     }
                     return true;
                 }
@@ -594,9 +664,13 @@ int GameScene::HandleFinderDefeatGhosts(float frameX, float frameY, float frameW
 void GameScene::UpdateBullets()
 {
     Entity* player = FindEntityByTag(kTagPlayer);
+    const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    std::vector<Entity*> bulletsToRemove;
     
     game_scene_combat_system::UpdateBullets(
-        m_world.Entities(),
+        bulletEntities,
+        enemyEntities,
         GetMapPixelWidth(),
         GetMapPixelHeight(),
         m_flow.lastDeltaTime,
@@ -613,14 +687,16 @@ void GameScene::UpdateBullets()
         {
             HandleEnemyDamage(enemyEntity, sourceEntity, amount, logMessage);
         },
-        
         [this](float x, float y) -> bool
         {
             const float tileSize = m_tileMap.GetTileSize();
             const int column = static_cast<int>(x / tileSize);
             const int row = static_cast<int>(y / tileSize);
             return IsSolidTile(column, row);
-        });
+        },
+        bulletsToRemove);
+
+    m_world.RemoveByPointerList(bulletsToRemove);
 }
 
 void GameScene::SpawnDropItems(float x, float y, int count)
@@ -759,6 +835,72 @@ void GameScene::UpdateShields(float deltaTime)
     std::vector<std::unique_ptr<Entity>> spawnedShockwaves;
     std::vector<Entity*> shieldsToRemove;
     std::vector<Entity*> objectsToRemove;
+    std::vector<Entity*> shieldImpactCandidates;
+    shieldImpactCandidates.reserve(
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Enemy).size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size() +
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::DropItem).size() +
+        m_world.EntitiesByTag(EntityTag::BatterySwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Elevator).size() +
+        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Shutter).size() +
+        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size() +
+        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
+        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
+        m_world.EntitiesByTag(EntityTag::StageLight).size() +
+        m_world.EntitiesByTag(EntityTag::MarkerLight).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaRubble).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        m_world.EntitiesByTag(EntityTag::Goal).size() +
+        m_world.EntitiesByTag(EntityTag::PhotoSource).size() +
+        m_world.EntitiesByTag(EntityTag::Hazard).size() +
+        m_world.EntitiesByTag(EntityTag::Bullet).size() +
+        m_world.EntitiesByTag(EntityTag::Shield).size() +
+        m_world.EntitiesByTag(EntityTag::BossShield).size() +
+        m_world.EntitiesByTag(EntityTag::Boss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size() +
+        m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack).size() +
+        m_world.EntitiesByTag(EntityTag::BossShockwave).size());
+    auto appendShieldImpactCandidates = [&](EntityTag tag)
+    {
+        for (Entity* candidate : m_world.EntitiesByTag(tag))
+        {
+            if (candidate)
+            {
+                shieldImpactCandidates.push_back(candidate);
+            }
+        }
+    };
+    appendShieldImpactCandidates(EntityTag::PhotoBox);
+    appendShieldImpactCandidates(EntityTag::Enemy);
+    appendShieldImpactCandidates(EntityTag::Battery);
+    appendShieldImpactCandidates(EntityTag::Barrel);
+    appendShieldImpactCandidates(EntityTag::DropItem);
+    appendShieldImpactCandidates(EntityTag::BatterySwitch);
+    appendShieldImpactCandidates(EntityTag::Elevator);
+    appendShieldImpactCandidates(EntityTag::LaserSwitch);
+    appendShieldImpactCandidates(EntityTag::Shutter);
+    appendShieldImpactCandidates(EntityTag::ProtectiveWall);
+    appendShieldImpactCandidates(EntityTag::LaserTurret);
+    appendShieldImpactCandidates(EntityTag::LaserBeam);
+    appendShieldImpactCandidates(EntityTag::StageLight);
+    appendShieldImpactCandidates(EntityTag::MarkerLight);
+    appendShieldImpactCandidates(EntityTag::SepiaRubble);
+    appendShieldImpactCandidates(EntityTag::SepiaElevator);
+    appendShieldImpactCandidates(EntityTag::Goal);
+    appendShieldImpactCandidates(EntityTag::PhotoSource);
+    appendShieldImpactCandidates(EntityTag::Hazard);
+    appendShieldImpactCandidates(EntityTag::Bullet);
+    appendShieldImpactCandidates(EntityTag::Shield);
+    appendShieldImpactCandidates(EntityTag::BossShield);
+    appendShieldImpactCandidates(EntityTag::Boss1Shield);
+    appendShieldImpactCandidates(EntityTag::MidBoss1Shield);
+    appendShieldImpactCandidates(EntityTag::CapturedShield);
+    appendShieldImpactCandidates(EntityTag::WalkerMeleeAttack);
+    appendShieldImpactCandidates(EntityTag::BossShockwave);
 
     auto startEnemyKnockback = [](Entity& target, EnemyComponent& enemy, TransformComponent& transform, float direction, float distance)
     {
@@ -787,7 +929,28 @@ void GameScene::UpdateShields(float deltaTime)
         enemy.knockbackTargetX = transform.x + direction * distance;
     };
 
-    for (const auto& entity : m_world.Entities())
+    std::vector<Entity*> shieldEntities;
+    shieldEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::BossShield).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size());
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::BossShield))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+        shieldEntities.push_back(entity);
+    }
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::CapturedShield))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+        shieldEntities.push_back(entity);
+    }
+
+    for (Entity* entity : shieldEntities)
     {
         if (!entity)
         {
@@ -797,13 +960,6 @@ void GameScene::UpdateShields(float deltaTime)
         auto* shield = entity->GetComponent<ShieldComponent>();
         auto* shieldTransform = entity->GetComponent<TransformComponent>();
         if (!shield || !shieldTransform)
-        {
-            continue;
-        }
-
-        const bool isBossShield = HasTag(*entity, "BossShield");
-        const bool isCapturedShield = HasTag(*entity, "CapturedShield");
-        if (!isBossShield && !isCapturedShield)
         {
             continue;
         }
@@ -985,9 +1141,9 @@ void GameScene::UpdateShields(float deltaTime)
                         previousY,
                         shieldTransform->width * shieldTransform->scale,
                         shieldTransform->height * shieldTransform->scale + travelY);
-                    for (const auto& target : m_world.Entities())
+                    for (Entity* target : shieldImpactCandidates)
                     {
-                        if (!target || target.get() == entity.get())
+                        if (!target || target == entity)
                         {
                             continue;
                         }
@@ -1009,7 +1165,7 @@ void GameScene::UpdateShields(float deltaTime)
                         {
                             continue;
                         }
-                        objectsToRemove.push_back(target.get());
+                        objectsToRemove.push_back(target);
                     }
                     bool hitGround = false;
                     if (snapShieldToTileGround(*shieldTransform, shield->descendSpeed * deltaTime + 4.0f))
@@ -1032,7 +1188,7 @@ void GameScene::UpdateShields(float deltaTime)
                             const float shockW = kTileSize * 8.0f;
                             const float shockH = kTileSize * 3.0f;
                             auto shockwave = std::make_unique<Entity>();
-                            shockwave->AddComponent<TagComponent>("BossShockwave");
+                            shockwave->AddComponent<TagComponent>(EntityTag::BossShockwave);
                             const float shockGroundY = shieldTransform->y + shieldTransform->height * shieldTransform->scale;
                             shockwave->AddComponent<TransformComponent>(
                                 shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f - shockW * 0.5f,
@@ -1096,6 +1252,7 @@ void GameScene::UpdateShields(float deltaTime)
             }
         }
 
+        const bool isBossShield = HasTag(*entity, "BossShield");
         if (isBossShield && shield->ownerBoss)
         {
             auto* ownerBoss = shield->ownerBoss->GetComponent<ShieldBossComponent>();
@@ -1133,18 +1290,18 @@ void GameScene::UpdateShields(float deltaTime)
             (!shield->photoSpawned || shield->capturedMode == CapturedShieldMode::Normal) &&
             player && playerTransform && IntersectsRotatedRect(*playerTransform, *shieldTransform))
         {
-            ApplyHazardDamageToPlayer(*player, entity.get(),
+            ApplyHazardDamageToPlayer(*player, entity,
                 "BossShield damaged player", shield->contactDamage);
             if (canRemoveNormalCapturedShield)
             { 
-                shieldsToRemove.push_back(entity.get());
+                shieldsToRemove.push_back(entity);
             }
         }
 
         bool removeShieldAfterObjectHit = false;
-        for (const auto& target : m_world.Entities())
+        for (Entity* target : shieldImpactCandidates)
         {
-            if (!target || target.get() == entity.get())
+            if (!target || target == entity)
             {
                 continue;
             }
@@ -1152,7 +1309,7 @@ void GameScene::UpdateShields(float deltaTime)
             {
                 continue;
             }
-            if (target.get() == shield->ownerBoss)
+            if (target == shield->ownerBoss)
             {
                 continue;
             }
@@ -1183,7 +1340,7 @@ void GameScene::UpdateShields(float deltaTime)
                 const bool alreadyHit = std::find(
                     shield->hitEntities.begin(),
                     shield->hitEntities.end(),
-                    target.get()) != shield->hitEntities.end();
+                    target) != shield->hitEntities.end();
                 if (alreadyHit)
                 {
                     if (canRemoveNormalCapturedShield)
@@ -1193,10 +1350,10 @@ void GameScene::UpdateShields(float deltaTime)
                     }
                     continue;
                 }
-                shield->hitEntities.push_back(target.get());
+                shield->hitEntities.push_back(target);
             }
 
-            HandleEnemyDamage(*target, entity.get(), shield->contactDamage, "BossShield damaged enemy");
+            HandleEnemyDamage(*target, entity, shield->contactDamage, "BossShield damaged enemy");
 
             const auto* shieldBoss = target->GetComponent<ShieldBossComponent>();
             float dir = 0.0f;
@@ -1221,7 +1378,7 @@ void GameScene::UpdateShields(float deltaTime)
 
         if (removeShieldAfterObjectHit)
         {
-            shieldsToRemove.push_back(entity.get());
+            shieldsToRemove.push_back(entity);
         }
     }
 
@@ -1233,9 +1390,9 @@ void GameScene::UpdateShields(float deltaTime)
     m_world.RemoveByPointerList(objectsToRemove);
 
     std::vector<Entity*> shockwavesToRemove;
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::BossShockwave))
     {
-        if (!entity || !HasTag(*entity, "BossShockwave")) continue;
+        if (!entity) continue;
 
         auto* shockwave = entity->GetComponent<ShieldShockwaveComponent>();
         auto* shockTransform = entity->GetComponent<TransformComponent>();
@@ -1244,7 +1401,7 @@ void GameScene::UpdateShields(float deltaTime)
         shockwave->elapsed += deltaTime;
         if (shockwave->elapsed >= shockwave->lifetime)
         {
-            shockwavesToRemove.push_back(entity.get());
+            shockwavesToRemove.push_back(entity);
             continue;
         }
 
@@ -1252,23 +1409,23 @@ void GameScene::UpdateShields(float deltaTime)
             !shockwave->hitPlayer && player && playerTransform
             && IntersectsRect(*playerTransform, *shockTransform))
         {
-            ApplyHazardDamageToPlayer(*player, entity.get(),
+            ApplyHazardDamageToPlayer(*player, entity,
                 "BossShockwave damaged player", shockwave->damage);
             shockwave->hitPlayer = true;
         }
 
-        for (const auto& target : m_world.Entities())
+        for (Entity* target : shieldImpactCandidates)
         {
-            if (!target || target.get() == entity.get()) continue;
+            if (!target || target == entity) continue;
             if (HasTag(*target, "BossShield") || HasTag(*target, "CapturedShield") || HasTag(*target, "BossShockwave")) continue;
-            if (target.get() == shockwave->ownerBoss) continue;
+            if (target == shockwave->ownerBoss) continue;
 
             auto* enemyTransform = target->GetComponent<TransformComponent>();
             if (!enemyTransform || !IntersectsRect(*shockTransform, *enemyTransform)) continue;
 
             if (HasTag(*target, kTagPhotoBox))
             {
-                objectsToRemove.push_back(target.get());
+                objectsToRemove.push_back(target);
                 continue;
             }
 
@@ -1278,11 +1435,11 @@ void GameScene::UpdateShields(float deltaTime)
             const bool alreadyHit = std::find(
                 shockwave->hitEntities.begin(),
                 shockwave->hitEntities.end(),
-                target.get()) != shockwave->hitEntities.end();
+                target) != shockwave->hitEntities.end();
             if (alreadyHit) continue;
 
-            HandleEnemyDamage(*target, entity.get(), shockwave->damage, "BossShockwave damaged enemy");
-            shockwave->hitEntities.push_back(target.get());
+            HandleEnemyDamage(*target, entity, shockwave->damage, "BossShockwave damaged enemy");
+            shockwave->hitEntities.push_back(target);
 
             const auto* shieldBoss = target->GetComponent<ShieldBossComponent>();
             float dir = 0.0f;
@@ -1402,7 +1559,7 @@ void GameScene::RemoveDefeatedEnemies()
     const float cameraLeft = m_flow.cameraX - 48.0f;
     const float cameraRight = m_flow.cameraX + gCameraViewWidth + 48.0f;
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
         if (!entity) continue;
 
@@ -1459,9 +1616,9 @@ void GameScene::RemoveDefeatedEnemies()
             {
                 bool ownerFound = false;
                 bool ownerDefeated = true;
-                for (const auto& candidate : m_world.Entities())
+                for (Entity* candidate : m_world.EntitiesByTag(EntityTag::Enemy))
                 {
-                    if (!candidate || candidate.get() != shield->ownerBoss)
+                    if (!candidate || candidate != shield->ownerBoss)
                     {
                         continue;
                     }

@@ -1,4 +1,4 @@
-#include "pch.h"
+Ôªø#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "photo_filter_rules.h"
@@ -1293,9 +1293,9 @@ namespace
 
 void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
 {
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::PhotoBox))
     {
-        if (!entity || !HasTag(*entity, kTagPhotoBox))
+        if (!entity)
         {
             continue;
         }
@@ -1318,9 +1318,9 @@ void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
 
 void GameScene::DrawBossShockwavesUnderlay() const
 {
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::BossShockwave))
     {
-        if (!entity || !HasTag(*entity, "BossShockwave"))
+        if (!entity)
         {
             continue;
         }
@@ -1339,42 +1339,61 @@ void GameScene::DrawPastedEntitiesFront() const
     };
 
     std::vector<DrawTarget> drawTargets;
-    drawTargets.reserve(m_world.Entities().size());
+    drawTargets.reserve(
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size() +
+        m_world.EntitiesByTag(EntityTag::Bullet).size() +
+        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
+        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
+        m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size());
 
-    // Only entities with PhotoPasteOrder are drawn in the pasted-front pass.
-    for (const auto& entity : m_world.Entities())
+    auto appendDrawTargets = [&](EntityTag tag)
     {
-        if (!entity)
+        for (Entity* entity : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
-
-        const auto* pasteOrder = entity->GetComponent<PhotoPasteOrderComponent>();
-        if (!pasteOrder)
-        {
-            continue;
-        }
-
-        int layerPriority = 2;
-        if (const auto* photoLayer = entity->GetComponent<PhotoCopyLayerComponent>())
-        {
-            switch (photoLayer->layer)
+            if (!entity)
             {
-            case PhotoCopyLayer::Background:
-                layerPriority = 0;
-                break;
-            case PhotoCopyLayer::Shadow:
-                layerPriority = 1;
-                break;
-            case PhotoCopyLayer::Foreground:
-            default:
-                layerPriority = 3;
-                break;
+                continue;
             }
-        }
 
-        drawTargets.push_back({ entity.get(), pasteOrder->order, layerPriority });
-    }
+            const auto* pasteOrder = entity->GetComponent<PhotoPasteOrderComponent>();
+            if (!pasteOrder)
+            {
+                continue;
+            }
+
+            int layerPriority = 2;
+            if (const auto* photoLayer = entity->GetComponent<PhotoCopyLayerComponent>())
+            {
+                switch (photoLayer->layer)
+                {
+                case PhotoCopyLayer::Background:
+                    layerPriority = 0;
+                    break;
+                case PhotoCopyLayer::Shadow:
+                    layerPriority = 1;
+                    break;
+                case PhotoCopyLayer::Foreground:
+                default:
+                    layerPriority = 3;
+                    break;
+                }
+            }
+
+            drawTargets.push_back({ entity, pasteOrder->order, layerPriority });
+        }
+    };
+
+    appendDrawTargets(EntityTag::PhotoBox);
+    appendDrawTargets(EntityTag::Barrel);
+    appendDrawTargets(EntityTag::Battery);
+    appendDrawTargets(EntityTag::Bullet);
+    appendDrawTargets(EntityTag::LaserTurret);
+    appendDrawTargets(EntityTag::LaserBeam);
+    appendDrawTargets(EntityTag::WalkerMeleeAttack);
+    appendDrawTargets(EntityTag::CapturedShield);
 
     std::stable_sort(
         drawTargets.begin(),
@@ -1411,63 +1430,73 @@ void GameScene::DrawEffects() const
     };
 
     std::vector<LightDrawTarget> lightTargets;
-    lightTargets.reserve(16);
+    lightTargets.reserve(
+        m_world.EntitiesByTag(EntityTag::Goal).size() +
+        m_world.EntitiesByTag(EntityTag::Checkpoint).size() +
+        m_world.EntitiesByTag(EntityTag::PhotoSource).size() +
+        m_world.EntitiesByTag(EntityTag::Hazard).size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size());
     const float viewRight = viewOriginX + GetViewWidth();
     const float viewBottom = viewOriginY + GetViewHeight();
     const float viewCenterWorldX = m_flow.cameraX + GetViewWidth() / std::max(0.001f, viewScale) * 0.5f;
     const float viewCenterWorldY = m_flow.cameraY + GetViewHeight() / std::max(0.001f, viewScale) * 0.5f;
 
-    for (const auto& entity : m_world.Entities())
+    auto gatherLightTargets = [&](EntityTag tag)
     {
-        if (!entity)
+        for (Entity* entity : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
+            if (!entity)
+            {
+                continue;
+            }
 
-        const auto* light = entity->GetComponent<FlickerLightComponent>();
-        const auto* transform = entity->GetComponent<TransformComponent>();
-        if (!light || !transform)
-        {
-            continue;
-        }
-        if (HasTag(*entity, kTagPhotoBox) || HasTag(*entity, kTagMarkerLight))
-        {
-            continue;
-        }
+            const auto* light = entity->GetComponent<FlickerLightComponent>();
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (!light || !transform)
+            {
+                continue;
+            }
 
-        const float centerX = transform->x + transform->width * transform->scale * 0.5f + light->offsetX;
-        const float centerY = transform->y + transform->height * transform->scale * 0.5f + light->offsetY;
-        const float maxRadius = light->radius + std::abs(light->offsetX) + std::abs(light->offsetY) +
-            (std::max)(transform->width, transform->height) * transform->scale * 0.5f;
-        const float drawLeft = viewOriginX + (centerX - maxRadius - m_flow.cameraX) * viewScale;
-        const float drawRight = viewOriginX + (centerX + maxRadius - m_flow.cameraX) * viewScale;
-        const float drawTop = viewOriginY + (centerY - maxRadius - m_flow.cameraY) * viewScale;
-        const float drawBottom = viewOriginY + (centerY + maxRadius - m_flow.cameraY) * viewScale;
-        if (drawRight < viewOriginX || drawLeft > viewRight || drawBottom < viewOriginY || drawTop > viewBottom)
-        {
-            continue;
-        }
+            const float centerX = transform->x + transform->width * transform->scale * 0.5f + light->offsetX;
+            const float centerY = transform->y + transform->height * transform->scale * 0.5f + light->offsetY;
+            const float maxRadius = light->radius + std::abs(light->offsetX) + std::abs(light->offsetY) +
+                (std::max)(transform->width, transform->height) * transform->scale * 0.5f;
+            const float drawLeft = viewOriginX + (centerX - maxRadius - m_flow.cameraX) * viewScale;
+            const float drawRight = viewOriginX + (centerX + maxRadius - m_flow.cameraX) * viewScale;
+            const float drawTop = viewOriginY + (centerY - maxRadius - m_flow.cameraY) * viewScale;
+            const float drawBottom = viewOriginY + (centerY + maxRadius - m_flow.cameraY) * viewScale;
+            if (drawRight < viewOriginX || drawLeft > viewRight || drawBottom < viewOriginY || drawTop > viewBottom)
+            {
+                continue;
+            }
 
-        float intensityScale = 1.0f;
-        if (HasTag(*entity, kTagGoal) && !m_flow.goalUnlocked)
-        {
-            intensityScale = 0.45f;
-        }
-        if (const auto* checkpoint = entity->GetComponent<CheckpointComponent>())
-        {
-            intensityScale *= checkpoint->activated ? 1.15f : 0.85f;
-        }
+            float intensityScale = 1.0f;
+            if (HasTag(*entity, EntityTag::Goal) && !m_flow.goalUnlocked)
+            {
+                intensityScale = 0.45f;
+            }
+            if (const auto* checkpoint = entity->GetComponent<CheckpointComponent>())
+            {
+                intensityScale *= checkpoint->activated ? 1.15f : 0.85f;
+            }
 
-        const float dx = centerX - viewCenterWorldX;
-        const float dy = centerY - viewCenterWorldY;
-        const float distancePenalty = std::sqrt(dx * dx + dy * dy) * 0.02f;
-        lightTargets.push_back({
-            transform,
-            light,
-            intensityScale,
-            light->radius * light->intensity * intensityScale - distancePenalty
-            });
-    }
+            const float dx = centerX - viewCenterWorldX;
+            const float dy = centerY - viewCenterWorldY;
+            const float distancePenalty = std::sqrt(dx * dx + dy * dy) * 0.02f;
+            lightTargets.push_back({
+                transform,
+                light,
+                intensityScale,
+                light->radius * light->intensity * intensityScale - distancePenalty
+                });
+        }
+    };
+
+    gatherLightTargets(EntityTag::Goal);
+    gatherLightTargets(EntityTag::Checkpoint);
+    gatherLightTargets(EntityTag::PhotoSource);
+    gatherLightTargets(EntityTag::Hazard);
+    gatherLightTargets(EntityTag::Battery);
 
     const int maxLightEffects = m_lifecycle.darknessStageEnabled ? 6 : 16;
     if (lightTargets.size() > static_cast<size_t>(maxLightEffects))
@@ -1502,7 +1531,7 @@ void GameScene::DrawEffects() const
         }
     }
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::StageLight))
     {
         if (!entity)
         {
@@ -1529,7 +1558,7 @@ void GameScene::DrawEffects() const
         DrawStageLightBeam(*this, *transform, *stageLight, beamLengthWorld, m_flow.cameraX, m_flow.cameraY);
     }
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
         if (!entity)
         {
@@ -1553,7 +1582,7 @@ void GameScene::DrawEffects() const
             m_flow.cameraY);
     }
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
         if (!entity)
         {
@@ -1645,7 +1674,7 @@ void GameScene::DrawEntity(const Entity& entity) const
     float drawWidth = transform->width * transform->scale * sprite->GetRenderScaleX() * viewScale;
     float drawHeight = transform->height * transform->scale * sprite->GetRenderScaleY() * viewScale;
     const auto* tag = entity.GetComponent<TagComponent>();
-    if (tag && HasTag(tag, "BossShield"))
+    if (tag && HasTag(tag, EntityTag::BossShield))
     {
         const auto* shield = entity.GetComponent<ShieldComponent>();
         const auto* ownerTransform = shield && shield->ownerBoss
@@ -1666,7 +1695,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawY = viewOriginY + (ownerTransform->y - m_flow.cameraY) * viewScale;
         }
     }
-    if (tag && HasTag(tag, kTagPlayer))
+    if (tag && HasTag(tag, EntityTag::Player))
     {
         const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
         if (animation)
@@ -1816,7 +1845,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         return;
     }
 
-    if (tag && HasTag(tag, kTagStageLight))
+    if (tag && HasTag(tag, EntityTag::StageLight))
     {
         if (const auto* stageLight = entity.GetComponent<StageLightComponent>())
         {
@@ -1834,7 +1863,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
-    if (tag && HasTag(tag, kTagSepiaRubble))
+    if (tag && HasTag(tag, EntityTag::SepiaRubble))
     {
         if (const auto* group = entity.GetComponent<SepiaRubbleGroupComponent>())
         {
@@ -2578,7 +2607,7 @@ void GameScene::DrawEnemyAttackRects() const
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
         if (!entity) continue;
 
@@ -2595,7 +2624,7 @@ void GameScene::DrawEnemyAttackRects() const
                 GetColor(255, 80, 80), TRUE);
         }
 
-        // ÅEΩÅEΩÅEΩ{ÅEΩXÅEΩUÅEΩÅEΩÅEΩÅEΩÅEΩÅEΩ
+        // „ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ{„ÉªÔΩΩX„ÉªÔΩΩU„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ
         const auto* boss = entity->GetComponent<ShieldBossComponent>();
         if (boss && boss->attackRectActive)
         {
@@ -2606,13 +2635,14 @@ void GameScene::DrawEnemyAttackRects() const
 
             const unsigned int color =
                 boss->state == ShieldBossState::Rush
-                ? GetColor(255, 80, 80)    // ÅEΩÀêiÅEΩÕÉIÅEΩÅEΩÅEΩÅEΩÅEΩW
+                ? GetColor(255, 80, 80)    // „ÉªÔΩΩÔæãÈÄ≤„ÉªÔΩΩÔæç„Ç™„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩW
                 : boss->state == ShieldBossState::SlamPhase1
-                ? GetColor(255, 140, 0)    // ÅEΩÅEΩÅEΩÅEΩ@ÅEΩÕÉIÅEΩÅEΩÅEΩÅEΩÅEΩW
-                : GetColor(180, 0, 255);   // ÅEΩÅEΩÅEΩÅEΩAÅEΩÕéÔøΩ
+                ? GetColor(255, 140, 0)    // „ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ@„ÉªÔΩΩÔæç„Ç™„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩW
+                : GetColor(180, 0, 255);   // „ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩ„ÉªÔΩΩA„ÉªÔΩΩÔæçË∂£ÔΩøÔΩΩ
 
             DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH,
                 color, TRUE);
         }
     }
 }
+

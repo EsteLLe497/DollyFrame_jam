@@ -1,4 +1,4 @@
-#include "pch.h"
+Ôªø#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
@@ -184,13 +184,13 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
 
         if (activeIndex == -1)
         {
-            // í«è]ÉJÉÅÉâ
+            // ËøΩÂæì„Ç´„É°„É©
             m_camera.easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
             m_camera.easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
         }
         else
         {
-            // å≈íËÉJÉÅÉâ
+            // Âõ∫ÂÆö„Ç´„É°„É©
             const auto& cam = m_camera.fixedRanges[activeIndex];
 
             gCameraViewWidth = cam.GetZoomWidth();
@@ -221,7 +221,7 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         return;
     }
 
-    // í«è]ÉJÉÅÉâ
+    // ËøΩÂæì„Ç´„É°„É©
     if (activeIndex < 0)
     {
         m_flow.cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
@@ -231,7 +231,7 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         return;
     }
 
-    // å≈íËÉJÉÅÉâ
+    // Âõ∫ÂÆö„Ç´„É°„É©
     const auto& cameraRange = m_camera.fixedRanges[activeIndex];
 
     gCameraViewWidth = cameraRange.GetZoomWidth();
@@ -686,12 +686,65 @@ void GameScene::UpdateBarrels(float deltaTime)
         setBarrelVisible(barrelEntity, false);
     };
 
+    std::vector<Entity*> barrelCollisionCandidates;
+    barrelCollisionCandidates.reserve(
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size() +
+        m_world.EntitiesByTag(EntityTag::BatterySwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Elevator).size() +
+        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Shutter).size() +
+        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size() +
+        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
+        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
+        m_world.EntitiesByTag(EntityTag::StageLight).size() +
+        m_world.EntitiesByTag(EntityTag::MarkerLight).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaRubble).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        m_world.EntitiesByTag(EntityTag::Shield).size() +
+        m_world.EntitiesByTag(EntityTag::BossShield).size() +
+        m_world.EntitiesByTag(EntityTag::Boss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size() +
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size());
+    auto appendBarrelCollisionCandidates = [&](EntityTag tag)
+    {
+        for (Entity* candidate : m_world.EntitiesByTag(tag))
+        {
+            if (candidate)
+            {
+                barrelCollisionCandidates.push_back(candidate);
+            }
+        }
+    };
+    appendBarrelCollisionCandidates(EntityTag::PhotoBox);
+    appendBarrelCollisionCandidates(EntityTag::Battery);
+    appendBarrelCollisionCandidates(EntityTag::BatterySwitch);
+    appendBarrelCollisionCandidates(EntityTag::Elevator);
+    appendBarrelCollisionCandidates(EntityTag::LaserSwitch);
+    appendBarrelCollisionCandidates(EntityTag::Shutter);
+    appendBarrelCollisionCandidates(EntityTag::ProtectiveWall);
+    appendBarrelCollisionCandidates(EntityTag::LaserTurret);
+    appendBarrelCollisionCandidates(EntityTag::LaserBeam);
+    appendBarrelCollisionCandidates(EntityTag::StageLight);
+    appendBarrelCollisionCandidates(EntityTag::MarkerLight);
+    appendBarrelCollisionCandidates(EntityTag::SepiaRubble);
+    appendBarrelCollisionCandidates(EntityTag::SepiaElevator);
+    appendBarrelCollisionCandidates(EntityTag::Shield);
+    appendBarrelCollisionCandidates(EntityTag::BossShield);
+    appendBarrelCollisionCandidates(EntityTag::Boss1Shield);
+    appendBarrelCollisionCandidates(EntityTag::MidBoss1Shield);
+    appendBarrelCollisionCandidates(EntityTag::CapturedShield);
+    appendBarrelCollisionCandidates(EntityTag::Barrel);
+    appendBarrelCollisionCandidates(EntityTag::Log);
+
     auto isBarrelObjectCollision = [&](const Entity& barrelEntity, const TransformComponent& barrelBounds, Entity*& outHit) -> bool
     {
         outHit = nullptr;
-        for (const auto& candidate : m_world.Entities())
+        for (Entity* candidate : barrelCollisionCandidates)
         {
-            if (!candidate || candidate.get() == &barrelEntity)
+            if (!candidate || candidate == &barrelEntity)
             {
                 continue;
             }
@@ -723,7 +776,7 @@ void GameScene::UpdateBarrels(float deltaTime)
 
             if (IntersectsRect(barrelBounds, *otherTransform))
             {
-                outHit = candidate.get();
+                outHit = candidate;
                 return true;
             }
         }
@@ -763,7 +816,62 @@ void GameScene::UpdateBarrels(float deltaTime)
         return false;
     };
 
-    for (const auto& entity : m_world.Entities())
+    std::vector<Entity*> barrelEnemyEntities;
+    barrelEnemyEntities.reserve(m_world.EntitiesByTag(EntityTag::Enemy).size());
+    for (Entity* enemyEntity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!enemyEntity)
+        {
+            continue;
+        }
+
+        auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled())
+        {
+            continue;
+        }
+
+        barrelEnemyEntities.push_back(enemyEntity);
+    }
+
+    std::vector<Entity*> barrelGimmickEntities;
+    auto appendBarrelGimmickEntities = [&](EntityTag tag)
+    {
+        for (Entity* gimmickEntity : m_world.EntitiesByTag(tag))
+        {
+            if (gimmickEntity)
+            {
+                barrelGimmickEntities.push_back(gimmickEntity);
+            }
+        }
+    };
+    appendBarrelGimmickEntities(EntityTag::BatterySwitch);
+    appendBarrelGimmickEntities(EntityTag::Elevator);
+    appendBarrelGimmickEntities(EntityTag::LaserSwitch);
+    appendBarrelGimmickEntities(EntityTag::Shutter);
+    appendBarrelGimmickEntities(EntityTag::ProtectiveWall);
+    appendBarrelGimmickEntities(EntityTag::SepiaElevator);
+
+    std::vector<Entity*> barrelEntities;
+    barrelEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size());
+    for (Entity* barrelEntity : m_world.EntitiesByTag(EntityTag::Barrel))
+    {
+        if (barrelEntity)
+        {
+            barrelEntities.push_back(barrelEntity);
+        }
+    }
+    for (Entity* logEntity : m_world.EntitiesByTag(EntityTag::Log))
+    {
+        if (logEntity)
+        {
+            barrelEntities.push_back(logEntity);
+        }
+    }
+
+    for (Entity* entity : barrelEntities)
     {
         if (!entity)
         {
@@ -913,26 +1021,25 @@ void GameScene::UpdateBarrels(float deltaTime)
 
         if (player && IntersectsEntity(*entity, *player))
         {
-            HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by barrel");
+            HandlePlayerDamage(*player, entity, "GameScene player damaged by barrel");
             resetBarrel(*entity, *barrel, *transform);
             continue;
         }
 
         bool consumed = false;
-        for (const auto& enemyEntity : m_world.Entities())
+        for (Entity* enemyEntity : barrelEnemyEntities)
         {
-            if (!enemyEntity || enemyEntity.get() == entity.get())
+            if (!enemyEntity || enemyEntity == entity)
             {
                 continue;
             }
 
-            auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
-            if (!enemy || !enemy->IsEnabled() || !IntersectsEntity(*entity, *enemyEntity))
+            if (!IntersectsEntity(*entity, *enemyEntity))
             {
                 continue;
             }
 
-            HandleEnemyDamage(*enemyEntity, entity.get(), barrel->contactDamage, "Barrel hit enemy");
+            HandleEnemyDamage(*enemyEntity, entity, barrel->contactDamage, "Barrel hit enemy");
             resetBarrel(*entity, *barrel, *transform);
             consumed = true;
             break;
@@ -942,9 +1049,9 @@ void GameScene::UpdateBarrels(float deltaTime)
             continue;
         }
 
-        for (const auto& gimmickEntity : m_world.Entities())
+        for (Entity* gimmickEntity : barrelGimmickEntities)
         {
-            if (!gimmickEntity || gimmickEntity.get() == entity.get())
+            if (!gimmickEntity || gimmickEntity == entity)
             {
                 continue;
             }
@@ -987,10 +1094,10 @@ void GameScene::UpdateBatteries(float deltaTime)
 
     Entity* player = FindEntityByTag(kTagPlayer);
     std::vector<Entity*> enemies;
-    enemies.reserve(m_world.Entities().size());
-    for (const auto& candidate : m_world.Entities())
+    enemies.reserve(m_world.EntitiesByTag(EntityTag::Enemy).size());
+    for (Entity* candidate : m_world.EntitiesByTag(EntityTag::Enemy))
     {
-        if (!candidate || !HasTag(*candidate, kTagEnemy))
+        if (!candidate)
         {
             continue;
         }
@@ -1001,12 +1108,12 @@ void GameScene::UpdateBatteries(float deltaTime)
                 continue;
             }
         }
-        enemies.push_back(candidate.get());
+        enemies.push_back(candidate);
     }
     std::vector<TransformComponent> groundPlatformsForSnap;
     GetGroundPlatformBounds(groundPlatformsForSnap);
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Battery))
     {
         if (!entity)
         {
@@ -1033,6 +1140,10 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
     const float mapHeight = GetMapPixelHeight();
     Entity* player = FindEntityByTag(kTagPlayer);
     TransformComponent* playerLaserBlockTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    const auto& enemyTagEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    const auto& batterySwitchEntities = m_world.EntitiesByTag(EntityTag::BatterySwitch);
+    const auto& laserTurretEntities = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& laserBeamEntities = m_world.EntitiesByTag(EntityTag::LaserBeam);
     auto intersectsRect = [](const TransformComponent& a, const TransformComponent& b) -> bool
     {
         const float aWidth = a.width * a.scale;
@@ -1046,32 +1157,76 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
     };
 
     std::vector<Entity*> enemyEntities;
-    enemyEntities.reserve(m_world.Entities().size());
+    enemyEntities.reserve(enemyTagEntities.size());
+    std::vector<Entity*> beamBlockerEntities;
+    beamBlockerEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size() +
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::PhotoSource).size() +
+        batterySwitchEntities.size() +
+        m_world.EntitiesByTag(EntityTag::Elevator).size() +
+        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Shutter).size() +
+        laserTurretEntities.size() +
+        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size());
     bool hasLaserPowerSwitch = false;
     bool laserPowerEnabled = false;
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : batterySwitchEntities)
     {
-        if (entity)
-        {
-            if (const auto* batterySwitch = entity->GetComponent<BatterySwitchComponent>())
-            {
-                if (batterySwitch->controlsLaserPower)
-                {
-                    hasLaserPowerSwitch = true;
-                    laserPowerEnabled = laserPowerEnabled || batterySwitch->isPressed;
-                }
-            }
-        }
-        if (!entity || !entity->GetComponent<EnemyComponent>())
+        if (!entity)
         {
             continue;
         }
-        enemyEntities.push_back(entity.get());
+        if (const auto* batterySwitch = entity->GetComponent<BatterySwitchComponent>())
+        {
+            if (batterySwitch->controlsLaserPower)
+            {
+                hasLaserPowerSwitch = true;
+                laserPowerEnabled = laserPowerEnabled || batterySwitch->isPressed;
+            }
+        }
+    }
+    for (Entity* entity : enemyTagEntities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+        enemyEntities.push_back(entity);
+    }
+    auto appendBlockingEntities = [&](EntityTag tag)
+    {
+        for (Entity* entity : m_world.EntitiesByTag(tag))
+        {
+            if (entity)
+            {
+                beamBlockerEntities.push_back(entity);
+            }
+        }
+    };
+    appendBlockingEntities(EntityTag::Barrel);
+    appendBlockingEntities(EntityTag::Battery);
+    appendBlockingEntities(EntityTag::PhotoBox);
+    appendBlockingEntities(EntityTag::PhotoSource);
+    appendBlockingEntities(EntityTag::BatterySwitch);
+    appendBlockingEntities(EntityTag::Elevator);
+    appendBlockingEntities(EntityTag::LaserSwitch);
+    appendBlockingEntities(EntityTag::Shutter);
+    appendBlockingEntities(EntityTag::LaserTurret);
+    appendBlockingEntities(EntityTag::SepiaElevator);
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::ProtectiveWall))
+    {
+        if (entity && IsGroundPlatformEntity(*entity))
+        {
+            beamBlockerEntities.push_back(entity);
+        }
     }
 
-    for (auto& turretCandidate : m_world.Entities())
+    for (Entity* turretCandidate : laserTurretEntities)
     {
-        if (!turretCandidate || !HasTag(*turretCandidate, kTagLaserTurret))
+        if (!turretCandidate)
         {
             continue;
         }
@@ -1093,12 +1248,12 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
         const bool firesLeft = fireDirection == LaserTurretFireDirection::Left;
         const bool firesUp = fireDirection == LaserTurretFireDirection::Up;
         const bool firesVertical = IsVerticalLaserDirection(fireDirection);
-        if (!beamEntity || !HasTag(*beamEntity, kTagLaserBeam))
+        if (!beamEntity || !HasTag(*beamEntity, EntityTag::LaserBeam))
         {
             beamEntity = nullptr;
-            for (const auto& beamCandidate : m_world.Entities())
+            for (Entity* beamCandidate : laserBeamEntities)
             {
-                if (!beamCandidate || !HasTag(*beamCandidate, kTagLaserBeam))
+                if (!beamCandidate)
                 {
                     continue;
                 }
@@ -1126,7 +1281,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                         : beamTransform->y >= turretTransform->y);
                 if (matchesHorizontal || matchesVertical)
                 {
-                    beamEntity = beamCandidate.get();
+                    beamEntity = beamCandidate;
                     turret->beamEntity = beamEntity;
                     break;
                 }
@@ -1251,20 +1406,16 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             }
 
             TransformComponent beamAabb(beamX, beamAabbY, beamThickness, beamAabbHeight);
-            for (const auto& entity : m_world.Entities())
+            for (Entity* entity : beamBlockerEntities)
             {
-                if (!entity || entity.get() == turretCandidate.get() || entity.get() == beamEntity)
-                {
-                    continue;
-                }
-                if (HasTag(*entity, kTagPlayer) || entity->GetComponent<EnemyComponent>())
+                if (!entity || entity == turretCandidate || entity == beamEntity)
                 {
                     continue;
                 }
                 if (!(entity->GetComponent<BarrelComponent>() ||
                     entity->GetComponent<BatteryComponent>() ||
                     IsGroundPlatformEntity(*entity) ||
-                    HasTag(*entity, kTagPhotoBox)))
+                    HasTag(*entity, EntityTag::PhotoBox)))
                 {
                     continue;
                 }
@@ -1291,8 +1442,8 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                     if (objectHitY > hitY)
                     {
                         hitY = objectHitY;
-                        blockedProtectiveWall = HasTag(*entity, kTagProtectiveWall)
-                            ? entity.get()
+                        blockedProtectiveWall = HasTag(*entity, EntityTag::ProtectiveWall)
+                            ? entity
                             : nullptr;
                     }
                 }
@@ -1310,8 +1461,8 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                     if (transform->y < hitY)
                     {
                         hitY = transform->y;
-                        blockedProtectiveWall = HasTag(*entity, kTagProtectiveWall)
-                            ? entity.get()
+                        blockedProtectiveWall = HasTag(*entity, EntityTag::ProtectiveWall)
+                            ? entity
                             : nullptr;
                     }
                 }
@@ -1398,20 +1549,16 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             const float beamAabbLeft = firesLeft ? 0.0f : beamStartX;
             const float beamAabbRight = firesLeft ? beamStartX : mapWidth;
             TransformComponent beamAabb(beamAabbLeft, beamY, std::max(0.0f, beamAabbRight - beamAabbLeft), beamThickness);
-            for (const auto& entity : m_world.Entities())
+            for (Entity* entity : beamBlockerEntities)
             {
-                if (!entity || entity.get() == turretCandidate.get() || entity.get() == beamEntity)
-                {
-                    continue;
-                }
-                if (HasTag(*entity, kTagPlayer) || entity->GetComponent<EnemyComponent>())
+                if (!entity || entity == turretCandidate || entity == beamEntity)
                 {
                     continue;
                 }
                 if (!(entity->GetComponent<BarrelComponent>() ||
                     entity->GetComponent<BatteryComponent>() ||
                     IsGroundPlatformEntity(*entity) ||
-                    HasTag(*entity, kTagPhotoBox)))
+                    HasTag(*entity, EntityTag::PhotoBox)))
                 {
                     continue;
                 }
@@ -1442,8 +1589,8 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                 if (nearerHit)
                 {
                     hitX = objectHitX;
-                    blockedProtectiveWall = HasTag(*entity, kTagProtectiveWall)
-                        ? entity.get()
+                    blockedProtectiveWall = HasTag(*entity, EntityTag::ProtectiveWall)
+                        ? entity
                         : nullptr;
                 }
             }
@@ -1494,7 +1641,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                     m_flow.playerTouchingHazard = true;
                     while (turret->playerDamageTimer >= damageInterval)
                     {
-                        HandlePlayerDamage(*player, turretCandidate.get(), "Laser damaged player", 1);
+                        HandlePlayerDamage(*player, turretCandidate, "Laser damaged player", 1);
                         turret->playerDamageTimer -= damageInterval;
                     }
                 }
@@ -1604,35 +1751,70 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
         return true;
     }
 
-    for (const auto& entity : m_world.Entities())
+    auto testTagGroup = [&](EntityTag tag) -> bool
     {
-        if (!entity || entity.get() == self)
+        for (Entity* entity : m_world.EntitiesByTag(tag))
         {
-            continue;
+            if (!entity || entity == self)
+            {
+                continue;
+            }
+            if (!(entity->GetComponent<BarrelComponent>() ||
+                entity->GetComponent<BatteryComponent>() ||
+                IsGroundPlatformEntity(*entity)))
+            {
+                continue;
+            }
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (!transform)
+            {
+                continue;
+            }
+
+            const bool isDynamicPlatform = HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator);
+            if (isDynamicPlatform)
+            {
+                const float boundsBottom = bounds.y + height;
+                const float platformTop = transform->y;
+                const float topTolerance = std::max(6.0f, tileSize * 0.22f);
+                if (boundsBottom <= platformTop + topTolerance)
+                {
+                    continue;
+                }
+            }
+
+            if (IntersectsRect(bounds, *transform))
+            {
+                return true;
+            }
         }
-        if (!(entity->GetComponent<BarrelComponent>() ||
-            entity->GetComponent<BatteryComponent>() ||
-            IsGroundPlatformEntity(*entity)))
-        {
-            continue;
-        }
-        const auto* transform = entity->GetComponent<TransformComponent>();
-        if (!transform)
+        return false;
+    };
+
+    if (testTagGroup(EntityTag::Barrel) ||
+        testTagGroup(EntityTag::Battery) ||
+        testTagGroup(EntityTag::PhotoSource) ||
+        testTagGroup(EntityTag::BatterySwitch) ||
+        testTagGroup(EntityTag::Elevator) ||
+        testTagGroup(EntityTag::LaserSwitch) ||
+        testTagGroup(EntityTag::Shutter) ||
+        testTagGroup(EntityTag::LaserTurret) ||
+        testTagGroup(EntityTag::SepiaElevator))
+    {
+        return true;
+    }
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::ProtectiveWall))
+    {
+        if (!entity || entity == self || !IsGroundPlatformEntity(*entity))
         {
             continue;
         }
 
-        // ÉXÉCÉbÉ`/ÉGÉåÉxÅ[É^Å[ÇÃìVñ è„Ç…èÊÇ¡ÇƒÇ¢ÇÈÇ∆Ç´ÇÕâ°è’ìÀàµÇ¢Ç…ÇµÇ»Ç¢ÅB
-        const bool isDynamicPlatform = HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator);
-        if (isDynamicPlatform)
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform)
         {
-            const float boundsBottom = bounds.y + height;
-            const float platformTop = transform->y;
-            const float topTolerance = std::max(6.0f, tileSize * 0.22f);
-            if (boundsBottom <= platformTop + topTolerance)
-            {
-                continue;
-            }
+            continue;
         }
 
         if (IntersectsRect(bounds, *transform))
@@ -1653,32 +1835,37 @@ bool GameScene::IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bound
     const float boundsBottom = bounds.y + boundsHeight;
     const float topTolerance = std::max(6.0f, tileSize * 0.22f);
 
-    for (const auto& other : m_world.Entities())
+    auto testTopGroup = [&](EntityTag tag) -> bool
     {
-        if (!other || other.get() == self)
+        for (Entity* other : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
-        if (!(HasTag(*other, kTagBatterySwitch) || HasTag(*other, kTagElevator)))
-        {
-            continue;
-        }
+            if (!other || other == self)
+            {
+                continue;
+            }
 
-        const auto* otherTransform = other->GetComponent<TransformComponent>();
-        if (!otherTransform)
-        {
-            continue;
-        }
+            const auto* otherTransform = other->GetComponent<TransformComponent>();
+            if (!otherTransform)
+            {
+                continue;
+            }
 
-        const float platformWidth = otherTransform->width * otherTransform->scale;
-        const float platformLeft = otherTransform->x;
-        const float platformRight = otherTransform->x + platformWidth;
-        const bool overlapX = boundsRight > platformLeft && boundsLeft < platformRight;
-        const bool onTop = std::fabs(boundsBottom - otherTransform->y) <= topTolerance;
-        if (overlapX && onTop)
-        {
-            return true;
+            const float platformWidth = otherTransform->width * otherTransform->scale;
+            const float platformLeft = otherTransform->x;
+            const float platformRight = otherTransform->x + platformWidth;
+            const bool overlapX = boundsRight > platformLeft && boundsLeft < platformRight;
+            const bool onTop = std::fabs(boundsBottom - otherTransform->y) <= topTolerance;
+            if (overlapX && onTop)
+            {
+                return true;
+            }
         }
+        return false;
+    };
+
+    if (testTopGroup(EntityTag::BatterySwitch) || testTopGroup(EntityTag::Elevator))
+    {
+        return true;
     }
     return false;
 }
@@ -1692,37 +1879,42 @@ bool GameScene::SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, con
     const float bottom = bounds.y + height;
     const float topTolerance = std::max(8.0f, tileSize * 0.28f);
 
-    for (const auto& other : m_world.Entities())
+    auto snapToTopGroup = [&](EntityTag tag) -> bool
     {
-        if (!other || other.get() == self)
+        for (Entity* other : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
-        if (!(HasTag(*other, kTagBatterySwitch) || HasTag(*other, kTagElevator)))
-        {
-            continue;
-        }
+            if (!other || other == self)
+            {
+                continue;
+            }
 
-        const auto* otherTransform = other->GetComponent<TransformComponent>();
-        if (!otherTransform)
-        {
-            continue;
-        }
+            const auto* otherTransform = other->GetComponent<TransformComponent>();
+            if (!otherTransform)
+            {
+                continue;
+            }
 
-        const float platformWidth = otherTransform->width * otherTransform->scale;
-        const float platformLeft = otherTransform->x;
-        const float platformRight = otherTransform->x + platformWidth;
-        const bool overlapX = right > platformLeft && left < platformRight;
-        if (!overlapX)
-        {
-            continue;
-        }
+            const float platformWidth = otherTransform->width * otherTransform->scale;
+            const float platformLeft = otherTransform->x;
+            const float platformRight = otherTransform->x + platformWidth;
+            const bool overlapX = right > platformLeft && left < platformRight;
+            if (!overlapX)
+            {
+                continue;
+            }
 
-        if (std::fabs(bottom - otherTransform->y) <= topTolerance)
-        {
-            bounds.y = otherTransform->y - height;
-            return true;
+            if (std::fabs(bottom - otherTransform->y) <= topTolerance)
+            {
+                bounds.y = otherTransform->y - height;
+                return true;
+            }
         }
+        return false;
+    };
+
+    if (snapToTopGroup(EntityTag::BatterySwitch) || snapToTopGroup(EntityTag::Elevator))
+    {
+        return true;
     }
 
     return false;
@@ -1910,3 +2102,4 @@ void GameScene::UpdateSingleBattery(
         battery->velocityY = 0.0f;
     }
 }
+

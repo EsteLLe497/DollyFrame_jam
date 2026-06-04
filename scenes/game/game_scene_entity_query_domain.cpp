@@ -13,3 +13,8 @@ Entity* GameScene::FindEntityByTag(EntityTag tag) const
 {
     return m_world.FindByTag(tag);
 }
+
+const std::vector<Entity*>& GameScene::EntitiesByTag(EntityTag tag) const
+{
+    return m_world.EntitiesByTag(tag);
+}

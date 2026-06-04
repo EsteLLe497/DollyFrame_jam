@@ -234,6 +234,20 @@ namespace
         }
     }
 
+    void AppendEntitiesByTag(
+        std::vector<Entity*>& outEntities,
+        const GameScene& scene,
+        EntityTag tag)
+    {
+        for (Entity* entity : scene.EntitiesByTag(tag))
+        {
+            if (entity)
+            {
+                outEntities.push_back(entity);
+            }
+        }
+    }
+
     bool SpawnRestoredSepiaMarkerObject(
         std::vector<std::unique_ptr<Entity>>& pendingEntities,
         int whiteTexture,
@@ -406,10 +420,9 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     bool restoredSepiaBackground = false;
     scene.m_flow.cameraMode = false;
     bool hasSepiaRubbleInFrame = false;
-    for (const auto& entity : scene.m_world.Entities())
+    for (Entity* entity : scene.EntitiesByTag(EntityTag::SepiaRubble))
     {
-
-        if (!entity || !entity->GetComponent<SepiaRubbleComponent>())
+        if (!entity)
         {
             continue;
         }
@@ -493,13 +506,58 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     bool& restoredSepiaBackground)
 {
     std::vector<Entity*> entitiesToRemove;
-    for (const auto& entity : scene.m_world.Entities())
+    std::vector<Entity*> captureCandidates;
+    captureCandidates.reserve(
+        scene.EntitiesByTag(EntityTag::Enemy).size() +
+        scene.EntitiesByTag(EntityTag::PhotoBox).size() +
+        scene.EntitiesByTag(EntityTag::Battery).size() +
+        scene.EntitiesByTag(EntityTag::BatterySwitch).size() +
+        scene.EntitiesByTag(EntityTag::Elevator).size() +
+        scene.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        scene.EntitiesByTag(EntityTag::Shutter).size() +
+        scene.EntitiesByTag(EntityTag::ProtectiveWall).size() +
+        scene.EntitiesByTag(EntityTag::LaserTurret).size() +
+        scene.EntitiesByTag(EntityTag::LaserBeam).size() +
+        scene.EntitiesByTag(EntityTag::StageLight).size() +
+        scene.EntitiesByTag(EntityTag::MarkerLight).size() +
+        scene.EntitiesByTag(EntityTag::SepiaRubble).size() +
+        scene.EntitiesByTag(EntityTag::Bullet).size() +
+        scene.EntitiesByTag(EntityTag::Shield).size() +
+        scene.EntitiesByTag(EntityTag::BossShield).size() +
+        scene.EntitiesByTag(EntityTag::Boss1Shield).size() +
+        scene.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
+        scene.EntitiesByTag(EntityTag::CapturedShield).size() +
+        scene.EntitiesByTag(EntityTag::Barrel).size() +
+        scene.EntitiesByTag(EntityTag::Log).size());
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Enemy);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::PhotoBox);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Battery);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::BatterySwitch);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Elevator);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::LaserSwitch);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Shutter);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::ProtectiveWall);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::LaserTurret);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::LaserBeam);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::StageLight);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::MarkerLight);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::SepiaRubble);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Bullet);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Shield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::BossShield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Boss1Shield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::MidBoss1Shield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::CapturedShield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Barrel);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Log);
+
+    for (Entity* entity : captureCandidates)
     {
-        if (!entity || HasTag(*entity, "Player") || HasTag(*entity, kTagDropItem))
+        if (!entity || HasTag(*entity, EntityTag::Player) || HasTag(*entity, EntityTag::DropItem))
         {
             continue;
         }
-        if (HasTag(*entity, "Enemy"))
+        if (HasTag(*entity, EntityTag::Enemy))
         {
             const auto* enemyComp = entity->GetComponent<EnemyComponent>();
             if (!enemyComp ||
@@ -511,21 +569,21 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         const auto* bossBeamCapture = entity->GetComponent<BossBeamCaptureComponent>();
         const bool isCapturableBossBeam =
-            HasTag(*entity, kTagLaserBeam) &&
+            HasTag(*entity, EntityTag::LaserBeam) &&
             bossBeamCapture &&
             bossBeamCapture->captureEnabled;
-        if ((HasTag(*entity, kTagLaserBeam) && !isCapturableBossBeam) ||
-            (HasTag(*entity, kTagLaserTurret) &&
+        if ((HasTag(*entity, EntityTag::LaserBeam) && !isCapturableBossBeam) ||
+            (HasTag(*entity, EntityTag::LaserTurret) &&
                 (!bossBeamCapture || !bossBeamCapture->captureEnabled)) ||
-            HasTag(*entity, kTagStageLight))
+            HasTag(*entity, EntityTag::StageLight))
         {
             continue;
         }
-        if (HasTag(*entity, "BossShockwave"))
+        if (HasTag(*entity, EntityTag::BossShockwave))
         {
             continue;
         }
-        const bool isPhotoBox = HasTag(*entity, "PhotoBox");
+        const bool isPhotoBox = HasTag(*entity, EntityTag::PhotoBox);
         if (isPhotoBox)
         {
             const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
@@ -543,11 +601,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             }
         }
 
-        if (HasTag(*entity, kTagBatterySwitch) ||
-            HasTag(*entity, kTagElevator) ||
-            HasTag(*entity, kTagLaserSwitch) ||
-            HasTag(*entity, kTagShutter) ||
-            HasTag(*entity, kTagProtectiveWall))
+        if (HasTag(*entity, EntityTag::BatterySwitch) ||
+            HasTag(*entity, EntityTag::Elevator) ||
+            HasTag(*entity, EntityTag::LaserSwitch) ||
+            HasTag(*entity, EntityTag::Shutter) ||
+            HasTag(*entity, EntityTag::ProtectiveWall))
         {
             continue;
         }
@@ -1001,7 +1059,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
         if (capturedVanishObject)
         {
-            entitiesToRemove.push_back(entity.get());
+            entitiesToRemove.push_back(entity);
         }
     }
     scene.m_world.RemoveByPointerList(entitiesToRemove);

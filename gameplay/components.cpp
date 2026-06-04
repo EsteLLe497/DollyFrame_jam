@@ -16,12 +16,56 @@
 #include "shader.h"
 #include "sprite.h"
 
+#include <array>
+
 namespace
 {
+    constexpr std::array<const char*, 9> kEnemyArchetypeLabels = {
+        "Floater",
+        "Walker",
+        "Turret",
+        "Ranged",
+        "ShieldBoss",
+        "MidBoss2",
+        "Ghost",
+        "BlasterRobot",
+        "Charger",
+    };
+
+    constexpr std::array<const char*, 8> kGimmickTypeLabels = {
+        "Hazard",
+        "Goal",
+        "Checkpoint",
+        "Pickup",
+        "Photo Source",
+        "Filter",
+        "Gate",
+        "Switch",
+    };
+
+    constexpr std::array<const char*, 4> kLaserTurretFireDirectionLabels = {
+        "Down",
+        "Up",
+        "Left",
+        "Right",
+    };
+
     constexpr float kMoveSpeed = 420.0f;
     constexpr float kRotateSpeed = 1.8f;
     constexpr float kScaleSpeed = 0.9f;
     constexpr float kPixelsPerMeter = 100.0f;
+
+    template <typename T, size_t N>
+    const char* EnumLabel(const std::array<const char*, N>& labels, T value, const char* fallback)
+    {
+        const size_t index = static_cast<size_t>(value);
+        if (index >= labels.size())
+        {
+            return fallback;
+        }
+
+        return labels[index];
+    }
 }
 
 // ============================================================================
@@ -306,22 +350,7 @@ LaserTurretComponent::LaserTurretComponent(
 
 void LaserTurretComponent::DrawDebugUI()
 {
-    const char* directionName = "Down";
-    switch (fireDirection)
-    {
-    case LaserTurretFireDirection::Down:
-        directionName = "Down";
-        break;
-    case LaserTurretFireDirection::Up:
-        directionName = "Up";
-        break;
-    case LaserTurretFireDirection::Left:
-        directionName = "Left";
-        break;
-    case LaserTurretFireDirection::Right:
-        directionName = "Right";
-        break;
-    }
+    const char* directionName = EnumLabel(kLaserTurretFireDirectionLabels, fireDirection, "Down");
 
     ImGui::SeparatorText("Laser Turret");
     ImGui::Text("Beam Thickness: %.1f", beamThickness);
@@ -472,14 +501,16 @@ void StageLightComponent::DrawDebugUI()
 }
 
 TagComponent::TagComponent(const char* value)
-    : tag(value ? value : "")
-    , tagId(EntityTagFromString(tag))
+    : tagId(EntityTagFromString(value ? value : ""))
 {
+    if (tagId == EntityTag::Unknown && value && *value)
+    {
+        m_customTag = std::make_unique<std::string>(value);
+    }
 }
 
 TagComponent::TagComponent(EntityTag value)
-    : tag(EntityTagToString(value))
-    , tagId(value)
+    : tagId(value)
 {
 }
 
@@ -492,7 +523,7 @@ bool TagComponent::Is(const char* value) const
 {
     if (!value)
     {
-        return tag.empty();
+        return tagId == EntityTag::Unknown && m_customTag && m_customTag->empty();
     }
 
     const EntityTag expected = EntityTagFromString(value);
@@ -501,7 +532,7 @@ bool TagComponent::Is(const char* value) const
         return tagId == expected;
     }
 
-    return tag == value;
+    return m_customTag && *m_customTag == value;
 }
 
 // ============================================================================
@@ -661,55 +692,6 @@ void SepiaElevatorComponent::DrawDebugUI()
 
 namespace
 {
-    const char* ToEnemyArchetypeLabel(EnemyArchetype archetype)
-    {
-        switch (archetype)
-        {
-        case EnemyArchetype::Walker:
-            return "Walker";
-        case EnemyArchetype::Turret:
-            return "Turret";
-        case EnemyArchetype::Ranged: 
-            return "Ranged";
-        case EnemyArchetype::ShieldBoss:
-            return "ShieldBoss";
-        case EnemyArchetype::MidBoss2:
-            return "MidBoss2";
-        case EnemyArchetype::Ghost:
-            return "Ghost";
-        case EnemyArchetype::BlasterRobot:
-            return "BlasterRobot";
-        case EnemyArchetype::Charger:
-            return "Charger";
-        case EnemyArchetype::Floater:
-        default:
-            return "Floater";
-        }
-    }
-
-    const char* ToGimmickTypeLabel(GimmickType type)
-    {
-        switch (type)
-        {
-        case GimmickType::Goal:
-            return "Goal";
-        case GimmickType::Pickup:
-            return "Pickup";
-        case GimmickType::Checkpoint:
-            return "Checkpoint";
-        case GimmickType::PhotoSource:
-            return "Photo Source";
-        case GimmickType::Filter:
-            return "Filter";
-        case GimmickType::Gate:
-            return "Gate";
-        case GimmickType::Switch:
-            return "Switch";
-        case GimmickType::Hazard:
-        default:
-            return "Hazard";
-        }
-    }
 }
 
 PhotoCopyEffectComponent::PhotoCopyEffectComponent(PhotoFilterTheme themeValue)
@@ -747,7 +729,7 @@ EnemyComponent::EnemyComponent(EnemyArchetype archetype, int contactDamage)
 void EnemyComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Enemy");
-    ImGui::Text("Type: %s", ToEnemyArchetypeLabel(m_archetype));
+    ImGui::Text("Type: %s", EnumLabel(kEnemyArchetypeLabels, m_archetype, "Floater"));
     ImGui::Text("Contact Damage: %d", m_contactDamage);
     ImGui::Text("Enabled: %s", m_enabled ? "Yes" : "No");
     ImGui::Text("Defeated: %s", m_defeated ? "Yes" : "No");
@@ -816,7 +798,7 @@ GimmickComponent::GimmickComponent(GimmickType type, bool startsEnabled, bool on
 void GimmickComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Gimmick");
-    ImGui::Text("Type: %s", ToGimmickTypeLabel(m_type));
+    ImGui::Text("Type: %s", EnumLabel(kGimmickTypeLabels, m_type, "Hazard"));
     ImGui::Text("Enabled: %s", m_enabled ? "Yes" : "No");
     ImGui::Text("One Shot: %s", m_oneShot ? "Yes" : "No");
     ImGui::Text("Consumed: %s", m_consumed ? "Yes" : "No");
