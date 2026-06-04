@@ -28,11 +28,24 @@ const GameObjectWorld::EntityList& GameObjectWorld::PendingEntities() const
     return m_pendingEntities;
 }
 
+const GameObjectWorld::EntityPointerList& GameObjectWorld::EntitiesByTag(EntityTag tag) const
+{
+    const size_t index = static_cast<size_t>(tag);
+    if (index >= m_entitiesByTag.size())
+    {
+        static const EntityPointerList kEmpty;
+        return kEmpty;
+    }
+
+    return m_entitiesByTag[index];
+}
+
 Entity& GameObjectWorld::Spawn(std::unique_ptr<Entity> entity)
 {
     assert(entity);
     Entity& spawned = *entity;
     m_entities.push_back(std::move(entity));
+    AddToTagIndex(&spawned);
     return spawned;
 }
 
@@ -56,7 +69,9 @@ void GameObjectWorld::FlushPending()
     m_entities.reserve(m_entities.size() + m_pendingEntities.size());
     for (auto& entity : m_pendingEntities)
     {
+        Entity* spawned = entity.get();
         m_entities.push_back(std::move(entity));
+        AddToTagIndex(spawned);
     }
     m_pendingEntities.clear();
 }
@@ -65,6 +80,10 @@ void GameObjectWorld::Clear()
 {
     m_pendingEntities.clear();
     m_entities.clear();
+    for (auto& list : m_entitiesByTag)
+    {
+        list.clear();
+    }
 }
 
 void GameObjectWorld::Reserve(std::size_t entityCount, std::size_t pendingCount)
@@ -75,6 +94,12 @@ void GameObjectWorld::Reserve(std::size_t entityCount, std::size_t pendingCount)
 
 Entity* GameObjectWorld::FindByTag(const char* tag) const
 {
+    const EntityTag entityTag = EntityTagFromString(tag);
+    if (entityTag != EntityTag::Unknown)
+    {
+        return FindByTag(entityTag);
+    }
+
     for (const auto& entity : m_entities)
     {
         if (!entity)
@@ -93,19 +118,18 @@ Entity* GameObjectWorld::FindByTag(const char* tag) const
 
 Entity* GameObjectWorld::FindByTag(EntityTag tag) const
 {
-    for (const auto& entity : m_entities)
+    const EntityPointerList& entities = EntitiesByTag(tag);
+    if (!entities.empty())
     {
-        if (!entity)
+        for (Entity* entity : entities)
         {
-            continue;
-        }
-
-        const auto* entityTag = entity->GetComponent<TagComponent>();
-        if (entityTag && entityTag->Is(tag))
-        {
-            return entity.get();
+            if (entity)
+            {
+                return entity;
+            }
         }
     }
+
     return nullptr;
 }
 
@@ -126,13 +150,44 @@ void GameObjectWorld::RemoveByPointerList(const std::vector<Entity*>& entitiesTo
         }
     }
 
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [&](const std::unique_ptr<Entity>& entity)
-            {
-                return entity && removalSet.find(entity.get()) != removalSet.end();
-            }),
-        m_entities.end());
+    EraseIf(
+        [&](const std::unique_ptr<Entity>& entity)
+        {
+            return entity && removalSet.find(entity.get()) != removalSet.end();
+        });
+}
+
+void GameObjectWorld::AddToTagIndex(Entity* entity)
+{
+    if (!entity)
+    {
+        return;
+    }
+
+    const auto* tag = entity->GetComponent<TagComponent>();
+    if (!tag)
+    {
+        return;
+    }
+
+    const size_t index = static_cast<size_t>(tag->tagId);
+    if (index >= m_entitiesByTag.size() || tag->tagId == EntityTag::Unknown)
+    {
+        return;
+    }
+
+    m_entitiesByTag[index].push_back(entity);
+}
+
+void GameObjectWorld::RebuildTagIndex()
+{
+    for (auto& list : m_entitiesByTag)
+    {
+        list.clear();
+    }
+
+    for (const auto& entity : m_entities)
+    {
+        AddToTagIndex(entity.get());
+    }
 }

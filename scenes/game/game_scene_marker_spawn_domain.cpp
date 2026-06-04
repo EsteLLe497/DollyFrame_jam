@@ -754,27 +754,23 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
 
 void GameScene::RefreshEnemiesFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                if (entity->GetComponent<EnemyComponent>())
-                {
-                    return true;
-                }
-                if (HasTag(*entity, "BossShield"))
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagBullet);
-            }),
-        m_world.Entities().end());
+                return true;
+            }
+            if (entity->GetComponent<EnemyComponent>())
+            {
+                return true;
+            }
+            if (HasTag(*entity, "BossShield"))
+            {
+                return true;
+            }
+            return HasTag(*entity, kTagBullet);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -917,19 +913,15 @@ void GameScene::RefreshEnemiesFromMarkers()
 
 void GameScene::RefreshBatteriesFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagBattery);
-            }),
-        m_world.Entities().end());
+                return true;
+            }
+            return HasTag(*entity, kTagBattery);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -973,19 +965,15 @@ void GameScene::RefreshBatteriesFromMarkers()
 
 void GameScene::RefreshLogsFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagLog);
-            }),
-        m_world.Entities().end());
+                return true;
+            }
+            return HasTag(*entity, kTagLog);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1040,19 +1028,15 @@ void GameScene::RefreshLogsFromMarkers()
 
 void GameScene::RefreshMarkerLightsFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagMarkerLight);
-            }),
-        m_world.Entities().end());
+                return true;
+            }
+            return HasTag(*entity, kTagMarkerLight);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1105,19 +1089,15 @@ void GameScene::RefreshMarkerLightsFromMarkers()
 
 void GameScene::RefreshStageLightsFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagStageLight);
-            }),
-        m_world.Entities().end());
+                return true;
+            }
+            return HasTag(*entity, kTagStageLight);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1224,20 +1204,16 @@ void GameScene::RefreshStageLightsFromMarkers()
 
 void GameScene::RefreshLaserTurretsFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
+                return true;
+            }
 
-                return HasTag(*entity, kTagLaserTurret) || HasTag(*entity, kTagLaserBeam);
-            }),
-        m_world.Entities().end());
+            return HasTag(*entity, kTagLaserTurret) || HasTag(*entity, kTagLaserBeam);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1307,23 +1283,19 @@ void GameScene::RefreshLaserTurretsFromMarkers()
 
 void GameScene::RefreshLinkedGimmicksFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return entity->GetComponent<BatterySwitchComponent>() != nullptr ||
-                    entity->GetComponent<ElevatorComponent>() != nullptr ||
-                    entity->GetComponent<LaserSwitchComponent>() != nullptr ||
-                    entity->GetComponent<ShutterComponent>() != nullptr ||
-                    entity->GetComponent<ProtectiveWallComponent>() != nullptr;
-            }),
-        m_world.Entities().end());
+                return true;
+            }
+            return entity->GetComponent<BatterySwitchComponent>() != nullptr ||
+                entity->GetComponent<ElevatorComponent>() != nullptr ||
+                entity->GetComponent<LaserSwitchComponent>() != nullptr ||
+                entity->GetComponent<ShutterComponent>() != nullptr ||
+                entity->GetComponent<ProtectiveWallComponent>() != nullptr;
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1413,19 +1385,15 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
 
 void GameScene::RefreshProtectiveWallsFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return entity->GetComponent<ProtectiveWallComponent>() != nullptr;
-            }),
-        m_world.Entities().end());
+                return true;
+            }
+            return entity->GetComponent<ProtectiveWallComponent>() != nullptr;
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1465,20 +1433,16 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
 
 void GameScene::RefreshDamageFootholdsFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
+                return true;
+            }
 
-                return HasTag(*entity, kTagDamagePlatform) || HasTag(*entity, kTagDamagePlatformSpike);
-            }),
-        m_world.Entities().end());
+            return HasTag(*entity, kTagDamagePlatform) || HasTag(*entity, kTagDamagePlatformSpike);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1538,20 +1502,16 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
 
 void GameScene::RefleshSepiaRubblesFromMarkers()
 {
-    m_world.Entities().erase(
-        std::remove_if(
-            m_world.Entities().begin(),
-            m_world.Entities().end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
+                return true;
+            }
 
-                return HasTag(*entity, kTagSepiaRubble);
-            }),
-        m_world.Entities().end());
+            return HasTag(*entity, kTagSepiaRubble);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
