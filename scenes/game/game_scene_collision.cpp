@@ -9,7 +9,7 @@ namespace
 {
     constexpr int kGroundProbeCount = 3;
 
-    constexpr int kMaxTriangleSpanTiles = 5;
+    constexpr int kMaxTriangleSpanTiles = 10;
 
     struct CollisionPoint
     {

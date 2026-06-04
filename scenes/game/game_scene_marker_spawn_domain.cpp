@@ -85,7 +85,7 @@ namespace
         constexpr int kMinImageNo = 0;
         constexpr int kMaxImageNo = 9;
         constexpr int kMinRestoredTileValue = 1;
-        constexpr int kMaxRestoredTileValue = 9;
+        constexpr int kMaxRestoredTileValue = 99;
 
         SepiaMarkerParameter parameter;
         parameter.imageNo = kDefaultImageNo;
@@ -131,26 +131,23 @@ namespace
             return parameter;
         }
 
-        if (encoded >= 10 && encoded < 100)
+        if (encoded >= 10 && encoded < 1000)
         {
-            const int tileDigit = encoded / 10;
+            const int restoredTileValue = encoded / 10;
             const int imageDigit = encoded % 10;
-
-            if (tileDigit == 0)
+            if (restoredTileValue == 0)
             {
                 parameter.valid = false;
                 return parameter;
             }
-
             parameter.imageNo = std::clamp(
                 imageDigit,
                 kMinImageNo,
                 kMaxImageNo);
             parameter.restoredTileValue = std::clamp(
-                tileDigit,
+                restoredTileValue,
                 kMinRestoredTileValue,
                 kMaxRestoredTileValue);
-
             return parameter;
         }
 
@@ -483,6 +480,20 @@ namespace
         float widthTiles = 1.0f;
         float heightTiles = 1.0f;
     };
+
+    bool TryResolveSepiaTileSizing(
+        char targetMarker,
+        int restoredTileValue,
+        SepiaGroupSizing& outSizing)
+    {
+        if (targetMarker == '<' && restoredTileValue == 11)
+        {
+            outSizing.widthTiles = 9.0f;
+            outSizing.heightTiles = 5.0f;
+            return true;
+        }
+        return false;
+    }
 
     bool TryResolveSepiaGroupSizing(
         char targetMarker,
@@ -1638,8 +1649,9 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 static_cast<float>(groupMaxRow - groupMinRow + 1);
 
             SepiaGroupSizing fixedSizing;
-            if (targetRestoredMarkerType != '\0' &&
-                TryResolveSepiaGroupSizing(targetMarker,targetRestoredMarkerType, fixedSizing))
+            if (TryResolveSepiaTileSizing(targetMarker, restoredTileValue, fixedSizing) ||
+                (targetRestoredMarkerType != '\0' &&
+                    TryResolveSepiaGroupSizing(targetMarker, targetRestoredMarkerType, fixedSizing)))
             {
                 groupWidthTiles = fixedSizing.widthTiles;
                 groupHeightTiles = fixedSizing.heightTiles;

@@ -225,6 +225,11 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
         g = 0.09f;
         b = 0.13f;
         break;
+    case 11:
+        r = 0.22f;
+        g = 0.40f;
+        b = 0.76f;
+        break;
     default:
         r = 0.70f;
         g = 0.74f;
@@ -480,7 +485,7 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
     case '>':
         return std::clamp(parameter, 0, 99);
     case '<':
-        return std::clamp(parameter, 0, 99);
+        return std::clamp(parameter, 0, 999);
     default:
         return 0;
     }
@@ -695,7 +700,7 @@ inline bool TryGetSlopeSurfaceYShared(
     float& outSurfaceY)
 {
     const float tileSize = tileMap.GetTileSize();
-    constexpr int kMaxSpan = 5;
+    constexpr int kMaxSpan = 10;
     const int originColumnStart = std::max(0, column - (kMaxSpan - 1));
     const int originRowStart = std::max(0, row - (kMaxSpan - 1));
 

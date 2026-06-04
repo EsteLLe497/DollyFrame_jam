@@ -1047,7 +1047,7 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
                 continue;
             }
 
-            if (tileValue == 1 || tileValue == 8)
+            if (tileValue == 1 || tileValue == 8 || tileValue == 11)
             {
                 continue;
             }
