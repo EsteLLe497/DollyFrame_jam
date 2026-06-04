@@ -1,4 +1,4 @@
-Ôªø#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -613,10 +613,10 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
 
 void GameScene::RefreshEnemiesFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -633,7 +633,7 @@ void GameScene::RefreshEnemiesFromMarkers()
                 }
                 return HasTag(*entity, kTagBullet);
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -709,7 +709,7 @@ void GameScene::RefreshEnemiesFromMarkers()
                 shieldComp.followOffsetX = -kShieldW;
                 shieldComp.followOffsetY = 0.0f;
                 bossComp->shieldEntity = shieldEntity.get();
-                m_entities.push_back(std::move(shieldEntity));
+                m_world.Spawn(std::move(shieldEntity));
             };
 
             if (marker == 'W')
@@ -760,10 +760,10 @@ void GameScene::RefreshEnemiesFromMarkers()
 
 void GameScene::RefreshBatteriesFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -772,7 +772,7 @@ void GameScene::RefreshBatteriesFromMarkers()
                 }
                 return HasTag(*entity, kTagBattery);
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -805,21 +805,21 @@ void GameScene::RefreshBatteriesFromMarkers()
                 260.0f,
                 320.0f,
                 1);
-            if (m_darknessStageEnabled)
+            if (m_lifecycle.darknessStageEnabled)
             {
                 AddUnderBatteryGlow(*battery);
             }
-            m_entities.push_back(std::move(battery));
+            m_world.Spawn(std::move(battery));
         }
     }
 }
 
 void GameScene::RefreshLogsFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -828,7 +828,7 @@ void GameScene::RefreshLogsFromMarkers()
                 }
                 return HasTag(*entity, kTagLog);
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -876,17 +876,17 @@ void GameScene::RefreshLogsFromMarkers()
                 barrel->respawnEnabled = false;
                 barrel->respawnWhenOffscreen = false;
             }
-            m_entities.push_back(std::move(log));
+            m_world.Spawn(std::move(log));
         }
     }
 }
 
 void GameScene::RefreshMarkerLightsFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -895,7 +895,7 @@ void GameScene::RefreshMarkerLightsFromMarkers()
                 }
                 return HasTag(*entity, kTagMarkerLight);
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -941,17 +941,17 @@ void GameScene::RefreshMarkerLightsFromMarkers()
                 kIntensity,
                 lightLinkId);
             markerLight.activated = marker == 'P';
-            m_entities.push_back(std::move(light));
+            m_world.Spawn(std::move(light));
         }
     }
 }
 
 void GameScene::RefreshStageLightsFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -960,7 +960,7 @@ void GameScene::RefreshStageLightsFromMarkers()
                 }
                 return HasTag(*entity, kTagStageLight);
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1060,17 +1060,17 @@ void GameScene::RefreshStageLightsFromMarkers()
                 0.88f,
                 0.30f,
                 kIntensity);
-            m_entities.push_back(std::move(stageLight));
+            m_world.Spawn(std::move(stageLight));
         }
     }
 }
 
 void GameScene::RefreshLaserTurretsFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -1080,7 +1080,7 @@ void GameScene::RefreshLaserTurretsFromMarkers()
 
                 return HasTag(*entity, kTagLaserTurret) || HasTag(*entity, kTagLaserBeam);
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1127,7 +1127,7 @@ void GameScene::RefreshLaserTurretsFromMarkers()
             turretComponent.vertical = vertical;
             turretComponent.shootsLeft = shootsLeft;
             turretComponent.fireToLeft = shootsLeft;
-            m_entities.push_back(std::move(turret));
+            m_world.Spawn(std::move(turret));
 
             auto beam = std::make_unique<Entity>();
             Entity* beamEntity = beam.get();
@@ -1143,17 +1143,17 @@ void GameScene::RefreshLaserTurretsFromMarkers()
             turretComponent.beamEntity = beamEntity;
             turretComponent.beamOriginOffsetX = vertical ? (turretWidth - beamThickness) * 0.5f : (shootsLeft ? 0.0f : turretWidth);
             turretComponent.beamOriginOffsetY = vertical ? turretHeight : turretHeight * 0.5f;
-            m_entities.push_back(std::move(beam));
+            m_world.Spawn(std::move(beam));
         }
     }
 }
 
 void GameScene::RefreshLinkedGimmicksFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -1166,7 +1166,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
                     entity->GetComponent<ShutterComponent>() != nullptr ||
                     entity->GetComponent<ProtectiveWallComponent>() != nullptr;
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1211,7 +1211,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             cfg.batterySwitchPressSpeed,
             cfg.batterySwitchReleaseSpeed,
             marker.controlsLaserPower);
-        m_entities.push_back(std::move(switchEntity));
+        m_world.Spawn(std::move(switchEntity));
     };
 
     const auto spawnElevator = [&](const ElevatorMarker& marker, int linkId)
@@ -1234,7 +1234,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             tileSize * static_cast<float>(marker.moveRangeTiles),
             tileSize * cfg.elevatorSpeedTilesPerSec,
             cfg.elevatorTopPauseSeconds);
-        m_entities.push_back(std::move(elevatorEntity));
+        m_world.Spawn(std::move(elevatorEntity));
     };
 
     const auto spawnLaserSwitch = [&](const LaserSwitchMarker& marker, int linkId)
@@ -1253,7 +1253,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             1.0f);
         switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
         switchEntity->AddComponent<LaserSwitchComponent>(linkId);
-        m_entities.push_back(std::move(switchEntity));
+        m_world.Spawn(std::move(switchEntity));
     };
 
     const auto spawnShutter = [&](const ShutterMarker& marker, int linkId)
@@ -1278,7 +1278,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             tileSize * cfg.shutterSpeedTilesPerSec,
             marker.useBossDefeatSignal,
             marker.opensWhenUnpowered);
-        m_entities.push_back(std::move(shutterEntity));
+        m_world.Spawn(std::move(shutterEntity));
     };
 
     const auto spawnProtectiveWall = [&](const ProtectiveWallMarker& marker, int linkId)
@@ -1310,7 +1310,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             wallHeight,
             tileSize * cfg.protectiveWallSpeedTilesPerSec,
             false);
-        m_entities.push_back(std::move(wallEntity));
+        m_world.Spawn(std::move(wallEntity));
     };
 
     for (int index = 0; index < static_cast<int>(switchMarkers.size()); ++index)
@@ -1351,10 +1351,10 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
 
 void GameScene::RefreshProtectiveWallsFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -1363,7 +1363,7 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
                 }
                 return entity->GetComponent<ProtectiveWallComponent>() != nullptr;
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1414,7 +1414,7 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
             wallHeight,
             tileSize * cfg.protectiveWallSpeedTilesPerSec,
             false);
-        m_entities.push_back(std::move(wallEntity));
+        m_world.Spawn(std::move(wallEntity));
     };
 
     for (int index = 0; index < static_cast<int>(protectiveWallMarkers.size()); ++index)
@@ -1425,10 +1425,10 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
 
 void GameScene::RefreshDamageFootholdsFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -1438,7 +1438,7 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
 
                 return HasTag(*entity, kTagDamagePlatform) || HasTag(*entity, kTagDamagePlatformSpike);
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1477,7 +1477,7 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
                     { 0.0f, 1.0f }},
                 0.2f);
             damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
-            m_entities.push_back(std::move(damagePlatformBase));
+            m_world.Spawn(std::move(damagePlatformBase));
 
             auto damagePlatformSpike = std::make_unique<Entity>();
             damagePlatformSpike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
@@ -1491,17 +1491,17 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
             damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
             damagePlatformSpike->AddComponent<SpikeStripComponent>(tileSpan);
             damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
-            m_entities.push_back(std::move(damagePlatformSpike));
+            m_world.Spawn(std::move(damagePlatformSpike));
         }
     }
 }
 
 void GameScene::RefleshSepiaRubblesFromMarkers()
 {
-    m_entities.erase(
+    m_world.Entities().erase(
         std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
+            m_world.Entities().begin(),
+            m_world.Entities().end(),
             [](const std::unique_ptr<Entity>& entity)
             {
                 if (!entity)
@@ -1511,7 +1511,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
 
                 return HasTag(*entity, kTagSepiaRubble);
             }),
-        m_entities.end());
+        m_world.Entities().end());
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1687,7 +1687,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             auto rubble = std::make_unique<Entity>();
             rubble->AddComponent<TagComponent>(kTagSepiaRubble);
 
-            // Â§ñÊé•Áü©ÂΩ¢„Çµ„Ç§„Ç∫„ÅßTransform„Çí‰Ωú„ÇãÔºà„Åô„Åß„Å´ groupX/Y/Width/Height „ÅØË®àÁÆóÊ∏à„ÅøÔºâ
+            // äOê⁄ãÈå`ÉTÉCÉYÇ≈TransformÇçÏÇÈÅiÇ∑Ç≈Ç… groupX/Y/Width/Height ÇÕåvéZçœÇ›Åj
             rubble->AddComponent<TransformComponent>(groupX, groupY, groupWidth, groupHeight);
 
             rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
@@ -1697,7 +1697,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
 
             auto& groupComp = rubble->AddComponent<SepiaRubbleGroupComponent>(
                 targetMarker,
-                targetImageNo,          // startCell.imageNo „Å®Âêå„Åò
+                targetImageNo,          // startCell.imageNo Ç∆ìØÇ∂
                 restoredTileValue,      // startCell.restoredTileValue
                 targetRestoredMarkerType,
                 targetRestoredMarkerParameter,
@@ -1718,7 +1718,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 groupComp.cellRestoredMarkerParameters.push_back(cell.restoredMarkerParameter);
             }
 
-            m_entities.push_back(std::move(rubble));
+            m_world.Spawn(std::move(rubble));
         }
     }
 }

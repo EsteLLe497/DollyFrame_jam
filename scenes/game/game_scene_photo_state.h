@@ -63,7 +63,7 @@ inline constexpr std::array<PhotoPlacementRuleDefinition, 3> kPhotoPlacementRule
     },
     PhotoPlacementRuleDefinition{
         PhotoPlacementRuleGroup::Group3,
-        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // 制限なし
+        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // 制限なぁE
     },
 };
 

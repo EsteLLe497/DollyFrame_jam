@@ -98,21 +98,9 @@
       "type": "file",
       "path": "assets/texture/boss1/Full/Boss1_death.png"
     },
-    "boss1_body_appear_page_0": {
+    "boss1_body_start": {
       "type": "file",
-      "path": "assets/texture/boss1/Full/Boss1_appear_page_0.png"
-    },
-    "boss1_body_appear_page_1": {
-      "type": "file",
-      "path": "assets/texture/boss1/Full/Boss1_appear_page_1.png"
-    },
-    "boss1_body_roar_page_0": {
-      "type": "file",
-      "path": "assets/texture/boss1/Full/Boss1_appear_page_0.png"
-    },
-    "boss1_body_roar_page_1": {
-      "type": "file",
-      "path": "assets/texture/boss1/Full/Boss1_appear_page_1.png"
+      "path": "assets/texture/boss1/Full/Boss1_start_150f_x02.png"
     },
     "boss1_shield_idle": {
       "type": "file",

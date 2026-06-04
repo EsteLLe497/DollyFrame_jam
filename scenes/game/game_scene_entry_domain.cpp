@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -41,7 +41,7 @@ void GameScene::Update(float deltaTime)
 {
     ZoneScoped;
 
-    if (m_loadingActive)
+    if (m_lifecycle.loadingActive)
     {
         UpdateLoading(deltaTime);
         return;
@@ -60,20 +60,20 @@ void GameScene::Update(float deltaTime)
 
 void GameScene::Draw()
 {
-    if (m_loadingActive)
+    if (m_lifecycle.loadingActive)
     {
-        if (m_loadingFinished && m_loadingWarmupFramesRemaining > 0)
+        if (m_lifecycle.loadingFinished && m_lifecycle.loadingWarmupFramesRemaining > 0)
         {
             PrepareFrameRendering();
             DrawWorldAndUiLayers();
             ResetFrameRendering();
-            --m_loadingWarmupFramesRemaining;
+            --m_lifecycle.loadingWarmupFramesRemaining;
         }
 
         DrawLoadingScreen();
-        if (m_loadingFinished && m_loadingWarmupFramesRemaining <= 0)
+        if (m_lifecycle.loadingFinished && m_lifecycle.loadingWarmupFramesRemaining <= 0)
         {
-            m_loadingActive = false;
+            m_lifecycle.loadingActive = false;
         }
         return;
     }
@@ -87,7 +87,7 @@ void GameScene::DrawLoadingScreen() const
 {
     DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(3, 5, 10), TRUE);
 
-    const float pulse = 0.5f + 0.5f * std::sin(m_loadingElapsed * 4.0f);
+    const float pulse = 0.5f + 0.5f * std::sin(m_lifecycle.loadingElapsed * 4.0f);
     const int centerX = SCREEN_WIDTH / 2;
     const int centerY = SCREEN_HEIGHT / 2;
     const int textColor = GetColor(218, 232, 255);
@@ -97,8 +97,8 @@ void GameScene::DrawLoadingScreen() const
 
     for (int i = 0; i < kLoadingDotCount; ++i)
     {
-        const float angle = m_loadingElapsed * 3.2f + static_cast<float>(i) * (6.2831853f / static_cast<float>(kLoadingDotCount));
-        const float phase = 0.5f + 0.5f * std::sin(angle + m_loadingElapsed * 2.0f);
+        const float angle = m_lifecycle.loadingElapsed * 3.2f + static_cast<float>(i) * (6.2831853f / static_cast<float>(kLoadingDotCount));
+        const float phase = 0.5f + 0.5f * std::sin(angle + m_lifecycle.loadingElapsed * 2.0f);
         const int alpha = std::clamp(static_cast<int>(72.0f + phase * 164.0f), 0, 255);
         const int x = centerX + static_cast<int>(std::round(std::cos(angle) * 44.0f));
         const int y = centerY - 54 + static_cast<int>(std::round(std::sin(angle) * 18.0f));
@@ -108,16 +108,16 @@ void GameScene::DrawLoadingScreen() const
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
     char label[64]{};
-    std::snprintf(label, sizeof(label), "LOADING %s", GetLoadingStepLabel(m_loadingStep));
+    std::snprintf(label, sizeof(label), "LOADING %s", GetLoadingStepLabel(m_lifecycle.loadingStep));
     DrawString(centerX - 92, centerY + 6, label, textColor);
 
     const int barWidth = 360;
     const int barHeight = 10;
     const int barLeft = centerX - barWidth / 2;
     const int barTop = centerY + 42;
-    const float displayedProgress = m_loadingFinished
+    const float displayedProgress = m_lifecycle.loadingFinished
         ? 1.0f
-        : std::clamp(m_loadingProgress + pulse * 0.025f, 0.0f, 0.985f);
+        : std::clamp(m_lifecycle.loadingProgress + pulse * 0.025f, 0.0f, 0.985f);
     const int fillRight = barLeft + static_cast<int>(std::round(static_cast<float>(barWidth) * displayedProgress));
     DrawBox(barLeft, barTop, barLeft + barWidth, barTop + barHeight, barBackColor, TRUE);
     DrawBox(barLeft, barTop, fillRight, barTop + barHeight, barFillColor, TRUE);

@@ -109,6 +109,7 @@
     <ClCompile Include="rendering\directX.cpp" />
     <ClCompile Include="core\entity.cpp" />
     <ClCompile Include="core\event_bus.cpp" />
+    <ClCompile Include="core\game_object_world.cpp" />
     <ClCompile Include="scenes\game\game_scene.cpp" />
     <ClCompile Include="scenes\game\game_scene_collision.cpp" />
     <ClCompile Include="scenes\game\game_scene_gameplay.cpp" />
@@ -361,6 +362,7 @@
     <ClInclude Include="physics\collision.h" />
     <ClInclude Include="core\component.h" />
     <ClInclude Include="gameplay\components.h" />
+    <ClInclude Include="gameplay\entity_tag.h" />
     <ClInclude Include="scenes\demo_scene.h" />
     <ClInclude Include="rendering\directX.h" />
     <ClInclude Include="DirectXTex.h" />
@@ -368,6 +370,7 @@
     <ClInclude Include="core\event_bus.h" />
     <ClInclude Include="core\game_object_fwd.h" />
     <ClInclude Include="core\game_object.h" />
+    <ClInclude Include="core\game_object_world.h" />
     <ClInclude Include="scenes\game\game_scene.h" />
     <ClInclude Include="scenes\game\game_scene_internal.h" />
     <ClInclude Include="scenes\game\game_scene_draw_helpers.h" />

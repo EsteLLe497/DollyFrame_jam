@@ -18,7 +18,7 @@ inline constexpr float kMidBoss2SpearSpeed = 800.0f;
 inline bool HasTag(const Entity& entity, const char* value)
 {
     const auto* tag = entity.GetComponent<TagComponent>();
-    return tag && tag->tag == value;
+    return tag && tag->Is(value);
 }
 
 inline bool IntersectsBounds(const TransformComponent& a, const TransformComponent& b)

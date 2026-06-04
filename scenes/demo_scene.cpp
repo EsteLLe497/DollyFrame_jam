@@ -163,7 +163,7 @@ Entity* DemoScene::FindEntityByTag(const char* tag) const
     for (const auto& entity : m_entities)
     {
         const auto* entityTag = entity->GetComponent<TagComponent>();
-        if (entityTag && entityTag->tag == tag)
+        if (entityTag && entityTag->Is(tag))
         {
             return entity.get();
         }
@@ -190,8 +190,8 @@ void DemoScene::ProcessEvents()
         }
 
         const bool playerTargetPair =
-            (tagA->tag == "Player" && tagB->tag == "Goal") ||
-            (tagA->tag == "Goal" && tagB->tag == "Player");
+            (tagA->Is(EntityTag::Player) && tagB->Is(EntityTag::Goal)) ||
+            (tagA->Is(EntityTag::Goal) && tagB->Is(EntityTag::Player));
 
         if (!playerTargetPair)
         {

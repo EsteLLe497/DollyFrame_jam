@@ -1,4 +1,4 @@
-Ôªø#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_combat_system.h"
@@ -110,21 +110,6 @@ namespace
     }
 }
 
-//bool GameScene::TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const
-//{
-//    (void)playerCenterY;
-//    for (const CameraFixedRange& range : m_cameraFixedRanges)
-//    {
-//        if (playerCenterX >= range.startX && playerCenterX <= range.endX)
-//        {
-//            outCameraX = range.cameraX;
-//            outCameraY = range.cameraY;
-//            return true;
-//        }
-//    }
-//
-//    return false;
-//}
 
 void GameScene::StartFloorCameraTransition(int directionX, int directionY)
 {
@@ -146,12 +131,12 @@ void GameScene::StartFloorCameraTransition(int directionX, int directionY)
         return;
     }
 
-    m_floorCameraTransitionActive = true;
-    m_floorCameraTransitionElapsed = 0.0f;
-    m_floorCameraTransitionStartX = m_flow.cameraX;
-    m_floorCameraTransitionStartY = m_flow.cameraY;
-    m_floorCameraTransitionTargetX = targetX;
-    m_floorCameraTransitionTargetY = targetY;
+    m_camera.floorCameraTransitionActive = true;
+    m_camera.floorCameraTransitionElapsed = 0.0f;
+    m_camera.floorCameraTransitionStartX = m_flow.cameraX;
+    m_camera.floorCameraTransitionStartY = m_flow.cameraY;
+    m_camera.floorCameraTransitionTargetX = targetX;
+    m_camera.floorCameraTransitionTargetY = targetY;
 }
 
 
@@ -166,9 +151,9 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     int activeIndex = -1;
     int bestPriority = -1;
 
-    for (int i = 0; i < m_fixedRanges.size(); i++)
+    for (int i = 0; i < m_camera.fixedRanges.size(); i++)
     {
-        const auto& fixedCamera = m_fixedRanges[i];
+        const auto& fixedCamera = m_camera.fixedRanges[i];
 
         if (fixedCamera.IsInRange(playerCenterX, playerCenterY))
         {
@@ -180,7 +165,7 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         }
     }
 
-    bool prevFollow = (m_prevCameraIndex == -1);
+    bool prevFollow = (m_camera.prevCameraIndex == -1);
     bool currFollow = (activeIndex == -1);
 
     bool easingNeeded = true;
@@ -189,65 +174,65 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         easingNeeded = false;
     }
 
-    if (easingNeeded && m_prevCameraIndex != activeIndex)
+    if (easingNeeded && m_camera.prevCameraIndex != activeIndex)
     {
-        m_easingActive = true;
-        m_easingElapsedTime = 0.0f;
+        m_camera.easingActive = true;
+        m_camera.easingElapsedTime = 0.0f;
 
-        m_easingStartX = m_flow.cameraX;
-        m_easingStartY = m_flow.cameraY;
+        m_camera.easingStartX = m_flow.cameraX;
+        m_camera.easingStartY = m_flow.cameraY;
 
         if (activeIndex == -1)
         {
-            // ËøΩÂæì„Ç´„É°„É©
-            m_easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
-            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
+            // í«è]ÉJÉÅÉâ
+            m_camera.easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
+            m_camera.easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
         }
         else
         {
-            // Âõ∫ÂÆö„Ç´„É°„É©
-            const auto& cam = m_fixedRanges[activeIndex];
+            // å≈íËÉJÉÅÉâ
+            const auto& cam = m_camera.fixedRanges[activeIndex];
 
             gCameraViewWidth = cam.GetZoomWidth();
             gCameraViewHeight = cam.GetZoomHeight();
 
             float centerX = (cam.GetStartX() + cam.GetEndX()) * 0.5f;
 
-            m_easingTargetX = centerX - (gCameraViewWidth * 0.25f);
-            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
+            m_camera.easingTargetX = centerX - (gCameraViewWidth * 0.25f);
+            m_camera.easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
         }
     }
 
-    if (m_easingActive)
+    if (m_camera.easingActive)
     {
-        m_easingElapsedTime += deltaTime;
-        float t = m_easingElapsedTime / easingTime;
+        m_camera.easingElapsedTime += deltaTime;
+        float t = m_camera.easingElapsedTime / easingTime;
 
         if (t >= 1.0f)
         {
             t = 1.0f;
-            m_easingActive = false;
+            m_camera.easingActive = false;
         }
 
-        m_flow.cameraX = std::lerp(m_easingStartX, m_easingTargetX, t);
-        m_flow.cameraY = std::lerp(m_easingStartY, m_easingTargetY, t);
+        m_flow.cameraX = std::lerp(m_camera.easingStartX, m_camera.easingTargetX, t);
+        m_flow.cameraY = std::lerp(m_camera.easingStartY, m_camera.easingTargetY, t);
 
-        m_prevCameraIndex = activeIndex;
+        m_camera.prevCameraIndex = activeIndex;
         return;
     }
 
-    // ËøΩÂæì„Ç´„É°„É©
+    // í«è]ÉJÉÅÉâ
     if (activeIndex < 0)
     {
         m_flow.cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
         m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
 
-        m_prevCameraIndex = activeIndex;
+        m_camera.prevCameraIndex = activeIndex;
         return;
     }
 
-    // Âõ∫ÂÆö„Ç´„É°„É©
-    const auto& cameraRange = m_fixedRanges[activeIndex];
+    // å≈íËÉJÉÅÉâ
+    const auto& cameraRange = m_camera.fixedRanges[activeIndex];
 
     gCameraViewWidth = cameraRange.GetZoomWidth();
     gCameraViewHeight = cameraRange.GetZoomHeight();
@@ -257,7 +242,7 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f);
     m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
 
-    m_prevCameraIndex = activeIndex;
+    m_camera.prevCameraIndex = activeIndex;
 }
 
 
@@ -704,7 +689,7 @@ void GameScene::UpdateBarrels(float deltaTime)
     auto isBarrelObjectCollision = [&](const Entity& barrelEntity, const TransformComponent& barrelBounds, Entity*& outHit) -> bool
     {
         outHit = nullptr;
-        for (const auto& candidate : m_entities)
+        for (const auto& candidate : m_world.Entities())
         {
             if (!candidate || candidate.get() == &barrelEntity)
             {
@@ -778,7 +763,7 @@ void GameScene::UpdateBarrels(float deltaTime)
         return false;
     };
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -934,7 +919,7 @@ void GameScene::UpdateBarrels(float deltaTime)
         }
 
         bool consumed = false;
-        for (const auto& enemyEntity : m_entities)
+        for (const auto& enemyEntity : m_world.Entities())
         {
             if (!enemyEntity || enemyEntity.get() == entity.get())
             {
@@ -957,7 +942,7 @@ void GameScene::UpdateBarrels(float deltaTime)
             continue;
         }
 
-        for (const auto& gimmickEntity : m_entities)
+        for (const auto& gimmickEntity : m_world.Entities())
         {
             if (!gimmickEntity || gimmickEntity.get() == entity.get())
             {
@@ -1002,8 +987,8 @@ void GameScene::UpdateBatteries(float deltaTime)
 
     Entity* player = FindEntityByTag(kTagPlayer);
     std::vector<Entity*> enemies;
-    enemies.reserve(m_entities.size());
-    for (const auto& candidate : m_entities)
+    enemies.reserve(m_world.Entities().size());
+    for (const auto& candidate : m_world.Entities())
     {
         if (!candidate || !HasTag(*candidate, kTagEnemy))
         {
@@ -1021,7 +1006,7 @@ void GameScene::UpdateBatteries(float deltaTime)
     std::vector<TransformComponent> groundPlatformsForSnap;
     GetGroundPlatformBounds(groundPlatformsForSnap);
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -1061,10 +1046,10 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
     };
 
     std::vector<Entity*> enemyEntities;
-    enemyEntities.reserve(m_entities.size());
+    enemyEntities.reserve(m_world.Entities().size());
     bool hasLaserPowerSwitch = false;
     bool laserPowerEnabled = false;
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (entity)
         {
@@ -1084,7 +1069,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
         enemyEntities.push_back(entity.get());
     }
 
-    for (auto& turretCandidate : m_entities)
+    for (auto& turretCandidate : m_world.Entities())
     {
         if (!turretCandidate || !HasTag(*turretCandidate, kTagLaserTurret))
         {
@@ -1111,7 +1096,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
         if (!beamEntity || !HasTag(*beamEntity, kTagLaserBeam))
         {
             beamEntity = nullptr;
-            for (const auto& beamCandidate : m_entities)
+            for (const auto& beamCandidate : m_world.Entities())
             {
                 if (!beamCandidate || !HasTag(*beamCandidate, kTagLaserBeam))
                 {
@@ -1266,7 +1251,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             }
 
             TransformComponent beamAabb(beamX, beamAabbY, beamThickness, beamAabbHeight);
-            for (const auto& entity : m_entities)
+            for (const auto& entity : m_world.Entities())
             {
                 if (!entity || entity.get() == turretCandidate.get() || entity.get() == beamEntity)
                 {
@@ -1413,7 +1398,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             const float beamAabbLeft = firesLeft ? 0.0f : beamStartX;
             const float beamAabbRight = firesLeft ? beamStartX : mapWidth;
             TransformComponent beamAabb(beamAabbLeft, beamY, std::max(0.0f, beamAabbRight - beamAabbLeft), beamThickness);
-            for (const auto& entity : m_entities)
+            for (const auto& entity : m_world.Entities())
             {
                 if (!entity || entity.get() == turretCandidate.get() || entity.get() == beamEntity)
                 {
@@ -1619,7 +1604,7 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
         return true;
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || entity.get() == self)
         {
@@ -1637,7 +1622,7 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
             continue;
         }
 
-        // „Çπ„Ç§„ÉÉ„ÉÅ/„Ç®„É¨„Éô„Éº„Çø„Éº„ÅÆÂ§©Èù¢‰∏ä„Å´‰πó„Å£„Å¶„ÅÑ„Çã„Å®„Åç„ÅØÊ®™Ë°ùÁ™ÅÊâ±„ÅÑ„Å´„Åó„Å™„ÅÑ„ÄÇ
+        // ÉXÉCÉbÉ`/ÉGÉåÉxÅ[É^Å[ÇÃìVñ è„Ç…èÊÇ¡ÇƒÇ¢ÇÈÇ∆Ç´ÇÕâ°è’ìÀàµÇ¢Ç…ÇµÇ»Ç¢ÅB
         const bool isDynamicPlatform = HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator);
         if (isDynamicPlatform)
         {
@@ -1668,7 +1653,7 @@ bool GameScene::IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bound
     const float boundsBottom = bounds.y + boundsHeight;
     const float topTolerance = std::max(6.0f, tileSize * 0.22f);
 
-    for (const auto& other : m_entities)
+    for (const auto& other : m_world.Entities())
     {
         if (!other || other.get() == self)
         {
@@ -1707,7 +1692,7 @@ bool GameScene::SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, con
     const float bottom = bounds.y + height;
     const float topTolerance = std::max(8.0f, tileSize * 0.28f);
 
-    for (const auto& other : m_entities)
+    for (const auto& other : m_world.Entities())
     {
         if (!other || other.get() == self)
         {

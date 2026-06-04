@@ -310,12 +310,23 @@ inline bool IntersectsRect(const TransformComponent& a, const TransformComponent
 inline bool HasTag(const Entity& entity, const char* value)
 {
     const auto* tag = entity.GetComponent<TagComponent>();
-    return tag && tag->tag == value;
+    return tag && tag->Is(value);
 }
 
 inline bool HasTag(const TagComponent* tag, const char* value)
 {
-    return tag && tag->tag == value;
+    return tag && tag->Is(value);
+}
+
+inline bool HasTag(const Entity& entity, EntityTag value)
+{
+    const auto* tag = entity.GetComponent<TagComponent>();
+    return tag && tag->Is(value);
+}
+
+inline bool HasTag(const TagComponent* tag, EntityTag value)
+{
+    return tag && tag->Is(value);
 }
 
 inline constexpr const char* kTagPlayer = "Player";
@@ -728,7 +739,7 @@ inline float GetViewOriginY()
     return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f) + gRenderShakeOffsetY;
 }
 
-// 3/21ï¿½Ç‰ï¿½ï¿½Fï¿½ï¿½^ï¿½Cï¿½ï¿½ï¿½Ì•\ï¿½ï¿½Yï¿½ï¿½ï¿½Wï¿½ï¿½æ“¾(ï¿½cï¿½Vï¿½ï¿½r)
+// 3/21E½Ç‰ï¿½E½FE½E½^E½CE½E½E½Ì•\E½E½YE½E½E½WE½E½æ“¾(E½cE½VE½E½r)
 inline bool TryGetSlopeSurfaceYShared(
     const TileMap& tileMap,
     int column,

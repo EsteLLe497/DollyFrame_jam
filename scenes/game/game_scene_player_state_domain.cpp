@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
@@ -90,7 +90,7 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
 
     if (health->IsDead())
     {
-        for (const auto& entity : m_entities)
+        for (const auto& entity : m_world.Entities())
         {
             if (!entity)
             {
@@ -162,20 +162,20 @@ void GameScene::RespawnPlayer(Entity& player)
     m_flow.pitRestartActive = false;
     m_flow.pitRestartTimer = 0.0f;
     m_flow.pitRestartFadeInTimer = kPitRestartFadeDuration;
-    m_hasPreviousPlayerCameraProbe = false;
-    m_floorCameraTransitionActive = false;
-    m_floorCameraTransitionElapsed = 0.0f;
-    m_cameraFixedLockActive = false;
-    m_cameraFixedLockStartX = 0.0f;
-    m_cameraFixedLockEndX = 0.0f;
-    m_cameraFixedLockX = 0.0f;
-    m_cameraFixedLockY = 0.0f;
-    for (CameraTransitionMarker& marker : m_cameraTransitionMarkers)
+    m_camera.hasPreviousPlayerCameraProbe = false;
+    m_camera.floorCameraTransitionActive = false;
+    m_camera.floorCameraTransitionElapsed = 0.0f;
+    m_camera.cameraFixedLockActive = false;
+    m_camera.cameraFixedLockStartX = 0.0f;
+    m_camera.cameraFixedLockEndX = 0.0f;
+    m_camera.cameraFixedLockX = 0.0f;
+    m_camera.cameraFixedLockY = 0.0f;
+    for (CameraTransitionMarker& marker : m_camera.transitionMarkers)
     {
         marker.wasInside = false;
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {

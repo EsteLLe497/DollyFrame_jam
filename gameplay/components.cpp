@@ -473,7 +473,35 @@ void StageLightComponent::DrawDebugUI()
 
 TagComponent::TagComponent(const char* value)
     : tag(value ? value : "")
+    , tagId(EntityTagFromString(tag))
 {
+}
+
+TagComponent::TagComponent(EntityTag value)
+    : tag(EntityTagToString(value))
+    , tagId(value)
+{
+}
+
+bool TagComponent::Is(EntityTag value) const
+{
+    return tagId == value;
+}
+
+bool TagComponent::Is(const char* value) const
+{
+    if (!value)
+    {
+        return tag.empty();
+    }
+
+    const EntityTag expected = EntityTagFromString(value);
+    if (expected != EntityTag::Unknown)
+    {
+        return tagId == expected;
+    }
+
+    return tag == value;
 }
 
 // ============================================================================

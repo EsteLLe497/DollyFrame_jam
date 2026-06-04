@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+class ResourceManager;
+
 struct PlayerAfterimage
 {
     float x = 0.0f;
@@ -68,13 +70,6 @@ struct GameSceneFlowState
     bool shieldBossDefeatedThisScene = false;
     bool cameraMode = false;
     int enemyCount = 0;
-    float shutterFlashRemaining = 0.0f;
-    float developedPhotoPreviewRemaining = 0.0f;
-    float photoTrayReveal = 0.0f;
-    float captureFinderScale = 1.0f;
-    float captureRapidTimer = 0.0f;
-    float captureLockoutRemaining = 0.0f;
-    int captureRapidCount = 0;
     float lastDeltaTime = 0.0f;
     int cameraModeSessionId = 0;
     bool pitRestartActive = false;
@@ -94,8 +89,19 @@ struct GameSceneFlowState
     float screenShakeDuration = 0.0f;
     float screenShakeAmplitude = 0.0f;
     float captureModeZoomBlend = 0.0f;
+};
+
+
+struct GameSceneUiState
+{
+    float shutterFlashRemaining = 0.0f;
+    float developedPhotoPreviewRemaining = 0.0f;
+    float photoTrayReveal = 0.0f;
+    float captureFinderScale = 1.0f;
+    float captureRapidTimer = 0.0f;
+    float captureLockoutRemaining = 0.0f;
+    int captureRapidCount = 0;
     CameraFlashState cameraFlash;
-    // HPバー演出用: 現在値表示と遅延表示を分離して減少演出を作る。
     float hpDisplayRatio = 1.0f;
     float hpDamageLagRatio = 1.0f;
     float hpDamageFlash = 0.0f;
@@ -172,4 +178,19 @@ struct GameSceneMapEditorState
     int selectedStageLightFixtureTiles = 1;
     std::string statusMessage;
     float statusMessageTimer = 0.0f;
+};
+struct GameSceneLifecycleState
+{
+    bool hasPendingStageTransition = false;
+    std::string pendingStageTransitionMapCsv;
+    char pendingStageTransitionSpawnMarker = '\0';
+    char pendingStageTransitionMarker = '\0';
+    bool darknessStageEnabled = false;
+    ResourceManager* loadingResources = nullptr;
+    bool loadingActive = false;
+    bool loadingFinished = false;
+    mutable int loadingWarmupFramesRemaining = 0;
+    int loadingStep = 0;
+    float loadingElapsed = 0.0f;
+    float loadingProgress = 0.0f;
 };

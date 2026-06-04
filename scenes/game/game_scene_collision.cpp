@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "photo_shared.h"
@@ -770,7 +770,7 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
     }
 
     // ?????]??????? PhotoBox / ?^?C??????
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !IsSolidPolygonEntity(*entity))
         {
@@ -881,7 +881,7 @@ bool GameScene::TrySnapToGroundUsingPlatforms(
     }
 
     // ?????]??????? PhotoBox ?x?[?X??z???t??????
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !IsSolidPolygonEntity(*entity))
         {
@@ -1224,7 +1224,7 @@ bool GameScene::IntersectsSolidPhotoBox(const TransformComponent& transform) con
         transform.rotation,
         candidatePolygon);
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !IsSolidPolygonEntity(*entity))
         {
@@ -1265,7 +1265,7 @@ bool GameScene::IntersectsSolidPhotoBoxForMovement(const TransformComponent& tra
     float probeXs[kGroundProbeCount]{};
     GetGroundProbeXs(transform, probeXs);
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !IsSolidPolygonEntity(*entity))
         {
@@ -1345,7 +1345,7 @@ bool GameScene::GetEntityBoundsByTag(const char* tag, float& x, float& y, float&
 void GameScene::GetEntityBoundsByTag(const char* tag, std::vector<TransformComponent>& bounds) const
 {
     bounds.clear();
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, tag))
         {
@@ -1384,7 +1384,7 @@ bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
 void GameScene::GetGroundPlatformBounds(std::vector<TransformComponent>& bounds) const
 {
     bounds.clear();
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !IsGroundPlatformEntity(*entity))
         {
@@ -1406,7 +1406,7 @@ void GameScene::GetGroundPlatformBounds(std::vector<TransformComponent>& bounds)
 void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
 {
     bounds.clear();
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !IsSolidPolygonEntity(*entity))
         {
@@ -1555,7 +1555,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     {
         CollisionPolygon candidatePolygon;
         buildCandidatePolygon(candidate, candidatePolygon);
-        for (const auto& entity : m_entities)
+        for (const auto& entity : m_world.Entities())
         {
             if (!entity)
             {
@@ -1591,7 +1591,7 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     {
         CollisionPolygon candidatePolygon;
         buildCandidatePolygon(candidate, candidatePolygon);
-        for (const auto& entity : m_entities)
+        for (const auto& entity : m_world.Entities())
         {
             if (!entity || !HasTag(*entity, kTagPlayer))
             {

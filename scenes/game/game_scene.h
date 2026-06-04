@@ -7,6 +7,7 @@
 #include "asset_manifest.h"
 #include "entity.h"
 #include "event_bus.h"
+#include "game_object_world.h"
 #include "game_session.h"
 #include "physics_world.h"
 #include "scene.h"
@@ -89,6 +90,7 @@ private:
     // Entity query / spawn
     Entity& SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y);
     Entity* FindEntityByTag(const char* tag) const;
+    Entity* FindEntityByTag(EntityTag tag) const;
 
     // Gameplay pipeline
     void UpdatePlayer(float deltaTime);
@@ -278,63 +280,46 @@ private:
     PhysicsWorld m_physicsWorld;
     ScriptEngine m_scriptEngine;
     TileMap m_tileMap;
-    std::vector<std::unique_ptr<Entity>> m_entities;
-    std::vector<std::unique_ptr<Entity>> m_pendingEntities;
+    GameObjectWorld m_world;
     PhotoState m_photo;
     GameSceneFlowState m_flow;
     GameScenePlayerState m_player;
     GameSceneDebugState m_debug;
     GameSceneEffectsState m_effects;
     GameSceneMapEditorState m_mapEditor;
-    std::vector<CameraTransitionMarker> m_cameraTransitionMarkers;
-    std::vector<CameraFixedRange> m_cameraFixedRanges;
-    bool m_hasPreviousPlayerCameraProbe = false;
-    float m_previousPlayerCameraProbeX = 0.0f;
-    float m_previousPlayerCameraProbeY = 0.0f;
-    bool m_hasCameraSmoothedPlayerY = false;
-    float m_cameraSmoothedPlayerCenterY = 0.0f;
-    bool m_floorCameraTransitionActive = false;
-    float m_floorCameraTransitionElapsed = 0.0f;
-    float m_floorCameraTransitionDuration = 0.45f;
-    float m_floorCameraTransitionStartX = 0.0f;
-    float m_floorCameraTransitionStartY = 0.0f;
-    float m_floorCameraTransitionTargetX = 0.0f;
-    float m_floorCameraTransitionTargetY = 0.0f;
-    bool m_cameraFixedLockActive = false;
-    float m_cameraFixedLockStartX = 0.0f;
-    float m_cameraFixedLockEndX = 0.0f;
-    float m_cameraFixedLockX = 0.0f;
-    float m_cameraFixedLockY = 0.0f;
-    bool m_hasPendingStageTransition = false;
-    std::string m_pendingStageTransitionMapCsv;
-    char m_pendingStageTransitionSpawnMarker = '\0';
-    char m_pendingStageTransitionMarker = '\0';
-    bool m_darknessStageEnabled = false;
-    ResourceManager* m_loadingResources = nullptr;
-    bool m_loadingActive = false;
-    bool m_loadingFinished = false;
-    mutable int m_loadingWarmupFramesRemaining = 0;
-    int m_loadingStep = 0;
-    float m_loadingElapsed = 0.0f;
-    float m_loadingProgress = 0.0f;
-
-    int m_cameraFixedLockNum = -1;
-    void ActivateCameraRange(int cameraNum);
-    std::vector<CameraZoomMarker> m_zoomMarkers;
-    void RecalculateViewScale();
-    bool m_isZoomed = false;
-    float m_zoomedViewWidth = 2560.0f;
-    float m_zoomedViewHeight = 1440.0f;
-
-    int m_backdropTextureId = -1;
-    int m_backdropTexture1Id = -1;
+    GameSceneUiState m_ui;
+    struct CameraRuntimeState
+    {
+        std::vector<fixedCameraRange> fixedRanges;
+        int backdropTextureId = -1;
+        int backdropTexture1Id = -1;
+        std::vector<CameraTransitionMarker> transitionMarkers;
+        bool hasPreviousPlayerCameraProbe = false;
+        float previousPlayerCameraProbeX = 0.0f;
+        float previousPlayerCameraProbeY = 0.0f;
+        bool hasCameraSmoothedPlayerY = false;
+        float cameraSmoothedPlayerCenterY = 0.0f;
+        bool floorCameraTransitionActive = false;
+        float floorCameraTransitionElapsed = 0.0f;
+        float floorCameraTransitionDuration = 0.45f;
+        float floorCameraTransitionStartX = 0.0f;
+        float floorCameraTransitionStartY = 0.0f;
+        float floorCameraTransitionTargetX = 0.0f;
+        float floorCameraTransitionTargetY = 0.0f;
+        bool cameraFixedLockActive = false;
+        float cameraFixedLockStartX = 0.0f;
+        float cameraFixedLockEndX = 0.0f;
+        float cameraFixedLockX = 0.0f;
+        float cameraFixedLockY = 0.0f;
+        int prevCameraIndex = -1;
+        bool easingActive = false;
+        float easingElapsedTime = 0.0f;
+        float easingStartX = 0.0f;
+        float easingStartY = 0.0f;
+        float easingTargetX = 0.0f;
+        float easingTargetY = 0.0f;
+    };
+    CameraRuntimeState m_camera;
+    GameSceneLifecycleState m_lifecycle;
     static constexpr float easingTime = 0.35f;
-    bool m_easingActive = false;
-    float m_easingElapsedTime = 0.0f;
-    float m_easingStartX = 0.0f;
-    float m_easingStartY = 0.0f;
-    float m_easingTargetX = 0.0f;
-    float m_easingTargetY = 0.0f;
-    int m_prevCameraIndex = -1;
-    std::vector<fixedCameraRange> m_fixedRanges;
 };

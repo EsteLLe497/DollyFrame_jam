@@ -7,6 +7,7 @@
 
 #include <box2d/box2d.h>
 
+#include "entity_tag.h"
 #include "game_object.h"
 
 class PhysicsWorld;
@@ -458,8 +459,13 @@ class TagComponent final : public MonoBehaviour
 {
 public:
     explicit TagComponent(const char* value);
+    explicit TagComponent(EntityTag value);
+
+    bool Is(EntityTag value) const;
+    bool Is(const char* value) const;
 
     std::string tag;
+    EntityTag tagId = EntityTag::Unknown;
 };
 
 // ============================================================================

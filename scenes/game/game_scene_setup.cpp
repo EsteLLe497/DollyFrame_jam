@@ -182,13 +182,13 @@ namespace
 
 void GameScene::RefreshStageRenderProfile()
 {
-    m_darknessStageEnabled = IsDarknessStageMapPath(gCurrentMapCsvPath);
+    m_lifecycle.darknessStageEnabled = IsDarknessStageMapPath(gCurrentMapCsvPath);
 }
 
 void GameScene::BuildCameraMarkers()
 {
-    m_cameraFixedRanges.clear();
-    m_fixedRanges.clear();
+
+    m_camera.fixedRanges.clear();
 
     float tileSize = m_tileMap.GetTileSize();
 
@@ -200,7 +200,7 @@ void GameScene::BuildCameraMarkers()
         cameraRange.SetCameraNum(0);
         cameraRange.SetFollowPlayer(false);
 
-        m_fixedRanges.push_back(cameraRange);
+        m_camera.fixedRanges.push_back(cameraRange);
     }
 
     //カメラ2
@@ -211,7 +211,7 @@ void GameScene::BuildCameraMarkers()
         cameraRange.SetCameraNum(1);
         cameraRange.SetFollowPlayer(false);
 
-        m_fixedRanges.push_back(cameraRange);
+        m_camera.fixedRanges.push_back(cameraRange);
     }
 
     //カメラ3
@@ -225,7 +225,7 @@ void GameScene::BuildCameraMarkers()
         cameraRange.SetZoomWidth(2560.0f);
         cameraRange.SetZoomHeight(1440.0f);
 
-        m_fixedRanges.push_back(cameraRange);
+        m_camera.fixedRanges.push_back(cameraRange);
     }
 
     //カメラ4
@@ -238,7 +238,7 @@ void GameScene::BuildCameraMarkers()
 
         cameraRange.SetZoomHeight(1440.0f);
 
-        m_fixedRanges.push_back(cameraRange);
+        m_camera.fixedRanges.push_back(cameraRange);
     }
 
     //カメラ5
@@ -249,7 +249,7 @@ void GameScene::BuildCameraMarkers()
         cameraRange.SetCameraNum(4);
         cameraRange.SetFollowPlayer(false);
 
-        m_fixedRanges.push_back(cameraRange);
+        m_camera.fixedRanges.push_back(cameraRange);
     }
 
 
@@ -323,10 +323,10 @@ namespace game_scene_detail
 
 void GameScene::ResetSceneState()
 {
-    m_entities.clear();
-    m_pendingEntities.clear();
+    m_world.Clear();
     m_photo = PhotoState{};
     m_flow = GameSceneFlowState{};
+    m_ui = GameSceneUiState{};
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
     m_mapEditor.active = false;
@@ -338,31 +338,31 @@ void GameScene::ResetSceneState()
     m_mapEditor.selectedStageLightFixtureTiles = 1;
     m_mapEditor.statusMessage.clear();
     m_mapEditor.statusMessageTimer = 0.0f;
-    m_cameraTransitionMarkers.clear();
-    m_cameraFixedRanges.clear();
-    m_hasPreviousPlayerCameraProbe = false;
-    m_previousPlayerCameraProbeX = 0.0f;
-    m_previousPlayerCameraProbeY = 0.0f;
-    m_hasCameraSmoothedPlayerY = false;
-    m_cameraSmoothedPlayerCenterY = 0.0f;
-    m_floorCameraTransitionActive = false;
-    m_floorCameraTransitionElapsed = 0.0f;
-    m_floorCameraTransitionDuration = 1.10f;
-    m_floorCameraTransitionStartX = 0.0f;
-    m_floorCameraTransitionStartY = 0.0f;
-    m_floorCameraTransitionTargetX = 0.0f;
-    m_floorCameraTransitionTargetY = 0.0f;
-    m_cameraFixedLockActive = false;
-    m_cameraFixedLockStartX = 0.0f;
-    m_cameraFixedLockEndX = 0.0f;
-    m_cameraFixedLockX = 0.0f;
-    m_cameraFixedLockY = 0.0f;
-    m_hasPendingStageTransition = false;
-    m_pendingStageTransitionMapCsv.clear();
-    m_pendingStageTransitionSpawnMarker = '\0';
-    m_pendingStageTransitionMarker = '\0';
-    m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/ruins1.csv";
+    m_camera.transitionMarkers.clear();
+
+    m_camera.hasPreviousPlayerCameraProbe = false;
+    m_camera.previousPlayerCameraProbeX = 0.0f;
+    m_camera.previousPlayerCameraProbeY = 0.0f;
+    m_camera.hasCameraSmoothedPlayerY = false;
+    m_camera.cameraSmoothedPlayerCenterY = 0.0f;
+    m_camera.floorCameraTransitionActive = false;
+    m_camera.floorCameraTransitionElapsed = 0.0f;
+    m_camera.floorCameraTransitionDuration = 1.10f;
+    m_camera.floorCameraTransitionStartX = 0.0f;
+    m_camera.floorCameraTransitionStartY = 0.0f;
+    m_camera.floorCameraTransitionTargetX = 0.0f;
+    m_camera.floorCameraTransitionTargetY = 0.0f;
+    m_camera.cameraFixedLockActive = false;
+    m_camera.cameraFixedLockStartX = 0.0f;
+    m_camera.cameraFixedLockEndX = 0.0f;
+    m_camera.cameraFixedLockX = 0.0f;
+    m_camera.cameraFixedLockY = 0.0f;
+    m_lifecycle.hasPendingStageTransition = false;
+    m_lifecycle.pendingStageTransitionMapCsv.clear();
+    m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
+    m_lifecycle.pendingStageTransitionMarker = '\0';
+    m_lifecycle.darknessStageEnabled = false;
+    gCurrentMapCsvPath = "assets/maps/stages/forest_boss.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -390,8 +390,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     const size_t mapCellCount =
         static_cast<size_t>((std::max)(0, m_tileMap.GetWidth())) *
         static_cast<size_t>((std::max)(0, m_tileMap.GetHeight()));
-    m_entities.reserve(128 + mapCellCount / 8);
-    m_pendingEntities.reserve(64);
+    m_world.Reserve(128 + mapCellCount / 8, 64);
     RefreshStageRenderProfile();
     gCameraViewWidth = kDefaultCameraViewWidth;
     gCameraViewHeight = kDefaultCameraViewHeight;
@@ -619,7 +618,7 @@ void GameScene::InitializeStageEntities()
                     shieldComp.followOffsetX = -kShieldW;
                     shieldComp.followOffsetY = 0.0f;
                     bossComp->shieldEntity = shieldEntity.get();
-                    m_entities.push_back(std::move(shieldEntity));
+                    m_world.Spawn(std::move(shieldEntity));
                 }
             }
         }
@@ -639,7 +638,7 @@ void GameScene::InitializeStageEntities()
                 }
             }
         }
-        else if (marker == 'A') // ゴースト
+        else if (marker == 'A') // ゴースチE
         {
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
@@ -655,7 +654,7 @@ void GameScene::InitializeStageEntities()
                 }
             }
         }
-        else if (marker == 'D') // ブラロボ
+        else if (marker == 'D') // ブラロチE
         {
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
@@ -664,7 +663,7 @@ void GameScene::InitializeStageEntities()
                 static_cast<float>(row) * tileSize);
             if (auto* transform = enemy.GetComponent<TransformComponent>())
             {
-                // FindSpawnPositionを使わずCSVの座標をそのまま使う
+                // FindSpawnPositionを使わずCSVの座標をそ�Eまま使ぁE
                 transform->x = static_cast<float>(column) * tileSize;
                 transform->y = static_cast<float>(row) * tileSize;
                 if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
@@ -674,7 +673,7 @@ void GameScene::InitializeStageEntities()
                 }
                 if (auto* blasterRobot = enemy.GetComponent<BlasterRobotComponent>())
                 {
-                    // 天井判定：マーカーの上のタイルが壁なら天井設置
+                    // 天井判定：�Eーカーの上�Eタイルが壁なら天井設置
                     if (row > 0 && m_tileMap.GetTile(column, row - 1) > 0)
                     {
                         blasterRobot->mountedOnCeiling = true;
@@ -706,7 +705,7 @@ void GameScene::InitializeStageEntities()
             260.0f,
             320.0f,
             1);
-        if (m_darknessStageEnabled)
+        if (m_lifecycle.darknessStageEnabled)
         {
             battery->AddComponent<FlickerLightComponent>(
                 56.0f,
@@ -725,7 +724,7 @@ void GameScene::InitializeStageEntities()
                 0.0f,
                 0.0f);
         }
-        m_entities.push_back(std::move(battery));
+        m_world.Spawn(std::move(battery));
     }
 
     for (const TileMarker& stageMarker : stageMarkers)
@@ -843,20 +842,20 @@ void GameScene::InitializeStageEntities()
         try { stem = std::filesystem::path(mapPath).stem().string(); } catch (...) { stem = mapPath; }
         std::transform(stem.begin(), stem.end(), stem.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
 
-        // CSV 名に "forest" または "ruins" を含めて識別しているとのことなのでそれに合わせる
-		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };//マップのCSVファイル名に "ruins" を含む場合は廃墟の背景と前景を使用
+        // CSV 名に "forest" また�E "ruins" を含めて識別してぁE��とのことなのでそれに合わせる
+		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };//マップ�ECSVファイル名に "ruins" を含む場合�E廁E���E背景と前景を使用
         if (stem.find("forest") != std::string::npos) return { "sinrin10", "sinrin11" };
-        // デフォルト
+        // チE��ォルチE
         return { "sinrin10", "sinrin11" };
     };
 
     {
         const auto keys = ResolveBackdropKeysForMap(gCurrentMapCsvPath);
-        m_backdropTextureId = m_assets.GetTexture(keys.first);
-        m_backdropTexture1Id = m_assets.GetTexture(keys.second);
+        m_camera.backdropTextureId = m_assets.GetTexture(keys.first);
+        m_camera.backdropTexture1Id = m_assets.GetTexture(keys.second);
         // manifest 未登録なら既存キーにフォールバック
-        if (m_backdropTextureId < 0) m_backdropTextureId = m_assets.GetTexture("sinrin10");
-        if (m_backdropTexture1Id < 0) m_backdropTexture1Id = m_assets.GetTexture("sinrin11");
+        if (m_camera.backdropTextureId < 0) m_camera.backdropTextureId = m_assets.GetTexture("sinrin10");
+        if (m_camera.backdropTexture1Id < 0) m_camera.backdropTexture1Id = m_assets.GetTexture("sinrin11");
     }
 }
 
@@ -890,7 +889,7 @@ Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId
         enemy->spawnY = y;
     }
 
-    m_entities.push_back(std::move(entity));
+    m_world.Spawn(std::move(entity));
     return entityRef;
 }
 
