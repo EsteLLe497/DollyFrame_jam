@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_photo_tray_system.h"
@@ -397,7 +397,7 @@ void GameScene::StartCameraFlashPulse(float durationSeconds)
 
 void GameScene::StoreCapturedPhoto()
 {
-	// �L���v�`�������ʐ^�ɃZ�s�A�n�ʃA�C�e�����܂܂�Ă��邩
+	// キャプチャした写真にセピア地面アイテムが含まれているか
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.capture.items)
     {
@@ -472,7 +472,7 @@ void GameScene::CommitPendingCapturedPhoto()
         m_photo.pendingStore = PendingPhotoStoreState{};
         return;
     }
-    // �m�F
+    // 確認
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.pendingStore.capture.items)
     {
@@ -592,7 +592,7 @@ void GameScene::HandleAttackHits()
     const float playerTop = playerTransform->y;
     const float playerBottom = playerTransform->y + playerTransform->height * playerTransform->scale;
 
-    for (const auto& entity : m_world.Entities())
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
     {
         if (!entity)
         {
@@ -615,7 +615,7 @@ void GameScene::HandleAttackHits()
 
             if (intersects)
             {
-                HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by melee attack");
+                HandlePlayerDamage(*player, entity, "GameScene player damaged by melee attack");
             }
         }
     }
@@ -702,7 +702,7 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
             if (!sepiaGroup->cellColumns.empty() &&
                 sepiaGroup->cellColumns.size() == sepiaGroup->cellRows.size())
             {
-                // �Z���P�ʂŕ��������Ȃ�A�Z���P�ʂŖ߂��i�󓴂�ׂ��Ȃ��j
+                // セル単位で復元したなら、セル単位で戻す（空洞を潰さない）
                 for (size_t ci = 0; ci < sepiaGroup->cellColumns.size(); ++ci)
                 {
                     const int col = sepiaGroup->cellColumns[ci];
@@ -713,7 +713,7 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
             }
             else
             {
-                // cell �z�񂪖����ꍇ�͏]���ǂ��� min/max ��`�Ŗ߂�
+                // cell 配列が無い場合は従来どおり min/max 矩形で戻す
                 for (int col = sepiaGroup->minColumn; col <= sepiaGroup->maxColumn; ++col)
                 {
                     for (int row = sepiaGroup->minRow; row <= sepiaGroup->maxRow; ++row)

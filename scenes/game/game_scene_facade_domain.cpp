@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "game_scene_internal.h"
+#include "game_viewport.h"
 #include "game_scene_player_visual_system.h"
 
 #include <algorithm>
@@ -15,49 +16,42 @@ namespace
 
 float GameScene::GetViewScale() const
 {
-    const float marginX = std::clamp(static_cast<float>(SCREEN_WIDTH) * 0.04f, 48.0f, 96.0f);
-    const float marginY = std::clamp(static_cast<float>(SCREEN_HEIGHT) * 0.04f, 36.0f, 72.0f);
-    const float maxWidth = static_cast<float>(SCREEN_WIDTH) - marginX * 2.0f;
-    const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - marginY * 2.0f;
-    return std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight) * m_render.viewScaleMultiplier;
+    return game_viewport::ComputeViewScale(
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        gCameraViewWidth,
+        gCameraViewHeight,
+        m_render.viewScaleMultiplier);
 }
 
 float GameScene::GetViewWidth() const
 {
-    return gCameraViewWidth * GetViewScale();
+    return game_viewport::ComputeViewWidth(gCameraViewWidth, GetViewScale());
 }
 
 float GameScene::GetViewHeight() const
 {
-    return gCameraViewHeight * GetViewScale();
+    return game_viewport::ComputeViewHeight(gCameraViewHeight, GetViewScale());
 }
 
 float GameScene::GetViewOriginX() const
 {
-    if (GetViewWidth() >= static_cast<float>(SCREEN_WIDTH))
-    {
-        if (m_render.zoomAnchorScreenCenter)
-        {
-            return std::round(m_render.zoomAnchorX - GetViewWidth() * 0.5f) + m_render.shakeOffsetX;
-        }
-        return m_render.shakeOffsetX;
-    }
-
-    return std::round((static_cast<float>(SCREEN_WIDTH) - GetViewWidth()) * 0.5f) + m_render.shakeOffsetX;
+    return game_viewport::ComputeViewOriginX(
+        SCREEN_WIDTH,
+        GetViewWidth(),
+        m_render.zoomAnchorScreenCenter,
+        m_render.zoomAnchorX,
+        m_render.shakeOffsetX);
 }
 
 float GameScene::GetViewOriginY() const
 {
-    if (GetViewHeight() >= static_cast<float>(SCREEN_HEIGHT))
-    {
-        if (m_render.zoomAnchorScreenCenter)
-        {
-            return std::round(m_render.zoomAnchorY - GetViewHeight() * 0.5f) + m_render.shakeOffsetY;
-        }
-        return m_render.shakeOffsetY;
-    }
-
-    return std::round((static_cast<float>(SCREEN_HEIGHT) - GetViewHeight()) * 0.5f) + m_render.shakeOffsetY;
+    return game_viewport::ComputeViewOriginY(
+        SCREEN_HEIGHT,
+        GetViewHeight(),
+        m_render.zoomAnchorScreenCenter,
+        m_render.zoomAnchorY,
+        m_render.shakeOffsetY);
 }
 
 void GameScene::BeginFrameUpdate(float deltaTime)

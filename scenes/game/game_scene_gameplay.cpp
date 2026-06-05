@@ -1,7 +1,9 @@
 ﻿#include "pch.h"
 
 #include "game_scene_internal.h"
-#include "game_scene_combat_system.h"
+#include "game_scene_combat_common.h"
+#include "game_scene_combat_enemy_system.h"
+#include "game_scene_combat_bullet_system.h"
 #include "game_scene_player_system.h"
 #include "game_scene_player_movement_system.h"
 #include "game_scene_player_visual_system.h"
