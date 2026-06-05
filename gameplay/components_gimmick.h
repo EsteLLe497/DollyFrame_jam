@@ -75,10 +75,23 @@ private:
     float m_tintA;
 };
 
+enum class SepiaRubbleSource
+{
+    Generic,
+    MidBoss3Fist,
+    MidBoss3Drill,
+};
+
 class SepiaRubbleComponent final : public MonoBehaviour
 {
 public:
     SepiaRubbleComponent() = default;
+    explicit SepiaRubbleComponent(SepiaRubbleSource sourceValue)
+        : source(sourceValue)
+    {
+    }
+
+    SepiaRubbleSource source = SepiaRubbleSource::Generic;
 };
 
 class SepiaRubbleGroupComponent final : public MonoBehaviour

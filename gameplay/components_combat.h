@@ -12,6 +12,7 @@ enum class EnemyArchetype
     Ranged,
     ShieldBoss,
     MidBoss2,
+    MidBoss3,
     Ghost,
     BlasterRobot,
     Charger,
@@ -50,6 +51,30 @@ enum class MidBoss2State
     BeamCooldown,
     Damaged,
     Dead,
+};
+
+enum class MidBoss3State
+{
+    Move,
+    LauncherFist,
+    MeteorFist,
+    LauncherMeteorFist,
+    DrillFist,
+    AttackCooldown,
+    ReloadFists,
+};
+
+enum class MidBoss3FistState
+{
+    Docked,
+    LauncherReady,
+    Launching,
+    MeteorReady,
+    MeteorFalling,
+    DrillForming,
+    Returning,
+    Reloading,
+    Broken,
 };
 
 enum class ShieldAttackType
@@ -302,6 +327,128 @@ public:
     float travelDistance = 0.0f;
 };
 
+class MidBoss3Component final : public MonoBehaviour
+{
+public:
+    struct Params
+    {
+        int boss3Hp = 20;
+        int boss3WidthGrid = 4;
+        int boss3HeightGrid = 4;
+        int fistWidthGrid = 3;
+        int fistHeightGrid = 2;
+        float idleFloatAmplitude = 28.0f;
+        float idleFloatSpeed = 2.1f;
+        float movePauseTime = 1.4f;
+        float moveDuration = 1.8f;
+        float moveArcHeightGrid = 1.2f;
+        float initialFlowDelayTime = 4.0f;
+        float launcherWindupTime = 0.8f;
+        float launcherFistInterval = 0.95f;
+        float launcherFistSpeed = 560.0f;
+        float launcherCooldownTime = 1.5f;
+        float meteorWindupTime = 0.9f;
+        float meteorPairInterval = 0.85f;
+        float meteorFistSpeed = 680.0f;
+        float meteorCooldownTime = 1.5f;
+        float fistReloadTime = 2.0f;
+        float fistReturnSpeed = 720.0f;
+        float drillWaitTime = 2.0f;
+        float drillLaunchSpeed = 620.0f;
+        float drillRushSpeed = 720.0f;
+        float drillCooldownTime = 2.0f;
+    };
+
+    MidBoss3Component() = default;
+
+    Params params;
+    MidBoss3State state = MidBoss3State::Move;
+    float arenaCenterX = 0.0f;
+    float arenaCenterY = 0.0f;
+    float homeX = 0.0f;
+    float homeY = 0.0f;
+    float moveStartX = 0.0f;
+    float moveStartY = 0.0f;
+    float moveTargetX = 0.0f;
+    float moveTargetY = 0.0f;
+    float moveTimer = 0.0f;
+    int moveStep = 0;
+    int movePattern = 0;
+    int moveSide = -1;
+    int nextFlowAttack = 2;
+    int lastFlowMoveSide = -1;
+    int launcherDirection = -1;
+    int launcherShotsFired = 0;
+    int meteorDirection = -1;
+    int meteorShotsFired = 0;
+    int debugRequestedAttack = 0;
+    int cooldownAttack = 0;
+    float launcherLowerLaneY = 0.0f;
+    float launcherUpperLaneY = 0.0f;
+    float meteorAnchorX = 0.0f;
+    float meteorLowerStartY = 0.0f;
+    float meteorUpperStartY = 0.0f;
+    float idleTimer = 0.0f;
+    float stateTimer = 0.0f;
+    float launcherShotTimer = 0.0f;
+    bool moving = false;
+    bool flowStarted = false;
+    bool chooseMoveSideFromStageCenter = true;
+    bool launcherPrepared = false;
+    bool facingRight = false;
+    bool drillActive = false;
+    bool drillGroundRush = false;
+    bool drillDamageApplied = false;
+    int drillFloorObjectHits = 0;
+    int drillDirection = -1;
+    float drillX = 0.0f;
+    float drillY = 0.0f;
+    float drillWidth = 0.0f;
+    float drillHeight = 0.0f;
+    float drillVelocityX = 0.0f;
+    float drillVelocityY = 0.0f;
+    float drillAimX = -1.0f;
+    float drillAimY = 0.0f;
+    bool damageMotionRequested = false;
+    bool damageMotionAirborne = false;
+    float damageMotionDirection = 1.0f;
+    float damageMotionRemaining = 0.0f;
+    float damageMotionDuration = 0.0f;
+    float damageMotionOffsetX = 0.0f;
+    float damageMotionOffsetY = 0.0f;
+    bool initializedArena = false;
+    bool initializedHome = false;
+    std::vector<GameObject*> fistEntities;
+};
+
+class MidBoss3FistComponent final : public MonoBehaviour
+{
+public:
+    MidBoss3FistComponent() = default;
+
+    GameObject* ownerBoss = nullptr;
+    MidBoss3FistState state = MidBoss3FistState::Docked;
+    int fistIndex = 0;
+    float baseOffsetX = 0.0f;
+    float baseOffsetY = 0.0f;
+    float idlePhase = 0.0f;
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    float launchTimer = 0.0f;
+    float reloadStartX = 0.0f;
+    float reloadStartY = 0.0f;
+    bool damageApplied = false;
+    bool captureJammerActive = false;
+    bool broken = false;
+    bool impactAttackActive = false;
+    bool impactDamageApplied = false;
+    float impactAttackX = 0.0f;
+    float impactAttackY = 0.0f;
+    float impactAttackWidth = 0.0f;
+    float impactAttackHeight = 0.0f;
+    float impactAttackRemaining = 0.0f;
+};
+
 class GhostComponent final : public MonoBehaviour
 {
 public:
@@ -394,4 +541,36 @@ private:
     float m_velocityY;
     int m_damage;
     Owner m_owner;
+};
+
+enum class CapturedMidBoss3AttackKind
+{
+    Fist,
+    Drill,
+};
+
+class CapturedMidBoss3AttackComponent final : public MonoBehaviour
+{
+public:
+    explicit CapturedMidBoss3AttackComponent(CapturedMidBoss3AttackKind kindValue)
+        : kind(kindValue)
+    {
+    }
+
+    CapturedMidBoss3AttackKind kind = CapturedMidBoss3AttackKind::Fist;
+    float waitRemaining = 0.0f;
+    float followOffsetX = 0.0f;
+    float followOffsetY = 0.0f;
+    float aimX = 1.0f;
+    float aimY = 0.0f;
+    int direction = 1;
+    bool launched = true;
+    bool groundRush = false;
+    bool attachedToBoss = false;
+    float bossDamageTimer = 0.0f;
+    float knockbackRemaining = 0.0f;
+    float settleRemaining = 0.0f;
+    float settleDuration = 0.18f;
+    float settleStartRotation = 0.0f;
+    GameObject* carriedBoss = nullptr;
 };

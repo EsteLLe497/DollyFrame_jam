@@ -226,6 +226,7 @@ private:
     void DrawBossShockwavesUnderlay() const;
     void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
+    void DrawMidBoss3HpBar() const;
     void DrawAttackCaptureSlot() const;
     void DrawBatterySwitchCounters() const;
     void DrawEscapeMenuOverlay() const;

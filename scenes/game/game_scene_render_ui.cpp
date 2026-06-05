@@ -1043,13 +1043,28 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         const float sourceY = std::clamp((overlapTop - t->y) / objectWorldY, 0.0f, 1.0f);
         const float sourceW = std::clamp(overlapWidth / objectWorldX, 0.0f, 1.0f - sourceX);
         const float sourceH = std::clamp(overlapHeight / objectWorldY, 0.0f, 1.0f - sourceY);
+        const auto* rubble = entity->GetComponent<SepiaRubbleComponent>();
+        const bool attackRubble =
+            rubble &&
+            (rubble->source == SepiaRubbleSource::MidBoss3Fist ||
+                rubble->source == SepiaRubbleSource::MidBoss3Drill);
         Shader_ResetStyle();
-        Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
+        if (attackRubble)
+        {
+            Shader_SetTint(0.96f, 0.52f, 0.18f, 0.95f);
+        }
+        else
+        {
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
+        }
         SpriteDraw(
-            m_assets.GetTexture("sepia_ground"),
+            attackRubble ? m_whiteTexture : m_assets.GetTexture("sepia_ground"),
             drawEntityX, drawEntityY,
             drawEntityW, drawEntityH,
-            sourceX, sourceY, sourceW, sourceH);
+            attackRubble ? 0.0f : sourceX,
+            attackRubble ? 0.0f : sourceY,
+            attackRubble ? 1.0f : sourceW,
+            attackRubble ? 1.0f : sourceH);
 
     }
     Shader_ResetStyle();

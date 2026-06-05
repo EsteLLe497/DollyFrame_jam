@@ -61,7 +61,7 @@ namespace
     bool IsEnemySpawnMarker(char marker)
     {
         const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        return upper == 'W' || upper == 'R' || upper == 'N' || upper == '!' || upper == '?' || upper == '$';
+        return upper == 'W' || upper == 'R' || upper == 'N' || upper == '!' || upper == '?' || upper == '$' || upper == '%';
     }
 
     void LoadStageTransitionLinks()
@@ -363,7 +363,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest_boss.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins_boss.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_render.shakeOffsetX = 0.0f;
     m_render.shakeOffsetY = 0.0f;
@@ -540,6 +540,40 @@ void GameScene::InitializeStageEntities()
         return transform;
     };
 
+    const auto spawnMidBoss3Fists = [&](PrefabFactory& prefabs, Entity& boss)
+    {
+        auto* bossTransform = boss.GetComponent<TransformComponent>();
+        auto* bossComp = boss.GetComponent<MidBoss3Component>();
+        if (!bossTransform || !bossComp)
+        {
+            return;
+        }
+
+        bossComp->fistEntities.clear();
+        const float offsets[4][2] = {
+            { tileSize * 1.0f, -tileSize * 3.0f },
+            { tileSize * 1.0f,  tileSize * 5.0f },
+            { tileSize * 5.0f, -tileSize * 2.0f },
+            { tileSize * 5.0f,  tileSize * 4.5f },
+        };
+
+        for (int index = 0; index < 4; ++index)
+        {
+            Entity& fist = SpawnStagePrefab(
+                prefabs,
+                "sandbox_mid_boss3_fist",
+                bossTransform->x + offsets[index][0],
+                bossTransform->y + offsets[index][1]);
+            auto& fistComp = fist.AddComponent<MidBoss3FistComponent>();
+            fistComp.ownerBoss = &boss;
+            fistComp.fistIndex = index;
+            fistComp.baseOffsetX = offsets[index][0];
+            fistComp.baseOffsetY = offsets[index][1];
+            fistComp.idlePhase = static_cast<float>(index) * 1.35f;
+            bossComp->fistEntities.push_back(&fist);
+        }
+    };
+
     // Spawn walker/ranged enemies from CSV markers.
     for (const TileMarker& stageMarker : stageMarkers)
     {
@@ -644,6 +678,32 @@ void GameScene::InitializeStageEntities()
                     enemy->spawnX = transform->x;
                     enemy->spawnY = transform->y;
                 }
+            }
+        }
+        else if (marker == '%') // MidBoss3
+        {
+            Entity& boss = SpawnStagePrefab(
+                prefabs,
+                "sandbox_mid_boss3",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            if (auto* transform = boss.GetComponent<TransformComponent>())
+            {
+                transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
+                transform->y = static_cast<float>(row) * tileSize + (tileSize - transform->height * transform->scale) * 0.5f;
+                if (auto* enemy = boss.GetComponent<EnemyComponent>())
+                {
+                    enemy->spawnX = transform->x;
+                    enemy->spawnY = transform->y;
+                    enemy->respawnEnabled = false;
+                }
+                if (auto* bossComp = boss.GetComponent<MidBoss3Component>())
+                {
+                    bossComp->homeX = transform->x;
+                    bossComp->homeY = transform->y;
+                    bossComp->initializedHome = true;
+                }
+                spawnMidBoss3Fists(prefabs, boss);
             }
         }
         else if (marker == 'A') // 繧ｴ繝ｼ繧ｹ繝・

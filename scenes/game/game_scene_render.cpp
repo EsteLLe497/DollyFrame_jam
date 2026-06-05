@@ -193,6 +193,92 @@ namespace
         DrawTriangleAA(ax, ay, cx, cy, dx, dy, color, TRUE);
     }
 
+    void DrawMidBoss3DrillShape(
+        float screenX,
+        float screenY,
+        float screenW,
+        float screenH,
+        float drillAngle,
+        int direction,
+        float grooveTime,
+        float viewScale,
+        float alphaMultiplier)
+    {
+        const float centerX = screenX + screenW * 0.5f;
+        const float centerY = screenY + screenH * 0.5f;
+        const float tipW = std::max(12.0f, screenH * 0.62f);
+        const float bodyInsetY = screenH * 0.18f;
+        const float bodyLeft = screenX + screenH * 0.18f;
+        const float bodyRight = screenX + screenW - screenH * 0.18f;
+        const float bodyTop = screenY + bodyInsetY;
+        const float bodyBottom = screenY + screenH - bodyInsetY;
+        const int shadowColor = GetColor(88, 44, 20);
+        const int bodyColor = GetColor(228, 116, 42);
+        const int coreColor = GetColor(255, 184, 86);
+        const int grooveColor = GetColor(92, 44, 22);
+        const int tipColor = GetColor(255, 220, 118);
+        const auto rotatePoint = [&](float& x, float& y)
+        {
+            RotatePoint(centerX, centerY, drillAngle, x, y);
+        };
+        const auto drawRotatedBox = [&](float left, float top, float right, float bottom, int color)
+        {
+            float ax = left;
+            float ay = top;
+            float bx = right;
+            float by = top;
+            float cx = right;
+            float cy = bottom;
+            float dx = left;
+            float dy = bottom;
+            rotatePoint(ax, ay);
+            rotatePoint(bx, by);
+            rotatePoint(cx, cy);
+            rotatePoint(dx, dy);
+            DrawFilledQuad(ax, ay, bx, by, cx, cy, dx, dy, color);
+        };
+        const auto drawRotatedLine = [&](float ax, float ay, float bx, float by, int color, float thickness)
+        {
+            rotatePoint(ax, ay);
+            rotatePoint(bx, by);
+            DrawLineAA(ax, ay, bx, by, color, thickness);
+        };
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(210.0f * alphaMultiplier)), 0, 255));
+        drawRotatedBox(bodyLeft, bodyTop, bodyRight, bodyBottom, bodyColor);
+        drawRotatedLine(bodyLeft, bodyTop, bodyRight, bodyTop, shadowColor, std::max(2.0f, 3.0f * viewScale));
+        drawRotatedLine(bodyLeft, bodyBottom, bodyRight, bodyBottom, shadowColor, std::max(2.0f, 3.0f * viewScale));
+        drawRotatedLine(bodyLeft, centerY, bodyRight, centerY, coreColor, std::max(3.0f, screenH * 0.12f));
+
+        const float grooveSpacing = std::max(16.0f, screenH * 0.55f);
+        const float groovePhase = std::fmod(grooveTime * 220.0f, grooveSpacing);
+        const float directionSign = direction >= 0 ? 1.0f : -1.0f;
+        for (float x = bodyLeft - grooveSpacing + groovePhase; x < bodyRight + grooveSpacing; x += grooveSpacing)
+        {
+            drawRotatedLine(
+                x,
+                bodyBottom,
+                x + screenH * 0.36f * directionSign,
+                bodyTop,
+                grooveColor,
+                std::max(2.0f, 3.0f * viewScale));
+        }
+
+        float tipAx = bodyRight;
+        float tipAy = screenY + screenH * 0.08f;
+        float tipBx = bodyRight;
+        float tipBy = screenY + screenH * 0.92f;
+        float tipCx = bodyRight + tipW;
+        float tipCy = centerY;
+        rotatePoint(tipAx, tipAy);
+        rotatePoint(tipBx, tipBy);
+        rotatePoint(tipCx, tipCy);
+        DrawTriangleAA(tipAx, tipAy, tipBx, tipBy, tipCx, tipCy, tipColor, TRUE);
+        drawRotatedLine(bodyRight + tipW, centerY, bodyRight, bodyTop, shadowColor, std::max(2.0f, 2.0f * viewScale));
+        drawRotatedLine(bodyRight + tipW, centerY, bodyRight, bodyBottom, shadowColor, std::max(2.0f, 2.0f * viewScale));
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     void DrawStageLightFixtureShape(
         float x,
         float y,
@@ -1721,7 +1807,18 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
         }
     }
-    if (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth)
+    bool hasVisibleMidBoss3Drill = false;
+    if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
+    {
+        if (midBoss3->drillActive)
+        {
+            const float drillDrawX = viewOriginX + (midBoss3->drillX - m_flow.cameraX) * viewScale;
+            const float drillDrawW = midBoss3->drillWidth * viewScale;
+            hasVisibleMidBoss3Drill = drillDrawX + drillDrawW >= viewOriginX &&
+                drillDrawX <= viewOriginX + viewWidth;
+        }
+    }
+    if (!hasVisibleMidBoss3Drill && (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth))
     {
         return;
     }
@@ -1979,6 +2076,56 @@ void GameScene::DrawEntity(const Entity& entity) const
         const auto* projectile = entity.GetComponent<ProjectileComponent>();
         if (projectile)
         {
+            if (const auto* capturedMidBoss3Attack = entity.GetComponent<CapturedMidBoss3AttackComponent>())
+            {
+                if (capturedMidBoss3Attack->kind == CapturedMidBoss3AttackKind::Drill)
+                {
+                    DrawMidBoss3DrillShape(
+                        drawX,
+                        drawY,
+                        drawWidth,
+                        drawHeight,
+                        transform->rotation,
+                        capturedMidBoss3Attack->direction,
+                        transform->x * 0.015f,
+                        viewScale,
+                        alphaMultiplier);
+                    Shader_ResetStyle();
+                    return;
+                }
+
+                const int color = GetColor(246, 132, 46);
+                SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(235.0f * alphaMultiplier)));
+                const float centerX = drawX + drawWidth * 0.5f;
+                const float centerY = drawY + drawHeight * 0.5f;
+                const float halfW = drawWidth * 0.5f;
+                const float halfH = drawHeight * 0.5f;
+                const float c = std::cos(transform->rotation);
+                const float s = std::sin(transform->rotation);
+                const auto cornerX = [&](float localX, float localY) -> float
+                {
+                    return centerX + localX * c - localY * s;
+                };
+                const auto cornerY = [&](float localX, float localY) -> float
+                {
+                    return centerY + localX * s + localY * c;
+                };
+                DrawQuadrangleAA(
+                    cornerX(-halfW, -halfH),
+                    cornerY(-halfW, -halfH),
+                    cornerX(halfW, -halfH),
+                    cornerY(halfW, -halfH),
+                    cornerX(halfW, halfH),
+                    cornerY(halfW, halfH),
+                    cornerX(-halfW, halfH),
+                    cornerY(-halfW, halfH),
+                    color,
+                    TRUE);
+                SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+                Shader_ResetStyle();
+                return;
+            }
+
             const float angle = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
             if (midBoss2Spear)
             {
@@ -2400,6 +2547,67 @@ void GameScene::DrawEntity(const Entity& entity) const
             sprite->GetSourceHeight(),
             sprite->GetFlipX(),
             transform->rotation);
+    }
+
+    if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
+    {
+        if (midBoss3Fist->captureJammerActive)
+        {
+            constexpr float kTileSize = 48.0f;
+            const float jammerSize = kTileSize * 3.0f;
+            const float fistWidth = transform->width * transform->scale;
+            const float fistHeight = transform->height * transform->scale;
+            const float jammerWorldX = transform->x + fistWidth * 0.5f - jammerSize * 0.5f;
+            const float jammerWorldY = transform->y + fistHeight * 0.5f - jammerSize * 0.5f;
+            const float screenX = GetViewOriginX() + (jammerWorldX - m_flow.cameraX) * viewScale;
+            const float screenY = GetViewOriginY() + (jammerWorldY - m_flow.cameraY) * viewScale;
+            const float screenSize = jammerSize * viewScale;
+            const float cellSize = kTileSize * viewScale;
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, 96);
+            DrawBoxAA(screenX, screenY, screenX + screenSize, screenY + screenSize, GetColor(90, 225, 238), TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, 144);
+            DrawBoxAA(screenX, screenY, screenX + screenSize, screenY + screenSize, GetColor(42, 180, 212), FALSE);
+            DrawLineAA(screenX, screenY + cellSize, screenX + screenSize, screenY + cellSize, GetColor(60, 190, 210), 1.5f);
+            DrawLineAA(screenX, screenY + cellSize * 2.0f, screenX + screenSize, screenY + cellSize * 2.0f, GetColor(60, 190, 210), 1.5f);
+            DrawLineAA(screenX + cellSize, screenY, screenX + cellSize, screenY + screenSize, GetColor(60, 190, 210), 1.5f);
+            DrawLineAA(screenX + cellSize * 2.0f, screenY, screenX + cellSize * 2.0f, screenY + screenSize, GetColor(60, 190, 210), 1.5f);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        }
+        if (midBoss3Fist->impactAttackActive)
+        {
+            const float screenX = GetViewOriginX() + (midBoss3Fist->impactAttackX - m_flow.cameraX) * viewScale;
+            const float screenY = GetViewOriginY() + (midBoss3Fist->impactAttackY - m_flow.cameraY) * viewScale;
+            const float screenW = midBoss3Fist->impactAttackWidth * viewScale;
+            const float screenH = midBoss3Fist->impactAttackHeight * viewScale;
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, 96);
+            DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH, GetColor(255, 96, 48), TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        }
+    }
+
+    if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
+    {
+        if (midBoss3->drillActive)
+        {
+            const float screenX = GetViewOriginX() + (midBoss3->drillX - m_flow.cameraX) * viewScale;
+            const float screenY = GetViewOriginY() + (midBoss3->drillY - m_flow.cameraY) * viewScale;
+            const float screenW = midBoss3->drillWidth * viewScale;
+            const float screenH = midBoss3->drillHeight * viewScale;
+            const float drillAngle = midBoss3->drillGroundRush
+                ? (midBoss3->drillDirection >= 0 ? 0.0f : 3.14159265f)
+                : std::atan2(midBoss3->drillAimY, midBoss3->drillAimX);
+            DrawMidBoss3DrillShape(
+                screenX,
+                screenY,
+                screenW,
+                screenH,
+                drillAngle,
+                midBoss3->drillDirection,
+                midBoss3->stateTimer,
+                viewScale,
+                alphaMultiplier);
+        }
     }
 
     if (const auto* enemy = enemyComponent)

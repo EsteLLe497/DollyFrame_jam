@@ -1,29 +1,37 @@
 #pragma once
 
+#include <array>
+#include <limits>
+
 #include "game_scene_combat_common.h"
 
 namespace game_scene_combat_system
 {
-template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
+template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
     const std::vector<Entity*>& enemyEntities,
     const std::vector<Entity*>& interactionEntities,
     int tileTexture,
+    int rubbleTexture,
     float mapWidth,
     float mapHeight,
     GameSceneFlowState& flow,
     const PhotoState& photo,
+    Entity* player,
+    GameScenePlayerState* playerState,
     const TransformComponent* playerTransform,
     SnapToGroundFn&& snapToGround,
     PlayEnemyGunFn&& playEnemyGun,
     PlayShieldBossRoarFn&& playShieldBossRoar,
+    HandlePlayerDamageFn&& handlePlayerDamage,
     CheckPhotoBoxCollisionFn&& checkPhotoBoxCollision,
     IsSolidTileFn&& isSolidTile)
 {
     flow.enemyCount = 0;
     std::vector<std::unique_ptr<Entity>> newBullets;
     std::vector<std::unique_ptr<Entity>> newShields;
+    std::vector<std::unique_ptr<Entity>> newRubbles;
     std::vector<Entity*> entitiesToRemove;
     constexpr float kMidBoss2JumpCenterGridX = 36.0f;
     constexpr float kMidBoss2ArenaHalfWidthGrid = 18.0f;
@@ -57,6 +65,1485 @@ inline void UpdateEnemies(
         auto* transform = entity->GetComponent<TransformComponent>();
         if (!transform)
         {
+            continue;
+        }
+
+        if (enemy->GetArchetype() == EnemyArchetype::MidBoss3)
+        {
+            auto* boss = entity->GetComponent<MidBoss3Component>();
+            if (!boss)
+            {
+                continue;
+            }
+
+            constexpr float kTileSize = 48.0f;
+            const float deltaTime = flow.lastDeltaTime;
+            const auto smoothStep = [](float value) -> float
+            {
+                value = std::clamp(value, 0.0f, 1.0f);
+                return value * value * (3.0f - 2.0f * value);
+            };
+            const auto moveToward = [](float current, float target, float maxDelta) -> float
+            {
+                const float diff = target - current;
+                if (std::fabs(diff) <= maxDelta)
+                {
+                    return target;
+                }
+                return current + (diff > 0.0f ? maxDelta : -maxDelta);
+            };
+            const auto bossWidth = transform->width * transform->scale;
+            const auto bossHeight = transform->height * transform->scale;
+            const auto bossCenterX = [&]() -> float
+            {
+                return transform->x + bossWidth * 0.5f;
+            };
+            const auto bossCenterY = [&]() -> float
+            {
+                return transform->y + bossHeight * 0.5f;
+            };
+            const float stageCenterX = mapWidth * 0.5f;
+            const float playerCenterX = playerTransform
+                ? playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f
+                : bossCenterX();
+            const float playerCenterY = playerTransform
+                ? playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f
+                : bossCenterY();
+
+            if (!boss->initializedHome)
+            {
+                boss->homeX = transform->x;
+                boss->homeY = transform->y;
+                boss->initializedHome = true;
+            }
+            if (!boss->initializedArena)
+            {
+                boss->arenaCenterX = boss->homeX;
+                boss->arenaCenterY = boss->homeY;
+                boss->moveStartX = boss->homeX;
+                boss->moveStartY = boss->homeY;
+                boss->moveTargetX = boss->homeX;
+                boss->moveTargetY = boss->homeY;
+                boss->initializedArena = true;
+            }
+            boss->idleTimer += deltaTime;
+            boss->stateTimer += deltaTime;
+            boss->facingRight = playerCenterX >= (boss->homeX + bossWidth * 0.5f);
+            if (auto* sprite = entity->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetFlipX(boss->facingRight);
+            }
+
+            const auto isBossGrounded = [&]() -> bool
+            {
+                const int row = static_cast<int>(std::floor((boss->homeY + bossHeight + 2.0f) / kTileSize));
+                const int leftColumn = static_cast<int>(std::floor((boss->homeX + kTileSize * 0.25f) / kTileSize));
+                const int centerColumn = static_cast<int>(std::floor((boss->homeX + bossWidth * 0.5f) / kTileSize));
+                const int rightColumn = static_cast<int>(std::floor((boss->homeX + bossWidth - kTileSize * 0.25f) / kTileSize));
+                return isSolidTile(leftColumn, row) ||
+                    isSolidTile(centerColumn, row) ||
+                    isSolidTile(rightColumn, row);
+            };
+            if (boss->damageMotionRequested)
+            {
+                boss->damageMotionRequested = false;
+                boss->damageMotionAirborne = !isBossGrounded();
+                boss->damageMotionDuration = boss->damageMotionAirborne ? 0.46f : 0.34f;
+                boss->damageMotionRemaining = boss->damageMotionDuration;
+                boss->damageMotionDirection = boss->damageMotionDirection >= 0.0f ? 1.0f : -1.0f;
+            }
+            boss->damageMotionOffsetX = 0.0f;
+            boss->damageMotionOffsetY = 0.0f;
+            if (boss->damageMotionRemaining > 0.0f && boss->damageMotionDuration > 0.0f)
+            {
+                const float progress = std::clamp(
+                    1.0f - boss->damageMotionRemaining / boss->damageMotionDuration,
+                    0.0f,
+                    1.0f);
+                const float pushInProgress = std::clamp(progress / 0.24f, 0.0f, 1.0f);
+                const float pushOutProgress = std::clamp((progress - 0.24f) / 0.76f, 0.0f, 1.0f);
+                const float pushIn = smoothStep(pushInProgress);
+                const float pushOut = smoothStep(pushOutProgress);
+                const float push = pushIn * (1.0f - pushOut);
+                const float arc = std::sin(progress * 3.1415926f);
+                if (boss->damageMotionAirborne)
+                {
+                    boss->damageMotionOffsetX = boss->damageMotionDirection * kTileSize * 0.85f * push;
+                    boss->damageMotionOffsetY = kTileSize * 0.32f * arc;
+                }
+                else
+                {
+                    boss->damageMotionOffsetX = boss->damageMotionDirection * kTileSize * 0.58f * push;
+                }
+                boss->damageMotionRemaining = std::max(0.0f, boss->damageMotionRemaining - deltaTime);
+            }
+
+            const auto getFistDockX = [&](const MidBoss3FistComponent& fist, const TransformComponent& fistTransform, float bossX) -> float
+            {
+                if (!boss->facingRight)
+                {
+                    return bossX + fist.baseOffsetX;
+                }
+                return bossX + bossWidth - fist.baseOffsetX - fistTransform.width * fistTransform.scale;
+            };
+            const auto getFistDockY = [&](const MidBoss3FistComponent& fist, const TransformComponent&) -> float
+            {
+                return boss->homeY + fist.baseOffsetY +
+                    std::sin(boss->idleTimer * boss->params.idleFloatSpeed + fist.idlePhase) *
+                    boss->params.idleFloatAmplitude;
+            };
+            const auto rectIntersectsSolid = [&](float x, float y, float width, float height) -> bool
+            {
+                const int columnCount = std::max(1, static_cast<int>(mapWidth / kTileSize));
+                const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
+                const int leftColumn = static_cast<int>(std::floor(x / kTileSize));
+                const int rightColumn = static_cast<int>(std::floor((x + width - 1.0f) / kTileSize));
+                const int topRow = static_cast<int>(std::floor(y / kTileSize));
+                const int bottomRow = static_cast<int>(std::floor((y + height - 1.0f) / kTileSize));
+
+                for (int row = topRow; row <= bottomRow; ++row)
+                {
+                    for (int column = leftColumn; column <= rightColumn; ++column)
+                    {
+                        if (column < 0 || column >= columnCount || row >= rowCount)
+                        {
+                            return true;
+                        }
+                        if (row < 0)
+                        {
+                            continue;
+                        }
+                        if (isSolidTile(column, row))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            };
+            const auto isEntityPendingRemove = [&](const Entity* target) -> bool
+            {
+                return target &&
+                    std::find(entitiesToRemove.begin(), entitiesToRemove.end(), target) != entitiesToRemove.end();
+            };
+            const auto spawnSepiaCollisionRubble = [&](float x, float y, float width, float height, SepiaRubbleSource source)
+            {
+                const float rubbleSize = std::clamp(std::min(width, height), kTileSize * 0.75f, kTileSize * 2.0f);
+                auto rubble = std::make_unique<Entity>();
+                rubble->AddComponent<TagComponent>("SepiaRubble");
+                rubble->AddComponent<TransformComponent>(
+                    x + width * 0.5f - rubbleSize * 0.5f,
+                    y + height * 0.5f - rubbleSize * 0.5f,
+                    rubbleSize,
+                    rubbleSize);
+                rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+                rubble->AddComponent<SpriteRenderComponent>(rubbleTexture >= 0 ? rubbleTexture : tileTexture);
+                rubble->AddComponent<SepiaRubbleComponent>(source);
+                rubble->AddComponent<PhotoCopyLifetimeComponent>(1.4f);
+                newRubbles.push_back(std::move(rubble));
+            };
+            const auto queueDestroyEntity = [&](Entity* target, SepiaRubbleSource source)
+            {
+                if (!target || target == entity || target == player || isEntityPendingRemove(target))
+                {
+                    return;
+                }
+
+                const auto* targetTransform = target->GetComponent<TransformComponent>();
+                if (targetTransform)
+                {
+                    spawnSepiaCollisionRubble(
+                        targetTransform->x,
+                        targetTransform->y,
+                        targetTransform->width * targetTransform->scale,
+                        targetTransform->height * targetTransform->scale,
+                        source);
+                }
+                entitiesToRemove.push_back(target);
+            };
+            const auto breakFistAtCollision = [&](MidBoss3FistComponent& targetFist, TransformComponent& targetTransform)
+            {
+                targetFist.state = MidBoss3FistState::Broken;
+                targetFist.broken = true;
+                targetFist.damageApplied = true;
+                targetFist.velocityX = 0.0f;
+                targetFist.velocityY = 0.0f;
+                targetFist.captureJammerActive = false;
+                targetFist.impactAttackActive = false;
+                spawnSepiaCollisionRubble(
+                    targetTransform.x,
+                    targetTransform.y,
+                    targetTransform.width * targetTransform.scale,
+                    targetTransform.height * targetTransform.scale,
+                    SepiaRubbleSource::MidBoss3Fist);
+                if (auto* tint = targetFist.GetGameObject().GetComponent<TintComponent>())
+                {
+                    tint->a = 0.0f;
+                }
+            };
+            const auto isSepiaObject = [&](const Entity& target) -> bool
+            {
+                if (target.GetComponent<SepiaRubbleComponent>() ||
+                    target.GetComponent<SepiaRubbleGroupComponent>() ||
+                    HasTag(target, "SepiaRubble"))
+                {
+                    return true;
+                }
+                if (const auto* effect = target.GetComponent<PhotoCopyEffectComponent>())
+                {
+                    return effect->GetTheme() == PhotoFilterTheme::Sepia;
+                }
+                return false;
+            };
+            const auto isSepiaDriveObject = [&](const Entity& target) -> bool
+            {
+                return HasTag(target, "PhotoSource") || target.GetComponent<PhotoFilterComponent>() != nullptr;
+            };
+            const auto isFloorObject = [&](const Entity& target) -> bool
+            {
+                if (!HasTag(target, "PhotoBox"))
+                {
+                    return false;
+                }
+                const auto* role = target.GetComponent<PhotoCopyRoleComponent>();
+                const auto* layer = target.GetComponent<PhotoCopyLayerComponent>();
+                const auto* origin = target.GetComponent<PhotoCopyOriginComponent>();
+                return (!layer || layer->layer == PhotoCopyLayer::Foreground) &&
+                    role && role->role == PhotoCopyRole::Solid &&
+                    origin && origin->origin == PhotoCopyOrigin::Tile;
+            };
+            const auto isBreakableObject = [&](const Entity& target) -> bool
+            {
+                if (isSepiaObject(target) || isSepiaDriveObject(target) || isFloorObject(target))
+                {
+                    return false;
+                }
+                return target.GetComponent<BarrelComponent>() ||
+                    target.GetComponent<BatteryComponent>() ||
+                    target.GetComponent<VanishOnCaptureComponent>() ||
+                    HasTag(target, "Log") ||
+                    HasTag(target, "Battery") ||
+                    HasTag(target, "DamagePlatform") ||
+                    HasTag(target, "DamagePlatformSpike") ||
+                    HasTag(target, "PhotoBox");
+            };
+            const auto getProjectileObjectCollision = [&](const TransformComponent& projectileTransform, Entity* sourceFist) -> Entity*
+            {
+                for (const auto& target : entities)
+                {
+                    if (!target ||
+                        target.get() == entity ||
+                        target.get() == sourceFist ||
+                        target.get() == player ||
+                        isEntityPendingRemove(target.get()))
+                    {
+                        continue;
+                    }
+
+                    const auto* targetTransform = target->GetComponent<TransformComponent>();
+                    if (!targetTransform || !IntersectsBounds(projectileTransform, *targetTransform))
+                    {
+                        continue;
+                    }
+
+                    if (HasTag(*target, kTagEnemy))
+                    {
+                        const auto* targetEnemy = target->GetComponent<EnemyComponent>();
+                        if (targetEnemy && targetEnemy->GetArchetype() == EnemyArchetype::MidBoss3)
+                        {
+                            continue;
+                        }
+                    }
+                    return target.get();
+                }
+                return nullptr;
+            };
+            const auto resetFistForAttack = [](MidBoss3FistComponent& fist)
+            {
+                fist.velocityX = 0.0f;
+                fist.velocityY = 0.0f;
+                fist.launchTimer = 0.0f;
+                fist.damageApplied = false;
+                fist.broken = false;
+                fist.impactAttackActive = false;
+                fist.impactDamageApplied = false;
+                fist.impactAttackRemaining = 0.0f;
+            };
+            const auto chooseUnjammedFist = [&]() -> int
+            {
+                return static_cast<int>(std::fmod(
+                    std::fabs(std::sin(boss->idleTimer * 19.137f + static_cast<float>(boss->movePattern) * 71.91f)) * 43758.5453f,
+                    4.0f));
+            };
+            const auto getMovePoint = [&](int side, int pattern, int step, float& outX, float& outY)
+            {
+                const float sideSign = side < 0 ? -1.0f : 1.0f;
+                const int safePattern = ((pattern % 3) + 3) % 3;
+                const int safeStep = step % 4;
+                float offsetXGrid = 0.0f;
+                float offsetYGrid = 2.0f;
+
+                if (safePattern == 0)
+                {
+                    const float points[4][2] = {
+                        { 12.0f,  2.0f },
+                        {  6.0f, -3.0f },
+                        {  4.0f,  2.0f },
+                        {  0.0f,  2.0f },
+                    };
+                    offsetXGrid = points[safeStep][0];
+                    offsetYGrid = points[safeStep][1];
+                }
+                else if (safePattern == 1)
+                {
+                    const float points[4][2] = {
+                        { 12.0f,  2.0f },
+                        {  4.0f,  2.0f },
+                        {  0.0f,  2.0f },
+                        {  6.0f, -3.0f },
+                    };
+                    offsetXGrid = points[safeStep][0];
+                    offsetYGrid = points[safeStep][1];
+                }
+                else
+                {
+                    const float points[4][2] = {
+                        { 12.0f,  2.0f },
+                        {  6.0f, -3.0f },
+                        {  0.0f,  2.0f },
+                        {  4.0f,  2.0f },
+                    };
+                    offsetXGrid = points[safeStep][0];
+                    offsetYGrid = points[safeStep][1];
+                }
+
+                outX = boss->arenaCenterX + offsetXGrid * sideSign * kTileSize;
+                outY = boss->arenaCenterY + offsetYGrid * kTileSize;
+            };
+            const auto setAllFistsState = [&](MidBoss3FistState state, bool useJammer)
+            {
+                const int unjammedIndex = chooseUnjammedFist();
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                    auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+                    if (!fist)
+                    {
+                        continue;
+                    }
+                    fist->state = state;
+                    resetFistForAttack(*fist);
+                    fist->captureJammerActive = useJammer && fist->fistIndex != unjammedIndex;
+                    if (fistTransform)
+                    {
+                        fistTransform->rotation = 0.0f;
+                    }
+                    if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                    {
+                        tint->a = 1.0f;
+                    }
+                }
+            };
+            const auto beginReload = [&]()
+            {
+                boss->state = MidBoss3State::ReloadFists;
+                boss->stateTimer = 0.0f;
+                boss->drillActive = false;
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                    auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+                    if (!fist || !fistTransform)
+                    {
+                        continue;
+                    }
+                    const float fistHeight = fistTransform->height * fistTransform->scale;
+                    const float fistWidth = fistTransform->width * fistTransform->scale;
+                    const bool reloadFromTop = fist->fistIndex == 0 || fist->fistIndex == 2;
+                    const std::array<float, 4> reloadStartOffsets = {
+                        -10.0f,
+                        -5.0f,
+                        5.0f,
+                        10.0f,
+                    };
+                    const int reloadIndex = std::clamp(fist->fistIndex, 0, 3);
+                    const float scatteredStartX = boss->arenaCenterX + reloadStartOffsets[reloadIndex] * kTileSize;
+                    fist->state = MidBoss3FistState::Reloading;
+                    fist->reloadStartX = std::clamp(scatteredStartX, -fistWidth, mapWidth);
+                    fist->reloadStartY = reloadFromTop ? -fistHeight - kTileSize * 1.5f : mapHeight + kTileSize * 1.5f;
+                    fistTransform->x = fist->reloadStartX;
+                    fistTransform->y = fist->reloadStartY;
+                    fistTransform->rotation = 0.0f;
+                    fist->broken = false;
+                    fist->damageApplied = false;
+                    fist->launchTimer = 0.0f;
+                    fist->captureJammerActive = false;
+                    fist->impactAttackActive = false;
+                    fist->impactDamageApplied = false;
+                    fist->impactAttackRemaining = 0.0f;
+                    if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                    {
+                        tint->a = 1.0f;
+                    }
+                }
+            };
+            const auto prepareLauncherAttack = [&]()
+            {
+                boss->state = MidBoss3State::LauncherFist;
+                boss->stateTimer = 0.0f;
+                boss->launcherShotTimer = 0.0f;
+                boss->launcherShotsFired = 0;
+                boss->cooldownAttack = 1;
+                boss->launcherDirection = playerCenterX < stageCenterX ? -1 : 1;
+                boss->homeX = std::clamp(stageCenterX - bossWidth * 0.5f, 0.0f, std::max(0.0f, mapWidth - bossWidth));
+                float fistHeight = kTileSize * 2.0f;
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    if (const auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr)
+                    {
+                        fistHeight = fistTransform->height * fistTransform->scale;
+                        break;
+                    }
+                }
+                boss->launcherLowerLaneY = std::clamp(playerCenterY - fistHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - fistHeight));
+                boss->launcherUpperLaneY = std::clamp(boss->launcherLowerLaneY - kTileSize * 2.0f, 0.0f, std::max(0.0f, mapHeight - fistHeight));
+                setAllFistsState(MidBoss3FistState::LauncherReady, true);
+            };
+            const auto prepareMeteorAttack = [&]()
+            {
+                boss->state = MidBoss3State::MeteorFist;
+                boss->stateTimer = 0.0f;
+                boss->launcherShotTimer = 0.0f;
+                boss->meteorShotsFired = 0;
+                boss->cooldownAttack = 2;
+                boss->meteorDirection = playerCenterX < stageCenterX ? -1 : 1;
+                setAllFistsState(MidBoss3FistState::MeteorReady, true);
+            };
+            const auto prepareComboAttack = [&]()
+            {
+                boss->state = MidBoss3State::LauncherMeteorFist;
+                boss->stateTimer = 0.0f;
+                boss->launcherShotTimer = 0.0f;
+                boss->launcherShotsFired = 0;
+                boss->meteorShotsFired = 0;
+                boss->cooldownAttack = 3;
+                boss->launcherDirection = playerCenterX < stageCenterX ? -1 : 1;
+                boss->meteorDirection = boss->launcherDirection;
+                setAllFistsState(MidBoss3FistState::Docked, true);
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                    if (fist && fist->fistIndex <= 1)
+                    {
+                        fist->state = MidBoss3FistState::MeteorReady;
+                    }
+                }
+            };
+            const auto prepareDrillAttack = [&]()
+            {
+                boss->state = MidBoss3State::DrillFist;
+                boss->stateTimer = 0.0f;
+                boss->cooldownAttack = 4;
+                boss->drillActive = true;
+                boss->drillGroundRush = false;
+                boss->drillDamageApplied = false;
+                boss->drillFloorObjectHits = 0;
+                boss->drillVelocityX = 0.0f;
+                boss->drillVelocityY = 0.0f;
+                boss->drillWidth = kTileSize * 4.0f;
+                boss->drillHeight = kTileSize * 2.0f;
+                boss->drillDirection = playerCenterX >= bossCenterX() ? 1 : -1;
+                const float drillX = boss->drillDirection > 0
+                    ? transform->x + bossWidth + kTileSize * 0.5f
+                    : transform->x - boss->drillWidth - kTileSize * 0.5f;
+                boss->drillX = std::clamp(drillX, 0.0f, std::max(0.0f, mapWidth - boss->drillWidth));
+                boss->drillY = std::clamp(transform->y + bossHeight * 0.5f - boss->drillHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - boss->drillHeight));
+                const float aimDx = playerCenterX - (boss->drillX + boss->drillWidth * 0.5f);
+                const float aimDy = playerCenterY - (boss->drillY + boss->drillHeight * 0.5f);
+                const float aimLength = std::max(0.001f, std::hypot(aimDx, aimDy));
+                boss->drillAimX = aimDx / aimLength;
+                boss->drillAimY = aimDy / aimLength;
+                setAllFistsState(MidBoss3FistState::DrillForming, false);
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    if (auto* tint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr)
+                    {
+                        tint->a = 0.0f;
+                    }
+                }
+            };
+            const auto prepareNextFlowAttack = [&]()
+            {
+                boss->flowStarted = true;
+                switch (boss->nextFlowAttack)
+                {
+                case 1:
+                    prepareLauncherAttack();
+                    break;
+                case 2:
+                    prepareMeteorAttack();
+                    break;
+                case 3:
+                    prepareComboAttack();
+                    break;
+                case 4:
+                    prepareDrillAttack();
+                    break;
+                default:
+                    boss->nextFlowAttack = 2;
+                    prepareMeteorAttack();
+                    break;
+                }
+            };
+
+            if (boss->debugRequestedAttack > 0)
+            {
+                const int requested = boss->debugRequestedAttack;
+                boss->debugRequestedAttack = 0;
+                boss->flowStarted = true;
+                if (requested == 1) prepareLauncherAttack();
+                else if (requested == 2) prepareMeteorAttack();
+                else if (requested == 3) prepareComboAttack();
+                else if (requested == 4) prepareDrillAttack();
+            }
+
+            if (boss->state == MidBoss3State::Move)
+            {
+                if (!boss->flowStarted)
+                {
+                    if (boss->stateTimer < boss->params.initialFlowDelayTime)
+                    {
+                        const float bossWave = std::sin(boss->idleTimer * boss->params.idleFloatSpeed);
+                        transform->x = boss->homeX + boss->damageMotionOffsetX;
+                        transform->y = boss->homeY + bossWave * boss->params.idleFloatAmplitude + boss->damageMotionOffsetY;
+                    }
+                    else
+                    {
+                        prepareNextFlowAttack();
+                    }
+                }
+                else
+                {
+                    boss->moveTimer += deltaTime;
+                    if (boss->moving)
+                    {
+                        const float progress = std::clamp(
+                            boss->moveTimer / std::max(0.01f, boss->params.moveDuration),
+                            0.0f,
+                            1.0f);
+                        const float eased = smoothStep(progress);
+                        const float arc = std::sin(progress * 3.1415926f) * boss->params.moveArcHeightGrid * kTileSize;
+                        boss->homeX = boss->moveStartX + (boss->moveTargetX - boss->moveStartX) * eased;
+                        boss->homeY = boss->moveStartY + (boss->moveTargetY - boss->moveStartY) * eased - arc;
+                        if (progress >= 1.0f)
+                        {
+                            boss->homeX = boss->moveTargetX;
+                            boss->homeY = boss->moveTargetY;
+                            boss->moving = false;
+                            boss->moveTimer = 0.0f;
+                            if (boss->moveStep == 0)
+                            {
+                                prepareNextFlowAttack();
+                            }
+                        }
+                    }
+                    else if (boss->moveTimer >= boss->params.movePauseTime)
+                    {
+                        if (boss->moveStep == 0)
+                        {
+                            if (boss->chooseMoveSideFromStageCenter)
+                            {
+                                boss->moveSide = playerCenterX < stageCenterX ? -1 : 1;
+                                boss->lastFlowMoveSide = boss->moveSide;
+                            }
+                            else if (boss->lastFlowMoveSide == -1 || boss->lastFlowMoveSide == 1)
+                            {
+                                boss->moveSide = boss->lastFlowMoveSide;
+                            }
+                            boss->chooseMoveSideFromStageCenter = false;
+                        }
+
+                        boss->moveStartX = boss->homeX;
+                        boss->moveStartY = boss->homeY;
+                        getMovePoint(boss->moveSide, boss->movePattern, boss->moveStep, boss->moveTargetX, boss->moveTargetY);
+                        boss->moveTargetX = std::clamp(
+                            boss->moveTargetX,
+                            0.0f,
+                            std::max(0.0f, mapWidth - bossWidth));
+                        boss->moveTargetY = std::clamp(
+                            boss->moveTargetY,
+                            0.0f,
+                            std::max(0.0f, mapHeight - bossHeight));
+                        boss->moving = true;
+                        boss->moveTimer = 0.0f;
+                        boss->moveStep = (boss->moveStep + 1) % 4;
+                        if (boss->moveStep == 0)
+                        {
+                            boss->movePattern = (boss->movePattern + 1) % 3;
+                        }
+                    }
+                }
+            }
+            else if (boss->state == MidBoss3State::LauncherFist)
+            {
+                boss->launcherShotTimer += deltaTime;
+                if (boss->stateTimer >= boss->params.launcherWindupTime &&
+                    boss->launcherShotsFired < 4 &&
+                    (boss->launcherShotsFired == 0 || boss->launcherShotTimer >= boss->params.launcherFistInterval))
+                {
+                    const int launchOrder[4] = { 0, 1, 2, 3 };
+                    const int fistIndex = launchOrder[boss->launcherShotsFired];
+                    for (Entity* fistEntity : boss->fistEntities)
+                    {
+                        auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                        auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+                        if (!fist || !fistTransform || fist->fistIndex != fistIndex)
+                        {
+                            continue;
+                        }
+                        fist->state = MidBoss3FistState::Launching;
+                        fist->velocityX = boss->launcherDirection < 0 ? -boss->params.launcherFistSpeed : boss->params.launcherFistSpeed;
+                        fist->velocityY = 0.0f;
+                        fist->launchTimer = 0.0f;
+                        fistTransform->y = (fistIndex % 2 == 0) ? boss->launcherLowerLaneY : boss->launcherUpperLaneY;
+                        fistTransform->rotation = 0.0f;
+                        break;
+                    }
+                    boss->launcherShotTimer = 0.0f;
+                    ++boss->launcherShotsFired;
+                }
+                if (boss->launcherShotsFired >= 4)
+                {
+                    boss->state = MidBoss3State::AttackCooldown;
+                    boss->stateTimer = 0.0f;
+                }
+            }
+            else if (boss->state == MidBoss3State::MeteorFist ||
+                boss->state == MidBoss3State::LauncherMeteorFist)
+            {
+                const auto launchMeteorPair = [&](int a, int b)
+                {
+                    for (Entity* fistEntity : boss->fistEntities)
+                    {
+                        auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                        auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+                        if (!fist || !fistTransform || fist->state != MidBoss3FistState::MeteorReady)
+                        {
+                            continue;
+                        }
+                        if (fist->fistIndex != a && fist->fistIndex != b)
+                        {
+                            continue;
+                        }
+                        fist->state = MidBoss3FistState::MeteorFalling;
+                        fist->velocityX = 0.0f;
+                        fist->velocityY = boss->params.meteorFistSpeed;
+                        fist->launchTimer = 0.0f;
+                        fistTransform->rotation = 1.5707963f;
+                    }
+                };
+
+                if (boss->stateTimer >= boss->params.meteorWindupTime && boss->meteorShotsFired == 0)
+                {
+                    launchMeteorPair(0, 1);
+                    boss->meteorShotsFired = 2;
+                }
+                if (boss->stateTimer >= boss->params.meteorWindupTime + boss->params.meteorPairInterval && boss->meteorShotsFired == 2)
+                {
+                    if (boss->state == MidBoss3State::MeteorFist)
+                    {
+                        launchMeteorPair(2, 3);
+                        boss->meteorShotsFired = 4;
+                        boss->state = MidBoss3State::AttackCooldown;
+                        boss->stateTimer = 0.0f;
+                    }
+                    else
+                    {
+                        float fistHeight = kTileSize * 2.0f;
+                        for (Entity* fistEntity : boss->fistEntities)
+                        {
+                            if (const auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr)
+                            {
+                                fistHeight = fistTransform->height * fistTransform->scale;
+                                break;
+                            }
+                        }
+                        boss->launcherLowerLaneY = std::clamp(playerCenterY - fistHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - fistHeight));
+                        for (Entity* fistEntity : boss->fistEntities)
+                        {
+                            auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                            if (fist && fist->fistIndex >= 2)
+                            {
+                                fist->state = MidBoss3FistState::LauncherReady;
+                            }
+                        }
+                        boss->state = MidBoss3State::LauncherFist;
+                        boss->stateTimer = boss->params.launcherWindupTime;
+                        boss->launcherShotsFired = 2;
+                        boss->launcherShotTimer = boss->params.launcherFistInterval;
+                    }
+                }
+            }
+            else if (boss->state == MidBoss3State::DrillFist)
+            {
+                if (boss->drillActive)
+                {
+                    const float drillCenterX = boss->drillX + boss->drillWidth * 0.5f;
+                    const float drillCenterY = boss->drillY + boss->drillHeight * 0.5f;
+                    if (boss->stateTimer < boss->params.drillWaitTime)
+                    {
+                        const float aimDx = playerCenterX - drillCenterX;
+                        const float aimDy = playerCenterY - drillCenterY;
+                        const float aimLength = std::max(0.001f, std::hypot(aimDx, aimDy));
+                        boss->drillAimX = aimDx / aimLength;
+                        boss->drillAimY = aimDy / aimLength;
+                        boss->drillDirection = boss->drillAimX >= 0.0f ? 1 : -1;
+                        boss->facingRight = boss->drillDirection > 0;
+                    }
+                    else
+                    {
+                        if (!boss->drillGroundRush &&
+                            std::fabs(boss->drillVelocityX) < 0.001f &&
+                            std::fabs(boss->drillVelocityY) < 0.001f)
+                        {
+                            boss->drillVelocityX = boss->drillAimX * boss->params.drillLaunchSpeed;
+                            boss->drillVelocityY = boss->drillAimY * boss->params.drillLaunchSpeed;
+                            if (std::fabs(boss->drillVelocityX) < boss->params.drillLaunchSpeed * 0.25f)
+                            {
+                                boss->drillVelocityX = static_cast<float>(boss->drillDirection) * boss->params.drillLaunchSpeed * 0.25f;
+                            }
+                        }
+
+                        if (boss->drillGroundRush)
+                        {
+                            const float nextX = boss->drillX + static_cast<float>(boss->drillDirection) * boss->params.drillRushSpeed * deltaTime;
+                            const bool hitWall =
+                                nextX < 0.0f ||
+                                nextX + boss->drillWidth > mapWidth ||
+                                rectIntersectsSolid(nextX, boss->drillY, boss->drillWidth, boss->drillHeight);
+                            if (hitWall)
+                            {
+                                spawnSepiaCollisionRubble(
+                                    boss->drillX,
+                                    boss->drillY,
+                                    boss->drillWidth,
+                                    boss->drillHeight,
+                                    SepiaRubbleSource::MidBoss3Drill);
+                                boss->drillActive = false;
+                            }
+                            else
+                            {
+                                boss->drillX = nextX;
+                                boss->homeX = std::clamp(
+                                    boss->homeX + static_cast<float>(boss->drillDirection) * boss->params.drillRushSpeed * deltaTime,
+                                    0.0f,
+                                    std::max(0.0f, mapWidth - bossWidth));
+                            }
+                        }
+                        else
+                        {
+                            float nextX = boss->drillX + boss->drillVelocityX * deltaTime;
+                            float nextY = boss->drillY + boss->drillVelocityY * deltaTime;
+                            if (rectIntersectsSolid(nextX, nextY, boss->drillWidth, boss->drillHeight))
+                            {
+                                if (boss->drillVelocityY >= 0.0f)
+                                {
+                                    while (rectIntersectsSolid(nextX, nextY, boss->drillWidth, boss->drillHeight) && nextY > 0.0f)
+                                    {
+                                        nextY -= 2.0f;
+                                    }
+                                    boss->drillX = std::clamp(nextX, 0.0f, std::max(0.0f, mapWidth - boss->drillWidth));
+                                    boss->drillY = std::clamp(nextY, 0.0f, std::max(0.0f, mapHeight - boss->drillHeight));
+                                    boss->drillGroundRush = true;
+                                    boss->drillVelocityX = static_cast<float>(boss->drillDirection) * boss->params.drillRushSpeed;
+                                    boss->drillVelocityY = 0.0f;
+                                    boss->drillAimX = static_cast<float>(boss->drillDirection);
+                                    boss->drillAimY = 0.0f;
+                                }
+                                else
+                                {
+                                    spawnSepiaCollisionRubble(
+                                        boss->drillX,
+                                        boss->drillY,
+                                        boss->drillWidth,
+                                        boss->drillHeight,
+                                        SepiaRubbleSource::MidBoss3Drill);
+                                    boss->drillActive = false;
+                                }
+                            }
+                            else
+                            {
+                                boss->drillX = nextX;
+                                boss->drillY = nextY;
+                            }
+                        }
+
+                        if (boss->drillActive)
+                        {
+                            TransformComponent drillRect(boss->drillX, boss->drillY, boss->drillWidth, boss->drillHeight);
+                            for (const auto& target : entities)
+                            {
+                                if (!target ||
+                                    target.get() == entity ||
+                                    target.get() == player ||
+                                    isEntityPendingRemove(target.get()))
+                                {
+                                    continue;
+                                }
+
+                                if (auto* targetFist = target->GetComponent<MidBoss3FistComponent>())
+                                {
+                                    auto* targetTransform = target->GetComponent<TransformComponent>();
+                                    if (targetFist->ownerBoss == entity ||
+                                        !targetTransform ||
+                                        !IntersectsBounds(drillRect, *targetTransform))
+                                    {
+                                        continue;
+                                    }
+
+                                    breakFistAtCollision(*targetFist, *targetTransform);
+                                    continue;
+                                }
+
+                                const auto* targetTransform = target->GetComponent<TransformComponent>();
+                                if (!targetTransform || !IntersectsBounds(drillRect, *targetTransform))
+                                {
+                                    continue;
+                                }
+
+                                if (HasTag(*target, kTagEnemy))
+                                {
+                                    const auto* targetEnemy = target->GetComponent<EnemyComponent>();
+                                    if (targetEnemy && targetEnemy->GetArchetype() == EnemyArchetype::MidBoss3)
+                                    {
+                                        continue;
+                                    }
+                                }
+
+                                if (isSepiaObject(*target) || isSepiaDriveObject(*target))
+                                {
+                                    continue;
+                                }
+
+                                if (isFloorObject(*target))
+                                {
+                                    ++boss->drillFloorObjectHits;
+                                    if (boss->drillFloorObjectHits >= 2)
+                                    {
+                                        queueDestroyEntity(target.get(), SepiaRubbleSource::MidBoss3Drill);
+                                    }
+                                    continue;
+                                }
+
+                                if (isBreakableObject(*target))
+                                {
+                                    queueDestroyEntity(target.get(), SepiaRubbleSource::MidBoss3Drill);
+                                }
+                            }
+
+                            if (!boss->drillDamageApplied &&
+                                player &&
+                                playerTransform &&
+                                IntersectsBounds(drillRect, *playerTransform))
+                            {
+                                handlePlayerDamage(entity, 2, "MidBoss3 drill damaged player");
+                                boss->drillDamageApplied = true;
+                            }
+                        }
+                    }
+
+                    const bool drillOut =
+                        boss->drillX + boss->drillWidth < 0.0f ||
+                        boss->drillX > mapWidth ||
+                        boss->drillY > mapHeight + boss->drillHeight;
+                    if (drillOut || !boss->drillActive || boss->stateTimer >= boss->params.drillWaitTime + boss->params.drillCooldownTime + 3.0f)
+                    {
+                        boss->drillActive = false;
+                        for (Entity* fistEntity : boss->fistEntities)
+                        {
+                            auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                            if (!fist)
+                            {
+                                continue;
+                            }
+                            fist->state = MidBoss3FistState::Broken;
+                            fist->broken = true;
+                            fist->captureJammerActive = false;
+                        }
+                        boss->state = MidBoss3State::AttackCooldown;
+                        boss->stateTimer = 0.0f;
+                    }
+                }
+            }
+            else if (boss->state == MidBoss3State::AttackCooldown)
+            {
+                bool allFistsDone = true;
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    const auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                    if (fist &&
+                        fist->state != MidBoss3FistState::Docked &&
+                        fist->state != MidBoss3FistState::Broken)
+                    {
+                        allFistsDone = false;
+                        break;
+                    }
+                }
+                const float cooldown = boss->cooldownAttack == 4
+                    ? boss->params.drillCooldownTime
+                    : (boss->cooldownAttack == 2 ? boss->params.meteorCooldownTime : boss->params.launcherCooldownTime);
+                if (boss->stateTimer >= cooldown && allFistsDone)
+                {
+                    beginReload();
+                }
+            }
+            else if (boss->state == MidBoss3State::ReloadFists)
+            {
+                if (boss->stateTimer >= boss->params.fistReloadTime)
+                {
+                    const int finishedAttack = boss->cooldownAttack;
+                    boss->state = MidBoss3State::Move;
+                    boss->stateTimer = 0.0f;
+                    boss->moveTimer = 0.0f;
+                    boss->moveStep = 0;
+                    boss->moving = false;
+                    boss->launcherShotsFired = 0;
+                    boss->meteorShotsFired = 0;
+                    switch (finishedAttack)
+                    {
+                    case 1:
+                        boss->nextFlowAttack = 3;
+                        boss->movePattern = 1;
+                        boss->chooseMoveSideFromStageCenter = false;
+                        break;
+                    case 2:
+                        boss->nextFlowAttack = 1;
+                        boss->movePattern = 0;
+                        boss->chooseMoveSideFromStageCenter = true;
+                        break;
+                    case 3:
+                        boss->nextFlowAttack = 4;
+                        boss->movePattern = 0;
+                        boss->chooseMoveSideFromStageCenter = true;
+                        break;
+                    case 4:
+                        boss->nextFlowAttack = 2;
+                        boss->movePattern = 1;
+                        boss->chooseMoveSideFromStageCenter = false;
+                        break;
+                    default:
+                        boss->nextFlowAttack = 2;
+                        boss->movePattern = 0;
+                        boss->chooseMoveSideFromStageCenter = true;
+                        break;
+                    }
+                    boss->cooldownAttack = 0;
+                    boss->launcherPrepared = false;
+                    boss->drillActive = false;
+                    boss->drillGroundRush = false;
+                    boss->drillDamageApplied = false;
+                    for (Entity* fistEntity : boss->fistEntities)
+                    {
+                        auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                        if (!fist)
+                        {
+                            continue;
+                        }
+                        fist->state = MidBoss3FistState::Docked;
+                        fist->broken = false;
+                        fist->damageApplied = false;
+                        fist->launchTimer = 0.0f;
+                        fist->captureJammerActive = false;
+                        fist->impactAttackActive = false;
+                        fist->impactDamageApplied = false;
+                        fist->impactAttackRemaining = 0.0f;
+                    }
+                }
+            }
+
+            const float bossWave = std::sin(boss->idleTimer * boss->params.idleFloatSpeed);
+            transform->x = boss->homeX + boss->damageMotionOffsetX;
+            transform->y = boss->homeY + bossWave * boss->params.idleFloatAmplitude + boss->damageMotionOffsetY;
+
+            for (Entity* fistEntity : boss->fistEntities)
+            {
+                auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+                if (!fist || !fistTransform)
+                {
+                    continue;
+                }
+                const float dockX = getFistDockX(*fist, *fistTransform, transform->x);
+                const float dockY = getFistDockY(*fist, *fistTransform);
+                const float fistWidth = fistTransform->width * fistTransform->scale;
+                const float fistHeight = fistTransform->height * fistTransform->scale;
+                if (fist->impactAttackActive)
+                {
+                    fist->impactAttackRemaining -= deltaTime;
+                    if (fist->impactAttackRemaining <= 0.0f)
+                    {
+                        fist->impactAttackActive = false;
+                    }
+                    else if (!fist->impactDamageApplied && player && playerTransform)
+                    {
+                        TransformComponent impactRect(
+                            fist->impactAttackX,
+                            fist->impactAttackY,
+                            fist->impactAttackWidth,
+                            fist->impactAttackHeight);
+                        if (IntersectsBounds(impactRect, *playerTransform))
+                        {
+                            handlePlayerDamage(fistEntity, 1, "MidBoss3 meteor impact damaged player");
+                            fist->impactDamageApplied = true;
+                        }
+                    }
+                }
+                const float rawLauncherStartX = boss->launcherDirection < 0
+                    ? stageCenterX + kTileSize * 0.7f
+                    : stageCenterX - fistWidth - kTileSize * 0.7f;
+                const float launcherStartX = std::clamp(rawLauncherStartX, 0.0f, std::max(0.0f, mapWidth - fistWidth));
+                const float launcherStartY = (fist->fistIndex == 0 || fist->fistIndex == 2)
+                    ? boss->launcherLowerLaneY
+                    : boss->launcherUpperLaneY;
+                int meteorSlot = 1;
+                if (fist->fistIndex == 2)
+                {
+                    meteorSlot = 2;
+                }
+                else if (fist->fistIndex == 1)
+                {
+                    meteorSlot = 3;
+                }
+                else if (fist->fistIndex == 3)
+                {
+                    meteorSlot = 4;
+                }
+                if (boss->state == MidBoss3State::LauncherMeteorFist)
+                {
+                    if (fist->fistIndex == 0)
+                    {
+                        meteorSlot = 2;
+                    }
+                    else if (fist->fistIndex == 1)
+                    {
+                        meteorSlot = 4;
+                    }
+                }
+                const auto findMeteorTargetCenterX = [&](int slot) -> float
+                {
+                    struct MeteorRun
+                    {
+                        int start = 0;
+                        int width = 0;
+                    };
+
+                    const int columnCount = std::max(1, static_cast<int>(mapWidth / kTileSize));
+                    const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
+                    const auto runCenterX = [&](int startColumn, int width) -> float
+                    {
+                        return (static_cast<float>(startColumn) + static_cast<float>(width) * 0.5f) * kTileSize;
+                    };
+
+                    for (int row = rowCount - 1; row >= 0; --row)
+                    {
+                        std::vector<MeteorRun> gaps;
+                        for (int column = 0; column < columnCount;)
+                        {
+                            if (isSolidTile(column, row))
+                            {
+                                ++column;
+                                continue;
+                            }
+
+                            const int startColumn = column;
+                            while (column < columnCount && !isSolidTile(column, row))
+                            {
+                                ++column;
+                            }
+
+                            const int gapWidth = column - startColumn;
+                            if (gapWidth >= 4)
+                            {
+                                gaps.push_back({ startColumn, gapWidth });
+                            }
+                        }
+
+                        if (gaps.size() >= 5)
+                        {
+                            const float centerColumn = stageCenterX / kTileSize;
+                            int centerGapIndex = 0;
+                            float bestCenterDistance = std::numeric_limits<float>::max();
+                            for (int index = 0; index < static_cast<int>(gaps.size()); ++index)
+                            {
+                                const float gapCenterColumn =
+                                    static_cast<float>(gaps[index].start) + static_cast<float>(gaps[index].width) * 0.5f;
+                                const float distance = std::fabs(gapCenterColumn - centerColumn);
+                                if (distance < bestCenterDistance)
+                                {
+                                    bestCenterDistance = distance;
+                                    centerGapIndex = index;
+                                }
+                            }
+
+                            const int safeSlot = std::clamp(slot - 1, 0, 3);
+                            if (boss->meteorDirection < 0 && centerGapIndex >= 2)
+                            {
+                                const MeteorRun& outerGap = gaps[centerGapIndex - 2];
+                                const MeteorRun& innerGap = gaps[centerGapIndex - 1];
+                                if (safeSlot == 0)
+                                {
+                                    return runCenterX(outerGap.start, 4);
+                                }
+                                if (safeSlot == 1)
+                                {
+                                    return runCenterX(outerGap.start + outerGap.width, 4);
+                                }
+                                if (safeSlot == 2)
+                                {
+                                    return runCenterX(innerGap.start, 4);
+                                }
+                                return runCenterX(innerGap.start + innerGap.width, 4);
+                            }
+                            if (boss->meteorDirection >= 0 && centerGapIndex + 2 < static_cast<int>(gaps.size()))
+                            {
+                                const MeteorRun& innerGap = gaps[centerGapIndex + 1];
+                                const MeteorRun& outerGap = gaps[centerGapIndex + 2];
+                                if (safeSlot == 0)
+                                {
+                                    return runCenterX(outerGap.start, 4);
+                                }
+                                if (safeSlot == 1)
+                                {
+                                    return runCenterX(outerGap.start - 4, 4);
+                                }
+                                if (safeSlot == 2)
+                                {
+                                    return runCenterX(innerGap.start, 4);
+                                }
+                                return runCenterX(innerGap.start - 4, 4);
+                            }
+                        }
+                    }
+
+                    const float stageHalfWidth = mapWidth * 0.5f;
+                    return boss->meteorDirection < 0
+                        ? stageHalfWidth * (static_cast<float>(slot) / 5.0f)
+                        : mapWidth - stageHalfWidth * (static_cast<float>(slot) / 5.0f);
+                };
+                const auto findMeteorGroundY = [&](float centerX) -> float
+                {
+                    const int centerColumn = std::clamp(
+                        static_cast<int>(centerX / kTileSize),
+                        0,
+                        std::max(0, static_cast<int>(mapWidth / kTileSize) - 1));
+                    const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
+                    for (int row = rowCount / 2; row < rowCount; ++row)
+                    {
+                        if (isSolidTile(centerColumn, row))
+                        {
+                            return static_cast<float>(row) * kTileSize;
+                        }
+                    }
+                    return mapHeight;
+                };
+                const float meteorCenterX = findMeteorTargetCenterX(meteorSlot);
+                const float meteorStartX = std::clamp(
+                    meteorCenterX - fistWidth * 0.5f,
+                    0.0f,
+                    std::max(0.0f, mapWidth - fistWidth));
+                const float meteorGroundY = findMeteorGroundY(meteorCenterX);
+                const float meteorStartOffsetGrid = (fist->fistIndex == 0 || fist->fistIndex == 1) ? 8.0f : 11.0f;
+                const float meteorStartY = std::clamp(
+                    meteorGroundY - fistHeight - meteorStartOffsetGrid * kTileSize,
+                    0.0f,
+                    std::max(0.0f, mapHeight - fistHeight));
+                const auto handleFistObjectCollision = [&]() -> bool
+                {
+                    Entity* hitObject = getProjectileObjectCollision(*fistTransform, fistEntity);
+                    if (!hitObject)
+                    {
+                        return false;
+                    }
+
+                    if (isSepiaObject(*hitObject) || isSepiaDriveObject(*hitObject))
+                    {
+                        return false;
+                    }
+
+                    if (auto* otherFist = hitObject->GetComponent<MidBoss3FistComponent>())
+                    {
+                        auto* otherTransform = hitObject->GetComponent<TransformComponent>();
+                        const bool otherIsActive =
+                            otherFist->state == MidBoss3FistState::Launching ||
+                            otherFist->state == MidBoss3FistState::MeteorFalling;
+                        if (otherTransform && otherFist->ownerBoss != entity && otherIsActive)
+                        {
+                            breakFistAtCollision(*otherFist, *otherTransform);
+                            breakFistAtCollision(*fist, *fistTransform);
+                            return true;
+                        }
+                        return false;
+                    }
+
+                    if (isFloorObject(*hitObject))
+                    {
+                        breakFistAtCollision(*fist, *fistTransform);
+                        return true;
+                    }
+
+                    if (isBreakableObject(*hitObject))
+                    {
+                        queueDestroyEntity(hitObject, SepiaRubbleSource::MidBoss3Fist);
+                        breakFistAtCollision(*fist, *fistTransform);
+                        return true;
+                    }
+
+                    return false;
+                };
+
+                if (fist->state == MidBoss3FistState::Docked)
+                {
+                    const float followStep = boss->params.fistReturnSpeed * deltaTime;
+                    fistTransform->x = moveToward(fistTransform->x, dockX, followStep);
+                    fistTransform->y = moveToward(fistTransform->y, dockY, followStep);
+                    fistTransform->rotation = 0.0f;
+                }
+                else if (fist->state == MidBoss3FistState::LauncherReady)
+                {
+                    fistTransform->x = launcherStartX;
+                    fistTransform->y = launcherStartY;
+                    fistTransform->rotation = 0.0f;
+                }
+                else if (fist->state == MidBoss3FistState::MeteorReady)
+                {
+                    fistTransform->x = meteorStartX;
+                    fistTransform->y = meteorStartY;
+                    fistTransform->rotation = 1.5707963f;
+                }
+                else if (fist->state == MidBoss3FistState::DrillForming)
+                {
+                    const int slotX = fist->fistIndex % 2;
+                    const int slotY = fist->fistIndex / 2;
+                    const float cellWidth = boss->drillWidth * 0.5f;
+                    const float cellHeight = boss->drillHeight * 0.5f;
+                    const float targetX =
+                        boss->drillX + cellWidth * static_cast<float>(slotX) + cellWidth * 0.5f - fistWidth * 0.5f;
+                    const float targetY =
+                        boss->drillY + cellHeight * static_cast<float>(slotY) + cellHeight * 0.5f - fistHeight * 0.5f;
+                    const float followStep = boss->params.fistReturnSpeed * 1.35f * deltaTime;
+                    fistTransform->x = moveToward(fistTransform->x, targetX, followStep);
+                    fistTransform->y = moveToward(fistTransform->y, targetY, followStep);
+                    fistTransform->rotation = boss->drillGroundRush ? 0.0f : std::atan2(boss->drillAimY, boss->drillAimX);
+                    if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                    {
+                        tint->a = 0.0f;
+                    }
+                }
+                else if (fist->state == MidBoss3FistState::Launching)
+                {
+                    fist->launchTimer += deltaTime;
+                    fistTransform->x += fist->velocityX * deltaTime;
+                    fistTransform->y += fist->velocityY * deltaTime;
+                    fistTransform->rotation = 0.0f;
+
+                    const int leadingColumn = static_cast<int>(
+                        (fist->velocityX >= 0.0f
+                            ? fistTransform->x + fistWidth
+                            : fistTransform->x) / kTileSize);
+                    const int centerRow = static_cast<int>((fistTransform->y + fistHeight * 0.5f) / kTileSize);
+                    const bool hitSolidTile = isSolidTile(leadingColumn, centerRow);
+                    const bool outOfBounds =
+                        fistTransform->x < -fistWidth ||
+                        fistTransform->x > mapWidth + fistWidth ||
+                        fistTransform->y < -fistHeight ||
+                        fistTransform->y > mapHeight + fistHeight;
+
+                    const auto tryStandOnLaunchingFist = [&]() -> bool
+                    {
+                        if (!player || !playerState || !playerTransform)
+                        {
+                            return false;
+                        }
+                        if (std::fabs(fist->velocityX) <= 0.01f || std::fabs(fist->velocityY) > 0.01f)
+                        {
+                            return false;
+                        }
+
+                        auto* mutablePlayerTransform = player->GetComponent<TransformComponent>();
+                        if (!mutablePlayerTransform)
+                        {
+                            return false;
+                        }
+
+                        const float playerWidth = mutablePlayerTransform->width * mutablePlayerTransform->scale;
+                        const float playerHeight = mutablePlayerTransform->height * mutablePlayerTransform->scale;
+                        const float fistLeft = fistTransform->x;
+                        const float fistRight = fistTransform->x + fistWidth;
+                        const float fistTop = fistTransform->y;
+                        const float playerLeft = mutablePlayerTransform->x;
+                        const float playerRight = mutablePlayerTransform->x + playerWidth;
+                        const float playerBottom = mutablePlayerTransform->y + playerHeight;
+                        const float previousPlayerBottom = playerBottom - playerState->velocityY * deltaTime;
+                        const bool horizontalOverlap =
+                            playerRight > fistLeft - 10.0f &&
+                            playerLeft < fistRight + 10.0f;
+                        const bool landedFromAbove =
+                            playerState->velocityY >= -20.0f &&
+                            previousPlayerBottom <= fistTop + 18.0f &&
+                            playerBottom >= fistTop - 24.0f;
+                        const bool alreadyRiding =
+                            playerState->grounded &&
+                            std::fabs(playerBottom - fistTop) <= 18.0f &&
+                            playerBottom <= fistTop + 18.0f;
+                        if (!horizontalOverlap || (!landedFromAbove && !alreadyRiding))
+                        {
+                            return false;
+                        }
+
+                        mutablePlayerTransform->y = fistTop - playerHeight;
+                        playerState->velocityY = 0.0f;
+                        playerState->grounded = true;
+                        playerState->coyoteTimeRemaining = 0.0f;
+                        return true;
+                    };
+
+                    const bool playerStandingOnFist = tryStandOnLaunchingFist();
+                    if (!playerStandingOnFist &&
+                        !fist->damageApplied &&
+                        player &&
+                        playerTransform &&
+                        IntersectsBounds(*fistTransform, *playerTransform))
+                    {
+                        handlePlayerDamage(fistEntity, 1, "MidBoss3 launcher fist damaged player");
+                        fist->damageApplied = true;
+                    }
+
+                    const bool hitObject = handleFistObjectCollision();
+                    const bool canBreakOnSolid = fist->launchTimer >= 0.12f;
+                    if (!hitObject && ((hitSolidTile && canBreakOnSolid) || outOfBounds))
+                    {
+                        if (hitSolidTile && canBreakOnSolid)
+                        {
+                            spawnSepiaCollisionRubble(
+                                fistTransform->x,
+                                fistTransform->y,
+                                fistWidth,
+                                fistHeight,
+                                SepiaRubbleSource::MidBoss3Fist);
+                        }
+                        fist->state = MidBoss3FistState::Broken;
+                        fist->velocityX = 0.0f;
+                        fist->velocityY = 0.0f;
+                        fist->broken = true;
+                        fist->captureJammerActive = false;
+                        if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                        {
+                            tint->a = 0.0f;
+                        }
+                    }
+                }
+                else if (fist->state == MidBoss3FistState::MeteorFalling)
+                {
+                    fist->launchTimer += deltaTime;
+                    fistTransform->x += fist->velocityX * deltaTime;
+                    fistTransform->y += fist->velocityY * deltaTime;
+                    fistTransform->rotation = 1.5707963f;
+
+                    const int leftColumn = static_cast<int>(fistTransform->x / kTileSize);
+                    const int rightColumn = static_cast<int>((fistTransform->x + fistWidth) / kTileSize);
+                    const int bottomRow = static_cast<int>((fistTransform->y + fistHeight) / kTileSize);
+                    const bool hitSolidTile = isSolidTile(leftColumn, bottomRow) || isSolidTile(rightColumn, bottomRow);
+                    const bool outOfBounds =
+                        fistTransform->y > mapHeight + fistHeight;
+
+                    if (!fist->damageApplied &&
+                        player &&
+                        playerTransform &&
+                        IntersectsBounds(*fistTransform, *playerTransform))
+                    {
+                        handlePlayerDamage(fistEntity, 1, "MidBoss3 meteor fist damaged player");
+                        fist->damageApplied = true;
+                    }
+
+                    const bool hitObject = handleFistObjectCollision();
+                    const bool canBreakOnSolid = fist->launchTimer >= 0.08f;
+                    if (!hitObject && ((hitSolidTile && canBreakOnSolid) || outOfBounds))
+                    {
+                        const float impactTopY = hitSolidTile
+                            ? static_cast<float>(bottomRow) * kTileSize - kTileSize * 2.0f
+                            : fistTransform->y + fistHeight - kTileSize * 2.0f;
+                        fist->impactAttackX = std::clamp(
+                            fistTransform->x + fistWidth * 0.5f - kTileSize * 2.0f,
+                            0.0f,
+                            std::max(0.0f, mapWidth - kTileSize * 4.0f));
+                        fist->impactAttackY = std::clamp(impactTopY, 0.0f, std::max(0.0f, mapHeight - kTileSize * 2.0f));
+                        fist->impactAttackWidth = kTileSize * 4.0f;
+                        fist->impactAttackHeight = kTileSize * 2.0f;
+                        fist->impactAttackRemaining = 0.28f;
+                        fist->impactAttackActive = true;
+                        fist->impactDamageApplied = false;
+                        if (hitSolidTile && canBreakOnSolid)
+                        {
+                            spawnSepiaCollisionRubble(
+                                fist->impactAttackX,
+                                fist->impactAttackY,
+                                fist->impactAttackWidth,
+                                fist->impactAttackHeight,
+                                SepiaRubbleSource::MidBoss3Fist);
+                        }
+
+                        if (!fist->damageApplied && player && playerTransform)
+                        {
+                            TransformComponent impactRect(
+                                fist->impactAttackX,
+                                fist->impactAttackY,
+                                fist->impactAttackWidth,
+                                fist->impactAttackHeight);
+                            if (IntersectsBounds(impactRect, *playerTransform))
+                            {
+                                handlePlayerDamage(fistEntity, 1, "MidBoss3 meteor impact damaged player");
+                                fist->damageApplied = true;
+                                fist->impactDamageApplied = true;
+                            }
+                        }
+
+                        fist->state = MidBoss3FistState::Broken;
+                        fist->velocityX = 0.0f;
+                        fist->velocityY = 0.0f;
+                        fist->broken = true;
+                        fist->captureJammerActive = false;
+                        if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                        {
+                            tint->a = 0.0f;
+                        }
+                    }
+                }
+                else if (fist->state == MidBoss3FistState::Reloading)
+                {
+                    const float progress = smoothStep(boss->stateTimer / std::max(0.01f, boss->params.fistReloadTime));
+                    fistTransform->x = fist->reloadStartX + (dockX - fist->reloadStartX) * progress;
+                    fistTransform->y = fist->reloadStartY + (dockY - fist->reloadStartY) * progress;
+                    fistTransform->rotation = 0.0f;
+                    fist->broken = false;
+                    fist->captureJammerActive = false;
+                    if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                    {
+                        tint->a = 1.0f;
+                    }
+                }
+                else if (fist->state == MidBoss3FistState::Broken)
+                {
+                    fist->captureJammerActive = false;
+                    if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                    {
+                        tint->a = 0.0f;
+                    }
+                }
+                if (auto* fistSprite = fistEntity->GetComponent<SpriteRenderComponent>())
+                {
+                    fistSprite->SetFlipX(fist->velocityX < 0.0f || (!boss->facingRight && std::fabs(fist->velocityX) <= 0.01f));
+                }
+            }
             continue;
         }
 
@@ -1616,6 +3103,11 @@ inline void UpdateEnemies(
     for (auto& shield : newShields)
     {
         entities.push_back(std::move(shield));
+    }
+
+    for (auto& rubble : newRubbles)
+    {
+        entities.push_back(std::move(rubble));
     }
 
     flow.goalUnlocked = photo.groups.hasSpawnedCopy || flow.goalUnlockedBySwitch;

@@ -373,6 +373,7 @@ inline constexpr const char* kTagMarkerLight = "MarkerLight";
 inline constexpr const char* kTagStageLight = "StageLight";
 inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
 inline constexpr const char* kTagSepiaElevator = "SepiaElevator";
+inline constexpr const char* kTagMidBoss3Fist = "MidBoss3Fist";
 
 inline constexpr std::array<char, 32> kMarkerPresets = {
     '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<'
@@ -449,7 +450,7 @@ inline char PresetIndexToMarker(int index)
 
 inline bool IsEnemyMarker(char marker)
 {
-    return IsMarkerInSet(marker, "WRNAD!?$");
+    return IsMarkerInSet(marker, "WRNAD!?$%");
 }
 
 inline bool IsBatteryMarker(char marker)
