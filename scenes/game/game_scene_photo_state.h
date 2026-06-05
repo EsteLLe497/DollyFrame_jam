@@ -19,6 +19,8 @@ enum class CapturedSpawnArchetype
     ShieldRushBurst,
     ShieldJumpBurst,
     SepiaGround,
+    MidBoss3FistAttack,
+    MidBoss3DrillAttack,
 };
 
 enum class PhotoPlacementRuleGroup

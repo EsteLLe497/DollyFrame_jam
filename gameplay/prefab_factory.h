@@ -48,6 +48,7 @@ struct PrefabDefinition
     int enemyContactDamage = 1;
     bool hasShieldBoss = false;
     bool hasMidBoss2 = false;
+    bool hasMidBoss3 = false;
     bool hasGhost = false;
     bool hasBlasterRobot = false;
     bool hasEnemyMover = false;

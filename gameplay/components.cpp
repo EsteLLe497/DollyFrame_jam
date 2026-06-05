@@ -20,13 +20,14 @@
 
 namespace
 {
-    constexpr std::array<const char*, 9> kEnemyArchetypeLabels = {
+    constexpr std::array<const char*, 10> kEnemyArchetypeLabels = {
         "Floater",
         "Walker",
         "Turret",
         "Ranged",
         "ShieldBoss",
         "MidBoss2",
+        "MidBoss3",
         "Ghost",
         "BlasterRobot",
         "Charger",

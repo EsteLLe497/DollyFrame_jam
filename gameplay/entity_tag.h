@@ -38,6 +38,7 @@ enum class EntityTag
     CapturedShield,
     WalkerMeleeAttack,
     BossShockwave,
+    MidBoss3Fist,
 };
 
 inline const char* EntityTagToString(EntityTag tag)
@@ -77,6 +78,7 @@ inline const char* EntityTagToString(EntityTag tag)
     case EntityTag::CapturedShield: return "CapturedShield";
     case EntityTag::WalkerMeleeAttack: return "WalkerMeleeAttack";
     case EntityTag::BossShockwave: return "BossShockwave";
+    case EntityTag::MidBoss3Fist: return "MidBoss3Fist";
     default: return "";
     }
 }
@@ -116,5 +118,6 @@ inline EntityTag EntityTagFromString(std::string_view tag)
     if (tag == "CapturedShield") return EntityTag::CapturedShield;
     if (tag == "WalkerMeleeAttack") return EntityTag::WalkerMeleeAttack;
     if (tag == "BossShockwave") return EntityTag::BossShockwave;
+    if (tag == "MidBoss3Fist") return EntityTag::MidBoss3Fist;
     return EntityTag::Unknown;
 }

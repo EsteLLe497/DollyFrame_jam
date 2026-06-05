@@ -197,6 +197,7 @@ void GameScene::DrawWorldAndUiLayers()
     DrawTuningPanel();
     DrawBatterySwitchCounters();
     DrawPlayerHpBar();
+    DrawMidBoss3HpBar();
     DrawAttackCaptureSlot();
     DrawEnemyAttackRects();
 }

@@ -68,6 +68,46 @@ namespace
     constexpr float kEnemyDefeatShakeSeconds = 0.18f;
     constexpr float kEnemyDefeatShakeAmplitude = 14.0f;
 
+    float ResolveMidBoss3DamageDirection(const Entity& enemy, const Entity* sourceEntity)
+    {
+        if (sourceEntity)
+        {
+            if (const auto* projectile = sourceEntity->GetComponent<ProjectileComponent>())
+            {
+                const float projectileDirection = projectile->GetVelocityX();
+                if (std::fabs(projectileDirection) > 0.01f)
+                {
+                    return projectileDirection > 0.0f ? 1.0f : -1.0f;
+                }
+            }
+            if (const auto* capturedAttack = sourceEntity->GetComponent<CapturedMidBoss3AttackComponent>())
+            {
+                if (std::fabs(capturedAttack->aimX) > 0.01f)
+                {
+                    return capturedAttack->aimX > 0.0f ? 1.0f : -1.0f;
+                }
+            }
+        }
+
+        const auto* enemyTransform = enemy.GetComponent<TransformComponent>();
+        const auto* sourceTransform = sourceEntity ? sourceEntity->GetComponent<TransformComponent>() : nullptr;
+        if (enemyTransform && sourceTransform)
+        {
+            const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
+            const float sourceCenterX = sourceTransform->x + sourceTransform->width * sourceTransform->scale * 0.5f;
+            if (std::fabs(enemyCenterX - sourceCenterX) > 1.0f)
+            {
+                return enemyCenterX > sourceCenterX ? 1.0f : -1.0f;
+            }
+        }
+
+        if (const auto* boss = enemy.GetComponent<MidBoss3Component>())
+        {
+            return boss->facingRight ? -1.0f : 1.0f;
+        }
+        return 1.0f;
+    }
+
     struct RotatedPoint
     {
         float x = 0.0f;
@@ -615,10 +655,13 @@ void GameScene::UpdateEnemies()
         enemyEntities,
         interactionEntities,
         m_tileTexture,
+        m_assets.GetTexture("sepia_rubble"),
         GetMapPixelWidth(),
         GetMapPixelHeight(),
         m_flow,
         m_photo,
+        player,
+        &m_player,
         playerTransform,
         [this](TransformComponent& transform) -> bool
         {
@@ -631,6 +674,13 @@ void GameScene::UpdateEnemies()
         [this](Entity& bossEntity)
         {
             static_cast<void>(bossEntity);
+        },
+        [this, player](Entity* sourceEntity, int amount, const char* logMessage)
+        {
+            if (player)
+            {
+                HandlePlayerDamage(*player, sourceEntity, logMessage, amount);
+            }
         },
         [this, &photoBoxesToRemove, &interactionEntities](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
         {
@@ -847,6 +897,7 @@ int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
         return 10 + (rand() % 21);
     case EnemyArchetype::ShieldBoss:
     case EnemyArchetype::MidBoss2:
+    case EnemyArchetype::MidBoss3:
         return 50;
     default:
         return 5;
@@ -1719,6 +1770,24 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         damageFlash = &enemy.AddComponent<DamageCooldownComponent>(0.18f);
     }
     damageFlash->Trigger();
+
+    if (auto* midBoss3 = enemy.GetComponent<MidBoss3Component>())
+    {
+        bool requestDamageMotion = true;
+        if (sourceEntity)
+        {
+            if (const auto* capturedAttack = sourceEntity->GetComponent<CapturedMidBoss3AttackComponent>())
+            {
+                requestDamageMotion = capturedAttack->kind != CapturedMidBoss3AttackKind::Drill ||
+                    !capturedAttack->attachedToBoss;
+            }
+        }
+        if (requestDamageMotion)
+        {
+            midBoss3->damageMotionRequested = true;
+            midBoss3->damageMotionDirection = ResolveMidBoss3DamageDirection(enemy, sourceEntity);
+        }
+    }
 
     if (auto* boss = enemy.GetComponent<ShieldBossComponent>())
     {

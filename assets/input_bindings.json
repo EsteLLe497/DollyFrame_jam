@@ -72,6 +72,10 @@
       "pressed_keys": ["LBUTTON"],
       "pressed_gamepad": ["GAMEPAD_RIGHT_TRIGGER_PRESSED", "GAMEPAD_SOUTH_PRESSED"]
     },
+    "AttackPaste": {
+      "pressed_keys": ["Q"],
+      "pressed_gamepad": ["GAMEPAD_EAST_PRESSED"]
+    },
     "CyclePlacementLayer": {
       "pressed_keys": ["Q"]
     },

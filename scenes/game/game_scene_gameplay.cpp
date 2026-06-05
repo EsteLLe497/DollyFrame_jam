@@ -403,7 +403,55 @@ void GameScene::UpdatePlayer(float deltaTime)
     const auto controls = game_scene_player_system::SampleControls(blockPlayerInput);
     const float moveAxis = controls.moveAxis;
     const float tileSize = m_tileMap.GetTileSize();
-    const bool wasGrounded = IsStandingOnGround(*transform);
+    const float playerWidth = transform->width * transform->scale;
+    const float playerHeight = transform->height * transform->scale;
+    const auto trySnapToHorizontalFist = [&](float snapDistance) -> bool
+    {
+        const float playerLeft = transform->x;
+        const float playerRight = transform->x + playerWidth;
+        const float playerBottom = transform->y + playerHeight;
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            const auto* fist = entity->GetComponent<MidBoss3FistComponent>();
+            const auto* fistTransform = entity->GetComponent<TransformComponent>();
+            if (!fist ||
+                !fistTransform ||
+                fist->state != MidBoss3FistState::Launching ||
+                std::fabs(fist->velocityY) > 0.01f)
+            {
+                continue;
+            }
+
+            const float fistWidth = fistTransform->width * fistTransform->scale;
+            const float fistLeft = fistTransform->x;
+            const float fistRight = fistTransform->x + fistWidth;
+            const float fistTop = fistTransform->y;
+            const bool horizontalOverlap =
+                playerRight > fistLeft - 10.0f &&
+                playerLeft < fistRight + 10.0f;
+            const bool closeToTop =
+                playerBottom >= fistTop - snapDistance &&
+                playerBottom <= fistTop + std::max(28.0f, snapDistance);
+            if (!horizontalOverlap || !closeToTop)
+            {
+                continue;
+            }
+
+            transform->y = fistTop - playerHeight;
+            m_player.velocityY = 0.0f;
+            m_player.grounded = true;
+            m_player.coyoteTimeRemaining = gCoyoteTimeSeconds;
+            return true;
+        }
+        return false;
+    };
+    const bool standingOnHorizontalFist = trySnapToHorizontalFist(36.0f);
+    const bool wasGrounded = m_player.grounded || IsStandingOnGround(*transform) || standingOnHorizontalFist;
     const float dodgeDuration = wasGrounded
         ? GetPlayerDodgeDuration()
         : (gPlayerDodgeSpeed > 0.0f ? tileSize / gPlayerDodgeSpeed : 0.0f);
@@ -424,11 +472,12 @@ void GameScene::UpdatePlayer(float deltaTime)
     }
 
     const bool isDodging = m_player.dodgeRemaining > 0.0f;
-    const float playerWidth = transform->width * transform->scale;
-    const float playerHeight = transform->height * transform->scale;
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
-    const bool canJumpNow = !isDodging && controls.jumpPressed && (wasGrounded || m_player.coyoteTimeRemaining > 0.0f);
+    const bool canJumpFromHorizontalFist = standingOnHorizontalFist || trySnapToHorizontalFist(44.0f);
+    const bool canJumpNow = !isDodging &&
+        controls.jumpPressed &&
+        (wasGrounded || canJumpFromHorizontalFist || m_player.coyoteTimeRemaining > 0.0f);
     if (canJumpNow)
     {
         m_player.velocityY = gPlayerJumpSpeed;
@@ -543,7 +592,8 @@ void GameScene::UpdatePlayer(float deltaTime)
 
         if (m_player.velocityY >= 0.0f && groundedAtStepStart)
         {
-            if (TrySnapToGroundUsingPlatforms(*transform, verticalSnapDistance, groundPlatformsForSnap))
+            if (TrySnapToGroundUsingPlatforms(*transform, verticalSnapDistance, groundPlatformsForSnap) ||
+                trySnapToHorizontalFist(verticalSnapDistance))
             {
                 m_player.grounded = true;
             }
@@ -568,9 +618,10 @@ void GameScene::UpdatePlayer(float deltaTime)
             {
                 return IsSolidTile(column, row) || IsSlopeTile(column, row);
             },
-            [this, &groundPlatformsForSnap](TransformComponent& targetTransform, float snapDistance)
+            [this, &groundPlatformsForSnap, &trySnapToHorizontalFist](TransformComponent& targetTransform, float snapDistance)
             {
-                return TrySnapToGroundUsingPlatforms(targetTransform, snapDistance, groundPlatformsForSnap);
+                return TrySnapToGroundUsingPlatforms(targetTransform, snapDistance, groundPlatformsForSnap) ||
+                    trySnapToHorizontalFist(snapDistance);
             },
             [this](const TransformComponent& candidate)
             {

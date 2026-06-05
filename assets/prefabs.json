@@ -733,6 +733,68 @@
         "maxHp": 15
       }
     },
+    "sandbox_mid_boss3": {
+      "tag": "Enemy",
+      "texture": "enemy",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 192.0,
+        "height": 192.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.82,
+        "g": 0.30,
+        "b": 0.94,
+        "a": 1.0
+      },
+      "enemy": {
+        "enabled": true,
+        "archetype": "mid_boss_3",
+        "contactDamage": 1,
+        "detectRange": 960.0,
+        "attackRange": 960.0,
+        "attackCooldown": 3.0,
+        "detectHeight": 360.0,
+        "midBoss3": true
+      },
+      "health": {
+        "enabled": true,
+        "maxHp": 20
+      }
+    },
+    "sandbox_mid_boss3_fist": {
+      "tag": "MidBoss3Fist",
+      "texture": "white",
+      "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 144.0,
+        "height": 96.0,
+        "rotation": 0.0,
+        "scale": 1.0
+      },
+      "tint": {
+        "r": 0.96,
+        "g": 0.52,
+        "b": 0.18,
+        "a": 1.0
+      },
+      "rigidBody": {
+        "enabled": true,
+        "type": "kinematic",
+        "fixedRotation": true,
+        "gravityScale": 0.0
+      },
+      "collider": {
+        "enabled": true,
+        "density": 1.0,
+        "friction": 0.2,
+        "isSensor": true
+      }
+    },
     "sandbox_enemy_ghost": {
       "tag": "Enemy",
       "texture": "enemy",
