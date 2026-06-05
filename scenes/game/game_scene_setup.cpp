@@ -358,6 +358,8 @@ void GameScene::ResetSceneState()
     m_camera.cameraFixedLockEndX = 0.0f;
     m_camera.cameraFixedLockX = 0.0f;
     m_camera.cameraFixedLockY = 0.0f;
+    m_camera.midBoss3CameraYLockInitialized = false;
+    m_camera.midBoss3CameraYLock = 0.0f;
     m_lifecycle.hasPendingStageTransition = false;
     m_lifecycle.pendingStageTransitionMapCsv.clear();
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
@@ -702,6 +704,14 @@ void GameScene::InitializeStageEntities()
                     bossComp->homeX = transform->x;
                     bossComp->homeY = transform->y;
                     bossComp->initializedHome = true;
+                    bossComp->introWaitingForTrigger = true;
+                    bossComp->introStarted = false;
+                    bossComp->introFinished = false;
+                    bossComp->introGroundInitialized = false;
+                    bossComp->introTimer = 0.0f;
+                    bossComp->introFloatHomeX = transform->x;
+                    bossComp->introFloatHomeY = transform->y;
+                    bossComp->introTriggerX = transform->x - tileSize * 7.0f;
                 }
                 spawnMidBoss3Fists(prefabs, boss);
             }

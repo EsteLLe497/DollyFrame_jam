@@ -165,8 +165,37 @@ void GameScene::PrepareFrameRendering()
     }
 }
 
+bool GameScene::IsMidBoss3IntroCinematicActive() const
+{
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<MidBoss3Component>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss3)
+        {
+            continue;
+        }
+        if (!enemy->IsEnabled() || enemy->IsDefeated())
+        {
+            continue;
+        }
+        if (boss->introStarted && !boss->introFinished)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void GameScene::DrawWorldAndUiLayers()
 {
+    const bool hideUiForMidBoss3Intro = IsMidBoss3IntroCinematicActive();
+
     DrawBackdrop();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Shadow);
@@ -184,10 +213,14 @@ void GameScene::DrawWorldAndUiLayers()
     DrawEffects();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
     DrawPastedEntitiesFront();
-    DrawPhotoPlacementPreview();
     DrawStageDarknessOverlay();
     DrawSepiaFilmFilterOverlay();
     DrawMarkerLightOutlines();
+    if (hideUiForMidBoss3Intro)
+    {
+        return;
+    }
+    DrawPhotoPlacementPreview();
     DrawCaptureOverlay();
     DrawPhotoStorageTray();
     DrawDevelopedPhotoPreview();

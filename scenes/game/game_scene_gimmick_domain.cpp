@@ -929,6 +929,8 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_camera.cameraFixedLockEndX = 0.0f;
     m_camera.cameraFixedLockX = 0.0f;
     m_camera.cameraFixedLockY = 0.0f;
+    m_camera.midBoss3CameraYLockInitialized = false;
+    m_camera.midBoss3CameraYLock = 0.0f;
     m_lifecycle.hasPendingStageTransition = false;
     m_lifecycle.pendingStageTransitionMapCsv.clear();
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
