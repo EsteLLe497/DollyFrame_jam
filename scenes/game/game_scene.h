@@ -80,6 +80,7 @@ private:
     void PrepareFrameRendering();
     void DrawWorldAndUiLayers();
     void ResetFrameRendering();
+    bool IsMidBoss3IntroCinematicActive() const;
 
     // Lifecycle / setup
     void UpdateLoading(float deltaTime);
@@ -91,7 +92,7 @@ private:
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
     void BuildCameraMarkers();
-    void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime);
+    void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY = true);
     bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
     void StartFloorCameraTransition(int directionX, int directionY);
 
@@ -327,6 +328,8 @@ private:
         float cameraFixedLockEndX = 0.0f;
         float cameraFixedLockX = 0.0f;
         float cameraFixedLockY = 0.0f;
+        bool midBoss3CameraYLockInitialized = false;
+        float midBoss3CameraYLock = 0.0f;
         int prevCameraIndex = -1;
         bool easingActive = false;
         float easingElapsedTime = 0.0f;

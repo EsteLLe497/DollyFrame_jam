@@ -108,6 +108,11 @@ namespace
         const float aspect = gCameraViewHeight / safeViewWidth;
         return std::max(1.0f, visibleWidth * aspect);
     }
+
+    bool IsMidBoss3CameraStabilizeStage(const std::string& mapPath)
+    {
+        return GetMapDisplayName(mapPath) == "ruins_boss";
+    }
 }
 
 
@@ -141,7 +146,7 @@ void GameScene::StartFloorCameraTransition(int directionX, int directionY)
 
 
 
-void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime)
+void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY)
 {
     const float playerWidth = playerTransform.width * playerTransform.scale;
     const float playerHeight = playerTransform.height * playerTransform.scale;
@@ -186,7 +191,9 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         {
             // 追従カメラ
             m_camera.easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
-            m_camera.easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
+            m_camera.easingTargetY = followY
+                ? playerCenterY - (gCameraViewHeight * 0.5f)
+                : m_flow.cameraY;
         }
         else
         {
@@ -199,7 +206,9 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
             float centerX = (cam.GetStartX() + cam.GetEndX()) * 0.5f;
 
             m_camera.easingTargetX = centerX - (gCameraViewWidth * 0.25f);
-            m_camera.easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
+            m_camera.easingTargetY = followY
+                ? playerCenterY - (gCameraViewHeight * 0.5f)
+                : m_flow.cameraY;
         }
     }
 
@@ -225,7 +234,10 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     if (activeIndex < 0)
     {
         m_flow.cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
-        m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
+        if (followY)
+        {
+            m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
+        }
 
         m_camera.prevCameraIndex = activeIndex;
         return;
@@ -240,7 +252,10 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     float centerX = (cameraRange.GetStartX() + cameraRange.GetEndX()) * 0.5f;
 
     m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f);
-    m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
+    if (followY)
+    {
+        m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
+    }
 
     m_camera.prevCameraIndex = activeIndex;
 }
@@ -637,6 +652,68 @@ void GameScene::UpdatePlayer(float deltaTime)
     const bool landedThisFrame = !wasGrounded && m_player.grounded;
     UpdatePlayerPresentation(*player, deltaTime, moveAxis, wasGrounded, isDodging, landedThisFrame);
 
+    if (IsMidBoss3IntroCinematicActive())
+    {
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            const auto* enemy = entity->GetComponent<EnemyComponent>();
+            const auto* boss = entity->GetComponent<MidBoss3Component>();
+            const auto* bossTransform = entity->GetComponent<TransformComponent>();
+            if (!enemy ||
+                !boss ||
+                !bossTransform ||
+                enemy->GetArchetype() != EnemyArchetype::MidBoss3 ||
+                enemy->IsDefeated())
+            {
+                continue;
+            }
+
+            const float bossWidth = bossTransform->width * bossTransform->scale;
+            const float bossHeight = bossTransform->height * bossTransform->scale;
+            const float visibleWidth = GetCameraFollowSpanX(m_tileMap);
+            const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
+            const float maxCameraX = std::max(0.0f, mapWidth - visibleWidth);
+            const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
+            const float targetCameraX = std::clamp(
+                bossTransform->x + bossWidth * 0.5f - visibleWidth * 0.5f,
+                0.0f,
+                maxCameraX);
+            const float targetCameraY = std::clamp(
+                bossTransform->y + bossHeight * 0.5f - visibleHeight * 0.5f,
+                0.0f,
+                maxCameraY);
+            const float followRate = std::clamp(5.0f * deltaTime, 0.0f, 1.0f);
+            m_flow.cameraX += (targetCameraX - m_flow.cameraX) * followRate;
+            m_flow.cameraY += (targetCameraY - m_flow.cameraY) * followRate;
+            m_camera.midBoss3CameraYLockInitialized = false;
+            m_camera.midBoss3CameraYLock = 0.0f;
+            return;
+        }
+    }
+
+    const bool stabilizeMidBoss3CameraY = IsMidBoss3CameraStabilizeStage(m_lifecycle.currentMapCsvPath);
+    const float cameraYBeforeFollow = m_flow.cameraY;
+    if (stabilizeMidBoss3CameraY)
+    {
+        const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
+        const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
+        if (!m_camera.midBoss3CameraYLockInitialized)
+        {
+            m_camera.midBoss3CameraYLockInitialized = true;
+            m_camera.midBoss3CameraYLock = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
+        }
+    }
+    else
+    {
+        m_camera.midBoss3CameraYLockInitialized = false;
+        m_camera.midBoss3CameraYLock = 0.0f;
+    }
+
     game_scene_player_movement_system::UpdateCamera(
         m_flow.cameraX,
         m_flow.cameraY,
@@ -650,8 +727,36 @@ void GameScene::UpdatePlayer(float deltaTime)
         mapHeight,
         GetCameraFollowOffsetY(m_tileMap),
         deltaTime,
-        gCameraFollowY >= 0.5f);
-    UpdateCameraByMarkers(*transform, deltaTime);
+        gCameraFollowY >= 0.5f && !stabilizeMidBoss3CameraY);
+    if (stabilizeMidBoss3CameraY)
+    {
+        m_flow.cameraY = cameraYBeforeFollow;
+    }
+    if (!stabilizeMidBoss3CameraY)
+    {
+        UpdateCameraByMarkers(*transform, deltaTime);
+    }
+
+    if (stabilizeMidBoss3CameraY)
+    {
+        const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
+        const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
+        const float targetY = std::clamp(
+            transform->y + playerHeight * 0.5f - visibleHeight * 0.5f + GetCameraFollowOffsetY(m_tileMap),
+            0.0f,
+            maxCameraY);
+        const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+        const float deadZone = tileSize * 1.75f;
+        const float deltaY = targetY - m_camera.midBoss3CameraYLock;
+        if (m_player.grounded && std::fabs(deltaY) > deadZone)
+        {
+            const float desiredY = targetY - std::copysign(deadZone, deltaY);
+            const float followRate = std::clamp(3.0f * deltaTime, 0.0f, 1.0f);
+            m_camera.midBoss3CameraYLock += (desiredY - m_camera.midBoss3CameraYLock) * followRate;
+        }
+        m_flow.cameraY = std::clamp(m_camera.midBoss3CameraYLock, 0.0f, maxCameraY);
+        return;
+    }
 
     // Safety clamp: keep the player inside the vertical camera view even when marker/fixed-lock
     // transitions are active, so the player never drops out of frame.

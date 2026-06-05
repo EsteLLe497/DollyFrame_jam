@@ -194,7 +194,8 @@ void GameScene::DrawMidBoss3HpBar() const
         {
             continue;
         }
-        if (!entity->GetComponent<MidBoss3Component>())
+        const auto* boss = entity->GetComponent<MidBoss3Component>();
+        if (!boss || !boss->introFinished)
         {
             continue;
         }

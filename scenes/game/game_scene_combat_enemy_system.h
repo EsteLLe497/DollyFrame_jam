@@ -221,6 +221,148 @@ inline void UpdateEnemies(
                 }
                 return false;
             };
+            const auto findIntroGroundY = [&]() -> float
+            {
+                const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
+                const int leftColumn = static_cast<int>(std::floor((boss->introFloatHomeX + kTileSize * 0.25f) / kTileSize));
+                const int centerColumn = static_cast<int>(std::floor((boss->introFloatHomeX + bossWidth * 0.5f) / kTileSize));
+                const int rightColumn = static_cast<int>(std::floor((boss->introFloatHomeX + bossWidth - kTileSize * 0.25f) / kTileSize));
+                const int startRow = std::max(0, static_cast<int>(std::floor((boss->introFloatHomeY + bossHeight) / kTileSize)));
+                for (int row = startRow; row < rowCount; ++row)
+                {
+                    if (isSolidTile(leftColumn, row) ||
+                        isSolidTile(centerColumn, row) ||
+                        isSolidTile(rightColumn, row))
+                    {
+                        return std::clamp(
+                            static_cast<float>(row) * kTileSize - bossHeight,
+                            0.0f,
+                            std::max(0.0f, mapHeight - bossHeight));
+                    }
+                }
+                return std::clamp(boss->introFloatHomeY, 0.0f, std::max(0.0f, mapHeight - bossHeight));
+            };
+            const auto setIntroFists = [&](float alpha)
+            {
+                const float clampedAlpha = std::clamp(alpha, 0.0f, 1.0f);
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                    auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+                    if (!fist)
+                    {
+                        continue;
+                    }
+
+                    fist->state = clampedAlpha > 0.01f ? MidBoss3FistState::Docked : MidBoss3FistState::Broken;
+                    fist->velocityX = 0.0f;
+                    fist->velocityY = 0.0f;
+                    fist->launchTimer = 0.0f;
+                    fist->damageApplied = false;
+                    fist->broken = clampedAlpha <= 0.01f;
+                    fist->captureJammerActive = false;
+                    fist->impactAttackActive = false;
+                    fist->impactDamageApplied = false;
+                    fist->impactAttackRemaining = 0.0f;
+                    if (fistTransform)
+                    {
+                        const float dockX = getFistDockX(*fist, *fistTransform, boss->homeX);
+                        const float dockY = getFistDockY(*fist, *fistTransform);
+                        fistTransform->x = dockX;
+                        fistTransform->y = dockY;
+                        fistTransform->rotation = 0.0f;
+                    }
+                    if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                    {
+                        tint->a = clampedAlpha;
+                    }
+                }
+            };
+            const auto updateIntroSequence = [&]() -> bool
+            {
+                if (boss->introFinished)
+                {
+                    return false;
+                }
+
+                if (!boss->introGroundInitialized)
+                {
+                    if (boss->introFloatHomeX == 0.0f && boss->introFloatHomeY == 0.0f)
+                    {
+                        boss->introFloatHomeX = boss->homeX;
+                        boss->introFloatHomeY = boss->homeY;
+                    }
+                    boss->introGroundY = findIntroGroundY();
+                    boss->introGroundInitialized = true;
+                }
+
+                if (boss->debugRequestedAttack > 0)
+                {
+                    boss->introWaitingForTrigger = false;
+                    boss->introStarted = true;
+                    boss->introFinished = true;
+                    boss->homeX = boss->introFloatHomeX;
+                    boss->homeY = boss->introFloatHomeY;
+                    transform->x = boss->homeX;
+                    transform->y = boss->homeY;
+                    boss->state = MidBoss3State::Move;
+                    boss->stateTimer = 0.0f;
+                    boss->flowStarted = false;
+                    setIntroFists(1.0f);
+                    return false;
+                }
+
+                if (!boss->introStarted)
+                {
+                    boss->homeX = boss->introFloatHomeX;
+                    boss->homeY = boss->introGroundY;
+                    transform->x = boss->homeX;
+                    transform->y = boss->homeY;
+                    boss->stateTimer = 0.0f;
+                    boss->idleTimer = 0.0f;
+                    boss->drillActive = false;
+                    setIntroFists(0.0f);
+
+                    const float playerWidth = playerTransform->width * playerTransform->scale;
+                    const float playerRight = playerTransform->x + playerWidth;
+                    if (playerRight >= boss->introTriggerX)
+                    {
+                        boss->introStarted = true;
+                        boss->introWaitingForTrigger = false;
+                        boss->introTimer = 0.0f;
+                    }
+                    return true;
+                }
+
+                boss->introTimer += deltaTime;
+                const float progress = smoothStep(boss->introTimer / std::max(0.01f, boss->params.introRiseTime));
+                boss->homeX = boss->introFloatHomeX;
+                boss->homeY = boss->introGroundY + (boss->introFloatHomeY - boss->introGroundY) * progress;
+                transform->x = boss->homeX;
+                transform->y = boss->homeY;
+                boss->drillActive = false;
+                boss->state = MidBoss3State::Move;
+                boss->stateTimer = 0.0f;
+                boss->flowStarted = false;
+                setIntroFists(std::clamp((progress - 0.45f) / 0.45f, 0.0f, 1.0f));
+
+                if (progress >= 1.0f)
+                {
+                    boss->introFinished = true;
+                    boss->homeX = boss->introFloatHomeX;
+                    boss->homeY = boss->introFloatHomeY;
+                    transform->x = boss->homeX;
+                    transform->y = boss->homeY;
+                    boss->stateTimer = 0.0f;
+                    boss->idleTimer = 0.0f;
+                    setIntroFists(1.0f);
+                }
+                return true;
+            };
+            if (updateIntroSequence())
+            {
+                continue;
+            }
             const auto isEntityPendingRemove = [&](const Entity* target) -> bool
             {
                 return target &&

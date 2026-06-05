@@ -353,6 +353,7 @@ public:
         float meteorCooldownTime = 1.5f;
         float fistReloadTime = 2.0f;
         float fistReturnSpeed = 720.0f;
+        float introRiseTime = 2.4f;
         float drillWaitTime = 2.0f;
         float drillLaunchSpeed = 620.0f;
         float drillRushSpeed = 720.0f;
@@ -396,6 +397,15 @@ public:
     bool chooseMoveSideFromStageCenter = true;
     bool launcherPrepared = false;
     bool facingRight = false;
+    bool introWaitingForTrigger = false;
+    bool introStarted = true;
+    bool introFinished = true;
+    bool introGroundInitialized = false;
+    float introTimer = 0.0f;
+    float introTriggerX = 0.0f;
+    float introFloatHomeX = 0.0f;
+    float introFloatHomeY = 0.0f;
+    float introGroundY = 0.0f;
     bool drillActive = false;
     bool drillGroundRush = false;
     bool drillDamageApplied = false;
