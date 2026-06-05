@@ -95,6 +95,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="game_scene_camerawork.cpp" />
+    <ClCompile Include="scenes\game\game_viewport.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -115,6 +116,7 @@
     <ClCompile Include="scenes\game\game_scene_gameplay.cpp" />
     <ClCompile Include="scenes\game\game_scene_gameplay_state_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_player_state_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_player_state_logic.cpp" />
     <ClCompile Include="scenes\game\game_scene_render.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui_helpers.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui.cpp" />
@@ -146,6 +148,7 @@
       <ObjectFileName>$(IntDir)foundation_physics_world.obj</ObjectFileName>
     </ClCompile>
     <ClCompile Include="gameplay\photo_filter_rules.cpp" />
+    <ClCompile Include="gameplay\photo_geometry.cpp" />
     <ClCompile Include="gameplay\photo_shared.cpp" />
     <ClCompile Include="gameplay\photo_capture_system.cpp" />
     <ClCompile Include="gameplay\photo_paste_system.cpp" />

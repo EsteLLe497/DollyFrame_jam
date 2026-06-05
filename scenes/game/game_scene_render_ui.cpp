@@ -169,7 +169,7 @@ namespace
                 ctx,
                 12.0f);
         }
-    }
+    };
 
     void CollectStageLightOverlayLights(
         const std::vector<Entity*>& entities,
@@ -346,7 +346,7 @@ namespace
             CollectLaserBeamOverlayLights(laserBeamEntities, ctx, overlayLights);
             CollectBlasterBulletOverlayLights(blasterBulletEntities, ctx, overlayLights);
         }
-    }
+    };
 
     DarknessOverlayParams BuildDarknessOverlayParams(
         const DarknessOverlayContext& ctx,
@@ -922,15 +922,17 @@ void GameScene::DrawStageDarknessOverlay() const
     const int renderedLightLimit = (std::min)(kMaxDarknessOverlayLights, kDarknessOverlayActiveLightLimit);
     if (overlayLights.size() > static_cast<size_t>(renderedLightLimit))
     {
-        std::partial_sort(
+        const auto priorityCompare = [](const OverlayLightSource& a, const OverlayLightSource& b)
+        {
+            return a.priority > b.priority;
+        };
+        std::nth_element(
             overlayLights.begin(),
             overlayLights.begin() + renderedLightLimit,
             overlayLights.end(),
-            [](const OverlayLightSource& a, const OverlayLightSource& b)
-            {
-                return a.priority > b.priority;
-            });
+            priorityCompare);
         overlayLights.resize(renderedLightLimit);
+        std::sort(overlayLights.begin(), overlayLights.end(), priorityCompare);
     }
 
     if (DirectXHasDarknessOverlay())
@@ -2326,67 +2328,37 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     Entity* bestTarget = nullptr;
     float bestDistance = 1000000.0f;
 
-    std::vector<Entity*> captureCandidates;
-    captureCandidates.reserve(
-        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
-        m_world.EntitiesByTag(EntityTag::Goal).size() +
-        m_world.EntitiesByTag(EntityTag::PhotoSource).size() +
-        m_world.EntitiesByTag(EntityTag::Hazard).size() +
-        m_world.EntitiesByTag(EntityTag::Bullet).size() +
-        m_world.EntitiesByTag(EntityTag::DropItem).size() +
-        m_world.EntitiesByTag(EntityTag::Battery).size() +
-        m_world.EntitiesByTag(EntityTag::Log).size() +
-        m_world.EntitiesByTag(EntityTag::DamagePlatform).size() +
-        m_world.EntitiesByTag(EntityTag::DamagePlatformSpike).size() +
-        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
-        m_world.EntitiesByTag(EntityTag::MarkerLight).size() +
-        m_world.EntitiesByTag(EntityTag::SepiaRubble).size() +
-        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
-        m_world.EntitiesByTag(EntityTag::Filter).size() +
-        m_world.EntitiesByTag(EntityTag::Barrel).size() +
-        m_world.EntitiesByTag(EntityTag::Shield).size() +
-        m_world.EntitiesByTag(EntityTag::BossShield).size() +
-        m_world.EntitiesByTag(EntityTag::Boss1Shield).size() +
-        m_world.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
-        m_world.EntitiesByTag(EntityTag::CapturedShield).size() +
-        m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack).size() +
-        m_world.EntitiesByTag(EntityTag::BossShockwave).size());
-    auto appendCaptureCandidates = [&](EntityTag tag)
-    {
-        for (Entity* entity : m_world.EntitiesByTag(tag))
-        {
-            if (entity)
-            {
-                captureCandidates.push_back(entity);
-            }
-        }
-    };
-    appendCaptureCandidates(EntityTag::PhotoBox);
-    appendCaptureCandidates(EntityTag::Goal);
-    appendCaptureCandidates(EntityTag::PhotoSource);
-    appendCaptureCandidates(EntityTag::Hazard);
-    appendCaptureCandidates(EntityTag::Bullet);
-    appendCaptureCandidates(EntityTag::DropItem);
-    appendCaptureCandidates(EntityTag::Battery);
-    appendCaptureCandidates(EntityTag::Log);
-    appendCaptureCandidates(EntityTag::DamagePlatform);
-    appendCaptureCandidates(EntityTag::DamagePlatformSpike);
-    appendCaptureCandidates(EntityTag::LaserTurret);
-    appendCaptureCandidates(EntityTag::MarkerLight);
-    appendCaptureCandidates(EntityTag::SepiaRubble);
-    appendCaptureCandidates(EntityTag::SepiaElevator);
-    appendCaptureCandidates(EntityTag::Filter);
-    appendCaptureCandidates(EntityTag::Barrel);
-    appendCaptureCandidates(EntityTag::Shield);
-    appendCaptureCandidates(EntityTag::BossShield);
-    appendCaptureCandidates(EntityTag::Boss1Shield);
-    appendCaptureCandidates(EntityTag::MidBoss1Shield);
-    appendCaptureCandidates(EntityTag::CapturedShield);
-    appendCaptureCandidates(EntityTag::WalkerMeleeAttack);
-    appendCaptureCandidates(EntityTag::BossShockwave);
+    const auto& photoBoxEntities = m_world.EntitiesByTag(EntityTag::PhotoBox);
+    const auto& goalEntities = m_world.EntitiesByTag(EntityTag::Goal);
+    const auto& photoSourceEntities = m_world.EntitiesByTag(EntityTag::PhotoSource);
+    const auto& hazardEntities = m_world.EntitiesByTag(EntityTag::Hazard);
+    const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& dropItemEntities = m_world.EntitiesByTag(EntityTag::DropItem);
+    const auto& batteryEntities = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& logEntities = m_world.EntitiesByTag(EntityTag::Log);
+    const auto& damagePlatformEntities = m_world.EntitiesByTag(EntityTag::DamagePlatform);
+    const auto& damagePlatformSpikeEntities = m_world.EntitiesByTag(EntityTag::DamagePlatformSpike);
+    const auto& laserTurretEntities = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& markerLightEntities = m_world.EntitiesByTag(EntityTag::MarkerLight);
+    const auto& sepiaRubbleEntities = m_world.EntitiesByTag(EntityTag::SepiaRubble);
+    const auto& sepiaElevatorEntities = m_world.EntitiesByTag(EntityTag::SepiaElevator);
+    const auto& filterEntities = m_world.EntitiesByTag(EntityTag::Filter);
+    const auto& barrelEntities = m_world.EntitiesByTag(EntityTag::Barrel);
+    const auto& shieldEntities = m_world.EntitiesByTag(EntityTag::Shield);
+    const auto& bossShieldEntities = m_world.EntitiesByTag(EntityTag::BossShield);
+    const auto& boss1ShieldEntities = m_world.EntitiesByTag(EntityTag::Boss1Shield);
+    const auto& midBoss1ShieldEntities = m_world.EntitiesByTag(EntityTag::MidBoss1Shield);
+    const auto& capturedShieldEntities = m_world.EntitiesByTag(EntityTag::CapturedShield);
+    const auto& walkerMeleeAttackEntities = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+    const auto& bossShockwaveEntities = m_world.EntitiesByTag(EntityTag::BossShockwave);
 
-    for (Entity* entity : captureCandidates)
+    auto considerCaptureTarget = [&](Entity* entity)
     {
+        if (!entity)
+        {
+            return;
+        }
+
         if (HasTag(*entity, EntityTag::Player) ||
             HasTag(*entity, EntityTag::Enemy) ||
             HasTag(*entity, EntityTag::BatterySwitch) ||
@@ -2396,7 +2368,7 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
             HasTag(*entity, EntityTag::LaserBeam) ||
             HasTag(*entity, EntityTag::StageLight))
         {
-            continue;
+            return;
         }
 
         if (HasTag(*entity, EntityTag::PhotoBox))
@@ -2404,14 +2376,14 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
             const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
             if (!layer || layer->layer != PhotoCopyLayer::Foreground)
             {
-                continue;
+                return;
             }
 
             if (const auto* pasteAnimation = entity->GetComponent<PhotoPasteAnimationComponent>())
             {
                 if (!pasteAnimation->IsFinished())
                 {
-                    continue;
+                    return;
                 }
             }
         }
@@ -2420,7 +2392,7 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
         const auto* sprite = entity->GetComponent<SpriteRenderComponent>();
         if (!transform || !sprite || !IntersectsRect(captureFrame, *transform))
         {
-            continue;
+            return;
         }
 
         const float targetCenterX = transform->x + transform->width * transform->scale * 0.5f;
@@ -2431,7 +2403,39 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
             bestTarget = entity;
             bestDistance = distance;
         }
-    }
+    };
+
+    auto scanCandidates = [&](const std::vector<Entity*>& entities)
+    {
+        for (Entity* entity : entities)
+        {
+            considerCaptureTarget(entity);
+        }
+    };
+
+    scanCandidates(photoBoxEntities);
+    scanCandidates(goalEntities);
+    scanCandidates(photoSourceEntities);
+    scanCandidates(hazardEntities);
+    scanCandidates(bulletEntities);
+    scanCandidates(dropItemEntities);
+    scanCandidates(batteryEntities);
+    scanCandidates(logEntities);
+    scanCandidates(damagePlatformEntities);
+    scanCandidates(damagePlatformSpikeEntities);
+    scanCandidates(laserTurretEntities);
+    scanCandidates(markerLightEntities);
+    scanCandidates(sepiaRubbleEntities);
+    scanCandidates(sepiaElevatorEntities);
+    scanCandidates(filterEntities);
+    scanCandidates(barrelEntities);
+    scanCandidates(shieldEntities);
+    scanCandidates(bossShieldEntities);
+    scanCandidates(boss1ShieldEntities);
+    scanCandidates(midBoss1ShieldEntities);
+    scanCandidates(capturedShieldEntities);
+    scanCandidates(walkerMeleeAttackEntities);
+    scanCandidates(bossShockwaveEntities);
 
     return bestTarget;
 }

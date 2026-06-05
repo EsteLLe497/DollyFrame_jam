@@ -1,7 +1,9 @@
 ﻿#include "pch.h"
 
 #include "game_scene_internal.h"
-#include "game_scene_combat_system.h"
+#include "game_scene_combat_common.h"
+#include "game_scene_combat_enemy_system.h"
+#include "game_scene_combat_bullet_system.h"
 
 #include <algorithm>
 #include <array>
@@ -449,35 +451,61 @@ void GameScene::UpdateEnemies()
     Entity* player = FindEntityByTag(kTagPlayer);
     const TransformComponent* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
     const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    const auto& photoBoxEntities = m_world.EntitiesByTag(EntityTag::PhotoBox);
+    const auto& batteryEntities = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& barrelEntities = m_world.EntitiesByTag(EntityTag::Barrel);
+    const auto& dropItemEntities = m_world.EntitiesByTag(EntityTag::DropItem);
+    const auto& batterySwitchEntities = m_world.EntitiesByTag(EntityTag::BatterySwitch);
+    const auto& elevatorEntities = m_world.EntitiesByTag(EntityTag::Elevator);
+    const auto& laserSwitchEntities = m_world.EntitiesByTag(EntityTag::LaserSwitch);
+    const auto& shutterEntities = m_world.EntitiesByTag(EntityTag::Shutter);
+    const auto& protectiveWallEntities = m_world.EntitiesByTag(EntityTag::ProtectiveWall);
+    const auto& laserTurretEntities = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& laserBeamEntities = m_world.EntitiesByTag(EntityTag::LaserBeam);
+    const auto& stageLightEntities = m_world.EntitiesByTag(EntityTag::StageLight);
+    const auto& markerLightEntities = m_world.EntitiesByTag(EntityTag::MarkerLight);
+    const auto& sepiaRubbleEntities = m_world.EntitiesByTag(EntityTag::SepiaRubble);
+    const auto& sepiaElevatorEntities = m_world.EntitiesByTag(EntityTag::SepiaElevator);
+    const auto& goalEntities = m_world.EntitiesByTag(EntityTag::Goal);
+    const auto& photoSourceEntities = m_world.EntitiesByTag(EntityTag::PhotoSource);
+    const auto& hazardEntities = m_world.EntitiesByTag(EntityTag::Hazard);
+    const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& shieldEntities = m_world.EntitiesByTag(EntityTag::Shield);
+    const auto& bossShieldEntities = m_world.EntitiesByTag(EntityTag::BossShield);
+    const auto& boss1ShieldEntities = m_world.EntitiesByTag(EntityTag::Boss1Shield);
+    const auto& midBoss1ShieldEntities = m_world.EntitiesByTag(EntityTag::MidBoss1Shield);
+    const auto& capturedShieldEntities = m_world.EntitiesByTag(EntityTag::CapturedShield);
+    const auto& walkerMeleeAttackEntities = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+    const auto& bossShockwaveEntities = m_world.EntitiesByTag(EntityTag::BossShockwave);
     std::vector<Entity*> interactionEntities;
     interactionEntities.reserve(
-        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        photoBoxEntities.size() +
         enemyEntities.size() +
-        m_world.EntitiesByTag(EntityTag::Battery).size() +
-        m_world.EntitiesByTag(EntityTag::Barrel).size() +
-        m_world.EntitiesByTag(EntityTag::DropItem).size() +
-        m_world.EntitiesByTag(EntityTag::BatterySwitch).size() +
-        m_world.EntitiesByTag(EntityTag::Elevator).size() +
-        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
-        m_world.EntitiesByTag(EntityTag::Shutter).size() +
-        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size() +
-        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
-        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
-        m_world.EntitiesByTag(EntityTag::StageLight).size() +
-        m_world.EntitiesByTag(EntityTag::MarkerLight).size() +
-        m_world.EntitiesByTag(EntityTag::SepiaRubble).size() +
-        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
-        m_world.EntitiesByTag(EntityTag::Goal).size() +
-        m_world.EntitiesByTag(EntityTag::PhotoSource).size() +
-        m_world.EntitiesByTag(EntityTag::Hazard).size() +
-        m_world.EntitiesByTag(EntityTag::Bullet).size() +
-        m_world.EntitiesByTag(EntityTag::Shield).size() +
-        m_world.EntitiesByTag(EntityTag::BossShield).size() +
-        m_world.EntitiesByTag(EntityTag::Boss1Shield).size() +
-        m_world.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
-        m_world.EntitiesByTag(EntityTag::CapturedShield).size() +
-        m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack).size() +
-        m_world.EntitiesByTag(EntityTag::BossShockwave).size());
+        batteryEntities.size() +
+        barrelEntities.size() +
+        dropItemEntities.size() +
+        batterySwitchEntities.size() +
+        elevatorEntities.size() +
+        laserSwitchEntities.size() +
+        shutterEntities.size() +
+        protectiveWallEntities.size() +
+        laserTurretEntities.size() +
+        laserBeamEntities.size() +
+        stageLightEntities.size() +
+        markerLightEntities.size() +
+        sepiaRubbleEntities.size() +
+        sepiaElevatorEntities.size() +
+        goalEntities.size() +
+        photoSourceEntities.size() +
+        hazardEntities.size() +
+        bulletEntities.size() +
+        shieldEntities.size() +
+        bossShieldEntities.size() +
+        boss1ShieldEntities.size() +
+        midBoss1ShieldEntities.size() +
+        capturedShieldEntities.size() +
+        walkerMeleeAttackEntities.size() +
+        bossShockwaveEntities.size());
     auto appendInteractionEntities = [&](EntityTag tag)
     {
         for (Entity* candidate : m_world.EntitiesByTag(tag))
@@ -835,35 +863,62 @@ void GameScene::UpdateShields(float deltaTime)
     std::vector<std::unique_ptr<Entity>> spawnedShockwaves;
     std::vector<Entity*> shieldsToRemove;
     std::vector<Entity*> objectsToRemove;
+    const auto& photoBoxEntities = m_world.EntitiesByTag(EntityTag::PhotoBox);
+    const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    const auto& batteryEntities = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& barrelEntities = m_world.EntitiesByTag(EntityTag::Barrel);
+    const auto& dropItemEntities = m_world.EntitiesByTag(EntityTag::DropItem);
+    const auto& batterySwitchEntities = m_world.EntitiesByTag(EntityTag::BatterySwitch);
+    const auto& elevatorEntities = m_world.EntitiesByTag(EntityTag::Elevator);
+    const auto& laserSwitchEntities = m_world.EntitiesByTag(EntityTag::LaserSwitch);
+    const auto& shutterEntities = m_world.EntitiesByTag(EntityTag::Shutter);
+    const auto& protectiveWallEntities = m_world.EntitiesByTag(EntityTag::ProtectiveWall);
+    const auto& laserTurretEntities = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& laserBeamEntities = m_world.EntitiesByTag(EntityTag::LaserBeam);
+    const auto& stageLightEntities = m_world.EntitiesByTag(EntityTag::StageLight);
+    const auto& markerLightEntities = m_world.EntitiesByTag(EntityTag::MarkerLight);
+    const auto& sepiaRubbleEntities = m_world.EntitiesByTag(EntityTag::SepiaRubble);
+    const auto& sepiaElevatorEntities = m_world.EntitiesByTag(EntityTag::SepiaElevator);
+    const auto& goalEntities = m_world.EntitiesByTag(EntityTag::Goal);
+    const auto& photoSourceEntities = m_world.EntitiesByTag(EntityTag::PhotoSource);
+    const auto& hazardEntities = m_world.EntitiesByTag(EntityTag::Hazard);
+    const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& shieldTagEntities = m_world.EntitiesByTag(EntityTag::Shield);
+    const auto& bossShieldTagEntities = m_world.EntitiesByTag(EntityTag::BossShield);
+    const auto& boss1ShieldTagEntities = m_world.EntitiesByTag(EntityTag::Boss1Shield);
+    const auto& midBoss1ShieldTagEntities = m_world.EntitiesByTag(EntityTag::MidBoss1Shield);
+    const auto& capturedShieldTagEntities = m_world.EntitiesByTag(EntityTag::CapturedShield);
+    const auto& walkerMeleeAttackEntities = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+    const auto& bossShockwaveEntities = m_world.EntitiesByTag(EntityTag::BossShockwave);
     std::vector<Entity*> shieldImpactCandidates;
     shieldImpactCandidates.reserve(
-        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
-        m_world.EntitiesByTag(EntityTag::Enemy).size() +
-        m_world.EntitiesByTag(EntityTag::Battery).size() +
-        m_world.EntitiesByTag(EntityTag::Barrel).size() +
-        m_world.EntitiesByTag(EntityTag::DropItem).size() +
-        m_world.EntitiesByTag(EntityTag::BatterySwitch).size() +
-        m_world.EntitiesByTag(EntityTag::Elevator).size() +
-        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
-        m_world.EntitiesByTag(EntityTag::Shutter).size() +
-        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size() +
-        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
-        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
-        m_world.EntitiesByTag(EntityTag::StageLight).size() +
-        m_world.EntitiesByTag(EntityTag::MarkerLight).size() +
-        m_world.EntitiesByTag(EntityTag::SepiaRubble).size() +
-        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
-        m_world.EntitiesByTag(EntityTag::Goal).size() +
-        m_world.EntitiesByTag(EntityTag::PhotoSource).size() +
-        m_world.EntitiesByTag(EntityTag::Hazard).size() +
-        m_world.EntitiesByTag(EntityTag::Bullet).size() +
-        m_world.EntitiesByTag(EntityTag::Shield).size() +
-        m_world.EntitiesByTag(EntityTag::BossShield).size() +
-        m_world.EntitiesByTag(EntityTag::Boss1Shield).size() +
-        m_world.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
-        m_world.EntitiesByTag(EntityTag::CapturedShield).size() +
-        m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack).size() +
-        m_world.EntitiesByTag(EntityTag::BossShockwave).size());
+        photoBoxEntities.size() +
+        enemyEntities.size() +
+        batteryEntities.size() +
+        barrelEntities.size() +
+        dropItemEntities.size() +
+        batterySwitchEntities.size() +
+        elevatorEntities.size() +
+        laserSwitchEntities.size() +
+        shutterEntities.size() +
+        protectiveWallEntities.size() +
+        laserTurretEntities.size() +
+        laserBeamEntities.size() +
+        stageLightEntities.size() +
+        markerLightEntities.size() +
+        sepiaRubbleEntities.size() +
+        sepiaElevatorEntities.size() +
+        goalEntities.size() +
+        photoSourceEntities.size() +
+        hazardEntities.size() +
+        bulletEntities.size() +
+        shieldTagEntities.size() +
+        bossShieldTagEntities.size() +
+        boss1ShieldTagEntities.size() +
+        midBoss1ShieldTagEntities.size() +
+        capturedShieldTagEntities.size() +
+        walkerMeleeAttackEntities.size() +
+        bossShockwaveEntities.size());
     auto appendShieldImpactCandidates = [&](EntityTag tag)
     {
         for (Entity* candidate : m_world.EntitiesByTag(tag))
