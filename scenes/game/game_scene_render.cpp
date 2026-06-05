@@ -1424,16 +1424,25 @@ void GameScene::DrawPastedEntitiesFront() const
         int layerPriority = 0;
     };
 
+    const auto& photoBoxes = m_world.EntitiesByTag(EntityTag::PhotoBox);
+    const auto& barrels = m_world.EntitiesByTag(EntityTag::Barrel);
+    const auto& batteries = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& bullets = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& laserTurrets = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& laserBeams = m_world.EntitiesByTag(EntityTag::LaserBeam);
+    const auto& meleeAttacks = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+    const auto& capturedShields = m_world.EntitiesByTag(EntityTag::CapturedShield);
+
     std::vector<DrawTarget> drawTargets;
     drawTargets.reserve(
-        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
-        m_world.EntitiesByTag(EntityTag::Barrel).size() +
-        m_world.EntitiesByTag(EntityTag::Battery).size() +
-        m_world.EntitiesByTag(EntityTag::Bullet).size() +
-        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
-        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
-        m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack).size() +
-        m_world.EntitiesByTag(EntityTag::CapturedShield).size());
+        photoBoxes.size() +
+        barrels.size() +
+        batteries.size() +
+        bullets.size() +
+        laserTurrets.size() +
+        laserBeams.size() +
+        meleeAttacks.size() +
+        capturedShields.size());
 
     auto appendDrawTargets = [&](EntityTag tag)
     {
@@ -1481,7 +1490,7 @@ void GameScene::DrawPastedEntitiesFront() const
     appendDrawTargets(EntityTag::WalkerMeleeAttack);
     appendDrawTargets(EntityTag::CapturedShield);
 
-    std::stable_sort(
+    std::sort(
         drawTargets.begin(),
         drawTargets.end(),
         [](const DrawTarget& a, const DrawTarget& b)
@@ -1515,13 +1524,21 @@ void GameScene::DrawEffects() const
         float priority = 0.0f;
     };
 
+    const auto& goalEntities = m_world.EntitiesByTag(EntityTag::Goal);
+    const auto& checkpointEntities = m_world.EntitiesByTag(EntityTag::Checkpoint);
+    const auto& photoSourceEntities = m_world.EntitiesByTag(EntityTag::PhotoSource);
+    const auto& hazardEntities = m_world.EntitiesByTag(EntityTag::Hazard);
+    const auto& batteryEntities = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& stageLightEntities = m_world.EntitiesByTag(EntityTag::StageLight);
+    const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+
     std::vector<LightDrawTarget> lightTargets;
     lightTargets.reserve(
-        m_world.EntitiesByTag(EntityTag::Goal).size() +
-        m_world.EntitiesByTag(EntityTag::Checkpoint).size() +
-        m_world.EntitiesByTag(EntityTag::PhotoSource).size() +
-        m_world.EntitiesByTag(EntityTag::Hazard).size() +
-        m_world.EntitiesByTag(EntityTag::Battery).size());
+        goalEntities.size() +
+        checkpointEntities.size() +
+        photoSourceEntities.size() +
+        hazardEntities.size() +
+        batteryEntities.size());
     const float viewRight = viewOriginX + GetViewWidth();
     const float viewBottom = viewOriginY + GetViewHeight();
     const float viewCenterWorldX = m_flow.cameraX + GetViewWidth() / std::max(0.001f, viewScale) * 0.5f;
@@ -1587,15 +1604,17 @@ void GameScene::DrawEffects() const
     const int maxLightEffects = m_lifecycle.darknessStageEnabled ? 6 : 16;
     if (lightTargets.size() > static_cast<size_t>(maxLightEffects))
     {
-        std::partial_sort(
+        const auto priorityCompare = [](const LightDrawTarget& a, const LightDrawTarget& b)
+        {
+            return a.priority > b.priority;
+        };
+        std::nth_element(
             lightTargets.begin(),
             lightTargets.begin() + maxLightEffects,
             lightTargets.end(),
-            [](const LightDrawTarget& a, const LightDrawTarget& b)
-            {
-                return a.priority > b.priority;
-            });
+            priorityCompare);
         lightTargets.resize(maxLightEffects);
+        std::sort(lightTargets.begin(), lightTargets.end(), priorityCompare);
     }
 
     int godRayCount = 0;
@@ -1617,7 +1636,7 @@ void GameScene::DrawEffects() const
         }
     }
 
-    for (Entity* entity : m_world.EntitiesByTag(EntityTag::StageLight))
+    for (Entity* entity : stageLightEntities)
     {
         if (!entity)
         {
@@ -1644,7 +1663,7 @@ void GameScene::DrawEffects() const
         DrawStageLightBeam(*this, *transform, *stageLight, beamLengthWorld, m_flow.cameraX, m_flow.cameraY);
     }
 
-    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    for (Entity* entity : enemyEntities)
     {
         if (!entity)
         {
@@ -1668,7 +1687,7 @@ void GameScene::DrawEffects() const
             m_flow.cameraY);
     }
 
-    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    for (Entity* entity : enemyEntities)
     {
         if (!entity)
         {
