@@ -192,69 +192,185 @@ void GameScene::BuildCameraMarkers()
 
     float tileSize = m_tileMap.GetTileSize();
 
-    //繧ｫ繝｡繝ｩ1
-    {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(-2, 6, tileSize); // 蟾ｦ荳翫ち繧､繝ｫ
-        cameraRange.SetEndTiles(22, 18, tileSize);   // 蜿ｳ荳九ち繧､繝ｫ
-        cameraRange.SetCameraNum(0);
-        cameraRange.SetFollowPlayer(false);
+    std::filesystem::path path(gCurrentMapCsvPath);
+    std::string stageName = path.stem().string();
 
-        m_camera.fixedRanges.push_back(cameraRange);
+    //森林ステージ    
+    if (stageName == "forest")
+    {
+        //カメラ1
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(-2, 6, tileSize); // 左上タイル
+            cameraRange.SetEndTiles(22, 18, tileSize);   // 右下タイル
+            cameraRange.SetCameraNum(0);
+            cameraRange.SetFollowPlayer(false);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        //カメラ2
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(22, 6, tileSize);
+            cameraRange.SetEndTiles(42, 19, tileSize);
+            cameraRange.SetCameraNum(1);
+            cameraRange.SetFollowPlayer(false);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        //カメラ3
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(72, 2, tileSize);
+            cameraRange.SetEndTiles(93, 28, tileSize);
+            cameraRange.SetCameraNum(2);
+            cameraRange.SetFollowPlayer(false);
+
+            cameraRange.SetZoomWidth(2560.0f);
+            cameraRange.SetZoomHeight(1440.0f);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        //カメラ4
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(113, 4, tileSize);
+            cameraRange.SetEndTiles(133, 21, tileSize);
+            cameraRange.SetCameraNum(3);
+            cameraRange.SetFollowPlayer(false);
+
+            cameraRange.SetZoomHeight(1440.0f);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        //カメラ5
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(131, 10, tileSize);
+            cameraRange.SetEndTiles(148, 21, tileSize);
+            cameraRange.SetCameraNum(4);
+            cameraRange.SetFollowPlayer(false);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
     }
 
-    //繧ｫ繝｡繝ｩ2
+    //地下ステージ
+    if (stageName == "under")
     {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(22, 6, tileSize);
-        cameraRange.SetEndTiles(42, 19, tileSize);
-        cameraRange.SetCameraNum(1);
-        cameraRange.SetFollowPlayer(false);
+        {
+            //カメラ1
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(0, 0, tileSize);
+            cameraRange.SetEndTiles(19, 11, tileSize);
+            cameraRange.SetCameraNum(0);
+            cameraRange.SetFollowPlayer(false);
 
-        m_camera.fixedRanges.push_back(cameraRange);
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ2-1
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(19, 0, tileSize);
+            cameraRange.SetEndTiles(30, 19, tileSize);
+            cameraRange.SetCameraNum(1);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(10, tileSize);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ2-2
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(19, 11, tileSize);
+            cameraRange.SetEndTiles(30, 33, tileSize);
+            cameraRange.SetCameraNum(2);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(10, tileSize);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ3
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(30, 19, tileSize);
+            cameraRange.SetEndTiles(47, 30, tileSize);
+            cameraRange.SetCameraNum(3);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(3, tileSize);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ4
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(67, 10, tileSize);
+            cameraRange.SetEndTiles(82, 27, tileSize);
+            cameraRange.SetCameraNum(4);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(-3, tileSize);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ5
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(48, 21, tileSize);
+            cameraRange.SetEndTiles(67, 27, tileSize);
+            cameraRange.SetCameraNum(5);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(5, tileSize);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ6
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(47, 25, tileSize);
+            cameraRange.SetEndTiles(62, 34, tileSize);
+            cameraRange.SetCameraNum(6);
+            cameraRange.SetFollowPlayer(false);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ7
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(84, 25, tileSize);
+            cameraRange.SetEndTiles(93, 32, tileSize);
+            cameraRange.SetCameraNum(7);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(2, tileSize);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ8
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(93, 14, tileSize);
+            cameraRange.SetEndTiles(107, 32, tileSize);
+            cameraRange.SetCameraNum(8);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(2, tileSize);
+
+            m_fixedRanges.push_back(cameraRange);
+        }
+
     }
-
-    //繧ｫ繝｡繝ｩ3
-    {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(72, 2, tileSize);
-        cameraRange.SetEndTiles(93, 28, tileSize);
-        cameraRange.SetCameraNum(2);
-        cameraRange.SetFollowPlayer(false);
-
-        cameraRange.SetZoomWidth(2560.0f);
-        cameraRange.SetZoomHeight(1440.0f);
-
-        m_camera.fixedRanges.push_back(cameraRange);
-    }
-
-    //繧ｫ繝｡繝ｩ4
-    {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(113, 4, tileSize);
-        cameraRange.SetEndTiles(133, 21, tileSize);
-        cameraRange.SetCameraNum(3);
-        cameraRange.SetFollowPlayer(false);
-
-        cameraRange.SetZoomHeight(1440.0f);
-
-        m_camera.fixedRanges.push_back(cameraRange);
-    }
-
-    //繧ｫ繝｡繝ｩ5
-    {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(131, 10, tileSize);
-        cameraRange.SetEndTiles(148, 21, tileSize);
-        cameraRange.SetCameraNum(4);
-        cameraRange.SetFollowPlayer(false);
-
-        m_camera.fixedRanges.push_back(cameraRange);
-    }
-
 
 }
-
 namespace game_scene_detail
 {
     constexpr float kDefaultCameraViewWidth = 1920.0f;
@@ -338,41 +454,32 @@ void GameScene::ResetSceneState()
     m_mapEditor.selectedStageLightFixtureTiles = 1;
     m_mapEditor.statusMessage.clear();
     m_mapEditor.statusMessageTimer = 0.0f;
-    m_tuning = GameSceneTuningState{};
-    m_camera.transitionMarkers.clear();
-
-    m_camera.hasPreviousPlayerCameraProbe = false;
-    m_camera.previousPlayerCameraProbeX = 0.0f;
-    m_camera.previousPlayerCameraProbeY = 0.0f;
-    m_camera.hasCameraSmoothedPlayerY = false;
-    m_camera.cameraSmoothedPlayerCenterY = 0.0f;
-    m_camera.floorCameraTransitionActive = false;
-    m_camera.floorCameraTransitionElapsed = 0.0f;
-    m_camera.floorCameraTransitionDuration = 1.10f;
-    m_camera.floorCameraTransitionStartX = 0.0f;
-    m_camera.floorCameraTransitionStartY = 0.0f;
-    m_camera.floorCameraTransitionTargetX = 0.0f;
-    m_camera.floorCameraTransitionTargetY = 0.0f;
-    m_camera.cameraFixedLockActive = false;
-    m_camera.cameraFixedLockStartX = 0.0f;
-    m_camera.cameraFixedLockEndX = 0.0f;
-    m_camera.cameraFixedLockX = 0.0f;
-    m_camera.cameraFixedLockY = 0.0f;
-    m_camera.midBoss3CameraYLockInitialized = false;
-    m_camera.midBoss3CameraYLock = 0.0f;
-    m_lifecycle.hasPendingStageTransition = false;
-    m_lifecycle.pendingStageTransitionMapCsv.clear();
-    m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
-    m_lifecycle.pendingStageTransitionMarker = '\0';
-    m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins_boss.csv";
-    m_lifecycle.lastStageTransitionMarker = '\0';
-    m_render.shakeOffsetX = 0.0f;
-    m_render.shakeOffsetY = 0.0f;
-    m_render.viewScaleMultiplier = 1.0f;
-    m_render.zoomAnchorScreenCenter = false;
-    m_render.zoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
-    m_render.zoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;
+    m_cameraTransitionMarkers.clear();
+    m_cameraFixedRanges.clear();
+    m_hasPreviousPlayerCameraProbe = false;
+    m_previousPlayerCameraProbeX = 0.0f;
+    m_previousPlayerCameraProbeY = 0.0f;
+    m_hasCameraSmoothedPlayerY = false;
+    m_cameraSmoothedPlayerCenterY = 0.0f;
+    m_floorCameraTransitionActive = false;
+    m_floorCameraTransitionElapsed = 0.0f;
+    m_floorCameraTransitionDuration = 1.10f;
+    m_floorCameraTransitionStartX = 0.0f;
+    m_floorCameraTransitionStartY = 0.0f;
+    m_floorCameraTransitionTargetX = 0.0f;
+    m_floorCameraTransitionTargetY = 0.0f;
+    m_cameraFixedLockActive = false;
+    m_cameraFixedLockStartX = 0.0f;
+    m_cameraFixedLockEndX = 0.0f;
+    m_cameraFixedLockX = 0.0f;
+    m_cameraFixedLockY = 0.0f;
+    m_hasPendingStageTransition = false;
+    m_pendingStageTransitionMapCsv.clear();
+    m_pendingStageTransitionSpawnMarker = '\0';
+    m_pendingStageTransitionMarker = '\0';
+    m_darknessStageEnabled = false;
+    gCurrentMapCsvPath = "assets/maps/stages/under.csv";
+    gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
 }

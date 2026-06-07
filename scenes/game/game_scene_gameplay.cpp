@@ -191,26 +191,20 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
 
         if (activeIndex == -1)
         {
-            // 追従カメラ
-            m_camera.easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
-            m_camera.easingTargetY = followY
-                ? playerCenterY - (gCameraViewHeight * 0.5f)
-                : m_flow.cameraY;
+            m_easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
+            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
         }
         else
         {
-            // 固定カメラ
-            const auto& cam = m_camera.fixedRanges[activeIndex];
+            const auto& cam = m_fixedRanges[activeIndex];
 
             gCameraViewWidth = cam.GetZoomWidth();
             gCameraViewHeight = cam.GetZoomHeight();
 
             float centerX = (cam.GetStartX() + cam.GetEndX()) * 0.5f;
 
-            m_camera.easingTargetX = centerX - (gCameraViewWidth * 0.25f);
-            m_camera.easingTargetY = followY
-                ? playerCenterY - (gCameraViewHeight * 0.5f)
-                : m_flow.cameraY;
+            m_easingTargetX = centerX - (gCameraViewWidth * 0.25f) + cam.GetOffsetX();
+            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f) + cam.GetOffsetY();
         }
     }
 
@@ -235,6 +229,21 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     // 追従カメラ
     if (activeIndex < 0)
     {
+        if (m_prevCameraIndex >= 0)
+        {
+            const auto& prevCam = m_fixedRanges[m_prevCameraIndex];
+
+            gCameraViewWidth = prevCam.GetZoomWidth();
+            gCameraViewHeight = prevCam.GetZoomHeight();
+
+            float centerX = (prevCam.GetStartX() + prevCam.GetEndX()) * 0.5f;
+
+            m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f) + prevCam.GetOffsetX();
+            m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f) + prevCam.GetOffsetY();
+
+            return;
+        }
+
         m_flow.cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
         if (followY)
         {
@@ -253,14 +262,12 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
 
     float centerX = (cameraRange.GetStartX() + cameraRange.GetEndX()) * 0.5f;
 
-    m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f);
-    if (followY)
-    {
-        m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
-    }
+    m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f) + cameraRange.GetOffsetX();
+    m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f) + cameraRange.GetOffsetY();
 
     m_camera.prevCameraIndex = activeIndex;
 }
+
 
 
 void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float height)
