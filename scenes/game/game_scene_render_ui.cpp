@@ -135,17 +135,13 @@ namespace
     }
 
     void CollectMarkerLightOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagMarkerLight))
-            {
-                continue;
-            }
-
+            if (!entity) continue;
             const auto* extraLight = entity->GetComponent<MarkerLightComponent>();
             const auto* extraTransform = entity->GetComponent<TransformComponent>();
             if (!extraLight || !extraTransform || !extraLight->activated)
@@ -173,20 +169,16 @@ namespace
                 ctx,
                 12.0f);
         }
-    }
+    };
 
     void CollectStageLightOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagStageLight))
-            {
-                continue;
-            }
-
+            if (!entity) continue;
             const auto* stageLight = entity->GetComponent<StageLightComponent>();
             const auto* stageTransform = entity->GetComponent<TransformComponent>();
             if (!stageLight || !stageTransform || !stageLight->enabled)
@@ -220,17 +212,14 @@ namespace
     }
 
     void CollectBatteryOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
         const float batteryOuterRadius = ctx.tileSize * ctx.viewScale;
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagBattery))
-            {
-                continue;
-            }
+            if (!entity) continue;
             const auto* battery = entity->GetComponent<BatteryComponent>();
             const auto* batteryTransform = entity->GetComponent<TransformComponent>();
             if (!battery || !batteryTransform)
@@ -260,17 +249,14 @@ namespace
     }
 
     void CollectLaserBeamOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
         const float laserFeather = ctx.tileSize * ctx.viewScale * 0.6f;
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagLaserBeam))
-            {
-                continue;
-            }
+            if (!entity) continue;
             const auto* beamTransform = entity->GetComponent<TransformComponent>();
             if (!beamTransform || beamTransform->width <= 0.0f || beamTransform->height <= 0.0f)
             {
@@ -305,17 +291,14 @@ namespace
     }
 
     void CollectBlasterBulletOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
         const float blasterBulletOuterRadius = ctx.tileSize * ctx.viewScale * 0.9f;
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagBullet))
-            {
-                continue;
-            }
+            if (!entity) continue;
             const auto* projectile = entity->GetComponent<ProjectileComponent>();
             const auto* bulletTransform = entity->GetComponent<TransformComponent>();
             if (!projectile || !bulletTransform || projectile->GetOwner() != ProjectileComponent::Owner::BlasterRobot)
@@ -345,21 +328,25 @@ namespace
     }
 
     void CollectDarknessOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& markerLightEntities,
+        const std::vector<Entity*>& stageLightEntities,
+        const std::vector<Entity*>& batteryEntities,
+        const std::vector<Entity*>& laserBeamEntities,
+        const std::vector<Entity*>& blasterBulletEntities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
         AddPlayerOverlayLight(overlayLights, ctx, 74.0f * ctx.viewScale, 170.0f * ctx.viewScale);
-        CollectMarkerLightOverlayLights(entities, ctx, overlayLights);
-        CollectStageLightOverlayLights(entities, ctx, overlayLights);
+        CollectMarkerLightOverlayLights(markerLightEntities, ctx, overlayLights);
+        CollectStageLightOverlayLights(stageLightEntities, ctx, overlayLights);
 
         if (ctx.tileSize > 0.0f)
         {
-            CollectBatteryOverlayLights(entities, ctx, overlayLights);
-            CollectLaserBeamOverlayLights(entities, ctx, overlayLights);
-            CollectBlasterBulletOverlayLights(entities, ctx, overlayLights);
+            CollectBatteryOverlayLights(batteryEntities, ctx, overlayLights);
+            CollectLaserBeamOverlayLights(laserBeamEntities, ctx, overlayLights);
+            CollectBlasterBulletOverlayLights(blasterBulletEntities, ctx, overlayLights);
         }
-    }
+    };
 
     DarknessOverlayParams BuildDarknessOverlayParams(
         const DarknessOverlayContext& ctx,
@@ -852,7 +839,7 @@ namespace
 
 void GameScene::DrawStageDarknessOverlay() const
 {
-    if (!m_darknessStageEnabled)
+    if (!m_lifecycle.darknessStageEnabled)
     {
         return;
     }
@@ -899,9 +886,9 @@ void GameScene::DrawStageDarknessOverlay() const
     const float viewScale = GetViewScale();
     int maxDarknessAlpha = kBaseDarknessAlpha;
 
-    if (m_flow.cameraFlash.enabled && m_flow.cameraFlash.pulseRemaining > 0.0f && m_flow.cameraFlash.pulseDuration > 0.0f)
+    if (m_ui.cameraFlash.enabled && m_ui.cameraFlash.pulseRemaining > 0.0f && m_ui.cameraFlash.pulseDuration > 0.0f)
     {
-        const float flashT = Clamp01(m_flow.cameraFlash.pulseRemaining / m_flow.cameraFlash.pulseDuration);
+        const float flashT = Clamp01(m_ui.cameraFlash.pulseRemaining / m_ui.cameraFlash.pulseDuration);
         const float flashEase = flashT * flashT * (3.0f - 2.0f * flashT);
         maxDarknessAlpha = static_cast<int>(std::round(std::lerp(228.0f, 160.0f, flashEase)));
     }
@@ -923,20 +910,29 @@ void GameScene::DrawStageDarknessOverlay() const
 
     std::vector<OverlayLightSource> overlayLights;
     overlayLights.reserve(kMaxDarknessOverlayLights * 2);
-    CollectDarknessOverlayLights(m_entities, ctx, overlayLights);
+    CollectDarknessOverlayLights(
+        m_world.EntitiesByTag(EntityTag::MarkerLight),
+        m_world.EntitiesByTag(EntityTag::StageLight),
+        m_world.EntitiesByTag(EntityTag::Battery),
+        m_world.EntitiesByTag(EntityTag::LaserBeam),
+        m_world.EntitiesByTag(EntityTag::Bullet),
+        ctx,
+        overlayLights);
 
     const int renderedLightLimit = (std::min)(kMaxDarknessOverlayLights, kDarknessOverlayActiveLightLimit);
     if (overlayLights.size() > static_cast<size_t>(renderedLightLimit))
     {
-        std::partial_sort(
+        const auto priorityCompare = [](const OverlayLightSource& a, const OverlayLightSource& b)
+        {
+            return a.priority > b.priority;
+        };
+        std::nth_element(
             overlayLights.begin(),
             overlayLights.begin() + renderedLightLimit,
             overlayLights.end(),
-            [](const OverlayLightSource& a, const OverlayLightSource& b)
-            {
-                return a.priority > b.priority;
-            });
+            priorityCompare);
         overlayLights.resize(renderedLightLimit);
+        std::sort(overlayLights.begin(), overlayLights.end(), priorityCompare);
     }
 
     if (DirectXHasDarknessOverlay())
@@ -1005,9 +1001,9 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     DrawSepiaFilmDust(effectLeft, effectTop, effectRight, effectBottom, frame);
     DrawSepiaFilmScratches(effectLeft, effectTop, effectRight, effectBottom, frame);
     // フレーム内の瓦礫を足場テクスチャでプレビュー描画
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
     {
-        if (!entity || !HasTag(*entity, kTagSepiaRubble))
+        if (!entity)
         {
             continue;
         }
@@ -1049,13 +1045,28 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         const float sourceY = std::clamp((overlapTop - t->y) / objectWorldY, 0.0f, 1.0f);
         const float sourceW = std::clamp(overlapWidth / objectWorldX, 0.0f, 1.0f - sourceX);
         const float sourceH = std::clamp(overlapHeight / objectWorldY, 0.0f, 1.0f - sourceY);
+        const auto* rubble = entity->GetComponent<SepiaRubbleComponent>();
+        const bool attackRubble =
+            rubble &&
+            (rubble->source == SepiaRubbleSource::MidBoss3Fist ||
+                rubble->source == SepiaRubbleSource::MidBoss3Drill);
         Shader_ResetStyle();
-        Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
+        if (attackRubble)
+        {
+            Shader_SetTint(0.96f, 0.52f, 0.18f, 0.95f);
+        }
+        else
+        {
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
+        }
         SpriteDraw(
-            m_assets.GetTexture("sepia_ground"),
+            attackRubble ? m_whiteTexture : m_assets.GetTexture("sepia_ground"),
             drawEntityX, drawEntityY,
             drawEntityW, drawEntityH,
-            sourceX, sourceY, sourceW, sourceH);
+            attackRubble ? 0.0f : sourceX,
+            attackRubble ? 0.0f : sourceY,
+            attackRubble ? 1.0f : sourceW,
+            attackRubble ? 1.0f : sourceH);
 
     }
     Shader_ResetStyle();
@@ -1064,7 +1075,7 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
 
 void GameScene::DrawMarkerLightOutlines() const
 {
-    if (!m_darknessStageEnabled)
+    if (!m_lifecycle.darknessStageEnabled)
     {
         return;
     }
@@ -1074,13 +1085,9 @@ void GameScene::DrawMarkerLightOutlines() const
     const float viewOriginY = GetViewOriginY();
     const unsigned int outlineColor = GetColor(248, 248, 252);
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::MarkerLight))
     {
-        if (!entity || !HasTag(*entity, kTagMarkerLight))
-        {
-            continue;
-        }
-
+        if (!entity) continue;
         const auto* markerLight = entity->GetComponent<MarkerLightComponent>();
         const auto* transform = entity->GetComponent<TransformComponent>();
         if (!markerLight || !transform || markerLight->activated)
@@ -1214,7 +1221,7 @@ void GameScene::DrawCaptureOverlay() const
     const int right = static_cast<int>(std::round(drawX + drawWidth));
     const int bottom = static_cast<int>(std::round(drawY + drawHeight));
 
-    const float shutterT = Clamp01(m_flow.shutterFlashRemaining / gShutterFlashSeconds);
+    const float shutterT = Clamp01(m_ui.shutterFlashRemaining / gShutterFlashSeconds);
     const float frameInset = 10.0f * shutterT * viewScale;
     const float innerX = drawX + frameInset;
     const float innerY = drawY + frameInset;
@@ -1322,7 +1329,7 @@ void GameScene::DrawCaptureOverlay() const
         }
     }
 
-    if (m_flow.shutterFlashRemaining > 0.0f)
+    if (m_ui.shutterFlashRemaining > 0.0f)
     {
         Shader_ResetStyle();
         Shader_SetTint(overlayR, overlayG, overlayB, 0.10f + shutterT * 0.55f);
@@ -1451,18 +1458,18 @@ void GameScene::DrawTuningPanel()
 
 void GameScene::DrawDevelopedPhotoPreview() const
 {
-    if (m_flow.developedPhotoPreviewRemaining <= 0.0f || !m_photo.pendingStore.active || m_photo.pendingStore.capture.items.empty())
+    if (m_ui.developedPhotoPreviewRemaining <= 0.0f || !m_photo.pendingStore.active || m_photo.pendingStore.capture.items.empty())
     {
         return;
     }
 
     const PhotoCaptureState& previewCapture = m_photo.pendingStore.capture;
     constexpr float kPreviewLifetime = 4.2f;
-    const float progress = 1.0f - Clamp01(m_flow.developedPhotoPreviewRemaining / kPreviewLifetime);
+    const float progress = 1.0f - Clamp01(m_ui.developedPhotoPreviewRemaining / kPreviewLifetime);
     const float cardPhaseT = Clamp01(progress / 0.34f);
     const float orbPhaseT = Clamp01((progress - 0.14f) / 0.30f);
     const float orbArriveT = Clamp01((progress - 0.34f) / 0.10f);
-    const float finalFade = Clamp01(m_flow.developedPhotoPreviewRemaining / 0.34f);
+    const float finalFade = Clamp01(m_ui.developedPhotoPreviewRemaining / 0.34f);
 
     float accentR = 0.32f;
     float accentG = 0.92f;
@@ -1471,7 +1478,7 @@ void GameScene::DrawDevelopedPhotoPreview() const
 
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
     const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     const float targetSlotX = trayX + m_photo.pendingStore.slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
     const float targetCenterX = targetSlotX + 98.0f;
@@ -1702,14 +1709,14 @@ void GameScene::DrawDevelopedPhotoPreview() const
 
 bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 {
-    if (m_flow.photoTrayReveal <= 0.05f)
+    if (m_ui.photoTrayReveal <= 0.05f)
     {
         return false;
     }
 
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
     const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     return
         screenX >= trayX &&
@@ -1720,7 +1727,7 @@ bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 
 void GameScene::DrawPhotoStorageTray() const
 {
-    if (m_flow.photoTrayReveal <= 0.01f)
+    if (m_ui.photoTrayReveal <= 0.01f)
     {
         return;
     }
@@ -1728,9 +1735,9 @@ void GameScene::DrawPhotoStorageTray() const
     constexpr float kInnerPadding = 10.0f;
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
     const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
-    const int textBright = static_cast<int>(150.0f + m_flow.photoTrayReveal * 105.0f);
+    const int textBright = static_cast<int>(150.0f + m_ui.photoTrayReveal * 105.0f);
     const int textBrightCool = std::min(255, textBright + 10);
 
     const int trayBackdropTexture = m_assets.GetTexture("photo_tray_backdrop");
@@ -1744,7 +1751,7 @@ void GameScene::DrawPhotoStorageTray() const
             const float drawHeight = drawWidth * (textureHeight / textureWidth);
             const float drawY = static_cast<float>(SCREEN_HEIGHT) - drawHeight;
             Shader_ResetStyle();
-            Shader_SetTint(1.0f, 1.0f, 1.0f, m_flow.photoTrayReveal);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, m_ui.photoTrayReveal);
            // SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
             Shader_ResetStyle();
         }
@@ -1886,8 +1893,13 @@ void GameScene::DrawBackdropBaseInView(
     float viewHeight,
     float viewScale) const
 {
-    const int bgTexture = m_assets.GetTexture("sinrin10");
-    const int bg1Texture = m_assets.GetTexture("sinrin11");
+    // 繧ｭ繝｣繝・す繝･縺輔ｌ縺溯レ譎ｯ繝・け繧ｹ繝√ΕID繧貞━蜈医＠縺ｦ菴ｿ縺・ｼ医↑縺代ｌ縺ｰ manifest 縺ｮ譌｢螳壹く繝ｼ縺ｫ繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ・・
+    int bgTexture = m_camera.backdropTextureId >= 0 ? m_camera.backdropTextureId : m_assets.GetTexture("sinrin10");
+    int bg1Texture = m_camera.backdropTexture1Id >= 0 ? m_camera.backdropTexture1Id : m_assets.GetTexture("sinrin11");
+
+    // 縺輔ｉ縺ｫ蠢ｵ縺ｮ縺溘ａ manifest 縺ｫ逋ｻ骭ｲ縺輔ｌ縺ｦ縺・↑縺代ｌ縺ｰ譌｢螳壹↓謌ｻ縺・
+    if (bgTexture < 0) bgTexture = m_assets.GetTexture("sinrin10");
+    if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("sinrin11");
 
     if (bgTexture < 0 || bg1Texture < 0)
     {
@@ -2040,7 +2052,7 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
             const StageTransitionLink* transition = nullptr;
             for (const StageTransitionLink& link : gStageTransitionLinks)
             {
-                const bool sourceMatches = link.sourceMapCsv == "*" || link.sourceMapCsv == gCurrentMapCsvPath;
+                const bool sourceMatches = link.sourceMapCsv == "*" || link.sourceMapCsv == m_lifecycle.currentMapCsvPath;
                 if (sourceMatches && link.marker == marker)
                 {
                     transition = &link;
@@ -2233,8 +2245,8 @@ void GameScene::DrawPhotoFilterPanelInView() const
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
 {
     static_cast<void>(playerTransform);
-    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_flow.captureFinderScale;
-    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_flow.captureFinderScale;
+    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_ui.captureFinderScale;
+    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_ui.captureFinderScale;
 
     const float cursorStartWorldX = m_flow.cameraX + gCameraViewWidth * 0.5f;
     const float cursorStartWorldY = m_flow.cameraY + gCameraViewHeight * 0.5f;
@@ -2330,33 +2342,63 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     TransformComponent captureFrame(frameX, frameY, frameWidth, frameHeight);
     Entity* bestTarget = nullptr;
     float bestDistance = 1000000.0f;
-    for (const auto& entity : m_entities)
+
+    const auto& photoBoxEntities = m_world.EntitiesByTag(EntityTag::PhotoBox);
+    const auto& goalEntities = m_world.EntitiesByTag(EntityTag::Goal);
+    const auto& photoSourceEntities = m_world.EntitiesByTag(EntityTag::PhotoSource);
+    const auto& hazardEntities = m_world.EntitiesByTag(EntityTag::Hazard);
+    const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& dropItemEntities = m_world.EntitiesByTag(EntityTag::DropItem);
+    const auto& batteryEntities = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& logEntities = m_world.EntitiesByTag(EntityTag::Log);
+    const auto& damagePlatformEntities = m_world.EntitiesByTag(EntityTag::DamagePlatform);
+    const auto& damagePlatformSpikeEntities = m_world.EntitiesByTag(EntityTag::DamagePlatformSpike);
+    const auto& laserTurretEntities = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& markerLightEntities = m_world.EntitiesByTag(EntityTag::MarkerLight);
+    const auto& sepiaRubbleEntities = m_world.EntitiesByTag(EntityTag::SepiaRubble);
+    const auto& sepiaElevatorEntities = m_world.EntitiesByTag(EntityTag::SepiaElevator);
+    const auto& filterEntities = m_world.EntitiesByTag(EntityTag::Filter);
+    const auto& barrelEntities = m_world.EntitiesByTag(EntityTag::Barrel);
+    const auto& shieldEntities = m_world.EntitiesByTag(EntityTag::Shield);
+    const auto& bossShieldEntities = m_world.EntitiesByTag(EntityTag::BossShield);
+    const auto& boss1ShieldEntities = m_world.EntitiesByTag(EntityTag::Boss1Shield);
+    const auto& midBoss1ShieldEntities = m_world.EntitiesByTag(EntityTag::MidBoss1Shield);
+    const auto& capturedShieldEntities = m_world.EntitiesByTag(EntityTag::CapturedShield);
+    const auto& walkerMeleeAttackEntities = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+    const auto& bossShockwaveEntities = m_world.EntitiesByTag(EntityTag::BossShockwave);
+
+    auto considerCaptureTarget = [&](Entity* entity)
     {
-        if (HasTag(*entity, kTagPlayer) ||
-            HasTag(*entity, kTagEnemy) ||
-            HasTag(*entity, kTagBatterySwitch) ||
-            HasTag(*entity, kTagElevator) ||
-            HasTag(*entity, kTagLaserSwitch) ||
-            HasTag(*entity, kTagShutter) ||
-            HasTag(*entity, kTagLaserBeam) ||
-            HasTag(*entity, kTagStageLight))
+        if (!entity)
         {
-            continue;
+            return;
         }
 
-        if (HasTag(*entity, kTagPhotoBox))
+        if (HasTag(*entity, EntityTag::Player) ||
+            HasTag(*entity, EntityTag::Enemy) ||
+            HasTag(*entity, EntityTag::BatterySwitch) ||
+            HasTag(*entity, EntityTag::Elevator) ||
+            HasTag(*entity, EntityTag::LaserSwitch) ||
+            HasTag(*entity, EntityTag::Shutter) ||
+            HasTag(*entity, EntityTag::LaserBeam) ||
+            HasTag(*entity, EntityTag::StageLight))
+        {
+            return;
+        }
+
+        if (HasTag(*entity, EntityTag::PhotoBox))
         {
             const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
             if (!layer || layer->layer != PhotoCopyLayer::Foreground)
             {
-                continue;
+                return;
             }
 
             if (const auto* pasteAnimation = entity->GetComponent<PhotoPasteAnimationComponent>())
             {
                 if (!pasteAnimation->IsFinished())
                 {
-                    continue;
+                    return;
                 }
             }
         }
@@ -2365,7 +2407,7 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
         const auto* sprite = entity->GetComponent<SpriteRenderComponent>();
         if (!transform || !sprite || !IntersectsRect(captureFrame, *transform))
         {
-            continue;
+            return;
         }
 
         const float targetCenterX = transform->x + transform->width * transform->scale * 0.5f;
@@ -2373,10 +2415,42 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
         const float distance = std::fabs(targetCenterX - playerCenterX);
         if (!bestTarget || distance < bestDistance)
         {
-            bestTarget = entity.get();
+            bestTarget = entity;
             bestDistance = distance;
         }
-    }
+    };
+
+    auto scanCandidates = [&](const std::vector<Entity*>& entities)
+    {
+        for (Entity* entity : entities)
+        {
+            considerCaptureTarget(entity);
+        }
+    };
+
+    scanCandidates(photoBoxEntities);
+    scanCandidates(goalEntities);
+    scanCandidates(photoSourceEntities);
+    scanCandidates(hazardEntities);
+    scanCandidates(bulletEntities);
+    scanCandidates(dropItemEntities);
+    scanCandidates(batteryEntities);
+    scanCandidates(logEntities);
+    scanCandidates(damagePlatformEntities);
+    scanCandidates(damagePlatformSpikeEntities);
+    scanCandidates(laserTurretEntities);
+    scanCandidates(markerLightEntities);
+    scanCandidates(sepiaRubbleEntities);
+    scanCandidates(sepiaElevatorEntities);
+    scanCandidates(filterEntities);
+    scanCandidates(barrelEntities);
+    scanCandidates(shieldEntities);
+    scanCandidates(bossShieldEntities);
+    scanCandidates(boss1ShieldEntities);
+    scanCandidates(midBoss1ShieldEntities);
+    scanCandidates(capturedShieldEntities);
+    scanCandidates(walkerMeleeAttackEntities);
+    scanCandidates(bossShockwaveEntities);
 
     return bestTarget;
 }
@@ -2388,13 +2462,9 @@ void GameScene::DrawBatterySwitchCounters() const
     const float viewOriginY = GetViewOriginY();
     const float tileOffsetY = m_tileMap.GetTileSize() * 2.0f * viewScale;
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::BatterySwitch))
     {
-        if (!entity || !HasTag(*entity, kTagBatterySwitch))
-        {
-            continue;
-        }
-
+        if (!entity) continue;
         const auto* transform = entity->GetComponent<TransformComponent>();
         const auto* batterySwitch = entity->GetComponent<BatterySwitchComponent>();
         if (!transform || !batterySwitch)

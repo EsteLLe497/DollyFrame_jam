@@ -2,8 +2,6 @@
 
 #include "components.h"
 
-class Entity;
-
 const char* GetPhotoFilterThemeLabel(PhotoFilterTheme theme);
 const char* GetPhotoFilterThemeEffectText(PhotoFilterTheme theme);
 void GetPhotoFilterThemeOverlayColor(PhotoFilterTheme theme, float& r, float& g, float& b);

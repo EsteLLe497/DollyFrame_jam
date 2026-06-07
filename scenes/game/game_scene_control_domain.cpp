@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "DxLib.h"
@@ -11,6 +11,12 @@ using namespace game_scene_detail;
 
 void GameScene::UpdateTuningHotReload(float deltaTime)
 {
+    const ActiveGameSceneScope activeScene(*this);
+    if (!m_debug.showTuningPanel)
+    {
+        return;
+    }
+
     m_debug.tuningReloadTimer = std::max(0.0f, m_debug.tuningReloadTimer - deltaTime);
     if (m_debug.tuningReloadTimer > 0.0f)
     {
@@ -62,10 +68,95 @@ void GameScene::HandleGlobalSceneShortcuts()
     {
         m_debug.sepiaFilmFilterDryRunEnabled = !m_debug.sepiaFilmFilterDryRunEnabled;
     }
+    if (Input_IsKeyPressed('6'))
+    {
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            auto* enemy = entity->GetComponent<EnemyComponent>();
+            auto* boss = entity->GetComponent<MidBoss3Component>();
+            if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss3)
+            {
+                continue;
+            }
+
+            boss->debugRequestedAttack = 1;
+            m_eventBus.Publish({ EventType::LogMessage, entity.get(), nullptr, "MidBoss3 debug: attack 1", 0.0f, 0.0f });
+            break;
+        }
+    }
+    if (Input_IsKeyPressed('7'))
+    {
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            auto* enemy = entity->GetComponent<EnemyComponent>();
+            auto* boss = entity->GetComponent<MidBoss3Component>();
+            if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss3)
+            {
+                continue;
+            }
+
+            boss->debugRequestedAttack = 2;
+            m_eventBus.Publish({ EventType::LogMessage, entity.get(), nullptr, "MidBoss3 debug: attack 2", 0.0f, 0.0f });
+            break;
+        }
+    }
+    if (Input_IsKeyPressed('8'))
+    {
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            auto* enemy = entity->GetComponent<EnemyComponent>();
+            auto* boss = entity->GetComponent<MidBoss3Component>();
+            if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss3)
+            {
+                continue;
+            }
+
+            boss->debugRequestedAttack = 3;
+            m_eventBus.Publish({ EventType::LogMessage, entity.get(), nullptr, "MidBoss3 debug: attack 3", 0.0f, 0.0f });
+            break;
+        }
+    }
+    if (Input_IsKeyPressed('9'))
+    {
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            auto* enemy = entity->GetComponent<EnemyComponent>();
+            auto* boss = entity->GetComponent<MidBoss3Component>();
+            if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss3)
+            {
+                continue;
+            }
+
+            boss->debugRequestedAttack = 4;
+            m_eventBus.Publish({ EventType::LogMessage, entity.get(), nullptr, "MidBoss3 debug: attack 4", 0.0f, 0.0f });
+            break;
+        }
+    }
 }
 
 bool GameScene::OnCancelAction()
 {
+    const ActiveGameSceneScope activeScene(*this);
     if (m_mapEditor.active)
     {
         m_mapEditor.active = false;

@@ -78,6 +78,46 @@
       "type": "file",
       "path": "assets/texture/enemy2/enemy2_attack.png"
     },
+    "boss1_body_idle": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Body_nb.png"
+    },
+    "boss1_body_rush_start": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Rush_start.png"
+    },
+    "boss1_body_rush_attack": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Rush_attack.png"
+    },
+    "boss1_body_rush_end": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Rush_end.png"
+    },
+    "boss1_body_death": {
+      "type": "file",
+      "path": "assets/texture/boss1/Full/Boss1_death.png"
+    },
+    "boss1_body_start": {
+      "type": "file",
+      "path": "assets/texture/boss1/Full/Boss1_start_150f_x02.png"
+    },
+    "boss1_shield_idle": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Shield_nb.png"
+    },
+    "boss1_shield_rush_start": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Shield_start.png"
+    },
+    "boss1_shield_rush_attack": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Shield_attack.png"
+    },
+    "boss1_shield_rush_end": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Shield_end.png"
+    },
     "sepia_rubble": {
       "type": "file",
       "path": "assets/texture/SepiaSample1.png"
@@ -97,16 +137,20 @@
 
     "sinrin10": {
       "type": "file",
-      "path": "assets/texture/sinrin10.png"
+      "path": "assets/texture/BG/forest/sinrin10.png"
     },
     "sinrin11": {
       "type": "file",
-      "path": "assets/texture/sinrin11.png"
+      "path": "assets/texture/BG/forest/sinrin11.png"
     },
 
-    "photo_tray_backdrop": {
+    "ruins_bg": {
       "type": "file",
-      "path": "assets/texture/360x1920.png"
+      "path": "assets/texture/BG/ruins/ruins.png"
+    },
+    "ruins_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins.png"
     }
 
   }

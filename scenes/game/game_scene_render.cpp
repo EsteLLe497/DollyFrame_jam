@@ -30,11 +30,11 @@ namespace
         return 1.0f + c3 * shifted * shifted * shifted + c1 * shifted * shifted;
     }
 
-    void DrawWorldRectOutline(float worldX, float worldY, float worldWidth, float worldHeight, float cameraX, float cameraY, unsigned int color)
+    void DrawWorldRectOutline(const GameScene& scene, float worldX, float worldY, float worldWidth, float worldHeight, float cameraX, float cameraY, unsigned int color)
     {
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const int left = static_cast<int>(std::round(viewOriginX + (worldX - cameraX) * viewScale));
         const int top = static_cast<int>(std::round(viewOriginY + (worldY - cameraY) * viewScale));
         const int right = static_cast<int>(std::round(viewOriginX + (worldX + worldWidth - cameraX) * viewScale));
@@ -43,6 +43,7 @@ namespace
     }
 
     void DrawWorldPolygonOutline(
+        const GameScene& scene,
         const TransformComponent& transform,
         const ImageOutlineColliderComponent& collider,
         float cameraX,
@@ -55,9 +56,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float width = transform.width * transform.scale;
         const float height = transform.height * transform.scale;
         const float centerX = transform.x + width * 0.5f;
@@ -190,6 +191,92 @@ namespace
     {
         DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
         DrawTriangleAA(ax, ay, cx, cy, dx, dy, color, TRUE);
+    }
+
+    void DrawMidBoss3DrillShape(
+        float screenX,
+        float screenY,
+        float screenW,
+        float screenH,
+        float drillAngle,
+        int direction,
+        float grooveTime,
+        float viewScale,
+        float alphaMultiplier)
+    {
+        const float centerX = screenX + screenW * 0.5f;
+        const float centerY = screenY + screenH * 0.5f;
+        const float tipW = std::max(12.0f, screenH * 0.62f);
+        const float bodyInsetY = screenH * 0.18f;
+        const float bodyLeft = screenX + screenH * 0.18f;
+        const float bodyRight = screenX + screenW - screenH * 0.18f;
+        const float bodyTop = screenY + bodyInsetY;
+        const float bodyBottom = screenY + screenH - bodyInsetY;
+        const int shadowColor = GetColor(88, 44, 20);
+        const int bodyColor = GetColor(228, 116, 42);
+        const int coreColor = GetColor(255, 184, 86);
+        const int grooveColor = GetColor(92, 44, 22);
+        const int tipColor = GetColor(255, 220, 118);
+        const auto rotatePoint = [&](float& x, float& y)
+        {
+            RotatePoint(centerX, centerY, drillAngle, x, y);
+        };
+        const auto drawRotatedBox = [&](float left, float top, float right, float bottom, int color)
+        {
+            float ax = left;
+            float ay = top;
+            float bx = right;
+            float by = top;
+            float cx = right;
+            float cy = bottom;
+            float dx = left;
+            float dy = bottom;
+            rotatePoint(ax, ay);
+            rotatePoint(bx, by);
+            rotatePoint(cx, cy);
+            rotatePoint(dx, dy);
+            DrawFilledQuad(ax, ay, bx, by, cx, cy, dx, dy, color);
+        };
+        const auto drawRotatedLine = [&](float ax, float ay, float bx, float by, int color, float thickness)
+        {
+            rotatePoint(ax, ay);
+            rotatePoint(bx, by);
+            DrawLineAA(ax, ay, bx, by, color, thickness);
+        };
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(210.0f * alphaMultiplier)), 0, 255));
+        drawRotatedBox(bodyLeft, bodyTop, bodyRight, bodyBottom, bodyColor);
+        drawRotatedLine(bodyLeft, bodyTop, bodyRight, bodyTop, shadowColor, std::max(2.0f, 3.0f * viewScale));
+        drawRotatedLine(bodyLeft, bodyBottom, bodyRight, bodyBottom, shadowColor, std::max(2.0f, 3.0f * viewScale));
+        drawRotatedLine(bodyLeft, centerY, bodyRight, centerY, coreColor, std::max(3.0f, screenH * 0.12f));
+
+        const float grooveSpacing = std::max(16.0f, screenH * 0.55f);
+        const float groovePhase = std::fmod(grooveTime * 220.0f, grooveSpacing);
+        const float directionSign = direction >= 0 ? 1.0f : -1.0f;
+        for (float x = bodyLeft - grooveSpacing + groovePhase; x < bodyRight + grooveSpacing; x += grooveSpacing)
+        {
+            drawRotatedLine(
+                x,
+                bodyBottom,
+                x + screenH * 0.36f * directionSign,
+                bodyTop,
+                grooveColor,
+                std::max(2.0f, 3.0f * viewScale));
+        }
+
+        float tipAx = bodyRight;
+        float tipAy = screenY + screenH * 0.08f;
+        float tipBx = bodyRight;
+        float tipBy = screenY + screenH * 0.92f;
+        float tipCx = bodyRight + tipW;
+        float tipCy = centerY;
+        rotatePoint(tipAx, tipAy);
+        rotatePoint(tipBx, tipBy);
+        rotatePoint(tipCx, tipCy);
+        DrawTriangleAA(tipAx, tipAy, tipBx, tipBy, tipCx, tipCy, tipColor, TRUE);
+        drawRotatedLine(bodyRight + tipW, centerY, bodyRight, bodyTop, shadowColor, std::max(2.0f, 2.0f * viewScale));
+        drawRotatedLine(bodyRight + tipW, centerY, bodyRight, bodyBottom, shadowColor, std::max(2.0f, 2.0f * viewScale));
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
     void DrawStageLightFixtureShape(
@@ -577,6 +664,7 @@ namespace
     }
 
     void DrawFlickerLight(
+        const GameScene& scene,
         const TransformComponent& transform,
         const FlickerLightComponent& light,
         float cameraX,
@@ -588,9 +676,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
         const float flicker = ComputeLightFlicker(timeSeconds, transform, light);
         const float radius = light.radius * viewScale * flicker * 0.42f;
@@ -643,6 +731,7 @@ namespace
     }
 
     void DrawCompactFlickerLight(
+        const GameScene& scene,
         const TransformComponent& transform,
         const FlickerLightComponent& light,
         float cameraX,
@@ -654,9 +743,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
         const float flicker = ComputeLightFlicker(timeSeconds, transform, light);
         const float radius = light.radius * viewScale * flicker * 0.18f;
@@ -688,6 +777,7 @@ namespace
     }
 
     void DrawGodRay(
+        const GameScene& scene,
         const TransformComponent& transform,
         const FlickerLightComponent& light,
         float cameraX,
@@ -699,9 +789,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
         const float pulse = ComputeGodRayPulse(timeSeconds, transform, light);
         const float beamLength = light.godRayLength * viewScale;
@@ -766,6 +856,7 @@ namespace
     }
 
     void DrawStageLightBeam(
+        const GameScene& scene,
         const TransformComponent& transform,
         const StageLightComponent& light,
         float beamLengthWorld,
@@ -777,9 +868,9 @@ namespace
             return;
         }
 
-        const float viewScale = GetViewScale();
-        const float viewOriginX = GetViewOriginX();
-        const float viewOriginY = GetViewOriginY();
+        const float viewScale = scene.GetViewScale();
+        const float viewOriginX = scene.GetViewOriginX();
+        const float viewOriginY = scene.GetViewOriginY();
         const float beamLength = beamLengthWorld * viewScale;
         const float topWidth = (light.beamTopWidth > 0.0f ? light.beamTopWidth : transform.width) * transform.scale * viewScale;
         const float bottomWidth = (light.beamBottomWidth > 0.0f ? light.beamBottomWidth : transform.width * 3.0f) * transform.scale * viewScale;
@@ -1288,9 +1379,9 @@ namespace
 
 void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
 {
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::PhotoBox))
     {
-        if (!entity || !HasTag(*entity, kTagPhotoBox))
+        if (!entity)
         {
             continue;
         }
@@ -1313,9 +1404,9 @@ void GameScene::DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const
 
 void GameScene::DrawBossShockwavesUnderlay() const
 {
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::BossShockwave))
     {
-        if (!entity || !HasTag(*entity, "BossShockwave"))
+        if (!entity)
         {
             continue;
         }
@@ -1333,45 +1424,73 @@ void GameScene::DrawPastedEntitiesFront() const
         int layerPriority = 0;
     };
 
+    const auto& photoBoxes = m_world.EntitiesByTag(EntityTag::PhotoBox);
+    const auto& barrels = m_world.EntitiesByTag(EntityTag::Barrel);
+    const auto& batteries = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& bullets = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& laserTurrets = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& laserBeams = m_world.EntitiesByTag(EntityTag::LaserBeam);
+    const auto& meleeAttacks = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+    const auto& capturedShields = m_world.EntitiesByTag(EntityTag::CapturedShield);
+
     std::vector<DrawTarget> drawTargets;
-    drawTargets.reserve(m_entities.size());
+    drawTargets.reserve(
+        photoBoxes.size() +
+        barrels.size() +
+        batteries.size() +
+        bullets.size() +
+        laserTurrets.size() +
+        laserBeams.size() +
+        meleeAttacks.size() +
+        capturedShields.size());
 
-    // Only entities with PhotoPasteOrder are drawn in the pasted-front pass.
-    for (const auto& entity : m_entities)
+    auto appendDrawTargets = [&](EntityTag tag)
     {
-        if (!entity)
+        for (Entity* entity : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
-
-        const auto* pasteOrder = entity->GetComponent<PhotoPasteOrderComponent>();
-        if (!pasteOrder)
-        {
-            continue;
-        }
-
-        int layerPriority = 2;
-        if (const auto* photoLayer = entity->GetComponent<PhotoCopyLayerComponent>())
-        {
-            switch (photoLayer->layer)
+            if (!entity)
             {
-            case PhotoCopyLayer::Background:
-                layerPriority = 0;
-                break;
-            case PhotoCopyLayer::Shadow:
-                layerPriority = 1;
-                break;
-            case PhotoCopyLayer::Foreground:
-            default:
-                layerPriority = 3;
-                break;
+                continue;
             }
+
+            const auto* pasteOrder = entity->GetComponent<PhotoPasteOrderComponent>();
+            if (!pasteOrder)
+            {
+                continue;
+            }
+
+            int layerPriority = 2;
+            if (const auto* photoLayer = entity->GetComponent<PhotoCopyLayerComponent>())
+            {
+                switch (photoLayer->layer)
+                {
+                case PhotoCopyLayer::Background:
+                    layerPriority = 0;
+                    break;
+                case PhotoCopyLayer::Shadow:
+                    layerPriority = 1;
+                    break;
+                case PhotoCopyLayer::Foreground:
+                default:
+                    layerPriority = 3;
+                    break;
+                }
+            }
+
+            drawTargets.push_back({ entity, pasteOrder->order, layerPriority });
         }
+    };
 
-        drawTargets.push_back({ entity.get(), pasteOrder->order, layerPriority });
-    }
+    appendDrawTargets(EntityTag::PhotoBox);
+    appendDrawTargets(EntityTag::Barrel);
+    appendDrawTargets(EntityTag::Battery);
+    appendDrawTargets(EntityTag::Bullet);
+    appendDrawTargets(EntityTag::LaserTurret);
+    appendDrawTargets(EntityTag::LaserBeam);
+    appendDrawTargets(EntityTag::WalkerMeleeAttack);
+    appendDrawTargets(EntityTag::CapturedShield);
 
-    std::stable_sort(
+    std::sort(
         drawTargets.begin(),
         drawTargets.end(),
         [](const DrawTarget& a, const DrawTarget& b)
@@ -1405,99 +1524,119 @@ void GameScene::DrawEffects() const
         float priority = 0.0f;
     };
 
+    const auto& goalEntities = m_world.EntitiesByTag(EntityTag::Goal);
+    const auto& checkpointEntities = m_world.EntitiesByTag(EntityTag::Checkpoint);
+    const auto& photoSourceEntities = m_world.EntitiesByTag(EntityTag::PhotoSource);
+    const auto& hazardEntities = m_world.EntitiesByTag(EntityTag::Hazard);
+    const auto& batteryEntities = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& stageLightEntities = m_world.EntitiesByTag(EntityTag::StageLight);
+    const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+
     std::vector<LightDrawTarget> lightTargets;
-    lightTargets.reserve(16);
+    lightTargets.reserve(
+        goalEntities.size() +
+        checkpointEntities.size() +
+        photoSourceEntities.size() +
+        hazardEntities.size() +
+        batteryEntities.size());
     const float viewRight = viewOriginX + GetViewWidth();
     const float viewBottom = viewOriginY + GetViewHeight();
     const float viewCenterWorldX = m_flow.cameraX + GetViewWidth() / std::max(0.001f, viewScale) * 0.5f;
     const float viewCenterWorldY = m_flow.cameraY + GetViewHeight() / std::max(0.001f, viewScale) * 0.5f;
 
-    for (const auto& entity : m_entities)
+    auto gatherLightTargets = [&](EntityTag tag)
     {
-        if (!entity)
+        for (Entity* entity : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
+            if (!entity)
+            {
+                continue;
+            }
 
-        const auto* light = entity->GetComponent<FlickerLightComponent>();
-        const auto* transform = entity->GetComponent<TransformComponent>();
-        if (!light || !transform)
-        {
-            continue;
-        }
-        if (HasTag(*entity, kTagPhotoBox) || HasTag(*entity, kTagMarkerLight))
-        {
-            continue;
-        }
+            const auto* light = entity->GetComponent<FlickerLightComponent>();
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (!light || !transform)
+            {
+                continue;
+            }
 
-        const float centerX = transform->x + transform->width * transform->scale * 0.5f + light->offsetX;
-        const float centerY = transform->y + transform->height * transform->scale * 0.5f + light->offsetY;
-        const float maxRadius = light->radius + std::abs(light->offsetX) + std::abs(light->offsetY) +
-            (std::max)(transform->width, transform->height) * transform->scale * 0.5f;
-        const float drawLeft = viewOriginX + (centerX - maxRadius - m_flow.cameraX) * viewScale;
-        const float drawRight = viewOriginX + (centerX + maxRadius - m_flow.cameraX) * viewScale;
-        const float drawTop = viewOriginY + (centerY - maxRadius - m_flow.cameraY) * viewScale;
-        const float drawBottom = viewOriginY + (centerY + maxRadius - m_flow.cameraY) * viewScale;
-        if (drawRight < viewOriginX || drawLeft > viewRight || drawBottom < viewOriginY || drawTop > viewBottom)
-        {
-            continue;
-        }
+            const float centerX = transform->x + transform->width * transform->scale * 0.5f + light->offsetX;
+            const float centerY = transform->y + transform->height * transform->scale * 0.5f + light->offsetY;
+            const float maxRadius = light->radius + std::abs(light->offsetX) + std::abs(light->offsetY) +
+                (std::max)(transform->width, transform->height) * transform->scale * 0.5f;
+            const float drawLeft = viewOriginX + (centerX - maxRadius - m_flow.cameraX) * viewScale;
+            const float drawRight = viewOriginX + (centerX + maxRadius - m_flow.cameraX) * viewScale;
+            const float drawTop = viewOriginY + (centerY - maxRadius - m_flow.cameraY) * viewScale;
+            const float drawBottom = viewOriginY + (centerY + maxRadius - m_flow.cameraY) * viewScale;
+            if (drawRight < viewOriginX || drawLeft > viewRight || drawBottom < viewOriginY || drawTop > viewBottom)
+            {
+                continue;
+            }
 
-        float intensityScale = 1.0f;
-        if (HasTag(*entity, kTagGoal) && !m_flow.goalUnlocked)
-        {
-            intensityScale = 0.45f;
-        }
-        if (const auto* checkpoint = entity->GetComponent<CheckpointComponent>())
-        {
-            intensityScale *= checkpoint->activated ? 1.15f : 0.85f;
-        }
+            float intensityScale = 1.0f;
+            if (HasTag(*entity, EntityTag::Goal) && !m_flow.goalUnlocked)
+            {
+                intensityScale = 0.45f;
+            }
+            if (const auto* checkpoint = entity->GetComponent<CheckpointComponent>())
+            {
+                intensityScale *= checkpoint->activated ? 1.15f : 0.85f;
+            }
 
-        const float dx = centerX - viewCenterWorldX;
-        const float dy = centerY - viewCenterWorldY;
-        const float distancePenalty = std::sqrt(dx * dx + dy * dy) * 0.02f;
-        lightTargets.push_back({
-            transform,
-            light,
-            intensityScale,
-            light->radius * light->intensity * intensityScale - distancePenalty
-            });
-    }
+            const float dx = centerX - viewCenterWorldX;
+            const float dy = centerY - viewCenterWorldY;
+            const float distancePenalty = std::sqrt(dx * dx + dy * dy) * 0.02f;
+            lightTargets.push_back({
+                transform,
+                light,
+                intensityScale,
+                light->radius * light->intensity * intensityScale - distancePenalty
+                });
+        }
+    };
 
-    const int maxLightEffects = m_darknessStageEnabled ? 6 : 16;
+    gatherLightTargets(EntityTag::Goal);
+    gatherLightTargets(EntityTag::Checkpoint);
+    gatherLightTargets(EntityTag::PhotoSource);
+    gatherLightTargets(EntityTag::Hazard);
+    gatherLightTargets(EntityTag::Battery);
+
+    const int maxLightEffects = m_lifecycle.darknessStageEnabled ? 6 : 16;
     if (lightTargets.size() > static_cast<size_t>(maxLightEffects))
     {
-        std::partial_sort(
+        const auto priorityCompare = [](const LightDrawTarget& a, const LightDrawTarget& b)
+        {
+            return a.priority > b.priority;
+        };
+        std::nth_element(
             lightTargets.begin(),
             lightTargets.begin() + maxLightEffects,
             lightTargets.end(),
-            [](const LightDrawTarget& a, const LightDrawTarget& b)
-            {
-                return a.priority > b.priority;
-            });
+            priorityCompare);
         lightTargets.resize(maxLightEffects);
+        std::sort(lightTargets.begin(), lightTargets.end(), priorityCompare);
     }
 
     int godRayCount = 0;
-    const int maxGodRays = m_darknessStageEnabled ? 0 : 8;
+    const int maxGodRays = m_lifecycle.darknessStageEnabled ? 0 : 8;
     for (const LightDrawTarget& target : lightTargets)
     {
         if (godRayCount < maxGodRays)
         {
-            DrawGodRay(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
+            DrawGodRay(*this, *target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
             ++godRayCount;
         }
-        if (m_darknessStageEnabled)
+        if (m_lifecycle.darknessStageEnabled)
         {
-            DrawCompactFlickerLight(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
+            DrawCompactFlickerLight(*this, *target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
         }
         else
         {
-            DrawFlickerLight(*target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
+            DrawFlickerLight(*this, *target.transform, *target.light, m_flow.cameraX, m_flow.cameraY, target.intensityScale);
         }
     }
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : stageLightEntities)
     {
         if (!entity)
         {
@@ -1521,10 +1660,10 @@ void GameScene::DrawEffects() const
         }
 
         const float beamLengthWorld = (stageLight->beamLength > 0.0f ? stageLight->beamLength : transform->height * 3.0f) * transform->scale;
-        DrawStageLightBeam(*transform, *stageLight, beamLengthWorld, m_flow.cameraX, m_flow.cameraY);
+        DrawStageLightBeam(*this, *transform, *stageLight, beamLengthWorld, m_flow.cameraX, m_flow.cameraY);
     }
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : enemyEntities)
     {
         if (!entity)
         {
@@ -1548,7 +1687,7 @@ void GameScene::DrawEffects() const
             m_flow.cameraY);
     }
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : enemyEntities)
     {
         if (!entity)
         {
@@ -1640,7 +1779,7 @@ void GameScene::DrawEntity(const Entity& entity) const
     float drawWidth = transform->width * transform->scale * sprite->GetRenderScaleX() * viewScale;
     float drawHeight = transform->height * transform->scale * sprite->GetRenderScaleY() * viewScale;
     const auto* tag = entity.GetComponent<TagComponent>();
-    if (tag && HasTag(tag, "BossShield"))
+    if (tag && HasTag(tag, EntityTag::BossShield))
     {
         const auto* shield = entity.GetComponent<ShieldComponent>();
         const auto* ownerTransform = shield && shield->ownerBoss
@@ -1661,7 +1800,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawY = viewOriginY + (ownerTransform->y - m_flow.cameraY) * viewScale;
         }
     }
-    if (tag && HasTag(tag, kTagPlayer))
+    if (tag && HasTag(tag, EntityTag::Player))
     {
         const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
         if (animation)
@@ -1687,10 +1826,29 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
         }
     }
-    if (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth)
+    bool hasVisibleMidBoss3Drill = false;
+    if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
+    {
+        if (midBoss3->drillActive)
+        {
+            const float drillDrawX = viewOriginX + (midBoss3->drillX - m_flow.cameraX) * viewScale;
+            const float drillDrawW = midBoss3->drillWidth * viewScale;
+            hasVisibleMidBoss3Drill = drillDrawX + drillDrawW >= viewOriginX &&
+                drillDrawX <= viewOriginX + viewWidth;
+        }
+    }
+    if (!hasVisibleMidBoss3Drill && (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth))
     {
         return;
     }
+
+    const auto* tint = entity.GetComponent<TintComponent>();
+    const auto* enemyComponent = entity.GetComponent<EnemyComponent>();
+    const auto* photoFilter = entity.GetComponent<PhotoFilterComponent>();
+    const auto* damagePlatform = entity.GetComponent<DamagePlatformComponent>();
+    const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
+    const auto* photoCopyTile = entity.GetComponent<PhotoCopyTileValueComponent>();
+    const auto* midBoss2Spear = entity.GetComponent<MidBoss2SpearComponent>();
 
     Shader_ResetStyle();
     float alphaMultiplier = 1.0f;
@@ -1803,7 +1961,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         return;
     }
 
-    if (tag && HasTag(tag, kTagStageLight))
+    if (tag && HasTag(tag, EntityTag::StageLight))
     {
         if (const auto* stageLight = entity.GetComponent<StageLightComponent>())
         {
@@ -1814,14 +1972,14 @@ void GameScene::DrawEntity(const Entity& entity) const
                 drawHeight,
                 transform->rotation,
                 *stageLight,
-                entity.GetComponent<TintComponent>(),
+                tint,
                 alphaMultiplier);
             Shader_ResetStyle();
             return;
         }
     }
 
-    if (tag && HasTag(tag, kTagSepiaRubble))
+    if (tag && HasTag(tag, EntityTag::SepiaRubble))
     {
         if (const auto* group = entity.GetComponent<SepiaRubbleGroupComponent>())
         {
@@ -1853,7 +2011,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
         }
 
-        if (const auto* tint = entity.GetComponent<TintComponent>())
+        if (tint)
         {
             Shader_SetTint(tint->r, tint->g, tint->b, tint->a);
         }
@@ -1883,42 +2041,37 @@ void GameScene::DrawEntity(const Entity& entity) const
     {
         Shader_SetOutline(0.18f, 0.90f, 1.0f, 1.0f, 1.4f);
     }
-    else if (entity.GetComponent<PhotoFilterComponent>())
+    else if (photoFilter)
     {
-        if (const auto* filter = entity.GetComponent<PhotoFilterComponent>())
+        switch (photoFilter->GetTheme())
         {
-            switch (filter->GetTheme())
-            {
-            case PhotoFilterTheme::Hot:
-                Shader_SetOutline(1.0f, 0.40f, 0.18f, 1.0f, 1.9f);
-                Shader_SetFlash(1.0f, 0.28f, 0.10f, 1.0f, 0.26f);
-                break;
-            case PhotoFilterTheme::Cold:
-                Shader_SetOutline(0.70f, 0.92f, 1.0f, 1.0f, 1.9f);
-                Shader_SetFlash(0.18f, 0.74f, 1.0f, 1.0f, 0.18f);
-                break;
-            case PhotoFilterTheme::Invert:
-                Shader_SetOutline(0.92f, 0.92f, 0.96f, 1.0f, 1.8f);
-                Shader_SetFlash(0.72f, 0.72f, 0.78f, 1.0f, 0.16f);
-                break;
-            case PhotoFilterTheme::Sepia:
-                Shader_SetOutline(0.88f, 0.66f, 0.34f, 1.0f, 1.9f);
-                Shader_SetFlash(0.74f, 0.56f, 0.28f, 1.0f, 0.16f);
-                break;
-            case PhotoFilterTheme::None:
-            default:
-                Shader_SetOutline(0.26f, 1.0f, 0.92f, 1.0f, 1.8f);
-                Shader_SetFlash(0.18f, 0.92f, 0.88f, 1.0f, 0.22f);
-                break;
-            }
+        case PhotoFilterTheme::Hot:
+            Shader_SetOutline(1.0f, 0.40f, 0.18f, 1.0f, 1.9f);
+            Shader_SetFlash(1.0f, 0.28f, 0.10f, 1.0f, 0.26f);
+            break;
+        case PhotoFilterTheme::Cold:
+            Shader_SetOutline(0.70f, 0.92f, 1.0f, 1.0f, 1.9f);
+            Shader_SetFlash(0.18f, 0.74f, 1.0f, 1.0f, 0.18f);
+            break;
+        case PhotoFilterTheme::Invert:
+            Shader_SetOutline(0.92f, 0.92f, 0.96f, 1.0f, 1.8f);
+            Shader_SetFlash(0.72f, 0.72f, 0.78f, 1.0f, 0.16f);
+            break;
+        case PhotoFilterTheme::Sepia:
+            Shader_SetOutline(0.88f, 0.66f, 0.34f, 1.0f, 1.9f);
+            Shader_SetFlash(0.74f, 0.56f, 0.28f, 1.0f, 0.16f);
+            break;
+        case PhotoFilterTheme::None:
+        default:
+            Shader_SetOutline(0.26f, 1.0f, 0.92f, 1.0f, 1.8f);
+            Shader_SetFlash(0.18f, 0.92f, 0.88f, 1.0f, 0.22f);
+            break;
         }
     }
     else if (tag && HasTag(tag, kTagPhotoBox))
     {
         const auto* photoLayer = entity.GetComponent<PhotoCopyLayerComponent>();
         const auto* photoOrigin = entity.GetComponent<PhotoCopyOriginComponent>();
-        const auto* tint = entity.GetComponent<TintComponent>();
-
         ApplyPhotoBoxRoleStyle(entity.GetComponent<PhotoCopyRoleComponent>());
         ApplyPhotoBoxLayerStyle(photoLayer, photoOrigin, tint);
         ApplyPhotoBoxThemeStyle(entity.GetComponent<PhotoCopyEffectComponent>());
@@ -1942,10 +2095,60 @@ void GameScene::DrawEntity(const Entity& entity) const
         const auto* projectile = entity.GetComponent<ProjectileComponent>();
         if (projectile)
         {
-            const float angle = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
-            if (entity.GetComponent<MidBoss2SpearComponent>())
+            if (const auto* capturedMidBoss3Attack = entity.GetComponent<CapturedMidBoss3AttackComponent>())
             {
-                const auto* spear = entity.GetComponent<MidBoss2SpearComponent>();
+                if (capturedMidBoss3Attack->kind == CapturedMidBoss3AttackKind::Drill)
+                {
+                    DrawMidBoss3DrillShape(
+                        drawX,
+                        drawY,
+                        drawWidth,
+                        drawHeight,
+                        transform->rotation,
+                        capturedMidBoss3Attack->direction,
+                        transform->x * 0.015f,
+                        viewScale,
+                        alphaMultiplier);
+                    Shader_ResetStyle();
+                    return;
+                }
+
+                const int color = GetColor(246, 132, 46);
+                SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(235.0f * alphaMultiplier)));
+                const float centerX = drawX + drawWidth * 0.5f;
+                const float centerY = drawY + drawHeight * 0.5f;
+                const float halfW = drawWidth * 0.5f;
+                const float halfH = drawHeight * 0.5f;
+                const float c = std::cos(transform->rotation);
+                const float s = std::sin(transform->rotation);
+                const auto cornerX = [&](float localX, float localY) -> float
+                {
+                    return centerX + localX * c - localY * s;
+                };
+                const auto cornerY = [&](float localX, float localY) -> float
+                {
+                    return centerY + localX * s + localY * c;
+                };
+                DrawQuadrangleAA(
+                    cornerX(-halfW, -halfH),
+                    cornerY(-halfW, -halfH),
+                    cornerX(halfW, -halfH),
+                    cornerY(halfW, -halfH),
+                    cornerX(halfW, halfH),
+                    cornerY(halfW, halfH),
+                    cornerX(-halfW, halfH),
+                    cornerY(-halfW, halfH),
+                    color,
+                    TRUE);
+                SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+                Shader_ResetStyle();
+                return;
+            }
+
+            const float angle = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
+            if (midBoss2Spear)
+            {
+                const auto* spear = midBoss2Spear;
                 const float spearAngle = transform->rotation;
                 const float centerX = drawX + drawWidth * 0.5f;
                 const float centerY = drawY + drawHeight * 0.5f;
@@ -2073,12 +2276,13 @@ void GameScene::DrawEntity(const Entity& entity) const
                     TRUE);
 
                 const float particleRadius = std::max(drawWidth, drawHeight) * std::lerp(0.85f, 0.42f, progress);
+                const float spearTimeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
                 constexpr int kParticleCount = 8;
                 for (int index = 0; index < kParticleCount; ++index)
                 {
                     const float seed = static_cast<float>(index) / static_cast<float>(kParticleCount);
-                    const float cycle = std::fmod(static_cast<float>(GetNowCount()) * 0.0018f + seed * 1.37f, 1.0f);
-                    const float travelT = isForming ? (1.0f - std::pow(cycle, 1.6f)) : (0.16f + 0.18f * std::sin(seed * 19.0f + static_cast<float>(GetNowCount()) * 0.006f));
+                    const float cycle = std::fmod(spearTimeSeconds * 1.8f + seed * 1.37f, 1.0f);
+                    const float travelT = isForming ? (1.0f - std::pow(cycle, 1.6f)) : (0.16f + 0.18f * std::sin(seed * 19.0f + spearTimeSeconds * 6.0f));
                     const float particleAngle = seed * 6.28318530718f + std::sin(seed * 29.0f) * 0.45f;
                     float orbitX = centerX + std::cos(particleAngle) * particleRadius;
                     float orbitY = centerY + std::sin(particleAngle) * particleRadius * 0.55f;
@@ -2282,7 +2486,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         if (cooldown->GetRemainingSeconds() > 0.0f)
         {
             const bool isPlayer = tag && HasTag(tag, kTagPlayer);
-            const bool isEnemy = entity.GetComponent<EnemyComponent>() != nullptr;
+            const bool isEnemy = enemyComponent != nullptr;
             const float cooldownSeconds = std::max(0.001f, cooldown->GetCooldownSeconds());
             const float flashT = Clamp01(cooldown->GetRemainingSeconds() / cooldownSeconds);
             if (isPlayer)
@@ -2304,7 +2508,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
-    if (const auto* tint = entity.GetComponent<TintComponent>())
+    if (tint)
     {
         Shader_SetTint(tint->r, tint->g, tint->b, tint->a * alphaMultiplier);
     }
@@ -2318,37 +2522,37 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawY,
             drawWidth,
             drawHeight,
-            entity.GetComponent<DamagePlatformComponent>(),
-            entity.GetComponent<TintComponent>(),
+            damagePlatform,
+            tint,
             sprite->GetSourceX(),
             sprite->GetSourceY(),
             sprite->GetSourceWidth(),
             sprite->GetSourceHeight(),
             transform->rotation,
-            entity.GetComponent<TintComponent>() ? entity.GetComponent<TintComponent>()->a * alphaMultiplier : alphaMultiplier) &&
+            tint ? tint->a * alphaMultiplier : alphaMultiplier) &&
         !DrawSpikeStripShape(
             drawX,
             drawY,
             drawWidth,
             drawHeight,
-            entity.GetComponent<SpikeStripComponent>(),
-            entity.GetComponent<TintComponent>(),
+            spikeStrip,
+            tint,
             sprite->GetSourceX(),
             sprite->GetSourceY(),
             sprite->GetSourceWidth(),
             sprite->GetSourceHeight(),
             transform->rotation,
-            entity.GetComponent<TintComponent>() ? entity.GetComponent<TintComponent>()->a * alphaMultiplier : alphaMultiplier) &&
+            tint ? tint->a * alphaMultiplier : alphaMultiplier) &&
         !DrawSlopeTriangle(
             drawX,
             drawY,
             drawWidth,
             drawHeight,
-            entity.GetComponent<PhotoCopyTileValueComponent>() ? entity.GetComponent<PhotoCopyTileValueComponent>()->tileValue : 0,
-            entity.GetComponent<TintComponent>(),
+            photoCopyTile ? photoCopyTile->tileValue : 0,
+            tint,
             sprite->GetFlipX(),
             transform->rotation,
-            entity.GetComponent<TintComponent>() ? entity.GetComponent<TintComponent>()->a * alphaMultiplier : alphaMultiplier))
+            tint ? tint->a * alphaMultiplier : alphaMultiplier))
     {
         SpriteDraw(
             sprite->GetTextureId(),
@@ -2364,7 +2568,68 @@ void GameScene::DrawEntity(const Entity& entity) const
             transform->rotation);
     }
 
-    if (const auto* enemy = entity.GetComponent<EnemyComponent>())
+    if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
+    {
+        if (midBoss3Fist->captureJammerActive)
+        {
+            constexpr float kTileSize = 48.0f;
+            const float jammerSize = kTileSize * 3.0f;
+            const float fistWidth = transform->width * transform->scale;
+            const float fistHeight = transform->height * transform->scale;
+            const float jammerWorldX = transform->x + fistWidth * 0.5f - jammerSize * 0.5f;
+            const float jammerWorldY = transform->y + fistHeight * 0.5f - jammerSize * 0.5f;
+            const float screenX = GetViewOriginX() + (jammerWorldX - m_flow.cameraX) * viewScale;
+            const float screenY = GetViewOriginY() + (jammerWorldY - m_flow.cameraY) * viewScale;
+            const float screenSize = jammerSize * viewScale;
+            const float cellSize = kTileSize * viewScale;
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, 96);
+            DrawBoxAA(screenX, screenY, screenX + screenSize, screenY + screenSize, GetColor(90, 225, 238), TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, 144);
+            DrawBoxAA(screenX, screenY, screenX + screenSize, screenY + screenSize, GetColor(42, 180, 212), FALSE);
+            DrawLineAA(screenX, screenY + cellSize, screenX + screenSize, screenY + cellSize, GetColor(60, 190, 210), 1.5f);
+            DrawLineAA(screenX, screenY + cellSize * 2.0f, screenX + screenSize, screenY + cellSize * 2.0f, GetColor(60, 190, 210), 1.5f);
+            DrawLineAA(screenX + cellSize, screenY, screenX + cellSize, screenY + screenSize, GetColor(60, 190, 210), 1.5f);
+            DrawLineAA(screenX + cellSize * 2.0f, screenY, screenX + cellSize * 2.0f, screenY + screenSize, GetColor(60, 190, 210), 1.5f);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        }
+        if (midBoss3Fist->impactAttackActive)
+        {
+            const float screenX = GetViewOriginX() + (midBoss3Fist->impactAttackX - m_flow.cameraX) * viewScale;
+            const float screenY = GetViewOriginY() + (midBoss3Fist->impactAttackY - m_flow.cameraY) * viewScale;
+            const float screenW = midBoss3Fist->impactAttackWidth * viewScale;
+            const float screenH = midBoss3Fist->impactAttackHeight * viewScale;
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, 96);
+            DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH, GetColor(255, 96, 48), TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        }
+    }
+
+    if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
+    {
+        if (midBoss3->drillActive)
+        {
+            const float screenX = GetViewOriginX() + (midBoss3->drillX - m_flow.cameraX) * viewScale;
+            const float screenY = GetViewOriginY() + (midBoss3->drillY - m_flow.cameraY) * viewScale;
+            const float screenW = midBoss3->drillWidth * viewScale;
+            const float screenH = midBoss3->drillHeight * viewScale;
+            const float drillAngle = midBoss3->drillGroundRush
+                ? (midBoss3->drillDirection >= 0 ? 0.0f : 3.14159265f)
+                : std::atan2(midBoss3->drillAimY, midBoss3->drillAimX);
+            DrawMidBoss3DrillShape(
+                screenX,
+                screenY,
+                screenW,
+                screenH,
+                drillAngle,
+                midBoss3->drillDirection,
+                midBoss3->stateTimer,
+                viewScale,
+                alphaMultiplier);
+        }
+    }
+
+    if (const auto* enemy = enemyComponent)
     {
         const auto* boss = entity.GetComponent<MidBoss2Component>();
         if (boss &&
@@ -2489,9 +2754,9 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
 
     const bool shouldDrawCollisionDebug = m_debug.showCollisionDebug && (
-        entity.GetComponent<PhotoFilterComponent>() ||
-        entity.GetComponent<EnemyComponent>() ||
-        entity.GetComponent<MidBoss2SpearComponent>() ||
+        photoFilter ||
+        enemyComponent ||
+        midBoss2Spear ||
         (tag && (HasTag(tag, kTagPlayer) || HasTag(tag, kTagPhotoSource) || HasTag(tag, kTagPhotoBox) || HasTag(tag, kTagLaserBeam))));
     if (shouldDrawCollisionDebug)
     {
@@ -2512,22 +2777,22 @@ void GameScene::DrawEntity(const Entity& entity) const
         {
             color = GetColor(255, 72, 72);
         }
-        else if (entity.GetComponent<MidBoss2SpearComponent>())
+        else if (midBoss2Spear)
         {
             color = GetColor(255, 220, 120);
         }
-        else if (const auto* enemy = entity.GetComponent<EnemyComponent>())
+        else if (const auto* enemy = enemyComponent)
         {
             color = enemy->GetArchetype() == EnemyArchetype::MidBoss2
                 ? GetColor(255, 120, 255)
                 : GetColor(120, 220, 255);
         }
-        else if (entity.GetComponent<PhotoFilterComponent>())
+        else if (photoFilter)
         {
             color = GetColor(96, 255, 220);
         }
 
-        DrawWorldRectOutline(
+        DrawWorldRectOutline(*this,
             transform->x,
             transform->y,
             transform->width * transform->scale,
@@ -2538,10 +2803,10 @@ void GameScene::DrawEntity(const Entity& entity) const
 
         if (const auto* imageCollider = entity.GetComponent<ImageOutlineColliderComponent>())
         {
-            DrawWorldPolygonOutline(*transform, *imageCollider, m_flow.cameraX, m_flow.cameraY, color);
+            DrawWorldPolygonOutline(*this, *transform, *imageCollider, m_flow.cameraX, m_flow.cameraY, color);
         }
 
-        if (const auto* spear = entity.GetComponent<MidBoss2SpearComponent>())
+        if (const auto* spear = midBoss2Spear)
         {
             const float viewScaleLocal = GetViewScale();
             const float viewOriginXLocal = GetViewOriginX();
@@ -2569,7 +2834,7 @@ void GameScene::DrawEnemyAttackRects() const
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
         if (!entity) continue;
 
@@ -2607,3 +2872,4 @@ void GameScene::DrawEnemyAttackRects() const
         }
     }
 }
+

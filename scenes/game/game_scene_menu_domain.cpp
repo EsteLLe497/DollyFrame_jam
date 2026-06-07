@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "audio.h"
@@ -96,7 +96,7 @@ void GameScene::UpdateEscapeMenuInput()
             m_debug.screenShakeEnabled = !m_debug.screenShakeEnabled;
             break;
         case 8:
-            m_darknessStageEnabled = !m_darknessStageEnabled;
+            m_lifecycle.darknessStageEnabled = !m_lifecycle.darknessStageEnabled;
             break;
         case 9:
             m_debug.playerHealthDamageEnabled = !m_debug.playerHealthDamageEnabled;
@@ -142,7 +142,7 @@ void GameScene::UpdateEscapeMenuInput()
         m_debug.screenShakeEnabled = !m_debug.screenShakeEnabled;
         break;
     case 8:
-        m_darknessStageEnabled = !m_darknessStageEnabled;
+        m_lifecycle.darknessStageEnabled = !m_lifecycle.darknessStageEnabled;
         break;
     case 9:
         m_debug.playerHealthDamageEnabled = !m_debug.playerHealthDamageEnabled;
@@ -257,7 +257,7 @@ void GameScene::DrawEscapeMenuOverlay() const
             DrawFormatString(left + 34, rowTop + 10, textColor, "画面揺れ: %s", m_debug.screenShakeEnabled ? "ON" : "OFF");
             break;
         case 8:
-            DrawFormatString(left + 34, rowTop + 10, textColor, "暗闇エフェクト: %s", m_darknessStageEnabled ? "ON" : "OFF");
+            DrawFormatString(left + 34, rowTop + 10, textColor, "暗闇エフェクト: %s", m_lifecycle.darknessStageEnabled ? "ON" : "OFF");
             break;
         case 9:
             DrawFormatString(left + 34, rowTop + 10, textColor, "体力減少: %s", m_debug.playerHealthDamageEnabled ? "ON" : "OFF");

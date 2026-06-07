@@ -1,4 +1,4 @@
-Ôªø#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -20,6 +20,10 @@ namespace
         case CapturedSpawnArchetype::ShieldJumpBurst:
         case CapturedSpawnArchetype::ShieldNormal:
             return GetColor(86, 156, 255);
+        case CapturedSpawnArchetype::MidBoss3FistAttack:
+            return GetColor(255, 136, 54);
+        case CapturedSpawnArchetype::MidBoss3DrillAttack:
+            return GetColor(255, 196, 76);
         default:
             return GetColor(210, 86, 255);
         }
@@ -81,11 +85,11 @@ void GameScene::DrawPlayerHpBar() const
         FALSE);
 
     const float targetRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
-    const float displayRatio = m_flow.hpUiInitialized ? m_flow.hpDisplayRatio : targetRatio;
-    const float lagRatio = m_flow.hpUiInitialized ? m_flow.hpDamageLagRatio : targetRatio;
-    const float flash = m_flow.hpDamageFlash;
+    const float displayRatio = m_ui.hpUiInitialized ? m_ui.hpDisplayRatio : targetRatio;
+    const float lagRatio = m_ui.hpUiInitialized ? m_ui.hpDamageLagRatio : targetRatio;
+    const float flash = m_ui.hpDamageFlash;
 
-    // „Éê„ÉºËÉåÊôØ
+    // ÉoÅ[îwåi
     DrawBox(
         static_cast<int>(std::round(barX)),
         static_cast<int>(std::round(barY)),
@@ -94,7 +98,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(38, 46, 58),
         TRUE);
 
-    // Ë¢´ÂºæÈÅÖÂª∂„Éê„ÉºÔºàÊ∏õ„Å£„ÅüÈáè„Åå‰∏ÄÁû¨ÊÆã„ÇãÔºâ
+    // îÌíeíxâÑÉoÅ[Åiå∏Ç¡ÇΩó Ç™àÍèuécÇÈÅj
     DrawBox(
         static_cast<int>(std::round(barX)),
         static_cast<int>(std::round(barY)),
@@ -103,7 +107,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(232, 94, 84),
         TRUE);
 
-    // ÁèæÂú®HP„Éê„ÉºÔºàÂâ≤Âêà„ÅßËâ≤„ÇíÂ§âÂåñÔºâ
+    // åªç›HPÉoÅ[ÅiäÑçáÇ≈êFÇïœâªÅj
     const float clampedRatio = std::clamp(displayRatio, 0.0f, 1.0f);
     const int hpR = static_cast<int>(std::round(230.0f - 160.0f * clampedRatio));
     const int hpG = static_cast<int>(std::round(76.0f + 144.0f * clampedRatio));
@@ -116,7 +120,7 @@ void GameScene::DrawPlayerHpBar() const
         GetColor(hpR, hpG, hpB),
         TRUE);
 
-    // „Éè„Ç§„É©„Ç§„Éà
+    // ÉnÉCÉâÉCÉg
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 84);
     DrawBox(
         static_cast<int>(std::round(barX)),
@@ -127,7 +131,7 @@ void GameScene::DrawPlayerHpBar() const
         TRUE);
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
-    // Ë¢´Âºæ„Éï„É©„ÉÉ„Ç∑„É•
+    // îÌíeÉtÉâÉbÉVÉÖ
     if (flash > 0.0f)
     {
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(150.0f * flash)));
@@ -141,7 +145,7 @@ void GameScene::DrawPlayerHpBar() const
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
-    // ÁõÆÁõõ„Çä
+    // ñ⁄ê∑ÇË
     for (int i = 1; i < maxHp; ++i)
     {
         const float x = barX + kBarWidth * (static_cast<float>(i) / static_cast<float>(maxHp));
@@ -166,6 +170,135 @@ void GameScene::DrawPlayerHpBar() const
         static_cast<int>(std::round(barY - 18.0f)),
         "LIFE",
         GetColor(196, 214, 236));
+    DrawFormatString(
+        static_cast<int>(std::round(barX + kBarWidth * 0.5f) - 34.0f),
+        static_cast<int>(std::round(barY + 4.0f)),
+        GetColor(255, 255, 255),
+        "HP %d / %d",
+        currentHp,
+        maxHp);
+}
+
+void GameScene::DrawMidBoss3HpBar() const
+{
+    const Entity* bossEntity = nullptr;
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled() || enemy->IsDefeated())
+        {
+            continue;
+        }
+        const auto* boss = entity->GetComponent<MidBoss3Component>();
+        if (!boss || !boss->introFinished)
+        {
+            continue;
+        }
+        bossEntity = entity.get();
+        break;
+    }
+
+    if (!bossEntity)
+    {
+        return;
+    }
+
+    const auto* health = bossEntity->GetComponent<HealthComponent>();
+    if (!health)
+    {
+        return;
+    }
+
+    const int maxHp = (std::max)(1, health->GetMaxHealth());
+    const int currentHp = std::clamp(health->GetCurrentHealth(), 0, maxHp);
+    if (currentHp <= 0)
+    {
+        return;
+    }
+
+    constexpr float kBarWidth = 360.0f;
+    constexpr float kBarHeight = 24.0f;
+    constexpr float kPanelPadding = 12.0f;
+    constexpr float kMarginTop = 30.0f;
+
+    const float panelWidth = kBarWidth + kPanelPadding * 2.0f;
+    const float panelHeight = kBarHeight + 38.0f;
+    const float panelX = static_cast<float>(SCREEN_WIDTH) * 0.5f - panelWidth * 0.5f;
+    const float panelY = kMarginTop;
+    const float barX = panelX + kPanelPadding;
+    const float barY = panelY + kPanelPadding;
+    const float ratio = std::clamp(static_cast<float>(currentHp) / static_cast<float>(maxHp), 0.0f, 1.0f);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 204);
+    DrawBox(
+        static_cast<int>(std::round(panelX)),
+        static_cast<int>(std::round(panelY)),
+        static_cast<int>(std::round(panelX + panelWidth)),
+        static_cast<int>(std::round(panelY + panelHeight)),
+        GetColor(28, 12, 14),
+        TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawBox(
+        static_cast<int>(std::round(panelX)),
+        static_cast<int>(std::round(panelY)),
+        static_cast<int>(std::round(panelX + panelWidth)),
+        static_cast<int>(std::round(panelY + panelHeight)),
+        GetColor(232, 196, 196),
+        FALSE);
+
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth)),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(48, 26, 30),
+        TRUE);
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth * ratio)),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(218, 42, 48),
+        TRUE);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 84);
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth * ratio)),
+        static_cast<int>(std::round(barY + kBarHeight * 0.45f)),
+        GetColor(255, 232, 232),
+        TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    for (int i = 1; i < maxHp; ++i)
+    {
+        const float x = barX + kBarWidth * (static_cast<float>(i) / static_cast<float>(maxHp));
+        DrawLine(
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(barY + 2.0f)),
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(barY + kBarHeight - 2.0f)),
+            GetColor(72, 30, 34));
+    }
+
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth)),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(246, 220, 220),
+        FALSE);
+    DrawString(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY - 18.0f)),
+        "BOSS",
+        GetColor(248, 196, 196));
     DrawFormatString(
         static_cast<int>(std::round(barX + kBarWidth * 0.5f) - 34.0f),
         static_cast<int>(std::round(barY + 4.0f)),

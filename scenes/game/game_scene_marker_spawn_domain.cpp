@@ -1,7 +1,8 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
+#include <array>
 #include <algorithm>
 #include <cctype>
 #include <limits>
@@ -85,7 +86,7 @@ namespace
         constexpr int kMinImageNo = 0;
         constexpr int kMaxImageNo = 9;
         constexpr int kMinRestoredTileValue = 1;
-        constexpr int kMaxRestoredTileValue = 9;
+        constexpr int kMaxRestoredTileValue = 99;
 
         SepiaMarkerParameter parameter;
         parameter.imageNo = kDefaultImageNo;
@@ -131,26 +132,23 @@ namespace
             return parameter;
         }
 
-        if (encoded >= 10 && encoded < 100)
+        if (encoded >= 10 && encoded < 1000)
         {
-            const int tileDigit = encoded / 10;
+            const int restoredTileValue = encoded / 10;
             const int imageDigit = encoded % 10;
-
-            if (tileDigit == 0)
+            if (restoredTileValue == 0)
             {
                 parameter.valid = false;
                 return parameter;
             }
-
             parameter.imageNo = std::clamp(
                 imageDigit,
                 kMinImageNo,
                 kMaxImageNo);
             parameter.restoredTileValue = std::clamp(
-                tileDigit,
+                restoredTileValue,
                 kMinRestoredTileValue,
                 kMaxRestoredTileValue);
-
             return parameter;
         }
 
@@ -306,6 +304,15 @@ namespace
         outLaserSwitchMarkers.clear();
         outShutterMarkers.clear();
         outProtectiveWallMarkers.clear();
+
+        const size_t estimatedMarkerCount =
+            static_cast<size_t>((std::max)(0, tileMap.GetWidth())) *
+            static_cast<size_t>((std::max)(0, tileMap.GetHeight()));
+        outSwitchMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outElevatorMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outLaserSwitchMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outShutterMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outProtectiveWallMarkers.reserve(estimatedMarkerCount / 32 + 1);
 
         for (int row = 0; row < tileMap.GetHeight(); ++row)
         {
@@ -484,7 +491,22 @@ namespace
         float heightTiles = 1.0f;
     };
 
+    bool TryResolveSepiaTileSizing(
+        char targetMarker,
+        int restoredTileValue,
+        SepiaGroupSizing& outSizing)
+    {
+        if (targetMarker == '<' && restoredTileValue == 11)
+        {
+            outSizing.widthTiles = 9.0f;
+            outSizing.heightTiles = 5.0f;
+            return true;
+        }
+        return false;
+    }
+
     bool TryResolveSepiaGroupSizing(
+        char targetMarker,
         char restoredMarkerType,
         SepiaGroupSizing& outSizing)
     {
@@ -492,41 +514,45 @@ namespace
             std::toupper(static_cast<unsigned char>(restoredMarkerType)));
 
         const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
-
-        switch (marker)
+        struct SepiaGroupSizingRule
         {
-        case 'M':
-            outSizing.widthTiles = 4.0f;
-            outSizing.heightTiles = 1.0f;
-            return true;
-        case 'K':
-        case 'X':
-            outSizing.widthTiles = cfg.batterySwitchWidthTiles;
-            outSizing.heightTiles = cfg.batterySwitchHeightTiles;
-            return true;
+            char marker;
+            float widthTiles;
+            float heightTiles;
+        };
 
-        case 'L':
-            outSizing.widthTiles = cfg.elevatorWidthTiles;
-            outSizing.heightTiles = cfg.elevatorHeightTiles;
-            return true;
+        const std::array<SepiaGroupSizingRule, 6> rules
+        {
+            SepiaGroupSizingRule{ 'M', 4.0f, 1.0f },
+            SepiaGroupSizingRule{ 'K', cfg.batterySwitchWidthTiles, cfg.batterySwitchHeightTiles },
+            SepiaGroupSizingRule{ 'X', cfg.batterySwitchWidthTiles, cfg.batterySwitchHeightTiles },
+            SepiaGroupSizingRule{ 'L', cfg.elevatorWidthTiles, cfg.elevatorHeightTiles },
+            SepiaGroupSizingRule{ 'Q', 4.0f, cfg.elevatorHeightTiles },
+            SepiaGroupSizingRule{ 'O', cfg.laserSwitchWidthTiles, cfg.laserSwitchHeightTiles },
+        };
 
-        case 'Q':
-            outSizing.widthTiles = 4.0f;
-            outSizing.heightTiles = cfg.elevatorHeightTiles;
-            return true;
+        for (const SepiaGroupSizingRule& rule : rules)
+        {
+            if (marker == rule.marker)
+            {
+                outSizing.widthTiles = rule.widthTiles;
+                outSizing.heightTiles = rule.heightTiles;
+                return true;
+            }
+        }
 
-        case 'O':
-            outSizing.widthTiles = cfg.laserSwitchWidthTiles;
-            outSizing.heightTiles = cfg.laserSwitchHeightTiles;
-            return true;
-
-        case 'J':
+        if (marker == 'J')
+        {
             outSizing.widthTiles = cfg.shutterWidthTiles;
             outSizing.heightTiles = cfg.shutterHeightTiles;
             return true;
+        }
 
-        default:
-            break;
+        if (marker == '+' && targetMarker == '<')
+        {
+            outSizing.widthTiles = 4.0f;
+            outSizing.heightTiles = cfg.elevatorHeightTiles;
+            return true;
         }
 
         if (IsEnemyMarker(marker))
@@ -538,6 +564,140 @@ namespace
 
         return false;
     }
+}
+
+void GameScene::SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    auto switchEntity = std::make_unique<Entity>();
+    switchEntity->AddComponent<TagComponent>(kTagBatterySwitch);
+    switchEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * cfg.batterySwitchWidthTiles,
+        tileSize * cfg.batterySwitchHeightTiles);
+    switchEntity->AddComponent<TintComponent>(
+        cfg.batterySwitchColor.r,
+        cfg.batterySwitchColor.g,
+        cfg.batterySwitchColor.b,
+        1.0f);
+    switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    switchEntity->AddComponent<BatterySwitchComponent>(
+        linkId,
+        requiredBatteryCount,
+        tileSize * cfg.batterySwitchPressDepthRatio,
+        cfg.batterySwitchPressSpeed,
+        cfg.batterySwitchReleaseSpeed,
+        controlsLaserPower);
+    m_world.Spawn(std::move(switchEntity));
+}
+
+void GameScene::SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    auto elevatorEntity = std::make_unique<Entity>();
+    elevatorEntity->AddComponent<TagComponent>(kTagElevator);
+    elevatorEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * widthTiles,
+        tileSize * cfg.elevatorHeightTiles);
+    elevatorEntity->AddComponent<TintComponent>(
+        cfg.elevatorColor.r,
+        cfg.elevatorColor.g,
+        cfg.elevatorColor.b,
+        1.0f);
+    elevatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    elevatorEntity->AddComponent<ElevatorComponent>(
+        linkId,
+        tileSize * static_cast<float>(moveRangeTiles),
+        tileSize * cfg.elevatorSpeedTilesPerSec,
+        cfg.elevatorTopPauseSeconds);
+    m_world.Spawn(std::move(elevatorEntity));
+}
+
+void GameScene::SpawnLaserSwitchMarker(float x, float y, int linkId, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    auto switchEntity = std::make_unique<Entity>();
+    switchEntity->AddComponent<TagComponent>(kTagLaserSwitch);
+    switchEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * cfg.laserSwitchWidthTiles,
+        tileSize * cfg.laserSwitchHeightTiles);
+    switchEntity->AddComponent<TintComponent>(
+        cfg.laserSwitchColor.r,
+        cfg.laserSwitchColor.g,
+        cfg.laserSwitchColor.b,
+        1.0f);
+    switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    switchEntity->AddComponent<LaserSwitchComponent>(linkId);
+    m_world.Spawn(std::move(switchEntity));
+}
+
+void GameScene::SpawnShutterMarker(
+    float x,
+    float y,
+    int moveRangeTiles,
+    int linkId,
+    bool useBossDefeatSignal,
+    bool opensWhenUnpowered,
+    float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    const int effectiveMoveRangeTiles = (std::max)(1, moveRangeTiles);
+    auto shutterEntity = std::make_unique<Entity>();
+    shutterEntity->AddComponent<TagComponent>(kTagShutter);
+    shutterEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * cfg.shutterWidthTiles,
+        tileSize * cfg.shutterHeightTiles);
+    shutterEntity->AddComponent<TintComponent>(
+        cfg.shutterColor.r,
+        cfg.shutterColor.g,
+        cfg.shutterColor.b,
+        1.0f);
+    shutterEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    shutterEntity->AddComponent<ShutterComponent>(
+        linkId,
+        tileSize * static_cast<float>(effectiveMoveRangeTiles),
+        tileSize * cfg.shutterSpeedTilesPerSec,
+        useBossDefeatSignal,
+        opensWhenUnpowered);
+    m_world.Spawn(std::move(shutterEntity));
+}
+
+void GameScene::SpawnProtectiveWallMarker(float x, float y, int durability, int linkId, int widthTiles, int markerHeightTiles, int heightTiles, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    const float markerWidth = tileSize * static_cast<float>((std::max)(1, widthTiles));
+    const float markerHeight = tileSize * static_cast<float>((std::max)(1, markerHeightTiles));
+    const float wallWidth = tileSize * static_cast<float>((std::max)(1, widthTiles));
+    const float wallHeight = tileSize * static_cast<float>((std::max)(1, heightTiles));
+    const float wallX = x + markerWidth * 0.5f - wallWidth * 0.5f;
+    const float wallY = y + markerHeight - tileSize - wallHeight;
+    auto wallEntity = std::make_unique<Entity>();
+    wallEntity->AddComponent<TagComponent>(kTagProtectiveWall);
+    wallEntity->AddComponent<TransformComponent>(
+        wallX,
+        wallY,
+        wallWidth,
+        wallHeight);
+    wallEntity->AddComponent<TintComponent>(
+        cfg.protectiveWallColor.r,
+        cfg.protectiveWallColor.g,
+        cfg.protectiveWallColor.b,
+        1.0f);
+    wallEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    wallEntity->AddComponent<ProtectiveWallComponent>(
+        linkId,
+        durability,
+        wallHeight,
+        tileSize * cfg.protectiveWallSpeedTilesPerSec,
+        false);
+    m_world.Spawn(std::move(wallEntity));
 }
 
 void GameScene::RefreshMarkerDrivenSystems()
@@ -594,27 +754,23 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
 
 void GameScene::RefreshEnemiesFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                if (entity->GetComponent<EnemyComponent>())
-                {
-                    return true;
-                }
-                if (HasTag(*entity, "BossShield"))
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagBullet);
-            }),
-        m_entities.end());
+                return true;
+            }
+            if (entity->GetComponent<EnemyComponent>())
+            {
+                return true;
+            }
+            if (HasTag(*entity, "BossShield"))
+            {
+                return true;
+            }
+            return HasTag(*entity, kTagBullet);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -660,6 +816,44 @@ void GameScene::RefreshEnemiesFromMarkers()
                     }
                 }
             };
+
+            struct EnemySpawnRule
+            {
+                char marker;
+                const char* prefabId;
+                void (GameScene::*configure)(Entity&) = nullptr;
+            };
+
+            const std::array<EnemySpawnRule, 5> enemySpawnRules
+            {
+                EnemySpawnRule{ 'W', "sandbox_enemy_walker", &GameScene::ConfigureWalkerSpriteAnimation },
+                EnemySpawnRule{ 'R', "sandbox_enemy_ranged", &GameScene::ConfigureRangedSpriteAnimation },
+                EnemySpawnRule{ '$', "sandbox_enemy_charger", nullptr },
+                EnemySpawnRule{ 'A', "sandbox_enemy_ghost", nullptr },
+                EnemySpawnRule{ 'D', "sandbox_enemy_blaster_robot", nullptr },
+            };
+
+            const auto trySpawnRegularEnemy = [&](char spawnMarker) -> bool
+            {
+                for (const EnemySpawnRule& rule : enemySpawnRules)
+                {
+                    if (spawnMarker != rule.marker)
+                    {
+                        continue;
+                    }
+
+                    Entity& enemy = SpawnStagePrefab(prefabs, rule.prefabId, markerX, markerY);
+                    if (rule.configure)
+                    {
+                        (this->*rule.configure)(enemy);
+                    }
+                    placeEnemyAtMarker(enemy);
+                    return true;
+                }
+
+                return false;
+            };
+
             const auto attachShieldToBoss = [&](Entity& boss)
             {
                 auto* bossComp = boss.GetComponent<ShieldBossComponent>();
@@ -677,7 +871,11 @@ void GameScene::RefreshEnemiesFromMarkers()
                     transform->y,
                     kShieldW,
                     kShieldH);
-                shieldEntity->AddComponent<TintComponent>(0.72f, 0.78f, 0.90f, 1.0f);
+                shieldEntity->AddComponent<TintComponent>(
+                    0.72f,
+                    0.78f,
+                    0.90f,
+                    bossComp->appearAnimationActive ? 0.0f : 1.0f);
                 shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
                 auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
                 shieldComp.attached = true;
@@ -686,27 +884,15 @@ void GameScene::RefreshEnemiesFromMarkers()
                 shieldComp.followOffsetX = -kShieldW;
                 shieldComp.followOffsetY = 0.0f;
                 bossComp->shieldEntity = shieldEntity.get();
-                m_entities.push_back(std::move(shieldEntity));
+                m_world.Spawn(std::move(shieldEntity));
             };
 
-            if (marker == 'W')
+            if (trySpawnRegularEnemy(marker))
             {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_walker", markerX, markerY);
-                ConfigureWalkerSpriteAnimation(enemy);
-                placeEnemyAtMarker(enemy);
+                continue;
             }
-            else if (marker == 'R')
-            {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ranged", markerX, markerY);
-                ConfigureRangedSpriteAnimation(enemy);
-                placeEnemyAtMarker(enemy);
-            }
-            else if (marker == '$')
-            {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_charger", markerX, markerY);
-                placeEnemyAtMarker(enemy);
-            }
-            else if (marker == 'N' || marker == '?')
+
+            if (marker == 'N' || marker == '?')
             {
                 if (m_flow.shieldBossDefeatedThisScene)
                 {
@@ -721,35 +907,21 @@ void GameScene::RefreshEnemiesFromMarkers()
                 Entity& boss = SpawnStagePrefab(prefabs, "sandbox_mid_boss2", markerX, markerY);
                 placeEnemyAtMarker(boss);
             }
-			else if (marker == 'A')
-            {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_ghost", markerX, markerY);
-                placeEnemyAtMarker(enemy);
-            }
-            else if (marker == 'D')
-            {
-                Entity& enemy = SpawnStagePrefab(prefabs, "sandbox_enemy_blaster_robot", markerX, markerY);
-                placeEnemyAtMarker(enemy);
-            }
         }
     }
 }
 
 void GameScene::RefreshBatteriesFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagBattery);
-            }),
-        m_entities.end());
+                return true;
+            }
+            return HasTag(*entity, kTagBattery);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -782,30 +954,26 @@ void GameScene::RefreshBatteriesFromMarkers()
                 260.0f,
                 320.0f,
                 1);
-            if (m_darknessStageEnabled)
+            if (m_lifecycle.darknessStageEnabled)
             {
                 AddUnderBatteryGlow(*battery);
             }
-            m_entities.push_back(std::move(battery));
+            m_world.Spawn(std::move(battery));
         }
     }
 }
 
 void GameScene::RefreshLogsFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagLog);
-            }),
-        m_entities.end());
+                return true;
+            }
+            return HasTag(*entity, kTagLog);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -853,26 +1021,22 @@ void GameScene::RefreshLogsFromMarkers()
                 barrel->respawnEnabled = false;
                 barrel->respawnWhenOffscreen = false;
             }
-            m_entities.push_back(std::move(log));
+            m_world.Spawn(std::move(log));
         }
     }
 }
 
 void GameScene::RefreshMarkerLightsFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagMarkerLight);
-            }),
-        m_entities.end());
+                return true;
+            }
+            return HasTag(*entity, kTagMarkerLight);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -918,26 +1082,22 @@ void GameScene::RefreshMarkerLightsFromMarkers()
                 kIntensity,
                 lightLinkId);
             markerLight.activated = marker == 'P';
-            m_entities.push_back(std::move(light));
+            m_world.Spawn(std::move(light));
         }
     }
 }
 
 void GameScene::RefreshStageLightsFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return HasTag(*entity, kTagStageLight);
-            }),
-        m_entities.end());
+                return true;
+            }
+            return HasTag(*entity, kTagStageLight);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1037,27 +1197,23 @@ void GameScene::RefreshStageLightsFromMarkers()
                 0.88f,
                 0.30f,
                 kIntensity);
-            m_entities.push_back(std::move(stageLight));
+            m_world.Spawn(std::move(stageLight));
         }
     }
 }
 
 void GameScene::RefreshLaserTurretsFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
+                return true;
+            }
 
-                return HasTag(*entity, kTagLaserTurret) || HasTag(*entity, kTagLaserBeam);
-            }),
-        m_entities.end());
+            return HasTag(*entity, kTagLaserTurret) || HasTag(*entity, kTagLaserBeam);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1104,7 +1260,7 @@ void GameScene::RefreshLaserTurretsFromMarkers()
             turretComponent.vertical = vertical;
             turretComponent.shootsLeft = shootsLeft;
             turretComponent.fireToLeft = shootsLeft;
-            m_entities.push_back(std::move(turret));
+            m_world.Spawn(std::move(turret));
 
             auto beam = std::make_unique<Entity>();
             Entity* beamEntity = beam.get();
@@ -1120,37 +1276,32 @@ void GameScene::RefreshLaserTurretsFromMarkers()
             turretComponent.beamEntity = beamEntity;
             turretComponent.beamOriginOffsetX = vertical ? (turretWidth - beamThickness) * 0.5f : (shootsLeft ? 0.0f : turretWidth);
             turretComponent.beamOriginOffsetY = vertical ? turretHeight : turretHeight * 0.5f;
-            m_entities.push_back(std::move(beam));
+            m_world.Spawn(std::move(beam));
         }
     }
 }
 
 void GameScene::RefreshLinkedGimmicksFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return entity->GetComponent<BatterySwitchComponent>() != nullptr ||
-                    entity->GetComponent<ElevatorComponent>() != nullptr ||
-                    entity->GetComponent<LaserSwitchComponent>() != nullptr ||
-                    entity->GetComponent<ShutterComponent>() != nullptr ||
-                    entity->GetComponent<ProtectiveWallComponent>() != nullptr;
-            }),
-        m_entities.end());
+                return true;
+            }
+            return entity->GetComponent<BatterySwitchComponent>() != nullptr ||
+                entity->GetComponent<ElevatorComponent>() != nullptr ||
+                entity->GetComponent<LaserSwitchComponent>() != nullptr ||
+                entity->GetComponent<ShutterComponent>() != nullptr ||
+                entity->GetComponent<ProtectiveWallComponent>() != nullptr;
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
     {
         return;
     }
-    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
 
     std::vector<SwitchMarker> switchMarkers;
     std::vector<ElevatorMarker> elevatorMarkers;
@@ -1165,146 +1316,35 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         laserSwitchMarkers,
         shutterMarkers,
         protectiveWallMarkers);
-
-    const auto spawnBatterySwitch = [&](const SwitchMarker& marker, int linkId)
-    {
-        auto switchEntity = std::make_unique<Entity>();
-        switchEntity->AddComponent<TagComponent>(kTagBatterySwitch);
-        switchEntity->AddComponent<TransformComponent>(
-            marker.x,
-            marker.y,
-            tileSize * cfg.batterySwitchWidthTiles,
-            tileSize * cfg.batterySwitchHeightTiles);
-        switchEntity->AddComponent<TintComponent>(
-            cfg.batterySwitchColor.r,
-            cfg.batterySwitchColor.g,
-            cfg.batterySwitchColor.b,
-            1.0f);
-        switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        switchEntity->AddComponent<BatterySwitchComponent>(
-            linkId,
-            marker.requiredBatteryCount,
-            tileSize * cfg.batterySwitchPressDepthRatio,
-            cfg.batterySwitchPressSpeed,
-            cfg.batterySwitchReleaseSpeed,
-            marker.controlsLaserPower);
-        m_entities.push_back(std::move(switchEntity));
-    };
-
-    const auto spawnElevator = [&](const ElevatorMarker& marker, int linkId)
-    {
-        auto elevatorEntity = std::make_unique<Entity>();
-        elevatorEntity->AddComponent<TagComponent>(kTagElevator);
-        elevatorEntity->AddComponent<TransformComponent>(
-            marker.x,
-            marker.y,
-            tileSize * marker.widthTiles,
-            tileSize * cfg.elevatorHeightTiles);
-        elevatorEntity->AddComponent<TintComponent>(
-            cfg.elevatorColor.r,
-            cfg.elevatorColor.g,
-            cfg.elevatorColor.b,
-            1.0f);
-        elevatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        elevatorEntity->AddComponent<ElevatorComponent>(
-            linkId,
-            tileSize * static_cast<float>(marker.moveRangeTiles),
-            tileSize * cfg.elevatorSpeedTilesPerSec,
-            cfg.elevatorTopPauseSeconds);
-        m_entities.push_back(std::move(elevatorEntity));
-    };
-
-    const auto spawnLaserSwitch = [&](const LaserSwitchMarker& marker, int linkId)
-    {
-        auto switchEntity = std::make_unique<Entity>();
-        switchEntity->AddComponent<TagComponent>(kTagLaserSwitch);
-        switchEntity->AddComponent<TransformComponent>(
-            marker.x,
-            marker.y,
-            tileSize * cfg.laserSwitchWidthTiles,
-            tileSize * cfg.laserSwitchHeightTiles);
-        switchEntity->AddComponent<TintComponent>(
-            cfg.laserSwitchColor.r,
-            cfg.laserSwitchColor.g,
-            cfg.laserSwitchColor.b,
-            1.0f);
-        switchEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        switchEntity->AddComponent<LaserSwitchComponent>(linkId);
-        m_entities.push_back(std::move(switchEntity));
-    };
-
-    const auto spawnShutter = [&](const ShutterMarker& marker, int linkId)
-    {
-        const int moveRangeTiles = (std::max)(1, marker.moveRangeTiles);
-        auto shutterEntity = std::make_unique<Entity>();
-        shutterEntity->AddComponent<TagComponent>(kTagShutter);
-        shutterEntity->AddComponent<TransformComponent>(
-            marker.x,
-            marker.y,
-            tileSize * cfg.shutterWidthTiles,
-            tileSize * cfg.shutterHeightTiles);
-        shutterEntity->AddComponent<TintComponent>(
-            cfg.shutterColor.r,
-            cfg.shutterColor.g,
-            cfg.shutterColor.b,
-            1.0f);
-        shutterEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        shutterEntity->AddComponent<ShutterComponent>(
-            linkId,
-            tileSize * static_cast<float>(moveRangeTiles),
-            tileSize * cfg.shutterSpeedTilesPerSec,
-            marker.useBossDefeatSignal,
-            marker.opensWhenUnpowered);
-        m_entities.push_back(std::move(shutterEntity));
-    };
-
-    const auto spawnProtectiveWall = [&](const ProtectiveWallMarker& marker, int linkId)
-    {
-        const float markerWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
-        const float markerHeight = tileSize * static_cast<float>((std::max)(1, marker.markerHeightTiles));
-        const float wallWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
-        const float wallHeight = tileSize * static_cast<float>((std::max)(1, marker.heightTiles));
-        const float wallX = marker.x + markerWidth * 0.5f - wallWidth * 0.5f;
-        // Anchor the wall to the ground surface of the placed marker band.
-        const float wallY = marker.y + markerHeight - tileSize - wallHeight;
-        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : linkId;
-        auto wallEntity = std::make_unique<Entity>();
-        wallEntity->AddComponent<TagComponent>(kTagProtectiveWall);
-        wallEntity->AddComponent<TransformComponent>(
-            wallX,
-            wallY,
-            wallWidth,
-            wallHeight);
-        wallEntity->AddComponent<TintComponent>(
-            cfg.protectiveWallColor.r,
-            cfg.protectiveWallColor.g,
-            cfg.protectiveWallColor.b,
-            1.0f);
-        wallEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        wallEntity->AddComponent<ProtectiveWallComponent>(
-            effectiveLinkId,
-            marker.durability,
-            wallHeight,
-            tileSize * cfg.protectiveWallSpeedTilesPerSec,
-            false);
-        m_entities.push_back(std::move(wallEntity));
-    };
-
     for (int index = 0; index < static_cast<int>(switchMarkers.size()); ++index)
     {
-        spawnBatterySwitch(switchMarkers[static_cast<size_t>(index)], index);
+        const SwitchMarker& marker = switchMarkers[static_cast<size_t>(index)];
+        SpawnBatterySwitchMarker(
+            marker.x,
+            marker.y,
+            marker.requiredBatteryCount,
+            marker.controlsLaserPower,
+            index,
+            tileSize);
     }
 
     for (int index = 0; index < static_cast<int>(elevatorMarkers.size()); ++index)
     {
-        spawnElevator(elevatorMarkers[static_cast<size_t>(index)], index);
+        const ElevatorMarker& marker = elevatorMarkers[static_cast<size_t>(index)];
+        SpawnElevatorMarker(
+            marker.x,
+            marker.y,
+            marker.moveRangeTiles,
+            marker.widthTiles,
+            index,
+            tileSize);
     }
 
     for (int index = 0; index < static_cast<int>(laserSwitchMarkers.size()); ++index)
     {
         const LaserSwitchMarker& marker = laserSwitchMarkers[static_cast<size_t>(index)];
         const int linkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : index;
-        spawnLaserSwitch(marker, linkId);
+        SpawnLaserSwitchMarker(marker.x, marker.y, linkId, tileSize);
     }
 
     const std::vector<int> laserSwitchLinkIds = BuildLaserSwitchLinkIds(laserSwitchMarkers);
@@ -1317,30 +1357,43 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             index,
             laserSwitchMarkers,
             laserSwitchLinkIds);
-        spawnShutter(marker, linkId);
+        SpawnShutterMarker(
+            marker.x,
+            marker.y,
+            marker.moveRangeTiles,
+            linkId,
+            marker.useBossDefeatSignal,
+            marker.opensWhenUnpowered,
+            tileSize);
     }
 
     for (int index = 0; index < static_cast<int>(protectiveWallMarkers.size()); ++index)
     {
-        spawnProtectiveWall(protectiveWallMarkers[static_cast<size_t>(index)], index);
+        const ProtectiveWallMarker& marker = protectiveWallMarkers[static_cast<size_t>(index)];
+        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : index;
+        SpawnProtectiveWallMarker(
+            marker.x,
+            marker.y,
+            marker.durability,
+            effectiveLinkId,
+            marker.widthTiles,
+            marker.markerHeightTiles,
+            marker.heightTiles,
+            tileSize);
     }
 }
 
 void GameScene::RefreshProtectiveWallsFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
-                return entity->GetComponent<ProtectiveWallComponent>() != nullptr;
-            }),
-        m_entities.end());
+                return true;
+            }
+            return entity->GetComponent<ProtectiveWallComponent>() != nullptr;
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1362,60 +1415,34 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
         shutterMarkers,
         protectiveWallMarkers);
 
-    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
-    const auto spawnProtectiveWall = [&](const ProtectiveWallMarker& marker, int linkId)
-    {
-        const float markerWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
-        const float markerHeight = tileSize * static_cast<float>((std::max)(1, marker.markerHeightTiles));
-        const float wallWidth = tileSize * static_cast<float>((std::max)(1, marker.widthTiles));
-        const float wallHeight = tileSize * static_cast<float>((std::max)(1, marker.heightTiles));
-        const float wallX = marker.x + markerWidth * 0.5f - wallWidth * 0.5f;
-        const float wallY = marker.y + markerHeight - tileSize - wallHeight;
-        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : linkId;
-        auto wallEntity = std::make_unique<Entity>();
-        wallEntity->AddComponent<TagComponent>(kTagProtectiveWall);
-        wallEntity->AddComponent<TransformComponent>(
-            wallX,
-            wallY,
-            wallWidth,
-            wallHeight);
-        wallEntity->AddComponent<TintComponent>(
-            cfg.protectiveWallColor.r,
-            cfg.protectiveWallColor.g,
-            cfg.protectiveWallColor.b,
-            1.0f);
-        wallEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-        wallEntity->AddComponent<ProtectiveWallComponent>(
-            effectiveLinkId,
-            marker.durability,
-            wallHeight,
-            tileSize * cfg.protectiveWallSpeedTilesPerSec,
-            false);
-        m_entities.push_back(std::move(wallEntity));
-    };
-
     for (int index = 0; index < static_cast<int>(protectiveWallMarkers.size()); ++index)
     {
-        spawnProtectiveWall(protectiveWallMarkers[static_cast<size_t>(index)], index);
+        const ProtectiveWallMarker& marker = protectiveWallMarkers[static_cast<size_t>(index)];
+        const int effectiveLinkId = marker.linkIdOverride >= 0 ? marker.linkIdOverride : index;
+        SpawnProtectiveWallMarker(
+            marker.x,
+            marker.y,
+            marker.durability,
+            effectiveLinkId,
+            marker.widthTiles,
+            marker.markerHeightTiles,
+            marker.heightTiles,
+            tileSize);
     }
 }
 
 void GameScene::RefreshDamageFootholdsFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
+                return true;
+            }
 
-                return HasTag(*entity, kTagDamagePlatform) || HasTag(*entity, kTagDamagePlatformSpike);
-            }),
-        m_entities.end());
+            return HasTag(*entity, kTagDamagePlatform) || HasTag(*entity, kTagDamagePlatformSpike);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1454,7 +1481,7 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
                     { 0.0f, 1.0f }},
                 0.2f);
             damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
-            m_entities.push_back(std::move(damagePlatformBase));
+            m_world.Spawn(std::move(damagePlatformBase));
 
             auto damagePlatformSpike = std::make_unique<Entity>();
             damagePlatformSpike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
@@ -1468,27 +1495,23 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
             damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
             damagePlatformSpike->AddComponent<SpikeStripComponent>(tileSpan);
             damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
-            m_entities.push_back(std::move(damagePlatformSpike));
+            m_world.Spawn(std::move(damagePlatformSpike));
         }
     }
 }
 
 void GameScene::RefleshSepiaRubblesFromMarkers()
 {
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
             {
-                if (!entity)
-                {
-                    return true;
-                }
+                return true;
+            }
 
-                return HasTag(*entity, kTagSepiaRubble);
-            }),
-        m_entities.end());
+            return HasTag(*entity, kTagSepiaRubble);
+        });
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
@@ -1630,8 +1653,9 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 static_cast<float>(groupMaxRow - groupMinRow + 1);
 
             SepiaGroupSizing fixedSizing;
-            if (targetRestoredMarkerType != '\0' &&
-                TryResolveSepiaGroupSizing(targetRestoredMarkerType, fixedSizing))
+            if (TryResolveSepiaTileSizing(targetMarker, restoredTileValue, fixedSizing) ||
+                (targetRestoredMarkerType != '\0' &&
+                    TryResolveSepiaGroupSizing(targetMarker, targetRestoredMarkerType, fixedSizing)))
             {
                 groupWidthTiles = fixedSizing.widthTiles;
                 groupHeightTiles = fixedSizing.heightTiles;
@@ -1694,7 +1718,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 groupComp.cellRestoredMarkerParameters.push_back(cell.restoredMarkerParameter);
             }
 
-            m_entities.push_back(std::move(rubble));
+            m_world.Spawn(std::move(rubble));
         }
     }
 }

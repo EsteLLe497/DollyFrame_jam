@@ -169,14 +169,14 @@ namespace
 
 int PhotoPasteSystem::GetPhotoTraySlotAt(const GameScene& scene, float screenX, float screenY)
 {
-    if (scene.m_flow.photoTrayReveal <= 0.05f)
+    if (scene.m_ui.photoTrayReveal <= 0.05f)
     {
         return -1;
     }
 
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
     const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - scene.m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
+    const float hiddenOffset = (1.0f - scene.m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     if (screenY < trayY || screenY > trayY + kPhotoTraySlotHeight)
     {
@@ -356,9 +356,9 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         return;
     }
 
-    const float viewScale = GetViewScale();
-    const float viewOriginX = GetViewOriginX();
-    const float viewOriginY = GetViewOriginY();
+    const float viewScale = scene.GetViewScale();
+    const float viewOriginX = scene.GetViewOriginX();
+    const float viewOriginY = scene.GetViewOriginY();
     float previewWidth = 0.0f;
     float previewHeight = 0.0f;
     std::vector<CapturedPhotoItem> previewItems = photo_shared::BuildPlacementItems(
@@ -705,20 +705,16 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     if (scene.m_photo.groups.activeGroupCount >= kMaxPhotoGroups)
     {
         const int groupToRemove = scene.m_photo.groups.nextGroupId - scene.m_photo.groups.activeGroupCount;
-        scene.m_entities.erase(
-            std::remove_if(
-                scene.m_entities.begin(),
-                scene.m_entities.end(),
-                [&](const std::unique_ptr<Entity>& entity)
+        scene.m_world.EraseIf(
+            [&](const std::unique_ptr<Entity>& entity)
+            {
+                if (!entity || !HasTag(*entity, "PhotoBox"))
                 {
-                    if (!entity || !HasTag(*entity, "PhotoBox"))
-                    {
-                        return false;
-                    }
-                    const auto* group = entity->GetComponent<PhotoCopyGroupComponent>();
-                    return group && group->groupId == groupToRemove;
-                }),
-            scene.m_entities.end());
+                    return false;
+                }
+                const auto* group = entity->GetComponent<PhotoCopyGroupComponent>();
+                return group && group->groupId == groupToRemove;
+            });
         scene.m_photo.groups.activeGroupCount = std::max(0, scene.m_photo.groups.activeGroupCount - 1);
     }
 
@@ -785,7 +781,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 barrel->respawnWhenOffscreen = false;
                 barrel->active = true;
             }
-            scene.m_entities.push_back(std::move(logEntity));
+            scene.m_world.Spawn(std::move(logEntity));
             continue;
         }
 
@@ -826,7 +822,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 barrel->respawnEnabled = false;
                 barrel->active = true;
             }
-            scene.m_entities.push_back(std::move(barrelEntity));
+            scene.m_world.Spawn(std::move(barrelEntity));
             continue;
         }
 
@@ -858,7 +854,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             {
                 transform->rotation = item.rotation;
             }
-            scene.m_entities.push_back(std::move(batteryEntity));
+            scene.m_world.Spawn(std::move(batteryEntity));
             continue;
         }
 
@@ -907,7 +903,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             {
                 transform->rotation = item.rotation;
             }
-            scene.m_entities.push_back(std::move(bulletEntity));
+            scene.m_world.Spawn(std::move(bulletEntity));
             continue;
         }
 
@@ -955,7 +951,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             {
                 transform->rotation = item.rotation;
             }
-            scene.m_entities.push_back(std::move(turretEntity));
+            scene.m_world.Spawn(std::move(turretEntity));
 
             auto beamEntity = std::make_unique<Entity>();
             Entity* spawnedBeam = beamEntity.get();
@@ -1006,7 +1002,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 pastedTurret.beamOriginOffsetX = fireDirection == LaserTurretFireDirection::Left ? 0.0f : item.width;
                 pastedTurret.beamOriginOffsetY = item.height * 0.5f;
             }
-            scene.m_entities.push_back(std::move(beamEntity));
+            scene.m_world.Spawn(std::move(beamEntity));
             lastSpawnedEntity = spawnedBeam;
             continue;
         }
@@ -1031,7 +1027,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedMelee->AddComponent<TintComponent>(1.0f, 0.55f, 0.15f, 0.72f);
             spawnedMelee->AddComponent<SpriteRenderComponent>(scene.m_whiteTexture);
             spawnedMelee->AddComponent<PhotoCopyLifetimeComponent>(kWalkerMeleeDuration);
-            scene.m_entities.push_back(std::move(meleeEntity));
+            scene.m_world.Spawn(std::move(meleeEntity));
             continue;
         }
 
@@ -1138,7 +1134,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 break;
             }
 
-            scene.m_entities.push_back(std::move(shieldEntity));
+            scene.m_world.Spawn(std::move(shieldEntity));
             continue;
         }
 
@@ -1196,7 +1192,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             }
 
             ++spawnedPhotoBoxCount;
-            scene.m_entities.push_back(std::move(groundEntity));
+            scene.m_world.Spawn(std::move(groundEntity));
             continue;
         }
 
@@ -1278,7 +1274,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             lastSpawnedEntity->AddComponent<ImageOutlineColliderComponent>(std::move(normalizedOutline), 0.2f);
         }
         ApplyPhotoFilterToPhotoBox(*lastSpawnedEntity, item.appliedTheme);
-        scene.m_entities.push_back(std::move(entity));
+        scene.m_world.Spawn(std::move(entity));
     }
 
     if (spawnedPhotoBoxCount > 0)
@@ -1294,3 +1290,4 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, lastSpawnedEntity, "test_tone", 0.0f, 0.0f });
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, lastSpawnedEntity, "Spawned filtered reconstruction", 0.0f, 0.0f });
 }
+

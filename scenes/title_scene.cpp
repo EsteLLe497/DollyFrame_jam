@@ -150,7 +150,6 @@ namespace
 
 TitleScene::TitleScene()
     : m_whiteTexture(-1)
-    , m_titleTexture(-1)
     , m_blinkTimer(0.0f)
     , m_sceneTime(0.0f)
     , m_showPrompt(true)
@@ -170,9 +169,7 @@ const char* TitleScene::GetSceneId() const
 void TitleScene::OnEnter(ResourceManager& resources)
 {
     ZoneScoped;
-    m_assets.LoadDefaults(resources);
-    m_whiteTexture = m_assets.GetTexture("white");
-    m_titleTexture = resources.LoadTexture(L"assets\\texture\\タイトル.png");
+    m_whiteTexture = resources.CreateSolidTexture(1, 1, 0xFFFFFFFF);
     m_eventBus.Clear();
     m_blinkTimer = 0.0f;
     m_sceneTime = 0.0f;
