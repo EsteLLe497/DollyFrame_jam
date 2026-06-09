@@ -191,20 +191,20 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
 
         if (activeIndex == -1)
         {
-            m_easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
-            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
+            m_camera.easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
+            m_camera.easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
         }
         else
         {
-            const auto& cam = m_fixedRanges[activeIndex];
+            const auto& cam = m_camera.fixedRanges[activeIndex];
 
             gCameraViewWidth = cam.GetZoomWidth();
             gCameraViewHeight = cam.GetZoomHeight();
 
             float centerX = (cam.GetStartX() + cam.GetEndX()) * 0.5f;
 
-            m_easingTargetX = centerX - (gCameraViewWidth * 0.25f) + cam.GetOffsetX();
-            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f) + cam.GetOffsetY();
+            m_camera.easingTargetX = centerX - (gCameraViewWidth * 0.25f) + cam.GetOffsetX();
+            m_camera.easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f) + cam.GetOffsetY();
         }
     }
 
@@ -229,9 +229,9 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     // 追従カメラ
     if (activeIndex < 0)
     {
-        if (m_prevCameraIndex >= 0)
+        if (m_camera.prevCameraIndex >= 0)
         {
-            const auto& prevCam = m_fixedRanges[m_prevCameraIndex];
+            const auto& prevCam = m_camera.fixedRanges[m_camera.prevCameraIndex];
 
             gCameraViewWidth = prevCam.GetZoomWidth();
             gCameraViewHeight = prevCam.GetZoomHeight();
