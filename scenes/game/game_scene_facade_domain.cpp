@@ -61,6 +61,16 @@ void GameScene::BeginFrameUpdate(float deltaTime)
 
 bool GameScene::TryHandleModalUpdates(float deltaTime)
 {
+    if (m_ui.merchantShopOpen)
+    {
+        UpdateMerchantShopInput();
+        if (m_ui.merchantMessageTimer > 0.0f)
+        {
+            m_ui.merchantMessageTimer = std::max(0.0f, m_ui.merchantMessageTimer - deltaTime);
+        }
+        return true;
+    }
+
     if (m_debug.showEscapeMenu)
     {
         UpdateEscapeMenuInput();
@@ -224,12 +234,15 @@ void GameScene::DrawWorldAndUiLayers()
     DrawCaptureOverlay();
     DrawPhotoStorageTray();
     DrawDevelopedPhotoPreview();
+    DrawMerchantPrompts();
     DrawPitRestartOverlay();
     DrawEscapeMenuOverlay();
+    DrawMerchantShopOverlay();
     DrawMapEditorOverlay();
     DrawTuningPanel();
     DrawBatterySwitchCounters();
     DrawPlayerHpBar();
+    DrawPartsHud();
     DrawMidBoss3HpBar();
     DrawAttackCaptureSlot();
     DrawEnemyAttackRects();

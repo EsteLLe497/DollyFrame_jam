@@ -119,6 +119,7 @@ private:
     float GetBatteryPushDirectionFromPlayer(const TransformComponent& playerTransform, const TransformComponent& batteryTransform) const;
     void BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bounds) const;
     void UpdateLinkedGimmicks(float deltaTime);
+    void UpdateMerchants(float deltaTime);
     void UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame);
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
@@ -159,6 +160,7 @@ private:
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();
+    void UpdateMerchantShopInput();
     void ToggleEscapeMenuBgm();
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);
@@ -227,8 +229,11 @@ private:
     void DrawBossShockwavesUnderlay() const;
     void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
+    void DrawPartsHud() const;
     void DrawMidBoss3HpBar() const;
     void DrawAttackCaptureSlot() const;
+    void DrawMerchantPrompts() const;
+    void DrawMerchantShopOverlay() const;
     void DrawBatterySwitchCounters() const;
     void DrawEscapeMenuOverlay() const;
     void DrawMapEditorOverlay() const;

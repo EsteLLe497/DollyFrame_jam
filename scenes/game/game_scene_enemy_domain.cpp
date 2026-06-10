@@ -831,6 +831,7 @@ void GameScene::UpdateDropItems()
 
             if (dist < kCollectRange)
             {
+                GameSession_AddParts(drop->GetValue());
                 collected.push_back(entity);
                 continue;
             }
