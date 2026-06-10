@@ -1494,6 +1494,9 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
             damagePlatformSpike->AddComponent<SpriteRenderComponent>(m_whiteTexture);
             damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
             damagePlatformSpike->AddComponent<SpikeStripComponent>(tileSpan);
+            damagePlatformSpike->AddComponent<ImageOutlineColliderComponent>(
+                BuildDamagePlatformNormalizedOutline(tileSpan),
+                0.2f);
             damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
             m_world.Spawn(std::move(damagePlatformSpike));
         }

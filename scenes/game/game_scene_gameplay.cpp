@@ -805,6 +805,10 @@ void GameScene::BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bo
     GetEntityBoundsByTag(kTagBattery, batteryBounds);
     bounds.insert(bounds.end(), batteryBounds.begin(), batteryBounds.end());
 
+    std::vector<TransformComponent> logBounds;
+    GetEntityBoundsByTag(kTagLog, logBounds);
+    bounds.insert(bounds.end(), logBounds.begin(), logBounds.end());
+
     std::vector<TransformComponent> enemyBounds;
     GetEntityBoundsByTag(kTagEnemy, enemyBounds);
     bounds.insert(bounds.end(), enemyBounds.begin(), enemyBounds.end());
@@ -1957,6 +1961,7 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
     };
 
     if (testTagGroup(EntityTag::Barrel) ||
+        testTagGroup(EntityTag::Log) ||
         testTagGroup(EntityTag::Battery) ||
         testTagGroup(EntityTag::PhotoSource) ||
         testTagGroup(EntityTag::BatterySwitch) ||
