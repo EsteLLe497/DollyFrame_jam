@@ -534,6 +534,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     captureCandidates.reserve(
         scene.EntitiesByTag(EntityTag::Enemy).size() +
         scene.EntitiesByTag(EntityTag::PhotoBox).size() +
+        scene.EntitiesByTag(EntityTag::Goal).size() +
+        scene.EntitiesByTag(EntityTag::PhotoSource).size() +
+        scene.EntitiesByTag(EntityTag::Hazard).size() +
         scene.EntitiesByTag(EntityTag::Battery).size() +
         scene.EntitiesByTag(EntityTag::BatterySwitch).size() +
         scene.EntitiesByTag(EntityTag::Elevator).size() +
@@ -545,6 +548,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         scene.EntitiesByTag(EntityTag::StageLight).size() +
         scene.EntitiesByTag(EntityTag::MarkerLight).size() +
         scene.EntitiesByTag(EntityTag::SepiaRubble).size() +
+        scene.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        scene.EntitiesByTag(EntityTag::Filter).size() +
         scene.EntitiesByTag(EntityTag::Bullet).size() +
         scene.EntitiesByTag(EntityTag::Shield).size() +
         scene.EntitiesByTag(EntityTag::BossShield).size() +
@@ -553,9 +558,14 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         scene.EntitiesByTag(EntityTag::CapturedShield).size() +
         scene.EntitiesByTag(EntityTag::MidBoss3Fist).size() +
         scene.EntitiesByTag(EntityTag::Barrel).size() +
-        scene.EntitiesByTag(EntityTag::Log).size());
+        scene.EntitiesByTag(EntityTag::Log).size() +
+        scene.EntitiesByTag(EntityTag::DamagePlatform).size() +
+        scene.EntitiesByTag(EntityTag::DamagePlatformSpike).size());
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Enemy);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::PhotoBox);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Goal);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::PhotoSource);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Hazard);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Battery);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::BatterySwitch);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Elevator);
@@ -567,6 +577,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::StageLight);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::MarkerLight);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::SepiaRubble);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::SepiaElevator);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Filter);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Bullet);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Shield);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::BossShield);
@@ -576,6 +588,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::MidBoss3Fist);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Barrel);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Log);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::DamagePlatform);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::DamagePlatformSpike);
 
     for (Entity* entity : captureCandidates)
     {
@@ -680,6 +694,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
         CapturedPhotoItem item;
         const bool capturedLog = HasTag(*entity, kTagLog);
+        const bool capturedDamagePlatform = HasTag(*entity, kTagDamagePlatform);
+        const bool capturedDamagePlatformSpike = HasTag(*entity, kTagDamagePlatformSpike);
         const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr && !capturedLog;
         const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr && !capturedLog;
         const auto* laserBeam = entity->GetComponent<LaserBeamComponent>();
@@ -1136,17 +1152,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 item.laserEnemyKnockbackSpeed = laserBeam->enemyKnockbackSpeed;
             }
         }
-        else if (damagePlatform)
+        else if (capturedDamagePlatform)
+        {
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+        }
+        else if (capturedDamagePlatformSpike || damagePlatform || spikeStrip)
         {
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
         }
-        else if (spikeStrip)
-        {
-            item.role = PhotoCopyRole::Hazard;
-            item.layer = PhotoCopyLayer::Foreground;
-        }
-        else if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedShield && !damagePlatform && !spikeStrip && !capturedSepiaRubble && !midBoss3Fist)
+        else if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !capturedSepiaRubble && !midBoss3Fist)
         {
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
@@ -1167,7 +1183,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedLog && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !midBoss3Fist)
+        if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedLog && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !midBoss3Fist)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }

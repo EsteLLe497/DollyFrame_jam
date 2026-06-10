@@ -772,8 +772,16 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
     std::vector<Entity*> solidEntities;
     solidEntities.reserve(
         m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size() +
         m_world.EntitiesByTag(EntityTag::CapturedShield).size());
     for (Entity* entity : m_world.EntitiesByTag(EntityTag::PhotoBox))
+    {
+        if (entity)
+        {
+            solidEntities.push_back(entity);
+        }
+    }
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Log))
     {
         if (entity)
         {
@@ -795,7 +803,8 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
             continue;
         }
 
-        if (!entity->GetComponent<TransformComponent>())
+        const auto* entityTransform = entity->GetComponent<TransformComponent>();
+        if (!entityTransform || entityTransform == &transform)
         {
             continue;
         }
@@ -901,8 +910,16 @@ bool GameScene::TrySnapToGroundUsingPlatforms(
     std::vector<Entity*> solidEntities;
     solidEntities.reserve(
         m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size() +
         m_world.EntitiesByTag(EntityTag::CapturedShield).size());
     for (Entity* entity : m_world.EntitiesByTag(EntityTag::PhotoBox))
+    {
+        if (entity)
+        {
+            solidEntities.push_back(entity);
+        }
+    }
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Log))
     {
         if (entity)
         {
@@ -924,7 +941,8 @@ bool GameScene::TrySnapToGroundUsingPlatforms(
             continue;
         }
 
-        if (!entity->GetComponent<TransformComponent>())
+        const auto* entityTransform = entity->GetComponent<TransformComponent>();
+        if (!entityTransform || entityTransform == &transform)
         {
             continue;
         }
