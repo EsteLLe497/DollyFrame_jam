@@ -28,9 +28,11 @@ namespace
     constexpr float kValidPreviewTintAlphaMin = 0.46f;
     constexpr float kValidPreviewTintAlphaMax = 0.62f;
     constexpr float kZoomTargetTilesX = 23.0f;
-    constexpr int kPhotoTraySlotCount = 3;
-    constexpr float kPhotoTraySlotWidth = 270.0f;
-    constexpr float kPhotoTraySlotHeight = 140.0f;
+    constexpr int kPhotoTraySlotCount = 4;
+    constexpr int kPhotoTrayOriginalSlotCount = 3;
+    constexpr float kPhotoTrayScale = 1.1f;
+    constexpr float kPhotoTraySlotWidth = 270.0f * kPhotoTrayScale;
+    constexpr float kPhotoTraySlotHeight = kPhotoTraySlotWidth * 89.0f / 127.0f;
     constexpr float kPhotoTraySlotGap = 18.0f;
 
     float NormalizeAngleRadians(float radians)
@@ -174,8 +176,8 @@ int PhotoPasteSystem::GetPhotoTraySlotAt(const GameScene& scene, float screenX, 
         return -1;
     }
 
-    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
+    const float originalTrayWidth = kPhotoTrayOriginalSlotCount * kPhotoTraySlotWidth + (kPhotoTrayOriginalSlotCount - 1) * kPhotoTraySlotGap;
+    const float trayX = (static_cast<float>(SCREEN_WIDTH) - originalTrayWidth) * 0.5f - (kPhotoTraySlotWidth + kPhotoTraySlotGap);
     const float hiddenOffset = (1.0f - scene.m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     if (screenY < trayY || screenY > trayY + kPhotoTraySlotHeight)

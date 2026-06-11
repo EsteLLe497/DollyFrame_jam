@@ -155,6 +155,11 @@
     "ruins_fg": {
       "type": "file",
       "path": "assets/texture/BG/ruins/ruins.png"
+    },
+
+    "photo_tray_backdrop": {
+      "type": "file",
+      "path": "assets/texture/photo_tray_backdrop.png"
     }
 
   }

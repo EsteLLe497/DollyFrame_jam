@@ -202,7 +202,7 @@ struct PhotoState
 {
     PhotoCaptureState capture;
     PhotoCaptureState attackCapture;
-    std::array<PhotoCaptureState, 3> savedCaptures;
+    std::array<PhotoCaptureState, 4> savedCaptures;
     int selectedCaptureSlot = 0;
     int nextCaptureSlot = 0;
     PendingPhotoStoreState pendingStore;
