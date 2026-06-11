@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "logger.h"
 #include "components.h"
 #include "entity.h"
 #include "game_scene_photo_state.h"
@@ -80,9 +81,10 @@ inline const char* GetShieldBossRushClipName(ShieldBossState state)
 inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent& boss)
 {
     constexpr float kBoss1NormalVisualScale = 1.35f;
-    constexpr float kBoss1RoarVisualScale = 1.35f;
+    constexpr float kBoss1RoarVisualScale = 1.95f;
     constexpr float kBoss1DeathVisualScale = 1.68f;
     constexpr float kBoss1DeathGroundOffsetY = 72.0f;
+    constexpr float kBoss1RoarYOffsetCompensation = -24.0f;
 
     if (boss.deathAnimationActive)
     {
@@ -159,10 +161,13 @@ inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent&
         if (const auto* transform = entity.GetComponent<TransformComponent>())
         {
             const float visualScale = boss.roarAnimationActive ? kBoss1RoarVisualScale : kBoss1NormalVisualScale;
+            const float visualOffsetY = boss.roarAnimationActive
+                ? transform->height * (1.0f - kBoss1NormalVisualScale) + kBoss1RoarYOffsetCompensation
+                : transform->height * (1.0f - visualScale);
             sprite->SetRenderScale(visualScale, visualScale);
             sprite->SetRenderOffset(
                 transform->width * (1.0f - visualScale) * 0.5f,
-                transform->height * (1.0f - visualScale));
+                visualOffsetY);
         }
         // Boss1 sheets face left by default; mirror only when facing right.
         sprite->SetFlipX(flipRight);
@@ -171,6 +176,10 @@ inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent&
     {
         if (boss.roarAnimationActive)
         {
+            if (animation->GetCurrentClipName() != "roar")
+            {
+                Logger::Info("Boss1 roar started");
+            }
             animation->Play("roar");
             if (boss.shieldEntity)
             {
@@ -181,6 +190,7 @@ inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent&
             }
             if (animation->IsCurrentClipFinished())
             {
+                Logger::Info("Boss1 roar finished");
                 boss.roarAnimationActive = false;
             }
             return;

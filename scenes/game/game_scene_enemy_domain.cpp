@@ -744,11 +744,43 @@ void GameScene::UpdateBullets()
     Entity* player = FindEntityByTag(kTagPlayer);
     const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
     const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    std::vector<TransformComponent> obstacleBounds;
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetGroundPlatformBounds(tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetPhotoBoxBounds(tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetEntityBoundsByTag("Battery", tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetEntityBoundsByTag("Log", tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetEntityBoundsByTag("DamagePlatform", tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetEntityBoundsByTag("DamagePlatformSpike", tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
     std::vector<Entity*> bulletsToRemove;
     
     game_scene_combat_system::UpdateBullets(
         bulletEntities,
         enemyEntities,
+        obstacleBounds,
         GetMapPixelWidth(),
         GetMapPixelHeight(),
         m_flow.lastDeltaTime,
