@@ -21,6 +21,7 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     UpdateBatteries(gameplayDeltaTime);
     UpdateLaserTurrets(gameplayDeltaTime);
     UpdateLinkedGimmicks(gameplayDeltaTime);
+    UpdateMerchants(gameplayDeltaTime);
     UpdateEnemies();
     UpdateShields(gameplayDeltaTime);
     UpdateBullets();

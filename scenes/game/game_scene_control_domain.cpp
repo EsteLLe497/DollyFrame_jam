@@ -157,6 +157,15 @@ void GameScene::HandleGlobalSceneShortcuts()
 bool GameScene::OnCancelAction()
 {
     const ActiveGameSceneScope activeScene(*this);
+    if (m_ui.merchantShopOpen)
+    {
+        m_ui.merchantShopOpen = false;
+        m_debug.showEscapeMenu = false;
+        m_ui.merchantMessage.clear();
+        m_ui.merchantMessageTimer = 0.0f;
+        return true;
+    }
+
     if (m_mapEditor.active)
     {
         m_mapEditor.active = false;

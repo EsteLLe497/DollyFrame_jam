@@ -75,6 +75,15 @@ private:
     float m_tintA;
 };
 
+class MerchantComponent final : public MonoBehaviour
+{
+public:
+    MerchantComponent() = default;
+
+    bool playerInRange = false;
+    float promptPulse = 0.0f;
+};
+
 enum class SepiaRubbleSource
 {
     Generic,

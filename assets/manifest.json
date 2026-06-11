@@ -42,6 +42,10 @@
       "rgbaB": "FF5A2615",
       "cellSize": 24
     },
+    "merchant_sign": {
+      "type": "file",
+      "path": "assets/texture/mise.png"
+    },
     "hazard": {
       "type": "checkerboard",
       "width": 128,

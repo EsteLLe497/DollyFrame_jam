@@ -438,7 +438,11 @@ void GameScene::StoreCapturedPhoto()
     }
 
     int slotToStore = -1;
-    for (int index = 0; index < static_cast<int>(m_photo.savedCaptures.size()); ++index)
+    const int usablePhotoSlots = std::clamp(
+        GameSession_Get().photoStorageSlots,
+        1,
+        static_cast<int>(m_photo.savedCaptures.size()));
+    for (int index = 0; index < usablePhotoSlots; ++index)
     {
         if (!m_photo.savedCaptures[index].hasPhoto)
         {
@@ -449,7 +453,7 @@ void GameScene::StoreCapturedPhoto()
 
     if (slotToStore < 0)
     {
-        slotToStore = m_photo.nextCaptureSlot;
+        slotToStore = std::clamp(m_photo.nextCaptureSlot, 0, usablePhotoSlots - 1);
     }
 
     m_photo.pendingStore.active = true;
@@ -458,7 +462,7 @@ void GameScene::StoreCapturedPhoto()
     m_photo.pendingStore.capture = m_photo.capture;
     m_photo.savedCaptures[slotToStore] = m_photo.capture;
     m_photo.selectedCaptureSlot = slotToStore;
-    m_photo.nextCaptureSlot = (slotToStore + 1) % static_cast<int>(m_photo.savedCaptures.size());
+    m_photo.nextCaptureSlot = (slotToStore + 1) % usablePhotoSlots;
 }
 
 void GameScene::CommitPendingCapturedPhoto()

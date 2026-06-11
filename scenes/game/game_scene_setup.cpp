@@ -866,6 +866,35 @@ void GameScene::InitializeStageEntities()
                 }
             }
         }
+        else if (marker == 'M')
+        {
+            constexpr float kMerchantSignAspect = 401.0f / 1172.0f;
+            const float merchantX = static_cast<float>(column) * tileSize;
+            const float merchantY = static_cast<float>(row) * tileSize;
+            const float merchantSize = tileSize * 4.0f;
+            const float signWidth = tileSize * 1.8f;
+            const float signHeight = signWidth * kMerchantSignAspect;
+            auto merchant = std::make_unique<Entity>();
+            merchant->AddComponent<TagComponent>(EntityTag::Merchant);
+            merchant->AddComponent<TransformComponent>(
+                merchantX,
+                merchantY,
+                merchantSize,
+                merchantSize);
+            const int merchantTexture = m_assets.GetTexture("merchant_sign");
+            merchant->AddComponent<MerchantComponent>();
+            m_world.Spawn(std::move(merchant));
+
+            auto sign = std::make_unique<Entity>();
+            sign->AddComponent<TransformComponent>(
+                merchantX + (merchantSize - signWidth) * 0.5f,
+                merchantY - signHeight - tileSize * 0.15f,
+                signWidth,
+                signHeight);
+            sign->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            sign->AddComponent<SpriteRenderComponent>(merchantTexture >= 0 ? merchantTexture : m_whiteTexture);
+            m_world.Spawn(std::move(sign));
+        }
     }
 
     for (const TileMarker& stageMarker : stageMarkers)
