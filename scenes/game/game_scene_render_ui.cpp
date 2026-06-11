@@ -22,9 +22,11 @@ namespace
     constexpr float kStageTransitionFadeOutDuration = 0.45f;
     constexpr float kStageTransitionFadeInDuration = 1.10f;
 
-    constexpr int kPhotoTraySlotCount = 3;
-    constexpr float kPhotoTraySlotWidth = 270.0f;
-    constexpr float kPhotoTraySlotHeight = 140.0f;
+    constexpr int kPhotoTraySlotCount = 4;
+    constexpr int kPhotoTrayOriginalSlotCount = 3;
+    constexpr float kPhotoTrayScale = 1.1f;
+    constexpr float kPhotoTraySlotWidth = 270.0f * kPhotoTrayScale;
+    constexpr float kPhotoTraySlotHeight = kPhotoTraySlotWidth * 89.0f / 127.0f;
     constexpr float kPhotoTraySlotGap = 18.0f;
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
@@ -1476,13 +1478,13 @@ void GameScene::DrawDevelopedPhotoPreview() const
     float accentB = 1.0f;
     GetPhotoFilterThemeOverlayColor(previewCapture.capturedTheme, accentR, accentG, accentB);
 
-    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
+    const float originalTrayWidth = kPhotoTrayOriginalSlotCount * kPhotoTraySlotWidth + (kPhotoTrayOriginalSlotCount - 1) * kPhotoTraySlotGap;
+    const float trayX = (static_cast<float>(SCREEN_WIDTH) - originalTrayWidth) * 0.5f - (kPhotoTraySlotWidth + kPhotoTraySlotGap);
     const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     const float targetSlotX = trayX + m_photo.pendingStore.slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-    const float targetCenterX = targetSlotX + 98.0f;
-    const float targetCenterY = trayY + 78.0f;
+    const float targetCenterX = targetSlotX + 98.0f * kPhotoTrayScale;
+    const float targetCenterY = trayY + 78.0f * kPhotoTrayScale;
 
     const float photoWidth = 220.0f;
     const float photoHeight = 248.0f;
@@ -1714,8 +1716,9 @@ bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
         return false;
     }
 
+    const float originalTrayWidth = kPhotoTrayOriginalSlotCount * kPhotoTraySlotWidth + (kPhotoTrayOriginalSlotCount - 1) * kPhotoTraySlotGap;
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
+    const float trayX = (static_cast<float>(SCREEN_WIDTH) - originalTrayWidth) * 0.5f - (kPhotoTraySlotWidth + kPhotoTraySlotGap);
     const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
     return
@@ -1733,13 +1736,10 @@ void GameScene::DrawPhotoStorageTray() const
     }
 
     constexpr float kInnerPadding = 10.0f;
-    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
+    const float originalTrayWidth = kPhotoTrayOriginalSlotCount * kPhotoTraySlotWidth + (kPhotoTrayOriginalSlotCount - 1) * kPhotoTraySlotGap;
+    const float trayX = (static_cast<float>(SCREEN_WIDTH) - originalTrayWidth) * 0.5f - (kPhotoTraySlotWidth + kPhotoTraySlotGap);
     const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
     const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
-    const int textBright = static_cast<int>(150.0f + m_ui.photoTrayReveal * 105.0f);
-    const int textBrightCool = std::min(255, textBright + 10);
-
     const int trayBackdropTexture = m_assets.GetTexture("photo_tray_backdrop");
     if (trayBackdropTexture >= 0)
     {
@@ -1752,7 +1752,7 @@ void GameScene::DrawPhotoStorageTray() const
             const float drawY = static_cast<float>(SCREEN_HEIGHT) - drawHeight;
             Shader_ResetStyle();
             Shader_SetTint(1.0f, 1.0f, 1.0f, m_ui.photoTrayReveal);
-           // SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+            SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
             Shader_ResetStyle();
         }
     }
@@ -1782,27 +1782,15 @@ void GameScene::DrawPhotoStorageTray() const
             outlineColor,
             FALSE);
 
-        DrawFormatString(
-            static_cast<int>(slotX + 10.0f),
-            static_cast<int>(slotY + 8.0f),
-            selected ? GetColor(255, textBright, 196) : GetColor(textBright, textBrightCool, 244),
-            "PHOTO %d",
-            slotIndex + 1);
-
         if (!storedCapture.hasPhoto || storedCapture.items.empty())
         {
-            DrawString(
-                static_cast<int>(slotX + 50.0f),
-                static_cast<int>(slotY + 42.0f),
-                slotIsPending ? "STORING" : "EMPTY",
-                slotIsPending ? GetColor(214, 204, 156) : GetColor(122, 136, 156));
             continue;
         }
 
-        const float previewX = slotX + kInnerPadding;
-        const float previewY = slotY + 28.0f;
-        const float previewWidth = 176.0f;
-        const float previewHeight = 100.0f;
+        const float previewWidth = (kPhotoTraySlotWidth - kInnerPadding * 2.0f);
+        const float previewHeight = (kPhotoTraySlotHeight - kInnerPadding * 2.0f);
+        const float previewX = slotX + (kPhotoTraySlotWidth - previewWidth) * 0.5f;
+        const float previewY = slotY + (kPhotoTraySlotHeight - previewHeight) * 0.5f;
         const float scale = std::min(
             previewWidth / std::max(1.0f, storedCapture.width),
             previewHeight / std::max(1.0f, storedCapture.height));
@@ -1837,25 +1825,6 @@ void GameScene::DrawPhotoStorageTray() const
             GetColor(215, 205, 180),
             FALSE);
 
-        DrawFormatString(
-            static_cast<int>(slotX + 198.0f),
-            static_cast<int>(slotY + 34.0f),
-            GetColor(230, 236, 242),
-            "%s",
-            GetPhotoFilterThemeLabel(storedCapture.capturedTheme));
-        DrawFormatString(
-            static_cast<int>(slotX + 198.0f),
-            static_cast<int>(slotY + 56.0f),
-            GetColor(170, 186, 204),
-            "%.0fx%.0f",
-            storedCapture.width,
-            storedCapture.height);
-        DrawFormatString(
-            static_cast<int>(slotX + 198.0f),
-            static_cast<int>(slotY + 74.0f),
-            slotIsPending ? GetColor(230, 214, 158) : GetColor(150, 170, 190),
-            "%s",
-            slotIsPending ? "Storing..." : (selected ? "Drag to place" : "Drag"));
     }
 }
 
