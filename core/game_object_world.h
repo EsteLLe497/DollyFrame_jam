@@ -15,7 +15,7 @@ public:
     using EntityList = std::vector<std::unique_ptr<Entity>>;
     using EntityPointerList = std::vector<Entity*>;
 
-    static constexpr size_t kIndexedTagCount = static_cast<size_t>(EntityTag::MidBoss3Fist) + 1;
+    static constexpr size_t kIndexedTagCount = static_cast<size_t>(EntityTag::Merchant) + 1;
 
     EntityList& Entities();
     const EntityList& Entities() const;

@@ -147,6 +147,9 @@
     <ClCompile Include="scenes\game\game_scene_gimmick_domain.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_merchant_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
     <ClCompile Include="core\game_session.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>

@@ -107,6 +107,10 @@ struct GameSceneUiState
     float hpDamageFlash = 0.0f;
     int hpLastRaw = -1;
     bool hpUiInitialized = false;
+    bool merchantShopOpen = false;
+    int merchantSelection = 0;
+    float merchantMessageTimer = 0.0f;
+    std::string merchantMessage;
 };
 
 struct GameScenePlayerState

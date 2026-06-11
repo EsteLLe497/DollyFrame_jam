@@ -13,6 +13,9 @@ void GameSession_Reset(int maxHp, float timeLimit)
 {
     g_sessionState.maxHp = maxHp;
     g_sessionState.currentHp = maxHp;
+    g_sessionState.parts = 0;
+    g_sessionState.photoStorageSlots = 2;
+    g_sessionState.hasRecoveryFilter = false;
     g_sessionState.timeLimit = timeLimit;
     g_sessionState.timeRemaining = timeLimit;
     g_sessionState.endReason = GameEndReason::None;
@@ -21,6 +24,33 @@ void GameSession_Reset(int maxHp, float timeLimit)
 void GameSession_SetCurrentHp(int currentHp)
 {
     g_sessionState.currentHp = std::clamp(currentHp, 0, g_sessionState.maxHp);
+}
+
+void GameSession_AddParts(int amount)
+{
+    g_sessionState.parts = std::max(0, g_sessionState.parts + std::max(0, amount));
+}
+
+bool GameSession_SpendParts(int amount)
+{
+    const int cost = std::max(0, amount);
+    if (g_sessionState.parts < cost)
+    {
+        return false;
+    }
+
+    g_sessionState.parts -= cost;
+    return true;
+}
+
+void GameSession_SetPhotoStorageSlots(int slots)
+{
+    g_sessionState.photoStorageSlots = std::clamp(slots, 1, 3);
+}
+
+void GameSession_SetRecoveryFilterOwned(bool owned)
+{
+    g_sessionState.hasRecoveryFilter = owned;
 }
 
 void GameSession_SetTimeRemaining(float timeRemaining)
