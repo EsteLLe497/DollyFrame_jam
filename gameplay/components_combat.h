@@ -269,8 +269,8 @@ public:
         int boss2WidthGrid = 4;
         int boss2HeightGrid = 4;
         int spearDamage = 1;
-        float spearFadeTime = 3.0f;
-        float spearInterval = 0.3f;
+        float spearFadeTime = 1.0f;
+        float spearInterval = 0.7f;
         float spearCooldownAfterLanding = 2.0f;
         float spearLandingPauseTime = 0.2f;
         float spearJumpHeightGrid = 6.0f;
@@ -317,7 +317,7 @@ public:
     bool launched = false;
     bool stuck = false;
     float fadeRemaining = 0.0f;
-    float fadeDuration = 3.0f;
+    float fadeDuration = 1.0f;
     float directionX = 0.0f;
     float directionY = -1.0f;
     float targetDirectionX = 0.0f;

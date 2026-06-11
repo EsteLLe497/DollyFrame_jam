@@ -569,6 +569,18 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
     if (hasProtectiveWalls && !hasIntactProtectiveWall)
     {
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            if (auto* markerLight = entity->GetComponent<MarkerLightComponent>())
+            {
+                markerLight->activated = false;
+            }
+        }
         RefreshProtectiveWallsFromMarkers();
     }
 

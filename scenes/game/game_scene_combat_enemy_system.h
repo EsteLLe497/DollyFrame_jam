@@ -2697,7 +2697,7 @@ inline void UpdateEnemies(
             constexpr float kTileSize = 48.0f;
             constexpr float kHoverMoveSpeed = 360.0f;
             constexpr float kLandingMoveSpeed = 320.0f;
-            constexpr float kBeamFireDuration = 2.2f;
+            constexpr float kBeamFireDuration = 5.2f;
             constexpr float kBeamFireShakeSeconds = 0.16f;
             constexpr float kBeamFireShakeAmplitude = 24.0f;
             const auto getMidBoss2LeftX = [&](float centerGridX, float bossWidth)
@@ -2774,7 +2774,10 @@ inline void UpdateEnemies(
                 boss->beamEntity->AddComponent<TintComponent>(0.48f, 0.78f, 1.0f, 0.0f);
                 boss->beamEntity->AddComponent<SpriteRenderComponent>(tileTexture);
                 boss->beamEntity->AddComponent<LaserBeamComponent>(boss->params.beamDamagePerSecond);
-                boss->beamEntity->AddComponent<BossBeamCaptureComponent>();
+                auto& beamCapture = boss->beamEntity->AddComponent<BossBeamCaptureComponent>();
+                beamCapture.captureEnabled = true;
+                beamCapture.sourceOnLeft = beamFacingRight;
+                beamCapture.visualLeakLength = 12.0f;
                 if (auto* turretEntity = boss->beamTurretEntity)
                 {
                     if (auto* turret = turretEntity->GetComponent<LaserTurretComponent>())

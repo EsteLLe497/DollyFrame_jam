@@ -530,6 +530,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     std::vector<Entity*> entitiesToRemove;
     bool capturedMidBoss3FistRubbleAttack = false;
     bool capturedMidBoss3DrillRubbleAttack = false;
+    bool capturedMidBoss2Spear = false;
     std::vector<Entity*> captureCandidates;
     captureCandidates.reserve(
         scene.EntitiesByTag(EntityTag::Enemy).size() +
@@ -1002,6 +1003,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         item.enemyAttackPaste =
             capturedWalker ||
             capturedShieldAttack ||
+            capturedLaserTurret ||
             midBoss3Fist != nullptr ||
             capturedMidBoss3FistRubble ||
             capturedMidBoss3DrillRubble;
@@ -1098,6 +1100,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
             if (const auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
             {
+                if (capturedMidBoss2Spear)
+                {
+                    continue;
+                }
+                capturedMidBoss2Spear = true;
                 item.spearProjectile = true;
                 item.spearStuck = spear->stuck;
                 item.spearDirectionX = spear->stuck ? spear->directionX : spear->targetDirectionX;

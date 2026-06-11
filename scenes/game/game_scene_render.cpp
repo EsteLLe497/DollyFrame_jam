@@ -1782,22 +1782,40 @@ void GameScene::DrawEntity(const Entity& entity) const
     if (tag && HasTag(tag, EntityTag::BossShield))
     {
         const auto* shield = entity.GetComponent<ShieldComponent>();
-        const auto* ownerTransform = shield && shield->ownerBoss
-            ? shield->ownerBoss->GetComponent<TransformComponent>()
-            : nullptr;
         const auto* ownerBoss = shield && shield->ownerBoss
             ? shield->ownerBoss->GetComponent<ShieldBossComponent>()
             : nullptr;
-        if (shield && ownerTransform && ownerBoss &&
+        if (shield && ownerBoss &&
             (shield->attached || ownerBoss->knockbackActive || ownerBoss->state == ShieldBossState::Rush || ownerBoss->state == ShieldBossState::RushCooldown))
         {
-            const float ownerW = ownerTransform->width * ownerTransform->scale;
-            const float shieldW = transform->width * transform->scale;
-            const float shieldWorldX = ownerBoss->facing == ShieldBossFacing::Right
-                ? ownerTransform->x + ownerW
-                : ownerTransform->x - shieldW;
+            const int textureId = sprite->GetTextureId();
+            const int textureWidth = TextureGetWidth(textureId);
+            const int textureHeight = TextureGetHeight(textureId);
+            const float sourceWidth = sprite->GetSourceWidth();
+            const float sourceHeight = sprite->GetSourceHeight();
+            if (textureWidth > 0 &&
+                textureHeight > 0 &&
+                sourceWidth > 0.0f &&
+                sourceHeight > 0.0f)
+            {
+                const float frameWidth = static_cast<float>(textureWidth) * sourceWidth;
+                const float frameHeight = static_cast<float>(textureHeight) * sourceHeight;
+                if (frameWidth > 0.0f && frameHeight > 0.0f)
+                {
+                    // Boss shield sheets are authored with a wider frame than the collision box.
+                    // Preserve the source aspect ratio here so the shield does not look squashed,
+                    // but keep the art anchored to the shield's actual collision box.
+                    drawWidth = drawHeight * (frameWidth / frameHeight);
+                }
+            }
+            const float shieldWorldW = transform->width * transform->scale;
+            const float shieldWorldH = transform->height * transform->scale;
+            const float visualWorldW = drawWidth / viewScale;
+            const float visualWorldH = drawHeight / viewScale;
+            const float shieldWorldX = transform->x + (shieldWorldW - visualWorldW) * 0.5f;
+            const float shieldWorldY = transform->y + (shieldWorldH - visualWorldH) * 0.5f;
             drawX = viewOriginX + (shieldWorldX - m_flow.cameraX) * viewScale;
-            drawY = viewOriginY + (ownerTransform->y - m_flow.cameraY) * viewScale;
+            drawY = viewOriginY + (shieldWorldY - m_flow.cameraY) * viewScale;
         }
     }
     if (tag && HasTag(tag, EntityTag::Player))
@@ -1849,6 +1867,7 @@ void GameScene::DrawEntity(const Entity& entity) const
     const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
     const auto* photoCopyTile = entity.GetComponent<PhotoCopyTileValueComponent>();
     const auto* midBoss2Spear = entity.GetComponent<MidBoss2SpearComponent>();
+    const auto* bossBeamCapture = entity.GetComponent<BossBeamCaptureComponent>();
 
     Shader_ResetStyle();
     float alphaMultiplier = 1.0f;
@@ -2358,18 +2377,35 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     else if (tag && HasTag(tag, kTagLaserBeam))
     {
-        if ((entity.GetComponent<PhotoCopyGroupComponent>() || entity.GetComponent<BossBeamCaptureComponent>()) &&
+        if ((entity.GetComponent<PhotoCopyGroupComponent>() || bossBeamCapture) &&
             drawWidth >= drawHeight)
         {
+            float renderDrawX = drawX;
+            float renderDrawY = drawY;
+            float renderDrawWidth = drawWidth;
+            float renderDrawHeight = drawHeight;
+            if (bossBeamCapture && bossBeamCapture->visualLeakLength > 0.0f)
+            {
+                const float leakLength = bossBeamCapture->visualLeakLength * viewScale;
+                if (bossBeamCapture->sourceOnLeft)
+                {
+                    renderDrawWidth += leakLength;
+                }
+                else
+                {
+                    renderDrawX -= leakLength;
+                    renderDrawWidth += leakLength;
+                }
+            }
             const int outerColor = GetColor(124, 206, 255);
             const int coreColor = GetColor(236, 248, 255);
             const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
-            const float beamCenterY = drawY + drawHeight * 0.5f;
-            const float beamHalfHeight = drawHeight * 0.5f;
+            const float beamCenterY = renderDrawY + renderDrawHeight * 0.5f;
+            const float beamHalfHeight = renderDrawHeight * 0.5f;
             const float basePulse = 0.97f + 0.03f * std::sin(timeSeconds * 6.0f);
-            const float coreThickness = std::max(2.0f, drawHeight * 0.18f);
-            const float innerGlowThickness = std::max(4.0f, drawHeight * 0.34f);
-            const float outerGlowThickness = std::max(6.0f, drawHeight * 0.58f);
+            const float coreThickness = std::max(2.0f, renderDrawHeight * 0.18f);
+            const float innerGlowThickness = std::max(4.0f, renderDrawHeight * 0.34f);
+            const float outerGlowThickness = std::max(6.0f, renderDrawHeight * 0.58f);
             const int outerGlowAlpha = std::clamp(static_cast<int>(std::round(52.0f * alphaMultiplier * basePulse)), 0, 255);
             const int innerGlowAlpha = std::clamp(static_cast<int>(std::round(92.0f * alphaMultiplier * basePulse)), 0, 255);
             const int coreAlpha = std::clamp(static_cast<int>(std::round(224.0f * alphaMultiplier * basePulse)), 0, 255);
@@ -2377,24 +2413,24 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float wrapAmplitude = beamHalfHeight * 0.34f;
             const float wrapFrequency = 1.8f;
             const float wrapSpeed = 3.8f;
-            const float wrapThickness = std::max(1.0f, drawHeight * 0.08f);
+            const float wrapThickness = std::max(1.0f, renderDrawHeight * 0.08f);
             const int wrapGlowAlpha = std::clamp(static_cast<int>(std::round(84.0f * alphaMultiplier)), 0, 255);
             const int wrapCoreAlpha = std::clamp(static_cast<int>(std::round(136.0f * alphaMultiplier)), 0, 255);
 
             SetDrawBlendMode(DX_BLENDMODE_ADD, outerGlowAlpha);
-            DrawLineAA(drawX, beamCenterY, drawX + drawWidth, beamCenterY, outerColor, outerGlowThickness);
+            DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, outerColor, outerGlowThickness);
             SetDrawBlendMode(DX_BLENDMODE_ADD, innerGlowAlpha);
-            DrawLineAA(drawX, beamCenterY, drawX + drawWidth, beamCenterY, GetColor(176, 226, 255), innerGlowThickness);
+            DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, GetColor(176, 226, 255), innerGlowThickness);
 
             auto drawWrappedLine = [&](int alpha, int color, float thickness, float pointRadius)
             {
                 SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
-                float previousX = drawX;
+                float previousX = renderDrawX;
                 float previousY = beamCenterY + std::sin(timeSeconds * wrapSpeed) * wrapAmplitude;
                 for (int segment = 1; segment <= kWrapSegments; ++segment)
                 {
                     const float t = static_cast<float>(segment) / static_cast<float>(kWrapSegments);
-                    const float x = drawX + drawWidth * t;
+                    const float x = renderDrawX + renderDrawWidth * t;
                     const float phase = timeSeconds * wrapSpeed + t * 6.28318530718f * wrapFrequency;
                     const float y = beamCenterY + std::sin(phase) * wrapAmplitude;
                     DrawLineAA(previousX, previousY, x, y, color, thickness);
@@ -2413,9 +2449,9 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawWrappedLine(wrapCoreAlpha, GetColor(224, 244, 255), wrapThickness, wrapThickness * 0.72f);
 
             SetDrawBlendMode(DX_BLENDMODE_ADD, coreAlpha);
-            DrawLineAA(drawX, beamCenterY, drawX + drawWidth, beamCenterY, coreColor, innerGlowThickness * 0.52f);
+            DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, coreColor, innerGlowThickness * 0.52f);
             SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(255.0f * alphaMultiplier)), 0, 255));
-            DrawLineAA(drawX, beamCenterY, drawX + drawWidth, beamCenterY, GetColor(255, 255, 255), coreThickness);
+            DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, GetColor(255, 255, 255), coreThickness);
         }
         else
         {
