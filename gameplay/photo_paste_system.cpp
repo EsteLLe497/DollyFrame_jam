@@ -881,7 +881,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 spear.targetDirectionY = item.spearDirectionY;
                 spear.launchDelay = 0.0f;
                 spear.launchTimer = 0.0f;
-                spear.fadeDuration = 3.0f;
+                spear.fadeDuration = 1.0f;
                 spear.fadeRemaining = spear.fadeDuration;
                 spear.travelDistance = item.spearTravelDistance;
                 if (spear.stuck)
@@ -912,7 +912,14 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             constexpr float kPastedBeamLifetimeSeconds = 3.0f;
             constexpr float kPastedBeamWarmupSeconds = 0.45f;
             constexpr float kPastedBeamKnockbackSpeed = 120.0f;
-            const auto fireDirection = GetLaserTurretFireDirectionFromRotation(item.rotation);
+            const auto* playerTransform = player.GetComponent<TransformComponent>();
+            const bool attackPaste = item.enemyAttackPaste && playerTransform != nullptr;
+            const bool playerFacingRight = scene.m_player.facingRight;
+            const auto fireDirection = attackPaste
+                ? (playerFacingRight
+                    ? LaserTurretFireDirection::Right
+                    : LaserTurretFireDirection::Left)
+                : GetLaserTurretFireDirectionFromRotation(item.rotation);
             const bool firesVertically = fireDirection == LaserTurretFireDirection::Up ||
                 fireDirection == LaserTurretFireDirection::Down;
 
@@ -922,7 +929,22 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedTurret->AddComponent<TagComponent>(kTagLaserTurret);
             spawnedTurret->AddComponent<PhotoCopyGroupComponent>(groupId);
             spawnedTurret->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
-            spawnedTurret->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
+            float turretX = spawnX + item.relativeX;
+            float turretY = spawnY + item.relativeY;
+            if (attackPaste)
+            {
+                const float playerWidth = playerTransform->width * playerTransform->scale;
+                const float playerHeight = playerTransform->height * playerTransform->scale;
+                const float playerFrontX = playerFacingRight
+                    ? (playerTransform->x + playerWidth)
+                    : playerTransform->x;
+                const float playerCenterY = playerTransform->y + playerHeight * 0.5f;
+                turretY = playerCenterY - item.height * 0.5f;
+                turretX = playerFacingRight
+                    ? playerFrontX
+                    : playerFrontX - item.width;
+            }
+            spawnedTurret->AddComponent<TransformComponent>(turretX, turretY, item.width, item.height);
             spawnedTurret->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
             spawnedTurret->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
             const float pastedBeamThickness = item.laserBeamThickness > 0.0f ? item.laserBeamThickness : (item.height * 0.2f);
@@ -958,8 +980,8 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedBeam->AddComponent<TagComponent>(kTagLaserBeam);
             spawnedBeam->AddComponent<PhotoCopyGroupComponent>(groupId);
             spawnedBeam->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
-            float beamX = spawnX + item.relativeX;
-            float beamY = spawnY + item.relativeY;
+            float beamX = turretX;
+            float beamY = turretY;
             float beamWidth = 0.0f;
             float beamHeight = 0.0f;
             if (fireDirection == LaserTurretFireDirection::Up)
@@ -990,6 +1012,10 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedBeam->AddComponent<LaserBeamComponent>(
                 item.laserDamagePerSecond,
                 item.laserEnemyKnockbackSpeed);
+            auto& beamCapture = spawnedBeam->AddComponent<BossBeamCaptureComponent>();
+            beamCapture.captureEnabled = false;
+            beamCapture.sourceOnLeft = fireDirection != LaserTurretFireDirection::Left;
+            beamCapture.visualLeakLength = 12.0f;
             spawnedBeam->AddComponent<PhotoCopyLifetimeComponent>(kPastedBeamLifetimeSeconds);
             pastedTurret.beamEntity = spawnedBeam;
             if (firesVertically)

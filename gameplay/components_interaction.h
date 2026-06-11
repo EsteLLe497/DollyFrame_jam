@@ -245,6 +245,8 @@ public:
     BossBeamCaptureComponent() = default;
 
     bool captureEnabled = false;
+    bool sourceOnLeft = true;
+    float visualLeakLength = 12.0f;
 };
 
 class TagComponent final : public MonoBehaviour

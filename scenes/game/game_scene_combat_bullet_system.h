@@ -10,6 +10,7 @@ template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename H
 inline void UpdateBullets(
     const std::vector<Entity*>& bulletEntities,
     const std::vector<Entity*>& enemyEntities,
+    const std::vector<TransformComponent>& obstacleBounds,
     float mapWidth,
     float mapHeight,
     float deltaTime,
@@ -84,8 +85,8 @@ inline void UpdateBullets(
                 if (spear->fadeRemaining <= 0.0f)
                 {
                     bulletsToRemove.push_back(entity);
-                    continue;
                 }
+                continue;
             }
         }
 
@@ -410,20 +411,70 @@ inline void UpdateBullets(
             handlePlayerDamage(*player, entity, "GameScene player damaged by bullet");
             if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
             {
-                const float hitLength = std::hypot(projectile->GetVelocityX(), projectile->GetVelocityY());
-                if (hitLength > 0.0001f)
-                {
-                    spear->directionX = projectile->GetVelocityX() / hitLength;
-                    spear->directionY = projectile->GetVelocityY() / hitLength;
-                }
-                spear->stuck = true;
-                projectile->SetVelocityX(0.0f);
-                projectile->SetVelocityY(0.0f);
+                bulletsToRemove.push_back(entity);
                 continue;
             }
 
             bulletsToRemove.push_back(entity);
             continue;
+        }
+
+        if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
+        {
+            if (!spear->stuck && !obstacleBounds.empty())
+            {
+                const float previousX = transform->x - projectile->GetVelocityX() * deltaTime;
+                const float previousY = transform->y - projectile->GetVelocityY() * deltaTime;
+                const auto collidesAt = [&](float x, float y) -> bool
+                {
+                    TransformComponent candidate = *transform;
+                    candidate.x = x;
+                    candidate.y = y;
+                    for (const auto& obstacle : obstacleBounds)
+                    {
+                        if (IntersectsBounds(candidate, obstacle))
+                        {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+
+                if (collidesAt(transform->x, transform->y))
+                {
+                    float low = 0.0f;
+                    float high = 1.0f;
+                    const float deltaX = transform->x - previousX;
+                    const float deltaY = transform->y - previousY;
+                    for (int iteration = 0; iteration < 8; ++iteration)
+                    {
+                        const float mid = (low + high) * 0.5f;
+                        const float candidateX = previousX + deltaX * mid;
+                        const float candidateY = previousY + deltaY * mid;
+                        if (collidesAt(candidateX, candidateY))
+                        {
+                            high = mid;
+                        }
+                        else
+                        {
+                            low = mid;
+                        }
+                    }
+
+                    transform->x = previousX + deltaX * low;
+                    transform->y = previousY + deltaY * low;
+                    const float hitLength = std::hypot(projectile->GetVelocityX(), projectile->GetVelocityY());
+                    if (hitLength > 0.0001f)
+                    {
+                        spear->directionX = projectile->GetVelocityX() / hitLength;
+                        spear->directionY = projectile->GetVelocityY() / hitLength;
+                    }
+                    spear->stuck = true;
+                    projectile->SetVelocityX(0.0f);
+                    projectile->SetVelocityY(0.0f);
+                    continue;
+                }
+            }
         }
 
         if (projectile->GetOwner() == ProjectileComponent::Owner::Photo)
