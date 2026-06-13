@@ -402,7 +402,9 @@ void GameScene::StoreCapturedPhoto()
     for (const auto& item : m_photo.capture.items)
     {
         if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround ||
-            item.sepiaRestoredMarkerObject)
+            item.sepiaRestoredMarkerObject ||
+            (item.spawnArchetype == CapturedSpawnArchetype::FallingRock &&
+                item.appliedTheme == PhotoFilterTheme::Sepia))
         {
             hasSepiaGroundItem = true;
             break;
@@ -480,7 +482,10 @@ void GameScene::CommitPendingCapturedPhoto()
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.pendingStore.capture.items)
     {
-        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround ||
+            item.sepiaRestoredMarkerObject ||
+            (item.spawnArchetype == CapturedSpawnArchetype::FallingRock &&
+                item.appliedTheme == PhotoFilterTheme::Sepia))
         {
             hasSepiaGroundItem = true;
             break;

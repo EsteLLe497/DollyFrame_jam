@@ -104,6 +104,7 @@ private:
     // Gameplay pipeline
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
+    void UpdateFallingRocks(float deltaTime);
     void UpdateBatteries(float deltaTime);
     void UpdateLaserTurrets(float deltaTime);
     void UpdateSingleBattery(
@@ -157,6 +158,7 @@ private:
     void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
+    void ReflashFallingRockfromMarkers();
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();

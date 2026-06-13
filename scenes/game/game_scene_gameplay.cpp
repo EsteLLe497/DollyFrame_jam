@@ -1248,6 +1248,462 @@ void GameScene::UpdateBarrels(float deltaTime)
 
     }
 }
+
+void GameScene::UpdateFallingRocks(float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    const float tileSize = m_tileMap.GetTileSize();
+    const float mapWidth = GetMapPixelWidth();
+    const float mapHeight = GetMapPixelHeight();
+    const float activeLeft = std::max(0.0f, m_flow.cameraX - gBarrelActivationPaddingX);
+    const float activeRight = std::min(mapWidth, m_flow.cameraX + gCameraViewWidth + gBarrelActivationPaddingX);
+    const float activationDistance = tileSize * 11.0f;
+    const float kFallingRockRubbleLifetime = 3.0f;
+
+    auto setFallingRockVisible = [](Entity& fallingrockEntity, bool visible)
+        {
+            if (auto* tint = fallingrockEntity.GetComponent<TintComponent>())
+            {
+                tint->a = visible ? 1.0f : 0.0f;
+            }
+        };
+
+    const auto spawnFallingRockRubble = [&](const TransformComponent& sourceTransform)
+        {
+            const float sourceWidth = sourceTransform.width * sourceTransform.scale;
+            const float sourceHeight = sourceTransform.height * sourceTransform.scale;
+            const float rubbleSize = std::clamp(
+                std::min(sourceWidth, sourceHeight),
+                tileSize * 0.75f,
+                tileSize * 2.0f);
+
+            const int sepiaRubbleTextureId = m_assets.GetTexture("sepia_rubble");
+
+            auto rubble = std::make_unique<Entity>();
+            rubble->AddComponent<TagComponent>(kTagSepiaRubble);
+            rubble->AddComponent<TransformComponent>(
+                sourceTransform.x + sourceWidth * 0.5f - rubbleSize * 0.5f,
+                sourceTransform.y + sourceHeight * 0.5f - rubbleSize * 0.5f,
+                rubbleSize,
+                rubbleSize);
+            rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            rubble->AddComponent<SpriteRenderComponent>(sepiaRubbleTextureId >= 0 ? sepiaRubbleTextureId : m_whiteTexture);
+            rubble->AddComponent<SepiaRubbleComponent>(SepiaRubbleSource::FallingRock);
+            rubble->AddComponent<PhotoCopyLifetimeComponent>(kFallingRockRubbleLifetime);
+            m_world.QueueSpawn(std::move(rubble));
+        };
+
+    auto resetFallingRock = [&](Entity& fallingRockEntity, FallingRockComponent& fallingRock, TransformComponent& transform)
+        {
+            SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
+            m_eventBus.Publish({ EventType::PlaySoundRequest, &fallingRockEntity, nullptr, "fallingrock", 0.0f, 0.0f });
+            
+            spawnFallingRockRubble(transform);
+
+            const bool pastedFallingRock =
+                fallingRockEntity.GetComponent<PhotoPasteOrderComponent>() != nullptr;
+            if (pastedFallingRock)
+            {
+                fallingRock.destroyed = true;
+            }
+            fallingRock.active = false;
+            fallingRock.cooldownActive = false;
+            fallingRock.cooldownRemaining = 0.0f;
+            fallingRock.velocityX = 0.0f;
+            fallingRock.velocityY = 0.0f;
+            fallingRock.grounded = false;
+            fallingRock.accumulatedFallDistance = 0.0f;
+            fallingRock.rubbleActive = true;
+            fallingRock.rubbleRemaining = kFallingRockRubbleLifetime;
+            setFallingRockVisible(fallingRockEntity, false);
+        };
+
+    std::vector<Entity*> fallingrockCollisionCandidates;
+    fallingrockCollisionCandidates.reserve(
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size() +
+        m_world.EntitiesByTag(EntityTag::BatterySwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Elevator).size() +
+        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Shutter).size() +
+        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size() +
+        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
+        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
+        m_world.EntitiesByTag(EntityTag::StageLight).size() +
+        m_world.EntitiesByTag(EntityTag::MarkerLight).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaRubble).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        m_world.EntitiesByTag(EntityTag::Shield).size() +
+        m_world.EntitiesByTag(EntityTag::BossShield).size() +
+        m_world.EntitiesByTag(EntityTag::Boss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size() +
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::FallingRock).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size());
+    auto appendFallingRockCollisionCandidates = [&](EntityTag tag)
+        {
+            for (Entity* candidate : m_world.EntitiesByTag(tag))
+            {
+                if (candidate)
+                {
+                    fallingrockCollisionCandidates.push_back(candidate);
+                }
+            }
+        };
+    appendFallingRockCollisionCandidates(EntityTag::PhotoBox);
+    appendFallingRockCollisionCandidates(EntityTag::Battery);
+    appendFallingRockCollisionCandidates(EntityTag::BatterySwitch);
+    appendFallingRockCollisionCandidates(EntityTag::Elevator);
+    appendFallingRockCollisionCandidates(EntityTag::LaserSwitch);
+    appendFallingRockCollisionCandidates(EntityTag::Shutter);
+    appendFallingRockCollisionCandidates(EntityTag::ProtectiveWall);
+    appendFallingRockCollisionCandidates(EntityTag::LaserTurret);
+    appendFallingRockCollisionCandidates(EntityTag::LaserBeam);
+    appendFallingRockCollisionCandidates(EntityTag::StageLight);
+    appendFallingRockCollisionCandidates(EntityTag::MarkerLight);
+    appendFallingRockCollisionCandidates(EntityTag::SepiaRubble);
+    appendFallingRockCollisionCandidates(EntityTag::SepiaElevator);
+    appendFallingRockCollisionCandidates(EntityTag::Shield);
+    appendFallingRockCollisionCandidates(EntityTag::BossShield);
+    appendFallingRockCollisionCandidates(EntityTag::Boss1Shield);
+    appendFallingRockCollisionCandidates(EntityTag::MidBoss1Shield);
+    appendFallingRockCollisionCandidates(EntityTag::CapturedShield);
+    appendFallingRockCollisionCandidates(EntityTag::Barrel);
+    appendFallingRockCollisionCandidates(EntityTag::FallingRock);
+    appendFallingRockCollisionCandidates(EntityTag::Log);
+
+    auto isFallingRockObjectCollision = [&](const Entity& fallingrockEntity, const TransformComponent& fallingrockBounds, Entity*& outHit) -> bool
+        {
+            outHit = nullptr;
+            for (Entity* candidate : fallingrockCollisionCandidates)
+            {
+                if (!candidate || candidate == &fallingrockEntity)
+                {
+                    continue;
+                }
+
+                if (candidate->GetComponent<FallingRockComponent>())
+                {
+                    continue;
+                }
+
+                if (HasTag(*candidate, kTagPlayer) || HasTag(*candidate, kTagEnemy) || HasTag(*candidate, kTagBullet))
+                {
+                    continue;
+                }
+
+                if (HasTag(*candidate, kTagPhotoBox))
+                {
+                    const auto* layer = candidate->GetComponent<PhotoCopyLayerComponent>();
+                    if (layer && layer->layer != PhotoCopyLayer::Foreground)
+                    {
+                        continue;
+                    }
+                }
+
+                const auto* otherTransform = candidate->GetComponent<TransformComponent>();
+                if (!otherTransform)
+                {
+                    continue;
+                }
+
+                if (IntersectsRect(fallingrockBounds, *otherTransform))
+                {
+                    outHit = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+    auto intersectsDespawnTile = [&](const TransformComponent& bounds) -> bool
+        {
+            const float width = bounds.width * bounds.scale;
+            const float height = bounds.height * bounds.scale;
+            const int left = std::max(0, static_cast<int>((bounds.x + 2.0f) / tileSize));
+            const int right = std::min(m_tileMap.GetWidth() - 1, static_cast<int>((bounds.x + width - 2.0f) / tileSize));
+            const int top = std::max(0, static_cast<int>((bounds.y + 2.0f) / tileSize));
+            const int bottom = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bounds.y + height - 2.0f) / tileSize));
+            for (int row = top; row <= bottom; ++row)
+            {
+                for (int column = left; column <= right; ++column)
+                {
+                    const int tileValue = m_tileMap.GetTile(column, row);
+                    if (tileValue != 1 && tileValue != TileMap::kPitTileValue)
+                    {
+                        continue;
+                    }
+
+                    TransformComponent tileBounds(
+                        static_cast<float>(column) * tileSize,
+                        static_cast<float>(row) * tileSize,
+                        tileSize,
+                        tileSize);
+                    if (IntersectsRect(bounds, tileBounds))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
+    std::vector<Entity*> fallingrockEnemyEntities;
+    fallingrockEnemyEntities.reserve(m_world.EntitiesByTag(EntityTag::Enemy).size());
+    for (Entity* enemyEntity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!enemyEntity)
+        {
+            continue;
+        }
+
+        auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled())
+        {
+            continue;
+        }
+
+        fallingrockEnemyEntities.push_back(enemyEntity);
+    }
+
+    std::vector<Entity*> fallingrockGimmickEntities;
+    auto appendFallingRockGimmickEntities = [&](EntityTag tag)
+        {
+            for (Entity* gimmickEntity : m_world.EntitiesByTag(tag))
+            {
+                if (gimmickEntity)
+                {
+                    fallingrockGimmickEntities.push_back(gimmickEntity);
+                }
+            }
+        };
+    appendFallingRockGimmickEntities(EntityTag::BatterySwitch);
+    appendFallingRockGimmickEntities(EntityTag::Elevator);
+    appendFallingRockGimmickEntities(EntityTag::LaserSwitch);
+    appendFallingRockGimmickEntities(EntityTag::Shutter);
+    appendFallingRockGimmickEntities(EntityTag::ProtectiveWall);
+    appendFallingRockGimmickEntities(EntityTag::SepiaElevator);
+
+    std::vector<Entity*> fallingRockEntities;
+    fallingRockEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::FallingRock).size());
+    for (Entity* fallingRockEntity : m_world.EntitiesByTag(EntityTag::FallingRock))
+    {
+        if (fallingRockEntity)
+        {
+            fallingRockEntities.push_back(fallingRockEntity);
+        }
+    }
+
+    for (Entity* entity : fallingRockEntities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* fallingRock = entity->GetComponent<FallingRockComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!fallingRock || !transform)
+        {
+            continue;
+        }
+
+        if (fallingRock->destroyed)
+        {
+            setFallingRockVisible(*entity, false);
+            continue;
+        }
+
+        const float fallingrockWidth = transform->width * transform->scale;
+        const float fallingrockHeight = transform->height * transform->scale;
+        if (fallingRock->rubbleActive)
+        {
+            setFallingRockVisible(*entity, false);
+            fallingRock->active = false;
+            fallingRock->velocityX = 0.0f;
+            fallingRock->velocityY = 0.0f;
+            fallingRock->grounded = false;
+            fallingRock->accumulatedFallDistance = 0.0f;
+            fallingRock->rubbleRemaining = std::max(0.0f, fallingRock->rubbleRemaining - deltaTime);
+
+            if (fallingRock->rubbleRemaining <= 0.0f)
+            {
+                fallingRock->rubbleActive = false;
+                fallingRock->cooldownActive = !fallingRock->destroyed;
+                fallingRock->cooldownRemaining = fallingRock->cooldownActive ? 1.0f : 0.0f;
+            }
+
+            continue;
+        }
+        if (fallingRock->respawnWhenOffscreen)
+        {
+            const float cameraLeft = m_flow.cameraX - kBarrelRespawnOffscreenMargin;
+            const float cameraRight = m_flow.cameraX + gCameraViewWidth + kBarrelRespawnOffscreenMargin;
+            const float cameraBottom = m_flow.cameraY + gCameraViewHeight + kBarrelRespawnOffscreenMargin;
+            const bool isOffscreen =
+                (transform->x + fallingrockWidth) < cameraLeft ||
+                transform->x > cameraRight ||
+                transform->y > cameraBottom;
+            if (isOffscreen)
+            {
+                transform->x = std::clamp(fallingRock->spawnX, 0.0f, std::max(0.0f, mapWidth - fallingrockWidth));
+                transform->y = std::clamp(fallingRock->spawnY, 0.0f, std::max(0.0f, mapHeight - fallingrockHeight));
+                fallingRock->velocityX = 0.0f;
+                fallingRock->velocityY = 0.0f;
+                fallingRock->accumulatedFallDistance = 0.0f;
+                fallingRock->grounded = false;
+                fallingRock->destroyed = false;
+                continue;
+            }
+        }
+
+        if ((transform->x + fallingrockWidth < activeLeft || transform->x > activeRight))
+        {
+            continue;
+        }
+
+        if (fallingRock->cooldownActive)
+        {
+            fallingRock->cooldownRemaining = std::max(0.0f, fallingRock->cooldownRemaining - deltaTime);
+            if (fallingRock->cooldownRemaining <= 0.0f)
+            {
+                fallingRock->cooldownActive = false;
+                transform->x = fallingRock->spawnX;
+                transform->y = fallingRock->spawnY;
+                setFallingRockVisible(*entity, true);
+            }
+            else
+            {
+                continue;
+            }
+        }
+
+        if (!fallingRock->active)
+        {
+            fallingRock->velocityX = 0.0f;
+            fallingRock->velocityY = 0.0f;
+            fallingRock->grounded = false;
+            fallingRock->accumulatedFallDistance = 0.0f;
+
+            if (!fallingRock->cooldownActive)
+            {
+                transform->x = fallingRock->spawnX;
+                transform->y = fallingRock->spawnY;
+            }
+
+            if (!fallingRock->cooldownActive && player)
+            {
+                const auto* playerTransform = player->GetComponent<TransformComponent>();
+                if (playerTransform)
+                {
+                    const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+                    const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
+                    const float fallingrockCenterX = transform->x + fallingrockWidth * 0.5f;
+                    const float fallingrockCenterY = transform->y + fallingrockHeight * 0.5f;
+                    const float dx = playerCenterX - fallingrockCenterX;
+                    const float dy = playerCenterY - fallingrockCenterY;
+                    const float distance = std::sqrt(dx * dx + dy * dy);
+                    if (distance <= activationDistance)
+                    {
+                        fallingRock->active = true;
+                        setFallingRockVisible(*entity, true);
+                    }
+                }
+            }
+            else if (!fallingRock->respawnEnabled)
+            {
+                fallingRock->active = true;
+                setFallingRockVisible(*entity, true);
+            }
+
+            continue;
+        }
+
+        fallingRock->velocityY = std::min(fallingRock->maxFallSpeed, fallingRock->velocityY + fallingRock->gravity * deltaTime);
+        transform->y += fallingRock->velocityY * deltaTime;
+        const bool canCollideAfterDrop = transform->y >= fallingRock->spawnY + std::max(8.0f, tileSize * 0.25f);
+
+        if (transform->y + fallingrockHeight >= mapHeight)
+        {
+            resetFallingRock(*entity, *fallingRock, *transform);
+            continue;
+        }
+
+        if (canCollideAfterDrop && intersectsDespawnTile(*transform))
+        {
+            resetFallingRock(*entity, *fallingRock, *transform);
+            continue;
+        }
+
+        if (player && IntersectsEntity(*entity, *player))
+        {
+            HandlePlayerDamage(*player, entity, "GameScene player damaged by fallingrock");
+            resetFallingRock(*entity, *fallingRock, *transform);
+            continue;
+        }
+
+        bool consumed = false;
+        for (Entity* enemyEntity : fallingrockEnemyEntities)
+        {
+            if (!enemyEntity || enemyEntity == entity)
+            {
+                continue;
+            }
+
+            if (!IntersectsEntity(*entity, *enemyEntity))
+            {
+                continue;
+            }
+
+            HandleEnemyDamage(*enemyEntity, entity, fallingRock->contactDamage, "FallingRock hit enemy");
+            resetFallingRock(*entity, *fallingRock, *transform);
+            consumed = true;
+            break;
+        }
+        if (consumed)
+        {
+            continue;
+        }
+
+        for (Entity* gimmickEntity : fallingrockGimmickEntities)
+        {
+            if (!gimmickEntity || gimmickEntity == entity)
+            {
+                continue;
+            }
+
+            auto* gimmick = gimmickEntity->GetComponent<GimmickComponent>();
+            if (!gimmick || !gimmick->IsEnabled() || !IntersectsEntity(*entity, *gimmickEntity))
+            {
+                continue;
+            }
+
+            if (gimmick->GetType() == GimmickType::Switch)
+            {
+                m_flow.goalUnlockedBySwitch = true;
+                gimmick->Consume();
+            }
+
+            resetFallingRock(*entity, *fallingRock, *transform);
+            consumed = true;
+            break;
+        }
+        if (consumed)
+        {
+            continue;
+        }
+
+    }
+}
+
 void GameScene::UpdateBatteries(float deltaTime)
 {
     if (deltaTime <= 0.0f)

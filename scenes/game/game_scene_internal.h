@@ -360,6 +360,7 @@ inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagDropItem = "DropItem";
 inline constexpr const char* kTagBattery = "Battery";
 inline constexpr const char* kTagLog = "Log";
+inline constexpr const char* kTagFallingRock = "FallingRock";
 inline constexpr const char* kTagBatterySwitch = "BatterySwitch";
 inline constexpr const char* kTagElevator = "Elevator";
 inline constexpr const char* kTagDamagePlatform = "DamagePlatform";
@@ -463,6 +464,11 @@ inline bool IsLogMarker(char marker)
     return IsMarkerInSet(marker, "M");
 }
 
+inline bool IsFallingRockMarker(char marker)
+{
+    return IsMarkerInSet(marker, "S");
+}
+
 inline bool IsMarkerLightMarker(char marker)
 {
     return IsMarkerInSet(marker, "PF");
@@ -525,6 +531,7 @@ inline bool IsParameterizedEditorMarker(char marker)
     case 'Z':
     case '>':
     case '<':
+    case 'S':
         return true;
     default:
         return false;
@@ -565,13 +572,22 @@ inline bool IsRestoreSepiaObjectMarker(char marker)
 {
     const char normalizedMarker = static_cast<char>(
         std::toupper(static_cast<unsigned char>(marker)));
-
+    
     switch (normalizedMarker)
     {
-    case 'M':
+    case 'W':
+    case 'R':
+    case 'N':
+    case 'A':
+    case 'D':
+    case '!':
+    case '?':
+    case '$':
+    case '%':
     case 'L':
     case 'Q':
     case '+':
+    case 'S':
         return true;
     default:
         break;
