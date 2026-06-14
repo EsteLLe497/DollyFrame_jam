@@ -184,6 +184,9 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     Audio_LoadCueFromFile("barrel", "assets/effects/Sound/barrel.wav");
     Audio_LoadCueFromFile("cant_paste", "assets/effects/Sound/cantPaste.wav");
     Audio_LoadCueFromFile("enemy_gun", "assets/effects/Sound/EnemyGun.wav");
+    Audio_LoadCueFromFile("bgm_forest", "assets/effects/Sound/forest.wav");
+    Audio_LoadCueFromFile("bgm_ruins", "assets/effects/Sound/ruins.wav");
+    Audio_LoadCueFromFile("bgm_under", "assets/effects/Sound/under.wav");
 
     m_sceneRegistry->Register("title", []()
         {

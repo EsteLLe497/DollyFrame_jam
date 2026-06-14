@@ -150,7 +150,7 @@ struct GameSceneDebugState
     bool effectPasteRingEnabled = true;
     bool sepiaFilmFilterDryRunEnabled = false;
     bool bgmEnabled = true;
-    float bgmRestoreVolume = 0.6f;
+    float bgmRestoreVolume = 1.0f;
     bool screenShakeEnabled = true;
     bool playerHealthDamageEnabled = true;
     int tuningSelection = 0;

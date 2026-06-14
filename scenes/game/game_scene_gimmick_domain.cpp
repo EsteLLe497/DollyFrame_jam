@@ -959,6 +959,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     }
 
     InitializeStageEntities();
+    PlayStageBgmForCurrentMap();
 
     Entity* transitionedPlayer = FindEntityByTag(kTagPlayer);
     if (transitionedPlayer)
