@@ -113,6 +113,47 @@ void BarrelComponent::DrawDebugUI()
     ImGui::Text("Respawn Offscreen: %s", respawnWhenOffscreen ? "Yes" : "No");
 }
 
+FallingRockComponent::FallingRockComponent(
+    float gravityValue,
+    float maxFallSpeedValue,
+    float rollSpeedValue,
+    float groundFrictionValue,
+    int contactDamageValue,
+    float breakMinFallDistanceValue,
+    float breakMinImpactSpeedValue)
+    : gravity(gravityValue)
+    , maxFallSpeed(maxFallSpeedValue)
+    , rollSpeed(rollSpeedValue)
+    , groundFriction(groundFrictionValue)
+    , contactDamage(std::max(1, contactDamageValue))
+    , breakMinFallDistance(breakMinFallDistanceValue)
+    , breakMinImpactSpeed(breakMinImpactSpeedValue)
+{}
+
+void FallingRockComponent::OnAttach(GameObject& owner)
+{
+    MonoBehaviour::OnAttach(owner);
+
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        spawnX = transform->x;
+        spawnY = transform->y;
+    }
+}
+
+void FallingRockComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("FallingRock");
+    ImGui::Text("Velocity: %.1f, %.1f", velocityX, velocityY);
+    ImGui::Text("Grounded: %s", grounded ? "Yes" : "No");
+    ImGui::Text("Active: %s", active ? "Yes" : "No");
+    ImGui::Text("Cooldown: %.2f", cooldownRemaining);
+    ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
+    ImGui::Text("Fall Distance: %.1f", accumulatedFallDistance);
+    ImGui::Text("Respawn Offscreen: %s", respawnWhenOffscreen ? "Yes" : "No");
+    ImGui::Text("Rubble Active: %s", rubbleActive ? "Yes" : "No");
+}
+
 BatteryComponent::BatteryComponent(
     float gravityValue,
     float maxFallSpeedValue,

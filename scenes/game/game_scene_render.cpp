@@ -1427,6 +1427,7 @@ void GameScene::DrawPastedEntitiesFront() const
     const auto& photoBoxes = m_world.EntitiesByTag(EntityTag::PhotoBox);
     const auto& barrels = m_world.EntitiesByTag(EntityTag::Barrel);
     const auto& logs = m_world.EntitiesByTag(EntityTag::Log);
+    const auto& fallingRocks = m_world.EntitiesByTag(EntityTag::FallingRock);
     const auto& batteries = m_world.EntitiesByTag(EntityTag::Battery);
     const auto& bullets = m_world.EntitiesByTag(EntityTag::Bullet);
     const auto& laserTurrets = m_world.EntitiesByTag(EntityTag::LaserTurret);
@@ -1439,6 +1440,7 @@ void GameScene::DrawPastedEntitiesFront() const
         photoBoxes.size() +
         barrels.size() +
         logs.size() +
+        fallingRocks.size() +
         batteries.size() +
         bullets.size() +
         laserTurrets.size() +
@@ -1486,6 +1488,7 @@ void GameScene::DrawPastedEntitiesFront() const
     appendDrawTargets(EntityTag::PhotoBox);
     appendDrawTargets(EntityTag::Barrel);
     appendDrawTargets(EntityTag::Log);
+    appendDrawTargets(EntityTag::FallingRock);
     appendDrawTargets(EntityTag::Battery);
     appendDrawTargets(EntityTag::Bullet);
     appendDrawTargets(EntityTag::LaserTurret);

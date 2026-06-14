@@ -11,6 +11,7 @@ enum class CapturedSpawnArchetype
     None,
     Log,
     Barrel,
+    FallingRock,
     Battery,
     Projectile,
     LaserTurret,
