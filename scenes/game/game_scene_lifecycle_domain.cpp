@@ -6,6 +6,46 @@
 
 using namespace game_scene_detail;
 
+namespace
+{
+    const char* ResolveStageBgmCueName(const std::string& mapCsvPath)
+    {
+        std::string stem;
+        try
+        {
+            stem = std::filesystem::path(mapCsvPath).stem().string();
+        }
+        catch (...)
+        {
+            stem = mapCsvPath;
+        }
+
+        std::transform(
+            stem.begin(),
+            stem.end(),
+            stem.begin(),
+            [](unsigned char ch)
+            {
+                return static_cast<char>(std::tolower(ch));
+            });
+
+        if (stem.find("under") != std::string::npos)
+        {
+            return "bgm_under";
+        }
+        if (stem.find("ruins") != std::string::npos)
+        {
+            return "bgm_ruins";
+        }
+        if (stem.find("forest") != std::string::npos)
+        {
+            return "bgm_forest";
+        }
+
+        return "bgm_forest";
+    }
+}
+
 void GameScene::OnEnter(ResourceManager& resources)
 {
     ZoneScoped;
@@ -85,10 +125,9 @@ void GameScene::FinishLoading()
 
     GameSession_Reset(3, m_flow.timeLimit);
     const float initialMasterVolume = Audio_GetMasterVolume();
-    m_debug.bgmRestoreVolume = initialMasterVolume > 0.001f ? initialMasterVolume : 0.6f;
+    m_debug.bgmRestoreVolume = initialMasterVolume > 0.001f ? initialMasterVolume : 1.0f;
     m_debug.bgmEnabled = initialMasterVolume > 0.001f;
-    Audio_LoadCueFromFile("demo_bgm", "assets/effects/Sound/demo.wav");
-    Audio_PlayCue("demo_bgm");
+    PlayStageBgmForCurrentMap();
     m_lifecycle.loadingProgress = 1.0f;
     m_lifecycle.loadingStep = 4;
     m_lifecycle.loadingFinished = true;
@@ -97,9 +136,16 @@ void GameScene::FinishLoading()
     Logger::Info("GameScene entered as photo sandbox stage");
 }
 
+void GameScene::PlayStageBgmForCurrentMap()
+{
+    // 現在のステージCSV名からBGMを決める。ボス用CSVも同じステージ曲を使える。
+    Audio_PlayBgmCue(ResolveStageBgmCueName(m_lifecycle.currentMapCsvPath));
+}
+
 void GameScene::OnExit()
 {
     const ActiveGameSceneScope activeScene(*this);
+    Audio_StopBgm();
     m_lifecycle.loadingActive = false;
     m_lifecycle.loadingFinished = false;
     m_lifecycle.loadingWarmupFramesRemaining = 0;

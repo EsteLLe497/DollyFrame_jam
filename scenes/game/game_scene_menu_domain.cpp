@@ -178,7 +178,7 @@ void GameScene::ToggleEscapeMenuBgm()
         return;
     }
 
-    const float restoreVolume = m_debug.bgmRestoreVolume > 0.001f ? m_debug.bgmRestoreVolume : 0.6f;
+    const float restoreVolume = m_debug.bgmRestoreVolume > 0.001f ? m_debug.bgmRestoreVolume : 1.0f;
     Audio_SetMasterVolume(restoreVolume);
     m_debug.bgmEnabled = true;
 }

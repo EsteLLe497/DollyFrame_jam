@@ -86,6 +86,7 @@ private:
     void UpdateLoading(float deltaTime);
     void AdvanceLoadingStep();
     void FinishLoading();
+    void PlayStageBgmForCurrentMap();
     void DrawLoadingScreen() const;
     void LoadTuningState();
     void RefreshStageRenderProfile();
