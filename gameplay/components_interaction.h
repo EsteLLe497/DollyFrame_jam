@@ -47,6 +47,44 @@ public:
     bool respawnWhenOffscreen = false;
 };
 
+class FallingRockComponent final : public MonoBehaviour
+{
+public:
+    FallingRockComponent(
+        float gravity,
+        float maxFallSpeed,
+        float rollSpeed,
+        float groundFriction,
+        int contactDamage,
+        float breakMinFallDistance,
+        float breakMinImpactSpeed);
+
+    void OnAttach(GameObject& owner) override;
+    void DrawDebugUI() override;
+
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    bool grounded = false;
+    bool destroyed = false;
+    float accumulatedFallDistance = 0.0f;
+    float gravity = 0.0f;
+    float maxFallSpeed = 0.0f;
+    float rollSpeed = 0.0f;
+    float groundFriction = 0.0f;
+    int contactDamage = 1;
+    float breakMinFallDistance = 0.0f;
+    float breakMinImpactSpeed = 0.0f;
+    float spawnX = 0.0f;
+    float spawnY = 0.0f;
+    bool active = false;
+    bool cooldownActive = false;
+    float cooldownRemaining = 0.0f;
+    bool respawnEnabled = true;
+    bool respawnWhenOffscreen = false;
+    bool rubbleActive = false;
+    float rubbleRemaining = 0.0f;
+};
+
 class BatteryComponent final : public MonoBehaviour
 {
 public:

@@ -521,9 +521,10 @@ namespace
             float heightTiles;
         };
 
-        const std::array<SepiaGroupSizingRule, 6> rules
+        const std::array<SepiaGroupSizingRule, 7> rules
         {
             SepiaGroupSizingRule{ 'M', 4.0f, 1.0f },
+            SepiaGroupSizingRule{ 'S', 2.0f, 2.0f },
             SepiaGroupSizingRule{ 'K', cfg.batterySwitchWidthTiles, cfg.batterySwitchHeightTiles },
             SepiaGroupSizingRule{ 'X', cfg.batterySwitchWidthTiles, cfg.batterySwitchHeightTiles },
             SepiaGroupSizingRule{ 'L', cfg.elevatorWidthTiles, cfg.elevatorHeightTiles },
@@ -705,6 +706,7 @@ void GameScene::RefreshMarkerDrivenSystems()
     RefreshEnemiesFromMarkers();
     RefreshBatteriesFromMarkers();
     RefreshLogsFromMarkers();
+    ReflashFallingRockfromMarkers();
     RefreshMarkerLightsFromMarkers();
     RefreshStageLightsFromMarkers();
     RefreshLaserTurretsFromMarkers();
@@ -729,6 +731,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     const bool enemyChanged = markerChanged(IsEnemyMarker);
     const bool batteryChanged = markerChanged(IsBatteryMarker);
     const bool logChanged = markerChanged(IsLogMarker);
+    const bool fallingRockChanged = markerChanged(IsFallingRockMarker);
     const bool markerLightChanged = markerChanged(IsMarkerLightMarker);
     const bool stageLightChanged = markerChanged(IsStageLightMarker);
     const bool linkedGimmickMarkerChanged =
@@ -744,6 +747,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     if (enemyChanged) RefreshEnemiesFromMarkers();
     if (batteryChanged) RefreshBatteriesFromMarkers();
     if (logChanged) RefreshLogsFromMarkers();
+    if (fallingRockChanged) ReflashFallingRockfromMarkers();
     if (markerLightChanged) RefreshMarkerLightsFromMarkers();
     if (stageLightChanged) RefreshStageLightsFromMarkers();
     if (linkedGimmickMarkerChanged) RefreshLinkedGimmicksFromMarkers();
@@ -1722,6 +1726,70 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             }
 
             m_world.Spawn(std::move(rubble));
+        }
+    }
+}
+
+void GameScene::ReflashFallingRockfromMarkers()
+{
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
+            {
+                return true;
+            }
+            return HasTag(*entity, kTagFallingRock);
+        });
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (marker != 'S')
+            {
+                continue;
+            }
+           
+            auto fallingRock = std::make_unique<Entity>();
+            fallingRock->AddComponent<TagComponent>(kTagFallingRock);
+            fallingRock->AddComponent<TransformComponent>(
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize,
+                tileSize * 2.0f,
+                tileSize * 2.0f);
+            fallingRock->AddComponent<TintComponent>(0.6f, 0.6f, 0.85f, 1.0f);
+            fallingRock->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            fallingRock->AddComponent<ImageOutlineColliderComponent>(
+                std::vector<b2Vec2>{
+                    { 0.0f, 0.0f },
+                    { 1.0f, 0.0f },
+                    { 1.0f, 1.0f },
+                    { 0.0f, 1.0f }},
+                0.5f);
+            fallingRock->AddComponent<FallingRockComponent>(
+                gBarrelGravity,
+                gBarrelMaxFallSpeed,
+                gBarrelRollSpeed,
+                gBarrelGroundFriction,
+                gBarrelContactDamage,
+                gBarrelBreakMinFallDistance,
+                gBarrelBreakMinImpactSpeed);
+            if (auto* barrel = fallingRock->GetComponent<FallingRockComponent>())
+            {
+                barrel->active = false;
+                barrel->respawnEnabled = false;
+                barrel->respawnWhenOffscreen = false;
+                barrel->rubbleActive = false;
+            }
+            m_world.Spawn(std::move(fallingRock));
         }
     }
 }

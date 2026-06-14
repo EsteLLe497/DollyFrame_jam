@@ -31,6 +31,7 @@ enum class EntityTag
     SepiaElevator,
     Filter,
     Barrel,
+    FallingRock,
     Shield,
     BossShield,
     Boss1Shield,
@@ -72,6 +73,7 @@ inline const char* EntityTagToString(EntityTag tag)
     case EntityTag::SepiaElevator: return "SepiaElevator";
     case EntityTag::Filter: return "Filter";
     case EntityTag::Barrel: return "Barrel";
+    case EntityTag::FallingRock: return "FallingRock";
     case EntityTag::Shield: return "Shield";
     case EntityTag::BossShield: return "BossShield";
     case EntityTag::Boss1Shield: return "Boss1Shield";
@@ -113,6 +115,7 @@ inline EntityTag EntityTagFromString(std::string_view tag)
     if (tag == "SepiaElevator") return EntityTag::SepiaElevator;
     if (tag == "Filter") return EntityTag::Filter;
     if (tag == "Barrel") return EntityTag::Barrel;
+    if (tag == "FallingRock") return EntityTag::FallingRock;
     if (tag == "Shield") return EntityTag::Shield;
     if (tag == "BossShield") return EntityTag::BossShield;
     if (tag == "Boss1Shield") return EntityTag::Boss1Shield;

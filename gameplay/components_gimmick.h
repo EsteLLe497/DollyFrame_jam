@@ -89,6 +89,7 @@ enum class SepiaRubbleSource
     Generic,
     MidBoss3Fist,
     MidBoss3Drill,
+    FallingRock,
 };
 
 class SepiaRubbleComponent final : public MonoBehaviour

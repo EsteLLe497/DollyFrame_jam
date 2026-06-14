@@ -478,7 +478,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins1.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -954,6 +954,7 @@ void GameScene::InitializeStageEntities()
     }
 
     RefreshLogsFromMarkers();
+    ReflashFallingRockfromMarkers();
     RefreshMarkerLightsFromMarkers();
     RefreshStageLightsFromMarkers();
 

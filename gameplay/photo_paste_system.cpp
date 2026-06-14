@@ -828,6 +828,70 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             continue;
         }
 
+        if (item.spawnArchetype == CapturedSpawnArchetype::FallingRock)
+        {
+            auto fallingRockEntity = std::make_unique<Entity>();
+            Entity* spawnedFallingRock = fallingRockEntity.get();
+            lastSpawnedEntity = spawnedFallingRock;
+            spawnedFallingRock->AddComponent<TagComponent>(kTagFallingRock);
+            spawnedFallingRock->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedFallingRock->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedFallingRock->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
+            spawnedFallingRock->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+            spawnedFallingRock->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+            if (!item.collisionOutline.empty())
+            {
+                std::vector<b2Vec2> normalizedOutline;
+                normalizedOutline.reserve(item.collisionOutline.size());
+                for (const auto& point : item.collisionOutline)
+                {
+                    normalizedOutline.push_back({ point.x, point.y });
+                }
+                spawnedFallingRock->AddComponent<ImageOutlineColliderComponent>(
+                    std::move(normalizedOutline),
+                    0.5f);
+            }
+            else
+            {
+                spawnedFallingRock->AddComponent<ImageOutlineColliderComponent>(
+                    std::vector<b2Vec2>{
+                        { 0.0f, 0.0f },
+                        { 1.0f, 0.0f },
+                        { 1.0f, 1.0f },
+                        { 0.0f, 1.0f }},
+                    0.5f);
+            }
+
+            spawnedFallingRock->AddComponent<FallingRockComponent>(
+                gBarrelGravity,
+                gBarrelMaxFallSpeed,
+                gBarrelRollSpeed,
+                gBarrelGroundFriction,
+                gBarrelContactDamage,
+                gBarrelBreakMinFallDistance,
+                gBarrelBreakMinImpactSpeed);
+            spawnedFallingRock->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
+            spawnedFallingRock->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
+            if (auto* sprite = spawnedFallingRock->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                sprite->SetFlipX(item.flipX);
+            }
+            if (auto* transform = spawnedFallingRock->GetComponent<TransformComponent>())
+            {
+                transform->rotation = item.rotation;
+            }
+            if (auto* rock = spawnedFallingRock->GetComponent<FallingRockComponent>())
+            {
+                rock->spawnX = spawnX + item.relativeX;
+                rock->spawnY = spawnY + item.relativeY;
+                rock->respawnEnabled = false;
+                rock->active = true;
+            }
+            scene.m_world.Spawn(std::move(fallingRockEntity));
+            continue;
+        }
+
         if (item.spawnArchetype == CapturedSpawnArchetype::Battery)
         {
             auto batteryEntity = std::make_unique<Entity>();
