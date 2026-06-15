@@ -345,15 +345,16 @@ public:
         float initialFlowDelayTime = 4.0f;
         float launcherWindupTime = 0.8f;
         float launcherFistInterval = 0.95f;
-        float launcherFistSpeed = 560.0f;
+        float launcherFistSpeed = 672.0f;
         float launcherCooldownTime = 1.5f;
         float meteorWindupTime = 0.9f;
         float meteorPairInterval = 0.85f;
-        float meteorFistSpeed = 680.0f;
+        float meteorFistSpeed = 816.0f;
         float meteorCooldownTime = 1.5f;
         float fistReloadTime = 2.0f;
         float fistReturnSpeed = 720.0f;
         float introRiseTime = 2.4f;
+        float drillFormTime = 0.8f;
         float drillWaitTime = 2.0f;
         float drillLaunchSpeed = 620.0f;
         float drillRushSpeed = 720.0f;
@@ -393,6 +394,10 @@ public:
     float stateTimer = 0.0f;
     float launcherShotTimer = 0.0f;
     bool moving = false;
+    bool reloadActive = false;
+    bool reloadStartedForMove = false;
+    int reloadStartMoveStep = -1;
+    float reloadTimer = 0.0f;
     bool flowStarted = false;
     bool chooseMoveSideFromStageCenter = true;
     bool launcherPrepared = false;
@@ -407,6 +412,7 @@ public:
     float introFloatHomeY = 0.0f;
     float introGroundY = 0.0f;
     bool drillActive = false;
+    bool drillFormed = false;
     bool drillGroundRush = false;
     bool drillDamageApplied = false;
     int drillFloorObjectHits = 0;
@@ -448,6 +454,7 @@ public:
     float reloadStartX = 0.0f;
     float reloadStartY = 0.0f;
     bool damageApplied = false;
+    bool atAttackStart = false;
     bool captureJammerActive = false;
     bool broken = false;
     bool impactAttackActive = false;
