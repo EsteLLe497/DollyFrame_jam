@@ -226,7 +226,6 @@ inline void UpdateBullets(
             {
                 constexpr float kDrillLaunchSpeed = 620.0f;
                 constexpr float kDrillRushSpeed = 720.0f;
-                constexpr float kBossKnockbackSeconds = 3.0f;
                 constexpr float kBossDamageInterval = 1.0f;
                 Entity* targetBoss = capturedMidBoss3Attack->carriedBoss
                     ? capturedMidBoss3Attack->carriedBoss
@@ -234,7 +233,6 @@ inline void UpdateBullets(
 
                 if (capturedMidBoss3Attack->attachedToBoss && targetBoss)
                 {
-                    capturedMidBoss3Attack->knockbackRemaining -= deltaTime;
                     capturedMidBoss3Attack->bossDamageTimer += deltaTime;
                     const float pushX = capturedMidBoss3Attack->aimX * kDrillRushSpeed * deltaTime;
                     const float pushY = capturedMidBoss3Attack->aimY * kDrillRushSpeed * deltaTime;
@@ -252,22 +250,19 @@ inline void UpdateBullets(
                         float resolvedX = currentX;
                         float resolvedY = currentY;
 
-                        const float nextX = std::clamp(currentX + pushX, 0.0f, maxX);
-                        if (std::fabs(pushX) > 0.01f && !rectIntersectsSolid(nextX, currentY, bossWidth, bossHeight))
+                        const float requestedX = currentX + pushX;
+                        const float requestedY = currentY + pushY;
+                        const float nextX = std::clamp(requestedX, 0.0f, maxX);
+                        const float nextY = std::clamp(requestedY, 0.0f, maxY);
+                        const bool hitMapBoundary =
+                            std::fabs(requestedX - nextX) > 0.01f ||
+                            std::fabs(requestedY - nextY) > 0.01f;
+                        if (!hitMapBoundary && !rectIntersectsSolid(nextX, nextY, bossWidth, bossHeight))
                         {
                             resolvedX = nextX;
-                        }
-                        else if (std::fabs(pushX) > 0.01f)
-                        {
-                            stoppedBySolid = true;
-                        }
-
-                        const float nextY = std::clamp(currentY + pushY, 0.0f, maxY);
-                        if (std::fabs(pushY) > 0.01f && !rectIntersectsSolid(resolvedX, nextY, bossWidth, bossHeight))
-                        {
                             resolvedY = nextY;
                         }
-                        else if (std::fabs(pushY) > 0.01f)
+                        else
                         {
                             stoppedBySolid = true;
                         }
@@ -290,10 +285,6 @@ inline void UpdateBullets(
                     transform->rotation = std::atan2(capturedMidBoss3Attack->aimY, capturedMidBoss3Attack->aimX);
                     if (stoppedBySolid)
                     {
-                        capturedMidBoss3Attack->knockbackRemaining = 0.0f;
-                    }
-                    if (capturedMidBoss3Attack->knockbackRemaining <= 0.0f)
-                    {
                         bulletsToRemove.push_back(entity);
                     }
                     continue;
@@ -314,46 +305,31 @@ inline void UpdateBullets(
                     projectile->SetVelocityY(capturedMidBoss3Attack->aimY * kDrillLaunchSpeed);
                 }
 
-                if (!capturedMidBoss3Attack->groundRush)
+                const float nextX = transform->x + projectile->GetVelocityX() * deltaTime;
+                const float nextY = transform->y + projectile->GetVelocityY() * deltaTime;
+                const float attackWidth = transform->width * transform->scale;
+                const float attackHeight = transform->height * transform->scale;
+                if (rectIntersectsSolid(nextX, nextY, attackWidth, attackHeight))
                 {
-                    const float nextX = transform->x + projectile->GetVelocityX() * deltaTime;
-                    const float nextY = transform->y + projectile->GetVelocityY() * deltaTime;
-                    const bool hitSolidTile =
-                        isSolidTile(nextX + transform->width * transform->scale * 0.5f, nextY + transform->height * transform->scale * 0.5f) ||
-                        nextY + transform->height * transform->scale >= mapHeight - 96.0f;
-                    if (hitSolidTile && projectile->GetVelocityY() >= 0.0f)
-                    {
-                        transform->y = std::clamp(nextY, 0.0f, std::max(0.0f, mapHeight - 96.0f - transform->height * transform->scale));
-                        capturedMidBoss3Attack->groundRush = true;
-                        capturedMidBoss3Attack->aimX = static_cast<float>(capturedMidBoss3Attack->direction);
-                        capturedMidBoss3Attack->aimY = 0.0f;
-                        projectile->SetVelocityX(capturedMidBoss3Attack->aimX * kDrillRushSpeed);
-                        projectile->SetVelocityY(0.0f);
-                        transform->rotation = 0.0f;
-                    }
-                    else
-                    {
-                        transform->x = nextX;
-                        transform->y = nextY;
-                        transform->rotation = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
-                    }
+                    bulletsToRemove.push_back(entity);
+                    continue;
                 }
-                else
-                {
-                    transform->x += projectile->GetVelocityX() * deltaTime;
-                    transform->rotation = capturedMidBoss3Attack->direction >= 0 ? 0.0f : 3.14159265f;
-                }
+                transform->x = nextX;
+                transform->y = nextY;
+                transform->rotation = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
 
                 bool attachedThisFrame = false;
                 for (Entity* target : enemyEntities)
                 {
-                    if (!target || target == entity || !intersectsEntity(*target, *entity))
+                    if (!target ||
+                        target == entity ||
+                        !target->GetComponent<MidBoss3Component>() ||
+                        !intersectsEntity(*target, *entity))
                     {
                         continue;
                     }
                     capturedMidBoss3Attack->attachedToBoss = true;
                     capturedMidBoss3Attack->carriedBoss = target;
-                    capturedMidBoss3Attack->knockbackRemaining = kBossKnockbackSeconds;
                     capturedMidBoss3Attack->bossDamageTimer = kBossDamageInterval;
                     projectile->SetVelocityX(0.0f);
                     projectile->SetVelocityY(0.0f);

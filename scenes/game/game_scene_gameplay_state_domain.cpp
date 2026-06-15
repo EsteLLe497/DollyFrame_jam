@@ -224,13 +224,10 @@ void GameScene::TryUseAttackCaptureSlot()
         const float playerCenterY = playerTransform->y + playerHeight * 0.5f;
         const AttackAim placementAim = resolveAttackAimTowardBoss(playerCenterX, playerCenterY);
         const int attackDirection = placementAim.direction;
-        const bool facingRight = attackDirection >= 0;
         const float drillW = kTileSize * 4.0f;
         const float drillH = kTileSize * 2.0f;
-        const float drillX = facingRight
-            ? playerTransform->x + playerWidth + kTileSize
-            : playerTransform->x - kTileSize - drillW;
-        const float drillY = playerTransform->y + playerHeight - kTileSize * 8.0f - drillH;
+        const float drillX = playerCenterX - drillW * 0.5f;
+        const float drillY = std::max(0.0f, playerTransform->y - drillH - kTileSize);
 
         auto drillEntity = std::make_unique<Entity>();
         drillEntity->AddComponent<TagComponent>(kTagBullet);
@@ -248,8 +245,8 @@ void GameScene::TryUseAttackCaptureSlot()
         attack.attachedToBoss = false;
         attack.bossDamageTimer = 0.0f;
         attack.knockbackRemaining = 0.0f;
-        attack.followOffsetX = facingRight ? (playerWidth + kTileSize) : (-kTileSize - drillW);
-        attack.followOffsetY = playerHeight - kTileSize * 8.0f - drillH;
+        attack.followOffsetX = drillX - playerTransform->x;
+        attack.followOffsetY = drillY - playerTransform->y;
         if (auto* transform = drillEntity->GetComponent<TransformComponent>())
         {
             const AttackAim fireAim = resolveAttackAimTowardBoss(

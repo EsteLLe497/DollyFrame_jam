@@ -506,6 +506,7 @@ inline void UpdateEnemies(
                 fist.velocityY = 0.0f;
                 fist.launchTimer = 0.0f;
                 fist.damageApplied = false;
+                fist.atAttackStart = false;
                 fist.broken = false;
                 fist.impactAttackActive = false;
                 fist.impactDamageApplied = false;
@@ -521,46 +522,44 @@ inline void UpdateEnemies(
             {
                 const float sideSign = side < 0 ? -1.0f : 1.0f;
                 const int safePattern = ((pattern % 3) + 3) % 3;
-                const int safeStep = step % 4;
+                const int safeStep = std::max(0, step);
                 float offsetXGrid = 0.0f;
-                float offsetYGrid = 2.0f;
+                float offsetYGrid = 0.0f;
 
                 if (safePattern == 0)
                 {
-                    const float points[4][2] = {
-                        { 12.0f,  2.0f },
-                        {  6.0f, -3.0f },
-                        {  4.0f,  2.0f },
-                        {  0.0f,  2.0f },
+                    const float points[3][2] = {
+                        {  6.0f, -5.0f },
+                        { 12.0f,  0.0f },
+                        {  4.0f,  0.0f },
                     };
-                    offsetXGrid = points[safeStep][0];
-                    offsetYGrid = points[safeStep][1];
+                    const int pointIndex = std::min(safeStep, 2);
+                    offsetXGrid = points[pointIndex][0];
+                    offsetYGrid = points[pointIndex][1];
                 }
                 else if (safePattern == 1)
                 {
-                    const float points[4][2] = {
-                        { 12.0f,  2.0f },
-                        {  4.0f,  2.0f },
-                        {  0.0f,  2.0f },
-                        {  6.0f, -3.0f },
-                    };
-                    offsetXGrid = points[safeStep][0];
-                    offsetYGrid = points[safeStep][1];
+                    offsetXGrid = 0.0f;
+                    offsetYGrid = 0.0f;
                 }
                 else
                 {
-                    const float points[4][2] = {
-                        { 12.0f,  2.0f },
-                        {  6.0f, -3.0f },
-                        {  0.0f,  2.0f },
-                        {  4.0f,  2.0f },
+                    const float points[3][2] = {
+                        {  6.0f, -5.0f },
+                        { -6.0f, -5.0f },
+                        {-12.0f,  0.0f },
                     };
-                    offsetXGrid = points[safeStep][0];
-                    offsetYGrid = points[safeStep][1];
+                    const int pointIndex = std::min(safeStep, 2);
+                    offsetXGrid = points[pointIndex][0];
+                    offsetYGrid = points[pointIndex][1];
                 }
 
                 outX = boss->arenaCenterX + offsetXGrid * sideSign * kTileSize;
                 outY = boss->arenaCenterY + offsetYGrid * kTileSize;
+            };
+            const auto getMovePointCount = [](int pattern) -> int
+            {
+                return pattern == 1 ? 1 : 3;
             };
             const auto setAllFistsState = [&](MidBoss3FistState state, bool useJammer)
             {
@@ -588,8 +587,12 @@ inline void UpdateEnemies(
             };
             const auto beginReload = [&]()
             {
-                boss->state = MidBoss3State::ReloadFists;
-                boss->stateTimer = 0.0f;
+                if (boss->reloadActive)
+                {
+                    return;
+                }
+                boss->reloadActive = true;
+                boss->reloadTimer = 0.0f;
                 boss->drillActive = false;
                 for (Entity* fistEntity : boss->fistEntities)
                 {
@@ -637,7 +640,6 @@ inline void UpdateEnemies(
                 boss->launcherShotsFired = 0;
                 boss->cooldownAttack = 1;
                 boss->launcherDirection = playerCenterX < stageCenterX ? -1 : 1;
-                boss->homeX = std::clamp(stageCenterX - bossWidth * 0.5f, 0.0f, std::max(0.0f, mapWidth - bossWidth));
                 float fistHeight = kTileSize * 2.0f;
                 for (Entity* fistEntity : boss->fistEntities)
                 {
@@ -686,7 +688,8 @@ inline void UpdateEnemies(
                 boss->state = MidBoss3State::DrillFist;
                 boss->stateTimer = 0.0f;
                 boss->cooldownAttack = 4;
-                boss->drillActive = true;
+                boss->drillActive = false;
+                boss->drillFormed = false;
                 boss->drillGroundRush = false;
                 boss->drillDamageApplied = false;
                 boss->drillFloorObjectHits = 0;
@@ -710,7 +713,7 @@ inline void UpdateEnemies(
                 {
                     if (auto* tint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr)
                     {
-                        tint->a = 0.0f;
+                        tint->a = 1.0f;
                     }
                 }
             };
@@ -749,6 +752,27 @@ inline void UpdateEnemies(
                 else if (requested == 4) prepareDrillAttack();
             }
 
+            if (boss->reloadActive)
+            {
+                boss->reloadTimer += deltaTime;
+                if (boss->reloadTimer >= boss->params.fistReloadTime)
+                {
+                    boss->reloadActive = false;
+                    boss->reloadTimer = boss->params.fistReloadTime;
+                    for (Entity* fistEntity : boss->fistEntities)
+                    {
+                        auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                        if (!fist)
+                        {
+                            continue;
+                        }
+                        fist->state = MidBoss3FistState::Docked;
+                        fist->broken = false;
+                        fist->captureJammerActive = false;
+                    }
+                }
+            }
+
             if (boss->state == MidBoss3State::Move)
             {
                 if (!boss->flowStarted)
@@ -783,45 +807,55 @@ inline void UpdateEnemies(
                             boss->homeY = boss->moveTargetY;
                             boss->moving = false;
                             boss->moveTimer = 0.0f;
-                            if (boss->moveStep == 0)
+                            ++boss->moveStep;
+                            if (!boss->reloadStartedForMove &&
+                                boss->reloadStartMoveStep >= 0 &&
+                                boss->moveStep >= boss->reloadStartMoveStep)
                             {
-                                prepareNextFlowAttack();
+                                boss->reloadStartedForMove = true;
+                                beginReload();
                             }
                         }
                     }
                     else if (boss->moveTimer >= boss->params.movePauseTime)
                     {
-                        if (boss->moveStep == 0)
+                        const int movePointCount = getMovePointCount(boss->movePattern);
+                        if (boss->moveStep >= movePointCount)
                         {
-                            if (boss->chooseMoveSideFromStageCenter)
+                            if (!boss->reloadActive)
                             {
-                                boss->moveSide = playerCenterX < stageCenterX ? -1 : 1;
-                                boss->lastFlowMoveSide = boss->moveSide;
+                                prepareNextFlowAttack();
                             }
-                            else if (boss->lastFlowMoveSide == -1 || boss->lastFlowMoveSide == 1)
-                            {
-                                boss->moveSide = boss->lastFlowMoveSide;
-                            }
-                            boss->chooseMoveSideFromStageCenter = false;
                         }
-
-                        boss->moveStartX = boss->homeX;
-                        boss->moveStartY = boss->homeY;
-                        getMovePoint(boss->moveSide, boss->movePattern, boss->moveStep, boss->moveTargetX, boss->moveTargetY);
-                        boss->moveTargetX = std::clamp(
-                            boss->moveTargetX,
-                            0.0f,
-                            std::max(0.0f, mapWidth - bossWidth));
-                        boss->moveTargetY = std::clamp(
-                            boss->moveTargetY,
-                            0.0f,
-                            std::max(0.0f, mapHeight - bossHeight));
-                        boss->moving = true;
-                        boss->moveTimer = 0.0f;
-                        boss->moveStep = (boss->moveStep + 1) % 4;
-                        if (boss->moveStep == 0)
+                        else
                         {
-                            boss->movePattern = (boss->movePattern + 1) % 3;
+                            if (boss->moveStep == 0)
+                            {
+                                if (boss->chooseMoveSideFromStageCenter)
+                                {
+                                    boss->moveSide = playerCenterX < stageCenterX ? -1 : 1;
+                                    boss->lastFlowMoveSide = boss->moveSide;
+                                }
+                                else if (boss->lastFlowMoveSide == -1 || boss->lastFlowMoveSide == 1)
+                                {
+                                    boss->moveSide = boss->lastFlowMoveSide;
+                                }
+                                boss->chooseMoveSideFromStageCenter = false;
+                            }
+
+                            boss->moveStartX = boss->homeX;
+                            boss->moveStartY = boss->homeY;
+                            getMovePoint(boss->moveSide, boss->movePattern, boss->moveStep, boss->moveTargetX, boss->moveTargetY);
+                            boss->moveTargetX = std::clamp(
+                                boss->moveTargetX,
+                                0.0f,
+                                std::max(0.0f, mapWidth - bossWidth));
+                            boss->moveTargetY = std::clamp(
+                                boss->moveTargetY,
+                                0.0f,
+                                std::max(0.0f, mapHeight - bossHeight));
+                            boss->moving = true;
+                            boss->moveTimer = 0.0f;
                         }
                     }
                 }
@@ -835,11 +869,12 @@ inline void UpdateEnemies(
                 {
                     const int launchOrder[4] = { 0, 1, 2, 3 };
                     const int fistIndex = launchOrder[boss->launcherShotsFired];
+                    bool launched = false;
                     for (Entity* fistEntity : boss->fistEntities)
                     {
                         auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
                         auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
-                        if (!fist || !fistTransform || fist->fistIndex != fistIndex)
+                        if (!fist || !fistTransform || fist->fistIndex != fistIndex || !fist->atAttackStart)
                         {
                             continue;
                         }
@@ -847,12 +882,15 @@ inline void UpdateEnemies(
                         fist->velocityX = boss->launcherDirection < 0 ? -boss->params.launcherFistSpeed : boss->params.launcherFistSpeed;
                         fist->velocityY = 0.0f;
                         fist->launchTimer = 0.0f;
-                        fistTransform->y = (fistIndex % 2 == 0) ? boss->launcherLowerLaneY : boss->launcherUpperLaneY;
                         fistTransform->rotation = 0.0f;
+                        launched = true;
                         break;
                     }
-                    boss->launcherShotTimer = 0.0f;
-                    ++boss->launcherShotsFired;
+                    if (launched)
+                    {
+                        boss->launcherShotTimer = 0.0f;
+                        ++boss->launcherShotsFired;
+                    }
                 }
                 if (boss->launcherShotsFired >= 4)
                 {
@@ -863,8 +901,24 @@ inline void UpdateEnemies(
             else if (boss->state == MidBoss3State::MeteorFist ||
                 boss->state == MidBoss3State::LauncherMeteorFist)
             {
-                const auto launchMeteorPair = [&](int a, int b)
+                const auto launchMeteorPair = [&](int a, int b) -> bool
                 {
+                    int readyCount = 0;
+                    for (Entity* fistEntity : boss->fistEntities)
+                    {
+                        const auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                        if (fist &&
+                            fist->state == MidBoss3FistState::MeteorReady &&
+                            fist->atAttackStart &&
+                            (fist->fistIndex == a || fist->fistIndex == b))
+                        {
+                            ++readyCount;
+                        }
+                    }
+                    if (readyCount < 2)
+                    {
+                        return false;
+                    }
                     for (Entity* fistEntity : boss->fistEntities)
                     {
                         auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
@@ -883,21 +937,26 @@ inline void UpdateEnemies(
                         fist->launchTimer = 0.0f;
                         fistTransform->rotation = 1.5707963f;
                     }
+                    return true;
                 };
 
                 if (boss->stateTimer >= boss->params.meteorWindupTime && boss->meteorShotsFired == 0)
                 {
-                    launchMeteorPair(0, 1);
-                    boss->meteorShotsFired = 2;
+                    if (launchMeteorPair(0, 1))
+                    {
+                        boss->meteorShotsFired = 2;
+                    }
                 }
                 if (boss->stateTimer >= boss->params.meteorWindupTime + boss->params.meteorPairInterval && boss->meteorShotsFired == 2)
                 {
                     if (boss->state == MidBoss3State::MeteorFist)
                     {
-                        launchMeteorPair(2, 3);
-                        boss->meteorShotsFired = 4;
-                        boss->state = MidBoss3State::AttackCooldown;
-                        boss->stateTimer = 0.0f;
+                        if (launchMeteorPair(2, 3))
+                        {
+                            boss->meteorShotsFired = 4;
+                            boss->state = MidBoss3State::AttackCooldown;
+                            boss->stateTimer = 0.0f;
+                        }
                     }
                     else
                     {
@@ -928,11 +987,35 @@ inline void UpdateEnemies(
             }
             else if (boss->state == MidBoss3State::DrillFist)
             {
+                if (!boss->drillFormed)
+                {
+                    const float drillCenterX = boss->drillX + boss->drillWidth * 0.5f;
+                    const float drillCenterY = boss->drillY + boss->drillHeight * 0.5f;
+                    const float aimDx = playerCenterX - drillCenterX;
+                    const float aimDy = playerCenterY - drillCenterY;
+                    const float aimLength = std::max(0.001f, std::hypot(aimDx, aimDy));
+                    boss->drillAimX = aimDx / aimLength;
+                    boss->drillAimY = aimDy / aimLength;
+                    boss->drillDirection = boss->drillAimX >= 0.0f ? 1 : -1;
+                    boss->facingRight = boss->drillDirection > 0;
+                    if (boss->stateTimer >= boss->params.drillFormTime)
+                    {
+                        boss->drillFormed = true;
+                        boss->drillActive = true;
+                        for (Entity* fistEntity : boss->fistEntities)
+                        {
+                            if (auto* tint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr)
+                            {
+                                tint->a = 0.0f;
+                            }
+                        }
+                    }
+                }
                 if (boss->drillActive)
                 {
                     const float drillCenterX = boss->drillX + boss->drillWidth * 0.5f;
                     const float drillCenterY = boss->drillY + boss->drillHeight * 0.5f;
-                    if (boss->stateTimer < boss->params.drillWaitTime)
+                    if (boss->stateTimer < boss->params.drillFormTime + boss->params.drillWaitTime)
                     {
                         const float aimDx = playerCenterX - drillCenterX;
                         const float aimDy = playerCenterY - drillCenterY;
@@ -976,10 +1059,6 @@ inline void UpdateEnemies(
                             else
                             {
                                 boss->drillX = nextX;
-                                boss->homeX = std::clamp(
-                                    boss->homeX + static_cast<float>(boss->drillDirection) * boss->params.drillRushSpeed * deltaTime,
-                                    0.0f,
-                                    std::max(0.0f, mapWidth - bossWidth));
                             }
                         }
                         else
@@ -1098,7 +1177,7 @@ inline void UpdateEnemies(
                         boss->drillX + boss->drillWidth < 0.0f ||
                         boss->drillX > mapWidth ||
                         boss->drillY > mapHeight + boss->drillHeight;
-                    if (drillOut || !boss->drillActive || boss->stateTimer >= boss->params.drillWaitTime + boss->params.drillCooldownTime + 3.0f)
+                    if (drillOut || !boss->drillActive || boss->stateTimer >= boss->params.drillFormTime + boss->params.drillWaitTime + boss->params.drillCooldownTime + 3.0f)
                     {
                         boss->drillActive = false;
                         for (Entity* fistEntity : boss->fistEntities)
@@ -1136,13 +1215,6 @@ inline void UpdateEnemies(
                     : (boss->cooldownAttack == 2 ? boss->params.meteorCooldownTime : boss->params.launcherCooldownTime);
                 if (boss->stateTimer >= cooldown && allFistsDone)
                 {
-                    beginReload();
-                }
-            }
-            else if (boss->state == MidBoss3State::ReloadFists)
-            {
-                if (boss->stateTimer >= boss->params.fistReloadTime)
-                {
                     const int finishedAttack = boss->cooldownAttack;
                     boss->state = MidBoss3State::Move;
                     boss->stateTimer = 0.0f;
@@ -1151,54 +1223,51 @@ inline void UpdateEnemies(
                     boss->moving = false;
                     boss->launcherShotsFired = 0;
                     boss->meteorShotsFired = 0;
+                    boss->reloadStartedForMove = false;
+                    boss->reloadStartMoveStep = -1;
                     switch (finishedAttack)
                     {
                     case 1:
                         boss->nextFlowAttack = 3;
                         boss->movePattern = 1;
                         boss->chooseMoveSideFromStageCenter = false;
+                        boss->reloadStartMoveStep = 0;
                         break;
                     case 2:
                         boss->nextFlowAttack = 1;
                         boss->movePattern = 0;
                         boss->chooseMoveSideFromStageCenter = true;
+                        boss->reloadStartMoveStep = 2;
                         break;
                     case 3:
                         boss->nextFlowAttack = 4;
                         boss->movePattern = 0;
                         boss->chooseMoveSideFromStageCenter = true;
+                        boss->reloadStartMoveStep = 2;
                         break;
                     case 4:
                         boss->nextFlowAttack = 2;
                         boss->movePattern = 1;
                         boss->chooseMoveSideFromStageCenter = false;
+                        boss->reloadStartMoveStep = 0;
                         break;
                     default:
                         boss->nextFlowAttack = 2;
                         boss->movePattern = 0;
                         boss->chooseMoveSideFromStageCenter = true;
+                        boss->reloadStartMoveStep = 0;
                         break;
                     }
                     boss->cooldownAttack = 0;
                     boss->launcherPrepared = false;
                     boss->drillActive = false;
+                    boss->drillFormed = false;
                     boss->drillGroundRush = false;
                     boss->drillDamageApplied = false;
-                    for (Entity* fistEntity : boss->fistEntities)
+                    if (boss->reloadStartMoveStep == 0)
                     {
-                        auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
-                        if (!fist)
-                        {
-                            continue;
-                        }
-                        fist->state = MidBoss3FistState::Docked;
-                        fist->broken = false;
-                        fist->damageApplied = false;
-                        fist->launchTimer = 0.0f;
-                        fist->captureJammerActive = false;
-                        fist->impactAttackActive = false;
-                        fist->impactDamageApplied = false;
-                        fist->impactAttackRemaining = 0.0f;
+                        boss->reloadStartedForMove = true;
+                        beginReload();
                     }
                 }
             }
@@ -1452,15 +1521,23 @@ inline void UpdateEnemies(
                 }
                 else if (fist->state == MidBoss3FistState::LauncherReady)
                 {
-                    fistTransform->x = launcherStartX;
-                    fistTransform->y = launcherStartY;
+                    const float followStep = boss->params.fistReturnSpeed * deltaTime;
+                    fistTransform->x = moveToward(fistTransform->x, launcherStartX, followStep);
+                    fistTransform->y = moveToward(fistTransform->y, launcherStartY, followStep);
                     fistTransform->rotation = 0.0f;
+                    fist->atAttackStart =
+                        std::fabs(fistTransform->x - launcherStartX) <= 1.0f &&
+                        std::fabs(fistTransform->y - launcherStartY) <= 1.0f;
                 }
                 else if (fist->state == MidBoss3FistState::MeteorReady)
                 {
-                    fistTransform->x = meteorStartX;
-                    fistTransform->y = meteorStartY;
+                    const float followStep = boss->params.fistReturnSpeed * deltaTime;
+                    fistTransform->x = moveToward(fistTransform->x, meteorStartX, followStep);
+                    fistTransform->y = moveToward(fistTransform->y, meteorStartY, followStep);
                     fistTransform->rotation = 1.5707963f;
+                    fist->atAttackStart =
+                        std::fabs(fistTransform->x - meteorStartX) <= 1.0f &&
+                        std::fabs(fistTransform->y - meteorStartY) <= 1.0f;
                 }
                 else if (fist->state == MidBoss3FistState::DrillForming)
                 {
@@ -1478,7 +1555,7 @@ inline void UpdateEnemies(
                     fistTransform->rotation = boss->drillGroundRush ? 0.0f : std::atan2(boss->drillAimY, boss->drillAimX);
                     if (auto* tint = fistEntity->GetComponent<TintComponent>())
                     {
-                        tint->a = 0.0f;
+                        tint->a = boss->drillFormed ? 0.0f : 1.0f;
                     }
                 }
                 else if (fist->state == MidBoss3FistState::Launching)
@@ -1662,7 +1739,7 @@ inline void UpdateEnemies(
                 }
                 else if (fist->state == MidBoss3FistState::Reloading)
                 {
-                    const float progress = smoothStep(boss->stateTimer / std::max(0.01f, boss->params.fistReloadTime));
+                    const float progress = smoothStep(boss->reloadTimer / std::max(0.01f, boss->params.fistReloadTime));
                     fistTransform->x = fist->reloadStartX + (dockX - fist->reloadStartX) * progress;
                     fistTransform->y = fist->reloadStartY + (dockY - fist->reloadStartY) * progress;
                     fistTransform->rotation = 0.0f;

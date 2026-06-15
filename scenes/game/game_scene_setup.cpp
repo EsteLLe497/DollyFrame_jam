@@ -478,7 +478,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins1.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins_boss.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -800,6 +800,7 @@ void GameScene::InitializeStageEntities()
             {
                 transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
                 transform->y = static_cast<float>(row) * tileSize + (tileSize - transform->height * transform->scale) * 0.5f;
+                transform->y += tileSize * 2.0f;
                 if (auto* enemy = boss.GetComponent<EnemyComponent>())
                 {
                     enemy->spawnX = transform->x;

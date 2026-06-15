@@ -454,7 +454,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
             std::min(frameX + frameWidth, t->x + t->width * t->scale) - std::max(frameX, t->x));
         const float overlapH = std::max(0.0f,
             std::min(frameY + frameHeight, t->y + t->height * t->scale) - std::max(frameY, t->y));
-        if (overlapW > 1.0f && overlapH > 1.0f)
+        if (overlapW > 0.0f && overlapH > 0.0f)
         {
             if (entity->GetComponent<SepiaRubbleComponent>())
             {
@@ -698,7 +698,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const float overlapBottom = (std::min)(frameY + frameHeight, targetY + targetHeight);
         const float overlapWidth = (std::max)(0.0f, overlapRight - overlapLeft);
         const float overlapHeight = (std::max)(0.0f, overlapBottom - overlapTop);
-        if (overlapWidth <= 1.0f || overlapHeight <= 1.0f)
+        if (overlapWidth <= 0.0f || overlapHeight <= 0.0f)
         {
             continue;
         }
