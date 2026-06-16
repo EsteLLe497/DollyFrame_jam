@@ -213,7 +213,7 @@ struct GameSceneTuningState
     float captureHeightTiles = 3.0f;
     float captureRapidShotLimit = 4.0f;
     float captureRapidWindowSeconds = 1.2f;
-    float captureOverheatLockSeconds = 1.0f;
+    float captureOverheatLockSeconds = 1.5f;
     float printedPhotoPaddingX = 16.0f;
     float printedPhotoPaddingTop = 16.0f;
     float printedPhotoFooterHeight = 52.0f;

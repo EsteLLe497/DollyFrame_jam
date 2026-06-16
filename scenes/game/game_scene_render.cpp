@@ -1865,7 +1865,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         midBoss2 &&
         midBoss2->teleportFlashRemaining > 0.0f;
     const float midBoss2TeleportFlashT = midBoss2TeleportFlashActive
-        ? Clamp01(midBoss2->teleportFlashRemaining / 0.12f)
+        ? Clamp01(midBoss2->teleportFlashRemaining / 0.24f)
         : 0.0f;
 
     if (midBoss2TeleportFlashActive)
@@ -1876,6 +1876,66 @@ void GameScene::DrawEntity(const Entity& entity) const
         drawHeight *= std::lerp(1.0f, 1.72f, midBoss2TeleportFlashT);
         drawX = centerX - drawWidth * 0.5f;
         drawY = centerY - drawHeight * 0.5f - drawHeight * 0.03f * midBoss2TeleportFlashT;
+
+        const float ghostOffsetX = std::max(4.0f, drawWidth * 0.11f) * std::lerp(0.55f, 1.0f, midBoss2TeleportFlashT);
+        const float ghostOffsetY = std::max(3.0f, drawHeight * 0.06f) * std::lerp(0.35f, 0.12f, midBoss2TeleportFlashT);
+        if (sprite)
+        {
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(72.0f + midBoss2TeleportFlashT * 108.0f)), 0, 255));
+            Shader_SetTint(0.70f, 0.94f, 1.0f, std::lerp(0.20f, 0.38f, midBoss2TeleportFlashT));
+            SpriteDraw(
+                sprite->GetTextureId(),
+                drawX - ghostOffsetX,
+                drawY + ghostOffsetY,
+                drawWidth,
+                drawHeight,
+                sprite->GetSourceX(),
+                sprite->GetSourceY(),
+                sprite->GetSourceWidth(),
+                sprite->GetSourceHeight(),
+                sprite->GetFlipX(),
+                transform->rotation);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(58.0f + midBoss2TeleportFlashT * 96.0f)), 0, 255));
+            Shader_SetTint(0.92f, 0.98f, 1.0f, std::lerp(0.12f, 0.26f, midBoss2TeleportFlashT));
+            SpriteDraw(
+                sprite->GetTextureId(),
+                drawX + ghostOffsetX * 0.65f,
+                drawY - ghostOffsetY * 0.75f,
+                drawWidth,
+                drawHeight,
+                sprite->GetSourceX(),
+                sprite->GetSourceY(),
+                sprite->GetSourceWidth(),
+                sprite->GetSourceHeight(),
+                sprite->GetFlipX(),
+                transform->rotation);
+            Shader_ResetStyle();
+        }
+
+        const float ringRadius = std::max(drawWidth, drawHeight) * std::lerp(0.72f, 1.18f, midBoss2TeleportFlashT);
+        const float ringThickness = std::max(2.5f, viewScale * std::lerp(2.8f, 5.0f, midBoss2TeleportFlashT));
+        const float ringPulse = 0.92f + 0.08f * std::sin(static_cast<float>(GetNowCount()) * 0.014f);
+        const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(124.0f * midBoss2TeleportFlashT * ringPulse)), 0, 255));
+        DrawCircleAA(centerX, centerY, ringRadius, 64, GetColor(124, 220, 255), FALSE, ringThickness);
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(208.0f * midBoss2TeleportFlashT)), 0, 255));
+        DrawCircleAA(centerX, centerY, ringRadius * 0.72f, 64, GetColor(255, 255, 255), FALSE, std::max(1.5f, ringThickness * 0.52f));
+        const float flashLine = ringRadius * std::lerp(0.42f, 1.1f, midBoss2TeleportFlashT);
+        DrawLineAA(centerX - flashLine, centerY, centerX + flashLine, centerY, GetColor(168, 232, 255), std::max(1.5f, ringThickness * 0.28f));
+        DrawLineAA(centerX, centerY - flashLine * 0.72f, centerX, centerY + flashLine * 0.72f, GetColor(168, 232, 255), std::max(1.5f, ringThickness * 0.24f));
+        const float burstRadius = ringRadius * std::lerp(0.82f, 1.08f, midBoss2TeleportFlashT);
+        const float burstThickness = std::max(1.2f, ringThickness * 0.18f);
+        const float burstSpin = timeSeconds * std::lerp(4.0f, 6.5f, midBoss2TeleportFlashT);
+        for (int burstIndex = 0; burstIndex < 4; ++burstIndex)
+        {
+            const float angle = burstSpin + static_cast<float>(burstIndex) * 1.5707963f;
+            const float rayX = centerX + std::cos(angle) * burstRadius;
+            const float rayY = centerY + std::sin(angle) * burstRadius * 0.62f;
+            DrawLineAA(centerX, centerY, rayX, rayY, GetColor(196, 240, 255), burstThickness);
+            DrawCircleAA(rayX, rayY, std::max(1.2f, ringThickness * 0.16f), 24, GetColor(255, 255, 255), TRUE, std::max(1.0f, burstThickness * 0.7f));
+        }
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        Shader_ResetStyle();
     }
     bool hasVisibleMidBoss3Drill = false;
     if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
@@ -2284,6 +2344,31 @@ void GameScene::DrawEntity(const Entity& entity) const
                         glowLeftX, glowLeftY,
                         GetColor(138, 232, 255),
                         TRUE);
+
+                    const float telegraphRadius = std::max(drawWidth, drawHeight) * std::lerp(0.38f, 0.82f, progress);
+                    const float telegraphThickness = std::max(1.5f, drawHeight * std::lerp(0.06f, 0.12f, progress));
+                    float telegraphLineStartX = centerX - telegraphRadius;
+                    float telegraphLineStartY = centerY;
+                    float telegraphLineEndX = centerX + telegraphRadius * 1.12f;
+                    float telegraphLineEndY = centerY;
+                    RotatePoint(centerX, centerY, spearAngle, telegraphLineStartX, telegraphLineStartY);
+                    RotatePoint(centerX, centerY, spearAngle, telegraphLineEndX, telegraphLineEndY);
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((90.0f + progress * 110.0f) * alphaMultiplier * spearAlphaScale)), 0, 255));
+                    DrawCircleAA(
+                        centerX,
+                        centerY,
+                        telegraphRadius * 0.98f,
+                        48,
+                        GetColor(122, 224, 255),
+                        FALSE,
+                        telegraphThickness * 0.72f);
+                    DrawLineAA(
+                        telegraphLineStartX,
+                        telegraphLineStartY,
+                        telegraphLineEndX,
+                        telegraphLineEndY,
+                        GetColor(242, 255, 255),
+                        telegraphThickness);
                 }
 
                 SetDrawBlendMode(DX_BLENDMODE_ALPHA, coreAlpha);
@@ -2822,6 +2907,107 @@ void GameScene::DrawEntity(const Entity& entity) const
                     3);
             }
 
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            Shader_ResetStyle();
+        }
+    }
+
+    if (enemyComponent &&
+        enemyComponent->GetArchetype() == EnemyArchetype::MidBoss2 &&
+        midBoss2)
+    {
+        if (midBoss2->state == MidBoss2State::BeamCharge)
+        {
+            const float bossWidth = transform->width * transform->scale;
+            const float bossHeight = transform->height * transform->scale;
+            const float bodyCenterX = viewOriginX + ((transform->x + bossWidth * 0.5f) - m_flow.cameraX) * viewScale;
+            const float bodyCenterY = viewOriginY + ((transform->y + bossHeight * 0.5f) - m_flow.cameraY) * viewScale;
+            const float beamCenterX = viewOriginX + ((transform->x + (midBoss2->beamFacingRight ? bossWidth + bossWidth * 0.20f : -bossWidth * 0.20f)) - m_flow.cameraX) * viewScale;
+            const float beamCenterY = viewOriginY + ((transform->y + bossHeight * 0.5f) - m_flow.cameraY) * viewScale;
+            const float chargeT = Clamp01(midBoss2->stateTimer / midBoss2->params.beamChargeTime);
+            const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+            const float pulse = 0.92f + 0.08f * std::sin(static_cast<float>(GetNowCount()) * 0.01f + chargeT * 4.0f);
+            const float bodyRingRadius = std::max(12.0f, std::min(bossWidth, bossHeight) * viewScale * std::lerp(0.52f, 0.74f, chargeT));
+            const float beamRingRadius = std::max(10.0f, std::min(bossWidth, bossHeight) * viewScale * std::lerp(0.30f, 0.58f, chargeT));
+            const float bodyRingThickness = std::max(2.0f, viewScale * std::lerp(2.4f, 4.8f, chargeT));
+            const float beamRingThickness = std::max(1.5f, viewScale * std::lerp(1.8f, 3.5f, chargeT));
+            const float swirlSpin = timeSeconds * std::lerp(2.8f, 5.4f, chargeT);
+
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((64.0f + chargeT * 92.0f) * alphaMultiplier * pulse)), 0, 255));
+            DrawLineAA(
+                bodyCenterX,
+                bodyCenterY,
+                beamCenterX,
+                beamCenterY,
+                GetColor(130, 208, 255),
+                std::max(1.8f, viewScale * std::lerp(2.0f, 3.6f, chargeT)));
+            DrawCircleAA(
+                bodyCenterX,
+                bodyCenterY,
+                bodyRingRadius,
+                64,
+                GetColor(150, 228, 255),
+                FALSE,
+                bodyRingThickness);
+            DrawCircleAA(
+                beamCenterX,
+                beamCenterY,
+                beamRingRadius,
+                64,
+                GetColor(255, 255, 255),
+                FALSE,
+                beamRingThickness);
+            DrawLineAA(
+                beamCenterX - beamRingRadius * 0.92f,
+                beamCenterY,
+                beamCenterX + beamRingRadius * 0.92f,
+                beamCenterY,
+                GetColor(176, 232, 255),
+                std::max(1.5f, beamRingThickness * 0.36f));
+            DrawLineAA(
+                beamCenterX,
+                beamCenterY - beamRingRadius * 0.7f,
+                beamCenterX,
+                beamCenterY + beamRingRadius * 0.7f,
+                GetColor(176, 232, 255),
+                std::max(1.5f, beamRingThickness * 0.32f));
+            DrawLineAA(
+                beamCenterX - beamRingRadius * 0.68f,
+                beamCenterY - beamRingRadius * 0.44f,
+                beamCenterX + beamRingRadius * 0.68f,
+                beamCenterY + beamRingRadius * 0.44f,
+                GetColor(140, 224, 255),
+                std::max(1.4f, beamRingThickness * 0.22f));
+            DrawLineAA(
+                beamCenterX - beamRingRadius * 0.68f,
+                beamCenterY + beamRingRadius * 0.44f,
+                beamCenterX + beamRingRadius * 0.68f,
+                beamCenterY - beamRingRadius * 0.44f,
+                GetColor(140, 224, 255),
+                std::max(1.4f, beamRingThickness * 0.22f));
+            const int shardCount = 6;
+            for (int shardIndex = 0; shardIndex < shardCount; ++shardIndex)
+            {
+                const float angle = swirlSpin + static_cast<float>(shardIndex) * 1.0471976f;
+                const float shardDistance = beamRingRadius * std::lerp(0.76f, 1.14f, 1.0f - chargeT);
+                const float shardX = beamCenterX + std::cos(angle) * shardDistance;
+                const float shardY = beamCenterY + std::sin(angle) * shardDistance * 0.74f;
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY,
+                    shardX,
+                    shardY,
+                    GetColor(184, 236, 255),
+                    std::max(1.2f, beamRingThickness * 0.16f));
+                DrawCircleAA(
+                    shardX,
+                    shardY,
+                    std::max(1.0f, beamRingThickness * 0.18f),
+                    24,
+                    GetColor(255, 255, 255),
+                    TRUE,
+                    std::max(1.0f, beamRingThickness * 0.12f));
+            }
             SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
             Shader_ResetStyle();
         }

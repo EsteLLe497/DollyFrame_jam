@@ -2773,10 +2773,14 @@ inline void UpdateEnemies(
     constexpr float kGravity = 1900.0f;
     constexpr float kMaxFallSpeed = 980.0f;
     constexpr float kTileSize = 48.0f;
-    constexpr float kMidBoss2TeleportFlashSeconds = 0.18f;
+    constexpr float kMidBoss2TeleportFlashSeconds = 0.24f;
             constexpr float kBeamFireDuration = 5.2f;
             constexpr float kBeamFireShakeSeconds = 0.16f;
             constexpr float kBeamFireShakeAmplitude = 24.0f;
+            constexpr float kMidBoss2TeleportShakeSeconds = 0.12f;
+            constexpr float kMidBoss2TeleportShakeAmplitude = 8.0f;
+            constexpr float kMidBoss2BeamChargeShakeSeconds = 0.08f;
+            constexpr float kMidBoss2BeamChargeShakeAmplitude = 5.0f;
             const auto getMidBoss2LeftX = [&](float centerGridX, float bossWidth)
             {
                 return centerGridX * kTileSize - bossWidth * 0.5f;
@@ -3047,6 +3051,9 @@ inline void UpdateEnemies(
                     transform->width * transform->scale,
                     transform->height * transform->scale);
                 boss->teleportFlashRemaining = kMidBoss2TeleportFlashSeconds;
+                flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kMidBoss2TeleportShakeSeconds);
+                flow.screenShakeDuration = std::max(flow.screenShakeDuration, kMidBoss2TeleportShakeSeconds);
+                flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kMidBoss2TeleportShakeAmplitude);
                 transform->x = boss->hoverTargetX;
                 transform->y = boss->hoverTargetY;
                 boss->spearShotsFired = 0;
@@ -3176,6 +3183,9 @@ inline void UpdateEnemies(
                             bossWidth,
                             bossHeight);
                         boss->teleportFlashRemaining = kMidBoss2TeleportFlashSeconds;
+                        flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kMidBoss2BeamChargeShakeSeconds);
+                        flow.screenShakeDuration = std::max(flow.screenShakeDuration, kMidBoss2BeamChargeShakeSeconds);
+                        flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kMidBoss2BeamChargeShakeAmplitude);
                     }
                     transform->x = boss->beamTargetX;
                 }
