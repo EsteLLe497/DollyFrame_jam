@@ -243,6 +243,136 @@ void GameScene::DrawPartsHud() const
         "x %d",
         session.parts);
 }
+
+void GameScene::DrawMidBoss2HpBar() const
+{
+    const Entity* bossEntity = nullptr;
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled() || enemy->IsDefeated())
+        {
+            continue;
+        }
+        const auto* boss = entity->GetComponent<MidBoss2Component>();
+        if (!boss || boss->state == MidBoss2State::Dead)
+        {
+            continue;
+        }
+        bossEntity = entity.get();
+        break;
+    }
+
+    if (!bossEntity)
+    {
+        return;
+    }
+
+    const auto* health = bossEntity->GetComponent<HealthComponent>();
+    if (!health)
+    {
+        return;
+    }
+
+    const int maxHp = (std::max)(1, health->GetMaxHealth());
+    const int currentHp = std::clamp(health->GetCurrentHealth(), 0, maxHp);
+    if (currentHp <= 0)
+    {
+        return;
+    }
+
+    constexpr float kBarWidth = 360.0f;
+    constexpr float kBarHeight = 24.0f;
+    constexpr float kPanelPadding = 12.0f;
+    constexpr float kMarginTop = 30.0f;
+
+    const float panelWidth = kBarWidth + kPanelPadding * 2.0f;
+    const float panelHeight = kBarHeight + 38.0f;
+    const float panelX = static_cast<float>(SCREEN_WIDTH) * 0.5f - panelWidth * 0.5f;
+    const float panelY = kMarginTop;
+    const float barX = panelX + kPanelPadding;
+    const float barY = panelY + kPanelPadding;
+    const float ratio = std::clamp(static_cast<float>(currentHp) / static_cast<float>(maxHp), 0.0f, 1.0f);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 204);
+    DrawBox(
+        static_cast<int>(std::round(panelX)),
+        static_cast<int>(std::round(panelY)),
+        static_cast<int>(std::round(panelX + panelWidth)),
+        static_cast<int>(std::round(panelY + panelHeight)),
+        GetColor(14, 18, 28),
+        TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawBox(
+        static_cast<int>(std::round(panelX)),
+        static_cast<int>(std::round(panelY)),
+        static_cast<int>(std::round(panelX + panelWidth)),
+        static_cast<int>(std::round(panelY + panelHeight)),
+        GetColor(190, 224, 244),
+        FALSE);
+
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth)),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(32, 40, 54),
+        TRUE);
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth * ratio)),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(74, 170, 248),
+        TRUE);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 84);
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth * ratio)),
+        static_cast<int>(std::round(barY + kBarHeight * 0.45f)),
+        GetColor(255, 255, 255),
+        TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    for (int i = 1; i < maxHp; ++i)
+    {
+        const float x = barX + kBarWidth * (static_cast<float>(i) / static_cast<float>(maxHp));
+        DrawLine(
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(barY + 2.0f)),
+            static_cast<int>(std::round(x)),
+            static_cast<int>(std::round(barY + kBarHeight - 2.0f)),
+            GetColor(54, 68, 82));
+    }
+
+    DrawBox(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY)),
+        static_cast<int>(std::round(barX + kBarWidth)),
+        static_cast<int>(std::round(barY + kBarHeight)),
+        GetColor(214, 238, 250),
+        FALSE);
+
+    DrawString(
+        static_cast<int>(std::round(barX)),
+        static_cast<int>(std::round(barY - 18.0f)),
+        "BOSS2",
+        GetColor(220, 236, 248));
+    DrawFormatString(
+        static_cast<int>(std::round(barX + kBarWidth * 0.5f) - 34.0f),
+        static_cast<int>(std::round(barY + 4.0f)),
+        GetColor(255, 255, 255),
+        "HP %d / %d",
+        currentHp,
+        maxHp);
+}
 void GameScene::DrawMidBoss3HpBar() const
 {
     const Entity* bossEntity = nullptr;

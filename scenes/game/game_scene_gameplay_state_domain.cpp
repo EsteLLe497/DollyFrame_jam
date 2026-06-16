@@ -67,6 +67,10 @@ void GameScene::TryUseAttackCaptureSlot()
         return;
     }
 
+    // Keep the selected attack capture available to the normal paste flow.
+    // This lets the existing placement/spawn path handle Q-triggered attack shots.
+    m_photo.capture = m_photo.attackCapture;
+
     Entity* player = FindEntityByTag(kTagPlayer);
     if (!player)
     {

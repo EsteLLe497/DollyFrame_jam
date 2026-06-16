@@ -1065,6 +1065,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             capturedWalker ||
             capturedShieldAttack ||
             capturedLaserTurret ||
+            capturedMidBoss2Spear ||
             midBoss3Fist != nullptr ||
             capturedMidBoss3FistRubble ||
             capturedMidBoss3DrillRubble;

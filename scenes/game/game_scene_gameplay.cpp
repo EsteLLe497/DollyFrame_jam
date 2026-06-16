@@ -315,6 +315,68 @@ void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float heig
     }
 }
 
+void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height)
+{
+    const float sourceCenterX = fromX + width * 0.5f;
+    const float sourceCenterY = fromY + height * 0.5f;
+    const float targetCenterX = toX + width * 0.5f;
+    const float targetCenterY = toY + height * 0.5f;
+    const float deltaX = targetCenterX - sourceCenterX;
+    const float deltaY = targetCenterY - sourceCenterY;
+    const float distance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+    const float directionLength = std::max(1.0f, distance);
+    const float directionX = deltaX / directionLength;
+    const float directionY = deltaY / directionLength;
+    const float perpendicularX = -directionY;
+    const float perpendicularY = directionX;
+    const int trailCount = std::clamp(static_cast<int>(std::round(distance / 44.0f)) + 10, 10, 24);
+    const float travelTime = std::max(0.26f, distance / 1120.0f);
+    const float travelSpeed = distance / travelTime;
+
+    for (int index = 0; index < trailCount; ++index)
+    {
+        const float t = trailCount <= 1 ? 1.0f : static_cast<float>(index) / static_cast<float>(trailCount - 1);
+        const float jitterSeed = static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f;
+        const float wave = std::sin(t * 6.28318530718f * 2.0f);
+        const float lineX = std::lerp(sourceCenterX, targetCenterX, t);
+        const float lineY = std::lerp(sourceCenterY, targetCenterY, t);
+        const float spread = std::lerp(6.0f, 18.0f, 1.0f - std::fabs(0.5f - t) * 2.0f);
+
+        LaserSparkParticle spark;
+        spark.x = lineX + perpendicularX * jitterSeed * spread + directionX * wave * 4.0f;
+        spark.y = lineY + perpendicularY * jitterSeed * spread + directionY * wave * 4.0f;
+        spark.velocityX = directionX * (travelSpeed + jitterSeed * 120.0f) + perpendicularX * jitterSeed * 90.0f;
+        spark.velocityY = directionY * (travelSpeed + jitterSeed * 120.0f) + perpendicularY * jitterSeed * 90.0f;
+        spark.life = 0.30f;
+        spark.maxLife = 0.30f;
+        spark.gravityScale = 0.0f;
+        spark.r = 0.58f;
+        spark.g = 0.92f;
+        spark.b = 1.0f;
+        m_effects.laserSparks.push_back(spark);
+    }
+
+    constexpr int kArrivalSparkCount = 6;
+    for (int index = 0; index < kArrivalSparkCount; ++index)
+    {
+        const float angle = static_cast<float>(index) / static_cast<float>(kArrivalSparkCount) * 6.28318530718f;
+        const float radius = 10.0f + static_cast<float>(GetRand(8));
+
+        LaserSparkParticle spark;
+        spark.x = targetCenterX + std::cos(angle) * radius;
+        spark.y = targetCenterY + std::sin(angle) * radius;
+        spark.velocityX = std::cos(angle) * (40.0f + static_cast<float>(GetRand(40)));
+        spark.velocityY = std::sin(angle) * (40.0f + static_cast<float>(GetRand(40)));
+        spark.life = 0.26f;
+        spark.maxLife = 0.26f;
+        spark.gravityScale = 0.0f;
+        spark.r = 0.88f;
+        spark.g = 0.98f;
+        spark.b = 1.0f;
+        m_effects.laserSparks.push_back(spark);
+    }
+}
+
 void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame)
 {
     game_scene_player_visual_system::UpdatePresentation(
