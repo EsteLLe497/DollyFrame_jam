@@ -459,8 +459,8 @@ void GameScene::TryUseAttackCaptureSlot()
         const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
         const float playerFootY = playerTransform->y + playerHeight;
 
-        float shieldW = kTileSize;
-        float shieldH = kTileSize * 3.0f;
+        const float shieldW = kTileSize;
+        const float shieldH = kTileSize * 4.0f;
         float shieldX = facingRight
             ? playerTransform->x + playerWidth
             : playerTransform->x - shieldW;
@@ -468,8 +468,6 @@ void GameScene::TryUseAttackCaptureSlot()
 
         if (attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
         {
-            shieldW = kTileSize * 2.0f;
-            shieldH = kTileSize * 4.0f;
             shieldX = facingRight
                 ? playerTransform->x + playerWidth
                 : playerTransform->x - shieldW;
@@ -477,8 +475,6 @@ void GameScene::TryUseAttackCaptureSlot()
         }
         else
         {
-            shieldW = kTileSize * 3.0f;
-            shieldH = kTileSize;
             const float playerFrontX = facingRight
                 ? playerTransform->x + playerWidth + shieldW * 0.5f
                 : playerTransform->x - shieldW * 0.5f;

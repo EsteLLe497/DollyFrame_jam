@@ -1114,6 +1114,27 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.tintB = tint->b;
             item.tintA = tint->a;
         }
+        if (capturedShield)
+        {
+            constexpr float kCapturedShieldWidth = 240.0f;
+            constexpr float kCapturedShieldHeight = 192.0f;
+            const float capturedCenterX = overlapLeft + overlapWidth * 0.5f;
+            const float capturedCenterY = overlapTop + overlapHeight * 0.5f;
+            item.relativeX = capturedCenterX - frameX - kCapturedShieldWidth * 0.5f;
+            item.relativeY = capturedCenterY - frameY - kCapturedShieldHeight * 0.5f;
+            item.width = kCapturedShieldWidth;
+            item.height = kCapturedShieldHeight;
+            item.rotation = 0.0f;
+            item.sourceX = sprite->GetSourceX();
+            item.sourceY = sprite->GetSourceY();
+            item.sourceWidth = sprite->GetSourceWidth();
+            item.sourceHeight = sprite->GetSourceHeight();
+            item.collisionOutline.clear();
+            item.collisionOutline.push_back({ 0.0f, 0.0f });
+            item.collisionOutline.push_back({ 1.0f, 0.0f });
+            item.collisionOutline.push_back({ 1.0f, 1.0f });
+            item.collisionOutline.push_back({ 0.0f, 1.0f });
+        }
         if (capturedMidBoss3FistRubble || capturedMidBoss3DrillRubble)
         {
             const float capturedCenterX = overlapLeft + overlapWidth * 0.5f;
@@ -1265,7 +1286,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedLaserTurret && !capturedLog && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !midBoss3Fist)
+        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !midBoss3Fist)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }

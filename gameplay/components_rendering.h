@@ -254,6 +254,8 @@ public:
     bool Play(const std::string& name, bool restartIfSame = false);
     const std::string& GetCurrentClipName() const;
     int GetCurrentFrameIndex() const;
+    int GetCurrentLocalFrameIndex() const;
+    void SetCurrentLocalFrameIndex(int frameIndex);
     bool IsCurrentClipFinished() const;
     void SetPlaybackSpeed(float speed);
 
