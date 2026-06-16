@@ -273,6 +273,11 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
 
     if (!scene.m_photo.placement.active && rightPressed)
     {
+        if (scene.m_photo.capture.containsEnemyAttackPaste)
+        {
+            return;
+        }
+
         if (!scene.m_photo.capture.hasPhoto &&
             scene.m_photo.selectedCaptureSlot >= 0 &&
             scene.m_photo.selectedCaptureSlot < static_cast<int>(scene.m_photo.savedCaptures.size()) &&

@@ -24,9 +24,33 @@ namespace
             return GetColor(255, 136, 54);
         case CapturedSpawnArchetype::MidBoss3DrillAttack:
             return GetColor(255, 196, 76);
+        case CapturedSpawnArchetype::LaserTurret:
+            return GetColor(82, 168, 255);
         default:
             return GetColor(210, 86, 255);
         }
+    }
+
+    int GetAttackCaptureCount(const PhotoCaptureState& capture)
+    {
+        if (capture.attackCaptureCount > 0)
+        {
+            return capture.attackCaptureCount;
+        }
+
+        const int countedItems = static_cast<int>(std::count_if(
+            capture.items.begin(),
+            capture.items.end(),
+            [](const CapturedPhotoItem& item)
+            {
+                return item.enemyAttackPaste;
+            }));
+        if (countedItems > 0)
+        {
+            return countedItems;
+        }
+
+        return capture.hasPhoto && capture.containsEnemyAttackPaste ? 1 : 0;
     }
 
     CapturedSpawnArchetype GetPrimaryAttackCaptureArchetype(const PhotoCaptureState& capture)
@@ -550,4 +574,15 @@ void GameScene::DrawAttackCaptureSlot() const
         static_cast<int>(std::round(kPanelY + 8.0f)),
         "ATK",
         GetColor(240, 226, 196));
+
+    const int attackCount = GetAttackCaptureCount(m_photo.attackCapture);
+    if (attackCount > 0)
+    {
+        DrawFormatString(
+            static_cast<int>(std::round(kPanelX + kPanelSize - 30.0f)),
+            static_cast<int>(std::round(kPanelY + kPanelSize - 24.0f)),
+            GetColor(30, 36, 44),
+            "x %d",
+            attackCount);
+    }
 }

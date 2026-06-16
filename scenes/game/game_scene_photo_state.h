@@ -126,6 +126,7 @@ struct CapturedPhotoItem
     bool flipX = false;
     bool vanishOnCapture = false;
     bool enemyAttackPaste = false;
+    int attackCaptureCount = 0;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
     PhotoPlacementRuleGroup placementRuleGroup = PhotoPlacementRuleGroup::Group1;
     float projectileVelocityX = 0.0f;
@@ -149,6 +150,7 @@ struct PhotoCaptureState
     bool hasPhoto = false;
     PhotoFilterTheme selectedTheme = PhotoFilterTheme::None;
     PhotoFilterTheme capturedTheme = PhotoFilterTheme::None;
+    int attackCaptureCount = 0;
     std::vector<CapturedPhotoItem> items;
     bool containsEnemyAttackPaste = false;
     int textureId = -1;
