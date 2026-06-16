@@ -12,6 +12,7 @@
   "gravity": 3200.0,
   "ground_snap_distance": 8.0,
   "ground_step_up_height": 0.25,
+  "jump_pad_max_tilt_degrees": 18.0,
   "jump_speed": -1048.0,
   "max_fall_speed": 980.0,
   "move_speed": 320.0,

@@ -706,6 +706,7 @@ void GameScene::RefreshMarkerDrivenSystems()
     RefreshEnemiesFromMarkers();
     RefreshBatteriesFromMarkers();
     RefreshLogsFromMarkers();
+    RefreshJumpPadsFromMarkers();
     ReflashFallingRockfromMarkers();
     RefreshMarkerLightsFromMarkers();
     RefreshStageLightsFromMarkers();
@@ -731,6 +732,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     const bool enemyChanged = markerChanged(IsEnemyMarker);
     const bool batteryChanged = markerChanged(IsBatteryMarker);
     const bool logChanged = markerChanged(IsLogMarker);
+    const bool jumpPadChanged = markerChanged(IsJumpPadMarker);
     const bool fallingRockChanged = markerChanged(IsFallingRockMarker);
     const bool markerLightChanged = markerChanged(IsMarkerLightMarker);
     const bool stageLightChanged = markerChanged(IsStageLightMarker);
@@ -747,6 +749,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     if (enemyChanged) RefreshEnemiesFromMarkers();
     if (batteryChanged) RefreshBatteriesFromMarkers();
     if (logChanged) RefreshLogsFromMarkers();
+    if (jumpPadChanged) RefreshJumpPadsFromMarkers();
     if (fallingRockChanged) ReflashFallingRockfromMarkers();
     if (markerLightChanged) RefreshMarkerLightsFromMarkers();
     if (stageLightChanged) RefreshStageLightsFromMarkers();
@@ -1026,6 +1029,56 @@ void GameScene::RefreshLogsFromMarkers()
                 barrel->respawnWhenOffscreen = false;
             }
             m_world.Spawn(std::move(log));
+        }
+    }
+}
+
+void GameScene::RefreshJumpPadsFromMarkers()
+{
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
+            {
+                return true;
+            }
+            return HasTag(*entity, kTagJumpPad);
+        });
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    constexpr float kPi = 3.14159265f;
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (marker != 'T')
+            {
+                continue;
+            }
+
+            auto jumpPad = std::make_unique<Entity>();
+            jumpPad->AddComponent<TagComponent>(kTagJumpPad);
+            jumpPad->AddComponent<TransformComponent>(
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize,
+                tileSize * 5.0f,
+                tileSize * 2.0f);
+            jumpPad->AddComponent<TintComponent>(0.0f, 0.0f, 1.0f, 1.0f);
+            jumpPad->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            jumpPad->AddComponent<JumpPadComponent>(
+                std::clamp(gJumpPadMaxTiltDegrees, 0.0f, 89.0f) * kPi / 180.0f,
+                8.0f,
+                5.5f,
+                gPlayerJumpSpeed,
+                1.8f,
+                gPlayerJumpSpeed * 5.0f);
+            m_world.Spawn(std::move(jumpPad));
         }
     }
 }

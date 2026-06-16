@@ -19,6 +19,7 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     HandlePhotoSpawn();
     UpdateBarrels(gameplayDeltaTime);
     UpdateFallingRocks(gameplayDeltaTime);
+    UpdateJumpPads(gameplayDeltaTime);
     UpdateBatteries(gameplayDeltaTime);
     UpdateLaserTurrets(gameplayDeltaTime);
     UpdateLinkedGimmicks(gameplayDeltaTime);

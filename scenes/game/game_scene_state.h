@@ -231,6 +231,7 @@ struct GameSceneTuningState
     float barrelActivationPaddingX = 320.0f;
     float pastedObjectLifetimeSeconds = 10.0f;
     float pastedObjectPasteAnimationSeconds = 0.24f;
+    float jumpPadMaxTiltDegrees = 18.0f;
 };
 
 struct GameSceneLifecycleState

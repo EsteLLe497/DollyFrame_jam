@@ -106,6 +106,7 @@ private:
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
     void UpdateFallingRocks(float deltaTime);
+    void UpdateJumpPads(float deltaTime);
     void UpdateBatteries(float deltaTime);
     void UpdateLaserTurrets(float deltaTime);
     void UpdateSingleBattery(
@@ -152,6 +153,7 @@ private:
     void RefreshEnemiesFromMarkers();
     void RefreshBatteriesFromMarkers();
     void RefreshLogsFromMarkers();
+    void RefreshJumpPadsFromMarkers();
     void RefreshMarkerLightsFromMarkers();
     void RefreshStageLightsFromMarkers();
     void RefreshLaserTurretsFromMarkers();
