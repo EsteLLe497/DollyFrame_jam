@@ -82,45 +82,45 @@
       "type": "file",
       "path": "assets/texture/enemy2/enemy2_attack.png"
     },
-    "boss1_body_idle": {
+    "boss1_body_move": {
       "type": "file",
-      "path": "assets/texture/boss1/Body/Body_nb.png"
+      "path": "assets/texture/boss1/Body/Boss01_Move_30f.dds"
     },
-    "boss1_body_rush_start": {
+    "boss1_body_attack01": {
       "type": "file",
-      "path": "assets/texture/boss1/Body/Rush_start.png"
+      "path": "assets/texture/boss1/Body/Boss01_Attack01_180f.dds"
     },
-    "boss1_body_rush_attack": {
+    "boss1_body_attack02": {
       "type": "file",
-      "path": "assets/texture/boss1/Body/Rush_attack.png"
+      "path": "assets/texture/boss1/Body/Boss01_Attack02_165f.dds"
     },
-    "boss1_body_rush_end": {
+    "boss1_body_knockback": {
       "type": "file",
-      "path": "assets/texture/boss1/Body/Rush_end.png"
+      "path": "assets/texture/boss1/Body/Boss01_Knockback_30f.dds"
     },
     "boss1_body_death": {
       "type": "file",
-      "path": "assets/texture/boss1/Full/Boss1_death.png"
+      "path": "assets/texture/boss1/Full/Boss01_Destroy_120f.dds"
     },
     "boss1_body_start": {
       "type": "file",
-      "path": "assets/texture/boss1/Full/Boss1_start_150f_x02.png"
+      "path": "assets/texture/boss1/Full/Boss01_Start_150f.dds"
     },
-    "boss1_shield_idle": {
+    "boss1_shield_move": {
       "type": "file",
-      "path": "assets/texture/boss1/Shield/Shield_nb.png"
+      "path": "assets/texture/boss1/Shield/Boss01_Move_Shield_30f.dds"
     },
-    "boss1_shield_rush_start": {
+    "boss1_shield_attack01": {
       "type": "file",
-      "path": "assets/texture/boss1/Shield/Shield_start.png"
+      "path": "assets/texture/boss1/Shield/Boss01_Attck01_Shield_180f.dds"
     },
-    "boss1_shield_rush_attack": {
+    "boss1_shield_attack02": {
       "type": "file",
-      "path": "assets/texture/boss1/Shield/Shield_attack.png"
+      "path": "assets/texture/boss1/Shield/Boss01_Attck02_Shield_165f.dds"
     },
-    "boss1_shield_rush_end": {
+    "boss1_shield_knockback": {
       "type": "file",
-      "path": "assets/texture/boss1/Shield/Shield_end.png"
+      "path": "assets/texture/boss1/Shield/Boss01_Knockback_Shield_30f.dds"
     },
     "sepia_rubble": {
       "type": "file",

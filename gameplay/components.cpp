@@ -1589,6 +1589,47 @@ int SpriteSheetAnimationComponent::GetCurrentFrameIndex() const
     return clip.startFrame + localFrame;
 }
 
+int SpriteSheetAnimationComponent::GetCurrentLocalFrameIndex() const
+{
+    const auto found = m_clips.find(m_currentClipName);
+    if (found == m_clips.end())
+    {
+        return 0;
+    }
+
+    const Clip& clip = found->second;
+    if (clip.frameCount <= 1 || clip.fps <= 0.0f)
+    {
+        return 0;
+    }
+
+    const float rawFrame = m_elapsedSeconds * clip.fps;
+    return clip.loop
+        ? static_cast<int>(rawFrame) % clip.frameCount
+        : (std::min)(clip.frameCount - 1, static_cast<int>(rawFrame));
+}
+
+void SpriteSheetAnimationComponent::SetCurrentLocalFrameIndex(int frameIndex)
+{
+    const auto found = m_clips.find(m_currentClipName);
+    if (found == m_clips.end())
+    {
+        return;
+    }
+
+    const Clip& clip = found->second;
+    if (clip.frameCount <= 1 || clip.fps <= 0.0f)
+    {
+        m_elapsedSeconds = 0.0f;
+        ApplyFrameToSprite();
+        return;
+    }
+
+    const int localFrame = std::clamp(frameIndex, 0, clip.frameCount - 1);
+    m_elapsedSeconds = static_cast<float>(localFrame) / clip.fps;
+    ApplyFrameToSprite();
+}
+
 bool SpriteSheetAnimationComponent::IsCurrentClipFinished() const
 {
     const auto found = m_clips.find(m_currentClipName);

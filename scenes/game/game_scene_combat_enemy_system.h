@@ -2125,11 +2125,6 @@ inline void UpdateEnemies(
                 UpdateShieldBossSpriteAnimation(*entity, *boss);
                 continue;
             }
-            if (boss->appearAnimationActive)
-            {
-                UpdateShieldBossSpriteAnimation(*entity, *boss);
-                continue;
-            }
 
             const float dx = playerTransform->x - transform->x;
             const float dy = playerTransform->y - transform->y;
@@ -2139,6 +2134,26 @@ inline void UpdateEnemies(
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
             constexpr float kTileSize = 48.0f;
+            constexpr float kShieldBossWidth = kTileSize * 4.0f;
+            constexpr float kShieldBossHeight = kTileSize * 4.0f;
+            constexpr float kShieldWidth = kTileSize;
+            constexpr float kShieldHeight = kTileSize * 4.0f;
+            constexpr float kIntroDropHeight = kTileSize * 7.0f;
+            constexpr float kIntroDropSpeed = 1100.0f;
+            constexpr int kAttack01BoostStartFrame = 60;
+            constexpr int kAttack01BoostEndFrame = 132;
+            constexpr int kAttack01EndFrame = 179;
+            constexpr int kAttack02AscendEndFrame = 40;
+            constexpr int kAttack02HoverEndFrame = 75;
+            constexpr int kAttack02ShieldDropStartFrame = 111;
+            constexpr int kAttack02ImpactFrame = 121;
+            constexpr int kAttack02EndFrame = 164;
+            constexpr int kAttack02ShieldDropFrame = 125;
+            constexpr float kAttack02RecoverySeconds =
+                static_cast<float>(kAttack02EndFrame - kAttack02ImpactFrame) / 30.0f;
+            constexpr float kAttack02BossReturnSeconds = 1.15f;
+            transform->width = kShieldBossWidth;
+            transform->height = kShieldBossHeight;
             const float bossWidth = transform->width * transform->scale;
             const float bossHeight = transform->height * transform->scale;
 
@@ -2154,6 +2169,11 @@ inline void UpdateEnemies(
             TintComponent* shieldTint = boss->shieldEntity
                 ? boss->shieldEntity->GetComponent<TintComponent>()
                 : nullptr;
+            if (shieldTransform)
+            {
+                shieldTransform->width = kShieldWidth;
+                shieldTransform->height = kShieldHeight;
+            }
 
             auto resetShieldToGuard = [&]()
             {
@@ -2171,12 +2191,183 @@ inline void UpdateEnemies(
                 shieldComp->contactDamage = 1;
                 if (shieldTransform)
                 {
-                    shieldTransform->width = kTileSize * 1.0f;
-                    shieldTransform->height = kTileSize * 3.0f;
+                    shieldTransform->width = kShieldWidth;
+                    shieldTransform->height = kShieldHeight;
                     shieldTransform->rotation = 0.0f;
                 }
                 ApplyBossShieldGuardTint(boss->shieldEntity, shieldTint);
+                boss->slamShieldVisualLocked = false;
+                if (auto* shieldAnimation = boss->shieldEntity
+                    ? boss->shieldEntity->GetComponent<SpriteSheetAnimationComponent>()
+                    : nullptr)
+                {
+                    shieldAnimation->SetPlaybackSpeed(1.0f);
+                }
             };
+
+            auto getAttackFrame = [&](const char* clipName) -> int
+            {
+                const auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>();
+                if (!animation || animation->GetCurrentClipName() != clipName)
+                {
+                    return 0;
+                }
+                return animation->GetCurrentLocalFrameIndex();
+            };
+
+            auto showShieldDuringAttack02 = [&]()
+            {
+                if (shieldTint)
+                {
+                    shieldTint->r = 1.0f;
+                    shieldTint->g = 1.0f;
+                    shieldTint->b = 1.0f;
+                    shieldTint->a = 1.0f;
+                }
+            };
+
+            struct ShieldSheetAnchor
+            {
+                int frame;
+                float centerX;
+                float centerY;
+            };
+
+            auto sampleAttack02ShieldAnchor = [](int frame, float& centerX, float& centerY)
+            {
+                // Values come from the authored attack02 shield sheet alpha bounds.
+                constexpr ShieldSheetAnchor anchors[] =
+                {
+                    { 0, 90.5f, 122.0f },
+                    { 20, 110.5f, 85.0f },
+                    { 40, 149.0f, 57.0f },
+                    { 75, 149.0f, 56.0f },
+                    { 90, 188.5f, 64.0f },
+                    { 100, 121.0f, 48.5f },
+                    { 111, 60.0f, 158.0f },
+                    { 121, 67.0f, 153.0f },
+                    { 125, 64.0f, 133.0f },
+                };
+
+                if (frame <= anchors[0].frame)
+                {
+                    centerX = anchors[0].centerX;
+                    centerY = anchors[0].centerY;
+                    return;
+                }
+
+                constexpr int anchorCount = static_cast<int>(sizeof(anchors) / sizeof(anchors[0]));
+                for (int i = 1; i < anchorCount; ++i)
+                {
+                    if (frame > anchors[i].frame)
+                    {
+                        continue;
+                    }
+
+                    const ShieldSheetAnchor& prev = anchors[i - 1];
+                    const ShieldSheetAnchor& next = anchors[i];
+                    const float frameRange = static_cast<float>(next.frame - prev.frame);
+                    const float t = frameRange > 0.0f
+                        ? std::clamp(static_cast<float>(frame - prev.frame) / frameRange, 0.0f, 1.0f)
+                        : 1.0f;
+                    centerX = prev.centerX + (next.centerX - prev.centerX) * t;
+                    centerY = prev.centerY + (next.centerY - prev.centerY) * t;
+                    return;
+                }
+
+                centerX = anchors[anchorCount - 1].centerX;
+                centerY = anchors[anchorCount - 1].centerY;
+            };
+
+            auto applyAttack02ShieldSheetAnchor = [&](int attackFrame)
+            {
+                if (!shieldTransform)
+                {
+                    return;
+                }
+
+                constexpr float kAttack02CellWidth = 240.0f;
+                constexpr float kAttack02CellHeight = 195.0f;
+                constexpr float kAttack02BodyLeft = 90.0f;
+                constexpr float kAttack02BodyTop = 70.0f;
+                constexpr float kAttack02BodyWidth = 114.0f;
+                constexpr float kAttack02BodyHeight = 102.0f;
+                constexpr float kShieldBaseCellWidth = 241.8f;
+                constexpr float kShieldBaseCellHeight = 188.0f;
+                constexpr float kShieldBaseBodyWidth = 169.0f;
+                constexpr float kShieldBaseBodyHeight = 123.0f;
+                constexpr float kAttack02ShieldVisualScale = 1.3f;
+
+                float sheetCenterX = 0.0f;
+                float sheetCenterY = 0.0f;
+                sampleAttack02ShieldAnchor(attackFrame, sheetCenterX, sheetCenterY);
+
+                const float hitboxWidth = transform->width * transform->scale;
+                const float hitboxHeight = transform->height * transform->scale;
+                const float bodyVisualWidth = hitboxWidth * (kAttack02CellWidth / kAttack02BodyWidth);
+                const float bodyVisualHeight = hitboxHeight * (kAttack02CellHeight / kAttack02BodyHeight);
+                const bool flipRight = boss->facing == ShieldBossFacing::Right;
+                const float bodyLeft = flipRight
+                    ? kAttack02CellWidth - (kAttack02BodyLeft + kAttack02BodyWidth)
+                    : kAttack02BodyLeft;
+                const float canvasX = transform->x - bodyLeft / kAttack02CellWidth * bodyVisualWidth;
+                const float canvasY = transform->y - kAttack02BodyTop / kAttack02CellHeight * bodyVisualHeight;
+                const float shieldDrawWidth = hitboxWidth * (kShieldBaseCellWidth / kShieldBaseBodyWidth) * kAttack02ShieldVisualScale;
+                const float shieldDrawHeight = hitboxHeight * (kShieldBaseCellHeight / kShieldBaseBodyHeight) * kAttack02ShieldVisualScale;
+                const float sampledX = flipRight ? (kAttack02CellWidth - sheetCenterX) : sheetCenterX;
+                const float worldCenterX = canvasX + sampledX / kAttack02CellWidth * shieldDrawWidth;
+                const float worldCenterY = canvasY + sheetCenterY / kAttack02CellHeight * shieldDrawHeight;
+                const float shieldW = shieldTransform->width * shieldTransform->scale;
+                const float shieldH = shieldTransform->height * shieldTransform->scale;
+
+                shieldTransform->x = worldCenterX - shieldW * 0.5f;
+                shieldTransform->y = worldCenterY - shieldH * 0.5f;
+                shieldTransform->rotation = 0.0f;
+                boss->hoverShieldX = shieldTransform->x;
+                boss->hoverShieldY = shieldTransform->y;
+            };
+
+            if (boss->introDropActive || boss->appearAnimationActive)
+            {
+                if (auto* tint = entity->GetComponent<TintComponent>())
+                {
+                    tint->a = 1.0f;
+                }
+                if (shieldTint)
+                {
+                    shieldTint->a = 0.0f;
+                }
+                if (boss->introDropActive)
+                {
+                    transform->y += kIntroDropSpeed * flow.lastDeltaTime;
+                    if (snapToGround(*transform) || transform->y >= enemy->spawnY)
+                    {
+                        transform->y = enemy->spawnY;
+                        boss->introDropActive = false;
+                        bossVelocityY = 0.0f;
+                    }
+                }
+                UpdateShieldBossSpriteAnimation(*entity, *boss);
+                if (!boss->introDropActive && !boss->appearAnimationActive && !boss->roarPlayed)
+                {
+                    boss->roarPlayed = true;
+                    boss->roarAnimationActive = true;
+                    boss->stateTimer = 0.0f;
+                    playShieldBossRoar(*entity);
+                    UpdateShieldBossSpriteAnimation(*entity, *boss);
+                }
+                continue;
+            }
+
+            if (boss->roarAnimationActive)
+            {
+                if (shieldTint)
+                {
+                    shieldTint->a = 0.0f;
+                }
+                UpdateShieldBossSpriteAnimation(*entity, *boss);
+                continue;
+            }
 
             auto isBossNearWall = [&]() -> bool
             {
@@ -2197,7 +2388,7 @@ inline void UpdateEnemies(
 
             auto wouldJumpAttackRiskWall = [&](float plannedTargetX) -> bool
             {
-                const float shieldWidth = kTileSize * 3.0f;
+                const float shieldWidth = kShieldWidth;
                 const float minX = boss->facing == ShieldBossFacing::Right
                     ? plannedTargetX
                     : plannedTargetX - shieldWidth;
@@ -2273,6 +2464,35 @@ inline void UpdateEnemies(
                 }
             };
 
+            auto spawnSlamImpact = [&]()
+            {
+                if (!(shieldComp && shieldTransform))
+                {
+                    return;
+                }
+
+                const float shockW = kTileSize * 8.0f;
+                const float shockH = kTileSize * 3.0f;
+                auto shockwave = std::make_unique<Entity>();
+                shockwave->AddComponent<TagComponent>("BossShockwave");
+                const float shockGroundY = shieldTransform->y + shieldTransform->height * shieldTransform->scale;
+                shockwave->AddComponent<TransformComponent>(
+                    shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f - shockW * 0.5f,
+                    shockGroundY - kTileSize * 2.0f,
+                    shockW,
+                    shockH);
+                shockwave->AddComponent<TintComponent>(0.18f, 0.95f, 1.0f, 0.75f);
+                shockwave->AddComponent<SpriteRenderComponent>(tileTexture);
+                auto& shockComp = shockwave->AddComponent<ShieldShockwaveComponent>();
+                shockComp.ownerBoss = entity;
+                shockComp.damage = 1;
+                shockComp.lifetime = 0.25f;
+                newShields.push_back(std::move(shockwave));
+
+                shieldComp->contactDamage = 0;
+                removeObjectsUnderShield();
+            };
+
             auto startBossKnockback = [&](float direction)
             {
                 boss->knockbackActive = true;
@@ -2288,8 +2508,8 @@ inline void UpdateEnemies(
                     shieldComp->velocityY = 0.0f;
                     shieldComp->rotationSpeed = 0.0f;
                     shieldComp->gravityEnabled = false;
-                    shieldTransform->width = kTileSize * 1.0f;
-                    shieldTransform->height = kTileSize * 3.0f;
+                    shieldTransform->width = kShieldWidth;
+                    shieldTransform->height = kShieldHeight;
                     shieldTransform->rotation = 0.0f;
                 }
             };
@@ -2324,8 +2544,8 @@ inline void UpdateEnemies(
                     shieldComp->velocityY = 0.0f;
                     shieldComp->rotationSpeed = 0.0f;
                     shieldComp->gravityEnabled = false;
-                    shieldTransform->width = kTileSize * 1.0f;
-                    shieldTransform->height = kTileSize * 3.0f;
+                    shieldTransform->width = kShieldWidth;
+                    shieldTransform->height = kShieldHeight;
                     shieldTransform->rotation = 0.0f;
                 }
                 if (!shieldComp->attached)
@@ -2334,13 +2554,26 @@ inline void UpdateEnemies(
                 }
                 const float shieldW = shieldTransform->width * shieldTransform->scale;
                 const float shieldH = shieldTransform->height * shieldTransform->scale;
+                const auto getGuardOverlapX = [&]() -> float
+                {
+                    if (boss->state == ShieldBossState::Idle ||
+                        boss->state == ShieldBossState::Detect ||
+                        boss->state == ShieldBossState::Rush ||
+                        boss->state == ShieldBossState::RushCooldown ||
+                        boss->state == ShieldBossState::Cooldown)
+                    {
+                        return kShieldWidth * 2.5f;
+                    }
+                    return kShieldWidth * 1.5f;
+                };
+                const float guardOverlapX = getGuardOverlapX();
                 ApplyBossShieldGuardTint(boss->shieldEntity, shieldTint);
 
                 if (boss->state == ShieldBossState::JumpAscend)
                 {
                     shieldTransform->x = boss->facing == ShieldBossFacing::Right
-                        ? transform->x + bossWidth
-                        : transform->x - shieldW;
+                        ? transform->x + bossWidth - guardOverlapX
+                        : transform->x - shieldW + guardOverlapX;
                     shieldTransform->y = transform->y - shieldH;
                 }
                 else if (boss->state == ShieldBossState::AirHover)
@@ -2351,15 +2584,15 @@ inline void UpdateEnemies(
                 else if (boss->state == ShieldBossState::Rush)
                 {
                     shieldTransform->x = boss->facing == ShieldBossFacing::Right
-                        ? transform->x + bossWidth
-                        : transform->x - shieldW;
+                        ? transform->x + bossWidth - guardOverlapX
+                        : transform->x - shieldW + guardOverlapX;
                     shieldTransform->y = transform->y;
                 }
                 else
                 {
                     shieldTransform->x = boss->facing == ShieldBossFacing::Right
-                        ? transform->x + bossWidth
-                        : transform->x - shieldW;
+                        ? transform->x + bossWidth - guardOverlapX
+                        : transform->x - shieldW + guardOverlapX;
                     shieldTransform->y = transform->y;
                     shieldTransform->rotation = 0.0f;
                 }
@@ -2391,11 +2624,18 @@ inline void UpdateEnemies(
             if (boss->state == ShieldBossState::Rush)
             {
                 const float dir = boss->facing == ShieldBossFacing::Right ? 1.0f : -1.0f;
-                transform->x += dir * boss->rushSpeed * flow.lastDeltaTime;
+                const int attackFrame = getAttackFrame("attack01");
+                const bool rushBoostActive =
+                    attackFrame >= kAttack01BoostStartFrame &&
+                    attackFrame <= kAttack01BoostEndFrame;
+                if (rushBoostActive)
+                {
+                    transform->x += dir * boss->rushSpeed * flow.lastDeltaTime;
+                }
                 syncAttachedShieldToBoss();
 
                 bool hitPlayer = false;
-                if (playerTransform)
+                if (rushBoostActive && playerTransform)
                 {
                     hitPlayer = IntersectsBounds(*transform, *playerTransform)
                         || (shieldTransform && IntersectsBounds(*shieldTransform, *playerTransform));
@@ -2404,7 +2644,7 @@ inline void UpdateEnemies(
                 const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
                 const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
                 bool hitWall = false;
-                if (boss->facing == ShieldBossFacing::Right)
+                if (rushBoostActive && boss->facing == ShieldBossFacing::Right)
                 {
                     const int column = static_cast<int>((transform->x + bossWidth) / kTileSize);
                     for (int row = rowTop; row <= rowBottom; ++row)
@@ -2417,7 +2657,7 @@ inline void UpdateEnemies(
                         }
                     }
                 }
-                else
+                else if (rushBoostActive)
                 {
                     const int column = static_cast<int>(transform->x / kTileSize);
                     for (int row = rowTop; row <= rowBottom; ++row)
@@ -2431,7 +2671,8 @@ inline void UpdateEnemies(
                     }
                 }
 
-                Entity* hitObject = findHitNonWallObject();
+                Entity* hitObject = rushBoostActive ? findHitNonWallObject() : nullptr;
+                const bool rushClipFinished = attackFrame >= kAttack01EndFrame;
                 if (hitPlayer || hitObject)
                 {
                         if (hitObject && HasTag(*hitObject, "PhotoBox") &&
@@ -2446,12 +2687,20 @@ inline void UpdateEnemies(
                     syncAttachedShieldToBoss();
                     rushEndedThisFrame = true;
                 }
-                else if (hitWall || checkPhotoBoxCollision(*transform, *entity))
+                else if (hitWall || (rushBoostActive && checkPhotoBoxCollision(*transform, *entity)))
                 {
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
                     startBossKnockback(dir);
+                    syncAttachedShieldToBoss();
+                    rushEndedThisFrame = true;
+                }
+                else if (rushClipFinished)
+                {
+                    boss->rushCount++;
+                    boss->state = ShieldBossState::RushCooldown;
+                    boss->stateTimer = 0.0f;
                     syncAttachedShieldToBoss();
                     rushEndedThisFrame = true;
                 }
@@ -2482,24 +2731,24 @@ inline void UpdateEnemies(
 
             if (boss->state == ShieldBossState::JumpAscend)
             {
+                showShieldDuringAttack02();
+                const int attackFrame = getAttackFrame("attack02");
                 const float jumpHeightPx = boss->jumpHeight * kTileSize;
-                const float ascendProgress = std::min(1.0f, boss->stateTimer / boss->jumpAscendDuration);
+                const float ascendProgress = std::min(1.0f,
+                    static_cast<float>(attackFrame) / static_cast<float>(kAttack02AscendEndFrame));
                 const float easedProgress = std::sin(ascendProgress * 3.1415926f * 0.5f);
                 transform->y = boss->targetY - jumpHeightPx * easedProgress;
 
-                const float targetDx = boss->targetX - transform->x;
-                if (std::fabs(targetDx) > 2.0f)
-                {
-                    transform->x += targetDx * std::min(1.0f, flow.lastDeltaTime * 6.0f);
-                }
+                transform->x = transform->x + (boss->targetX - transform->x) * std::min(1.0f, flow.lastDeltaTime * 6.0f);
+                applyAttack02ShieldSheetAnchor(attackFrame);
 
                 boss->stateTimer += flow.lastDeltaTime;
-                if (boss->stateTimer >= boss->jumpAscendDuration)
+                if (attackFrame >= kAttack02AscendEndFrame)
                 {
                     if (shieldComp && shieldTransform)
                     {
                         boss->hoverShieldX = shieldTransform->x;
-                        boss->hoverShieldY = boss->targetY - jumpHeightPx;
+                        boss->hoverShieldY = shieldTransform->y;
                         shieldComp->attached = false;
                         shieldComp->gravityEnabled = false;
                         shieldComp->velocityX = 0.0f;
@@ -2507,6 +2756,7 @@ inline void UpdateEnemies(
                         shieldComp->rotationSpeed = 0.0f;
                         shieldTransform->x = boss->hoverShieldX;
                         shieldTransform->y = boss->hoverShieldY;
+                        shieldTransform->rotation = 0.0f;
                     }
                     boss->state = ShieldBossState::AirHover;
                     boss->stateTimer = 0.0f;
@@ -2516,9 +2766,31 @@ inline void UpdateEnemies(
 
             if (boss->state == ShieldBossState::AirHover)
             {
+                showShieldDuringAttack02();
                 boss->stateTimer += flow.lastDeltaTime;
-                if (boss->stateTimer >= boss->airHoverDuration)
+                if (shieldTransform)
                 {
+                    const int attackFrame = getAttackFrame("attack02");
+                    applyAttack02ShieldSheetAnchor(attackFrame);
+                }
+                if (getAttackFrame("attack02") >= kAttack02ShieldDropStartFrame)
+                {
+                    if (auto* shieldSprite = boss->shieldEntity
+                        ? boss->shieldEntity->GetComponent<SpriteRenderComponent>()
+                        : nullptr)
+                    {
+                        boss->slamShieldRenderOffsetX = shieldSprite->GetRenderOffsetX();
+                        boss->slamShieldRenderOffsetY = shieldSprite->GetRenderOffsetY();
+                        boss->slamShieldVisualLocked = true;
+                    }
+                    if (auto* shieldAnimation = boss->shieldEntity
+                        ? boss->shieldEntity->GetComponent<SpriteSheetAnimationComponent>()
+                        : nullptr)
+                    {
+                        shieldAnimation->Play("attack02");
+                        shieldAnimation->SetCurrentLocalFrameIndex(kAttack02ShieldDropFrame);
+                        shieldAnimation->SetPlaybackSpeed(0.0f);
+                    }
                     boss->state = ShieldBossState::JumpDescend;
                     boss->stateTimer = 0.0f;
                 }
@@ -2526,6 +2798,7 @@ inline void UpdateEnemies(
             }
             if (boss->state == ShieldBossState::JumpDescend)
             {
+                showShieldDuringAttack02();
                 if (!(shieldComp && shieldTransform))
                 {
                     boss->state = ShieldBossState::Cooldown;
@@ -2533,34 +2806,33 @@ inline void UpdateEnemies(
                     continue;
                 }
 
-                shieldTransform->y += boss->descendSpeed * flow.lastDeltaTime;
+                const int attackFrame = getAttackFrame("attack02");
+                const float descentProgress = std::clamp(
+                    static_cast<float>(attackFrame - kAttack02ShieldDropStartFrame) /
+                    static_cast<float>(kAttack02ImpactFrame - kAttack02ShieldDropStartFrame),
+                    0.0f,
+                    1.0f);
+                const bool impactFrameReached = attackFrame >= kAttack02ImpactFrame;
+                const float preImpactProgress = impactFrameReached
+                    ? 1.0f
+                    : std::min(descentProgress, 0.88f);
+                const float easedDescent = preImpactProgress * preImpactProgress * (3.0f - 2.0f * preImpactProgress);
+                const float slamTargetY = boss->targetY;
+                const float slamWindupY = boss->hoverShieldY;
+                shieldTransform->x = boss->hoverShieldX;
+                shieldTransform->y = impactFrameReached
+                    ? slamTargetY
+                    : slamWindupY + (slamTargetY - slamWindupY) * easedDescent;
+                // 空中で構えた盾の向きを保ったまま、衝撃波フレームまで縦に落とす。
 
-                const float shieldW = shieldTransform->width * shieldTransform->scale;
-                const float shieldH = shieldTransform->height * shieldTransform->scale;
-                const float feetY = shieldTransform->y + shieldH;
-                const int bottomRow = static_cast<int>(feetY / kTileSize);
-                const int leftCol = static_cast<int>((shieldTransform->x + 4.0f) / kTileSize);
-                const int rightCol = static_cast<int>((shieldTransform->x + shieldW - 4.0f) / kTileSize);
-
-                bool onGround = false;
-                for (int col = leftCol; col <= rightCol; ++col)
-                {
-                    if (isSolidTile(col, bottomRow))
-                    {
-                        shieldTransform->y = static_cast<float>(bottomRow) * kTileSize - shieldH;
-                        onGround = true;
-                        break;
-                    }
-                }
-
-                if (onGround)
+                if (impactFrameReached)
                 {
                     bossVelocityY = 0.0f;
                     transform->rotation = 0.0f;
-                    transform->y = boss->targetY;
+                    shieldTransform->y = slamTargetY;
+                    boss->hoverShieldX = shieldTransform->x;
+                    boss->hoverShieldY = shieldTransform->y;
 
-                    const float slamW = kTileSize * 5.0f;
-                    const float slamH = kTileSize * 1.0f;
                     shieldComp->attached = false;
                     shieldComp->attackType = ShieldAttackType::Slam;
                     shieldComp->contactDamage = 2;
@@ -2568,9 +2840,8 @@ inline void UpdateEnemies(
                     shieldComp->velocityX = 0.0f;
                     shieldComp->velocityY = 0.0f;
                     shieldComp->rotationSpeed = 0.0f;
-                    shieldTransform->width = slamW;
-                    shieldTransform->height = slamH;
-                    shieldTransform->x -= (slamW - shieldW) * 0.5f;
+                    shieldTransform->width = kShieldWidth;
+                    shieldTransform->height = kShieldHeight;
                     removeObjectsUnderShield();
                     if (shieldTint)
                     {
@@ -2580,8 +2851,19 @@ inline void UpdateEnemies(
                         shieldTint->a = 1.0f;
                     }
 
-                    boss->state = ShieldBossState::SlamPhase1;
+                    spawnSlamImpact();
+                    if (shieldTint)
+                    {
+                        shieldTint->a = 0.0f;
+                    }
+                    boss->slamShieldVisualLocked = false;
+                    boss->state = ShieldBossState::SlamPhase2;
                     boss->stateTimer = 0.0f;
+                    boss->jumpStartY = transform->y;
+                    if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
+                    {
+                        animation->Play("move", true);
+                    }
                 }
                 continue;
             }
@@ -2596,11 +2878,27 @@ inline void UpdateEnemies(
                     const bool firstDetect = !boss->combatStarted;
                     boss->combatStarted = true;
                     boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
-                    if (firstDetect && !boss->roarPlayed)
+                    if (firstDetect && !boss->appearAnimationFinished)
                     {
-                        boss->roarPlayed = true;
-                        boss->roarAnimationActive = true;
-                        playShieldBossRoar(*entity);
+                        if (auto* tint = entity->GetComponent<TintComponent>())
+                        {
+                            tint->a = 1.0f;
+                        }
+                        if (shieldTint)
+                        {
+                            shieldTint->a = 0.0f;
+                        }
+                        transform->y = enemy->spawnY - kIntroDropHeight;
+                        bossVelocityY = 0.0f;
+                        boss->introDropActive = true;
+                        boss->appearAnimationActive = true;
+                        boss->appearAnimationFinished = false;
+                        boss->roarPlayed = false;
+                        boss->roarAnimationActive = false;
+                        if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
+                        {
+                            animation->Play("appear", true);
+                        }
                     }
                     UpdateShieldBossSpriteAnimation(*entity, *boss);
                     boss->state = ShieldBossState::Detect;
@@ -2646,8 +2944,8 @@ inline void UpdateEnemies(
                             shieldComp->contactDamage = 1;
                             if (shieldTransform)
                             {
-                                shieldTransform->width = kTileSize * 1.0f;
-                                shieldTransform->height = kTileSize * 3.0f;
+                                shieldTransform->width = kShieldWidth;
+                                shieldTransform->height = kShieldHeight;
                                 shieldTransform->rotation = 0.0f;
                             }
                         }
@@ -2658,7 +2956,7 @@ inline void UpdateEnemies(
                         boss->rushCount = 0;
                         const float playerCenterX = playerTransform->x
                             + playerTransform->width * playerTransform->scale * 0.5f;
-                        const float jumpShieldWidth = kTileSize * 3.0f;
+                        const float jumpShieldWidth = kShieldWidth;
                         const float plannedTargetX = boss->facing == ShieldBossFacing::Right
                             ? playerCenterX - bossWidth - jumpShieldWidth * 0.5f
                             : playerCenterX + jumpShieldWidth * 0.5f;
@@ -2683,6 +2981,19 @@ inline void UpdateEnemies(
                         bossVelocityX = 0.0f;
                         boss->state = ShieldBossState::JumpAscend;
                         boss->stateTimer = 0.0f;
+                        boss->slamShieldVisualLocked = false;
+                        showShieldDuringAttack02();
+                        if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
+                        {
+                            animation->Play("attack02", true);
+                        }
+                    if (auto* shieldAnimation = boss->shieldEntity
+                        ? boss->shieldEntity->GetComponent<SpriteSheetAnimationComponent>()
+                        : nullptr)
+                    {
+                        shieldAnimation->SetPlaybackSpeed(1.0f);
+                        shieldAnimation->Play("attack02", true);
+                    }
 
                         if (shieldComp && shieldTransform)
                         {
@@ -2694,46 +3005,52 @@ inline void UpdateEnemies(
                             shieldComp->gravityEnabled = false;
                             shieldComp->baseAttackElapsed = 0.0f;
                             shieldComp->contactDamage = 1;
-                            shieldTransform->width = kTileSize * 3.0f;
-                            shieldTransform->height = kTileSize * 1.0f;
+                            shieldTransform->width = kShieldWidth;
+                            shieldTransform->height = kShieldHeight;
                             shieldTransform->rotation = 0.0f;
                         }
                     }
                 }
                 break;
             case ShieldBossState::SlamPhase1:
-                if (boss->stateTimer >= boss->slamPhase1Duration)
+                spawnSlamImpact();
+                if (shieldTint)
                 {
-                    if (shieldComp && shieldTransform)
-                    {
-                        const float shockW = kTileSize * 8.0f;
-                        const float shockH = kTileSize * 3.0f;
-                        auto shockwave = std::make_unique<Entity>();
-                        shockwave->AddComponent<TagComponent>("BossShockwave");
-                        const float shockGroundY = shieldTransform->y + shieldTransform->height * shieldTransform->scale;
-                        shockwave->AddComponent<TransformComponent>(
-                            shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f - shockW * 0.5f,
-                            shockGroundY - kTileSize * 2.0f,
-                            shockW,
-                            shockH);
-                        shockwave->AddComponent<TintComponent>(0.18f, 0.95f, 1.0f, 0.75f);
-                        shockwave->AddComponent<SpriteRenderComponent>(tileTexture);
-                        auto& shockComp = shockwave->AddComponent<ShieldShockwaveComponent>();
-                        shockComp.ownerBoss = entity;
-                        shockComp.damage = 1;
-                        shockComp.lifetime = 0.25f;
-                        newShields.push_back(std::move(shockwave));
-
-                        shieldComp->contactDamage = 0;
-                    }
-                    boss->state = ShieldBossState::SlamPhase2;
-                    boss->stateTimer = 0.0f;
+                    shieldTint->a = 0.0f;
+                }
+                boss->slamShieldVisualLocked = false;
+                boss->state = ShieldBossState::SlamPhase2;
+                boss->stateTimer = 0.0f;
+                if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
+                {
+                    animation->Play("move", true);
                 }
                 break;
 
             case ShieldBossState::SlamPhase2:
-                if (boss->stateTimer >= boss->slamPhase2Duration + 0.3f)
                 {
+                    if (shieldTint)
+                    {
+                        shieldTint->a = 0.0f;
+                    }
+                    const float returnProgress = std::min(1.0f, boss->stateTimer / kAttack02BossReturnSeconds);
+                    const float easedReturn = returnProgress * returnProgress * (3.0f - 2.0f * returnProgress);
+                    transform->y = boss->jumpStartY + (boss->targetY - boss->jumpStartY) * easedReturn;
+                    if (shieldTransform)
+                    {
+                        const float shieldW = shieldTransform->width * shieldTransform->scale;
+                        const float guardOverlapX = kShieldWidth * 1.5f;
+                        const float guardX = boss->facing == ShieldBossFacing::Right
+                            ? transform->x + bossWidth - guardOverlapX
+                            : transform->x - shieldW + guardOverlapX;
+                        shieldTransform->x = boss->hoverShieldX + (guardX - boss->hoverShieldX) * easedReturn;
+                        shieldTransform->y = boss->hoverShieldY + (transform->y - boss->hoverShieldY) * easedReturn;
+                        shieldTransform->rotation = 0.0f;
+                    }
+                }
+                if (boss->stateTimer >= kAttack02BossReturnSeconds)
+                {
+                    transform->y = boss->targetY;
                     boss->state = ShieldBossState::Cooldown;
                     boss->stateTimer = 0.0f;
                     if (shieldComp)
@@ -2747,11 +3064,18 @@ inline void UpdateEnemies(
                         shieldComp->rotationSpeed = 0.0f;
                         if (shieldTransform)
                         {
-                            shieldTransform->width = kTileSize * 1.0f;
-                            shieldTransform->height = kTileSize * 3.0f;
+                            shieldTransform->width = kShieldWidth;
+                            shieldTransform->height = kShieldHeight;
                             shieldTransform->rotation = 0.0f;
                         }
                         ApplyBossShieldGuardTint(boss->shieldEntity, shieldTint);
+                        boss->slamShieldVisualLocked = false;
+                        if (auto* shieldAnimation = boss->shieldEntity
+                            ? boss->shieldEntity->GetComponent<SpriteSheetAnimationComponent>()
+                            : nullptr)
+                        {
+                            shieldAnimation->SetPlaybackSpeed(1.0f);
+                        }
                     }
                 }
                 break;
