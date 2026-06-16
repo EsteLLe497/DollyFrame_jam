@@ -1878,7 +1878,6 @@ void GameScene::DrawBackdrop() const
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-// DrawBackdropBaseInView を置き換える（該当関数全体）
 void GameScene::DrawBackdropBaseInView(
     float viewOriginX,
     float viewOriginY,

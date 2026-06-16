@@ -320,7 +320,7 @@ private:
 
     int m_cameraFixedLockNum = -1;
     void ActivateCameraRange(int cameraNum);
-    std::vector<CameraZoomMarker> m_zoomMarkers;
+    //std::vector<CameraZoomMarker> m_zoomMarkers;
     void RecalculateViewScale();
     bool m_isZoomed = false;
     float m_zoomedViewWidth = 2560.0f;

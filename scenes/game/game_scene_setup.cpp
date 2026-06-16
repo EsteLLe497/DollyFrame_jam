@@ -362,7 +362,7 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
     m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/ruins1.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/ruins.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -846,6 +846,7 @@ void GameScene::InitializeStageEntities()
         // CSV 名に "forest" または "ruins" を含めて識別しているとのことなのでそれに合わせる
 		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };//マップのCSVファイル名に "ruins" を含む場合は廃墟の背景と前景を使用
         if (stem.find("forest") != std::string::npos) return { "sinrin10", "sinrin11" };
+        if (stem.find("under") != std::string::npos) return { "under_bg", "under_fg" };
         // デフォルト
         return { "sinrin10", "sinrin11" };
     };

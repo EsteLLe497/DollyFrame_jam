@@ -163,6 +163,15 @@
     "ruins_fg": {
       "type": "file",
       "path": "assets/texture/BG/ruins/ruins.png"
+    },
+
+    "under_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/underground/under.png"
+    },
+    "under_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/underground/under.png"
     }
 
   }
