@@ -507,6 +507,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
 
     scene.m_photo.capture.items.clear();
     scene.m_photo.capture.containsEnemyAttackPaste = false;
+    scene.m_photo.capture.attackCaptureCount = 0;
     float capturedMaxRight = 0.0f;
     float capturedMaxBottom = 0.0f;
     CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom, restoredSepiaBackground);
@@ -870,6 +871,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 item.sourceTileValue = tileValue;
 
                 scene.m_photo.capture.items.push_back(item);
+                scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
                 capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
                 capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
                 continue;
@@ -893,6 +895,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     item.sourceHeight = sprite->GetSourceHeight() * localHeight;
                     
                     scene.m_photo.capture.items.push_back(item);
+                    scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
                     scene.m_photo.capture.containsEnemyAttackPaste =
                         scene.m_photo.capture.containsEnemyAttackPaste || item.enemyAttackPaste;
 
@@ -1065,6 +1068,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             capturedWalker ||
             capturedShieldAttack ||
             capturedLaserTurret ||
+            capturedMidBoss2Spear ||
             midBoss3Fist != nullptr ||
             capturedMidBoss3FistRubble ||
             capturedMidBoss3DrillRubble;
@@ -1205,11 +1209,19 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     continue;
                 }
                 capturedMidBoss2Spear = true;
+                item.enemyAttackPaste = true;
                 item.spearProjectile = true;
                 item.spearStuck = spear->stuck;
                 item.spearDirectionX = spear->stuck ? spear->directionX : spear->targetDirectionX;
                 item.spearDirectionY = spear->stuck ? spear->directionY : spear->targetDirectionY;
                 item.spearTravelDistance = spear->travelDistance;
+                Logger::Info(
+                    std::string("Captured MidBoss2 spear: stuck=") +
+                    (spear->stuck ? "1" : "0") +
+                    " travel=" + std::to_string(spear->travelDistance) +
+                    " dirX=" + std::to_string(item.spearDirectionX) +
+                    " dirY=" + std::to_string(item.spearDirectionY) +
+                    " projectileDamage=" + std::to_string(item.projectileDamage));
                 if (std::fabs(item.spearDirectionX) > 0.0001f || std::fabs(item.spearDirectionY) > 0.0001f)
                 {
                     item.rotation = std::atan2(item.spearDirectionY, item.spearDirectionX);
@@ -1279,6 +1291,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }
         scene.m_photo.capture.items.push_back(item);
+        scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
         if (capturedMidBoss3FistRubble)
         {
             capturedMidBoss3FistRubbleAttack = true;
@@ -1295,6 +1308,14 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         scene.m_photo.capture.containsEnemyAttackPaste =
             scene.m_photo.capture.containsEnemyAttackPaste || item.enemyAttackPaste;
+        if (item.enemyAttackPaste)
+        {
+            Logger::Info(
+                std::string("Captured attack item appended: archetype=") +
+                std::to_string(static_cast<int>(item.spawnArchetype)) +
+                " attackCount=" + std::to_string(scene.m_photo.capture.attackCaptureCount) +
+                " containsEnemyAttackPaste=" + (scene.m_photo.capture.containsEnemyAttackPaste ? "1" : "0"));
+        }
         capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
         capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
         if (capturedVanishObject)
@@ -1373,6 +1394,7 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
             GetTileCaptureTint(tileValue, item.tintR, item.tintG, item.tintB, item.tintA);
             item.sourceTileValue = tileValue;
             scene.m_photo.capture.items.push_back(item);
+            scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
             capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
             capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
         }
@@ -1397,6 +1419,14 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     scene.m_photo.capture.tintG = scene.m_photo.capture.items.front().tintG;
     scene.m_photo.capture.tintB = scene.m_photo.capture.items.front().tintB;
     scene.m_photo.capture.tintA = scene.m_photo.capture.items.front().tintA;
+    if (scene.m_photo.capture.containsEnemyAttackPaste)
+    {
+        Logger::Info(
+            std::string("FinalizeCapturedPhoto attack capture: items=") +
+            std::to_string(scene.m_photo.capture.items.size()) +
+            " attackCount=" + std::to_string(scene.m_photo.capture.attackCaptureCount) +
+            " theme=" + std::to_string(static_cast<int>(scene.m_photo.capture.capturedTheme)));
+    }
     scene.StoreCapturedPhoto();
 
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });

@@ -106,6 +106,7 @@ private:
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
     void UpdateFallingRocks(float deltaTime);
+    void UpdateJumpPads(float deltaTime);
     void UpdateBatteries(float deltaTime);
     void UpdateLaserTurrets(float deltaTime);
     void UpdateSingleBattery(
@@ -152,6 +153,7 @@ private:
     void RefreshEnemiesFromMarkers();
     void RefreshBatteriesFromMarkers();
     void RefreshLogsFromMarkers();
+    void RefreshJumpPadsFromMarkers();
     void RefreshMarkerLightsFromMarkers();
     void RefreshStageLightsFromMarkers();
     void RefreshLaserTurretsFromMarkers();
@@ -212,6 +214,7 @@ private:
     void RespawnPlayer(Entity& player);
     void StartPitRestart(Entity* player, const char* logMessage);
     void SpawnBarrelBreakEffect(float x, float y, float width, float height);
+    void SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height);
     void QueueResult(GameEndReason reason);
 
     // Effects / UI overlays
@@ -233,6 +236,7 @@ private:
     void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
     void DrawPartsHud() const;
+    void DrawMidBoss2HpBar() const;
     void DrawMidBoss3HpBar() const;
     void DrawAttackCaptureSlot() const;
     void DrawMerchantPrompts() const;

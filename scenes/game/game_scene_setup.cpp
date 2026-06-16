@@ -175,6 +175,7 @@ namespace
         root["printed_photo_min_height"] = gPrintedPhotoMinHeight;
         root["printed_photo_matte_inset"] = gPrintedPhotoMatteInset;
         root["pickup_time_bonus"] = gPickupTimeBonus;
+        root["jump_pad_max_tilt_degrees"] = gJumpPadMaxTiltDegrees;
         return root;
     }
 
@@ -434,6 +435,7 @@ namespace game_scene_detail
         gPrintedPhotoMinHeight = root.value("printed_photo_min_height", gPrintedPhotoMinHeight);
         gPrintedPhotoMatteInset = root.value("printed_photo_matte_inset", gPrintedPhotoMatteInset);
         gPickupTimeBonus = root.value("pickup_time_bonus", gPickupTimeBonus);
+        gJumpPadMaxTiltDegrees = root.value("jump_pad_max_tilt_degrees", gJumpPadMaxTiltDegrees);
     }
 }
 
@@ -478,7 +480,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest_boss.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins1.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -955,6 +957,7 @@ void GameScene::InitializeStageEntities()
     }
 
     RefreshLogsFromMarkers();
+    RefreshJumpPadsFromMarkers();
     ReflashFallingRockfromMarkers();
     RefreshMarkerLightsFromMarkers();
     RefreshStageLightsFromMarkers();

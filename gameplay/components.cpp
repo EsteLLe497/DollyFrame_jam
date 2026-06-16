@@ -154,6 +154,34 @@ void FallingRockComponent::DrawDebugUI()
     ImGui::Text("Rubble Active: %s", rubbleActive ? "Yes" : "No");
 }
 
+JumpPadComponent::JumpPadComponent(
+    float maxTiltRadians,
+    float tiltSpeed,
+    float returnSpeed,
+    float baseLaunchVelocity,
+    float fallDistanceLaunchScale,
+    float maxLaunchVelocity)
+    : maxTiltRadians((std::max)(0.0f, maxTiltRadians))
+    , tiltSpeed((std::max)(0.0f, tiltSpeed))
+    , returnSpeed((std::max)(0.0f, returnSpeed))
+    , baseLaunchVelocity(baseLaunchVelocity)
+    , fallDistanceLaunchScale((std::max)(0.0f, fallDistanceLaunchScale))
+    , maxLaunchVelocity(maxLaunchVelocity)
+{
+}
+
+void JumpPadComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("JumpPad");
+    ImGui::Text("Tilt: %.3f / %.3f", tilt, targetTilt);
+    ImGui::Text("Load L/R: %.1f / %.1f", leftLoad, rightLoad);
+    ImGui::Text("Rock Fall: %.1f", lastRockFallDistance);
+    ImGui::Text("Edge Rock Grace: %.2f", edgeRockContactGrace);
+    ImGui::Text("Edge Rock Side: %d", edgeRockSide);
+    ImGui::Text("Launch Consumed: %s", launchConsumed ? "Yes" : "No");
+    ImGui::Text("Board Grounded: %s", boardGrounded ? "Yes" : "No");
+}
+
 BatteryComponent::BatteryComponent(
     float gravityValue,
     float maxFallSpeedValue,

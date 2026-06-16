@@ -13,6 +13,37 @@
 
 using namespace game_scene_detail;
 
+namespace
+{
+    int GetAttackCaptureCount(const PhotoCaptureState& capture)
+    {
+        if (capture.attackCaptureCount > 0)
+        {
+            return capture.attackCaptureCount;
+        }
+
+        const int countedItems = static_cast<int>(std::count_if(
+            capture.items.begin(),
+            capture.items.end(),
+            [](const CapturedPhotoItem& item)
+            {
+                return item.enemyAttackPaste;
+            }));
+        if (countedItems > 0)
+        {
+            return countedItems;
+        }
+
+        return capture.hasPhoto && capture.containsEnemyAttackPaste ? 1 : 0;
+    }
+
+    void PreserveSelectedTheme(PhotoCaptureState& capture, PhotoFilterTheme theme)
+    {
+        capture = PhotoCaptureState{};
+        capture.selectedTheme = theme;
+    }
+}
+
 void GameScene::UpdatePlayerAfterimages(float deltaTime)
 {
     game_scene_player_visual_system::UpdateAfterimages(m_player, deltaTime);
@@ -35,11 +66,27 @@ void GameScene::HandlePhotoSpawn()
 
 void GameScene::TryUseAttackCaptureSlot()
 {
-    if (!Input_IsActionPressed(InputAction::AttackPaste) ||
-        m_flow.cameraMode ||
+    const bool attackPastePressed = Input_IsActionPressed(InputAction::AttackPaste);
+    if (!attackPastePressed)
+    {
+        return;
+    }
+
+    Logger::Info(
+        std::string("AttackPaste pressed: cameraMode=") +
+        (m_flow.cameraMode ? "1" : "0") +
+        " placementActive=" + (m_photo.placement.active ? "1" : "0") +
+        " pasteActive=" + (m_player.pasteAnimationActive ? "1" : "0") +
+        " attackHasPhoto=" + (m_photo.attackCapture.hasPhoto ? "1" : "0") +
+        " attackContainsPaste=" + (m_photo.attackCapture.containsEnemyAttackPaste ? "1" : "0") +
+        " attackCount=" + std::to_string(GetAttackCaptureCount(m_photo.attackCapture)) +
+        " selectedCount=" + std::to_string(GetAttackCaptureCount(m_photo.capture)));
+
+    if (m_flow.cameraMode ||
         m_photo.placement.active ||
         m_player.pasteAnimationActive)
     {
+        Logger::Info("AttackPaste blocked: camera/placement/paste animation active");
         return;
     }
 
@@ -48,9 +95,14 @@ void GameScene::TryUseAttackCaptureSlot()
         if (m_photo.capture.hasPhoto && m_photo.capture.containsEnemyAttackPaste)
         {
             const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
+            const int existingCount = GetAttackCaptureCount(m_photo.attackCapture);
+            const int captureCount = GetAttackCaptureCount(m_photo.capture);
             m_photo.attackCapture = m_photo.capture;
-            m_photo.capture = PhotoCaptureState{};
-            m_photo.capture.selectedTheme = selectedTheme;
+            m_photo.attackCapture.attackCaptureCount = existingCount + captureCount;
+            PreserveSelectedTheme(m_photo.capture, selectedTheme);
+            Logger::Info(
+                std::string("AttackPaste promoted current capture: count=") +
+                std::to_string(m_photo.attackCapture.attackCaptureCount));
         }
         else if (m_photo.selectedCaptureSlot >= 0 &&
             m_photo.selectedCaptureSlot < static_cast<int>(m_photo.savedCaptures.size()) &&
@@ -59,23 +111,34 @@ void GameScene::TryUseAttackCaptureSlot()
         {
             m_photo.attackCapture = m_photo.savedCaptures[m_photo.selectedCaptureSlot];
             m_photo.savedCaptures[m_photo.selectedCaptureSlot] = PhotoCaptureState{};
+            Logger::Info(
+                std::string("AttackPaste loaded from saved slot: slot=") +
+                std::to_string(m_photo.selectedCaptureSlot) +
+                " count=" + std::to_string(GetAttackCaptureCount(m_photo.attackCapture)));
         }
     }
 
     if (!m_photo.attackCapture.hasPhoto || !m_photo.attackCapture.containsEnemyAttackPaste)
     {
+        Logger::Info("AttackPaste aborted: no enemy-attack capture available");
         return;
     }
+
+    // Keep the selected attack capture available to the normal paste flow.
+    // This lets the existing placement/spawn path handle Q-triggered attack shots.
+    m_photo.capture = m_photo.attackCapture;
 
     Entity* player = FindEntityByTag(kTagPlayer);
     if (!player)
     {
+        Logger::Warn("AttackPaste aborted: player entity not found");
         return;
     }
 
     const auto* playerTransform = player->GetComponent<TransformComponent>();
     if (!playerTransform)
     {
+        Logger::Warn("AttackPaste aborted: player transform missing");
         return;
     }
 
@@ -91,17 +154,38 @@ void GameScene::TryUseAttackCaptureSlot()
 
     if (!attackItem)
     {
+        Logger::Warn("AttackPaste aborted: enemy-attack item missing from capture");
         return;
     }
 
-    auto finishAttackUse = [&]()
+    auto finishAttackUse = [&](int remainingAttackCount = -1)
     {
+        const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
         m_player.captureAnimationActive = false;
         m_player.captureAnimationReleased = false;
         m_player.pasteAnimationActive = true;
         m_player.pasteAnimationEnemyAttack = true;
         m_player.pasteAnimationReleased = true;
-        m_photo.attackCapture = PhotoCaptureState{};
+        if (remainingAttackCount >= 0)
+        {
+            if (remainingAttackCount > 0)
+            {
+                PhotoCaptureState remainingCapture = m_photo.attackCapture;
+                remainingCapture.attackCaptureCount = remainingAttackCount;
+                m_photo.attackCapture = remainingCapture;
+                m_photo.capture = remainingCapture;
+            }
+            else
+            {
+                PreserveSelectedTheme(m_photo.attackCapture, selectedTheme);
+                PreserveSelectedTheme(m_photo.capture, selectedTheme);
+            }
+        }
+        else
+        {
+            PreserveSelectedTheme(m_photo.attackCapture, selectedTheme);
+            PreserveSelectedTheme(m_photo.capture, selectedTheme);
+        }
         m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Used captured attack", 0.0f, 0.0f });
     };
 
@@ -126,6 +210,57 @@ void GameScene::TryUseAttackCaptureSlot()
 
             const auto* enemy = candidate->GetComponent<EnemyComponent>();
             const auto* boss = candidate->GetComponent<MidBoss3Component>();
+            const auto* transform = candidate->GetComponent<TransformComponent>();
+            if (!enemy || !boss || !transform || !enemy->IsEnabled() || enemy->IsDefeated())
+            {
+                continue;
+            }
+
+            const float bossCenterX = transform->x + transform->width * transform->scale * 0.5f;
+            const float bossCenterY = transform->y + transform->height * transform->scale * 0.5f;
+            const float dx = bossCenterX - fromX;
+            const float dy = bossCenterY - fromY;
+            const float distanceSq = dx * dx + dy * dy;
+            if (distanceSq < bestDistanceSq)
+            {
+                bestDistanceSq = distanceSq;
+                bestBoss = candidate.get();
+            }
+        }
+
+        if (bestBoss)
+        {
+            const auto* transform = bestBoss->GetComponent<TransformComponent>();
+            const float bossCenterX = transform->x + transform->width * transform->scale * 0.5f;
+            const float bossCenterY = transform->y + transform->height * transform->scale * 0.5f;
+            const float dx = bossCenterX - fromX;
+            const float dy = bossCenterY - fromY;
+            const float length = std::max(0.001f, std::hypot(dx, dy));
+            return {
+                dx / length,
+                dy / length,
+                bossCenterX >= playerCenterX ? 1 : -1,
+            };
+        }
+
+        const int fallbackDirection = m_player.facingRight ? 1 : -1;
+        return { static_cast<float>(fallbackDirection), 0.0f, fallbackDirection };
+    };
+
+    const auto resolveAttackAimTowardMidBoss2 = [&](float fromX, float fromY) -> AttackAim
+    {
+        const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+        const Entity* bestBoss = nullptr;
+        float bestDistanceSq = std::numeric_limits<float>::max();
+        for (const auto& candidate : m_world.Entities())
+        {
+            if (!candidate)
+            {
+                continue;
+            }
+
+            const auto* enemy = candidate->GetComponent<EnemyComponent>();
+            const auto* boss = candidate->GetComponent<MidBoss2Component>();
             const auto* transform = candidate->GetComponent<TransformComponent>();
             if (!enemy || !boss || !transform || !enemy->IsEnabled() || enemy->IsDefeated())
             {
@@ -259,6 +394,56 @@ void GameScene::TryUseAttackCaptureSlot()
         }
         m_world.QueueSpawn(std::move(drillEntity));
         finishAttackUse();
+        return;
+    }
+
+    if (attackItem->spawnArchetype == CapturedSpawnArchetype::Projectile && attackItem->spearProjectile)
+    {
+        constexpr float kTileSize = 48.0f;
+        constexpr float kSpearLaunchDelay = 0.14f;
+        const float playerWidth = playerTransform->width * playerTransform->scale;
+        const float playerHeight = playerTransform->height * playerTransform->scale;
+        const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
+        const float spearW = attackItem->width > 0.0f ? attackItem->width : kTileSize;
+        const float spearH = attackItem->height > 0.0f ? attackItem->height : kTileSize * 2.0f;
+        const float kSpearSpawnGap = std::max(12.0f, playerHeight * 0.08f);
+        const float spearX = playerCenterX - spearW * 0.5f;
+        const float spearY = std::max(0.0f, playerTransform->y - spearH - kSpearSpawnGap);
+        const AttackAim fireAim = resolveAttackAimTowardMidBoss2(
+            spearX + spearW * 0.5f,
+            spearY + spearH * 0.5f);
+
+        auto spearEntity = std::make_unique<Entity>();
+        spearEntity->AddComponent<TagComponent>(kTagBullet);
+        spearEntity->AddComponent<TransformComponent>(spearX, spearY, spearW, spearH);
+        spearEntity->AddComponent<TintComponent>(attackItem->tintR, attackItem->tintG, attackItem->tintB, attackItem->tintA);
+        spearEntity->AddComponent<SpriteRenderComponent>(attackItem->textureId >= 0 ? attackItem->textureId : m_tileTexture);
+        spearEntity->AddComponent<ProjectileComponent>(0.0f, 0.0f, attackItem->projectileDamage, ProjectileComponent::Owner::Photo);
+        auto& spear = spearEntity->AddComponent<MidBoss2SpearComponent>();
+        spear.launched = false;
+        spear.stuck = false;
+        spear.directionX = fireAim.x;
+        spear.directionY = fireAim.y;
+        spear.targetDirectionX = fireAim.x;
+        spear.targetDirectionY = fireAim.y;
+        spear.launchDelay = kSpearLaunchDelay;
+        spear.launchTimer = 0.0f;
+        spear.fadeDuration = 1.0f;
+        spear.fadeRemaining = spear.fadeDuration;
+        spear.travelDistance = 0.0f;
+        if (auto* transform = spearEntity->GetComponent<TransformComponent>())
+        {
+            transform->rotation = std::atan2(fireAim.y, fireAim.x);
+        }
+        m_world.QueueSpawn(std::move(spearEntity));
+        Logger::Info(
+            std::string("AttackPaste spawned MidBoss2 spear: x=") +
+            std::to_string(spearX) +
+            " y=" + std::to_string(spearY) +
+            " dirX=" + std::to_string(fireAim.x) +
+            " dirY=" + std::to_string(fireAim.y) +
+            " countBefore=" + std::to_string(GetAttackCaptureCount(m_photo.attackCapture)));
+        finishAttackUse(std::max(0, GetAttackCaptureCount(m_photo.attackCapture) - 1));
         return;
     }
 
@@ -423,10 +608,13 @@ void GameScene::StoreCapturedPhoto()
 
     if (m_photo.capture.containsEnemyAttackPaste)
     {
+        const int existingCount = GetAttackCaptureCount(m_photo.attackCapture);
+        const int captureCount = GetAttackCaptureCount(m_photo.capture);
         const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
         // Enemy attacks use a dedicated one-slot inventory and never enter the photo tray.
         m_photo.attackCapture = m_photo.capture;
-        m_photo.capture = PhotoCaptureState{};
+        m_photo.attackCapture.attackCaptureCount = existingCount + captureCount;
+        m_photo.capture = PhotoCaptureState{}; 
         m_photo.capture.selectedTheme = selectedTheme;
         m_photo.pendingStore = PendingPhotoStoreState{};
         return;

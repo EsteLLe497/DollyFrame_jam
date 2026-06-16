@@ -26,7 +26,7 @@ void GameScene::UpdateEffects(float deltaTime)
         spark.life = std::max(0.0f, spark.life - deltaTime);
         spark.x += spark.velocityX * deltaTime;
         spark.y += spark.velocityY * deltaTime;
-        spark.velocityY += kBarrelDebrisGravity * deltaTime * 0.35f;
+        spark.velocityY += kBarrelDebrisGravity * deltaTime * spark.gravityScale;
     }
 
     m_effects.barrelDebris.erase(

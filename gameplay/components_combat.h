@@ -304,6 +304,8 @@ public:
     float hoverTargetY = 0.0f;
     float landingTargetX = 0.0f;
     float landingTargetY = 0.0f;
+    float beamTargetX = 0.0f;
+    float beamTargetY = 0.0f;
     float homeX = 0.0f;
     float homeY = 0.0f;
     bool initializedHome = false;
@@ -311,6 +313,7 @@ public:
     GameObject* beamTurretEntity = nullptr;
     GameObject* beamEntity = nullptr;
     bool captureWindowActive = false;
+    float teleportFlashRemaining = 0.0f;
 };
 
 class MidBoss2SpearComponent final : public MonoBehaviour

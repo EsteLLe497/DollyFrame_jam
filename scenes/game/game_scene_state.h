@@ -40,6 +40,10 @@ struct LaserSparkParticle
     float velocityY = 0.0f;
     float life = 0.0f;
     float maxLife = 0.0f;
+    float gravityScale = 0.35f;
+    float r = 1.0f;
+    float g = 0.76f;
+    float b = 0.28f;
 };
 
 struct CameraFlashState
@@ -227,6 +231,7 @@ struct GameSceneTuningState
     float barrelActivationPaddingX = 320.0f;
     float pastedObjectLifetimeSeconds = 10.0f;
     float pastedObjectPasteAnimationSeconds = 0.24f;
+    float jumpPadMaxTiltDegrees = 18.0f;
 };
 
 struct GameSceneLifecycleState

@@ -83,6 +83,38 @@ public:
     bool respawnWhenOffscreen = false;
     bool rubbleActive = false;
     float rubbleRemaining = 0.0f;
+    bool pendingJumpPadBreak = false;
+};
+
+class JumpPadComponent final : public MonoBehaviour
+{
+public:
+    JumpPadComponent(
+        float maxTiltRadians,
+        float tiltSpeed,
+        float returnSpeed,
+        float baseLaunchVelocity,
+        float fallDistanceLaunchScale,
+        float maxLaunchVelocity);
+
+    void DrawDebugUI() override;
+
+    float tilt = 0.0f;
+    float targetTilt = 0.0f;
+    float leftLoad = 0.0f;
+    float rightLoad = 0.0f;
+    float lastRockFallDistance = 0.0f;
+    float edgeRockContactGrace = 0.0f;
+    float edgeRockFallDistance = 0.0f;
+    int edgeRockSide = 0;
+    bool launchConsumed = false;
+    bool boardGrounded = false;
+    float maxTiltRadians = 0.0f;
+    float tiltSpeed = 0.0f;
+    float returnSpeed = 0.0f;
+    float baseLaunchVelocity = 0.0f;
+    float fallDistanceLaunchScale = 0.0f;
+    float maxLaunchVelocity = 0.0f;
 };
 
 class BatteryComponent final : public MonoBehaviour

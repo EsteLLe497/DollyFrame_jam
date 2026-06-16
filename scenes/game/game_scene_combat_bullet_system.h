@@ -397,6 +397,52 @@ inline void UpdateBullets(
 
         if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
         {
+            if (projectile->GetOwner() == ProjectileComponent::Owner::Photo &&
+                spear->launched &&
+                !spear->stuck)
+            {
+                Entity* targetBoss = nullptr;
+                float bestDistanceSq = std::numeric_limits<float>::max();
+                const float spearCenterX = transform->x + transform->width * transform->scale * 0.5f;
+                const float spearCenterY = transform->y + transform->height * transform->scale * 0.5f;
+                for (Entity* target : enemyEntities)
+                {
+                    if (!target)
+                    {
+                        continue;
+                    }
+
+                    const auto* enemy = target->GetComponent<EnemyComponent>();
+                    const auto* boss = target->GetComponent<MidBoss2Component>();
+                    const auto* targetTransform = target->GetComponent<TransformComponent>();
+                    if (!enemy || !boss || !targetTransform || !enemy->IsEnabled() || enemy->IsDefeated())
+                    {
+                        continue;
+                    }
+
+                    const float targetCenterX = targetTransform->x + targetTransform->width * targetTransform->scale * 0.5f;
+                    const float targetCenterY = targetTransform->y + targetTransform->height * targetTransform->scale * 0.5f;
+                    const float dx = targetCenterX - spearCenterX;
+                    const float dy = targetCenterY - spearCenterY;
+                    const float distanceSq = dx * dx + dy * dy;
+                    if (distanceSq < bestDistanceSq)
+                    {
+                        bestDistanceSq = distanceSq;
+                        targetBoss = target;
+                    }
+                }
+
+                if (targetBoss && intersectsEntity(*targetBoss, *entity))
+                {
+                    handleEnemyDamage(*targetBoss, entity, projectile->GetDamage(), "Captured MidBoss2 spear hit boss");
+                    bulletsToRemove.push_back(entity);
+                    continue;
+                }
+            }
+        }
+
+        if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
+        {
             if (!spear->stuck && !obstacleBounds.empty())
             {
                 const float previousX = transform->x - projectile->GetVelocityX() * deltaTime;

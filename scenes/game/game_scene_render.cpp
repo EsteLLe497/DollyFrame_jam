@@ -1749,7 +1749,7 @@ void GameScene::DrawEffects() const
         const float drawX = viewOriginX + (spark.x - m_flow.cameraX) * viewScale;
         const float drawY = viewOriginY + (spark.y - m_flow.cameraY) * viewScale;
         Shader_ResetStyle();
-        Shader_SetTint(1.0f, 0.76f, 0.28f, lifeT);
+        Shader_SetTint(spark.r, spark.g, spark.b, lifeT);
         SpriteDraw(
             m_whiteTexture,
             drawX - size * 0.5f,
@@ -1854,6 +1854,33 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
         }
     }
+    const auto* tint = entity.GetComponent<TintComponent>();
+    const auto* enemyComponent = entity.GetComponent<EnemyComponent>();
+    const auto* photoFilter = entity.GetComponent<PhotoFilterComponent>();
+    const auto* damagePlatform = entity.GetComponent<DamagePlatformComponent>();
+    const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
+    const auto* photoCopyTile = entity.GetComponent<PhotoCopyTileValueComponent>();
+    const auto* midBoss2Spear = entity.GetComponent<MidBoss2SpearComponent>();
+    const auto* midBoss2 = entity.GetComponent<MidBoss2Component>();
+    const auto* bossBeamCapture = entity.GetComponent<BossBeamCaptureComponent>();
+    const bool midBoss2TeleportFlashActive =
+        enemyComponent &&
+        enemyComponent->GetArchetype() == EnemyArchetype::MidBoss2 &&
+        midBoss2 &&
+        midBoss2->teleportFlashRemaining > 0.0f;
+    const float midBoss2TeleportFlashT = midBoss2TeleportFlashActive
+        ? Clamp01(midBoss2->teleportFlashRemaining / 0.12f)
+        : 0.0f;
+
+    if (midBoss2TeleportFlashActive)
+    {
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        drawWidth *= std::lerp(1.0f, 0.84f, midBoss2TeleportFlashT);
+        drawHeight *= std::lerp(1.0f, 1.72f, midBoss2TeleportFlashT);
+        drawX = centerX - drawWidth * 0.5f;
+        drawY = centerY - drawHeight * 0.5f - drawHeight * 0.03f * midBoss2TeleportFlashT;
+    }
     bool hasVisibleMidBoss3Drill = false;
     if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
     {
@@ -1869,15 +1896,6 @@ void GameScene::DrawEntity(const Entity& entity) const
     {
         return;
     }
-
-    const auto* tint = entity.GetComponent<TintComponent>();
-    const auto* enemyComponent = entity.GetComponent<EnemyComponent>();
-    const auto* photoFilter = entity.GetComponent<PhotoFilterComponent>();
-    const auto* damagePlatform = entity.GetComponent<DamagePlatformComponent>();
-    const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
-    const auto* photoCopyTile = entity.GetComponent<PhotoCopyTileValueComponent>();
-    const auto* midBoss2Spear = entity.GetComponent<MidBoss2SpearComponent>();
-    const auto* bossBeamCapture = entity.GetComponent<BossBeamCaptureComponent>();
 
     Shader_ResetStyle();
     float alphaMultiplier = 1.0f;
@@ -2003,6 +2021,80 @@ void GameScene::DrawEntity(const Entity& entity) const
                 *stageLight,
                 tint,
                 alphaMultiplier);
+            Shader_ResetStyle();
+            return;
+        }
+    }
+
+    if (tag && HasTag(tag, EntityTag::JumpPad))
+    {
+        const auto* jumpPad = entity.GetComponent<JumpPadComponent>();
+        if (jumpPad)
+        {
+            const float worldWidth = transform->width * transform->scale;
+            const float worldHeight = transform->height * transform->scale;
+            const float boardHeight = worldHeight * 0.5f;
+            const float halfBoardWidth = worldWidth * 0.5f;
+            const float halfBoardHeight = boardHeight * 0.5f;
+            const float centerWorldX = transform->x + halfBoardWidth;
+            const float centerWorldY = transform->y + halfBoardHeight;
+            const float cosTilt = std::cos(jumpPad->tilt);
+            const float sinTilt = std::sin(jumpPad->tilt);
+            const float normalX = -sinTilt;
+            const float normalY = cosTilt;
+            const auto toScreenX = [&](float worldX) -> float
+            {
+                return viewOriginX + (worldX - m_flow.cameraX) * viewScale;
+            };
+            const auto toScreenY = [&](float worldY) -> float
+            {
+                return viewOriginY + (worldY - m_flow.cameraY) * viewScale;
+            };
+            const auto cornerX = [&](float localX, float localY) -> float
+            {
+                return toScreenX(centerWorldX + localX * cosTilt + localY * normalX);
+            };
+            const auto cornerY = [&](float localX, float localY) -> float
+            {
+                return toScreenY(centerWorldY + localX * sinTilt + localY * normalY);
+            };
+            const int blue = GetColor(0, 0, 255);
+            const int outline = GetColor(0, 0, 142);
+            const float leftTopX = cornerX(-halfBoardWidth, -halfBoardHeight);
+            const float leftTopY = cornerY(-halfBoardWidth, -halfBoardHeight);
+            const float rightTopX = cornerX(halfBoardWidth, -halfBoardHeight);
+            const float rightTopY = cornerY(halfBoardWidth, -halfBoardHeight);
+            const float rightBottomX = cornerX(halfBoardWidth, halfBoardHeight);
+            const float rightBottomY = cornerY(halfBoardWidth, halfBoardHeight);
+            const float leftBottomX = cornerX(-halfBoardWidth, halfBoardHeight);
+            const float leftBottomY = cornerY(-halfBoardWidth, halfBoardHeight);
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(255.0f * alphaMultiplier)));
+            DrawQuadrangleAA(
+                leftTopX, leftTopY,
+                rightTopX, rightTopY,
+                rightBottomX, rightBottomY,
+                leftBottomX, leftBottomY,
+                blue,
+                TRUE);
+            DrawLineAA(leftTopX, leftTopY, rightTopX, rightTopY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(rightTopX, rightTopY, rightBottomX, rightBottomY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(rightBottomX, rightBottomY, leftBottomX, leftBottomY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(leftBottomX, leftBottomY, leftTopX, leftTopY, outline, std::max(1.0f, 2.0f * viewScale));
+
+            const float tileSize = m_tileMap.GetTileSize();
+            const float baseSide = tileSize > 0.0f ? tileSize : boardHeight;
+            const float baseHeight = baseSide * 0.8660254f;
+            const float baseTopX = toScreenX(centerWorldX);
+            const float baseTopY = toScreenY(transform->y + boardHeight);
+            const float baseLeftX = toScreenX(centerWorldX - baseSide * 0.5f);
+            const float baseRightX = toScreenX(centerWorldX + baseSide * 0.5f);
+            const float baseBottomY = toScreenY(transform->y + boardHeight + baseHeight);
+            DrawTriangleAA(baseTopX, baseTopY, baseLeftX, baseBottomY, baseRightX, baseBottomY, blue, TRUE);
+            DrawLineAA(baseTopX, baseTopY, baseLeftX, baseBottomY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(baseLeftX, baseBottomY, baseRightX, baseBottomY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(baseRightX, baseBottomY, baseTopX, baseTopY, outline, std::max(1.0f, 2.0f * viewScale));
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
             Shader_ResetStyle();
             return;
         }
@@ -2612,6 +2704,31 @@ void GameScene::DrawEntity(const Entity& entity) const
             sprite->GetSourceHeight(),
             sprite->GetFlipX(),
             transform->rotation);
+    }
+    if (midBoss2TeleportFlashActive)
+    {
+        const int glowAlpha = std::clamp(static_cast<int>(std::round(180.0f * midBoss2TeleportFlashT)), 0, 255);
+        if (glowAlpha > 0)
+        {
+            const float glowPadX = std::max(8.0f, drawWidth * 0.14f);
+            const float glowPadY = std::max(12.0f, drawHeight * 0.20f);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, glowAlpha);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, std::lerp(0.24f, 0.78f, midBoss2TeleportFlashT));
+            SpriteDraw(
+                m_whiteTexture,
+                drawX - glowPadX,
+                drawY - glowPadY,
+                drawWidth + glowPadX * 2.0f,
+                drawHeight + glowPadY * 2.0f,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f,
+                false,
+                0.0f);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            Shader_ResetStyle();
+        }
     }
 
     if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
