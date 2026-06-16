@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_combat_common.h"
@@ -67,6 +67,183 @@ namespace
     bool IsPointInside(float pointX, float pointY, float x, float y, float width, float height)
     {
         return pointX >= x && pointX <= x + width && pointY >= y && pointY <= y + height;
+    }
+
+    struct JumpPadBoardGeometry
+    {
+        float centerX = 0.0f;
+        float centerY = 0.0f;
+        float halfLength = 0.0f;
+        float halfThickness = 0.0f;
+        float dirX = 1.0f;
+        float dirY = 0.0f;
+        float normalX = 0.0f;
+        float normalY = 1.0f;
+    };
+
+    struct JumpPadContact
+    {
+        bool edgeContact = false;
+        int side = 0;
+    };
+
+    JumpPadBoardGeometry BuildJumpPadBoardGeometry(const TransformComponent& transform, const JumpPadComponent& jumpPad)
+    {
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        const float boardHeight = height * 0.5f;
+        const float cosTilt = std::cos(jumpPad.tilt);
+        const float sinTilt = std::sin(jumpPad.tilt);
+        return JumpPadBoardGeometry{
+            transform.x + width * 0.5f,
+            transform.y + boardHeight * 0.5f,
+            width * 0.5f,
+            boardHeight * 0.5f,
+            cosTilt,
+            sinTilt,
+            -sinTilt,
+            cosTilt,
+        };
+    }
+
+    void WorldToJumpPadLocal(const JumpPadBoardGeometry& board, float worldX, float worldY, float& outLocalX, float& outLocalY)
+    {
+        const float dx = worldX - board.centerX;
+        const float dy = worldY - board.centerY;
+        outLocalX = dx * board.dirX + dy * board.dirY;
+        outLocalY = dx * board.normalX + dy * board.normalY;
+    }
+
+    float GetJumpPadLocalX(const JumpPadBoardGeometry& board, float worldX, float worldY)
+    {
+        return (worldX - board.centerX) * board.dirX + (worldY - board.centerY) * board.dirY;
+    }
+
+    bool TryGetJumpPadTopYAtX(const JumpPadBoardGeometry& board, float worldX, float& outY)
+    {
+        if (std::fabs(board.normalY) <= 0.0001f)
+        {
+            return false;
+        }
+
+        const float topLocalY = -board.halfThickness;
+        outY = board.centerY + (topLocalY - (worldX - board.centerX) * board.normalX) / board.normalY;
+        return true;
+    }
+
+    bool TryResolveJumpPadContact(
+        TransformComponent& bounds,
+        const TransformComponent& jumpPadTransform,
+        const JumpPadComponent& jumpPad,
+        float verticalTolerance,
+        float edgeVerticalTolerance,
+        float horizontalEdgeAllowance,
+        float minHorizontalOverlap,
+        float edgeZoneWidth,
+        JumpPadContact* outContact = nullptr,
+        float previousBoundsY = 0.0f,
+        bool useSweptContact = false)
+    {
+        const float width = bounds.width * bounds.scale;
+        const float height = bounds.height * bounds.scale;
+        if (width <= 0.0f || height <= 0.0f)
+        {
+            return false;
+        }
+
+        const float bottom = bounds.y + height;
+        const float previousBottom = previousBoundsY + height;
+        const JumpPadBoardGeometry board = BuildJumpPadBoardGeometry(jumpPadTransform, jumpPad);
+        const float topLocalY = -board.halfThickness;
+        const float allowance = std::max(0.0f, horizontalEdgeAllowance);
+        const float minLocalX = -board.halfLength - allowance;
+        const float maxLocalX = board.halfLength + allowance;
+
+        const float leftLocalX = GetJumpPadLocalX(board, bounds.x, bottom);
+        const float rightLocalX = GetJumpPadLocalX(board, bounds.x + width, bottom);
+        const float objectLocalLeft = std::min(leftLocalX, rightLocalX);
+        const float objectLocalRight = std::max(leftLocalX, rightLocalX);
+        const float overlapLeft = std::max(objectLocalLeft, minLocalX);
+        const float overlapRight = std::min(objectLocalRight, maxLocalX);
+        const float requiredOverlap = std::max(1.0f, std::min(minHorizontalOverlap, width * 0.35f));
+        if (overlapRight - overlapLeft < requiredOverlap)
+        {
+            return false;
+        }
+
+        const float sampleXs[3] = { bounds.x, bounds.x + width * 0.5f, bounds.x + width };
+        bool foundContact = false;
+        bool bestEdgeContact = false;
+        int bestSide = 0;
+        float bestSurfaceY = 0.0f;
+        float bestDistance = 0.0f;
+        for (float sampleX : sampleXs)
+        {
+            float localX = 0.0f;
+            float localY = 0.0f;
+            WorldToJumpPadLocal(board, sampleX, bottom, localX, localY);
+            if (localX < minLocalX || localX > maxLocalX)
+            {
+                continue;
+            }
+
+            float surfaceY = bottom;
+            if (!TryGetJumpPadTopYAtX(board, sampleX, surfaceY))
+            {
+                continue;
+            }
+
+            const float surfaceLocalX = GetJumpPadLocalX(board, sampleX, surfaceY);
+            if (surfaceLocalX < minLocalX || surfaceLocalX > maxLocalX)
+            {
+                continue;
+            }
+
+            const bool edgeContact =
+                edgeZoneWidth > 0.0f &&
+                std::fabs(surfaceLocalX) >= board.halfLength - edgeZoneWidth;
+            const float tolerance = edgeContact ? edgeVerticalTolerance : verticalTolerance;
+            const bool nearSurface = std::fabs(localY - topLocalY) <= tolerance;
+            bool sweptSurface = false;
+            if (useSweptContact)
+            {
+                float previousLocalX = 0.0f;
+                float previousLocalY = 0.0f;
+                WorldToJumpPadLocal(board, sampleX, previousBottom, previousLocalX, previousLocalY);
+                sweptSurface =
+                    previousLocalX >= minLocalX &&
+                    previousLocalX <= maxLocalX &&
+                    previousLocalY <= topLocalY + tolerance &&
+                    localY >= topLocalY - tolerance;
+            }
+            if (!nearSurface && !sweptSurface)
+            {
+                continue;
+            }
+
+            const float distance = std::fabs(localY - topLocalY);
+            if (!foundContact || surfaceY < bestSurfaceY || (std::fabs(surfaceY - bestSurfaceY) <= 0.001f && distance < bestDistance))
+            {
+                bestSurfaceY = surfaceY;
+                bestDistance = distance;
+                bestEdgeContact = edgeContact;
+                bestSide = surfaceLocalX < 0.0f ? -1 : 1;
+                foundContact = true;
+            }
+        }
+
+        if (!foundContact)
+        {
+            return false;
+        }
+
+        bounds.y = bestSurfaceY - height;
+        if (outContact)
+        {
+            outContact->edgeContact = bestEdgeContact;
+            outContact->side = bestSide;
+        }
+        return true;
     }
 
     float EaseInOutCubic(float t)
@@ -582,11 +759,17 @@ void GameScene::UpdatePlayer(float deltaTime)
         moveAxis,
         gPlayerDodgeSpeed,
         gPlayerMoveSpeed);
+    const float estimatedHorizontalVelocity =
+        !isDodging &&
+            !wasGrounded &&
+            std::fabs(m_player.velocityX) > std::fabs(targetHorizontalVelocity) + 1.0f
+            ? m_player.velocityX
+            : targetHorizontalVelocity;
     const float estimatedVerticalVelocity = canJumpNow
         ? gPlayerJumpSpeed
         : std::min(gPlayerMaxFallSpeed, m_player.velocityY + gPlayerGravity * deltaTime);
     const float maxDisplacement = std::max(
-        std::fabs(targetHorizontalVelocity) * deltaTime,
+        std::fabs(estimatedHorizontalVelocity) * deltaTime,
         std::fabs(estimatedVerticalVelocity) * deltaTime);
     const int subSteps = std::clamp(static_cast<int>(std::ceil(maxDisplacement / 8.0f)), 1, 8);
     const float stepDeltaTime = deltaTime / static_cast<float>(subSteps);
@@ -594,7 +777,15 @@ void GameScene::UpdatePlayer(float deltaTime)
     bool groundedAtStepStart = wasGrounded;
     for (int stepIndex = 0; stepIndex < subSteps; ++stepIndex)
     {
-        m_player.velocityX = targetHorizontalVelocity;
+        float horizontalVelocity = targetHorizontalVelocity;
+        if (!isDodging &&
+            !groundedAtStepStart &&
+            std::fabs(m_player.velocityX) > std::fabs(targetHorizontalVelocity) + 1.0f)
+        {
+            const float airLaunchBlend = std::clamp(4.0f * stepDeltaTime, 0.0f, 1.0f);
+            horizontalVelocity = m_player.velocityX + (targetHorizontalVelocity - m_player.velocityX) * airLaunchBlend;
+        }
+        m_player.velocityX = horizontalVelocity;
         m_player.grounded = groundedAtStepStart;
         if (groundedAtStepStart)
         {
@@ -635,7 +826,7 @@ void GameScene::UpdatePlayer(float deltaTime)
             previousBottom,
             verticalSnapDistance,
         };
-        const float horizontalVelocity = m_player.velocityX;
+        const float movementHorizontalVelocity = m_player.velocityX;
         const auto intersectsPhotoBoxForHorizontalMove = [this, groundedAtStepStart, tileSize](const TransformComponent& candidate)
         {
             if (!groundedAtStepStart)
@@ -652,9 +843,9 @@ void GameScene::UpdatePlayer(float deltaTime)
             *transform,
             m_player,
             movementContext,
-            [this, horizontalVelocity](int column, int row)
+            [this, movementHorizontalVelocity](int column, int row)
             {
-                return horizontalVelocity > 0.0f
+                return movementHorizontalVelocity > 0.0f
                     ? IsTileBlockingFromLeft(column, row)
                     : IsTileBlockingFromRight(column, row);
             },
@@ -1382,6 +1573,7 @@ void GameScene::UpdateFallingRocks(float deltaTime)
             fallingRock.accumulatedFallDistance = 0.0f;
             fallingRock.rubbleActive = true;
             fallingRock.rubbleRemaining = kFallingRockRubbleLifetime;
+            fallingRock.pendingJumpPadBreak = false;
             setFallingRockVisible(fallingRockEntity, false);
         };
 
@@ -1564,6 +1756,64 @@ void GameScene::UpdateFallingRocks(float deltaTime)
         }
     }
 
+    auto tryLandFallingRockOnJumpPad = [&](Entity& fallingRockEntity, FallingRockComponent& fallingRock, TransformComponent& rockTransform, float previousY) -> bool
+    {
+        if (fallingRock.velocityY < 0.0f)
+        {
+            return false;
+        }
+
+        for (Entity* jumpPadEntity : m_world.EntitiesByTag(EntityTag::JumpPad))
+        {
+            if (!jumpPadEntity)
+            {
+                continue;
+            }
+
+            auto* jumpPad = jumpPadEntity->GetComponent<JumpPadComponent>();
+            auto* jumpPadTransform = jumpPadEntity->GetComponent<TransformComponent>();
+            if (!jumpPad || !jumpPadTransform)
+            {
+                continue;
+            }
+
+            JumpPadContact contact;
+            const float tolerance = std::max(10.0f, std::fabs(fallingRock.velocityY) * deltaTime + tileSize * 0.3f);
+            const float edgeTolerance = std::max(
+                std::fabs(fallingRock.velocityY) * deltaTime + tileSize * 0.75f,
+                tileSize * 0.55f);
+            if (!TryResolveJumpPadContact(
+                rockTransform,
+                *jumpPadTransform,
+                *jumpPad,
+                tolerance,
+                edgeTolerance,
+                tileSize * 0.20f,
+                tileSize * 0.10f,
+                tileSize * 0.20f,
+                &contact,
+                previousY,
+                true))
+            {
+                continue;
+            }
+
+            if (jumpPad->boardGrounded && fallingRock.pendingJumpPadBreak)
+            {
+                resetFallingRock(fallingRockEntity, fallingRock, rockTransform);
+            }
+            else
+            {
+                fallingRock.velocityY = 0.0f;
+                fallingRock.grounded = true;
+                fallingRock.pendingJumpPadBreak = jumpPad->boardGrounded;
+            }
+            return true;
+        }
+
+        return false;
+    };
+
     for (Entity* entity : fallingRockEntities)
     {
         if (!entity)
@@ -1690,8 +1940,16 @@ void GameScene::UpdateFallingRocks(float deltaTime)
         }
 
         fallingRock->velocityY = std::min(fallingRock->maxFallSpeed, fallingRock->velocityY + fallingRock->gravity * deltaTime);
+        const float previousY = transform->y;
         transform->y += fallingRock->velocityY * deltaTime;
+        fallingRock->accumulatedFallDistance += std::max(0.0f, transform->y - previousY);
         const bool canCollideAfterDrop = transform->y >= fallingRock->spawnY + std::max(8.0f, tileSize * 0.25f);
+
+        if (tryLandFallingRockOnJumpPad(*entity, *fallingRock, *transform, previousY))
+        {
+            continue;
+        }
+        fallingRock->pendingJumpPadBreak = false;
 
         if (transform->y + fallingrockHeight >= mapHeight)
         {
@@ -1763,6 +2021,211 @@ void GameScene::UpdateFallingRocks(float deltaTime)
             continue;
         }
 
+    }
+}
+
+void GameScene::UpdateJumpPads(float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    const float maxTiltRadians = std::clamp(gJumpPadMaxTiltDegrees, 0.0f, 89.0f) * 3.14159265f / 180.0f;
+
+    for (Entity* jumpPadEntity : m_world.EntitiesByTag(EntityTag::JumpPad))
+    {
+        if (!jumpPadEntity)
+        {
+            continue;
+        }
+
+        auto* jumpPad = jumpPadEntity->GetComponent<JumpPadComponent>();
+        auto* jumpPadTransform = jumpPadEntity->GetComponent<TransformComponent>();
+        if (!jumpPad || !jumpPadTransform)
+        {
+            continue;
+        }
+
+        jumpPad->maxTiltRadians = maxTiltRadians;
+        jumpPad->leftLoad = 0.0f;
+        jumpPad->rightLoad = 0.0f;
+        jumpPad->lastRockFallDistance = 0.0f;
+        jumpPad->edgeRockContactGrace = std::max(0.0f, jumpPad->edgeRockContactGrace - deltaTime);
+        if (jumpPad->edgeRockContactGrace <= 0.0f)
+        {
+            jumpPad->edgeRockSide = 0;
+            jumpPad->edgeRockFallDistance = 0.0f;
+        }
+
+        bool playerOnPad = false;
+        int playerSide = 0;
+        if (playerTransform)
+        {
+            const float tolerance = std::max(12.0f, std::fabs(m_player.velocityY) * deltaTime + tileSize * 0.35f);
+            JumpPadContact contact;
+            if (m_player.velocityY >= -1.0f &&
+                TryResolveJumpPadContact(
+                    *playerTransform,
+                    *jumpPadTransform,
+                    *jumpPad,
+                    tolerance,
+                    tolerance,
+                    0.0f,
+                    tileSize * 0.12f,
+                    0.0f,
+                    &contact))
+            {
+                playerSide = contact.side;
+                if (playerSide < 0)
+                {
+                    jumpPad->leftLoad += 1.0f;
+                }
+                else
+                {
+                    jumpPad->rightLoad += 1.0f;
+                }
+                playerOnPad = true;
+                m_player.velocityY = 0.0f;
+                m_player.grounded = true;
+                m_player.coyoteTimeRemaining = gCoyoteTimeSeconds;
+            }
+        }
+
+        bool rockOnPad = false;
+        int rockSide = 0;
+        for (Entity* rockEntity : m_world.EntitiesByTag(EntityTag::FallingRock))
+        {
+            if (!rockEntity)
+            {
+                continue;
+            }
+
+            auto* rock = rockEntity->GetComponent<FallingRockComponent>();
+            auto* rockTransform = rockEntity->GetComponent<TransformComponent>();
+            if (!rock || !rockTransform || rock->destroyed || rock->rubbleActive)
+            {
+                continue;
+            }
+
+            JumpPadContact contact;
+            const float tolerance = std::max(12.0f, std::fabs(rock->velocityY) * deltaTime + tileSize * 0.40f);
+            const float edgeTolerance = std::max(
+                std::fabs(rock->velocityY) * deltaTime + tileSize * 0.75f,
+                tileSize * 0.55f);
+            if (!TryResolveJumpPadContact(
+                *rockTransform,
+                *jumpPadTransform,
+                *jumpPad,
+                tolerance,
+                edgeTolerance,
+                tileSize * 0.20f,
+                tileSize * 0.10f,
+                tileSize * 0.20f,
+                &contact))
+            {
+                continue;
+            }
+
+            const int side = contact.side;
+            if (side < 0)
+            {
+                jumpPad->leftLoad += 3.0f;
+            }
+            else
+            {
+                jumpPad->rightLoad += 3.0f;
+            }
+            rockOnPad = true;
+            rockSide = side;
+            jumpPad->lastRockFallDistance = std::max(jumpPad->lastRockFallDistance, rock->accumulatedFallDistance);
+            if (contact.edgeContact)
+            {
+                jumpPad->edgeRockContactGrace = 0.10f;
+                jumpPad->edgeRockSide = side;
+                jumpPad->edgeRockFallDistance = std::max(jumpPad->edgeRockFallDistance, rock->accumulatedFallDistance);
+            }
+            rock->velocityY = 0.0f;
+            rock->grounded = true;
+        }
+
+        if (!rockOnPad && jumpPad->edgeRockContactGrace > 0.0f && jumpPad->edgeRockSide != 0)
+        {
+            if (jumpPad->edgeRockSide < 0)
+            {
+                jumpPad->leftLoad += 3.0f;
+            }
+            else
+            {
+                jumpPad->rightLoad += 3.0f;
+            }
+            rockOnPad = true;
+            rockSide = jumpPad->edgeRockSide;
+            jumpPad->lastRockFallDistance = std::max(jumpPad->lastRockFallDistance, jumpPad->edgeRockFallDistance);
+        }
+
+        if (jumpPad->rightLoad > jumpPad->leftLoad + 0.01f)
+        {
+            jumpPad->targetTilt = jumpPad->maxTiltRadians;
+        }
+        else if (jumpPad->leftLoad > jumpPad->rightLoad + 0.01f)
+        {
+            jumpPad->targetTilt = -jumpPad->maxTiltRadians;
+        }
+        else
+        {
+            jumpPad->targetTilt = 0.0f;
+        }
+
+        const float speed = std::fabs(jumpPad->targetTilt) > 0.001f ? jumpPad->tiltSpeed : jumpPad->returnSpeed;
+        const float blend = std::clamp(speed * deltaTime, 0.0f, 1.0f);
+        jumpPad->tilt += (jumpPad->targetTilt - jumpPad->tilt) * blend;
+        jumpPad->boardGrounded =
+            std::fabs(jumpPad->targetTilt) > 0.001f &&
+            jumpPad->maxTiltRadians > 0.0f &&
+            std::fabs(jumpPad->tilt) >= jumpPad->maxTiltRadians - 0.015f;
+
+        const bool canLaunchPlayer =
+            player &&
+            playerTransform &&
+            playerOnPad &&
+            rockOnPad &&
+            playerSide != 0 &&
+            rockSide != 0 &&
+            playerSide != rockSide &&
+            !jumpPad->launchConsumed &&
+            ((playerSide < 0 && jumpPad->tilt > jumpPad->maxTiltRadians * 0.12f) ||
+                (playerSide > 0 && jumpPad->tilt < -jumpPad->maxTiltRadians * 0.12f));
+        if (canLaunchPlayer)
+        {
+            float launchVelocity = jumpPad->baseLaunchVelocity - jumpPad->lastRockFallDistance * jumpPad->fallDistanceLaunchScale;
+            launchVelocity = std::max(jumpPad->maxLaunchVelocity, launchVelocity);
+            const float horizontalLaunchSpeed = std::clamp(
+                std::fabs(launchVelocity) * 0.7f,
+                gPlayerMoveSpeed * 0.75f,
+                gPlayerMoveSpeed * 2.8f);
+            m_player.velocityY = launchVelocity;
+            m_player.velocityX = (playerSide < 0 ? -1.0f : 1.0f) * horizontalLaunchSpeed;
+            m_player.grounded = false;
+            m_player.coyoteTimeRemaining = 0.0f;
+            playerTransform->y -= std::max(2.0f, tileSize * 0.10f);
+            jumpPad->launchConsumed = true;
+            m_eventBus.Publish({ EventType::PlaySoundRequest, player, jumpPadEntity, "test_tone", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, player, jumpPadEntity, "JumpPad launched player", 0.0f, 0.0f });
+        }
+
+        if (!playerOnPad || !rockOnPad)
+        {
+            jumpPad->launchConsumed = false;
+        }
     }
 }
 

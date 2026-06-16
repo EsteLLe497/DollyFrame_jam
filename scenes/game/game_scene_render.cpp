@@ -2022,6 +2022,80 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
     }
 
+    if (tag && HasTag(tag, EntityTag::JumpPad))
+    {
+        const auto* jumpPad = entity.GetComponent<JumpPadComponent>();
+        if (jumpPad)
+        {
+            const float worldWidth = transform->width * transform->scale;
+            const float worldHeight = transform->height * transform->scale;
+            const float boardHeight = worldHeight * 0.5f;
+            const float halfBoardWidth = worldWidth * 0.5f;
+            const float halfBoardHeight = boardHeight * 0.5f;
+            const float centerWorldX = transform->x + halfBoardWidth;
+            const float centerWorldY = transform->y + halfBoardHeight;
+            const float cosTilt = std::cos(jumpPad->tilt);
+            const float sinTilt = std::sin(jumpPad->tilt);
+            const float normalX = -sinTilt;
+            const float normalY = cosTilt;
+            const auto toScreenX = [&](float worldX) -> float
+            {
+                return viewOriginX + (worldX - m_flow.cameraX) * viewScale;
+            };
+            const auto toScreenY = [&](float worldY) -> float
+            {
+                return viewOriginY + (worldY - m_flow.cameraY) * viewScale;
+            };
+            const auto cornerX = [&](float localX, float localY) -> float
+            {
+                return toScreenX(centerWorldX + localX * cosTilt + localY * normalX);
+            };
+            const auto cornerY = [&](float localX, float localY) -> float
+            {
+                return toScreenY(centerWorldY + localX * sinTilt + localY * normalY);
+            };
+            const int blue = GetColor(0, 0, 255);
+            const int outline = GetColor(0, 0, 142);
+            const float leftTopX = cornerX(-halfBoardWidth, -halfBoardHeight);
+            const float leftTopY = cornerY(-halfBoardWidth, -halfBoardHeight);
+            const float rightTopX = cornerX(halfBoardWidth, -halfBoardHeight);
+            const float rightTopY = cornerY(halfBoardWidth, -halfBoardHeight);
+            const float rightBottomX = cornerX(halfBoardWidth, halfBoardHeight);
+            const float rightBottomY = cornerY(halfBoardWidth, halfBoardHeight);
+            const float leftBottomX = cornerX(-halfBoardWidth, halfBoardHeight);
+            const float leftBottomY = cornerY(-halfBoardWidth, halfBoardHeight);
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(255.0f * alphaMultiplier)));
+            DrawQuadrangleAA(
+                leftTopX, leftTopY,
+                rightTopX, rightTopY,
+                rightBottomX, rightBottomY,
+                leftBottomX, leftBottomY,
+                blue,
+                TRUE);
+            DrawLineAA(leftTopX, leftTopY, rightTopX, rightTopY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(rightTopX, rightTopY, rightBottomX, rightBottomY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(rightBottomX, rightBottomY, leftBottomX, leftBottomY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(leftBottomX, leftBottomY, leftTopX, leftTopY, outline, std::max(1.0f, 2.0f * viewScale));
+
+            const float tileSize = m_tileMap.GetTileSize();
+            const float baseSide = tileSize > 0.0f ? tileSize : boardHeight;
+            const float baseHeight = baseSide * 0.8660254f;
+            const float baseTopX = toScreenX(centerWorldX);
+            const float baseTopY = toScreenY(transform->y + boardHeight);
+            const float baseLeftX = toScreenX(centerWorldX - baseSide * 0.5f);
+            const float baseRightX = toScreenX(centerWorldX + baseSide * 0.5f);
+            const float baseBottomY = toScreenY(transform->y + boardHeight + baseHeight);
+            DrawTriangleAA(baseTopX, baseTopY, baseLeftX, baseBottomY, baseRightX, baseBottomY, blue, TRUE);
+            DrawLineAA(baseTopX, baseTopY, baseLeftX, baseBottomY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(baseLeftX, baseBottomY, baseRightX, baseBottomY, outline, std::max(1.0f, 2.0f * viewScale));
+            DrawLineAA(baseRightX, baseBottomY, baseTopX, baseTopY, outline, std::max(1.0f, 2.0f * viewScale));
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            Shader_ResetStyle();
+            return;
+        }
+    }
+
     if (tag && HasTag(tag, EntityTag::SepiaRubble))
     {
         if (const auto* group = entity.GetComponent<SepiaRubbleGroupComponent>())

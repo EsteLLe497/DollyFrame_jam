@@ -110,6 +110,7 @@ struct ActiveGameSceneScope
 #define gBarrelActivationPaddingX (game_scene_detail::GetActiveGameScene()->Tuning().barrelActivationPaddingX)
 #define gPastedObjectLifetimeSeconds (game_scene_detail::GetActiveGameScene()->Tuning().pastedObjectLifetimeSeconds)
 #define gPastedObjectPasteAnimationSeconds (game_scene_detail::GetActiveGameScene()->Tuning().pastedObjectPasteAnimationSeconds)
+#define gJumpPadMaxTiltDegrees (game_scene_detail::GetActiveGameScene()->Tuning().jumpPadMaxTiltDegrees)
 
 inline float Clamp01(float value)
 {
@@ -157,7 +158,7 @@ inline float GetPlayerDodgeDuration()
 
 inline auto BuildGameSceneTuningEntries()
 {
-    return std::array<GameSceneTuningEntry, 28>
+    return std::array<GameSceneTuningEntry, 29>
     {{
         { "Camera Width", &gCameraViewWidth, 20.0f, 640.0f, 1920.0f },
         { "Camera Height", &gCameraViewHeight, 20.0f, 360.0f, 1080.0f },
@@ -187,6 +188,7 @@ inline auto BuildGameSceneTuningEntries()
         { "Print Min H", &gPrintedPhotoMinHeight, 4.0f, 32.0f, 400.0f },
         { "Matte Inset", &gPrintedPhotoMatteInset, 0.5f, 0.0f, 24.0f },
         { "Pickup Bonus", &gPickupTimeBonus, 1.0f, 0.0f, 60.0f },
+        { "JumpPad Tilt", &gJumpPadMaxTiltDegrees, 1.0f, 5.0f, 35.0f },
     }};
 }
 
@@ -361,6 +363,7 @@ inline constexpr const char* kTagDropItem = "DropItem";
 inline constexpr const char* kTagBattery = "Battery";
 inline constexpr const char* kTagLog = "Log";
 inline constexpr const char* kTagFallingRock = "FallingRock";
+inline constexpr const char* kTagJumpPad = "JumpPad";
 inline constexpr const char* kTagBatterySwitch = "BatterySwitch";
 inline constexpr const char* kTagElevator = "Elevator";
 inline constexpr const char* kTagDamagePlatform = "DamagePlatform";
@@ -467,6 +470,11 @@ inline bool IsLogMarker(char marker)
 inline bool IsFallingRockMarker(char marker)
 {
     return IsMarkerInSet(marker, "S");
+}
+
+inline bool IsJumpPadMarker(char marker)
+{
+    return IsMarkerInSet(marker, "T");
 }
 
 inline bool IsMarkerLightMarker(char marker)
