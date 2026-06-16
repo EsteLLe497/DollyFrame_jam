@@ -243,6 +243,7 @@ void GameScene::DrawWorldAndUiLayers()
     DrawBatterySwitchCounters();
     DrawPlayerHpBar();
     DrawPartsHud();
+    DrawMidBoss2HpBar();
     DrawMidBoss3HpBar();
     DrawAttackCaptureSlot();
     DrawEnemyAttackRects();

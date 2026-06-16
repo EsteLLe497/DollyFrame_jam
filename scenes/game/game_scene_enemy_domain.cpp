@@ -675,6 +675,10 @@ void GameScene::UpdateEnemies()
         {
             static_cast<void>(bossEntity);
         },
+        [this](float fromX, float fromY, float toX, float toY, float width, float height)
+        {
+            SpawnTeleportTrailEffect(fromX, fromY, toX, toY, width, height);
+        },
         [this, player](Entity* sourceEntity, int amount, const char* logMessage)
         {
             if (player)

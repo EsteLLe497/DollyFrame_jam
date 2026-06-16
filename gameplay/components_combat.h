@@ -307,6 +307,7 @@ public:
     GameObject* beamTurretEntity = nullptr;
     GameObject* beamEntity = nullptr;
     bool captureWindowActive = false;
+    float teleportFlashRemaining = 0.0f;
 };
 
 class MidBoss2SpearComponent final : public MonoBehaviour

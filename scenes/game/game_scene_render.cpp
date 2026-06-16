@@ -1749,7 +1749,7 @@ void GameScene::DrawEffects() const
         const float drawX = viewOriginX + (spark.x - m_flow.cameraX) * viewScale;
         const float drawY = viewOriginY + (spark.y - m_flow.cameraY) * viewScale;
         Shader_ResetStyle();
-        Shader_SetTint(1.0f, 0.76f, 0.28f, lifeT);
+        Shader_SetTint(spark.r, spark.g, spark.b, lifeT);
         SpriteDraw(
             m_whiteTexture,
             drawX - size * 0.5f,
@@ -1850,6 +1850,33 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
         }
     }
+    const auto* tint = entity.GetComponent<TintComponent>();
+    const auto* enemyComponent = entity.GetComponent<EnemyComponent>();
+    const auto* photoFilter = entity.GetComponent<PhotoFilterComponent>();
+    const auto* damagePlatform = entity.GetComponent<DamagePlatformComponent>();
+    const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
+    const auto* photoCopyTile = entity.GetComponent<PhotoCopyTileValueComponent>();
+    const auto* midBoss2Spear = entity.GetComponent<MidBoss2SpearComponent>();
+    const auto* midBoss2 = entity.GetComponent<MidBoss2Component>();
+    const auto* bossBeamCapture = entity.GetComponent<BossBeamCaptureComponent>();
+    const bool midBoss2TeleportFlashActive =
+        enemyComponent &&
+        enemyComponent->GetArchetype() == EnemyArchetype::MidBoss2 &&
+        midBoss2 &&
+        midBoss2->teleportFlashRemaining > 0.0f;
+    const float midBoss2TeleportFlashT = midBoss2TeleportFlashActive
+        ? Clamp01(midBoss2->teleportFlashRemaining / 0.12f)
+        : 0.0f;
+
+    if (midBoss2TeleportFlashActive)
+    {
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        drawWidth *= std::lerp(1.0f, 0.84f, midBoss2TeleportFlashT);
+        drawHeight *= std::lerp(1.0f, 1.72f, midBoss2TeleportFlashT);
+        drawX = centerX - drawWidth * 0.5f;
+        drawY = centerY - drawHeight * 0.5f - drawHeight * 0.03f * midBoss2TeleportFlashT;
+    }
     bool hasVisibleMidBoss3Drill = false;
     if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
     {
@@ -1865,15 +1892,6 @@ void GameScene::DrawEntity(const Entity& entity) const
     {
         return;
     }
-
-    const auto* tint = entity.GetComponent<TintComponent>();
-    const auto* enemyComponent = entity.GetComponent<EnemyComponent>();
-    const auto* photoFilter = entity.GetComponent<PhotoFilterComponent>();
-    const auto* damagePlatform = entity.GetComponent<DamagePlatformComponent>();
-    const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
-    const auto* photoCopyTile = entity.GetComponent<PhotoCopyTileValueComponent>();
-    const auto* midBoss2Spear = entity.GetComponent<MidBoss2SpearComponent>();
-    const auto* bossBeamCapture = entity.GetComponent<BossBeamCaptureComponent>();
 
     Shader_ResetStyle();
     float alphaMultiplier = 1.0f;
@@ -2608,6 +2626,31 @@ void GameScene::DrawEntity(const Entity& entity) const
             sprite->GetSourceHeight(),
             sprite->GetFlipX(),
             transform->rotation);
+    }
+    if (midBoss2TeleportFlashActive)
+    {
+        const int glowAlpha = std::clamp(static_cast<int>(std::round(180.0f * midBoss2TeleportFlashT)), 0, 255);
+        if (glowAlpha > 0)
+        {
+            const float glowPadX = std::max(8.0f, drawWidth * 0.14f);
+            const float glowPadY = std::max(12.0f, drawHeight * 0.20f);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, glowAlpha);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, std::lerp(0.24f, 0.78f, midBoss2TeleportFlashT));
+            SpriteDraw(
+                m_whiteTexture,
+                drawX - glowPadX,
+                drawY - glowPadY,
+                drawWidth + glowPadX * 2.0f,
+                drawHeight + glowPadY * 2.0f,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f,
+                false,
+                0.0f);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            Shader_ResetStyle();
+        }
     }
 
     if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())

@@ -424,7 +424,7 @@ namespace
 
                     const int markerParameter = tileMap.GetMarkerParameter(column, row);
                     const int wallLinkIdOverride = markerParameter < 0 ? -markerParameter : -1;
-                    const int wallDurability = markerParameter > 0 ? markerParameter : 3;
+                    const int wallDurability = markerParameter > 0 ? markerParameter : 2;
                     const int wallHeightTiles = heightTiles > 1 ? heightTiles : 4;
                     outProtectiveWallMarkers.push_back(ProtectiveWallMarker{
                         markerX,
