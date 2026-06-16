@@ -1145,7 +1145,16 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             const auto* playerTransform = player.GetComponent<TransformComponent>();
             const bool facingRight = scene.m_player.facingRight;
 
-            if (item.spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
+            if (item.spawnArchetype == CapturedSpawnArchetype::ShieldNormal)
+            {
+                const float centerX = shieldX + shieldW * 0.5f;
+                const float centerY = shieldY + shieldH * 0.5f;
+                shieldW = kTileSize;
+                shieldH = kTileSize * 4.0f;
+                shieldX = centerX - shieldW * 0.5f;
+                shieldY = centerY - shieldH * 0.5f;
+            }
+            else if (item.spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
             {
                 const float centerX = shieldX + shieldW * 0.5f;
                 const float centerY = shieldY + shieldH * 0.5f;

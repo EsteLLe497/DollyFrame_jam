@@ -191,6 +191,9 @@ public:
     float knockbackHeight = 0.85f;
     float hoverShieldX = 0.0f;
     float hoverShieldY = 0.0f;
+    bool slamShieldVisualLocked = false;
+    float slamShieldRenderOffsetX = 0.0f;
+    float slamShieldRenderOffsetY = 0.0f;
     float hoverPlayerOffsetX = 0.0f;
     bool attackRectActive = false;
     float attackRectX = 0.0f;
@@ -199,6 +202,7 @@ public:
     float attackRectHeight = 0.0f;
 
     bool combatStarted = false;
+    bool introDropActive = false;
     bool appearAnimationActive = false;
     bool appearAnimationFinished = false;
     bool roarPlayed = false;

@@ -867,7 +867,7 @@ void GameScene::RefreshEnemiesFromMarkers()
                     return;
                 }
                 constexpr float kShieldW = 48.0f;
-                constexpr float kShieldH = 144.0f;
+                constexpr float kShieldH = 192.0f;
                 auto shieldEntity = std::make_unique<Entity>();
                 shieldEntity->AddComponent<TagComponent>("BossShield");
                 shieldEntity->AddComponent<TransformComponent>(
@@ -879,7 +879,7 @@ void GameScene::RefreshEnemiesFromMarkers()
                     0.72f,
                     0.78f,
                     0.90f,
-                    bossComp->appearAnimationActive ? 0.0f : 1.0f);
+                    (!bossComp->combatStarted && !bossComp->appearAnimationFinished) ? 0.0f : 1.0f);
                 shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
                 auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
                 shieldComp.attached = true;

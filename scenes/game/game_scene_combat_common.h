@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -67,38 +68,186 @@ inline const char* GetShieldBossRushClipName(ShieldBossState state)
 {
     switch (state)
     {
-    case ShieldBossState::Detect:
-        return "rush_start";
     case ShieldBossState::Rush:
-        return "rush_attack";
-    case ShieldBossState::RushCooldown:
-        return "rush_end";
+        return "attack01";
+    case ShieldBossState::Detect:
+        return "idle";
+    case ShieldBossState::JumpAscend:
+    case ShieldBossState::AirHover:
+    case ShieldBossState::JumpDescend:
+    case ShieldBossState::SlamPhase1:
+        return "attack02";
+    case ShieldBossState::SlamPhase2:
+    case ShieldBossState::Cooldown:
+        return "move";
     default:
         return "idle";
     }
 }
 
-inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent& boss)
+inline const char* ResolveShieldBossBodyClipName(const ShieldBossComponent& boss)
 {
-    constexpr float kBoss1NormalVisualScale = 1.35f;
-    constexpr float kBoss1RoarVisualScale = 1.95f;
-    constexpr float kBoss1DeathVisualScale = 1.68f;
-    constexpr float kBoss1DeathGroundOffsetY = 72.0f;
-    constexpr float kBoss1RoarYOffsetCompensation = -24.0f;
-
     if (boss.deathAnimationActive)
     {
-        if (auto* sprite = entity.GetComponent<SpriteRenderComponent>())
-        {
-            if (const auto* transform = entity.GetComponent<TransformComponent>())
-            {
-                // Death frames have more visual padding, so push the image down and enlarge it.
-                sprite->SetRenderScale(kBoss1DeathVisualScale, kBoss1DeathVisualScale);
-                sprite->SetRenderOffset(
-                    transform->width * (1.0f - kBoss1DeathVisualScale) * 0.5f,
-                    transform->height * (1.0f - kBoss1DeathVisualScale) + kBoss1DeathGroundOffsetY);
-            }
-        }
+        return "death";
+    }
+    if (boss.knockbackActive)
+    {
+        return "knockback";
+    }
+    if (boss.appearAnimationActive)
+    {
+        return "appear";
+    }
+    if (boss.roarAnimationActive)
+    {
+        return "roar";
+    }
+    return GetShieldBossRushClipName(boss.state);
+}
+
+struct ShieldBossVisualMetrics
+{
+    float cellWidth = 241.8f;
+    float cellHeight = 188.0f;
+    float bodyLeft = 31.0f;
+    float bodyTop = 51.0f;
+    float bodyWidth = 169.0f;
+    float bodyHeight = 123.0f;
+};
+
+inline ShieldBossVisualMetrics GetShieldBossVisualMetrics(const char* clipName)
+{
+    ShieldBossVisualMetrics metrics;
+    if (std::strcmp(clipName, "attack02") == 0)
+    {
+        metrics.cellWidth = 240.0f;
+        metrics.cellHeight = 195.0f;
+        metrics.bodyLeft = 90.0f;
+        metrics.bodyTop = 70.0f;
+        metrics.bodyWidth = 114.0f;
+        metrics.bodyHeight = 102.0f;
+    }
+    else if (std::strcmp(clipName, "knockback") == 0)
+    {
+        metrics.cellWidth = 240.0f;
+        metrics.cellHeight = 186.7f;
+        metrics.bodyLeft = 42.0f;
+        metrics.bodyTop = 42.0f;
+        metrics.bodyWidth = 173.0f;
+        metrics.bodyHeight = 131.0f;
+    }
+    else if (std::strcmp(clipName, "death") == 0)
+    {
+        metrics.cellWidth = 240.0f;
+        metrics.cellHeight = 186.6f;
+        metrics.bodyLeft = 28.0f;
+        metrics.bodyTop = 49.0f;
+        metrics.bodyWidth = 145.0f;
+        metrics.bodyHeight = 112.0f;
+    }
+    else if (std::strcmp(clipName, "appear") == 0 || std::strcmp(clipName, "roar") == 0)
+    {
+        metrics.cellWidth = 240.0f;
+        metrics.cellHeight = 240.0f;
+        metrics.bodyLeft = 22.0f;
+        metrics.bodyTop = 72.0f;
+        metrics.bodyWidth = 164.0f;
+        metrics.bodyHeight = 114.5f;
+    }
+    else if (std::strcmp(clipName, "attack01") == 0)
+    {
+        metrics.bodyLeft = 31.0f;
+        metrics.bodyTop = 51.0f;
+        metrics.bodyWidth = 168.0f;
+        metrics.bodyHeight = 123.0f;
+    }
+    return metrics;
+}
+
+inline void ApplyShieldBossVisualLayout(Entity& entity, ShieldBossComponent& boss, bool flipRight, const char* clipName)
+{
+    const auto* transform = entity.GetComponent<TransformComponent>();
+    auto* sprite = entity.GetComponent<SpriteRenderComponent>();
+    if (!transform || !sprite)
+    {
+        return;
+    }
+
+    const float hitboxWidth = transform->width * transform->scale;
+    const float hitboxHeight = transform->height * transform->scale;
+    const ShieldBossVisualMetrics metrics = GetShieldBossVisualMetrics(clipName);
+    const float visualScaleX = metrics.cellWidth / std::max(1.0f, metrics.bodyWidth);
+    const float visualScaleY = metrics.cellHeight / std::max(1.0f, metrics.bodyHeight);
+    const bool introClip = std::strcmp(clipName, "appear") == 0 || std::strcmp(clipName, "roar") == 0;
+    const float introScale = introClip ? 1.2f : 1.0f;
+    const float visualWidth = hitboxWidth * visualScaleX * introScale;
+    const float visualHeight = hitboxHeight * visualScaleY * introScale;
+    const float drawScaleX = visualWidth / std::max(1.0f, hitboxWidth);
+    const float drawScaleY = visualHeight / std::max(1.0f, hitboxHeight);
+    const float bodyLeft = flipRight
+        ? metrics.cellWidth - (metrics.bodyLeft + metrics.bodyWidth)
+        : metrics.bodyLeft;
+    const float drawOffsetX = introClip
+        ? hitboxWidth * (1.0f - introScale) * 0.5f - bodyLeft / metrics.cellWidth * visualWidth
+        : -bodyLeft / metrics.cellWidth * visualWidth;
+    const float drawOffsetY = introClip
+        ? hitboxHeight - ((metrics.bodyTop + metrics.bodyHeight) / metrics.cellHeight * visualHeight)
+        : -metrics.bodyTop / metrics.cellHeight * visualHeight;
+    sprite->SetRenderScale(drawScaleX, drawScaleY);
+    sprite->SetRenderOffset(drawOffsetX, drawOffsetY);
+    sprite->SetFlipX(flipRight);
+
+    if (!boss.shieldEntity)
+    {
+        return;
+    }
+
+    auto* shieldSprite = boss.shieldEntity->GetComponent<SpriteRenderComponent>();
+    const auto* shieldTransform = boss.shieldEntity->GetComponent<TransformComponent>();
+    if (!shieldSprite || !shieldTransform)
+    {
+        return;
+    }
+
+    // Shield DDS shares the body canvas, so draw it from the body hitbox origin.
+    // 待機と突進は盾を構えた見た目にするため、さらに内側へ寄せる。
+    constexpr float kShieldBodyVisualPullX = 24.0f;
+    constexpr float kShieldBodyGuardClipPullX = 48.0f;
+    const bool guardClip = std::strcmp(clipName, "idle") == 0 || std::strcmp(clipName, "attack01") == 0;
+    const float shieldBodyPullX = kShieldBodyVisualPullX + (guardClip ? kShieldBodyGuardClipPullX : 0.0f);
+    constexpr float kShieldBaseCellWidth = 241.8f;
+    constexpr float kShieldBaseCellHeight = 188.0f;
+    constexpr float kShieldBaseBodyWidth = 169.0f;
+    constexpr float kShieldBaseBodyHeight = 123.0f;
+    const float shieldVisualWidth = hitboxWidth * (kShieldBaseCellWidth / kShieldBaseBodyWidth);
+    const float shieldVisualHeight = hitboxHeight * (kShieldBaseCellHeight / kShieldBaseBodyHeight);
+    const bool slamMotionClip = std::strcmp(clipName, "attack02") == 0;
+    const float shieldMotionScale = slamMotionClip ? 1.3f : 1.0f;
+    const float shieldScaleX = shieldVisualWidth * shieldMotionScale / std::max(1.0f, shieldTransform->width * shieldTransform->scale);
+    const float shieldScaleY = shieldVisualHeight * shieldMotionScale / std::max(1.0f, shieldTransform->height * shieldTransform->scale);
+    shieldSprite->SetRenderScale(shieldScaleX, shieldScaleY);
+    if (boss.slamShieldVisualLocked && boss.state == ShieldBossState::JumpDescend)
+    {
+        // 叩きつけ落下中は、切り出した盾フレームを盾エンティティ座標へ追従させる。
+        shieldSprite->SetRenderOffset(boss.slamShieldRenderOffsetX, boss.slamShieldRenderOffsetY);
+    }
+    else
+    {
+        shieldSprite->SetRenderOffset(
+            transform->x + drawOffsetX - shieldTransform->x + (flipRight ? -shieldBodyPullX : shieldBodyPullX),
+            transform->y + drawOffsetY - shieldTransform->y);
+    }
+    shieldSprite->SetFlipX(flipRight);
+}
+
+inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent& boss)
+{
+    const bool flipRight = boss.facing == ShieldBossFacing::Right;
+    const char* clipName = ResolveShieldBossBodyClipName(boss);
+    ApplyShieldBossVisualLayout(entity, boss, flipRight, clipName);
+    if (boss.deathAnimationActive)
+    {
         if (auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>())
         {
             animation->Play("death");
@@ -113,20 +262,21 @@ inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent&
         return;
     }
 
-    const bool flipRight = boss.facing == ShieldBossFacing::Right;
+    if (boss.knockbackActive)
+    {
+        if (auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>())
+        {
+            animation->Play("knockback");
+        }
+        if (auto* shieldAnimation = boss.shieldEntity ? boss.shieldEntity->GetComponent<SpriteSheetAnimationComponent>() : nullptr)
+        {
+            shieldAnimation->Play("knockback");
+        }
+        return;
+    }
+
     if (boss.appearAnimationActive)
     {
-        if (auto* sprite = entity.GetComponent<SpriteRenderComponent>())
-        {
-            if (const auto* transform = entity.GetComponent<TransformComponent>())
-            {
-                sprite->SetRenderScale(kBoss1NormalVisualScale, kBoss1NormalVisualScale);
-                sprite->SetRenderOffset(
-                    transform->width * (1.0f - kBoss1NormalVisualScale) * 0.5f,
-                    transform->height * (1.0f - kBoss1NormalVisualScale));
-            }
-            sprite->SetFlipX(flipRight);
-        }
         if (boss.shieldEntity)
         {
             if (auto* shieldTint = boss.shieldEntity->GetComponent<TintComponent>())
@@ -137,38 +287,18 @@ inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent&
         if (auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>())
         {
             animation->Play("appear");
-            if (animation->IsCurrentClipFinished())
+            if (animation->IsCurrentClipFinished() && !boss.introDropActive)
             {
                 boss.appearAnimationActive = false;
                 boss.appearAnimationFinished = true;
-                animation->Play("idle", true);
-                if (boss.shieldEntity)
-                {
-                    if (auto* shieldTint = boss.shieldEntity->GetComponent<TintComponent>())
-                    {
-                        shieldTint->a = 1.0f;
-                    }
-                }
+                animation->Play("move", true);
             }
         }
         return;
     }
 
-    const char* clipName = GetShieldBossRushClipName(boss.state);
-
     if (auto* sprite = entity.GetComponent<SpriteRenderComponent>())
     {
-        if (const auto* transform = entity.GetComponent<TransformComponent>())
-        {
-            const float visualScale = boss.roarAnimationActive ? kBoss1RoarVisualScale : kBoss1NormalVisualScale;
-            const float visualOffsetY = boss.roarAnimationActive
-                ? transform->height * (1.0f - kBoss1NormalVisualScale) + kBoss1RoarYOffsetCompensation
-                : transform->height * (1.0f - visualScale);
-            sprite->SetRenderScale(visualScale, visualScale);
-            sprite->SetRenderOffset(
-                transform->width * (1.0f - visualScale) * 0.5f,
-                visualOffsetY);
-        }
         // Boss1 sheets face left by default; mirror only when facing right.
         sprite->SetFlipX(flipRight);
     }
@@ -227,6 +357,11 @@ inline void UpdateShieldBossSpriteAnimation(Entity& entity, ShieldBossComponent&
     }
     if (auto* shieldAnimation = boss.shieldEntity->GetComponent<SpriteSheetAnimationComponent>())
     {
+        if (boss.state != ShieldBossState::JumpDescend &&
+            boss.state != ShieldBossState::SlamPhase2)
+        {
+            shieldAnimation->SetPlaybackSpeed(1.0f);
+        }
         shieldAnimation->Play(clipName);
     }
 }

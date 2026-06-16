@@ -1785,14 +1785,18 @@ void GameScene::DrawEntity(const Entity& entity) const
     float drawWidth = transform->width * transform->scale * sprite->GetRenderScaleX() * viewScale;
     float drawHeight = transform->height * transform->scale * sprite->GetRenderScaleY() * viewScale;
     const auto* tag = entity.GetComponent<TagComponent>();
-    if (tag && HasTag(tag, EntityTag::BossShield))
+    if (tag && (HasTag(tag, EntityTag::BossShield) || HasTag(tag, EntityTag::CapturedShield)))
     {
         const auto* shield = entity.GetComponent<ShieldComponent>();
         const auto* ownerBoss = shield && shield->ownerBoss
             ? shield->ownerBoss->GetComponent<ShieldBossComponent>()
             : nullptr;
-        if (shield && ownerBoss &&
-            (shield->attached || ownerBoss->knockbackActive || ownerBoss->state == ShieldBossState::Rush || ownerBoss->state == ShieldBossState::RushCooldown))
+        const bool bossShieldVisual =
+            shield && ownerBoss &&
+            (shield->attached || ownerBoss->knockbackActive || ownerBoss->state == ShieldBossState::Rush || ownerBoss->state == ShieldBossState::RushCooldown);
+        const bool capturedShieldVisual =
+            shield && shield->photoSpawned && shield->capturedMode == CapturedShieldMode::Normal;
+        if (bossShieldVisual || capturedShieldVisual)
         {
             const int textureId = sprite->GetTextureId();
             const int textureWidth = TextureGetWidth(textureId);

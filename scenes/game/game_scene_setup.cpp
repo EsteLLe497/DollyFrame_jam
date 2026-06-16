@@ -478,7 +478,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins_boss.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest_boss.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -748,7 +748,7 @@ void GameScene::InitializeStageEntities()
                 if (auto* bossComp = boss.GetComponent<ShieldBossComponent>())
                 {
                     constexpr float kShieldW = 48.0f;
-                    constexpr float kShieldH = 144.0f;
+                    constexpr float kShieldH = 192.0f;
                     auto shieldEntity = std::make_unique<Entity>();
                     shieldEntity->AddComponent<TagComponent>("BossShield");
                     shieldEntity->AddComponent<TransformComponent>(
@@ -760,7 +760,7 @@ void GameScene::InitializeStageEntities()
                         0.72f,
                         0.78f,
                         0.90f,
-                        bossComp->appearAnimationActive ? 0.0f : 1.0f);
+                        (!bossComp->combatStarted && !bossComp->appearAnimationFinished) ? 0.0f : 1.0f);
                     shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
                     auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
                     shieldComp.attached = true;
