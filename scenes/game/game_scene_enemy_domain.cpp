@@ -1762,6 +1762,24 @@ void GameScene::RemoveDefeatedEnemies()
                     return true;
                 }
             }
+            const auto* midBoss3Fist = entity ? entity->GetComponent<MidBoss3FistComponent>() : nullptr;
+            if (midBoss3Fist && midBoss3Fist->ownerBoss)
+            {
+                const auto* ownerEnemy = midBoss3Fist->ownerBoss->GetComponent<EnemyComponent>();
+                if (!ownerEnemy || ownerEnemy->IsDefeated())
+                {
+                    return true;
+                }
+            }
+            const auto* capturedMidBoss3Attack = entity ? entity->GetComponent<CapturedMidBoss3AttackComponent>() : nullptr;
+            if (capturedMidBoss3Attack && capturedMidBoss3Attack->carriedBoss)
+            {
+                const auto* carriedEnemy = capturedMidBoss3Attack->carriedBoss->GetComponent<EnemyComponent>();
+                if (!carriedEnemy || carriedEnemy->IsDefeated())
+                {
+                    return true;
+                }
+            }
             const auto* lifetime = entity ? entity->GetComponent<PhotoCopyLifetimeComponent>() : nullptr;
             if (!lifetime)
             {
@@ -1787,6 +1805,40 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
             return;
         }
     }
+    const auto cleanupMidBoss3Defeat = [](Entity& defeatedBoss)
+    {
+        auto* midBoss3 = defeatedBoss.GetComponent<MidBoss3Component>();
+        if (!midBoss3)
+        {
+            return;
+        }
+        midBoss3->drillActive = false;
+        midBoss3->drillFormed = false;
+        midBoss3->drillGroundRush = false;
+        midBoss3->reloadActive = false;
+        for (Entity* fistEntity : midBoss3->fistEntities)
+        {
+            auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+            if (fist)
+            {
+                fist->state = MidBoss3FistState::Broken;
+                fist->broken = true;
+                fist->captureJammerActive = false;
+                fist->impactAttackActive = false;
+                fist->impactDamageApplied = false;
+                fist->impactAttackRemaining = 0.0f;
+            }
+            if (auto* tint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr)
+            {
+                tint->a = 0.0f;
+            }
+            if (auto* transform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr)
+            {
+                transform->x = -10000.0f;
+                transform->y = -10000.0f;
+            }
+        }
+    };
 
     auto* damageFlash = enemy.GetComponent<DamageCooldownComponent>();
     if (!damageFlash)
@@ -1954,6 +2006,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     }
     if (defeatedThisHit)
     {
+        cleanupMidBoss3Defeat(enemy);
         TriggerEnemyDefeatFeedback(m_flow);
     }
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });

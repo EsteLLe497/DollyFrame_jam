@@ -230,6 +230,15 @@ inline void UpdateBullets(
                 Entity* targetBoss = capturedMidBoss3Attack->carriedBoss
                     ? capturedMidBoss3Attack->carriedBoss
                     : findMidBoss3Target();
+                if (targetBoss)
+                {
+                    const auto* targetEnemy = targetBoss->GetComponent<EnemyComponent>();
+                    if (!targetEnemy || !targetEnemy->IsEnabled() || targetEnemy->IsDefeated())
+                    {
+                        bulletsToRemove.push_back(entity);
+                        continue;
+                    }
+                }
 
                 if (capturedMidBoss3Attack->attachedToBoss && targetBoss)
                 {
