@@ -221,8 +221,8 @@ public:
     float damageAccumulator = 0.0f;
 
 private:
-    int m_maxDurability = 3;
-    int m_currentDurability = 3;
+    int m_maxDurability = 2;
+    int m_currentDurability = 2;
 };
 
 enum class LaserTurretFireDirection

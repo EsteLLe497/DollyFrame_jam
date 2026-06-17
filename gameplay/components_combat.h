@@ -275,9 +275,10 @@ public:
         float spearLandingPauseTime = 0.2f;
         float spearJumpHeightGrid = 6.0f;
         float spearJumpHorizontalGrid = 8.0f;
-        float beamChargeTime = 3.0f;
+        float beamChargeTime = 2.5f;
         float beamDamagePerSecond = 1.0f;
         float beamHeightGrid = 3.0f;
+        float beamCooldownAfterFire = 1.5f;
         float pastedBeamDamagePerSecond = 1.0f;
     };
 

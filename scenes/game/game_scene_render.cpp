@@ -2508,28 +2508,53 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
             const int outerColor = GetColor(124, 206, 255);
             const int coreColor = GetColor(236, 248, 255);
+            const bool isBossBeam = bossBeamCapture != nullptr;
             const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
             const float beamCenterY = renderDrawY + renderDrawHeight * 0.5f;
             const float beamHalfHeight = renderDrawHeight * 0.5f;
-            const float basePulse = 0.97f + 0.03f * std::sin(timeSeconds * 6.0f);
-            const float coreThickness = std::max(2.0f, renderDrawHeight * 0.18f);
-            const float innerGlowThickness = std::max(4.0f, renderDrawHeight * 0.34f);
-            const float outerGlowThickness = std::max(6.0f, renderDrawHeight * 0.58f);
-            const int outerGlowAlpha = std::clamp(static_cast<int>(std::round(52.0f * alphaMultiplier * basePulse)), 0, 255);
-            const int innerGlowAlpha = std::clamp(static_cast<int>(std::round(92.0f * alphaMultiplier * basePulse)), 0, 255);
-            const int coreAlpha = std::clamp(static_cast<int>(std::round(224.0f * alphaMultiplier * basePulse)), 0, 255);
+            const float basePulse = isBossBeam
+                ? 0.94f + 0.06f * std::sin(timeSeconds * 7.0f)
+                : 0.97f + 0.03f * std::sin(timeSeconds * 6.0f);
+            const float beamEnergy = isBossBeam ? 1.25f : 1.0f;
+            const float coreThickness = std::max(2.0f, renderDrawHeight * (isBossBeam ? 0.22f : 0.18f));
+            const float innerGlowThickness = std::max(4.0f, renderDrawHeight * (isBossBeam ? 0.40f : 0.34f));
+            const float outerGlowThickness = std::max(6.0f, renderDrawHeight * (isBossBeam ? 0.68f : 0.58f));
+            const int outerGlowAlpha = std::clamp(static_cast<int>(std::round(60.0f * alphaMultiplier * basePulse * beamEnergy)), 0, 255);
+            const int innerGlowAlpha = std::clamp(static_cast<int>(std::round(108.0f * alphaMultiplier * basePulse * beamEnergy)), 0, 255);
+            const int coreAlpha = std::clamp(static_cast<int>(std::round(240.0f * alphaMultiplier * basePulse)), 0, 255);
             constexpr int kWrapSegments = 96;
-            const float wrapAmplitude = beamHalfHeight * 0.34f;
-            const float wrapFrequency = 1.8f;
-            const float wrapSpeed = 3.8f;
-            const float wrapThickness = std::max(1.0f, renderDrawHeight * 0.08f);
-            const int wrapGlowAlpha = std::clamp(static_cast<int>(std::round(84.0f * alphaMultiplier)), 0, 255);
-            const int wrapCoreAlpha = std::clamp(static_cast<int>(std::round(136.0f * alphaMultiplier)), 0, 255);
+            const float wrapAmplitude = beamHalfHeight * (isBossBeam ? 0.42f : 0.34f);
+            const float wrapFrequency = isBossBeam ? 2.15f : 1.8f;
+            const float wrapSpeed = isBossBeam ? 4.8f : 3.8f;
+            const float wrapThickness = std::max(1.0f, renderDrawHeight * (isBossBeam ? 0.10f : 0.08f));
+            const int wrapGlowAlpha = std::clamp(static_cast<int>(std::round((isBossBeam ? 104.0f : 84.0f) * alphaMultiplier * beamEnergy)), 0, 255);
+            const int wrapCoreAlpha = std::clamp(static_cast<int>(std::round((isBossBeam ? 172.0f : 136.0f) * alphaMultiplier * beamEnergy)), 0, 255);
+            const float sourceX = bossBeamCapture && bossBeamCapture->sourceOnLeft ? renderDrawX : renderDrawX + renderDrawWidth;
+            const float targetX = bossBeamCapture && bossBeamCapture->sourceOnLeft ? renderDrawX + renderDrawWidth : renderDrawX;
+            const float muzzlePulse = 0.88f + 0.12f * std::sin(timeSeconds * 18.0f);
+            const float impactPulse = 0.84f + 0.16f * std::sin(timeSeconds * 11.0f + 1.7f);
 
             SetDrawBlendMode(DX_BLENDMODE_ADD, outerGlowAlpha);
             DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, outerColor, outerGlowThickness);
             SetDrawBlendMode(DX_BLENDMODE_ADD, innerGlowAlpha);
             DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, GetColor(176, 226, 255), innerGlowThickness);
+            if (isBossBeam)
+            {
+                DrawLineAA(
+                    renderDrawX,
+                    beamCenterY - renderDrawHeight * 0.14f,
+                    renderDrawX + renderDrawWidth,
+                    beamCenterY - renderDrawHeight * 0.14f,
+                    GetColor(150, 224, 255),
+                    std::max(2.0f, outerGlowThickness * 0.42f));
+                DrawLineAA(
+                    renderDrawX,
+                    beamCenterY + renderDrawHeight * 0.14f,
+                    renderDrawX + renderDrawWidth,
+                    beamCenterY + renderDrawHeight * 0.14f,
+                    GetColor(150, 224, 255),
+                    std::max(2.0f, outerGlowThickness * 0.42f));
+            }
 
             auto drawWrappedLine = [&](int alpha, int color, float thickness, float pointRadius)
             {
@@ -2561,6 +2586,45 @@ void GameScene::DrawEntity(const Entity& entity) const
             DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, coreColor, innerGlowThickness * 0.52f);
             SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(255.0f * alphaMultiplier)), 0, 255));
             DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, GetColor(255, 255, 255), coreThickness);
+            if (isBossBeam)
+            {
+                const int muzzleAlpha = std::clamp(static_cast<int>(std::round(132.0f * alphaMultiplier * muzzlePulse)), 0, 255);
+                const int impactAlpha = std::clamp(static_cast<int>(std::round(150.0f * alphaMultiplier * impactPulse)), 0, 255);
+                const float capRadius = std::max(3.0f, renderDrawHeight * 0.52f);
+                SetDrawBlendMode(DX_BLENDMODE_ADD, muzzleAlpha);
+                DrawCircleAA(
+                    sourceX,
+                    beamCenterY,
+                    capRadius * 0.98f,
+                    32,
+                    GetColor(150, 224, 255),
+                    TRUE,
+                    std::max(1.6f, capRadius * 0.16f));
+                DrawCircleAA(
+                    sourceX,
+                    beamCenterY,
+                    capRadius * 0.42f,
+                    32,
+                    GetColor(255, 255, 255),
+                    TRUE,
+                    std::max(1.0f, capRadius * 0.10f));
+                SetDrawBlendMode(DX_BLENDMODE_ADD, impactAlpha);
+                DrawCircleAA(
+                    targetX,
+                    beamCenterY,
+                    capRadius * 1.30f,
+                    32,
+                    GetColor(138, 214, 255),
+                    TRUE,
+                    std::max(1.8f, capRadius * 0.20f));
+                DrawLineAA(
+                    targetX - capRadius * 0.9f,
+                    beamCenterY,
+                    targetX + capRadius * 0.9f,
+                    beamCenterY,
+                    GetColor(255, 255, 255),
+                    std::max(1.6f, capRadius * 0.18f));
+            }
         }
         else
         {
@@ -2922,7 +2986,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float bossHeight = transform->height * transform->scale;
             const float bodyCenterX = viewOriginX + ((transform->x + bossWidth * 0.5f) - m_flow.cameraX) * viewScale;
             const float bodyCenterY = viewOriginY + ((transform->y + bossHeight * 0.5f) - m_flow.cameraY) * viewScale;
-            const float beamCenterX = viewOriginX + ((transform->x + (midBoss2->beamFacingRight ? bossWidth + bossWidth * 0.20f : -bossWidth * 0.20f)) - m_flow.cameraX) * viewScale;
+            const float beamCenterX = viewOriginX + ((transform->x + (midBoss2->beamFacingRight ? bossWidth : 0.0f)) - m_flow.cameraX) * viewScale;
             const float beamCenterY = viewOriginY + ((transform->y + bossHeight * 0.5f) - m_flow.cameraY) * viewScale;
             const float chargeT = Clamp01(midBoss2->stateTimer / midBoss2->params.beamChargeTime);
             const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;

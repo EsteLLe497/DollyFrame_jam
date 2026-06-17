@@ -250,7 +250,7 @@ namespace
     {
         float x = 0.0f;
         float y = 0.0f;
-        int durability = 3;
+        int durability = 2;
         int linkIdOverride = -1;
         int widthTiles = 1;
         int markerHeightTiles = 1;
@@ -425,7 +425,8 @@ namespace
                     const int markerParameter = tileMap.GetMarkerParameter(column, row);
                     const int wallLinkIdOverride = markerParameter < 0 ? -markerParameter : -1;
                     const int wallDurability = markerParameter > 0 ? markerParameter : 2;
-                    const int wallHeightTiles = heightTiles > 1 ? heightTiles : 4;
+                    constexpr int kDefaultProtectiveWallHeightTiles = 5;
+                    const int wallHeightTiles = heightTiles > 1 ? heightTiles : kDefaultProtectiveWallHeightTiles;
                     outProtectiveWallMarkers.push_back(ProtectiveWallMarker{
                         markerX,
                         markerY,
