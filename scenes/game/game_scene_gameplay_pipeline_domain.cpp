@@ -26,6 +26,7 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     UpdateMerchants(gameplayDeltaTime);
     UpdateEnemies();
     UpdateShields(gameplayDeltaTime);
+    ApplyShieldBossSlamCameraWork(gameplayDeltaTime);
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
     UpdateSepiaRestoredLifetimes(gameplayDeltaTime);

@@ -445,6 +445,191 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     m_camera.prevCameraIndex = activeIndex;
 }
 
+void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
+{
+    m_render.slamCameraZoomBoost = 0.0f;
+    if (m_mapEditor.active || deltaTime <= 0.0f)
+    {
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraInfluence = 0.0f;
+        return;
+    }
+
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    if (!playerTransform)
+    {
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraInfluence = 0.0f;
+        return;
+    }
+
+    const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+    const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
+    float bestWeight = 0.0f;
+    float bestTargetCenterX = playerCenterX;
+    float bestTargetCenterY = playerCenterY;
+    float bestZoomBoost = 0.0f;
+    bool bestIntroCameraWork = false;
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        const auto* bossTransform = entity->GetComponent<TransformComponent>();
+        if (!enemy ||
+            enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
+            !enemy->IsEnabled() ||
+            !boss ||
+            !bossTransform)
+        {
+            continue;
+        }
+
+        float weight = 0.0f;
+        float verticalLookBias = 0.0f;
+        float zoomBoost = 0.0f;
+        bool introCameraWork = false;
+        if (boss->introDropActive)
+        {
+            weight = 0.68f;
+            verticalLookBias = -36.0f;
+            zoomBoost = 0.038f;
+            introCameraWork = true;
+        }
+        else if (boss->appearAnimationActive)
+        {
+            weight = 0.58f;
+            verticalLookBias = -18.0f;
+            zoomBoost = 0.044f;
+            introCameraWork = true;
+        }
+        else if (boss->roarAnimationActive)
+        {
+            weight = 0.86f;
+            verticalLookBias = -10.0f;
+            zoomBoost = 0.096f;
+            introCameraWork = true;
+        }
+        switch (boss->state)
+        {
+        case ShieldBossState::JumpAscend:
+            if (!introCameraWork)
+            {
+                weight = 0.46f;
+                verticalLookBias = -72.0f;
+                zoomBoost = 0.020f;
+            }
+            break;
+        case ShieldBossState::AirHover:
+            if (!introCameraWork)
+            {
+                weight = 0.58f;
+                verticalLookBias = -112.0f;
+                zoomBoost = 0.030f;
+            }
+            break;
+        case ShieldBossState::JumpDescend:
+            if (!introCameraWork)
+            {
+                weight = 0.66f;
+                verticalLookBias = -46.0f;
+                zoomBoost = 0.045f;
+            }
+            break;
+        case ShieldBossState::SlamPhase2:
+            if (!introCameraWork)
+            {
+                weight = std::max(0.0f, 0.32f * (1.0f - std::min(1.0f, boss->stateTimer / 0.34f)));
+                verticalLookBias = 38.0f;
+                zoomBoost = 0.018f * (weight / 0.32f);
+            }
+            break;
+        default:
+            break;
+        }
+
+        if (weight <= bestWeight)
+        {
+            continue;
+        }
+
+        const float bossCenterX = bossTransform->x + bossTransform->width * bossTransform->scale * 0.5f;
+        const float bossCenterY = bossTransform->y + bossTransform->height * bossTransform->scale * 0.5f;
+        bestWeight = weight;
+        const float targetBossBlendX = introCameraWork ? 0.86f : 0.44f;
+        const float targetBossBlendY = introCameraWork ? 0.82f : 0.52f;
+        bestTargetCenterX = std::lerp(playerCenterX, bossCenterX, targetBossBlendX);
+        bestTargetCenterY = std::lerp(playerCenterY, bossCenterY, targetBossBlendY) + verticalLookBias;
+        bestZoomBoost = zoomBoost;
+        bestIntroCameraWork = introCameraWork;
+    }
+
+    auto applyCameraTarget = [&](float targetCenterX, float targetCenterY, float weight, float speedScale)
+    {
+        const float desiredCameraX = targetCenterX - gCameraViewWidth * 0.5f;
+        const float desiredCameraY = targetCenterY - gCameraViewHeight * 0.5f;
+        const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth);
+        const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
+        const float clampedCameraX = std::clamp(desiredCameraX, 0.0f, maxCameraX);
+        const float clampedCameraY = std::clamp(desiredCameraY, 0.0f, maxCameraY);
+        const float blend = 1.0f - std::pow(0.001f, deltaTime * speedScale);
+
+        m_flow.cameraX = std::lerp(m_flow.cameraX, clampedCameraX, blend * weight);
+        m_flow.cameraY = std::lerp(m_flow.cameraY, clampedCameraY, blend * weight);
+    };
+
+    const bool hasActiveCameraWork = bestWeight > 0.0f;
+    if (hasActiveCameraWork && bestIntroCameraWork)
+    {
+        const float influenceBlend = 1.0f - std::pow(0.001f, deltaTime * 3.8f);
+        const float zoomBlend = 1.0f - std::pow(0.001f, deltaTime * 4.8f);
+        m_render.bossIntroCameraInfluence = std::lerp(m_render.bossIntroCameraInfluence, 1.0f, influenceBlend);
+        m_render.bossIntroCameraTargetX = bestTargetCenterX;
+        m_render.bossIntroCameraTargetY = bestTargetCenterY;
+        m_render.bossIntroCameraZoomBoost = std::lerp(m_render.bossIntroCameraZoomBoost, bestZoomBoost, zoomBlend);
+        applyCameraTarget(
+            bestTargetCenterX,
+            bestTargetCenterY,
+            bestWeight * m_render.bossIntroCameraInfluence,
+            5.5f + bestWeight * 5.0f);
+    }
+    else
+    {
+        const float returnBlend = 1.0f - std::pow(0.001f, deltaTime * 0.92f);
+        m_render.bossIntroCameraInfluence = std::lerp(m_render.bossIntroCameraInfluence, 0.0f, returnBlend);
+        m_render.bossIntroCameraZoomBoost = std::lerp(m_render.bossIntroCameraZoomBoost, 0.0f, returnBlend);
+        if (m_render.bossIntroCameraInfluence > 0.01f)
+        {
+            applyCameraTarget(
+                m_render.bossIntroCameraTargetX,
+                m_render.bossIntroCameraTargetY,
+                0.58f * m_render.bossIntroCameraInfluence,
+                2.1f);
+        }
+        else
+        {
+            m_render.bossIntroCameraInfluence = 0.0f;
+            m_render.bossIntroCameraZoomBoost = 0.0f;
+        }
+
+        if (hasActiveCameraWork)
+        {
+            applyCameraTarget(
+                bestTargetCenterX,
+                bestTargetCenterY,
+                bestWeight,
+                5.5f + bestWeight * 5.0f);
+            m_render.slamCameraZoomBoost = bestZoomBoost;
+        }
+    }
+}
+
 
 
 void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float height)
@@ -489,6 +674,241 @@ void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float heig
         particle.g = colors[index % 4][1];
         particle.b = colors[index % 4][2];
         m_effects.barrelDebris.push_back(particle);
+    }
+}
+
+void GameScene::SpawnSlamImpactEffect(float centerX, float groundY, float width)
+{
+    constexpr float kDustLifetime = 0.58f;
+    constexpr int kFlashCount = 7;
+    constexpr int kGroundStreakCount = 14;
+    constexpr int kDustCount = 36;
+    constexpr int kChipCount = 26;
+    constexpr int kVerticalBurstCount = 18;
+    const float clampedWidth = std::max(128.0f, width * 1.18f);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    for (int index = 0; index < kFlashCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kFlashCount - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(clampedWidth * 0.34f, clampedWidth * 1.05f, t);
+        particle.height = std::lerp(16.0f, 46.0f, t);
+        particle.x = centerX - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.70f;
+        particle.velocityX = 0.0f;
+        particle.velocityY = -28.0f - t * 38.0f;
+        particle.rotation = (index % 2 == 0 ? -1.0f : 1.0f) * (0.03f + t * 0.05f);
+        particle.rotationSpeed = particle.rotation * -3.0f;
+        particle.life = std::lerp(0.13f, 0.25f, t);
+        particle.maxLife = particle.life;
+        particle.alphaScale = std::lerp(1.0f, 0.58f, t);
+        particle.r = std::lerp(1.0f, 0.78f, t);
+        particle.g = std::lerp(0.98f, 0.86f, t);
+        particle.b = std::lerp(0.86f, 0.68f, t);
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kGroundStreakCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kGroundStreakCount / 2) - 1);
+        const float distance = std::lerp(0.08f, 0.92f, spreadT) * halfWidth;
+        SlamDustParticle particle;
+        particle.width = std::lerp(84.0f, 154.0f, 1.0f - spreadT);
+        particle.height = std::lerp(8.0f, 17.0f, 1.0f - spreadT);
+        particle.x = centerX + side * distance - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.5f - static_cast<float>(GetRand(5));
+        particle.velocityX = side * (460.0f + static_cast<float>(GetRand(220)));
+        particle.velocityY = -20.0f - static_cast<float>(GetRand(34));
+        particle.rotation = side * std::lerp(0.04f, 0.13f, spreadT);
+        particle.rotationSpeed = side * 0.8f;
+        particle.life = 0.26f + spreadT * 0.12f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.92f;
+        particle.r = 0.92f;
+        particle.g = 0.78f;
+        particle.b = 0.48f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kVerticalBurstCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kVerticalBurstCount - 1);
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float offset = side * std::lerp(4.0f, halfWidth * 0.26f, t);
+        SlamDustParticle particle;
+        particle.width = 8.0f + static_cast<float>(GetRand(12));
+        particle.height = 70.0f + static_cast<float>(GetRand(78));
+        particle.x = centerX + offset - particle.width * 0.5f;
+        particle.y = groundY - particle.height;
+        particle.velocityX = side * (58.0f + t * 150.0f + static_cast<float>(GetRand(70)));
+        particle.velocityY = -300.0f - static_cast<float>(GetRand(260));
+        particle.rotation = side * std::lerp(0.02f, 0.30f, t);
+        particle.rotationSpeed = side * (1.5f + t * 2.0f);
+        particle.life = 0.28f + static_cast<float>(GetRand(14)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.84f;
+        particle.r = 0.82f;
+        particle.g = 0.90f;
+        particle.b = 1.0f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kDustCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kDustCount / 2) - 1);
+        const float outward = std::lerp(0.08f, 1.16f, spreadT);
+        const float jitter = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 38.0f;
+        const float sizeT = 1.52f - spreadT * 0.46f;
+
+        SlamDustParticle particle;
+        particle.width = (58.0f + static_cast<float>(GetRand(46))) * sizeT;
+        particle.height = (20.0f + static_cast<float>(GetRand(18))) * sizeT;
+        particle.x = centerX + side * outward * halfWidth * 0.50f + jitter - particle.width * 0.5f;
+        particle.y = groundY - 16.0f - static_cast<float>(GetRand(24)) - particle.height * 0.35f;
+        particle.velocityX = side * (320.0f + outward * 330.0f + static_cast<float>(GetRand(150)));
+        particle.velocityY = -72.0f - static_cast<float>(GetRand(120));
+        particle.rotation = side * (0.08f + spreadT * 0.18f);
+        particle.rotationSpeed = side * (0.7f + spreadT * 0.8f);
+        particle.life = kDustLifetime + static_cast<float>(GetRand(12)) * 0.01f;
+        particle.maxLife = kDustLifetime;
+        particle.alphaScale = 0.86f;
+        particle.r = 0.70f;
+        particle.g = 0.63f;
+        particle.b = 0.52f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kChipCount; ++index)
+    {
+        const float angle = -3.1415926f + (static_cast<float>(index) + 0.5f) / static_cast<float>(kChipCount) * 3.1415926f;
+        const float speed = 240.0f + static_cast<float>(GetRand(310));
+        SlamDustParticle particle;
+        particle.width = 10.0f + static_cast<float>(GetRand(16));
+        particle.height = 6.0f + static_cast<float>(GetRand(10));
+        particle.x = centerX + (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * clampedWidth * 0.30f - particle.width * 0.5f;
+        particle.y = groundY - 10.0f - particle.height * 0.5f;
+        particle.velocityX = std::cos(angle) * speed;
+        particle.velocityY = -126.0f - std::abs(std::sin(angle)) * (220.0f + static_cast<float>(GetRand(150)));
+        particle.rotation = static_cast<float>(GetRand(628)) * 0.01f;
+        particle.rotationSpeed = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 10.0f;
+        particle.life = 0.56f + static_cast<float>(GetRand(16)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.92f;
+        particle.r = 0.46f;
+        particle.g = 0.40f;
+        particle.b = 0.32f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnRushSmokeEffect(float centerX, float groundY, float direction)
+{
+    const float dir = direction >= 0.0f ? 1.0f : -1.0f;
+    constexpr int kSmokeCount = 6;
+
+    for (int index = 0; index < kSmokeCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kSmokeCount - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(36.0f, 76.0f, t) + static_cast<float>(GetRand(18));
+        particle.height = std::lerp(22.0f, 48.0f, t) + static_cast<float>(GetRand(12));
+        particle.x = centerX - dir * (8.0f + static_cast<float>(GetRand(24)) + t * 22.0f) - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 1.18f - 16.0f - static_cast<float>(GetRand(18)) - t * 16.0f;
+        particle.velocityX = -dir * (170.0f + static_cast<float>(GetRand(170)) + t * 105.0f);
+        particle.velocityY = -132.0f - static_cast<float>(GetRand(110)) - t * 96.0f;
+        particle.rotation = -dir * (0.22f + t * 0.32f);
+        particle.rotationSpeed = -dir * (1.8f + t * 2.7f);
+        particle.life = 0.42f + static_cast<float>(GetRand(14)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = std::lerp(0.88f, 0.52f, t);
+        particle.r = 0.64f;
+        particle.g = 0.58f;
+        particle.b = 0.50f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnLightLandingEffect(float centerX, float groundY, float width)
+{
+    constexpr int kDustCount = 10;
+    const float clampedWidth = std::max(72.0f, width);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    for (int index = 0; index < kDustCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kDustCount / 2) - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(24.0f, 46.0f, 1.0f - spreadT) + static_cast<float>(GetRand(12));
+        particle.height = std::lerp(8.0f, 17.0f, 1.0f - spreadT) + static_cast<float>(GetRand(5));
+        particle.x = centerX + side * std::lerp(0.12f, 0.52f, spreadT) * halfWidth - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.55f - static_cast<float>(GetRand(7));
+        particle.velocityX = side * (120.0f + spreadT * 170.0f + static_cast<float>(GetRand(60)));
+        particle.velocityY = -34.0f - static_cast<float>(GetRand(54));
+        particle.rotation = side * (0.05f + spreadT * 0.14f);
+        particle.rotationSpeed = side * (0.6f + spreadT * 0.7f);
+        particle.life = 0.26f + static_cast<float>(GetRand(8)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.58f;
+        particle.r = 0.72f;
+        particle.g = 0.66f;
+        particle.b = 0.56f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnBossRoarEffect(float centerX, float groundY, float width)
+{
+    constexpr int kShockCount = 14;
+    constexpr int kBurstCount = 12;
+    const float clampedWidth = std::max(128.0f, width * 1.18f);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    for (int index = 0; index < kShockCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kShockCount / 2) - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(48.0f, 98.0f, 1.0f - spreadT) + static_cast<float>(GetRand(20));
+        particle.height = std::lerp(8.0f, 18.0f, 1.0f - spreadT) + static_cast<float>(GetRand(6));
+        particle.x = centerX + side * std::lerp(0.08f, 0.86f, spreadT) * halfWidth - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.75f - static_cast<float>(GetRand(12));
+        particle.velocityX = side * (220.0f + spreadT * 260.0f + static_cast<float>(GetRand(120)));
+        particle.velocityY = -42.0f - static_cast<float>(GetRand(76));
+        particle.rotation = side * (0.06f + spreadT * 0.18f);
+        particle.rotationSpeed = side * (0.9f + spreadT * 1.1f);
+        particle.life = 0.34f + static_cast<float>(GetRand(12)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.76f;
+        particle.r = 0.94f;
+        particle.g = 0.82f;
+        particle.b = 0.58f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kBurstCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kBurstCount - 1);
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        SlamDustParticle particle;
+        particle.width = 7.0f + static_cast<float>(GetRand(10));
+        particle.height = 42.0f + static_cast<float>(GetRand(58));
+        particle.x = centerX + side * std::lerp(8.0f, halfWidth * 0.34f, t) - particle.width * 0.5f;
+        particle.y = groundY - particle.height - 18.0f - static_cast<float>(GetRand(34));
+        particle.velocityX = side * (44.0f + t * 180.0f + static_cast<float>(GetRand(70)));
+        particle.velocityY = -170.0f - static_cast<float>(GetRand(190));
+        particle.rotation = side * std::lerp(0.08f, 0.36f, t);
+        particle.rotationSpeed = side * (1.4f + t * 2.2f);
+        particle.life = 0.30f + static_cast<float>(GetRand(12)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.68f;
+        particle.r = 1.0f;
+        particle.g = 0.93f;
+        particle.b = 0.76f;
+        m_effects.slamDust.push_back(particle);
     }
 }
 

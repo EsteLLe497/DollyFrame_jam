@@ -81,6 +81,7 @@ private:
     void DrawWorldAndUiLayers();
     void ResetFrameRendering();
     bool IsMidBoss3IntroCinematicActive() const;
+    bool IsShieldBossIntroCinematicActive() const;
 
     // Lifecycle / setup
     void UpdateLoading(float deltaTime);
@@ -94,6 +95,7 @@ private:
     void InitializeStageEntities();
     void BuildCameraMarkers();
     void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY = true);
+    void ApplyShieldBossSlamCameraWork(float deltaTime);
     bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
     void StartFloorCameraTransition(int directionX, int directionY);
 
@@ -214,6 +216,10 @@ private:
     void RespawnPlayer(Entity& player);
     void StartPitRestart(Entity* player, const char* logMessage);
     void SpawnBarrelBreakEffect(float x, float y, float width, float height);
+    void SpawnSlamImpactEffect(float centerX, float groundY, float width);
+    void SpawnRushSmokeEffect(float centerX, float groundY, float direction);
+    void SpawnLightLandingEffect(float centerX, float groundY, float width);
+    void SpawnBossRoarEffect(float centerX, float groundY, float width);
     void SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height);
     void QueueResult(GameEndReason reason);
 
@@ -224,6 +230,7 @@ private:
     void DrawPitRestartOverlay() const;
     void DrawStageDarknessOverlay() const;
     void DrawSepiaFilmFilterOverlay() const;
+    void DrawShieldBossSlamVignetteOverlay() const;
     void DrawMarkerLightOutlines() const;
     void DrawEffects() const;
     void DrawEnemyAttackRects() const;

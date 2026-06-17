@@ -170,7 +170,7 @@ void GameScene::PrepareFrameRendering()
 
     if (!m_mapEditor.active)
     {
-        m_render.viewScaleMultiplier = baseCameraZoomMultiplier + zoomBlend * 0.08f;
+        m_render.viewScaleMultiplier = baseCameraZoomMultiplier + zoomBlend * 0.08f + m_render.slamCameraZoomBoost + m_render.bossIntroCameraZoomBoost;
         m_render.zoomAnchorScreenCenter = m_flow.cameraMode;
     }
 }
@@ -202,9 +202,36 @@ bool GameScene::IsMidBoss3IntroCinematicActive() const
     return false;
 }
 
+bool GameScene::IsShieldBossIntroCinematicActive() const
+{
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::ShieldBoss)
+        {
+            continue;
+        }
+        if (!enemy->IsEnabled() || enemy->IsDefeated())
+        {
+            continue;
+        }
+        if (boss->introDropActive || boss->appearAnimationActive || boss->roarAnimationActive)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void GameScene::DrawWorldAndUiLayers()
 {
-    const bool hideUiForMidBoss3Intro = IsMidBoss3IntroCinematicActive();
+    const bool hideUiForIntroCinematic = IsMidBoss3IntroCinematicActive() || IsShieldBossIntroCinematicActive();
 
     DrawBackdrop();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
@@ -225,8 +252,9 @@ void GameScene::DrawWorldAndUiLayers()
     DrawPastedEntitiesFront();
     DrawStageDarknessOverlay();
     DrawSepiaFilmFilterOverlay();
+    DrawShieldBossSlamVignetteOverlay();
     DrawMarkerLightOutlines();
-    if (hideUiForMidBoss3Intro)
+    if (hideUiForIntroCinematic)
     {
         return;
     }
