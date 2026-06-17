@@ -510,6 +510,7 @@ inline void UpdateEnemies(
                 fist.velocityX = 0.0f;
                 fist.velocityY = 0.0f;
                 fist.launchTimer = 0.0f;
+                fist.attackReadyTimer = 0.0f;
                 fist.damageApplied = false;
                 fist.atAttackStart = false;
                 fist.broken = false;
@@ -590,6 +591,33 @@ inline void UpdateEnemies(
                     }
                 }
             };
+            const auto setLauncherFistReady = [&](int fistIndex)
+            {
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                    auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+                    if (!fist || fist->fistIndex != fistIndex)
+                    {
+                        continue;
+                    }
+                    if (fist->state != MidBoss3FistState::LauncherReady &&
+                        fist->state != MidBoss3FistState::Launching)
+                    {
+                        fist->state = MidBoss3FistState::LauncherReady;
+                        resetFistForAttack(*fist);
+                        if (fistTransform)
+                        {
+                            fistTransform->rotation = 0.0f;
+                        }
+                        if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                        {
+                            tint->a = 1.0f;
+                        }
+                    }
+                    return;
+                }
+            };
             const auto beginReload = [&]()
             {
                 if (boss->reloadActive)
@@ -627,6 +655,7 @@ inline void UpdateEnemies(
                     fist->broken = false;
                     fist->damageApplied = false;
                     fist->launchTimer = 0.0f;
+                    fist->attackReadyTimer = 0.0f;
                     fist->captureJammerActive = false;
                     fist->impactAttackActive = false;
                     fist->impactDamageApplied = false;
@@ -636,6 +665,43 @@ inline void UpdateEnemies(
                         tint->a = 1.0f;
                     }
                 }
+            };
+            const auto findLauncherGroundY = [&]() -> float
+            {
+                const int columnCount = std::max(1, static_cast<int>(mapWidth / kTileSize));
+                const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
+                const int centerColumn = std::clamp(
+                    static_cast<int>(stageCenterX / kTileSize),
+                    0,
+                    columnCount - 1);
+                const int maxSearchOffset = std::min(columnCount - 1, 12);
+                for (int row = rowCount / 2; row < rowCount; ++row)
+                {
+                    for (int offset = 0; offset <= maxSearchOffset; ++offset)
+                    {
+                        const int leftColumn = centerColumn - offset;
+                        const int rightColumn = centerColumn + offset;
+                        if (leftColumn >= 0 && isSolidTile(leftColumn, row))
+                        {
+                            return static_cast<float>(row) * kTileSize;
+                        }
+                        if (rightColumn < columnCount && rightColumn != leftColumn && isSolidTile(rightColumn, row))
+                        {
+                            return static_cast<float>(row) * kTileSize;
+                        }
+                    }
+                }
+                return mapHeight;
+            };
+            const auto setFixedLauncherLanes = [&](float fistHeight)
+            {
+                const float groundY = findLauncherGroundY();
+                const float lowerLaneY = groundY - fistHeight - kTileSize * 0.25f;
+                boss->launcherLowerLaneY = std::clamp(lowerLaneY, 0.0f, std::max(0.0f, mapHeight - fistHeight));
+                boss->launcherUpperLaneY = std::clamp(
+                    boss->launcherLowerLaneY - kTileSize * 2.0f,
+                    0.0f,
+                    std::max(0.0f, mapHeight - fistHeight));
             };
             const auto prepareLauncherAttack = [&]()
             {
@@ -654,9 +720,8 @@ inline void UpdateEnemies(
                         break;
                     }
                 }
-                boss->launcherLowerLaneY = std::clamp(playerCenterY - fistHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - fistHeight));
-                boss->launcherUpperLaneY = std::clamp(boss->launcherLowerLaneY - kTileSize * 2.0f, 0.0f, std::max(0.0f, mapHeight - fistHeight));
-                setAllFistsState(MidBoss3FistState::LauncherReady, true);
+                setFixedLauncherLanes(fistHeight);
+                setAllFistsState(MidBoss3FistState::Docked, true);
             };
             const auto prepareMeteorAttack = [&]()
             {
@@ -678,6 +743,16 @@ inline void UpdateEnemies(
                 boss->cooldownAttack = 3;
                 boss->launcherDirection = playerCenterX < stageCenterX ? -1 : 1;
                 boss->meteorDirection = boss->launcherDirection;
+                float fistHeight = kTileSize * 2.0f;
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    if (const auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr)
+                    {
+                        fistHeight = fistTransform->height * fistTransform->scale;
+                        break;
+                    }
+                }
+                setFixedLauncherLanes(fistHeight);
                 setAllFistsState(MidBoss3FistState::Docked, true);
                 for (Entity* fistEntity : boss->fistEntities)
                 {
@@ -708,6 +783,8 @@ inline void UpdateEnemies(
                     : transform->x - boss->drillWidth - kTileSize * 0.5f;
                 boss->drillX = std::clamp(drillX, 0.0f, std::max(0.0f, mapWidth - boss->drillWidth));
                 boss->drillY = std::clamp(transform->y + bossHeight * 0.5f - boss->drillHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - boss->drillHeight));
+                boss->drillChargeBaseX = boss->drillX;
+                boss->drillChargeBaseY = boss->drillY;
                 const float aimDx = playerCenterX - (boss->drillX + boss->drillWidth * 0.5f);
                 const float aimDy = playerCenterY - (boss->drillY + boss->drillHeight * 0.5f);
                 const float aimLength = std::max(0.001f, std::hypot(aimDx, aimDy));
@@ -822,7 +899,7 @@ inline void UpdateEnemies(
                             }
                         }
                     }
-                    else if (boss->moveTimer >= boss->params.movePauseTime)
+                    else
                     {
                         const int movePointCount = getMovePointCount(boss->movePattern);
                         if (boss->moveStep >= movePointCount)
@@ -832,7 +909,7 @@ inline void UpdateEnemies(
                                 prepareNextFlowAttack();
                             }
                         }
-                        else
+                        else if (boss->moveTimer >= boss->params.movePauseTime)
                         {
                             if (boss->moveStep == 0)
                             {
@@ -868,18 +945,22 @@ inline void UpdateEnemies(
             else if (boss->state == MidBoss3State::LauncherFist)
             {
                 boss->launcherShotTimer += deltaTime;
-                if (boss->stateTimer >= boss->params.launcherWindupTime &&
-                    boss->launcherShotsFired < 4 &&
-                    (boss->launcherShotsFired == 0 || boss->launcherShotTimer >= boss->params.launcherFistInterval))
+                if (boss->launcherShotsFired < 4)
                 {
                     const int launchOrder[4] = { 0, 1, 2, 3 };
                     const int fistIndex = launchOrder[boss->launcherShotsFired];
+                    setLauncherFistReady(fistIndex);
                     bool launched = false;
                     for (Entity* fistEntity : boss->fistEntities)
                     {
                         auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
                         auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
-                        if (!fist || !fistTransform || fist->fistIndex != fistIndex || !fist->atAttackStart)
+                        if (!fist ||
+                            !fistTransform ||
+                            fist->fistIndex != fistIndex ||
+                            !fist->atAttackStart ||
+                            fist->attackReadyTimer < boss->params.fistPreLaunchShakeTime ||
+                            (boss->launcherShotsFired > 0 && boss->launcherShotTimer < boss->params.launcherFistInterval))
                         {
                             continue;
                         }
@@ -915,6 +996,7 @@ inline void UpdateEnemies(
                         if (fist &&
                             fist->state == MidBoss3FistState::MeteorReady &&
                             fist->atAttackStart &&
+                            fist->attackReadyTimer >= boss->params.fistPreLaunchShakeTime &&
                             (fist->fistIndex == a || fist->fistIndex == b))
                         {
                             ++readyCount;
@@ -965,24 +1047,6 @@ inline void UpdateEnemies(
                     }
                     else
                     {
-                        float fistHeight = kTileSize * 2.0f;
-                        for (Entity* fistEntity : boss->fistEntities)
-                        {
-                            if (const auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr)
-                            {
-                                fistHeight = fistTransform->height * fistTransform->scale;
-                                break;
-                            }
-                        }
-                        boss->launcherLowerLaneY = std::clamp(playerCenterY - fistHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - fistHeight));
-                        for (Entity* fistEntity : boss->fistEntities)
-                        {
-                            auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
-                            if (fist && fist->fistIndex >= 2)
-                            {
-                                fist->state = MidBoss3FistState::LauncherReady;
-                            }
-                        }
                         boss->state = MidBoss3State::LauncherFist;
                         boss->stateTimer = boss->params.launcherWindupTime;
                         boss->launcherShotsFired = 2;
@@ -1018,12 +1082,23 @@ inline void UpdateEnemies(
                 }
                 if (boss->drillActive)
                 {
-                    const float drillCenterX = boss->drillX + boss->drillWidth * 0.5f;
-                    const float drillCenterY = boss->drillY + boss->drillHeight * 0.5f;
                     if (boss->stateTimer < boss->params.drillFormTime + boss->params.drillWaitTime)
                     {
-                        const float aimDx = playerCenterX - drillCenterX;
-                        const float aimDy = playerCenterY - drillCenterY;
+                        const float shakePhase = boss->idleTimer * 52.0f;
+                        const float shakeX = std::sin(shakePhase) * boss->params.drillChargeShakeAmplitude;
+                        const float shakeY = std::cos(shakePhase * 1.31f) * boss->params.drillChargeShakeAmplitude * 0.45f;
+                        boss->drillX = std::clamp(
+                            boss->drillChargeBaseX + shakeX,
+                            0.0f,
+                            std::max(0.0f, mapWidth - boss->drillWidth));
+                        boss->drillY = std::clamp(
+                            boss->drillChargeBaseY + shakeY,
+                            0.0f,
+                            std::max(0.0f, mapHeight - boss->drillHeight));
+                        const float chargeCenterX = boss->drillX + boss->drillWidth * 0.5f;
+                        const float chargeCenterY = boss->drillY + boss->drillHeight * 0.5f;
+                        const float aimDx = playerCenterX - chargeCenterX;
+                        const float aimDy = playerCenterY - chargeCenterY;
                         const float aimLength = std::max(0.001f, std::hypot(aimDx, aimDy));
                         boss->drillAimX = aimDx / aimLength;
                         boss->drillAimY = aimDy / aimLength;
@@ -1531,8 +1606,21 @@ inline void UpdateEnemies(
                     fistTransform->y = moveToward(fistTransform->y, launcherStartY, followStep);
                     fistTransform->rotation = 0.0f;
                     fist->atAttackStart =
-                        std::fabs(fistTransform->x - launcherStartX) <= 1.0f &&
-                        std::fabs(fistTransform->y - launcherStartY) <= 1.0f;
+                        std::fabs(fistTransform->x - launcherStartX) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f &&
+                        std::fabs(fistTransform->y - launcherStartY) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f;
+                    if (fist->atAttackStart)
+                    {
+                        fist->attackReadyTimer += deltaTime;
+                        const float phase = boss->idleTimer * 58.0f + static_cast<float>(fist->fistIndex) * 2.17f;
+                        const float shakeX = std::sin(phase) * boss->params.fistPreLaunchShakeAmplitude;
+                        const float shakeY = std::cos(phase * 1.29f) * boss->params.fistPreLaunchShakeAmplitude * 0.45f;
+                        fistTransform->x = launcherStartX + shakeX;
+                        fistTransform->y = launcherStartY + shakeY;
+                    }
+                    else
+                    {
+                        fist->attackReadyTimer = 0.0f;
+                    }
                 }
                 else if (fist->state == MidBoss3FistState::MeteorReady)
                 {
@@ -1541,8 +1629,21 @@ inline void UpdateEnemies(
                     fistTransform->y = moveToward(fistTransform->y, meteorStartY, followStep);
                     fistTransform->rotation = 1.5707963f;
                     fist->atAttackStart =
-                        std::fabs(fistTransform->x - meteorStartX) <= 1.0f &&
-                        std::fabs(fistTransform->y - meteorStartY) <= 1.0f;
+                        std::fabs(fistTransform->x - meteorStartX) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f &&
+                        std::fabs(fistTransform->y - meteorStartY) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f;
+                    if (fist->atAttackStart)
+                    {
+                        fist->attackReadyTimer += deltaTime;
+                        const float phase = boss->idleTimer * 58.0f + static_cast<float>(fist->fistIndex) * 2.17f;
+                        const float shakeX = std::sin(phase) * boss->params.fistPreLaunchShakeAmplitude * 0.45f;
+                        const float shakeY = std::cos(phase * 1.29f) * boss->params.fistPreLaunchShakeAmplitude;
+                        fistTransform->x = meteorStartX + shakeX;
+                        fistTransform->y = meteorStartY + shakeY;
+                    }
+                    else
+                    {
+                        fist->attackReadyTimer = 0.0f;
+                    }
                 }
                 else if (fist->state == MidBoss3FistState::DrillForming)
                 {
@@ -1582,58 +1683,7 @@ inline void UpdateEnemies(
                         fistTransform->y < -fistHeight ||
                         fistTransform->y > mapHeight + fistHeight;
 
-                    const auto tryStandOnLaunchingFist = [&]() -> bool
-                    {
-                        if (!player || !playerState || !playerTransform)
-                        {
-                            return false;
-                        }
-                        if (std::fabs(fist->velocityX) <= 0.01f || std::fabs(fist->velocityY) > 0.01f)
-                        {
-                            return false;
-                        }
-
-                        auto* mutablePlayerTransform = player->GetComponent<TransformComponent>();
-                        if (!mutablePlayerTransform)
-                        {
-                            return false;
-                        }
-
-                        const float playerWidth = mutablePlayerTransform->width * mutablePlayerTransform->scale;
-                        const float playerHeight = mutablePlayerTransform->height * mutablePlayerTransform->scale;
-                        const float fistLeft = fistTransform->x;
-                        const float fistRight = fistTransform->x + fistWidth;
-                        const float fistTop = fistTransform->y;
-                        const float playerLeft = mutablePlayerTransform->x;
-                        const float playerRight = mutablePlayerTransform->x + playerWidth;
-                        const float playerBottom = mutablePlayerTransform->y + playerHeight;
-                        const float previousPlayerBottom = playerBottom - playerState->velocityY * deltaTime;
-                        const bool horizontalOverlap =
-                            playerRight > fistLeft - 10.0f &&
-                            playerLeft < fistRight + 10.0f;
-                        const bool landedFromAbove =
-                            playerState->velocityY >= -20.0f &&
-                            previousPlayerBottom <= fistTop + 18.0f &&
-                            playerBottom >= fistTop - 24.0f;
-                        const bool alreadyRiding =
-                            playerState->grounded &&
-                            std::fabs(playerBottom - fistTop) <= 18.0f &&
-                            playerBottom <= fistTop + 18.0f;
-                        if (!horizontalOverlap || (!landedFromAbove && !alreadyRiding))
-                        {
-                            return false;
-                        }
-
-                        mutablePlayerTransform->y = fistTop - playerHeight;
-                        playerState->velocityY = 0.0f;
-                        playerState->grounded = true;
-                        playerState->coyoteTimeRemaining = 0.0f;
-                        return true;
-                    };
-
-                    const bool playerStandingOnFist = tryStandOnLaunchingFist();
-                    if (!playerStandingOnFist &&
-                        !fist->damageApplied &&
+                    if (!fist->damageApplied &&
                         player &&
                         playerTransform &&
                         IntersectsBounds(*fistTransform, *playerTransform))
@@ -1762,6 +1812,20 @@ inline void UpdateEnemies(
                     {
                         tint->a = 0.0f;
                     }
+                }
+                const bool contactDamageState =
+                    fist->state == MidBoss3FistState::Docked ||
+                    fist->state == MidBoss3FistState::LauncherReady ||
+                    fist->state == MidBoss3FistState::MeteorReady ||
+                    (fist->state == MidBoss3FistState::DrillForming && !boss->drillFormed);
+                if (contactDamageState &&
+                    !fist->damageApplied &&
+                    player &&
+                    playerTransform &&
+                    IntersectsBounds(*fistTransform, *playerTransform))
+                {
+                    handlePlayerDamage(fistEntity, 1, "MidBoss3 fist contact damaged player");
+                    fist->damageApplied = true;
                 }
                 if (auto* fistSprite = fistEntity->GetComponent<SpriteRenderComponent>())
                 {
@@ -3136,10 +3200,14 @@ inline void UpdateEnemies(
     constexpr float kGravity = 1900.0f;
     constexpr float kMaxFallSpeed = 980.0f;
     constexpr float kTileSize = 48.0f;
-    constexpr float kMidBoss2TeleportFlashSeconds = 0.18f;
+    constexpr float kMidBoss2TeleportFlashSeconds = 0.24f;
             constexpr float kBeamFireDuration = 5.2f;
             constexpr float kBeamFireShakeSeconds = 0.16f;
             constexpr float kBeamFireShakeAmplitude = 24.0f;
+            constexpr float kMidBoss2TeleportShakeSeconds = 0.12f;
+            constexpr float kMidBoss2TeleportShakeAmplitude = 8.0f;
+            constexpr float kMidBoss2BeamChargeShakeSeconds = 0.08f;
+            constexpr float kMidBoss2BeamChargeShakeAmplitude = 5.0f;
             const auto getMidBoss2LeftX = [&](float centerGridX, float bossWidth)
             {
                 return centerGridX * kTileSize - bossWidth * 0.5f;
@@ -3155,15 +3223,15 @@ inline void UpdateEnemies(
                 };
                 constexpr std::array<TeleportSlot, 3> kLeftTeleportSlots =
                 {{
-                    { kMidBoss2ArenaCenterMinGridX + 7.0f, 2.0f },
-                    { kMidBoss2ArenaCenterMinGridX + 10.5f, 0.0f },
-                    { kMidBoss2ArenaCenterMinGridX + 5.5f, -2.0f },
+                    { kMidBoss2ArenaCenterMinGridX + 6.0f, 5.0f },
+                    { kMidBoss2ArenaCenterMinGridX + 12.0f, 4.0f },
+                    { kMidBoss2ArenaCenterMinGridX + 4.0f, 3.0f },
                 }};
                 constexpr std::array<TeleportSlot, 3> kRightTeleportSlots =
                 {{
-                    { kMidBoss2ArenaCenterMaxGridX - 7.0f, 2.0f },
-                    { kMidBoss2ArenaCenterMaxGridX - 10.5f, 0.0f },
-                    { kMidBoss2ArenaCenterMaxGridX - 5.5f, -2.0f },
+                    { kMidBoss2ArenaCenterMaxGridX - 8.0f, 5.0f },
+                    { kMidBoss2ArenaCenterMaxGridX - 13.0f, 4.0f },
+                    { kMidBoss2ArenaCenterMaxGridX - 5.0f, 3.0f },
                 }};
                 const auto& slots = leftSide ? kLeftTeleportSlots : kRightTeleportSlots;
                 const int slotIndex = std::clamp(GetRand(2), 0, 2);
@@ -3310,8 +3378,8 @@ inline void UpdateEnemies(
                 const float beamHeight = boss->params.beamHeightGrid * kTileSize;
                 const float turretWidth = kTileSize;
                 const float beamOriginX = beamFacingRight
-                    ? transform->x + bossWidth + kTileSize
-                    : transform->x - kTileSize;
+                    ? transform->x + bossWidth
+                    : transform->x;
                 const float beamOriginY = transform->y + bossHeight * 0.5f;
                 const float turretX = beamOriginX - turretWidth * 0.5f;
                 const float turretY = beamOriginY - beamHeight * 0.5f;
@@ -3410,6 +3478,9 @@ inline void UpdateEnemies(
                     transform->width * transform->scale,
                     transform->height * transform->scale);
                 boss->teleportFlashRemaining = kMidBoss2TeleportFlashSeconds;
+                flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kMidBoss2TeleportShakeSeconds);
+                flow.screenShakeDuration = std::max(flow.screenShakeDuration, kMidBoss2TeleportShakeSeconds);
+                flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kMidBoss2TeleportShakeAmplitude);
                 transform->x = boss->hoverTargetX;
                 transform->y = boss->hoverTargetY;
                 boss->spearShotsFired = 0;
@@ -3539,6 +3610,9 @@ inline void UpdateEnemies(
                             bossWidth,
                             bossHeight);
                         boss->teleportFlashRemaining = kMidBoss2TeleportFlashSeconds;
+                        flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kMidBoss2BeamChargeShakeSeconds);
+                        flow.screenShakeDuration = std::max(flow.screenShakeDuration, kMidBoss2BeamChargeShakeSeconds);
+                        flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kMidBoss2BeamChargeShakeAmplitude);
                     }
                     transform->x = boss->beamTargetX;
                 }
@@ -3570,8 +3644,8 @@ inline void UpdateEnemies(
 
             case MidBoss2State::BeamCooldown:
                 hideBeamEntities();
-                boss->cooldownRemaining = std::max(0.0f, boss->params.spearCooldownAfterLanding - boss->stateTimer);
-                if (boss->stateTimer >= boss->params.spearCooldownAfterLanding)
+                boss->cooldownRemaining = std::max(0.0f, boss->params.beamCooldownAfterFire - boss->stateTimer);
+                if (boss->stateTimer >= boss->params.beamCooldownAfterFire)
                 {
                     boss->spearCycleCount = 0;
                     boss->spearShotsFired = 0;

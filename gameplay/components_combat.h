@@ -279,9 +279,10 @@ public:
         float spearLandingPauseTime = 0.2f;
         float spearJumpHeightGrid = 6.0f;
         float spearJumpHorizontalGrid = 8.0f;
-        float beamChargeTime = 3.0f;
+        float beamChargeTime = 2.5f;
         float beamDamagePerSecond = 1.0f;
         float beamHeightGrid = 3.0f;
+        float beamCooldownAfterFire = 1.5f;
         float pastedBeamDamagePerSecond = 1.0f;
     };
 
@@ -346,26 +347,29 @@ public:
         int fistHeightGrid = 2;
         float idleFloatAmplitude = 28.0f;
         float idleFloatSpeed = 2.1f;
-        float movePauseTime = 1.4f;
-        float moveDuration = 1.8f;
+        float movePauseTime = 0.15f;
+        float moveDuration = 1.2f;
         float moveArcHeightGrid = 1.2f;
         float initialFlowDelayTime = 4.0f;
         float launcherWindupTime = 0.8f;
-        float launcherFistInterval = 0.95f;
+        float launcherFistInterval = 0.5f;
         float launcherFistSpeed = 672.0f;
-        float launcherCooldownTime = 1.5f;
+        float launcherCooldownTime = 0.5f;
         float meteorWindupTime = 0.9f;
         float meteorPairInterval = 0.85f;
         float meteorFistSpeed = 816.0f;
-        float meteorCooldownTime = 1.5f;
+        float meteorCooldownTime = 0.5f;
         float fistReloadTime = 2.0f;
         float fistReturnSpeed = 720.0f;
+        float fistPreLaunchShakeTime = 0.28f;
+        float fistPreLaunchShakeAmplitude = 5.0f;
         float introRiseTime = 2.4f;
         float drillFormTime = 0.8f;
         float drillWaitTime = 2.0f;
         float drillLaunchSpeed = 620.0f;
         float drillRushSpeed = 720.0f;
         float drillCooldownTime = 2.0f;
+        float drillChargeShakeAmplitude = 4.0f;
     };
 
     MidBoss3Component() = default;
@@ -426,6 +430,8 @@ public:
     int drillDirection = -1;
     float drillX = 0.0f;
     float drillY = 0.0f;
+    float drillChargeBaseX = 0.0f;
+    float drillChargeBaseY = 0.0f;
     float drillWidth = 0.0f;
     float drillHeight = 0.0f;
     float drillVelocityX = 0.0f;
@@ -460,6 +466,7 @@ public:
     float launchTimer = 0.0f;
     float reloadStartX = 0.0f;
     float reloadStartY = 0.0f;
+    float attackReadyTimer = 0.0f;
     bool damageApplied = false;
     bool atAttackStart = false;
     bool captureJammerActive = false;
