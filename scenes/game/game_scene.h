@@ -217,6 +217,7 @@ private:
     void StartPitRestart(Entity* player, const char* logMessage);
     void SpawnBarrelBreakEffect(float x, float y, float width, float height);
     void SpawnSlamImpactEffect(float centerX, float groundY, float width);
+    void SpawnBossDefeatStartEffect(float centerX, float groundY, float width);
     void SpawnRushSmokeEffect(float centerX, float groundY, float direction);
     void SpawnLightLandingEffect(float centerX, float groundY, float width);
     void SpawnBossRoarEffect(float centerX, float groundY, float width);
@@ -231,6 +232,7 @@ private:
     void DrawStageDarknessOverlay() const;
     void DrawSepiaFilmFilterOverlay() const;
     void DrawShieldBossSlamVignetteOverlay() const;
+    void DrawShieldBossIntroCurtainOverlay() const;
     void DrawMarkerLightOutlines() const;
     void DrawEffects() const;
     void DrawEnemyAttackRects() const;

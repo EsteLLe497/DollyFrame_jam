@@ -198,6 +198,20 @@ namespace
                 }
             }
 
+            if (const auto* shield = entity->GetComponent<ShieldComponent>())
+            {
+                if (shield->ownerBoss)
+                {
+                    if (const auto* boss = shield->ownerBoss->GetComponent<ShieldBossComponent>())
+                    {
+                        if (boss->deathAnimationActive || boss->deathAnimationFinished)
+                        {
+                            return;
+                        }
+                    }
+                }
+            }
+
             const auto* transform = entity->GetComponent<TransformComponent>();
             const auto* sprite = entity->GetComponent<SpriteRenderComponent>();
             if (!transform || !sprite || !IntersectsRect(captureFrame, *transform))
@@ -1291,6 +1305,33 @@ void GameScene::DrawShieldBossSlamVignetteOverlay() const
     drawBand(screenW - edge0, 0.0f, edge0, screenH, outerAlpha, outerColor);
 
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+}
+
+void GameScene::DrawShieldBossIntroCurtainOverlay() const
+{
+    const float progress = Clamp01(m_render.shieldBossIntroCurtainProgress);
+    if (progress <= 0.001f)
+    {
+        return;
+    }
+
+    // 登場演出中だけ、上下から1グリッド程度の黒幕を滑らかに出し入れする。
+    const float easedProgress = progress * progress * (3.0f - 2.0f * progress);
+    const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+    const int maxCurtainHeight = std::clamp(
+        static_cast<int>(std::round(tileSize * GetViewScale())),
+        32,
+        120);
+    const int curtainHeight = static_cast<int>(std::round(static_cast<float>(maxCurtainHeight) * easedProgress));
+    if (curtainHeight <= 0)
+    {
+        return;
+    }
+    const int curtainColor = GetColor(0, 0, 0);
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawBox(0, 0, SCREEN_WIDTH, curtainHeight, curtainColor, TRUE);
+    DrawBox(0, SCREEN_HEIGHT - curtainHeight, SCREEN_WIDTH, SCREEN_HEIGHT, curtainColor, TRUE);
 }
 
 void GameScene::DrawMarkerLightOutlines() const
@@ -2534,24 +2575,18 @@ void GameScene::DrawPhotoFilterPanelInView() const
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
 {
     static_cast<void>(playerTransform);
-    constexpr float kFinderLayoutScale = 0.56f;
-    constexpr float kFinderLeftMargin = 18.0f;
-    constexpr float kFinderBottomGap = 14.0f;
-
     const float viewScale = std::max(0.0001f, GetViewScale());
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
-    const float trayTopY = GetPhotoTrayTopY(m_ui.photoTrayReveal);
 
-    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_ui.captureFinderScale * kFinderLayoutScale;
-    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_ui.captureFinderScale * kFinderLayoutScale;
+    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_ui.captureFinderScale;
+    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_ui.captureFinderScale;
 
-    // Keep the finder tucked into the lower-left of the visible play area.
-    const float frameScreenX = viewOriginX + kFinderLeftMargin;
-    const float frameScreenY = trayTopY - kFinderBottomGap - height * viewScale;
-
-    x = m_flow.cameraX + (frameScreenX - viewOriginX) / viewScale;
-    y = m_flow.cameraY + (frameScreenY - viewOriginY) / viewScale;
+    // Cursor-centered finder: the visible frame and actual capture bounds must match.
+    const float cursorWorldX = m_flow.cameraX + (static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale;
+    const float cursorWorldY = m_flow.cameraY + (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
+    x = cursorWorldX - width * 0.5f;
+    y = cursorWorldY - height * 0.5f;
 
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();

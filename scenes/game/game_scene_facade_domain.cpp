@@ -170,8 +170,17 @@ void GameScene::PrepareFrameRendering()
 
     if (!m_mapEditor.active)
     {
+        const bool bossIntroZoomActive =
+            m_render.bossIntroCameraAnchorActive ||
+            m_render.bossIntroCameraZoomBoost > 0.01f;
         m_render.viewScaleMultiplier = baseCameraZoomMultiplier + zoomBlend * 0.08f + m_render.slamCameraZoomBoost + m_render.bossIntroCameraZoomBoost;
-        m_render.zoomAnchorScreenCenter = m_flow.cameraMode;
+        if (bossIntroZoomActive)
+        {
+            // Keep the active camera target at the screen center while the intro zoom blends.
+            m_render.zoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
+            m_render.zoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;
+        }
+        m_render.zoomAnchorScreenCenter = m_flow.cameraMode || bossIntroZoomActive;
     }
 }
 
@@ -256,6 +265,7 @@ void GameScene::DrawWorldAndUiLayers()
     DrawMarkerLightOutlines();
     if (hideUiForIntroCinematic)
     {
+        DrawShieldBossIntroCurtainOverlay();
         return;
     }
     DrawPhotoPlacementPreview();
@@ -275,6 +285,7 @@ void GameScene::DrawWorldAndUiLayers()
     DrawMidBoss3HpBar();
     DrawAttackCaptureSlot();
     DrawEnemyAttackRects();
+    DrawShieldBossIntroCurtainOverlay();
 }
 
 void GameScene::ResetFrameRendering()
@@ -282,6 +293,7 @@ void GameScene::ResetFrameRendering()
     m_render.shakeOffsetX = 0.0f;
     m_render.shakeOffsetY = 0.0f;
     m_render.viewScaleMultiplier = 1.0f;
+    m_render.bossIntroCameraAnchorActive = false;
     m_render.zoomAnchorScreenCenter = false;
     m_render.zoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
     m_render.zoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;

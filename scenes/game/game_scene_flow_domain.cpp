@@ -3,6 +3,7 @@
 #include "game_scene_internal.h"
 
 #include <algorithm>
+#include <cmath>
 
 using namespace game_scene_detail;
 
@@ -72,6 +73,17 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
     m_ui.cameraFlash.pulseRemaining = std::max(0.0f, m_ui.cameraFlash.pulseRemaining - deltaTime);
     m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
     m_flow.stageTransitionFadeInTimer = std::max(0.0f, m_flow.stageTransitionFadeInTimer - deltaTime);
+    const float shieldBossCurtainTarget = IsShieldBossIntroCinematicActive() ? 1.0f : 0.0f;
+    const float shieldBossCurtainSpeed = 0.72f;
+    const float shieldBossCurtainBlend = 1.0f - std::pow(0.001f, deltaTime * shieldBossCurtainSpeed);
+    m_render.shieldBossIntroCurtainProgress = std::lerp(
+        m_render.shieldBossIntroCurtainProgress,
+        shieldBossCurtainTarget,
+        shieldBossCurtainBlend);
+    if (std::fabs(m_render.shieldBossIntroCurtainProgress - shieldBossCurtainTarget) <= 0.001f)
+    {
+        m_render.shieldBossIntroCurtainProgress = shieldBossCurtainTarget;
+    }
     const bool previewWasActive = m_ui.developedPhotoPreviewRemaining > 0.0f;
     m_ui.developedPhotoPreviewRemaining = std::max(0.0f, m_ui.developedPhotoPreviewRemaining - deltaTime);
     if (previewWasActive && m_ui.developedPhotoPreviewRemaining <= 0.0f)

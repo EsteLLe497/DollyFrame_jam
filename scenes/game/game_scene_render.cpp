@@ -1707,6 +1707,8 @@ void GameScene::DrawEffects() const
             enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
             !enemy->IsEnabled() ||
             !boss ||
+            boss->deathAnimationActive ||
+            boss->deathAnimationFinished ||
             !transform ||
             !IsShieldBossAttackCaptureState(boss->state))
         {

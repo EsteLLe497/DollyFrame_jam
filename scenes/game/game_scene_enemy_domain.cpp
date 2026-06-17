@@ -61,6 +61,18 @@ namespace
     constexpr float kEnemyDefeatHitStopSeconds = 0.08f;
     constexpr float kEnemyDefeatShakeSeconds = 0.18f;
     constexpr float kEnemyDefeatShakeAmplitude = 14.0f;
+    constexpr float kEnemyKnockbackHitStopSeconds = 0.055f;
+    constexpr float kEnemyKnockbackShakeSeconds = 0.16f;
+    constexpr float kEnemyKnockbackShakeAmplitude = 15.0f;
+    constexpr float kBossKnockbackHitStopSeconds = 0.085f;
+    constexpr float kBossKnockbackShakeSeconds = 0.26f;
+    constexpr float kBossKnockbackShakeAmplitude = 60.0f;
+    constexpr float kBossDefeatStartHitStopSeconds = 0.14f;
+    constexpr float kBossDefeatStartShakeSeconds = 0.44f;
+    constexpr float kBossDefeatStartShakeAmplitude = 64.0f;
+    constexpr float kBossDefeatFinishHitStopSeconds = 0.08f;
+    constexpr float kBossDefeatFinishShakeSeconds = 0.34f;
+    constexpr float kBossDefeatFinishShakeAmplitude = 42.0f;
 
     float ResolveMidBoss3DamageDirection(const Entity& enemy, const Entity* sourceEntity)
     {
@@ -194,6 +206,48 @@ namespace
         flow.screenShakeRemaining = kEnemyDefeatShakeSeconds;
         flow.screenShakeDuration = kEnemyDefeatShakeSeconds;
         flow.screenShakeAmplitude = kEnemyDefeatShakeAmplitude;
+    }
+
+    void TriggerEnemyKnockbackFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kEnemyKnockbackHitStopSeconds);
+        if (!screenShakeEnabled)
+        {
+            return;
+        }
+
+        flow.screenShakeRemaining = (std::max)(flow.screenShakeRemaining, kEnemyKnockbackShakeSeconds);
+        flow.screenShakeDuration = (std::max)(flow.screenShakeDuration, kEnemyKnockbackShakeSeconds);
+        flow.screenShakeAmplitude = (std::max)(flow.screenShakeAmplitude, kEnemyKnockbackShakeAmplitude);
+    }
+
+    void TriggerBossKnockbackFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossKnockbackHitStopSeconds);
+        if (!screenShakeEnabled)
+        {
+            return;
+        }
+
+        flow.screenShakeRemaining = (std::max)(flow.screenShakeRemaining, kBossKnockbackShakeSeconds);
+        flow.screenShakeDuration = (std::max)(flow.screenShakeDuration, kBossKnockbackShakeSeconds);
+        flow.screenShakeAmplitude = (std::max)(flow.screenShakeAmplitude, kBossKnockbackShakeAmplitude);
+    }
+
+    void TriggerBossDefeatStartFeedback(GameSceneFlowState& flow)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossDefeatStartHitStopSeconds);
+        flow.screenShakeRemaining = kBossDefeatStartShakeSeconds;
+        flow.screenShakeDuration = kBossDefeatStartShakeSeconds;
+        flow.screenShakeAmplitude = kBossDefeatStartShakeAmplitude;
+    }
+
+    void TriggerBossDefeatFinishFeedback(GameSceneFlowState& flow)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossDefeatFinishHitStopSeconds);
+        flow.screenShakeRemaining = kBossDefeatFinishShakeSeconds;
+        flow.screenShakeDuration = kBossDefeatFinishShakeSeconds;
+        flow.screenShakeAmplitude = kBossDefeatFinishShakeAmplitude;
     }
 
     using BossTextureResolver = std::function<int(const std::string&)>;
@@ -615,12 +669,17 @@ void GameScene::UpdateEnemies()
 
                         if (const auto* transform = entity->GetComponent<TransformComponent>())
                         {
+                            const float centerX = transform->x + transform->width * transform->scale * 0.5f;
+                            const float centerY = transform->y + transform->height * transform->scale * 0.5f;
+                            const float groundY = transform->y + transform->height * transform->scale;
+                            const float width = transform->width * transform->scale;
                             SpawnDropItems(
-                                transform->x + transform->width * transform->scale * 0.5f,
-                                transform->y + transform->height * transform->scale * 0.5f,
+                                centerX,
+                                centerY,
                                 GetEnemyDropCount(enemy->GetArchetype()));
+                            SpawnBossDefeatStartEffect(centerX, groundY, width);
                         }
-                        TriggerEnemyDefeatFeedback(m_flow);
+                        TriggerBossDefeatFinishFeedback(m_flow);
                     }
                 }
                 if (boss->shieldEntity)
@@ -1058,20 +1117,21 @@ void GameScene::UpdateShields(float deltaTime)
                 shieldBoss->state == ShieldBossState::SlamPhase1 ||
                 shieldBoss->state == ShieldBossState::SlamPhase2)
             {
-                return;
+                return false;
             }
             shieldBoss->knockbackActive = true;
             shieldBoss->knockbackTimer = 0.0f;
             shieldBoss->knockbackStartX = transform.x;
             shieldBoss->knockbackStartY = transform.y;
             shieldBoss->knockbackTargetX = transform.x + direction * distance;
-            return;
+            return true;
         }
         enemy.knockbackActive = true;
         enemy.knockbackTimer = 0.0f;
         enemy.knockbackStartX = transform.x;
         enemy.knockbackStartY = transform.y;
         enemy.knockbackTargetX = transform.x + direction * distance;
+        return true;
     };
 
     std::vector<Entity*> shieldEntities;
@@ -1357,6 +1417,7 @@ void GameScene::UpdateShields(float deltaTime)
                                 shockGroundY,
                                 shockW);
                         }
+                        shieldsToRemove.push_back(entity);
                     }
                 }
                 break;
@@ -1521,7 +1582,17 @@ void GameScene::UpdateShields(float deltaTime)
                 const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
                 dir = enemyCenterX >= shieldCenterX ? 1.0f : -1.0f;
             }
-            startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize);
+            if (startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize))
+            {
+                if (shieldBoss)
+                {
+                    TriggerBossKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+                else
+                {
+                    TriggerEnemyKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+            }
 
             if (canRemoveNormalCapturedShield)
             {
@@ -1620,7 +1691,17 @@ void GameScene::UpdateShields(float deltaTime)
                 const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
                 dir = enemyCenterX >= shockCenterX ? 1.0f : -1.0f;
             }
-            startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shockwave->knockbackGrids * kTileSize);
+            if (startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shockwave->knockbackGrids * kTileSize))
+            {
+                if (shieldBoss)
+                {
+                    TriggerBossKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+                else
+                {
+                    TriggerEnemyKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+            }
         }
     }
 
@@ -1922,6 +2003,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                             shieldTint->a = 0.0f;
                         }
                     }
+                    TriggerBossDefeatStartFeedback(m_flow);
                     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
                     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
                     return;
@@ -1935,6 +2017,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                         shieldTint->a = 0.0f;
                     }
                 }
+                TriggerBossDefeatStartFeedback(m_flow);
             }
 
             enemyComponent->MarkDefeated();
@@ -2031,7 +2114,14 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     if (defeatedThisHit)
     {
         cleanupMidBoss3Defeat(enemy);
-        TriggerEnemyDefeatFeedback(m_flow);
+        if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)
+        {
+            TriggerBossDefeatStartFeedback(m_flow);
+        }
+        else
+        {
+            TriggerEnemyDefeatFeedback(m_flow);
+        }
     }
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });

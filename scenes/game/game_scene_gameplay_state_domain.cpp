@@ -158,6 +158,36 @@ void GameScene::TryUseAttackCaptureSlot()
         return;
     }
 
+    const int desiredBossMotionClip =
+        attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst ? 1 :
+        attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst ? 2 :
+        0;
+    const CapturedPhotoItem* bossMotionItem = nullptr;
+    for (const auto& item : m_photo.attackCapture.items)
+    {
+        if (!item.enemyAttackPaste &&
+            item.spawnArchetype == CapturedSpawnArchetype::None &&
+            item.origin == PhotoCopyOrigin::Enemy &&
+            (desiredBossMotionClip == 0 || item.bossMotionClip == desiredBossMotionClip))
+        {
+            bossMotionItem = &item;
+            break;
+        }
+    }
+    if (!bossMotionItem && desiredBossMotionClip != 0)
+    {
+        for (const auto& item : m_photo.attackCapture.items)
+        {
+            if (!item.enemyAttackPaste &&
+                item.spawnArchetype == CapturedSpawnArchetype::None &&
+                item.origin == PhotoCopyOrigin::Enemy)
+            {
+                bossMotionItem = &item;
+                break;
+            }
+        }
+    }
+
     auto finishAttackUse = [&](int remainingAttackCount = -1)
     {
         const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
@@ -453,14 +483,33 @@ void GameScene::TryUseAttackCaptureSlot()
         constexpr float kTileSize = 48.0f;
         constexpr float kBossRushSpeed = 520.0f;
         constexpr float kBossJumpDescendSpeed = 1200.0f;
+        constexpr float kBossSlamShieldVisualWidth = 288.0f;
+        constexpr float kBossSlamShieldVisualHeight = 234.0f;
+        constexpr int kCapturedBossRushStartFrame = 80;
+        constexpr int kCapturedBossSlamStartFrame = 99;
+        constexpr float kCapturedBossRushVisualLifetime = 0.5f;
+        constexpr float kCapturedBossSlamVisualLifetime = 0.65f;
+        const bool rushCapture = attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst;
+        const bool slamCapture = attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst;
+        const bool spawnBossAttackVisual = rushCapture;
         const bool facingRight = m_player.facingRight;
+        const float rushVelocityX = facingRight ? kBossRushSpeed : -kBossRushSpeed;
+        const float visualVelocityX = rushCapture ? rushVelocityX : 0.0f;
+        const float visualVelocityY = slamCapture ? kBossJumpDescendSpeed : 0.0f;
+        const float capturedBossVisualLifetime = rushCapture
+            ? kCapturedBossRushVisualLifetime
+            : kCapturedBossSlamVisualLifetime;
+        const int capturedBossVisualStartFrame = rushCapture
+            ? kCapturedBossRushStartFrame
+            : kCapturedBossSlamStartFrame;
+        const int attackPasteOrder = m_photo.groups.nextPasteOrder++;
         const float playerWidth = playerTransform->width * playerTransform->scale;
         const float playerHeight = playerTransform->height * playerTransform->scale;
         const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
         const float playerFootY = playerTransform->y + playerHeight;
 
-        const float shieldW = kTileSize;
-        const float shieldH = kTileSize * 4.0f;
+        float shieldW = kTileSize;
+        float shieldH = kTileSize * 4.0f;
         float shieldX = facingRight
             ? playerTransform->x + playerWidth
             : playerTransform->x - shieldW;
@@ -475,22 +524,28 @@ void GameScene::TryUseAttackCaptureSlot()
         }
         else
         {
+            shieldW = kBossSlamShieldVisualWidth;
+            shieldH = kBossSlamShieldVisualHeight;
             const float playerFrontX = facingRight
-                ? playerTransform->x + playerWidth + shieldW * 0.5f
-                : playerTransform->x - shieldW * 0.5f;
+                ? playerTransform->x + playerWidth + kTileSize * 0.5f
+                : playerTransform->x - kTileSize * 0.5f;
             shieldX = playerFrontX - shieldW * 0.5f;
             shieldY = playerFootY - kTileSize * 6.0f - shieldH;
         }
 
         auto shieldEntity = std::make_unique<Entity>();
         shieldEntity->AddComponent<TagComponent>("CapturedShield");
+        shieldEntity->AddComponent<PhotoPasteOrderComponent>(attackPasteOrder);
         shieldEntity->AddComponent<TransformComponent>(shieldX, shieldY, shieldW, shieldH);
         shieldEntity->AddComponent<TintComponent>(
             attackItem->tintR,
             attackItem->tintG,
             attackItem->tintB,
-            attackItem->tintA);
-        shieldEntity->AddComponent<SpriteRenderComponent>(attackItem->textureId >= 0 ? attackItem->textureId : m_tileTexture);
+            rushCapture ? 0.0f : attackItem->tintA);
+        const int actualShieldTextureId = slamCapture
+            ? m_assets.GetTexture("boss1_shield_attack02")
+            : attackItem->textureId;
+        shieldEntity->AddComponent<SpriteRenderComponent>(actualShieldTextureId >= 0 ? actualShieldTextureId : m_tileTexture);
         auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
         shieldComp.attached = false;
         shieldComp.photoSpawned = true;
@@ -502,7 +557,20 @@ void GameScene::TryUseAttackCaptureSlot()
         shieldComp.grounded = false;
         shieldComp.shockwaveSpawned = false;
 
-        if (auto* sprite = shieldEntity->GetComponent<SpriteRenderComponent>())
+        if (slamCapture)
+        {
+            ConfigureBossShieldSpriteAnimation(*shieldEntity);
+            if (auto* animation = shieldEntity->GetComponent<SpriteSheetAnimationComponent>())
+            {
+                animation->Play("attack02", true);
+                animation->SetCurrentLocalFrameIndex(kCapturedBossSlamStartFrame);
+            }
+            if (auto* sprite = shieldEntity->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetFlipX(facingRight);
+            }
+        }
+        else if (auto* sprite = shieldEntity->GetComponent<SpriteRenderComponent>())
         {
             sprite->SetSourceRect(attackItem->sourceX, attackItem->sourceY, attackItem->sourceWidth, attackItem->sourceHeight);
             sprite->SetFlipX(!facingRight);
@@ -513,7 +581,7 @@ void GameScene::TryUseAttackCaptureSlot()
             shieldComp.capturedMode = CapturedShieldMode::RushBurst;
             shieldComp.gravityEnabled = false;
             shieldComp.contactDamage = 2;
-            shieldComp.velocityX = facingRight ? kBossRushSpeed : -kBossRushSpeed;
+            shieldComp.velocityX = rushVelocityX;
             shieldEntity->AddComponent<PhotoCopyLifetimeComponent>(0.5f);
         }
         else
@@ -530,6 +598,106 @@ void GameScene::TryUseAttackCaptureSlot()
         }
 
         m_world.Spawn(std::move(shieldEntity));
+        if (spawnBossAttackVisual)
+        {
+            const bool hasBossMotionItem = bossMotionItem != nullptr;
+            const float relativeVisualX = hasBossMotionItem ? bossMotionItem->relativeX - attackItem->relativeX : 0.0f;
+            const float relativeVisualY = hasBossMotionItem ? bossMotionItem->relativeY - attackItem->relativeY : 0.0f;
+            const float bossVisualWidth = hasBossMotionItem ? bossMotionItem->width : kTileSize * 5.0f;
+            const float bossVisualHeight = hasBossMotionItem ? bossMotionItem->height : kTileSize * 4.0625f;
+            const float bossVisualX = hasBossMotionItem
+                ? shieldX + relativeVisualX
+                : shieldX + shieldW * 0.5f - bossVisualWidth * 0.5f;
+            const float bossVisualY = hasBossMotionItem
+                ? shieldY + relativeVisualY
+                : shieldY + shieldH * 0.5f - bossVisualHeight * 0.5f;
+            const float visualRotation = hasBossMotionItem ? bossMotionItem->rotation : 0.0f;
+            const PhotoFilterTheme visualTheme = hasBossMotionItem ? bossMotionItem->appliedTheme : attackItem->appliedTheme;
+            const int bodyTextureId = hasBossMotionItem && bossMotionItem->textureId >= 0
+                ? bossMotionItem->textureId
+                : m_assets.GetTexture(rushCapture ? "boss1_body_attack01" : "boss1_body_attack02");
+            const int shieldTextureId = attackItem->textureId >= 0
+                ? attackItem->textureId
+                : m_assets.GetTexture(rushCapture ? "boss1_shield_attack01" : "boss1_shield_attack02");
+            const float bossTintR = hasBossMotionItem ? bossMotionItem->tintR : attackItem->tintR;
+            const float bossTintG = hasBossMotionItem ? bossMotionItem->tintG : attackItem->tintG;
+            const float bossTintB = hasBossMotionItem ? bossMotionItem->tintB : attackItem->tintB;
+            const float bossTintA = hasBossMotionItem ? bossMotionItem->tintA : 0.92f;
+
+            auto bossVisualEntity = std::make_unique<Entity>();
+            bossVisualEntity->AddComponent<TagComponent>(kTagPhotoBox);
+            bossVisualEntity->AddComponent<PhotoPasteOrderComponent>(attackPasteOrder);
+            bossVisualEntity->AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
+            bossVisualEntity->AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+            bossVisualEntity->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Enemy);
+            bossVisualEntity->AddComponent<PhotoCopyEffectComponent>(visualTheme);
+            bossVisualEntity->AddComponent<PhotoCopyLifetimeComponent>(capturedBossVisualLifetime);
+            auto& bossVisualTransform = bossVisualEntity->AddComponent<TransformComponent>(
+                bossVisualX,
+                bossVisualY,
+                bossVisualWidth,
+                bossVisualHeight);
+            if (rushCapture || slamCapture)
+            {
+                auto& motion = bossVisualEntity->AddComponent<PhotoMotionComponent>(visualVelocityX, visualVelocityY);
+                motion.BindTransform(&bossVisualTransform);
+            }
+            bossVisualEntity->AddComponent<TintComponent>(
+                bossTintR,
+                bossTintG,
+                bossTintB,
+                bossTintA);
+            bossVisualEntity->AddComponent<SpriteRenderComponent>(
+                bodyTextureId >= 0 ? bodyTextureId : m_tileTexture);
+            ConfigureShieldBossSpriteAnimation(*bossVisualEntity);
+            const char* clipName = rushCapture ? "attack01" : "attack02";
+            if (auto* animation = bossVisualEntity->GetComponent<SpriteSheetAnimationComponent>())
+            {
+                animation->Play(clipName, true);
+                animation->SetCurrentLocalFrameIndex(capturedBossVisualStartFrame);
+            }
+            if (auto* sprite = bossVisualEntity->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetFlipX(facingRight);
+            }
+            bossVisualTransform.rotation = visualRotation;
+            m_world.Spawn(std::move(bossVisualEntity));
+
+            auto shieldVisualEntity = std::make_unique<Entity>();
+            shieldVisualEntity->AddComponent<TagComponent>(kTagPhotoBox);
+            shieldVisualEntity->AddComponent<PhotoPasteOrderComponent>(attackPasteOrder);
+            shieldVisualEntity->AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
+            shieldVisualEntity->AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+            shieldVisualEntity->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Enemy);
+            shieldVisualEntity->AddComponent<PhotoCopyEffectComponent>(attackItem->appliedTheme);
+            shieldVisualEntity->AddComponent<PhotoCopyLifetimeComponent>(capturedBossVisualLifetime);
+            auto& shieldVisualTransform = shieldVisualEntity->AddComponent<TransformComponent>(
+                bossVisualX,
+                bossVisualY,
+                bossVisualWidth,
+                bossVisualHeight);
+            shieldVisualTransform.rotation = visualRotation;
+            auto& shieldVisualMotion = shieldVisualEntity->AddComponent<PhotoMotionComponent>(visualVelocityX, visualVelocityY);
+            shieldVisualMotion.BindTransform(&shieldVisualTransform);
+            shieldVisualEntity->AddComponent<TintComponent>(
+                attackItem->tintR,
+                attackItem->tintG,
+                attackItem->tintB,
+                attackItem->tintA);
+            shieldVisualEntity->AddComponent<SpriteRenderComponent>(
+                shieldTextureId >= 0 ? shieldTextureId : m_tileTexture);
+            ConfigureBossShieldSpriteAnimation(*shieldVisualEntity);
+            if (auto* animation = shieldVisualEntity->GetComponent<SpriteSheetAnimationComponent>())
+            {
+                animation->Play(clipName, true);
+                animation->SetCurrentLocalFrameIndex(capturedBossVisualStartFrame);
+            }
+            if (auto* sprite = shieldVisualEntity->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetFlipX(facingRight);
+            }
+            m_world.Spawn(std::move(shieldVisualEntity));
+        }
         finishAttackUse();
         return;
     }
