@@ -1075,6 +1075,99 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
 
+void GameScene::DrawShieldBossSlamVignetteOverlay() const
+{
+    float strength = 0.0f;
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        if (!enemy ||
+            enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
+            !enemy->IsEnabled() ||
+            !boss ||
+            !boss->shieldEntity)
+        {
+            continue;
+        }
+
+        const auto* shieldTint = boss->shieldEntity->GetComponent<TintComponent>();
+        const float shieldAlpha = shieldTint ? shieldTint->a : 1.0f;
+        if (shieldAlpha <= 0.05f)
+        {
+            continue;
+        }
+
+        float stateStrength = 0.0f;
+        switch (boss->state)
+        {
+        case ShieldBossState::JumpAscend:
+            stateStrength = 0.50f + 0.25f * Clamp01(boss->stateTimer / 0.28f);
+            break;
+        case ShieldBossState::AirHover:
+            stateStrength = 0.80f + 0.08f * std::sin(boss->stateTimer * 18.0f);
+            break;
+        case ShieldBossState::JumpDescend:
+            stateStrength = 0.70f;
+            break;
+        default:
+            break;
+        }
+
+        strength = std::max(strength, stateStrength * Clamp01(shieldAlpha));
+    }
+
+    if (strength <= 0.01f)
+    {
+        return;
+    }
+
+    const float screenW = static_cast<float>(SCREEN_WIDTH);
+    const float screenH = static_cast<float>(SCREEN_HEIGHT);
+    const float shortSide = std::min(screenW, screenH);
+    const int outerColor = GetColor(8, 10, 14);
+    const int innerColor = GetColor(30, 24, 20);
+
+    const auto drawBand = [](float x, float y, float width, float height, int alpha, int color)
+    {
+        if (alpha <= 0 || width <= 0.0f || height <= 0.0f)
+        {
+            return;
+        }
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(alpha, 0, 255));
+        DrawBoxAA(x, y, x + width, y + height, color, TRUE);
+    };
+
+    const float edge0 = shortSide * 0.055f;
+    const float edge1 = shortSide * 0.115f;
+    const float edge2 = shortSide * 0.205f;
+    const int outerAlpha = static_cast<int>(std::round(118.0f * strength));
+    const int midAlpha = static_cast<int>(std::round(72.0f * strength));
+    const int innerAlpha = static_cast<int>(std::round(34.0f * strength));
+
+    drawBand(0.0f, 0.0f, screenW, edge2, innerAlpha, innerColor);
+    drawBand(0.0f, screenH - edge2, screenW, edge2, innerAlpha, innerColor);
+    drawBand(0.0f, 0.0f, edge2, screenH, innerAlpha, innerColor);
+    drawBand(screenW - edge2, 0.0f, edge2, screenH, innerAlpha, innerColor);
+
+    drawBand(0.0f, 0.0f, screenW, edge1, midAlpha, outerColor);
+    drawBand(0.0f, screenH - edge1, screenW, edge1, midAlpha, outerColor);
+    drawBand(0.0f, 0.0f, edge1, screenH, midAlpha, outerColor);
+    drawBand(screenW - edge1, 0.0f, edge1, screenH, midAlpha, outerColor);
+
+    drawBand(0.0f, 0.0f, screenW, edge0, outerAlpha, outerColor);
+    drawBand(0.0f, screenH - edge0, screenW, edge0, outerAlpha, outerColor);
+    drawBand(0.0f, 0.0f, edge0, screenH, outerAlpha, outerColor);
+    drawBand(screenW - edge0, 0.0f, edge0, screenH, outerAlpha, outerColor);
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+}
+
 void GameScene::DrawMarkerLightOutlines() const
 {
     if (!m_lifecycle.darknessStageEnabled)

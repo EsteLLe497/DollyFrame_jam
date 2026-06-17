@@ -46,6 +46,24 @@ struct LaserSparkParticle
     float b = 0.28f;
 };
 
+struct SlamDustParticle
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    float rotation = 0.0f;
+    float rotationSpeed = 0.0f;
+    float life = 0.0f;
+    float maxLife = 0.0f;
+    float alphaScale = 0.62f;
+    float r = 0.72f;
+    float g = 0.64f;
+    float b = 0.52f;
+};
+
 struct CameraFlashState
 {
     bool unlocked = true;
@@ -167,6 +185,7 @@ struct GameSceneEffectsState
 {
     std::vector<BarrelDebrisParticle> barrelDebris;
     std::vector<LaserSparkParticle> laserSparks;
+    std::vector<SlamDustParticle> slamDust;
 };
 
 struct GameSceneMapEditorState
@@ -257,6 +276,11 @@ struct GameSceneRenderState
     float shakeOffsetX = 0.0f;
     float shakeOffsetY = 0.0f;
     float viewScaleMultiplier = 1.0f;
+    float slamCameraZoomBoost = 0.0f;
+    float bossIntroCameraZoomBoost = 0.0f;
+    float bossIntroCameraInfluence = 0.0f;
+    float bossIntroCameraTargetX = 0.0f;
+    float bossIntroCameraTargetY = 0.0f;
     bool zoomAnchorScreenCenter = false;
     float zoomAnchorX = 0.0f;
     float zoomAnchorY = 0.0f;

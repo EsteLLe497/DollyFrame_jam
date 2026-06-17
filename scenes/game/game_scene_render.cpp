@@ -1741,6 +1741,25 @@ void GameScene::DrawEffects() const
             particle.rotation);
     }
 
+    for (const auto& particle : m_effects.slamDust)
+    {
+        const float lifeT = Clamp01(particle.life / std::max(0.001f, particle.maxLife));
+        const float fade = lifeT * lifeT;
+        Shader_ResetStyle();
+        Shader_SetTint(particle.r, particle.g, particle.b, fade * particle.alphaScale);
+        SpriteDraw(
+            m_whiteTexture,
+            viewOriginX + (particle.x - m_flow.cameraX) * viewScale,
+            viewOriginY + (particle.y - m_flow.cameraY) * viewScale,
+            particle.width * viewScale,
+            particle.height * viewScale,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f,
+            false,
+            particle.rotation);
+    }
 
     for (const auto& spark : m_effects.laserSparks)
     {

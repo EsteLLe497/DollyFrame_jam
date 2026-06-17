@@ -665,6 +665,22 @@ void GameScene::UpdateEnemies()
         {
             SpawnTeleportTrailEffect(fromX, fromY, toX, toY, width, height);
         },
+        [this](float centerX, float groundY, float width)
+        {
+            SpawnSlamImpactEffect(centerX, groundY, width);
+        },
+        [this](float centerX, float groundY, float direction)
+        {
+            SpawnRushSmokeEffect(centerX, groundY, direction);
+        },
+        [this](float centerX, float groundY, float width)
+        {
+            SpawnLightLandingEffect(centerX, groundY, width);
+        },
+        [this](float centerX, float groundY, float width)
+        {
+            SpawnBossRoarEffect(centerX, groundY, width);
+        },
         [this, player](Entity* sourceEntity, int amount, const char* logMessage)
         {
             if (player)
@@ -1332,6 +1348,14 @@ void GameScene::UpdateShields(float deltaTime)
                             shockComp.lifetime = 0.4f;
                             shockComp.damagesPlayer = false;
                             spawnedShockwaves.push_back(std::move(shockwave));
+
+                            m_flow.screenShakeRemaining = std::max(m_flow.screenShakeRemaining, 0.18f);
+                            m_flow.screenShakeDuration = std::max(m_flow.screenShakeDuration, 0.18f);
+                            m_flow.screenShakeAmplitude = std::max(m_flow.screenShakeAmplitude, 16.0f);
+                            SpawnSlamImpactEffect(
+                                shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f,
+                                shockGroundY,
+                                shockW);
                         }
                     }
                 }

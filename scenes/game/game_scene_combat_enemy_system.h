@@ -7,7 +7,7 @@
 
 namespace game_scene_combat_system
 {
-template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename SpawnTeleportTrailFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
+template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename SpawnTeleportTrailFn, typename SpawnSlamImpactEffectFn, typename SpawnRushSmokeEffectFn, typename SpawnLightLandingEffectFn, typename SpawnBossRoarEffectFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
     const std::vector<Entity*>& enemyEntities,
@@ -25,6 +25,10 @@ inline void UpdateEnemies(
     PlayEnemyGunFn&& playEnemyGun,
     PlayShieldBossRoarFn&& playShieldBossRoar,
     SpawnTeleportTrailFn&& spawnTeleportTrail,
+    SpawnSlamImpactEffectFn&& spawnSlamImpactEffect,
+    SpawnRushSmokeEffectFn&& spawnRushSmokeEffect,
+    SpawnLightLandingEffectFn&& spawnLightLandingEffect,
+    SpawnBossRoarEffectFn&& spawnBossRoarEffect,
     HandlePlayerDamageFn&& handlePlayerDamage,
     CheckPhotoBoxCollisionFn&& checkPhotoBoxCollision,
     IsSolidTileFn&& isSolidTile)
@@ -2345,6 +2349,11 @@ inline void UpdateEnemies(
                         transform->y = enemy->spawnY;
                         boss->introDropActive = false;
                         bossVelocityY = 0.0f;
+                        const float groundY = transform->y + transform->height * transform->scale;
+                        spawnLightLandingEffect(
+                            transform->x + transform->width * transform->scale * 0.5f,
+                            groundY,
+                            transform->width * transform->scale * 1.25f);
                     }
                 }
                 UpdateShieldBossSpriteAnimation(*entity, *boss);
@@ -2353,6 +2362,11 @@ inline void UpdateEnemies(
                     boss->roarPlayed = true;
                     boss->roarAnimationActive = true;
                     boss->stateTimer = 0.0f;
+                    const float groundY = transform->y + transform->height * transform->scale;
+                    spawnBossRoarEffect(
+                        transform->x + transform->width * transform->scale * 0.5f,
+                        groundY,
+                        transform->width * transform->scale * 1.65f);
                     playShieldBossRoar(*entity);
                     UpdateShieldBossSpriteAnimation(*entity, *boss);
                 }
@@ -2489,6 +2503,14 @@ inline void UpdateEnemies(
                 shockComp.lifetime = 0.25f;
                 newShields.push_back(std::move(shockwave));
 
+                flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, 0.24f);
+                flow.screenShakeDuration = std::max(flow.screenShakeDuration, 0.24f);
+                flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, 24.0f);
+                spawnSlamImpactEffect(
+                    shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f,
+                    shockGroundY,
+                    shockW);
+
                 shieldComp->contactDamage = 0;
                 removeObjectsUnderShield();
             };
@@ -2525,6 +2547,10 @@ inline void UpdateEnemies(
                 {
                     transform->x = boss->knockbackTargetX;
                     transform->y = boss->knockbackStartY;
+                    spawnLightLandingEffect(
+                        transform->x + transform->width * transform->scale * 0.5f,
+                        transform->y + transform->height * transform->scale,
+                        transform->width * transform->scale);
                     boss->knockbackActive = false;
                     boss->knockbackTimer = 0.0f;
                 }
@@ -2631,6 +2657,15 @@ inline void UpdateEnemies(
                 if (rushBoostActive)
                 {
                     transform->x += dir * boss->rushSpeed * flow.lastDeltaTime;
+                    constexpr float kRushSmokeInterval = 0.034f;
+                    const int previousSmokeStep = static_cast<int>(boss->stateTimer / kRushSmokeInterval);
+                    const int nextSmokeStep = static_cast<int>((boss->stateTimer + flow.lastDeltaTime) / kRushSmokeInterval);
+                    if (nextSmokeStep != previousSmokeStep)
+                    {
+                        const float smokeX = transform->x + bossWidth * 0.5f - dir * bossWidth * 0.24f;
+                        const float smokeY = transform->y + bossHeight;
+                        spawnRushSmokeEffect(smokeX, smokeY, dir);
+                    }
                 }
                 syncAttachedShieldToBoss();
 
@@ -2721,6 +2756,10 @@ inline void UpdateEnemies(
                     transform->x = boss->targetX;
                     transform->y = boss->targetY;
                     bossVelocityY = 0.0f;
+                    spawnLightLandingEffect(
+                        transform->x + bossWidth * 0.5f,
+                        transform->y + bossHeight,
+                        bossWidth);
                     boss->returningHomeJump = false;
                     boss->state = ShieldBossState::Cooldown;
                     boss->stateTimer = 0.0f;
