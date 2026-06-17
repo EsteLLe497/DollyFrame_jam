@@ -3161,10 +3161,14 @@ inline void UpdateEnemies(
     constexpr float kGravity = 1900.0f;
     constexpr float kMaxFallSpeed = 980.0f;
     constexpr float kTileSize = 48.0f;
-    constexpr float kMidBoss2TeleportFlashSeconds = 0.18f;
+    constexpr float kMidBoss2TeleportFlashSeconds = 0.24f;
             constexpr float kBeamFireDuration = 5.2f;
             constexpr float kBeamFireShakeSeconds = 0.16f;
             constexpr float kBeamFireShakeAmplitude = 24.0f;
+            constexpr float kMidBoss2TeleportShakeSeconds = 0.12f;
+            constexpr float kMidBoss2TeleportShakeAmplitude = 8.0f;
+            constexpr float kMidBoss2BeamChargeShakeSeconds = 0.08f;
+            constexpr float kMidBoss2BeamChargeShakeAmplitude = 5.0f;
             const auto getMidBoss2LeftX = [&](float centerGridX, float bossWidth)
             {
                 return centerGridX * kTileSize - bossWidth * 0.5f;
@@ -3180,15 +3184,15 @@ inline void UpdateEnemies(
                 };
                 constexpr std::array<TeleportSlot, 3> kLeftTeleportSlots =
                 {{
-                    { kMidBoss2ArenaCenterMinGridX + 7.0f, 2.0f },
-                    { kMidBoss2ArenaCenterMinGridX + 10.5f, 0.0f },
-                    { kMidBoss2ArenaCenterMinGridX + 5.5f, -2.0f },
+                    { kMidBoss2ArenaCenterMinGridX + 6.0f, 5.0f },
+                    { kMidBoss2ArenaCenterMinGridX + 12.0f, 4.0f },
+                    { kMidBoss2ArenaCenterMinGridX + 4.0f, 3.0f },
                 }};
                 constexpr std::array<TeleportSlot, 3> kRightTeleportSlots =
                 {{
-                    { kMidBoss2ArenaCenterMaxGridX - 7.0f, 2.0f },
-                    { kMidBoss2ArenaCenterMaxGridX - 10.5f, 0.0f },
-                    { kMidBoss2ArenaCenterMaxGridX - 5.5f, -2.0f },
+                    { kMidBoss2ArenaCenterMaxGridX - 8.0f, 5.0f },
+                    { kMidBoss2ArenaCenterMaxGridX - 13.0f, 4.0f },
+                    { kMidBoss2ArenaCenterMaxGridX - 5.0f, 3.0f },
                 }};
                 const auto& slots = leftSide ? kLeftTeleportSlots : kRightTeleportSlots;
                 const int slotIndex = std::clamp(GetRand(2), 0, 2);
@@ -3335,8 +3339,8 @@ inline void UpdateEnemies(
                 const float beamHeight = boss->params.beamHeightGrid * kTileSize;
                 const float turretWidth = kTileSize;
                 const float beamOriginX = beamFacingRight
-                    ? transform->x + bossWidth + kTileSize
-                    : transform->x - kTileSize;
+                    ? transform->x + bossWidth
+                    : transform->x;
                 const float beamOriginY = transform->y + bossHeight * 0.5f;
                 const float turretX = beamOriginX - turretWidth * 0.5f;
                 const float turretY = beamOriginY - beamHeight * 0.5f;
@@ -3435,6 +3439,9 @@ inline void UpdateEnemies(
                     transform->width * transform->scale,
                     transform->height * transform->scale);
                 boss->teleportFlashRemaining = kMidBoss2TeleportFlashSeconds;
+                flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kMidBoss2TeleportShakeSeconds);
+                flow.screenShakeDuration = std::max(flow.screenShakeDuration, kMidBoss2TeleportShakeSeconds);
+                flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kMidBoss2TeleportShakeAmplitude);
                 transform->x = boss->hoverTargetX;
                 transform->y = boss->hoverTargetY;
                 boss->spearShotsFired = 0;
@@ -3564,6 +3571,9 @@ inline void UpdateEnemies(
                             bossWidth,
                             bossHeight);
                         boss->teleportFlashRemaining = kMidBoss2TeleportFlashSeconds;
+                        flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kMidBoss2BeamChargeShakeSeconds);
+                        flow.screenShakeDuration = std::max(flow.screenShakeDuration, kMidBoss2BeamChargeShakeSeconds);
+                        flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kMidBoss2BeamChargeShakeAmplitude);
                     }
                     transform->x = boss->beamTargetX;
                 }
@@ -3595,8 +3605,8 @@ inline void UpdateEnemies(
 
             case MidBoss2State::BeamCooldown:
                 hideBeamEntities();
-                boss->cooldownRemaining = std::max(0.0f, boss->params.spearCooldownAfterLanding - boss->stateTimer);
-                if (boss->stateTimer >= boss->params.spearCooldownAfterLanding)
+                boss->cooldownRemaining = std::max(0.0f, boss->params.beamCooldownAfterFire - boss->stateTimer);
+                if (boss->stateTimer >= boss->params.beamCooldownAfterFire)
                 {
                     boss->spearCycleCount = 0;
                     boss->spearShotsFired = 0;

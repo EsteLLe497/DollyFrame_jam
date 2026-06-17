@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 
 #include "game_scene_internal.h"
+#include "game_scene_combat_common.h"
 
 #include "DxLib.h"
 
@@ -322,6 +323,53 @@ void GameScene::DrawMidBoss2HpBar() const
     const float barX = panelX + kPanelPadding;
     const float barY = panelY + kPanelPadding;
     const float ratio = std::clamp(static_cast<float>(currentHp) / static_cast<float>(maxHp), 0.0f, 1.0f);
+    const auto* boss = bossEntity->GetComponent<MidBoss2Component>();
+    const bool beamPressureState = boss &&
+        (boss->state == MidBoss2State::BeamCharge || boss->state == MidBoss2State::BeamFire);
+    const bool spearPressureState = boss &&
+        (boss->state == MidBoss2State::SpearJump || boss->state == MidBoss2State::SpearThrow);
+    const char* phaseLabel = boss ? game_scene_combat_system::ToMidBoss2StateLabel(boss->state) : "Unknown";
+    if (boss)
+    {
+        switch (boss->state)
+        {
+        case MidBoss2State::Idle:
+            phaseLabel = "IDLE";
+            break;
+        case MidBoss2State::SpearJump:
+            phaseLabel = "TELEPORT";
+            break;
+        case MidBoss2State::SpearThrow:
+            phaseLabel = "ATTACK";
+            break;
+        case MidBoss2State::SpearLanding:
+            phaseLabel = "LANDING";
+            break;
+        case MidBoss2State::SpearCooldown:
+            phaseLabel = "RESET";
+            break;
+        case MidBoss2State::BeamCharge:
+            phaseLabel = "CHARGE";
+            break;
+        case MidBoss2State::BeamFire:
+            phaseLabel = "BEAM FIRE";
+            break;
+        case MidBoss2State::BeamCooldown:
+            phaseLabel = "REPOSITION";
+            break;
+        case MidBoss2State::Damaged:
+            phaseLabel = "STUN";
+            break;
+        default:
+            break;
+        }
+    }
+    const float phasePulse = beamPressureState
+        ? 0.72f + 0.28f * std::sin(static_cast<float>(GetNowCount()) * 0.020f)
+        : (spearPressureState ? 0.82f + 0.18f * std::sin(static_cast<float>(GetNowCount()) * 0.014f) : 1.0f);
+    const unsigned int phaseColor = beamPressureState
+        ? GetColor(255, 172, 84)
+        : (spearPressureState ? GetColor(122, 224, 255) : GetColor(208, 224, 240));
 
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 204);
     DrawBox(
@@ -383,12 +431,36 @@ void GameScene::DrawMidBoss2HpBar() const
         static_cast<int>(std::round(barY + kBarHeight)),
         GetColor(214, 238, 250),
         FALSE);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(beamPressureState ? 180.0f * phasePulse : 110.0f)));
+    DrawLine(
+        static_cast<int>(std::round(panelX + 1.0f)),
+        static_cast<int>(std::round(panelY + 28.0f)),
+        static_cast<int>(std::round(panelX + panelWidth - 1.0f)),
+        static_cast<int>(std::round(panelY + 28.0f)),
+        phaseColor);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
     DrawString(
         static_cast<int>(std::round(barX)),
         static_cast<int>(std::round(barY - 18.0f)),
         "BOSS2",
         GetColor(220, 236, 248));
+    DrawFormatString(
+        static_cast<int>(std::round(barX + 176.0f)),
+        static_cast<int>(std::round(barY - 18.0f)),
+        phaseColor,
+        "STATE %s",
+        phaseLabel);
+    if (beamPressureState)
+    {
+        SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(120.0f + 100.0f * phasePulse)));
+        DrawString(
+            static_cast<int>(std::round(barX + kBarWidth - 86.0f)),
+            static_cast<int>(std::round(barY - 18.0f)),
+            "ALERT",
+            GetColor(255, 124, 76));
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
     DrawFormatString(
         static_cast<int>(std::round(barX + kBarWidth * 0.5f) - 34.0f),
         static_cast<int>(std::round(barY + 4.0f)),
