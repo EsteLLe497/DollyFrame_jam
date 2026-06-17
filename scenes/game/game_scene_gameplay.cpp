@@ -452,6 +452,7 @@ void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
     {
         m_render.bossIntroCameraZoomBoost = 0.0f;
         m_render.bossIntroCameraInfluence = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
         return;
     }
 
@@ -461,6 +462,7 @@ void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
     {
         m_render.bossIntroCameraZoomBoost = 0.0f;
         m_render.bossIntroCameraInfluence = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
         return;
     }
 
@@ -470,6 +472,7 @@ void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
     float bestTargetCenterX = playerCenterX;
     float bestTargetCenterY = playerCenterY;
     float bestZoomBoost = 0.0f;
+    float bestCameraSpeed = 4.0f;
     bool bestIntroCameraWork = false;
 
     for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
@@ -482,6 +485,7 @@ void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
         const auto* enemy = entity->GetComponent<EnemyComponent>();
         const auto* boss = entity->GetComponent<ShieldBossComponent>();
         const auto* bossTransform = entity->GetComponent<TransformComponent>();
+        const auto* bossSprite = entity->GetComponent<SpriteRenderComponent>();
         if (!enemy ||
             enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
             !enemy->IsEnabled() ||
@@ -494,26 +498,41 @@ void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
         float weight = 0.0f;
         float verticalLookBias = 0.0f;
         float zoomBoost = 0.0f;
+        float targetBossBlendX = 0.44f;
+        float targetBossBlendY = 0.52f;
+        float cameraSpeed = 4.0f;
         bool introCameraWork = false;
         if (boss->introDropActive)
         {
-            weight = 0.68f;
-            verticalLookBias = -36.0f;
-            zoomBoost = 0.038f;
+            // Point 1: wide upper camera that shows the boss dropping in.
+            weight = 0.34f;
+            verticalLookBias = -132.0f;
+            zoomBoost = 0.0f;
+            targetBossBlendX = 0.38f;
+            targetBossBlendY = 0.34f;
+            cameraSpeed = 9.5f;
             introCameraWork = true;
         }
         else if (boss->appearAnimationActive)
         {
-            weight = 0.58f;
-            verticalLookBias = -18.0f;
-            zoomBoost = 0.044f;
+            // Point 1 hold: keep the pullback until the roar actually starts.
+            weight = 0.34f;
+            verticalLookBias = -132.0f;
+            zoomBoost = 0.0f;
+            targetBossBlendX = 0.38f;
+            targetBossBlendY = 0.34f;
+            cameraSpeed = 9.5f;
             introCameraWork = true;
         }
         else if (boss->roarAnimationActive)
         {
-            weight = 0.86f;
-            verticalLookBias = -10.0f;
-            zoomBoost = 0.096f;
+            // Point 1 hold: keep the pullback through the full entrance.
+            weight = 0.34f;
+            verticalLookBias = -132.0f;
+            zoomBoost = 0.0f;
+            targetBossBlendX = 0.38f;
+            targetBossBlendY = 0.34f;
+            cameraSpeed = 9.5f;
             introCameraWork = true;
         }
         switch (boss->state)
@@ -559,60 +578,74 @@ void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
             continue;
         }
 
-        const float bossCenterX = bossTransform->x + bossTransform->width * bossTransform->scale * 0.5f;
-        const float bossCenterY = bossTransform->y + bossTransform->height * bossTransform->scale * 0.5f;
+        const float bossDrawWidth = bossTransform->width * bossTransform->scale * (bossSprite ? bossSprite->GetRenderScaleX() : 1.0f);
+        const float bossDrawHeight = bossTransform->height * bossTransform->scale * (bossSprite ? bossSprite->GetRenderScaleY() : 1.0f);
+        const float bossCenterX = bossTransform->x + (bossSprite ? bossSprite->GetRenderOffsetX() : 0.0f) + bossDrawWidth * 0.5f;
+        const float bossCenterY = bossTransform->y + (bossSprite ? bossSprite->GetRenderOffsetY() : 0.0f) + bossDrawHeight * 0.5f;
         bestWeight = weight;
-        const float targetBossBlendX = introCameraWork ? 0.86f : 0.44f;
-        const float targetBossBlendY = introCameraWork ? 0.82f : 0.52f;
         bestTargetCenterX = std::lerp(playerCenterX, bossCenterX, targetBossBlendX);
         bestTargetCenterY = std::lerp(playerCenterY, bossCenterY, targetBossBlendY) + verticalLookBias;
         bestZoomBoost = zoomBoost;
+        bestCameraSpeed = cameraSpeed;
         bestIntroCameraWork = introCameraWork;
     }
 
-    auto applyCameraTarget = [&](float targetCenterX, float targetCenterY, float weight, float speedScale)
+    auto applyCameraTarget = [&](float targetCenterX, float targetCenterY, float weight, float speedScale, bool clampToMap, bool useIntroPullView)
     {
-        const float desiredCameraX = targetCenterX - gCameraViewWidth * 0.5f;
-        const float desiredCameraY = targetCenterY - gCameraViewHeight * 0.5f;
-        const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth);
-        const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight);
-        const float clampedCameraX = std::clamp(desiredCameraX, 0.0f, maxCameraX);
-        const float clampedCameraY = std::clamp(desiredCameraY, 0.0f, maxCameraY);
+        float cameraViewWidth = gCameraViewWidth;
+        float cameraViewHeight = gCameraViewHeight;
+        if (useIntroPullView)
+        {
+            const float tileSize = m_tileMap.GetTileSize();
+            if (tileSize > 0.0f)
+            {
+                constexpr float kIntroPullTargetTilesX = 23.0f;
+                const float targetWorldWidth = tileSize * kIntroPullTargetTilesX;
+                if (targetWorldWidth > 0.0f)
+                {
+                    const float introViewScale = std::max(0.0001f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
+                    cameraViewWidth = static_cast<float>(SCREEN_WIDTH) / introViewScale;
+                    cameraViewHeight = static_cast<float>(SCREEN_HEIGHT) / introViewScale;
+                }
+            }
+        }
+
+        const float desiredCameraX = targetCenterX - cameraViewWidth * 0.5f;
+        const float desiredCameraY = targetCenterY - cameraViewHeight * 0.5f;
+        const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - cameraViewWidth);
+        const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - cameraViewHeight);
+        const float targetCameraX = clampToMap ? std::clamp(desiredCameraX, 0.0f, maxCameraX) : desiredCameraX;
+        const float targetCameraY = clampToMap ? std::clamp(desiredCameraY, 0.0f, maxCameraY) : desiredCameraY;
         const float blend = 1.0f - std::pow(0.001f, deltaTime * speedScale);
 
-        m_flow.cameraX = std::lerp(m_flow.cameraX, clampedCameraX, blend * weight);
-        m_flow.cameraY = std::lerp(m_flow.cameraY, clampedCameraY, blend * weight);
+        m_flow.cameraX = std::lerp(m_flow.cameraX, targetCameraX, blend * weight);
+        m_flow.cameraY = std::lerp(m_flow.cameraY, targetCameraY, blend * weight);
     };
 
     const bool hasActiveCameraWork = bestWeight > 0.0f;
     if (hasActiveCameraWork && bestIntroCameraWork)
     {
-        const float influenceBlend = 1.0f - std::pow(0.001f, deltaTime * 3.8f);
-        const float zoomBlend = 1.0f - std::pow(0.001f, deltaTime * 4.8f);
+        const float influenceBlend = 1.0f - std::pow(0.001f, deltaTime * 5.8f);
         m_render.bossIntroCameraInfluence = std::lerp(m_render.bossIntroCameraInfluence, 1.0f, influenceBlend);
         m_render.bossIntroCameraTargetX = bestTargetCenterX;
         m_render.bossIntroCameraTargetY = bestTargetCenterY;
-        m_render.bossIntroCameraZoomBoost = std::lerp(m_render.bossIntroCameraZoomBoost, bestZoomBoost, zoomBlend);
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
         applyCameraTarget(
             bestTargetCenterX,
             bestTargetCenterY,
             bestWeight * m_render.bossIntroCameraInfluence,
-            5.5f + bestWeight * 5.0f);
+            bestCameraSpeed,
+            false,
+            true);
     }
     else
     {
-        const float returnBlend = 1.0f - std::pow(0.001f, deltaTime * 0.92f);
+        m_render.bossIntroCameraAnchorActive = false;
+        const float returnBlend = 1.0f - std::pow(0.001f, deltaTime * 0.58f);
         m_render.bossIntroCameraInfluence = std::lerp(m_render.bossIntroCameraInfluence, 0.0f, returnBlend);
         m_render.bossIntroCameraZoomBoost = std::lerp(m_render.bossIntroCameraZoomBoost, 0.0f, returnBlend);
-        if (m_render.bossIntroCameraInfluence > 0.01f)
-        {
-            applyCameraTarget(
-                m_render.bossIntroCameraTargetX,
-                m_render.bossIntroCameraTargetY,
-                0.58f * m_render.bossIntroCameraInfluence,
-                2.1f);
-        }
-        else
+        if (m_render.bossIntroCameraInfluence <= 0.01f)
         {
             m_render.bossIntroCameraInfluence = 0.0f;
             m_render.bossIntroCameraZoomBoost = 0.0f;
@@ -624,7 +657,9 @@ void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
                 bestTargetCenterX,
                 bestTargetCenterY,
                 bestWeight,
-                5.5f + bestWeight * 5.0f);
+                5.5f + bestWeight * 5.0f,
+                true,
+                false);
             m_render.slamCameraZoomBoost = bestZoomBoost;
         }
     }
@@ -800,6 +835,107 @@ void GameScene::SpawnSlamImpactEffect(float centerX, float groundY, float width)
         particle.r = 0.46f;
         particle.g = 0.40f;
         particle.b = 0.32f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnBossDefeatStartEffect(float centerX, float groundY, float width)
+{
+    constexpr int kCoreFlashCount = 6;
+    constexpr int kShockStreakCount = 18;
+    constexpr int kEmberCount = 28;
+    constexpr int kSmokeCount = 34;
+    const float clampedWidth = std::max(180.0f, width * 1.45f);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    // ボス撃破開始専用。通常スラムより暗く、赤い破片と重い黒煙で差別化する。
+    for (int index = 0; index < kCoreFlashCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kCoreFlashCount - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(clampedWidth * 0.24f, clampedWidth * 1.18f, t);
+        particle.height = std::lerp(28.0f, 82.0f, t);
+        particle.x = centerX - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.74f;
+        particle.velocityX = 0.0f;
+        particle.velocityY = -18.0f - t * 34.0f;
+        particle.rotation = (index % 2 == 0 ? -1.0f : 1.0f) * (0.04f + t * 0.08f);
+        particle.rotationSpeed = particle.rotation * -2.4f;
+        particle.life = std::lerp(0.16f, 0.30f, t);
+        particle.maxLife = particle.life;
+        particle.alphaScale = std::lerp(0.98f, 0.62f, t);
+        particle.r = std::lerp(1.0f, 0.58f, t);
+        particle.g = std::lerp(0.62f, 0.16f, t);
+        particle.b = std::lerp(0.28f, 0.16f, t);
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kShockStreakCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kShockStreakCount / 2) - 1);
+        const float distance = std::lerp(0.06f, 1.06f, spreadT) * halfWidth;
+        SlamDustParticle particle;
+        particle.width = std::lerp(126.0f, 58.0f, spreadT) + static_cast<float>(GetRand(28));
+        particle.height = std::lerp(18.0f, 7.0f, spreadT);
+        particle.x = centerX + side * distance - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.65f - static_cast<float>(GetRand(8));
+        particle.velocityX = side * (520.0f + spreadT * 260.0f + static_cast<float>(GetRand(180)));
+        particle.velocityY = -28.0f - static_cast<float>(GetRand(46));
+        particle.rotation = side * std::lerp(0.05f, 0.18f, spreadT);
+        particle.rotationSpeed = side * 1.25f;
+        particle.life = 0.34f + spreadT * 0.14f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.78f;
+        particle.r = 0.42f;
+        particle.g = 0.12f;
+        particle.b = 0.14f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kEmberCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kEmberCount - 1);
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float offset = side * std::lerp(8.0f, halfWidth * 0.38f, t);
+        SlamDustParticle particle;
+        particle.width = 6.0f + static_cast<float>(GetRand(12));
+        particle.height = 34.0f + static_cast<float>(GetRand(74));
+        particle.x = centerX + offset - particle.width * 0.5f;
+        particle.y = groundY - particle.height - static_cast<float>(GetRand(24));
+        particle.velocityX = side * (80.0f + t * 210.0f + static_cast<float>(GetRand(120)));
+        particle.velocityY = -260.0f - static_cast<float>(GetRand(320));
+        particle.rotation = side * std::lerp(0.08f, 0.42f, t);
+        particle.rotationSpeed = side * (2.2f + t * 3.4f);
+        particle.life = 0.36f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.86f;
+        particle.r = 1.0f;
+        particle.g = 0.28f;
+        particle.b = 0.12f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kSmokeCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kSmokeCount / 2) - 1);
+        const float jitter = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 52.0f;
+        SlamDustParticle particle;
+        particle.width = std::lerp(92.0f, 148.0f, 1.0f - spreadT) + static_cast<float>(GetRand(48));
+        particle.height = std::lerp(32.0f, 58.0f, 1.0f - spreadT) + static_cast<float>(GetRand(22));
+        particle.x = centerX + side * std::lerp(0.04f, 0.72f, spreadT) * halfWidth + jitter - particle.width * 0.5f;
+        particle.y = groundY - 28.0f - static_cast<float>(GetRand(36)) - particle.height * 0.42f;
+        particle.velocityX = side * (170.0f + spreadT * 260.0f + static_cast<float>(GetRand(130)));
+        particle.velocityY = -64.0f - static_cast<float>(GetRand(118));
+        particle.rotation = side * (0.08f + spreadT * 0.22f);
+        particle.rotationSpeed = side * (0.45f + spreadT * 0.9f);
+        particle.life = 0.66f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.72f;
+        particle.r = 0.22f;
+        particle.g = 0.16f;
+        particle.b = 0.18f;
         m_effects.slamDust.push_back(particle);
     }
 }
@@ -1079,14 +1215,26 @@ void GameScene::UpdatePlayer(float deltaTime)
         return;
     }
 
-    // Camera mode should still allow movement so the player can shoot photos while repositioning.
-    const bool blockPlayerInput = m_photo.placement.active;
+    const bool shieldBossIntroActive = IsShieldBossIntroCinematicActive();
+    // Boss intro locks the player so the entrance reads like a short cutscene.
+    const bool blockPlayerInput = m_photo.placement.active || shieldBossIntroActive;
     const auto controls = game_scene_player_system::SampleControls(blockPlayerInput);
     const float moveAxis = controls.moveAxis;
     const float tileSize = m_tileMap.GetTileSize();
     const float playerWidth = transform->width * transform->scale;
     const float playerHeight = transform->height * transform->scale;
     const bool wasGrounded = m_player.grounded || IsStandingOnGround(*transform);
+
+    if (shieldBossIntroActive)
+    {
+        m_player.velocityX = 0.0f;
+        m_player.velocityY = 0.0f;
+        m_player.dodgeRemaining = 0.0f;
+        UpdatePlayerAfterimages(deltaTime);
+        UpdatePlayerPresentation(*player, deltaTime, 0.0f, wasGrounded, false, false);
+        return;
+    }
+
     const float dodgeDuration = wasGrounded
         ? GetPlayerDodgeDuration()
         : (gPlayerDodgeSpeed > 0.0f ? tileSize / gPlayerDodgeSpeed : 0.0f);
@@ -1329,6 +1477,10 @@ void GameScene::UpdatePlayer(float deltaTime)
         }
     }
 
+    const bool shieldBossIntroReturnActive = m_render.bossIntroCameraInfluence > 0.01f;
+    const float shieldBossIntroReturnStartX = m_flow.cameraX;
+    const float shieldBossIntroReturnStartY = m_flow.cameraY;
+
     const bool stabilizeMidBoss3CameraY = IsMidBoss3CameraStabilizeStage(m_lifecycle.currentMapCsvPath);
     const float cameraYBeforeFollow = m_flow.cameraY;
     if (stabilizeMidBoss3CameraY)
@@ -1368,6 +1520,15 @@ void GameScene::UpdatePlayer(float deltaTime)
     if (!stabilizeMidBoss3CameraY)
     {
         UpdateCameraByMarkers(*transform, deltaTime);
+    }
+    if (shieldBossIntroReturnActive && !stabilizeMidBoss3CameraY)
+    {
+        // Point 3: ease from the cinematic point back to the normal gameplay camera.
+        const float normalCameraX = m_flow.cameraX;
+        const float normalCameraY = m_flow.cameraY;
+        const float returnBlend = 1.0f - std::pow(0.001f, deltaTime * 0.95f);
+        m_flow.cameraX = std::lerp(shieldBossIntroReturnStartX, normalCameraX, returnBlend);
+        m_flow.cameraY = std::lerp(shieldBossIntroReturnStartY, normalCameraY, returnBlend);
     }
 
     if (stabilizeMidBoss3CameraY)

@@ -207,6 +207,7 @@ public:
     bool appearAnimationFinished = false;
     bool roarPlayed = false;
     bool roarAnimationActive = false;
+    float roarTimer = 0.0f;
     bool deathAnimationActive = false;
     bool deathAnimationFinished = false;
     GameObject* shieldEntity = nullptr;

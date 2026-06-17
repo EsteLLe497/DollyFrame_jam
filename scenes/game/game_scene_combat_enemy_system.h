@@ -2425,6 +2425,7 @@ inline void UpdateEnemies(
                 {
                     boss->roarPlayed = true;
                     boss->roarAnimationActive = true;
+                    boss->roarTimer = 0.0f;
                     boss->stateTimer = 0.0f;
                     const float groundY = transform->y + transform->height * transform->scale;
                     spawnBossRoarEffect(
@@ -2439,6 +2440,7 @@ inline void UpdateEnemies(
 
             if (boss->roarAnimationActive)
             {
+                boss->roarTimer += flow.lastDeltaTime;
                 if (shieldTint)
                 {
                     shieldTint->a = 0.0f;
@@ -2581,11 +2583,18 @@ inline void UpdateEnemies(
 
             auto startBossKnockback = [&](float direction)
             {
+                constexpr float kBossKnockbackHitStopSeconds = 0.085f;
+                constexpr float kBossKnockbackShakeSeconds = 0.26f;
+                constexpr float kBossKnockbackShakeAmplitude = 30.0f;
                 boss->knockbackActive = true;
                 boss->knockbackTimer = 0.0f;
                 boss->knockbackStartX = transform->x;
                 boss->knockbackStartY = transform->y;
                 boss->knockbackTargetX = transform->x - direction * (kTileSize * 3.0f);
+                flow.hitStopRemaining = std::max(flow.hitStopRemaining, kBossKnockbackHitStopSeconds);
+                flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kBossKnockbackShakeSeconds);
+                flow.screenShakeDuration = std::max(flow.screenShakeDuration, kBossKnockbackShakeSeconds);
+                flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kBossKnockbackShakeAmplitude);
                 if (shieldComp && shieldTransform)
                 {
                     shieldComp->attached = true;
@@ -2998,6 +3007,7 @@ inline void UpdateEnemies(
                         boss->appearAnimationFinished = false;
                         boss->roarPlayed = false;
                         boss->roarAnimationActive = false;
+                        boss->roarTimer = 0.0f;
                         if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
                         {
                             animation->Play("appear", true);

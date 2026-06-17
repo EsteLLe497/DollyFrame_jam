@@ -661,6 +661,36 @@ bool PhotoCopyLifetimeComponent::IsExpired() const
     return m_remainingSeconds <= 0.0f;
 }
 
+PhotoMotionComponent::PhotoMotionComponent(float velocityXValue, float velocityYValue)
+    : velocityX(velocityXValue)
+    , velocityY(velocityYValue)
+{
+}
+
+void PhotoMotionComponent::BindTransform(TransformComponent* transform)
+{
+    m_transform = transform;
+}
+
+void PhotoMotionComponent::Update(float deltaTime)
+{
+    auto* transform = m_transform;
+    if (!transform && m_owner)
+    {
+        transform = m_owner->GetComponent<TransformComponent>();
+        m_transform = transform;
+    }
+
+    if (!transform)
+    {
+        return;
+    }
+
+    // 演出用の写真オブジェクトだけを軽く動かす。物理や当たり判定には関与しない。
+    transform->x += velocityX * deltaTime;
+    transform->y += velocityY * deltaTime;
+}
+
 PhotoPasteAnimationComponent::PhotoPasteAnimationComponent(float durationSeconds)
     : m_durationSeconds(std::max(0.001f, durationSeconds))
     , m_elapsedSeconds(0.0f)

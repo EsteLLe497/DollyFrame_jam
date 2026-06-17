@@ -142,6 +142,7 @@ struct CapturedPhotoItem
     float laserEnemyKnockbackSpeed = 0.0f;
     float lightRadius = 0.0f;
     float lightIntensity = 0.0f;
+    int bossMotionClip = 0;
     std::vector<OutlinePoint> collisionOutline;
 };
 

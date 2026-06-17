@@ -281,6 +281,8 @@ struct GameSceneRenderState
     float bossIntroCameraInfluence = 0.0f;
     float bossIntroCameraTargetX = 0.0f;
     float bossIntroCameraTargetY = 0.0f;
+    float shieldBossIntroCurtainProgress = 0.0f;
+    bool bossIntroCameraAnchorActive = false;
     bool zoomAnchorScreenCenter = false;
     float zoomAnchorX = 0.0f;
     float zoomAnchorY = 0.0f;

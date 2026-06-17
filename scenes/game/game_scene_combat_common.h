@@ -180,22 +180,24 @@ inline void ApplyShieldBossVisualLayout(Entity& entity, ShieldBossComponent& bos
     const float visualScaleX = metrics.cellWidth / std::max(1.0f, metrics.bodyWidth);
     const float visualScaleY = metrics.cellHeight / std::max(1.0f, metrics.bodyHeight);
     const bool introClip = std::strcmp(clipName, "appear") == 0 || std::strcmp(clipName, "roar") == 0;
-    const float introScale = introClip ? 1.2f : 1.0f;
-    const float visualWidth = hitboxWidth * visualScaleX * introScale;
-    const float visualHeight = hitboxHeight * visualScaleY * introScale;
+    const bool deathClip = std::strcmp(clipName, "death") == 0;
+    const float emphasisScale = (introClip || deathClip) ? 1.2f : 1.0f;
+    const float visualWidth = hitboxWidth * visualScaleX * emphasisScale;
+    const float visualHeight = hitboxHeight * visualScaleY * emphasisScale;
     const float drawScaleX = visualWidth / std::max(1.0f, hitboxWidth);
     const float drawScaleY = visualHeight / std::max(1.0f, hitboxHeight);
     const float bodyLeft = flipRight
         ? metrics.cellWidth - (metrics.bodyLeft + metrics.bodyWidth)
         : metrics.bodyLeft;
-    const float drawOffsetX = introClip
-        ? hitboxWidth * (1.0f - introScale) * 0.5f - bodyLeft / metrics.cellWidth * visualWidth
+    const float drawOffsetX = (introClip || deathClip)
+        ? hitboxWidth * (1.0f - emphasisScale) * 0.5f - bodyLeft / metrics.cellWidth * visualWidth
         : -bodyLeft / metrics.cellWidth * visualWidth;
-    const float drawOffsetY = introClip
+    const float groundSnapOffsetY = deathClip ? hitboxHeight * 0.12f : 0.0f;
+    const float drawOffsetY = (introClip || deathClip)
         ? hitboxHeight - ((metrics.bodyTop + metrics.bodyHeight) / metrics.cellHeight * visualHeight)
         : -metrics.bodyTop / metrics.cellHeight * visualHeight;
     sprite->SetRenderScale(drawScaleX, drawScaleY);
-    sprite->SetRenderOffset(drawOffsetX, drawOffsetY);
+    sprite->SetRenderOffset(drawOffsetX, drawOffsetY + groundSnapOffsetY);
     sprite->SetFlipX(flipRight);
 
     if (!boss.shieldEntity)
