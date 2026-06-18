@@ -68,6 +68,8 @@ private:
         int cameraNum = 0;
     };
 
+   
+
     // Core lifecycle / facade
     void ResetSceneState();
     void BeginFrameUpdate(float deltaTime);
