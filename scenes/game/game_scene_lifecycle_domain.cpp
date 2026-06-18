@@ -138,8 +138,33 @@ void GameScene::FinishLoading()
 
 void GameScene::PlayStageBgmForCurrentMap()
 {
-    // 現在のステージCSV名からBGMを決める。ボス用CSVも同じステージ曲を使える。
+    // Select the BGM from the active map name so stage transitions update music.
+    m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     Audio_PlayBgmCue(ResolveStageBgmCueName(m_lifecycle.currentMapCsvPath));
+}
+
+void GameScene::CrossFadeStageBgmForCurrentMap(float durationSeconds)
+{
+    // Return from boss music to the regular BGM for the current stage.
+    Audio_CrossFadeBgmCue(ResolveStageBgmCueName(m_lifecycle.currentMapCsvPath), durationSeconds);
+}
+
+void GameScene::UpdateShieldBossBgmCue()
+{
+    constexpr float kShieldBossBgmCrossFadeSeconds = 1.6f;
+
+    if (m_lifecycle.shieldBossBgmCrossFadeStarted)
+    {
+        return;
+    }
+    if (!IsShieldBossIntroCinematicActive())
+    {
+        return;
+    }
+
+    // Start the boss BGM when the black curtain appears for mid-boss 1.
+    m_lifecycle.shieldBossBgmCrossFadeStarted = true;
+    Audio_CrossFadeBgmCue("bgm_forest_boss", kShieldBossBgmCrossFadeSeconds);
 }
 
 void GameScene::OnExit()
@@ -154,4 +179,3 @@ void GameScene::OnExit()
     m_world.Clear();
     m_physicsWorld.Shutdown();
 }
-

@@ -206,10 +206,15 @@ public:
     bool appearAnimationActive = false;
     bool appearAnimationFinished = false;
     bool roarPlayed = false;
+    bool roarSoundPlayed = false;
     bool roarAnimationActive = false;
     float roarTimer = 0.0f;
     bool deathAnimationActive = false;
     bool deathAnimationFinished = false;
+    bool attack2SoundPlayed = false;
+    bool deadSoundPlayed = false;
+    bool rushBoostSoundPlayed = false;
+    bool shieldDropSoundPlayed = false;
     GameObject* shieldEntity = nullptr;
 };
 
@@ -244,6 +249,8 @@ public:
     bool grounded = false;
     bool shockwaveSpawned = false;
     bool fadeStarted = false;
+    bool knockbackSoundPlayed = false;
+    bool shieldDropSoundPlayed = false;
     float hoverElapsed = 0.0f;
     float hoverDuration = 0.0f;
     float descendSpeed = 0.0f;

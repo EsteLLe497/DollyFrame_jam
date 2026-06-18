@@ -88,6 +88,8 @@ private:
     void AdvanceLoadingStep();
     void FinishLoading();
     void PlayStageBgmForCurrentMap();
+    void CrossFadeStageBgmForCurrentMap(float durationSeconds);
+    void UpdateShieldBossBgmCue();
     void DrawLoadingScreen() const;
     void LoadTuningState();
     void RefreshStageRenderProfile();

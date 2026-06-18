@@ -482,6 +482,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.darknessStageEnabled = false;
     m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest_boss.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
+    m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
 }
@@ -751,11 +752,12 @@ void GameScene::InitializeStageEntities()
                 {
                     constexpr float kShieldW = 48.0f;
                     constexpr float kShieldH = 192.0f;
+                    constexpr float kShieldRaiseOffsetY = 24.0f;
                     auto shieldEntity = std::make_unique<Entity>();
                     shieldEntity->AddComponent<TagComponent>("BossShield");
                     shieldEntity->AddComponent<TransformComponent>(
                         transform->x - kShieldW,
-                        transform->y,
+                        transform->y - kShieldRaiseOffsetY,
                         kShieldW,
                         kShieldH);
                     shieldEntity->AddComponent<TintComponent>(

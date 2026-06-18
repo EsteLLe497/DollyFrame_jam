@@ -1609,6 +1609,27 @@ void GameScene::DrawCaptureOverlay() const
 
     ForEachCaptureTargetCandidate(*this, *transform, [&](Entity* entity, const TransformComponent& targetTransform)
     {
+        const auto* photoOrigin = entity ? entity->GetComponent<PhotoCopyOriginComponent>() : nullptr;
+        const bool movingEnemyAttackVisual =
+            entity &&
+            entity->GetComponent<PhotoMotionComponent>() &&
+            photoOrigin &&
+            photoOrigin->origin == PhotoCopyOrigin::Enemy;
+        const bool hidesCaptureHitboxVisual =
+            entity &&
+            (HasTag(*entity, EntityTag::BossShield) ||
+                HasTag(*entity, EntityTag::Boss1Shield) ||
+                HasTag(*entity, EntityTag::MidBoss1Shield) ||
+                HasTag(*entity, EntityTag::CapturedShield) ||
+                HasTag(*entity, EntityTag::WalkerMeleeAttack) ||
+                HasTag(*entity, EntityTag::BossShockwave) ||
+                movingEnemyAttackVisual);
+        if (hidesCaptureHitboxVisual)
+        {
+            // 攻撃や盾の当たり判定は残し、たたき台の白い判定表示だけ隠す。
+            return;
+        }
+
         const float targetLeft = targetTransform.x;
         const float targetTop = targetTransform.y;
         const float targetRight = targetTransform.x + targetTransform.width * targetTransform.scale;

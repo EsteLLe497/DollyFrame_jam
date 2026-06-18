@@ -110,6 +110,8 @@ struct GameSceneFlowState
     float screenShakeRemaining = 0.0f;
     float screenShakeDuration = 0.0f;
     float screenShakeAmplitude = 0.0f;
+    bool stageBgmCrossFadePending = false;
+    float stageBgmCrossFadeDelayRemaining = 0.0f;
     float captureModeZoomBlend = 0.0f;
 };
 
@@ -269,6 +271,7 @@ struct GameSceneLifecycleState
     int loadingStep = 0;
     float loadingElapsed = 0.0f;
     float loadingProgress = 0.0f;
+    bool shieldBossBgmCrossFadeStarted = false;
 };
 
 struct GameSceneRenderState
