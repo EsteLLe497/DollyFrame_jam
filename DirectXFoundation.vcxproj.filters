@@ -225,6 +225,12 @@
     <ClCompile Include="third_party\imgui\imgui.cpp">
       <Filter>Source Files\Third Party</Filter>
     </ClCompile>
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_dx11.cpp">
+      <Filter>Source Files\Third Party</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_win32.cpp">
+      <Filter>Source Files\Third Party</Filter>
+    </ClCompile>
     <ClCompile Include="third_party\imgui\imgui_demo.cpp">
       <Filter>Source Files\Third Party</Filter>
     </ClCompile>

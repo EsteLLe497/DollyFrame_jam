@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "game_scene_photo_state.h"
+
 class ResourceManager;
 
 struct PlayerAfterimage
@@ -62,6 +64,20 @@ struct SlamDustParticle
     float r = 0.72f;
     float g = 0.64f;
     float b = 0.52f;
+};
+
+struct BeamShockwaveParticle
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float startRadius = 0.0f;
+    float endRadius = 0.0f;
+    float thickness = 0.0f;
+    float life = 0.0f;
+    float maxLife = 0.0f;
+    float r = 0.72f;
+    float g = 0.94f;
+    float b = 1.0f;
 };
 
 struct CameraFlashState
@@ -179,6 +195,8 @@ struct GameSceneDebugState
     float tuningReloadTimer = 0.0f;
     std::filesystem::file_time_type tuningFileWriteTime{};
     bool hasTuningFileWriteTime = false;
+    std::string saveStatusMessage;
+    float saveStatusTimer = 0.0f;
 };
 
 struct GameSceneEffectsState
@@ -186,6 +204,7 @@ struct GameSceneEffectsState
     std::vector<BarrelDebrisParticle> barrelDebris;
     std::vector<LaserSparkParticle> laserSparks;
     std::vector<SlamDustParticle> slamDust;
+    std::vector<BeamShockwaveParticle> beamShockwaves;
 };
 
 struct GameSceneMapEditorState
@@ -286,4 +305,28 @@ struct GameSceneRenderState
     bool zoomAnchorScreenCenter = false;
     float zoomAnchorX = 0.0f;
     float zoomAnchorY = 0.0f;
+};
+
+struct GameSceneSaveState
+{
+    bool hasData = false;
+    std::string mapCsvPath;
+    bool hasCheckpoint = false;
+    int activeCheckpointId = -1;
+    float stageStartX = 0.0f;
+    float stageStartY = 0.0f;
+    float respawnX = 0.0f;
+    float respawnY = 0.0f;
+    float playerX = 0.0f;
+    float playerY = 0.0f;
+    float cameraX = 0.0f;
+    float cameraY = 0.0f;
+    int sessionMaxHp = 3;
+    int sessionCurrentHp = 3;
+    int sessionParts = 0;
+    int sessionPhotoStorageSlots = 2;
+    bool sessionHasRecoveryFilter = false;
+    float sessionTimeLimit = 60.0f;
+    float sessionTimeRemaining = 60.0f;
+    PhotoState photo;
 };

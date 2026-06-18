@@ -83,6 +83,7 @@ void GameScene::AdvanceLoadingStep()
     {
     case 0:
         LoadTuningState();
+        LoadProgressStateFromDisk();
         m_lifecycle.loadingProgress = 0.15f;
         ++m_lifecycle.loadingStep;
         break;
@@ -123,7 +124,14 @@ void GameScene::FinishLoading()
         game_scene_player_visual_system::ResetSpriteAnimationToIdle(m_player, *player);
     }
 
-    GameSession_Reset(3, m_flow.timeLimit);
+    if (m_save.hasData)
+    {
+        ApplyLoadedProgressState();
+    }
+    else
+    {
+        GameSession_Reset(3, m_flow.timeLimit);
+    }
     const float initialMasterVolume = Audio_GetMasterVolume();
     m_debug.bgmRestoreVolume = initialMasterVolume > 0.001f ? initialMasterVolume : 1.0f;
     m_debug.bgmEnabled = initialMasterVolume > 0.001f;
