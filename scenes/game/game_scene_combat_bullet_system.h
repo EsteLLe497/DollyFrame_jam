@@ -320,52 +320,68 @@ inline void UpdateBullets(
                     }
                 }
 
+                const auto pushAttachedTarget = [&](Entity& target, float pushDeltaTime) -> bool
+                {
+                    auto* targetTransform = target.GetComponent<TransformComponent>();
+                    auto* boss = target.GetComponent<MidBoss3Component>();
+                    if (!targetTransform)
+                    {
+                        return false;
+                    }
+
+                    const float bossWidth = targetTransform->width * targetTransform->scale;
+                    const float bossHeight = targetTransform->height * targetTransform->scale;
+                    const float currentX = boss ? boss->homeX : targetTransform->x;
+                    const float currentY = boss ? boss->homeY : targetTransform->y;
+                    const float pushX = capturedMidBoss3Attack->aimX * kDrillRushSpeed * pushDeltaTime;
+                    const float pushY = capturedMidBoss3Attack->aimY * kDrillRushSpeed * pushDeltaTime;
+                    const float maxX = std::max(0.0f, mapWidth - bossWidth);
+                    const float maxY = std::max(0.0f, mapHeight - bossHeight);
+                    const float requestedX = currentX + pushX;
+                    const float requestedY = currentY + pushY;
+                    const float nextX = std::clamp(requestedX, 0.0f, maxX);
+                    const float nextY = std::clamp(requestedY, 0.0f, maxY);
+                    const bool stoppedBySolid =
+                        std::fabs(requestedX - nextX) > 0.01f ||
+                        std::fabs(requestedY - nextY) > 0.01f ||
+                        rectIntersectsSolid(nextX, nextY, bossWidth, bossHeight);
+                    const float resolvedX = stoppedBySolid ? currentX : nextX;
+                    const float resolvedY = stoppedBySolid ? currentY : nextY;
+
+                    if (boss)
+                    {
+                        boss->homeX = resolvedX;
+                        boss->homeY = resolvedY;
+                    }
+                    targetTransform->x = resolvedX;
+                    targetTransform->y = resolvedY;
+                    transform->x = targetTransform->x + targetTransform->width * targetTransform->scale * 0.5f - transform->width * transform->scale * 0.5f;
+                    transform->y = targetTransform->y + targetTransform->height * targetTransform->scale * 0.5f - transform->height * transform->scale * 0.5f;
+                    return stoppedBySolid;
+                };
+
+                const auto stopAttachedDrill = [&]()
+                {
+                    projectile->SetVelocityX(0.0f);
+                    projectile->SetVelocityY(0.0f);
+                    capturedMidBoss3Attack->attachedToBoss = false;
+                    capturedMidBoss3Attack->carriedBoss = nullptr;
+                    bulletsToRemove.push_back(entity);
+                };
+
                 if (capturedMidBoss3Attack->attachedToBoss && targetBoss)
                 {
-                    capturedMidBoss3Attack->bossDamageTimer += deltaTime;
-                    const float pushX = capturedMidBoss3Attack->aimX * kDrillRushSpeed * deltaTime;
-                    const float pushY = capturedMidBoss3Attack->aimY * kDrillRushSpeed * deltaTime;
-                    auto* targetTransform = targetBoss->GetComponent<TransformComponent>();
-                    auto* boss = targetBoss->GetComponent<MidBoss3Component>();
-                    bool stoppedBySolid = false;
-                    if (targetTransform)
+                    capturedMidBoss3Attack->attachedLifeRemaining = std::max(
+                        0.0f,
+                        capturedMidBoss3Attack->attachedLifeRemaining - deltaTime);
+                    if (capturedMidBoss3Attack->attachedLifeRemaining <= 0.0f)
                     {
-                        const float bossWidth = targetTransform->width * targetTransform->scale;
-                        const float bossHeight = targetTransform->height * targetTransform->scale;
-                        const float currentX = boss ? boss->homeX : targetTransform->x;
-                        const float currentY = boss ? boss->homeY : targetTransform->y;
-                        const float maxX = std::max(0.0f, mapWidth - bossWidth);
-                        const float maxY = std::max(0.0f, mapHeight - bossHeight);
-                        float resolvedX = currentX;
-                        float resolvedY = currentY;
-
-                        const float requestedX = currentX + pushX;
-                        const float requestedY = currentY + pushY;
-                        const float nextX = std::clamp(requestedX, 0.0f, maxX);
-                        const float nextY = std::clamp(requestedY, 0.0f, maxY);
-                        const bool hitMapBoundary =
-                            std::fabs(requestedX - nextX) > 0.01f ||
-                            std::fabs(requestedY - nextY) > 0.01f;
-                        if (!hitMapBoundary && !rectIntersectsSolid(nextX, nextY, bossWidth, bossHeight))
-                        {
-                            resolvedX = nextX;
-                            resolvedY = nextY;
-                        }
-                        else
-                        {
-                            stoppedBySolid = true;
-                        }
-
-                        if (boss)
-                        {
-                            boss->homeX = resolvedX;
-                            boss->homeY = resolvedY;
-                        }
-                        targetTransform->x = resolvedX;
-                        targetTransform->y = resolvedY;
-                        transform->x = targetTransform->x + targetTransform->width * targetTransform->scale * 0.5f - transform->width * transform->scale * 0.5f;
-                        transform->y = targetTransform->y + targetTransform->height * targetTransform->scale * 0.5f - transform->height * transform->scale * 0.5f;
+                        stopAttachedDrill();
+                        continue;
                     }
+
+                    capturedMidBoss3Attack->bossDamageTimer += deltaTime;
+                    const bool stoppedBySolid = pushAttachedTarget(*targetBoss, deltaTime);
                     if (capturedMidBoss3Attack->bossDamageTimer >= kBossDamageInterval)
                     {
                         capturedMidBoss3Attack->bossDamageTimer = 0.0f;
@@ -374,14 +390,24 @@ inline void UpdateBullets(
                     transform->rotation = std::atan2(capturedMidBoss3Attack->aimY, capturedMidBoss3Attack->aimX);
                     if (stoppedBySolid)
                     {
-                        bulletsToRemove.push_back(entity);
+                        stopAttachedDrill();
                     }
                     continue;
                 }
 
                 if (capturedMidBoss3Attack->waitRemaining > 0.0f)
                 {
+                    if (!capturedMidBoss3Attack->waitBaseInitialized)
+                    {
+                        capturedMidBoss3Attack->waitBaseX = transform->x;
+                        capturedMidBoss3Attack->waitBaseY = transform->y;
+                        capturedMidBoss3Attack->waitBaseInitialized = true;
+                    }
+                    capturedMidBoss3Attack->waitShakeTimer += deltaTime;
                     aimTowardTarget(targetBoss);
+                    const float shakePhase = capturedMidBoss3Attack->waitShakeTimer * 92.0f;
+                    transform->x = capturedMidBoss3Attack->waitBaseX + std::sin(shakePhase) * 2.0f;
+                    transform->y = capturedMidBoss3Attack->waitBaseY + std::cos(shakePhase * 1.31f) * 0.9f;
                     capturedMidBoss3Attack->waitRemaining = std::max(0.0f, capturedMidBoss3Attack->waitRemaining - deltaTime);
                     projectile->SetVelocityX(0.0f);
                     projectile->SetVelocityY(0.0f);
@@ -419,9 +445,16 @@ inline void UpdateBullets(
                     }
                     capturedMidBoss3Attack->attachedToBoss = true;
                     capturedMidBoss3Attack->carriedBoss = target;
-                    capturedMidBoss3Attack->bossDamageTimer = kBossDamageInterval;
+                    capturedMidBoss3Attack->bossDamageTimer = 0.0f;
+                    capturedMidBoss3Attack->attachedLifeRemaining = 4.0f;
                     projectile->SetVelocityX(0.0f);
                     projectile->SetVelocityY(0.0f);
+                    aimTowardTarget(target);
+                    handleEnemyDamage(*target, entity, projectile->GetDamage(), "Captured MidBoss3 drill damaged enemy");
+                    if (pushAttachedTarget(*target, std::max(deltaTime, 1.0f / 60.0f)))
+                    {
+                        stopAttachedDrill();
+                    }
                     attachedThisFrame = true;
                     break;
                 }

@@ -178,6 +178,34 @@ namespace
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
+    void DrawAttackPredictionLine(
+        float startX,
+        float startY,
+        float directionX,
+        float directionY,
+        float length,
+        float viewScale,
+        float pulseSeed)
+    {
+        const float directionLength = std::max(0.001f, std::hypot(directionX, directionY));
+        const float dx = directionX / directionLength;
+        const float dy = directionY / directionLength;
+        const float endX = startX + dx * length;
+        const float endY = startY + dy * length;
+        const float pulse = 0.72f + 0.28f * std::sin(static_cast<float>(GetNowCount()) * 0.018f + pulseSeed);
+        const int wideAlpha = std::clamp(static_cast<int>(std::round(88.0f * pulse)), 0, 150);
+        const int coreAlpha = std::clamp(static_cast<int>(std::round(176.0f * pulse)), 0, 230);
+        const float wideThickness = std::max(5.0f, 7.0f * viewScale);
+        const float coreThickness = std::max(1.8f, 2.5f * viewScale);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, wideAlpha);
+        DrawLineAA(startX, startY, endX, endY, GetColor(255, 24, 18), wideThickness);
+        SetDrawBlendMode(DX_BLENDMODE_ADD, coreAlpha);
+        DrawLineAA(startX, startY, endX, endY, GetColor(255, 90, 70), coreThickness);
+        DrawCircleAA(startX, startY, std::max(3.0f, 4.0f * viewScale), 24, GetColor(255, 30, 20), TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     void DrawFilledQuad(
         float ax,
         float ay,
@@ -1962,6 +1990,99 @@ void GameScene::DrawEntity(const Entity& entity) const
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         Shader_ResetStyle();
     }
+    const auto drawMidBoss3AttackPrediction = [&]()
+    {
+        if (const auto* capturedMidBoss3Attack = entity.GetComponent<CapturedMidBoss3AttackComponent>())
+        {
+            if (capturedMidBoss3Attack->kind == CapturedMidBoss3AttackKind::Drill &&
+                capturedMidBoss3Attack->waitRemaining > 0.0f &&
+                !capturedMidBoss3Attack->launched &&
+                !capturedMidBoss3Attack->attachedToBoss)
+            {
+                const float drillCenterX = drawX + drawWidth * 0.5f;
+                const float drillCenterY = drawY + drawHeight * 0.5f;
+                const float dirX = std::cos(transform->rotation);
+                const float dirY = std::sin(transform->rotation);
+                DrawAttackPredictionLine(
+                    drillCenterX + dirX * drawWidth * 0.5f,
+                    drillCenterY + dirY * drawWidth * 0.5f,
+                    dirX,
+                    dirY,
+                    std::max(560.0f, 1040.0f * viewScale),
+                    viewScale,
+                    6.2f);
+            }
+        }
+
+        if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
+        {
+            const auto* ownerBoss = midBoss3Fist->ownerBoss ? midBoss3Fist->ownerBoss->GetComponent<MidBoss3Component>() : nullptr;
+            const float fistWorldW = transform->width * transform->scale;
+            const float fistWorldH = transform->height * transform->scale;
+            const float fistCenterWorldX = transform->x + fistWorldW * 0.5f;
+            const float fistCenterWorldY = transform->y + fistWorldH * 0.5f;
+            bool drawPrediction = false;
+            float predictionStartWorldX = fistCenterWorldX;
+            float predictionStartWorldY = fistCenterWorldY;
+            float predictionDirX = 0.0f;
+            float predictionDirY = 0.0f;
+            if (midBoss3Fist->state == MidBoss3FistState::LauncherReady && midBoss3Fist->atAttackStart)
+            {
+                const float direction = ownerBoss && ownerBoss->launcherDirection < 0 ? -1.0f : 1.0f;
+                predictionDirX = direction;
+                predictionDirY = 0.0f;
+                predictionStartWorldX = direction >= 0.0f ? transform->x + fistWorldW : transform->x;
+                predictionStartWorldY = fistCenterWorldY;
+                drawPrediction = true;
+            }
+            else if (midBoss3Fist->state == MidBoss3FistState::MeteorReady && midBoss3Fist->atAttackStart)
+            {
+                predictionDirX = 0.0f;
+                predictionDirY = 1.0f;
+                predictionStartWorldX = fistCenterWorldX;
+                predictionStartWorldY = transform->y + fistWorldH;
+                drawPrediction = true;
+            }
+            if (drawPrediction)
+            {
+                DrawAttackPredictionLine(
+                    viewOriginX + (predictionStartWorldX - m_flow.cameraX) * viewScale,
+                    viewOriginY + (predictionStartWorldY - m_flow.cameraY) * viewScale,
+                    predictionDirX,
+                    predictionDirY,
+                    std::max(480.0f, 900.0f * viewScale),
+                    viewScale,
+                    static_cast<float>(midBoss3Fist->fistIndex) * 1.37f);
+            }
+        }
+
+        if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
+        {
+            if (midBoss3->state == MidBoss3State::DrillFist &&
+                midBoss3->drillActive &&
+                std::fabs(midBoss3->drillVelocityX) < 0.001f &&
+                std::fabs(midBoss3->drillVelocityY) < 0.001f)
+            {
+                const float screenX = viewOriginX + (midBoss3->drillX - m_flow.cameraX) * viewScale;
+                const float screenY = viewOriginY + (midBoss3->drillY - m_flow.cameraY) * viewScale;
+                const float screenW = midBoss3->drillWidth * viewScale;
+                const float screenH = midBoss3->drillHeight * viewScale;
+                const float drillAngle = midBoss3->drillGroundRush
+                    ? (midBoss3->drillDirection >= 0 ? 0.0f : 3.14159265f)
+                    : std::atan2(midBoss3->drillAimY, midBoss3->drillAimX);
+                const float drillCenterX = screenX + screenW * 0.5f;
+                const float drillCenterY = screenY + screenH * 0.5f;
+                DrawAttackPredictionLine(
+                    drillCenterX + std::cos(drillAngle) * screenW * 0.5f,
+                    drillCenterY + std::sin(drillAngle) * screenW * 0.5f,
+                    std::cos(drillAngle),
+                    std::sin(drillAngle),
+                    std::max(560.0f, 1040.0f * viewScale),
+                    viewScale,
+                    4.8f);
+            }
+        }
+    };
     bool hasVisibleMidBoss3Drill = false;
     if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
     {
@@ -1973,8 +2094,10 @@ void GameScene::DrawEntity(const Entity& entity) const
                 drillDrawX <= viewOriginX + viewWidth;
         }
     }
-    if (!hasVisibleMidBoss3Drill && (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth))
+    const bool horizontallyOutside = drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth;
+    if (!hasVisibleMidBoss3Drill && horizontallyOutside)
     {
+        drawMidBoss3AttackPrediction();
         return;
     }
 
@@ -2301,6 +2424,23 @@ void GameScene::DrawEntity(const Entity& entity) const
             {
                 if (capturedMidBoss3Attack->kind == CapturedMidBoss3AttackKind::Drill)
                 {
+                    if (capturedMidBoss3Attack->waitRemaining > 0.0f &&
+                        !capturedMidBoss3Attack->launched &&
+                        !capturedMidBoss3Attack->attachedToBoss)
+                    {
+                        const float drillCenterX = drawX + drawWidth * 0.5f;
+                        const float drillCenterY = drawY + drawHeight * 0.5f;
+                        const float dirX = std::cos(transform->rotation);
+                        const float dirY = std::sin(transform->rotation);
+                        DrawAttackPredictionLine(
+                            drillCenterX + dirX * drawWidth * 0.5f,
+                            drillCenterY + dirY * drawWidth * 0.5f,
+                            dirX,
+                            dirY,
+                            std::max(560.0f, 1040.0f * viewScale),
+                            viewScale,
+                            6.2f);
+                    }
                     DrawMidBoss3DrillShape(
                         drawX,
                         drawY,
@@ -2825,6 +2965,76 @@ void GameScene::DrawEntity(const Entity& entity) const
         Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
     }
 
+    if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
+    {
+        const bool meteorTrail = midBoss3Fist->state == MidBoss3FistState::MeteorFalling &&
+            std::fabs(midBoss3Fist->velocityY) > 0.001f;
+        if (meteorTrail)
+        {
+            const float directionY = meteorTrail ? (midBoss3Fist->velocityY >= 0.0f ? 1.0f : -1.0f) : 0.0f;
+            const int lineColor = GetColor(255, 238, 202);
+
+            if (meteorTrail)
+            {
+                for (int trailIndex = 3; trailIndex >= 1; --trailIndex)
+                {
+                    const float t = static_cast<float>(trailIndex);
+                    const float alpha = 0.18f * (4.0f - t) / 3.0f;
+                    const float offset = drawHeight * 0.42f * t;
+                    const float blurW = drawWidth;
+                    const float blurH = drawHeight * (1.0f + 0.16f * t);
+                    const float blurX = drawX - (blurW - drawWidth) * 0.5f;
+                    const float blurY = drawY - directionY * offset - (blurH - drawHeight) * 0.5f;
+
+                    SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f * alphaMultiplier)), 0, 255));
+                    Shader_SetTint(1.0f, 0.66f, 0.28f, alpha);
+                    SpriteDraw(
+                        sprite->GetTextureId(),
+                        blurX,
+                        blurY,
+                        blurW,
+                        blurH,
+                        sprite->GetSourceX(),
+                        sprite->GetSourceY(),
+                        sprite->GetSourceWidth(),
+                        sprite->GetSourceHeight(),
+                        sprite->GetFlipX(),
+                        transform->rotation);
+                }
+            }
+
+            if (meteorTrail)
+            {
+                SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(74.0f * alphaMultiplier)));
+                const float tailY = directionY >= 0.0f ? drawY : drawY + drawHeight;
+                const float lineLength = drawHeight * 1.2f;
+                for (int lineIndex = 0; lineIndex < 6; ++lineIndex)
+                {
+                    const float ratio = (static_cast<float>(lineIndex) + 0.5f) / 6.0f;
+                    const float x = drawX + drawWidth * std::lerp(0.10f, 0.90f, ratio);
+                    const float jitter = std::sin(static_cast<float>(GetNowCount()) * 0.024f + static_cast<float>(lineIndex) * 1.31f) * drawWidth * 0.025f;
+                    DrawLineAA(
+                        x + jitter,
+                        tailY - directionY * lineLength,
+                        x + jitter * 0.35f,
+                        tailY - directionY * drawHeight * 0.08f,
+                        lineColor,
+                        std::max(1.0f, 1.8f * viewScale));
+                }
+            }
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+            if (tint)
+            {
+                Shader_SetTint(tint->r, tint->g, tint->b, tint->a * alphaMultiplier);
+            }
+            else
+            {
+                Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
+            }
+        }
+    }
+
     if (!DrawDamagePlatformShape(
             drawX,
             drawY,
@@ -2903,6 +3113,44 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
     {
+        const auto* ownerBoss = midBoss3Fist->ownerBoss ? midBoss3Fist->ownerBoss->GetComponent<MidBoss3Component>() : nullptr;
+        const float fistWorldW = transform->width * transform->scale;
+        const float fistWorldH = transform->height * transform->scale;
+        const float fistCenterWorldX = transform->x + fistWorldW * 0.5f;
+        const float fistCenterWorldY = transform->y + fistWorldH * 0.5f;
+        bool drawPrediction = false;
+        float predictionStartWorldX = fistCenterWorldX;
+        float predictionStartWorldY = fistCenterWorldY;
+        float predictionDirX = 0.0f;
+        float predictionDirY = 0.0f;
+        if (midBoss3Fist->state == MidBoss3FistState::LauncherReady && midBoss3Fist->atAttackStart)
+        {
+            const float direction = ownerBoss && ownerBoss->launcherDirection < 0 ? -1.0f : 1.0f;
+            predictionDirX = direction;
+            predictionDirY = 0.0f;
+            predictionStartWorldX = direction >= 0.0f ? transform->x + fistWorldW : transform->x;
+            predictionStartWorldY = fistCenterWorldY;
+            drawPrediction = true;
+        }
+        else if (midBoss3Fist->state == MidBoss3FistState::MeteorReady && midBoss3Fist->atAttackStart)
+        {
+            predictionDirX = 0.0f;
+            predictionDirY = 1.0f;
+            predictionStartWorldX = fistCenterWorldX;
+            predictionStartWorldY = transform->y + fistWorldH;
+            drawPrediction = true;
+        }
+        if (drawPrediction)
+        {
+            DrawAttackPredictionLine(
+                viewOriginX + (predictionStartWorldX - m_flow.cameraX) * viewScale,
+                viewOriginY + (predictionStartWorldY - m_flow.cameraY) * viewScale,
+                predictionDirX,
+                predictionDirY,
+                std::max(480.0f, 900.0f * viewScale),
+                viewScale,
+                static_cast<float>(midBoss3Fist->fistIndex) * 1.37f);
+        }
         if (midBoss3Fist->captureJammerActive)
         {
             constexpr float kTileSize = 48.0f;
@@ -2949,6 +3197,22 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float drillAngle = midBoss3->drillGroundRush
                 ? (midBoss3->drillDirection >= 0 ? 0.0f : 3.14159265f)
                 : std::atan2(midBoss3->drillAimY, midBoss3->drillAimX);
+            if (midBoss3->state == MidBoss3State::DrillFist &&
+                midBoss3->drillActive &&
+                std::fabs(midBoss3->drillVelocityX) < 0.001f &&
+                std::fabs(midBoss3->drillVelocityY) < 0.001f)
+            {
+                const float drillCenterX = screenX + screenW * 0.5f;
+                const float drillCenterY = screenY + screenH * 0.5f;
+                DrawAttackPredictionLine(
+                    drillCenterX + std::cos(drillAngle) * screenW * 0.5f,
+                    drillCenterY + std::sin(drillAngle) * screenW * 0.5f,
+                    std::cos(drillAngle),
+                    std::sin(drillAngle),
+                    std::max(560.0f, 1040.0f * viewScale),
+                    viewScale,
+                    4.8f);
+            }
             DrawMidBoss3DrillShape(
                 screenX,
                 screenY,

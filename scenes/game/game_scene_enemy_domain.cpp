@@ -740,6 +740,10 @@ void GameScene::UpdateEnemies()
         {
             SpawnBossRoarEffect(centerX, groundY, width);
         },
+        [this](float x, float y, float width, float height)
+        {
+            SpawnMidBoss3FistImpactEffect(x, y, width, height);
+        },
         [this, player](Entity* sourceEntity, int amount, const char* logMessage)
         {
             if (player)
