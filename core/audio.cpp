@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "DxLib.h"
+#include "logger.h"
 
 namespace
 {
@@ -19,6 +20,16 @@ namespace
     {
         std::vector<short> pcm;
         int handle = -1;
+    };
+
+    struct BgmFadeState
+    {
+        bool active = false;
+        std::string fromCueName;
+        std::string toCueName;
+        float elapsed = 0.0f;
+        float duration = 0.0f;
+        int lastTick = 0;
     };
 
     CueData g_testCue;
@@ -32,6 +43,7 @@ namespace
     // Loaded file cue handles by cue name.
     std::unordered_map<std::string, int> g_fileCues;
     std::string g_currentBgmCueName;
+    BgmFadeState g_bgmFade;
 
     float Clamp01(float value)
     {
@@ -43,19 +55,35 @@ namespace
         return cueName.find("bgm") != std::string::npos || cueName.find("BGM") != std::string::npos;
     }
 
+    float ResolveCueGain(const std::string& cueName)
+    {
+        // 中ボス1SEは素材の平均音量が小さいため、BGMに埋もれないよう少し持ち上げる。
+        if (cueName.find("boss_forest_") == 0)
+        {
+            return 1.8f;
+        }
+        return 1.0f;
+    }
+
     float ResolveCueVolume(const std::string& cueName)
     {
         const float categoryVolume = IsBgmCueName(cueName) ? 1.0f : g_seVolume;
-        return Clamp01(g_masterVolume * categoryVolume);
+        return Clamp01(g_masterVolume * categoryVolume * ResolveCueGain(cueName));
     }
 
-    void ApplyCueVolume(int handle, const std::string& cueName)
+    void ApplyCueVolumeScaled(int handle, const std::string& cueName, float volumeScale)
     {
         if (handle < 0)
         {
             return;
         }
-        SetVolumeSoundMem(static_cast<int>(ResolveCueVolume(cueName) * 10000.0f), handle);
+        const float resolvedVolume = ResolveCueVolume(cueName) * Clamp01(volumeScale);
+        SetVolumeSoundMem(static_cast<int>(resolvedVolume * 10000.0f), handle);
+    }
+
+    void ApplyCueVolume(int handle, const std::string& cueName)
+    {
+        ApplyCueVolumeScaled(handle, cueName, 1.0f);
     }
 
     void BuildTone(CueData& cue, float durationSec, float frequency, float amplitude)
@@ -105,6 +133,54 @@ namespace
         }
     }
 
+    void StopBgmCue(const std::string& cueName)
+    {
+        auto it = g_fileCues.find(cueName);
+        if (it != g_fileCues.end() && it->second >= 0)
+        {
+            StopSoundMem(it->second);
+        }
+    }
+
+    void FinishBgmFade()
+    {
+        if (!g_bgmFade.fromCueName.empty() && g_bgmFade.fromCueName != g_bgmFade.toCueName)
+        {
+            StopBgmCue(g_bgmFade.fromCueName);
+        }
+
+        auto it = g_fileCues.find(g_bgmFade.toCueName);
+        if (it != g_fileCues.end() && it->second >= 0)
+        {
+            ApplyCueVolume(it->second, g_bgmFade.toCueName);
+        }
+
+        g_currentBgmCueName = g_bgmFade.toCueName;
+        g_bgmFade = BgmFadeState{};
+    }
+
+    void ApplyBgmFadeVolumes()
+    {
+        if (!g_bgmFade.active)
+        {
+            return;
+        }
+
+        const float fadeRate = Clamp01(g_bgmFade.elapsed / std::max(0.001f, g_bgmFade.duration));
+
+        auto fromIt = g_fileCues.find(g_bgmFade.fromCueName);
+        if (fromIt != g_fileCues.end() && fromIt->second >= 0)
+        {
+            ApplyCueVolumeScaled(fromIt->second, g_bgmFade.fromCueName, 1.0f - fadeRate);
+        }
+
+        auto toIt = g_fileCues.find(g_bgmFade.toCueName);
+        if (toIt != g_fileCues.end() && toIt->second >= 0)
+        {
+            ApplyCueVolumeScaled(toIt->second, g_bgmFade.toCueName, fadeRate);
+        }
+    }
+
     void RefreshAllVolumes()
     {
         ApplyCueVolume(g_testCue.handle, "test_tone");
@@ -115,6 +191,7 @@ namespace
         {
             ApplyCueVolume(kv.second, kv.first);
         }
+        ApplyBgmFadeVolumes();
     }
 }
 
@@ -168,6 +245,23 @@ void Audio_Shutdown()
 
 void Audio_Update()
 {
+    if (!g_bgmFade.active)
+    {
+        return;
+    }
+
+    const int now = GetNowCount();
+    const float deltaTime = g_bgmFade.lastTick > 0
+        ? static_cast<float>(std::max(0, now - g_bgmFade.lastTick)) / 1000.0f
+        : 0.0f;
+    g_bgmFade.lastTick = now;
+    g_bgmFade.elapsed += deltaTime;
+
+    ApplyBgmFadeVolumes();
+    if (g_bgmFade.elapsed >= g_bgmFade.duration)
+    {
+        FinishBgmFade();
+    }
 }
 
 void Audio_PlayTestTone()
@@ -208,6 +302,28 @@ void Audio_PlayCue(const char* cueName)
         ApplyCueVolume(g_sceneCue.handle, cue);
         PlayHandle(g_sceneCue.handle);
     }
+    else
+    {
+        Logger::Warn(std::string("Missing sound cue: ") + cue);
+    }
+}
+
+void Audio_StopCue(const char* cueName)
+{
+    if (!cueName)
+    {
+        return;
+    }
+
+    const std::string cue(cueName);
+    auto it = g_fileCues.find(cue);
+    if (it != g_fileCues.end() && it->second >= 0)
+    {
+        StopSoundMem(it->second);
+        return;
+    }
+
+    Logger::Warn(std::string("Missing sound cue stop request: ") + cue);
 }
 
 void Audio_PlayBgmCue(const char* cueName)
@@ -221,19 +337,89 @@ void Audio_PlayBgmCue(const char* cueName)
     auto it = g_fileCues.find(cue);
     if (it == g_fileCues.end() || it->second < 0)
     {
+        Logger::Warn(std::string("Missing BGM cue: ") + cue);
         return;
     }
 
     if (g_currentBgmCueName == cue)
     {
+        if (g_bgmFade.active)
+        {
+            if (!g_bgmFade.fromCueName.empty() && g_bgmFade.fromCueName != cue)
+            {
+                StopBgmCue(g_bgmFade.fromCueName);
+            }
+            g_bgmFade = BgmFadeState{};
+        }
         ApplyCueVolume(it->second, cue);
         return;
     }
 
+    g_bgmFade = BgmFadeState{};
     Audio_StopBgm();
     g_currentBgmCueName = cue;
     ApplyCueVolume(it->second, cue);
     PlayLoopHandle(it->second);
+}
+
+void Audio_CrossFadeBgmCue(const char* cueName, float durationSeconds)
+{
+    if (!cueName)
+    {
+        return;
+    }
+
+    const std::string cue(cueName);
+    auto toIt = g_fileCues.find(cue);
+    if (toIt == g_fileCues.end() || toIt->second < 0)
+    {
+        Logger::Warn(std::string("Missing crossfade BGM cue: ") + cue);
+        return;
+    }
+
+    if (durationSeconds <= 0.0f)
+    {
+        Audio_PlayBgmCue(cueName);
+        return;
+    }
+
+    if (g_currentBgmCueName == cue && !g_bgmFade.active)
+    {
+        ApplyCueVolume(toIt->second, cue);
+        return;
+    }
+
+    if (g_bgmFade.active && g_bgmFade.toCueName == cue)
+    {
+        return;
+    }
+
+    if (g_bgmFade.active && !g_bgmFade.fromCueName.empty() && g_bgmFade.fromCueName != g_bgmFade.toCueName)
+    {
+        StopBgmCue(g_bgmFade.fromCueName);
+    }
+
+    const std::string fromCue = g_bgmFade.active ? g_bgmFade.toCueName : g_currentBgmCueName;
+    if (!g_bgmFade.active && fromCue.empty())
+    {
+        g_currentBgmCueName = cue;
+        ApplyCueVolumeScaled(toIt->second, cue, 0.0f);
+        PlayLoopHandle(toIt->second);
+    }
+    else
+    {
+        ApplyCueVolumeScaled(toIt->second, cue, 0.0f);
+        PlayLoopHandle(toIt->second);
+    }
+
+    g_bgmFade.active = true;
+    g_bgmFade.fromCueName = fromCue;
+    g_bgmFade.toCueName = cue;
+    g_bgmFade.elapsed = 0.0f;
+    g_bgmFade.duration = std::max(0.001f, durationSeconds);
+    g_bgmFade.lastTick = GetNowCount();
+    g_currentBgmCueName = cue;
+    ApplyBgmFadeVolumes();
 }
 
 void Audio_StopBgm()
@@ -248,6 +434,11 @@ void Audio_StopBgm()
     {
         StopSoundMem(it->second);
     }
+    if (g_bgmFade.active && !g_bgmFade.fromCueName.empty() && g_bgmFade.fromCueName != g_currentBgmCueName)
+    {
+        StopBgmCue(g_bgmFade.fromCueName);
+    }
+    g_bgmFade = BgmFadeState{};
     g_currentBgmCueName.clear();
 }
 
@@ -267,11 +458,13 @@ bool Audio_LoadCueFromFile(const char* cueName, const char* filePath)
     int handle = LoadSoundMem(filePath);
     if (handle < 0)
     {
+        Logger::Warn(std::string("Failed to load sound cue: ") + name + " from " + filePath);
         return false;
     }
 
     g_fileCues.emplace(name, handle);
     ApplyCueVolume(handle, name);
+    Logger::Info(std::string("Loaded sound cue: ") + name + " from " + filePath);
     return true;
 }
 

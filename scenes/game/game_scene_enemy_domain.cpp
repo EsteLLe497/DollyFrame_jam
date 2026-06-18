@@ -4,6 +4,7 @@
 #include "game_scene_combat_common.h"
 #include "game_scene_combat_enemy_system.h"
 #include "game_scene_combat_bullet_system.h"
+#include "audio.h"
 
 #include <algorithm>
 #include <array>
@@ -67,12 +68,17 @@ namespace
     constexpr float kBossKnockbackHitStopSeconds = 0.085f;
     constexpr float kBossKnockbackShakeSeconds = 0.26f;
     constexpr float kBossKnockbackShakeAmplitude = 60.0f;
+    constexpr float kNormalShieldBossHitStopSeconds = 0.10f;
+    constexpr float kNormalShieldBossHitShakeSeconds = 0.34f;
+    constexpr float kNormalShieldBossHitShakeAmplitude = 92.0f;
     constexpr float kBossDefeatStartHitStopSeconds = 0.14f;
     constexpr float kBossDefeatStartShakeSeconds = 0.44f;
     constexpr float kBossDefeatStartShakeAmplitude = 64.0f;
     constexpr float kBossDefeatFinishHitStopSeconds = 0.08f;
     constexpr float kBossDefeatFinishShakeSeconds = 0.34f;
     constexpr float kBossDefeatFinishShakeAmplitude = 42.0f;
+    constexpr float kShieldBossStageBgmReturnDelaySeconds = 1.25f;
+    constexpr float kShieldBossStageBgmReturnCrossFadeSeconds = 1.6f;
 
     float ResolveMidBoss3DamageDirection(const Entity& enemy, const Entity* sourceEntity)
     {
@@ -234,6 +240,20 @@ namespace
         flow.screenShakeAmplitude = (std::max)(flow.screenShakeAmplitude, kBossKnockbackShakeAmplitude);
     }
 
+    void TriggerNormalShieldBossHitFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kNormalShieldBossHitStopSeconds);
+        if (!screenShakeEnabled)
+        {
+            return;
+        }
+
+        // 通常盾はボスを動かさないため、画面側を強めに揺らして命中感を出す。
+        flow.screenShakeRemaining = kNormalShieldBossHitShakeSeconds;
+        flow.screenShakeDuration = kNormalShieldBossHitShakeSeconds;
+        flow.screenShakeAmplitude = kNormalShieldBossHitShakeAmplitude;
+    }
+
     void TriggerBossDefeatStartFeedback(GameSceneFlowState& flow)
     {
         flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossDefeatStartHitStopSeconds);
@@ -296,6 +316,29 @@ namespace
             frameCount,
             fps,
             loop);
+    }
+
+    void PlayShieldBossSoundCue(const char* cueName)
+    {
+        if (!cueName)
+        {
+            return;
+        }
+
+        // 中ボス1専用SEは発生フレームが重要なので、イベント待ちにせず即時再生する。
+        Audio_PlayCue(cueName);
+        Logger::Info(std::string("ShieldBoss SE requested: ") + cueName);
+    }
+
+    void StopShieldBossSoundCue(const char* cueName)
+    {
+        if (!cueName)
+        {
+            return;
+        }
+
+        Audio_StopCue(cueName);
+        Logger::Info(std::string("ShieldBoss SE stopped: ") + cueName);
     }
 
 }
@@ -528,6 +571,18 @@ void GameScene::ConfigureBossShieldSpriteAnimation(Entity& shield)
 
 void GameScene::UpdateEnemies()
 {
+    if (m_flow.stageBgmCrossFadePending)
+    {
+        m_flow.stageBgmCrossFadeDelayRemaining = std::max(
+            0.0f,
+            m_flow.stageBgmCrossFadeDelayRemaining - m_flow.lastDeltaTime);
+        if (m_flow.stageBgmCrossFadeDelayRemaining <= 0.0f)
+        {
+            m_flow.stageBgmCrossFadePending = false;
+            CrossFadeStageBgmForCurrentMap(kShieldBossStageBgmReturnCrossFadeSeconds);
+        }
+    }
+
     Entity* player = FindEntityByTag(kTagPlayer);
     const TransformComponent* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
     const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
@@ -666,6 +721,9 @@ void GameScene::UpdateEnemies()
                         enemy->MarkDefeated();
                         enemy->respawnEnabled = false;
                         m_flow.shieldBossDefeatedThisScene = true;
+                        PlayShieldBossSoundCue("boss_forest_destroy");
+                        m_flow.stageBgmCrossFadePending = true;
+                        m_flow.stageBgmCrossFadeDelayRemaining = kShieldBossStageBgmReturnDelaySeconds;
 
                         if (const auto* transform = entity->GetComponent<TransformComponent>())
                         {
@@ -719,6 +777,17 @@ void GameScene::UpdateEnemies()
         [this](Entity& bossEntity)
         {
             static_cast<void>(bossEntity);
+            PlayShieldBossSoundCue("boss_forest_roar");
+        },
+        [this](Entity& bossEntity, const char* cueName)
+        {
+            static_cast<void>(bossEntity);
+            PlayShieldBossSoundCue(cueName);
+        },
+        [this](Entity& bossEntity, const char* cueName)
+        {
+            static_cast<void>(bossEntity);
+            StopShieldBossSoundCue(cueName);
         },
         [this](float fromX, float fromY, float toX, float toY, float width, float height)
         {
@@ -1422,6 +1491,11 @@ void GameScene::UpdateShields(float deltaTime)
                                 shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f,
                                 shockGroundY,
                                 shockW);
+                            if (!shield->shieldDropSoundPlayed)
+                            {
+                                shield->shieldDropSoundPlayed = true;
+                                PlayShieldBossSoundCue("boss_forest_shield_drop");
+                            }
                         }
                         shieldsToRemove.push_back(entity);
                     }
@@ -1574,6 +1648,21 @@ void GameScene::UpdateShields(float deltaTime)
                 shield->hitEntities.push_back(target);
             }
 
+            if (shield->photoSpawned &&
+                shield->capturedMode == CapturedShieldMode::RushBurst &&
+                !shield->knockbackSoundPlayed)
+            {
+                shield->knockbackSoundPlayed = true;
+                PlayShieldBossSoundCue("boss_forest_knockback");
+            }
+            if (shield->photoSpawned &&
+                shield->capturedMode == CapturedShieldMode::Normal &&
+                !shield->shieldDropSoundPlayed)
+            {
+                shield->shieldDropSoundPlayed = true;
+                PlayShieldBossSoundCue("boss_forest_shield_drop");
+            }
+
             HandleEnemyDamage(*target, entity, shield->contactDamage, "BossShield damaged enemy");
 
             const auto* shieldBoss = target->GetComponent<ShieldBossComponent>();
@@ -1588,7 +1677,16 @@ void GameScene::UpdateShields(float deltaTime)
                 const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
                 dir = enemyCenterX >= shieldCenterX ? 1.0f : -1.0f;
             }
-            if (startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize))
+            const bool skipNormalShieldBossKnockback =
+                normalCapturedShield &&
+                shieldBoss &&
+                enemy->GetArchetype() == EnemyArchetype::ShieldBoss;
+            if (skipNormalShieldBossKnockback)
+            {
+                // 通常盾はボスを動かさず、命中感だけヒットストップとシェイクで出す。
+                TriggerNormalShieldBossHitFeedback(m_flow, m_debug.screenShakeEnabled);
+            }
+            else if (startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize))
             {
                 if (shieldBoss)
                 {
@@ -2002,6 +2100,11 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                     shieldBoss->deathAnimationActive = true;
                     shieldBoss->stateTimer = 0.0f;
                     animation->Play("death", true);
+                    if (!shieldBoss->deadSoundPlayed)
+                    {
+                        shieldBoss->deadSoundPlayed = true;
+                        PlayShieldBossSoundCue("boss_forest_dead");
+                    }
                     if (shieldBoss->shieldEntity)
                     {
                         if (auto* shieldTint = shieldBoss->shieldEntity->GetComponent<TintComponent>())

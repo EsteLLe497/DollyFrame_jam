@@ -1139,6 +1139,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
         {
             constexpr float kTileSize = 48.0f;
+            constexpr float kShieldRaiseOffsetY = kTileSize * 0.5f;
             constexpr float kBossRushSpeed = 520.0f;
             constexpr float kBossJumpDescendSpeed = 1200.0f;
 
@@ -1163,7 +1164,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 shieldW = kTileSize;
                 shieldH = kTileSize * 4.0f;
                 shieldX = centerX - shieldW * 0.5f;
-                shieldY = centerY - shieldH * 0.5f;
+                shieldY = centerY - shieldH * 0.5f - kShieldRaiseOffsetY;
             }
             else if (item.spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
             {
@@ -1172,7 +1173,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 shieldW = kTileSize * 2.0f;
                 shieldH = kTileSize * 4.0f;
                 shieldX = centerX - shieldW * 0.5f;
-                shieldY = centerY - shieldH * 0.5f;
+                shieldY = centerY - shieldH * 0.5f - kShieldRaiseOffsetY;
             }
             else if (item.spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
             {

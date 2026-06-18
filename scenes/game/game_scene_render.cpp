@@ -1301,12 +1301,87 @@ namespace
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
-    bool IsShieldBossAttackCaptureState(ShieldBossState state)
+    bool IsShieldBossAttackCaptureEffectActive(const Entity& entity, const ShieldBossComponent& boss)
     {
-        return state == ShieldBossState::Rush ||
-            state == ShieldBossState::JumpAscend ||
-            state == ShieldBossState::AirHover ||
-            state == ShieldBossState::JumpDescend;
+        constexpr int kAttack01BoostStartFrame = 60;
+        if (boss.state == ShieldBossState::Rush)
+        {
+            const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
+            return animation &&
+                animation->GetCurrentClipName() == "attack01" &&
+                animation->GetCurrentLocalFrameIndex() >= kAttack01BoostStartFrame;
+        }
+
+        return boss.state == ShieldBossState::JumpAscend ||
+            boss.state == ShieldBossState::AirHover ||
+            boss.state == ShieldBossState::JumpDescend;
+    }
+
+    void DrawFallingShieldTrail(
+        int textureId,
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        float sourceX,
+        float sourceY,
+        float sourceWidth,
+        float sourceHeight,
+        bool flipX,
+        float rotation,
+        float viewScale,
+        float alphaMultiplier)
+    {
+        const float alpha = std::clamp(alphaMultiplier, 0.0f, 1.0f);
+        const float centerX = drawX + drawWidth * 0.5f;
+
+        // Falling blur is made from delayed shield copies, so the silhouette stays readable.
+        constexpr int kBlurCopyCount = 5;
+        for (int index = kBlurCopyCount; index >= 1; --index)
+        {
+            const float step = static_cast<float>(index);
+            const float copyAlpha = (0.05f + 0.045f * step) * alpha;
+            const float offsetY = (6.0f + step * 10.0f) * viewScale;
+            const float scaleX = 1.0f - step * 0.018f;
+            const float scaleY = 1.0f + step * 0.012f;
+            const float copyX = centerX - drawWidth * scaleX * 0.5f;
+            const float copyY = drawY - offsetY;
+            const float copyWidth = drawWidth * scaleX;
+            const float copyHeight = drawHeight * scaleY;
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(255.0f * copyAlpha)), 0, 255));
+            Shader_SetTint(1.0f, 1.0f, 1.0f, copyAlpha);
+            SpriteDraw(
+                textureId,
+                copyX,
+                copyY,
+                copyWidth,
+                copyHeight,
+                sourceX,
+                sourceY,
+                sourceWidth,
+                sourceHeight,
+                flipX,
+                rotation);
+
+            Shader_ResetStyle();
+            const int lineAlpha = std::clamp(static_cast<int>(std::round((44.0f + step * 20.0f) * alpha)), 0, 170);
+            const float lineThickness = std::max(1.0f, (0.75f + step * 0.12f) * viewScale);
+            const int lineColor = GetColor(255, 250, 235);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, lineAlpha);
+            for (int lineIndex = 0; lineIndex < 3; ++lineIndex)
+            {
+                const float side = static_cast<float>(lineIndex - 1);
+                const float startX = copyX + copyWidth * (0.5f + side * 0.22f);
+                const float startY = copyY + copyHeight * 0.24f;
+                const float endX = startX + side * (3.0f + step * 1.5f) * viewScale;
+                const float endY = startY - (18.0f + step * 8.0f) * viewScale;
+                DrawLineAA(startX, startY, endX, endY, lineColor, lineThickness);
+            }
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        Shader_ResetStyle();
     }
 
     void DrawShieldBossAttackCaptureFrame(
@@ -1710,7 +1785,7 @@ void GameScene::DrawEffects() const
             boss->deathAnimationActive ||
             boss->deathAnimationFinished ||
             !transform ||
-            !IsShieldBossAttackCaptureState(boss->state))
+            !IsShieldBossAttackCaptureEffectActive(*entity, *boss))
         {
             continue;
         }
@@ -1854,12 +1929,42 @@ void GameScene::DrawEntity(const Entity& entity) const
     float drawWidth = transform->width * transform->scale * sprite->GetRenderScaleX() * viewScale;
     float drawHeight = transform->height * transform->scale * sprite->GetRenderScaleY() * viewScale;
     const auto* tag = entity.GetComponent<TagComponent>();
+    bool fallingShieldTrailActive = false;
     if (tag && (HasTag(tag, EntityTag::BossShield) || HasTag(tag, EntityTag::CapturedShield)))
     {
         const auto* shield = entity.GetComponent<ShieldComponent>();
+        if (shield && sprite->GetTextureId() == m_whiteTexture)
+        {
+            // 攻撃・盾の判定用白テクスチャは見た目だけ隠し、当たり判定は残す。
+            return;
+        }
+        if (HasTag(tag, EntityTag::CapturedShield) &&
+            shield &&
+            shield->photoSpawned &&
+            shield->capturedMode != CapturedShieldMode::Normal &&
+            sprite->GetTextureId() == m_whiteTexture)
+        {
+            // Attack-captured shields sometimes keep a white hitbox texture for collision only.
+            // Hide that placeholder so pasted/captured attacks do not show debug boxes.
+            return;
+        }
         const auto* ownerBoss = shield && shield->ownerBoss
             ? shield->ownerBoss->GetComponent<ShieldBossComponent>()
             : nullptr;
+        const bool bossSlamFalling =
+            HasTag(tag, EntityTag::BossShield) &&
+            shield &&
+            ownerBoss &&
+            ownerBoss->state == ShieldBossState::JumpDescend &&
+            !shield->attached;
+        const bool capturedSlamFalling =
+            HasTag(tag, EntityTag::CapturedShield) &&
+            shield &&
+            shield->photoSpawned &&
+            shield->capturedMode == CapturedShieldMode::JumpBurst &&
+            !shield->grounded &&
+            shield->descendSpeed > 0.0f;
+        fallingShieldTrailActive = bossSlamFalling || capturedSlamFalling;
         const bool bossShieldVisual =
             shield && ownerBoss &&
             (shield->attached || ownerBoss->knockbackActive || ownerBoss->state == ShieldBossState::Rush || ownerBoss->state == ShieldBossState::RushCooldown);
@@ -2328,18 +2433,29 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
     else if (tag && HasTag(tag, "BossShockwave"))
     {
-        const int outerColor = GetColor(72, 228, 255);
-        const int left = static_cast<int>(std::round(drawX));
-        const int top = static_cast<int>(std::round(drawY));
-        const int right = static_cast<int>(std::round(drawX + drawWidth));
-        const int bottom = static_cast<int>(std::round(drawY + drawHeight));
-
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(130.0f * alphaMultiplier)));
-        DrawBox(left, top, right, bottom, outerColor, TRUE);
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        // 叩きつけ後の衝撃波は判定だけ残し、たたき台の青い可視判定は描かない。
         Shader_ResetStyle();
         return;
     }
+
+    if (fallingShieldTrailActive)
+    {
+        DrawFallingShieldTrail(
+            sprite->GetTextureId(),
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            sprite->GetSourceX(),
+            sprite->GetSourceY(),
+            sprite->GetSourceWidth(),
+            sprite->GetSourceHeight(),
+            sprite->GetFlipX(),
+            transform->rotation,
+            viewScale,
+            alphaMultiplier);
+    }
+
     else if (tag && HasTag(tag, kTagBullet))
     {
         const auto* projectile = entity.GetComponent<ProjectileComponent>();

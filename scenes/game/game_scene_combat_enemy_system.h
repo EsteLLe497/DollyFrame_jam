@@ -7,7 +7,7 @@
 
 namespace game_scene_combat_system
 {
-template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename SpawnTeleportTrailFn, typename SpawnSlamImpactEffectFn, typename SpawnRushSmokeEffectFn, typename SpawnLightLandingEffectFn, typename SpawnBossRoarEffectFn, typename SpawnBeamShockwaveFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
+template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename PlayShieldBossCueFn, typename StopShieldBossCueFn, typename SpawnTeleportTrailFn, typename SpawnSlamImpactEffectFn, typename SpawnRushSmokeEffectFn, typename SpawnLightLandingEffectFn, typename SpawnBossRoarEffectFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
     const std::vector<Entity*>& enemyEntities,
@@ -24,6 +24,8 @@ inline void UpdateEnemies(
     SnapToGroundFn&& snapToGround,
     PlayEnemyGunFn&& playEnemyGun,
     PlayShieldBossRoarFn&& playShieldBossRoar,
+    PlayShieldBossCueFn&& playShieldBossCue,
+    StopShieldBossCueFn&& stopShieldBossCue,
     SpawnTeleportTrailFn&& spawnTeleportTrail,
     SpawnSlamImpactEffectFn&& spawnSlamImpactEffect,
     SpawnRushSmokeEffectFn&& spawnRushSmokeEffect,
@@ -2206,6 +2208,7 @@ inline void UpdateEnemies(
             constexpr float kShieldBossHeight = kTileSize * 4.0f;
             constexpr float kShieldWidth = kTileSize;
             constexpr float kShieldHeight = kTileSize * 4.0f;
+            constexpr float kShieldRaiseOffsetY = kTileSize * 0.5f;
             constexpr float kIntroDropHeight = kTileSize * 7.0f;
             constexpr float kIntroDropSpeed = 1100.0f;
             constexpr int kAttack01BoostStartFrame = 60;
@@ -2217,6 +2220,7 @@ inline void UpdateEnemies(
             constexpr int kAttack02ImpactFrame = 121;
             constexpr int kAttack02EndFrame = 164;
             constexpr int kAttack02ShieldDropFrame = 125;
+            constexpr int kAppearRoarSoundFrame = 90;
             constexpr float kAttack02RecoverySeconds =
                 static_cast<float>(kAttack02EndFrame - kAttack02ImpactFrame) / 30.0f;
             constexpr float kAttack02BossReturnSeconds = 1.15f;
@@ -2421,6 +2425,17 @@ inline void UpdateEnemies(
                     }
                 }
                 UpdateShieldBossSpriteAnimation(*entity, *boss);
+                if (boss->appearAnimationActive && !boss->roarSoundPlayed)
+                {
+                    if (const auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>();
+                        animation &&
+                        animation->GetCurrentClipName() == "appear" &&
+                        animation->GetCurrentLocalFrameIndex() >= kAppearRoarSoundFrame)
+                    {
+                        boss->roarSoundPlayed = true;
+                        playShieldBossRoar(*entity);
+                    }
+                }
                 if (!boss->introDropActive && !boss->appearAnimationActive && !boss->roarPlayed)
                 {
                     boss->roarPlayed = true;
@@ -2432,7 +2447,6 @@ inline void UpdateEnemies(
                         transform->x + transform->width * transform->scale * 0.5f,
                         groundY,
                         transform->width * transform->scale * 1.65f);
-                    playShieldBossRoar(*entity);
                     UpdateShieldBossSpriteAnimation(*entity, *boss);
                 }
                 continue;
@@ -2581,6 +2595,18 @@ inline void UpdateEnemies(
                 removeObjectsUnderShield();
             };
 
+            auto playShieldDropSoundOnce = [&]()
+            {
+                if (boss->shieldDropSoundPlayed)
+                {
+                    return;
+                }
+
+                // 盾落下SEは、叩きつけが地面に当たって盾が消える瞬間に合わせる。
+                boss->shieldDropSoundPlayed = true;
+                playShieldBossCue(*entity, "boss_forest_shield_drop");
+            };
+
             auto startBossKnockback = [&](float direction)
             {
                 constexpr float kBossKnockbackHitStopSeconds = 0.085f;
@@ -2595,6 +2621,8 @@ inline void UpdateEnemies(
                 flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kBossKnockbackShakeSeconds);
                 flow.screenShakeDuration = std::max(flow.screenShakeDuration, kBossKnockbackShakeSeconds);
                 flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kBossKnockbackShakeAmplitude);
+                stopShieldBossCue(*entity, "boss_forest_boost");
+                playShieldBossCue(*entity, "boss_forest_knockback");
                 if (shieldComp && shieldTransform)
                 {
                     shieldComp->attached = true;
@@ -2685,14 +2713,14 @@ inline void UpdateEnemies(
                     shieldTransform->x = boss->facing == ShieldBossFacing::Right
                         ? transform->x + bossWidth - guardOverlapX
                         : transform->x - shieldW + guardOverlapX;
-                    shieldTransform->y = transform->y;
+                    shieldTransform->y = transform->y - kShieldRaiseOffsetY;
                 }
                 else
                 {
                     shieldTransform->x = boss->facing == ShieldBossFacing::Right
                         ? transform->x + bossWidth - guardOverlapX
                         : transform->x - shieldW + guardOverlapX;
-                    shieldTransform->y = transform->y;
+                    shieldTransform->y = transform->y - kShieldRaiseOffsetY;
                     shieldTransform->rotation = 0.0f;
                 }
             };
@@ -2729,7 +2757,19 @@ inline void UpdateEnemies(
                     attackFrame <= kAttack01BoostEndFrame;
                 if (rushBoostActive)
                 {
-                    transform->x += dir * boss->rushSpeed * flow.lastDeltaTime;
+                    if (!boss->rushBoostSoundPlayed)
+                    {
+                        boss->rushBoostSoundPlayed = true;
+                        playShieldBossCue(*entity, "boss_forest_boost");
+                    }
+                    const float rushAccelProgress = std::clamp(
+                        static_cast<float>(attackFrame - kAttack01BoostStartFrame) /
+                        static_cast<float>(kAttack01BoostEndFrame - kAttack01BoostStartFrame),
+                        0.0f,
+                        1.0f);
+                    const float rushAccelEase = rushAccelProgress * rushAccelProgress * (3.0f - 2.0f * rushAccelProgress);
+                    const float rushSpeedMultiplier = std::lerp(1.0f, 2.0f, rushAccelEase);
+                    transform->x += dir * boss->rushSpeed * rushSpeedMultiplier * flow.lastDeltaTime;
                     constexpr float kRushSmokeInterval = 0.034f;
                     const int previousSmokeStep = static_cast<int>(boss->stateTimer / kRushSmokeInterval);
                     const int nextSmokeStep = static_cast<int>((boss->stateTimer + flow.lastDeltaTime) / kRushSmokeInterval);
@@ -2809,6 +2849,7 @@ inline void UpdateEnemies(
                     boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
+                    stopShieldBossCue(*entity, "boss_forest_boost");
                     syncAttachedShieldToBoss();
                     rushEndedThisFrame = true;
                 }
@@ -2872,6 +2913,11 @@ inline void UpdateEnemies(
                     }
                     boss->state = ShieldBossState::AirHover;
                     boss->stateTimer = 0.0f;
+                    if (!boss->attack2SoundPlayed)
+                    {
+                        boss->attack2SoundPlayed = true;
+                        playShieldBossCue(*entity, "boss_forest_attack2");
+                    }
                 }
                 continue;
             }
@@ -2924,10 +2970,12 @@ inline void UpdateEnemies(
                     static_cast<float>(kAttack02ImpactFrame - kAttack02ShieldDropStartFrame),
                     0.0f,
                     1.0f);
-                const bool impactFrameReached = attackFrame >= kAttack02ImpactFrame;
+                constexpr float kShieldSlamDropSpeedScale = 1.45f;
+                const float fastDescentProgress = std::clamp(descentProgress * kShieldSlamDropSpeedScale, 0.0f, 1.0f);
+                const bool impactFrameReached = attackFrame >= kAttack02ImpactFrame || fastDescentProgress >= 1.0f;
                 const float preImpactProgress = impactFrameReached
                     ? 1.0f
-                    : std::min(descentProgress, 0.88f);
+                    : std::min(fastDescentProgress, 0.88f);
                 const float easedDescent = preImpactProgress * preImpactProgress * (3.0f - 2.0f * preImpactProgress);
                 const float slamTargetY = boss->targetY;
                 const float slamWindupY = boss->hoverShieldY;
@@ -2964,6 +3012,7 @@ inline void UpdateEnemies(
                     }
 
                     spawnSlamImpact();
+                    playShieldDropSoundOnce();
                     if (shieldTint)
                     {
                         shieldTint->a = 0.0f;
@@ -3006,6 +3055,7 @@ inline void UpdateEnemies(
                         boss->appearAnimationActive = true;
                         boss->appearAnimationFinished = false;
                         boss->roarPlayed = false;
+                        boss->roarSoundPlayed = false;
                         boss->roarAnimationActive = false;
                         boss->roarTimer = 0.0f;
                         if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
@@ -3031,6 +3081,7 @@ inline void UpdateEnemies(
                 {
                     boss->state = ShieldBossState::Rush;
                     boss->stateTimer = 0.0f;
+                    boss->rushBoostSoundPlayed = false;
                 }
                 break;
 
@@ -3045,6 +3096,7 @@ inline void UpdateEnemies(
                         boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
                         boss->state = ShieldBossState::Rush;
                         boss->stateTimer = 0.0f;
+                        boss->rushBoostSoundPlayed = false;
                         if (shieldComp)
                         {
                             shieldComp->attached = true;
@@ -3095,6 +3147,8 @@ inline void UpdateEnemies(
                         boss->state = ShieldBossState::JumpAscend;
                         boss->stateTimer = 0.0f;
                         boss->slamShieldVisualLocked = false;
+                        boss->attack2SoundPlayed = false;
+                        boss->shieldDropSoundPlayed = false;
                         showShieldDuringAttack02();
                         if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
                         {
@@ -3127,6 +3181,7 @@ inline void UpdateEnemies(
                 break;
             case ShieldBossState::SlamPhase1:
                 spawnSlamImpact();
+                playShieldDropSoundOnce();
                 if (shieldTint)
                 {
                     shieldTint->a = 0.0f;

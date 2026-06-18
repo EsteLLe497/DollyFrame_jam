@@ -19,8 +19,23 @@ namespace
     constexpr float kMidBoss3CapturedFistHeight = 96.0f;
     constexpr float kMidBoss3CapturedDrillWidth = 192.0f;
     constexpr float kMidBoss3CapturedDrillHeight = 96.0f;
+    constexpr int kShieldBossRushCaptureStartFrame = 60;
 
     using OutlinePoint = CapturedPhotoItem::OutlinePoint;
+
+    bool IsShieldBossRushCaptureReady(const Entity& bossEntity)
+    {
+        const auto* boss = bossEntity.GetComponent<ShieldBossComponent>();
+        if (!boss || boss->state != ShieldBossState::Rush)
+        {
+            return false;
+        }
+
+        const auto* animation = bossEntity.GetComponent<SpriteSheetAnimationComponent>();
+        return animation &&
+            animation->GetCurrentClipName() == "attack01" &&
+            animation->GetCurrentLocalFrameIndex() >= kShieldBossRushCaptureStartFrame;
+    }
 
     OutlinePoint LerpPoint(const OutlinePoint& a, const OutlinePoint& b, float t)
     {
@@ -278,6 +293,10 @@ namespace
             boss->deathAnimationFinished ||
             !transform ||
             !sprite)
+        {
+            return false;
+        }
+        if (boss->state == ShieldBossState::Rush && !IsShieldBossRushCaptureReady(*bossEntity))
         {
             return false;
         }
@@ -999,6 +1018,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedWalker = enemyComp && enemyComp->GetArchetype() == EnemyArchetype::Walker;
         const auto* shieldComp = entity->GetComponent<ShieldComponent>();
         const bool capturedShield = shieldComp != nullptr;
+        if (capturedShield && shieldComp->ownerBoss)
+        {
+            if (const auto* bossComp = shieldComp->ownerBoss->GetComponent<ShieldBossComponent>())
+            {
+                if (bossComp->state == ShieldBossState::Rush &&
+                    !IsShieldBossRushCaptureReady(*shieldComp->ownerBoss))
+                {
+                    continue;
+                }
+            }
+        }
         if (capturedShield && shieldComp->photoSpawned && shieldComp->grounded)
         {
             continue;
@@ -1045,7 +1075,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     switch (bossComp->state)
                     {
                     case ShieldBossState::Rush:
-                        capturedShieldArchetype = CapturedSpawnArchetype::ShieldRushBurst;
+                        capturedShieldArchetype = IsShieldBossRushCaptureReady(*shieldComp->ownerBoss)
+                            ? CapturedSpawnArchetype::ShieldRushBurst
+                            : CapturedSpawnArchetype::ShieldNormal;
                         break;
                     case ShieldBossState::JumpAscend:
                     case ShieldBossState::AirHover:
@@ -1213,6 +1245,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.sourceY = sprite->GetSourceY();
             item.sourceWidth = sprite->GetSourceWidth();
             item.sourceHeight = sprite->GetSourceHeight();
+            // 盾単体の写真は、ボスの向きに合わせた左右反転も再現します。
+            item.flipX = sprite->GetFlipX();
             item.collisionOutline.clear();
             item.collisionOutline.push_back({ 0.0f, 0.0f });
             item.collisionOutline.push_back({ 1.0f, 0.0f });

@@ -872,11 +872,12 @@ void GameScene::RefreshEnemiesFromMarkers()
                 }
                 constexpr float kShieldW = 48.0f;
                 constexpr float kShieldH = 192.0f;
+                constexpr float kShieldRaiseOffsetY = 24.0f;
                 auto shieldEntity = std::make_unique<Entity>();
                 shieldEntity->AddComponent<TagComponent>("BossShield");
                 shieldEntity->AddComponent<TransformComponent>(
                     transform->x - kShieldW,
-                    transform->y,
+                    transform->y - kShieldRaiseOffsetY,
                     kShieldW,
                     kShieldH);
                 shieldEntity->AddComponent<TintComponent>(
