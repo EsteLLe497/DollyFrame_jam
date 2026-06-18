@@ -1785,6 +1785,54 @@ void GameScene::DrawEffects() const
             0.0f);
     }
 
+    for (const auto& shockwave : m_effects.beamShockwaves)
+    {
+        const float lifeT = Clamp01(shockwave.life / std::max(0.001f, shockwave.maxLife));
+        const float progress = 1.0f - lifeT;
+        const float eased = EaseOutCubic(progress);
+        const float radius = std::lerp(shockwave.startRadius, shockwave.endRadius, eased) * viewScale;
+        const float thickness = std::max(1.5f, shockwave.thickness * std::lerp(1.0f, 0.45f, progress) * viewScale);
+        const float drawX = viewOriginX + (shockwave.x - m_flow.cameraX) * viewScale;
+        const float drawY = viewOriginY + (shockwave.y - m_flow.cameraY) * viewScale;
+        const int alpha = static_cast<int>(std::round(150.0f * lifeT));
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
+        DrawCircleAA(
+            drawX,
+            drawY,
+            radius,
+            64,
+            GetColor(
+                static_cast<int>(std::round(255.0f * shockwave.r)),
+                static_cast<int>(std::round(255.0f * shockwave.g)),
+                static_cast<int>(std::round(255.0f * shockwave.b))),
+            FALSE,
+            thickness);
+        DrawCircleAA(
+            drawX,
+            drawY,
+            radius * 0.78f,
+            64,
+            GetColor(255, 255, 255),
+            FALSE,
+            std::max(1.0f, thickness * 0.42f));
+        DrawLineAA(
+            drawX - radius * 0.9f,
+            drawY,
+            drawX + radius * 0.9f,
+            drawY,
+            GetColor(188, 240, 255),
+            std::max(1.0f, thickness * 0.28f));
+        DrawLineAA(
+            drawX,
+            drawY - radius * 0.62f,
+            drawX,
+            drawY + radius * 0.62f,
+            GetColor(188, 240, 255),
+            std::max(1.0f, thickness * 0.22f));
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     Shader_ResetStyle();
 }
 

@@ -299,6 +299,9 @@ void Application::Draw()
     {
         DrawExitConfirmation();
     }
+    ImGuiLayer_BeginFrame();
+    m_sceneManager->DrawDebugUI();
+    ImGuiLayer_EndFrame();
     ImGuiLayer_DrawFoundationWindow(m_currentFps);
     Present();
 }
@@ -477,6 +480,10 @@ HWND Application::CreateAppWindow(HINSTANCE instance, int nCmdShow)
 
 LRESULT Application::HandleMessage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (ImGuiLayer_WndProcHandler(hWnd, message, wParam, lParam))
+    {
+        return TRUE;
+    }
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
 

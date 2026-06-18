@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 
 #include "game_scene_internal.h"
+#include "imgui_layer.h"
 #include "DxLib.h"
 
 #include <algorithm>
@@ -364,6 +365,11 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
 
 void GameScene::ApplyMapEditorMousePaint(float tileSize)
 {
+    if (ImGuiLayer_WantsCaptureMouse())
+    {
+        return;
+    }
+
     const int mouseX = Input_GetMouseX();
     const int mouseY = Input_GetMouseY();
     const float viewScale = GetViewScale();

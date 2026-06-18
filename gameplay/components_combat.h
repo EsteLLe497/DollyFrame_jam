@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <vector>
 
 #include "game_object.h"
@@ -268,6 +269,12 @@ public:
 class MidBoss2Component final : public MonoBehaviour
 {
 public:
+    struct TeleportSlotConfig
+    {
+        float centerGridX = 0.0f;
+        float hoverHeightOffsetGrid = 0.0f;
+    };
+
     struct Params
     {
         int boss2Hp = 15;
@@ -284,7 +291,20 @@ public:
         float beamDamagePerSecond = 1.0f;
         float beamHeightGrid = 3.0f;
         float beamCooldownAfterFire = 1.5f;
+        float teleportHoverBaseGrid = 7.0f;
         float pastedBeamDamagePerSecond = 1.0f;
+        std::array<TeleportSlotConfig, 3> leftTeleportSlots =
+        {{
+            { 22.5f, 5.0f },
+            { 28.5f, 4.0f },
+            { 21.0f, 3.0f },
+        }};
+        std::array<TeleportSlotConfig, 3> rightTeleportSlots =
+        {{
+            { 44.5f, 5.0f },
+            { 39.5f, 4.0f },
+            { 48.0f, 3.0f },
+        }};
     };
 
     MidBoss2Component() = default;
@@ -314,6 +334,7 @@ public:
     bool beamEntitiesSpawned = false;
     GameObject* beamTurretEntity = nullptr;
     GameObject* beamEntity = nullptr;
+    bool beamShockwaveSpawned = false;
     bool captureWindowActive = false;
     float teleportFlashRemaining = 0.0f;
 };

@@ -1110,6 +1110,24 @@ void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, fl
     }
 }
 
+void GameScene::SpawnBeamShockwaveEffect(float x, float y, float radius, float intensity)
+{
+    const float clampedIntensity = std::clamp(intensity, 0.0f, 1.0f);
+
+    BeamShockwaveParticle shockwave;
+    shockwave.x = x;
+    shockwave.y = y;
+    shockwave.startRadius = std::max(8.0f, radius * 0.18f);
+    shockwave.endRadius = std::max(shockwave.startRadius + 1.0f, radius);
+    shockwave.thickness = std::max(2.0f, radius * 0.10f);
+    shockwave.life = 0.28f;
+    shockwave.maxLife = 0.28f;
+    shockwave.r = std::lerp(0.72f, 1.0f, clampedIntensity);
+    shockwave.g = std::lerp(0.90f, 0.98f, clampedIntensity);
+    shockwave.b = 1.0f;
+    m_effects.beamShockwaves.push_back(shockwave);
+}
+
 void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame)
 {
     game_scene_player_visual_system::UpdatePresentation(

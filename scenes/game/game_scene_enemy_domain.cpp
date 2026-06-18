@@ -740,6 +740,10 @@ void GameScene::UpdateEnemies()
         {
             SpawnBossRoarEffect(centerX, groundY, width);
         },
+        [this](float x, float y, float radius, float intensity)
+        {
+            SpawnBeamShockwaveEffect(x, y, radius, intensity);
+        },
         [this, player](Entity* sourceEntity, int amount, const char* logMessage)
         {
             if (player)
@@ -809,6 +813,7 @@ void GameScene::UpdateBullets()
     Entity* player = FindEntityByTag(kTagPlayer);
     const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
     const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    const auto& protectiveWallEntities = m_world.EntitiesByTag(EntityTag::ProtectiveWall);
     std::vector<TransformComponent> obstacleBounds;
     {
         std::vector<TransformComponent> tempBounds;
@@ -845,6 +850,7 @@ void GameScene::UpdateBullets()
     game_scene_combat_system::UpdateBullets(
         bulletEntities,
         enemyEntities,
+        protectiveWallEntities,
         obstacleBounds,
         GetMapPixelWidth(),
         GetMapPixelHeight(),

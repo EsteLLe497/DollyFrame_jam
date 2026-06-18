@@ -7,7 +7,7 @@
 
 namespace game_scene_combat_system
 {
-template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename SpawnTeleportTrailFn, typename SpawnSlamImpactEffectFn, typename SpawnRushSmokeEffectFn, typename SpawnLightLandingEffectFn, typename SpawnBossRoarEffectFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
+template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename SpawnTeleportTrailFn, typename SpawnSlamImpactEffectFn, typename SpawnRushSmokeEffectFn, typename SpawnLightLandingEffectFn, typename SpawnBossRoarEffectFn, typename SpawnBeamShockwaveFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
     const std::vector<Entity*>& enemyEntities,
@@ -29,6 +29,7 @@ inline void UpdateEnemies(
     SpawnRushSmokeEffectFn&& spawnRushSmokeEffect,
     SpawnLightLandingEffectFn&& spawnLightLandingEffect,
     SpawnBossRoarEffectFn&& spawnBossRoarEffect,
+    SpawnBeamShockwaveFn&& spawnBeamShockwave,
     HandlePlayerDamageFn&& handlePlayerDamage,
     CheckPhotoBoxCollisionFn&& checkPhotoBoxCollision,
     IsSolidTileFn&& isSolidTile)
@@ -45,7 +46,6 @@ inline void UpdateEnemies(
     constexpr float kMidBoss2LandingInsetGrid = 6.0f;
     constexpr float kMidBoss2SideLandingInsetGrid = 3.0f;
     constexpr float kMidBoss2GroundOffsetGridY = 4.0f;
-    constexpr float kMidBoss2HoverHeightGrid = 11.0f;
 
     for (Entity* entity : enemyEntities)
     {
@@ -3226,30 +3226,59 @@ inline void UpdateEnemies(
             {
                 const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
                 const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
-                struct TeleportSlot
-                {
-                    float centerGridX = 0.0f;
-                    float hoverHeightOffsetGrid = 0.0f;
-                };
-                constexpr std::array<TeleportSlot, 3> kLeftTeleportSlots =
-                {{
-                    { kMidBoss2ArenaCenterMinGridX + 6.0f, 5.0f },
-                    { kMidBoss2ArenaCenterMinGridX + 12.0f, 4.0f },
-                    { kMidBoss2ArenaCenterMinGridX + 4.0f, 3.0f },
-                }};
-                constexpr std::array<TeleportSlot, 3> kRightTeleportSlots =
-                {{
-                    { kMidBoss2ArenaCenterMaxGridX - 8.0f, 5.0f },
-                    { kMidBoss2ArenaCenterMaxGridX - 13.0f, 4.0f },
-                    { kMidBoss2ArenaCenterMaxGridX - 5.0f, 3.0f },
-                }};
-                const auto& slots = leftSide ? kLeftTeleportSlots : kRightTeleportSlots;
+                const auto& slots = leftSide ? boss->params.leftTeleportSlots : boss->params.rightTeleportSlots;
                 const int slotIndex = std::clamp(GetRand(2), 0, 2);
                 outX = std::clamp(getMidBoss2LeftX(slots[slotIndex].centerGridX, bossWidth), arenaMinX, arenaMaxX);
                 outY = std::clamp(
-                    mapHeight - bossHeight - (kMidBoss2HoverHeightGrid + slots[slotIndex].hoverHeightOffsetGrid) * kTileSize,
+                    mapHeight - bossHeight - (boss->params.teleportHoverBaseGrid + slots[slotIndex].hoverHeightOffsetGrid) * kTileSize,
                     0.0f,
                     maxBossY);
+            };
+            const auto pickMidBoss2BeamTeleportTarget = [&](bool leftSide, float bossWidth, float bossHeight, float maxBossY, float& outX, float& outY)
+            {
+                const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
+                const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
+                const auto& slots = leftSide ? boss->params.leftTeleportSlots : boss->params.rightTeleportSlots;
+                int bestIndex = 0;
+                float bestOffset = std::numeric_limits<float>::infinity();
+                for (int index = 0; index < static_cast<int>(slots.size()); ++index)
+                {
+                    if (slots[index].hoverHeightOffsetGrid < bestOffset)
+                    {
+                        bestOffset = slots[index].hoverHeightOffsetGrid;
+                        bestIndex = index;
+                    }
+                }
+
+                outX = std::clamp(getMidBoss2LeftX(slots[bestIndex].centerGridX, bossWidth), arenaMinX, arenaMaxX);
+                outY = std::clamp(
+                    mapHeight - bossHeight - (boss->params.teleportHoverBaseGrid + slots[bestIndex].hoverHeightOffsetGrid) * kTileSize,
+                    0.0f,
+                    maxBossY);
+            };
+            const auto destroyOverlappingProtectiveWalls = [&](const TransformComponent& bossTransform)
+            {
+                for (Entity* candidate : interactionEntities)
+                {
+                    if (!candidate || !HasTag(*candidate, "ProtectiveWall"))
+                    {
+                        continue;
+                    }
+
+                    auto* wall = candidate->GetComponent<ProtectiveWallComponent>();
+                    auto* wallTransform = candidate->GetComponent<TransformComponent>();
+                    if (!wall || !wallTransform || wall->IsDestroyed() || !wall->isOn)
+                    {
+                        continue;
+                    }
+
+                    if (!IntersectsBounds(bossTransform, *wallTransform))
+                    {
+                        continue;
+                    }
+
+                    wall->ApplyDamage(wall->GetCurrentDurability());
+                }
             };
 
             if (!boss->initializedHome)
@@ -3261,7 +3290,6 @@ inline void UpdateEnemies(
 
             const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
             const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
-            const float stageCenterX = mapWidth * 0.5f;
             const float bossCenterX = transform->x + transform->width * transform->scale * 0.5f;
             const float bossCenterY = transform->y + transform->height * transform->scale * 0.5f;
             const float dx = playerCenterX - bossCenterX;
@@ -3561,21 +3589,9 @@ inline void UpdateEnemies(
                         const float bossWidth = transform->width * transform->scale;
                         const float bossHeight = transform->height * transform->scale;
                         const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
-                        const bool playerOnRightSide = playerCenterX >= stageCenterX;
+                        const bool playerOnRightSide = playerCenterX >= bossCenterX;
                         boss->beamFacingRight = playerOnRightSide;
-                        const float beamAnchorCenterGridX = playerOnRightSide
-                            ? kMidBoss2ArenaCenterMinGridX + kMidBoss2SideLandingInsetGrid
-                            : kMidBoss2ArenaCenterMaxGridX - kMidBoss2SideLandingInsetGrid;
-                        const float arenaMinX = getMidBoss2LeftX(kMidBoss2ArenaCenterMinGridX, bossWidth);
-                        const float arenaMaxX = getMidBoss2LeftX(kMidBoss2ArenaCenterMaxGridX, bossWidth);
-                        boss->beamTargetX = std::clamp(
-                            getMidBoss2LeftX(beamAnchorCenterGridX, bossWidth),
-                            arenaMinX,
-                            arenaMaxX);
-                        boss->beamTargetY = std::clamp(
-                            mapHeight - bossHeight - kMidBoss2GroundOffsetGridY * kTileSize,
-                            0.0f,
-                            maxBossY);
+                        pickMidBoss2BeamTeleportTarget(playerOnRightSide, bossWidth, bossHeight, maxBossY, boss->beamTargetX, boss->beamTargetY);
                         boss->state = MidBoss2State::BeamCharge;
                     }
                     else
@@ -3604,6 +3620,10 @@ inline void UpdateEnemies(
 
             case MidBoss2State::BeamCharge:
                 hideBeamEntities();
+                if (boss->stateTimer <= flow.lastDeltaTime)
+                {
+                    boss->beamShockwaveSpawned = false;
+                }
                 boss->cooldownRemaining = std::max(0.0f, boss->params.beamChargeTime - boss->stateTimer);
                 {
                     const float bossWidth = transform->width * transform->scale;
@@ -3640,6 +3660,16 @@ inline void UpdateEnemies(
 
             case MidBoss2State::BeamFire:
                 showBeamEntities();
+                if (!boss->beamShockwaveSpawned)
+                {
+                    const float bossWidth = transform->width * transform->scale;
+                    const float bossHeight = transform->height * transform->scale;
+                    const float shockCenterX = beamFacingRight ? transform->x + bossWidth : transform->x;
+                    const float shockCenterY = transform->y + bossHeight * 0.5f;
+                    const float shockRadius = std::max(bossWidth, bossHeight) * 1.15f + kTileSize * 0.5f;
+                    spawnBeamShockwave(shockCenterX, shockCenterY, shockRadius, 1.0f);
+                    boss->beamShockwaveSpawned = true;
+                }
                 {
                     transform->x = boss->beamTargetX;
                 }
@@ -3689,6 +3719,7 @@ inline void UpdateEnemies(
                     enemy->velocityY = 0.0f;
                 }
             }
+            destroyOverlappingProtectiveWalls(*transform);
         }
     }
 

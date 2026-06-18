@@ -36,6 +36,9 @@ void GameScene::UpdateEffects(float deltaTime)
         particle.velocityX *= std::max(0.0f, 1.0f - deltaTime * 3.8f);
         particle.velocityY += kBarrelDebrisGravity * deltaTime * 0.42f;
         particle.rotation += particle.rotationSpeed * deltaTime;
+    for (auto& shockwave : m_effects.beamShockwaves)
+    {
+        shockwave.life = std::max(0.0f, shockwave.life - deltaTime);
     }
 
     m_effects.barrelDebris.erase(
@@ -65,5 +68,14 @@ void GameScene::UpdateEffects(float deltaTime)
                 return particle.life <= 0.0f;
             }),
         m_effects.slamDust.end());
+    m_effects.beamShockwaves.erase(
+        std::remove_if(
+            m_effects.beamShockwaves.begin(),
+            m_effects.beamShockwaves.end(),
+            [](const BeamShockwaveParticle& shockwave)
+            {
+                return shockwave.life <= 0.0f;
+            }),
+        m_effects.beamShockwaves.end());
 }
 
