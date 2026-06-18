@@ -1216,6 +1216,7 @@ void GameScene::ActivateCheckpoint(Entity& player, Entity& checkpoint)
 
     m_eventBus.Publish({ EventType::PlaySoundRequest, &player, &checkpoint, "scene_change", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &player, &checkpoint, "Checkpoint activated", 0.0f, 0.0f });
+    SaveProgressState();
 }
 
 void GameScene::QueueResult(GameEndReason reason)

@@ -34,8 +34,17 @@ void GameScene::UpdateTuningHotReload(float deltaTime)
     }
 }
 
-void GameScene::HandleGlobalSceneShortcuts()
+void GameScene::HandleGlobalSceneShortcuts(float deltaTime)
 {
+    if (m_debug.saveStatusTimer > 0.0f)
+    {
+        m_debug.saveStatusTimer = std::max(0.0f, m_debug.saveStatusTimer - deltaTime);
+        if (m_debug.saveStatusTimer <= 0.0f)
+        {
+            m_debug.saveStatusMessage.clear();
+        }
+    }
+
     if (Input_IsKeyPressed(VK_F4))
     {
         m_mapEditor.active = !m_mapEditor.active;
@@ -59,6 +68,24 @@ void GameScene::HandleGlobalSceneShortcuts()
     if (Input_IsActionPressed(InputAction::ToggleTuningPanel))
     {
         m_debug.showTuningPanel = !m_debug.showTuningPanel;
+    }
+    if (Input_IsKeyPressed(VK_F5))
+    {
+        SaveProgressState();
+    }
+    if (Input_IsKeyPressed(VK_F8))
+    {
+        if (std::filesystem::exists(kGameProgressSavePath))
+        {
+            m_debug.saveStatusMessage = "Reloading from save file...";
+            m_debug.saveStatusTimer = 3.0f;
+            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+        }
+        else
+        {
+            m_debug.saveStatusMessage = "No save file found.";
+            m_debug.saveStatusTimer = 3.0f;
+        }
     }
     if (Input_IsActionPressed(InputAction::ToggleCollisionDebug))
     {

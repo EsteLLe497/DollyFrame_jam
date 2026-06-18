@@ -83,7 +83,7 @@ bool GameScene::TryHandleModalUpdates(float deltaTime)
         return true;
     }
 
-    HandleGlobalSceneShortcuts();
+    HandleGlobalSceneShortcuts(deltaTime);
     ProcessFilterInput();
 
     UpdateTuningPanel();

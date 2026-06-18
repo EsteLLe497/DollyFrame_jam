@@ -2,6 +2,7 @@
 
 #include "game_scene_internal.h"
 
+#include <algorithm>
 #include <cctype>
 #include <fstream>
 #include <limits>
@@ -12,6 +13,7 @@
 
 #include "prefab_factory.h"
 #include "game_scene_camerawork.h"
+#include "game_scene_player_visual_system.h"
 
 using namespace game_scene_detail;
 
@@ -439,6 +441,355 @@ namespace game_scene_detail
     }
 }
 
+namespace
+{
+    using json = nlohmann::json;
+
+    template <typename Enum>
+    int ToSavedEnum(Enum value)
+    {
+        return static_cast<int>(value);
+    }
+
+    template <typename Enum>
+    Enum FromSavedEnum(const json& value, Enum fallback)
+    {
+        if (!value.is_number_integer())
+        {
+            return fallback;
+        }
+
+        return static_cast<Enum>(value.get<int>());
+    }
+
+    json SerializePhotoItem(const CapturedPhotoItem& item)
+    {
+        json root;
+        root["textureId"] = item.textureId;
+        root["role"] = ToSavedEnum(item.role);
+        root["layer"] = ToSavedEnum(item.layer);
+        root["origin"] = ToSavedEnum(item.origin);
+        root["appliedTheme"] = ToSavedEnum(item.appliedTheme);
+        root["relativeX"] = item.relativeX;
+        root["relativeY"] = item.relativeY;
+        root["width"] = item.width;
+        root["height"] = item.height;
+        root["sourceX"] = item.sourceX;
+        root["sourceY"] = item.sourceY;
+        root["sourceWidth"] = item.sourceWidth;
+        root["sourceHeight"] = item.sourceHeight;
+        root["tintR"] = item.tintR;
+        root["tintG"] = item.tintG;
+        root["tintB"] = item.tintB;
+        root["tintA"] = item.tintA;
+        root["sourceTileValue"] = item.sourceTileValue;
+        root["damagePlatformTileSpan"] = item.damagePlatformTileSpan;
+        root["spikeStripTileSpan"] = item.spikeStripTileSpan;
+        root["sepiaRestoredTileValue"] = item.sepiaRestoredTileValue;
+        root["sepiaRestoredMarkerObject"] = item.sepiaRestoredMarkerObject;
+        root["rotation"] = item.rotation;
+        root["flipX"] = item.flipX;
+        root["vanishOnCapture"] = item.vanishOnCapture;
+        root["enemyAttackPaste"] = item.enemyAttackPaste;
+        root["attackCaptureCount"] = item.attackCaptureCount;
+        root["spawnArchetype"] = ToSavedEnum(item.spawnArchetype);
+        root["placementRuleGroup"] = ToSavedEnum(item.placementRuleGroup);
+        root["projectileVelocityX"] = item.projectileVelocityX;
+        root["projectileVelocityY"] = item.projectileVelocityY;
+        root["projectileDamage"] = item.projectileDamage;
+        root["spearProjectile"] = item.spearProjectile;
+        root["spearStuck"] = item.spearStuck;
+        root["spearDirectionX"] = item.spearDirectionX;
+        root["spearDirectionY"] = item.spearDirectionY;
+        root["spearTravelDistance"] = item.spearTravelDistance;
+        root["laserBeamThickness"] = item.laserBeamThickness;
+        root["laserDamagePerSecond"] = item.laserDamagePerSecond;
+        root["laserEnemyKnockbackSpeed"] = item.laserEnemyKnockbackSpeed;
+        root["lightRadius"] = item.lightRadius;
+        root["lightIntensity"] = item.lightIntensity;
+        root["collisionOutline"] = json::array();
+        for (const auto& point : item.collisionOutline)
+        {
+            root["collisionOutline"].push_back({ {"x", point.x}, {"y", point.y} });
+        }
+        return root;
+    }
+
+    CapturedPhotoItem DeserializePhotoItem(const json& root)
+    {
+        CapturedPhotoItem item;
+        item.textureId = root.value("textureId", item.textureId);
+        item.role = FromSavedEnum(root.value("role", 0), item.role);
+        item.layer = FromSavedEnum(root.value("layer", 0), item.layer);
+        item.origin = FromSavedEnum(root.value("origin", 0), item.origin);
+        item.appliedTheme = FromSavedEnum(root.value("appliedTheme", 0), item.appliedTheme);
+        item.relativeX = root.value("relativeX", item.relativeX);
+        item.relativeY = root.value("relativeY", item.relativeY);
+        item.width = root.value("width", item.width);
+        item.height = root.value("height", item.height);
+        item.sourceX = root.value("sourceX", item.sourceX);
+        item.sourceY = root.value("sourceY", item.sourceY);
+        item.sourceWidth = root.value("sourceWidth", item.sourceWidth);
+        item.sourceHeight = root.value("sourceHeight", item.sourceHeight);
+        item.tintR = root.value("tintR", item.tintR);
+        item.tintG = root.value("tintG", item.tintG);
+        item.tintB = root.value("tintB", item.tintB);
+        item.tintA = root.value("tintA", item.tintA);
+        item.sourceTileValue = root.value("sourceTileValue", item.sourceTileValue);
+        item.damagePlatformTileSpan = root.value("damagePlatformTileSpan", item.damagePlatformTileSpan);
+        item.spikeStripTileSpan = root.value("spikeStripTileSpan", item.spikeStripTileSpan);
+        item.sepiaRestoredTileValue = root.value("sepiaRestoredTileValue", item.sepiaRestoredTileValue);
+        item.sepiaRestoredMarkerObject = root.value("sepiaRestoredMarkerObject", item.sepiaRestoredMarkerObject);
+        item.rotation = root.value("rotation", item.rotation);
+        item.flipX = root.value("flipX", item.flipX);
+        item.vanishOnCapture = root.value("vanishOnCapture", item.vanishOnCapture);
+        item.enemyAttackPaste = root.value("enemyAttackPaste", item.enemyAttackPaste);
+        item.attackCaptureCount = root.value("attackCaptureCount", item.attackCaptureCount);
+        item.spawnArchetype = FromSavedEnum(root.value("spawnArchetype", 0), item.spawnArchetype);
+        item.placementRuleGroup = FromSavedEnum(root.value("placementRuleGroup", 0), item.placementRuleGroup);
+        item.projectileVelocityX = root.value("projectileVelocityX", item.projectileVelocityX);
+        item.projectileVelocityY = root.value("projectileVelocityY", item.projectileVelocityY);
+        item.projectileDamage = root.value("projectileDamage", item.projectileDamage);
+        item.spearProjectile = root.value("spearProjectile", item.spearProjectile);
+        item.spearStuck = root.value("spearStuck", item.spearStuck);
+        item.spearDirectionX = root.value("spearDirectionX", item.spearDirectionX);
+        item.spearDirectionY = root.value("spearDirectionY", item.spearDirectionY);
+        item.spearTravelDistance = root.value("spearTravelDistance", item.spearTravelDistance);
+        item.laserBeamThickness = root.value("laserBeamThickness", item.laserBeamThickness);
+        item.laserDamagePerSecond = root.value("laserDamagePerSecond", item.laserDamagePerSecond);
+        item.laserEnemyKnockbackSpeed = root.value("laserEnemyKnockbackSpeed", item.laserEnemyKnockbackSpeed);
+        item.lightRadius = root.value("lightRadius", item.lightRadius);
+        item.lightIntensity = root.value("lightIntensity", item.lightIntensity);
+
+        const auto outlineIt = root.find("collisionOutline");
+        if (outlineIt != root.end() && outlineIt->is_array())
+        {
+            item.collisionOutline.clear();
+            item.collisionOutline.reserve(outlineIt->size());
+            for (const auto& pointRoot : *outlineIt)
+            {
+                CapturedPhotoItem::OutlinePoint point;
+                point.x = pointRoot.value("x", 0.0f);
+                point.y = pointRoot.value("y", 0.0f);
+                item.collisionOutline.push_back(point);
+            }
+        }
+        return item;
+    }
+
+    json SerializePhotoCaptureState(const PhotoCaptureState& capture)
+    {
+        json root;
+        root["hasPhoto"] = capture.hasPhoto;
+        root["selectedTheme"] = ToSavedEnum(capture.selectedTheme);
+        root["capturedTheme"] = ToSavedEnum(capture.capturedTheme);
+        root["attackCaptureCount"] = capture.attackCaptureCount;
+        root["containsEnemyAttackPaste"] = capture.containsEnemyAttackPaste;
+        root["textureId"] = capture.textureId;
+        root["width"] = capture.width;
+        root["height"] = capture.height;
+        root["sourceX"] = capture.sourceX;
+        root["sourceY"] = capture.sourceY;
+        root["sourceWidth"] = capture.sourceWidth;
+        root["sourceHeight"] = capture.sourceHeight;
+        root["tintR"] = capture.tintR;
+        root["tintG"] = capture.tintG;
+        root["tintB"] = capture.tintB;
+        root["tintA"] = capture.tintA;
+        root["items"] = json::array();
+        for (const auto& item : capture.items)
+        {
+            root["items"].push_back(SerializePhotoItem(item));
+        }
+        return root;
+    }
+
+    PhotoCaptureState DeserializePhotoCaptureState(const json& root)
+    {
+        PhotoCaptureState capture;
+        capture.hasPhoto = root.value("hasPhoto", capture.hasPhoto);
+        capture.selectedTheme = FromSavedEnum(root.value("selectedTheme", 0), capture.selectedTheme);
+        capture.capturedTheme = FromSavedEnum(root.value("capturedTheme", 0), capture.capturedTheme);
+        capture.attackCaptureCount = root.value("attackCaptureCount", capture.attackCaptureCount);
+        capture.containsEnemyAttackPaste = root.value("containsEnemyAttackPaste", capture.containsEnemyAttackPaste);
+        capture.textureId = root.value("textureId", capture.textureId);
+        capture.width = root.value("width", capture.width);
+        capture.height = root.value("height", capture.height);
+        capture.sourceX = root.value("sourceX", capture.sourceX);
+        capture.sourceY = root.value("sourceY", capture.sourceY);
+        capture.sourceWidth = root.value("sourceWidth", capture.sourceWidth);
+        capture.sourceHeight = root.value("sourceHeight", capture.sourceHeight);
+        capture.tintR = root.value("tintR", capture.tintR);
+        capture.tintG = root.value("tintG", capture.tintG);
+        capture.tintB = root.value("tintB", capture.tintB);
+        capture.tintA = root.value("tintA", capture.tintA);
+        capture.items.clear();
+        const auto itemsIt = root.find("items");
+        if (itemsIt != root.end() && itemsIt->is_array())
+        {
+            capture.items.reserve(itemsIt->size());
+            for (const auto& itemRoot : *itemsIt)
+            {
+                capture.items.push_back(DeserializePhotoItem(itemRoot));
+            }
+        }
+        return capture;
+    }
+
+    json SerializePhotoPlacementState(const PhotoPlacementState& placement)
+    {
+        json root;
+        root["active"] = placement.active;
+        root["valid"] = placement.valid;
+        root["x"] = placement.x;
+        root["y"] = placement.y;
+        root["width"] = placement.width;
+        root["height"] = placement.height;
+        root["layer"] = ToSavedEnum(placement.layer);
+        root["flipX"] = placement.flipX;
+        root["bridgeEnabled"] = placement.bridgeEnabled;
+        root["rotation"] = placement.rotation;
+        root["sessionId"] = placement.sessionId;
+        root["blockedByUi"] = placement.blockedByUi;
+        root["draggingFromTray"] = placement.draggingFromTray;
+        root["invalidFlashRemaining"] = placement.invalidFlashRemaining;
+        root["confirmFlashRemaining"] = placement.confirmFlashRemaining;
+        return root;
+    }
+
+    PhotoPlacementState DeserializePhotoPlacementState(const json& root)
+    {
+        PhotoPlacementState placement;
+        placement.active = root.value("active", placement.active);
+        placement.valid = root.value("valid", placement.valid);
+        placement.x = root.value("x", placement.x);
+        placement.y = root.value("y", placement.y);
+        placement.width = root.value("width", placement.width);
+        placement.height = root.value("height", placement.height);
+        placement.layer = FromSavedEnum(root.value("layer", 0), placement.layer);
+        placement.flipX = root.value("flipX", placement.flipX);
+        placement.bridgeEnabled = root.value("bridgeEnabled", placement.bridgeEnabled);
+        placement.rotation = root.value("rotation", placement.rotation);
+        placement.sessionId = root.value("sessionId", placement.sessionId);
+        placement.blockedByUi = root.value("blockedByUi", placement.blockedByUi);
+        placement.draggingFromTray = root.value("draggingFromTray", placement.draggingFromTray);
+        placement.invalidFlashRemaining = root.value("invalidFlashRemaining", placement.invalidFlashRemaining);
+        placement.confirmFlashRemaining = root.value("confirmFlashRemaining", placement.confirmFlashRemaining);
+        return placement;
+    }
+
+    json SerializePhotoGroupState(const PhotoGroupState& groups)
+    {
+        json root;
+        root["hasSpawnedCopy"] = groups.hasSpawnedCopy;
+        root["nextGroupId"] = groups.nextGroupId;
+        root["activeGroupCount"] = groups.activeGroupCount;
+        root["nextPasteOrder"] = groups.nextPasteOrder;
+        return root;
+    }
+
+    PhotoGroupState DeserializePhotoGroupState(const json& root)
+    {
+        PhotoGroupState groups;
+        groups.hasSpawnedCopy = root.value("hasSpawnedCopy", groups.hasSpawnedCopy);
+        groups.nextGroupId = root.value("nextGroupId", groups.nextGroupId);
+        groups.activeGroupCount = root.value("activeGroupCount", groups.activeGroupCount);
+        groups.nextPasteOrder = root.value("nextPasteOrder", groups.nextPasteOrder);
+        return groups;
+    }
+
+    json SerializePendingPhotoStoreState(const PendingPhotoStoreState& pendingStore)
+    {
+        json root;
+        root["active"] = pendingStore.active;
+        root["commitOnComplete"] = pendingStore.commitOnComplete;
+        root["slotIndex"] = pendingStore.slotIndex;
+        root["capture"] = SerializePhotoCaptureState(pendingStore.capture);
+        return root;
+    }
+
+    PendingPhotoStoreState DeserializePendingPhotoStoreState(const json& root)
+    {
+        PendingPhotoStoreState pendingStore;
+        pendingStore.active = root.value("active", pendingStore.active);
+        pendingStore.commitOnComplete = root.value("commitOnComplete", pendingStore.commitOnComplete);
+        pendingStore.slotIndex = root.value("slotIndex", pendingStore.slotIndex);
+        const auto captureIt = root.find("capture");
+        if (captureIt != root.end() && captureIt->is_object())
+        {
+            pendingStore.capture = DeserializePhotoCaptureState(*captureIt);
+        }
+        return pendingStore;
+    }
+
+    json SerializePhotoState(const PhotoState& photo)
+    {
+        json root;
+        root["capture"] = SerializePhotoCaptureState(photo.capture);
+        root["attackCapture"] = SerializePhotoCaptureState(photo.attackCapture);
+        root["savedCaptures"] = json::array();
+        for (const auto& capture : photo.savedCaptures)
+        {
+            root["savedCaptures"].push_back(SerializePhotoCaptureState(capture));
+        }
+        root["selectedCaptureSlot"] = photo.selectedCaptureSlot;
+        root["nextCaptureSlot"] = photo.nextCaptureSlot;
+        root["pendingStore"] = SerializePendingPhotoStoreState(photo.pendingStore);
+        root["placement"] = SerializePhotoPlacementState(photo.placement);
+        root["groups"] = SerializePhotoGroupState(photo.groups);
+        return root;
+    }
+
+    PhotoState DeserializePhotoState(const json& root)
+    {
+        PhotoState photo;
+        const auto captureIt = root.find("capture");
+        if (captureIt != root.end() && captureIt->is_object())
+        {
+            photo.capture = DeserializePhotoCaptureState(*captureIt);
+        }
+
+        const auto attackCaptureIt = root.find("attackCapture");
+        if (attackCaptureIt != root.end() && attackCaptureIt->is_object())
+        {
+            photo.attackCapture = DeserializePhotoCaptureState(*attackCaptureIt);
+        }
+
+        const auto savedCapturesIt = root.find("savedCaptures");
+        if (savedCapturesIt != root.end() && savedCapturesIt->is_array())
+        {
+            const int limit = (std::min)(static_cast<int>(photo.savedCaptures.size()), static_cast<int>(savedCapturesIt->size()));
+            for (int index = 0; index < limit; ++index)
+            {
+                photo.savedCaptures[static_cast<size_t>(index)] = DeserializePhotoCaptureState((*savedCapturesIt)[static_cast<size_t>(index)]);
+            }
+        }
+
+        photo.selectedCaptureSlot = root.value("selectedCaptureSlot", photo.selectedCaptureSlot);
+        photo.nextCaptureSlot = root.value("nextCaptureSlot", photo.nextCaptureSlot);
+
+        const auto pendingStoreIt = root.find("pendingStore");
+        if (pendingStoreIt != root.end() && pendingStoreIt->is_object())
+        {
+            photo.pendingStore = DeserializePendingPhotoStoreState(*pendingStoreIt);
+        }
+
+        const auto placementIt = root.find("placement");
+        if (placementIt != root.end() && placementIt->is_object())
+        {
+            photo.placement = DeserializePhotoPlacementState(*placementIt);
+        }
+
+        const auto groupsIt = root.find("groups");
+        if (groupsIt != root.end() && groupsIt->is_object())
+        {
+            photo.groups = DeserializePhotoGroupState(*groupsIt);
+        }
+
+        return photo;
+    }
+}
+
 void GameScene::ResetSceneState()
 {
     m_world.Clear();
@@ -475,6 +826,7 @@ void GameScene::ResetSceneState()
     m_camera.cameraFixedLockEndX = 0.0f;
     m_camera.cameraFixedLockX = 0.0f;
     m_camera.cameraFixedLockY = 0.0f;
+    m_save = GameSceneSaveState{};
     m_lifecycle.hasPendingStageTransition = false;
     m_lifecycle.pendingStageTransitionMapCsv.clear();
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
@@ -485,6 +837,8 @@ void GameScene::ResetSceneState()
     m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
+    m_debug.saveStatusMessage.clear();
+    m_debug.saveStatusTimer = 0.0f;
 }
 
 void GameScene::LoadTuningState()
@@ -498,6 +852,223 @@ void GameScene::LoadTuningState()
         m_debug.tuningFileWriteTime = writeTime;
         m_debug.hasTuningFileWriteTime = true;
     }
+}
+
+bool GameScene::LoadProgressStateFromDisk()
+{
+    m_save = GameSceneSaveState{};
+    std::ifstream stream(kGameProgressSavePath, std::ios::binary);
+    if (!stream.is_open())
+    {
+        m_debug.saveStatusMessage = "No save file found.";
+        m_debug.saveStatusTimer = 3.0f;
+        return false;
+    }
+
+    nlohmann::json root;
+    try
+    {
+        stream >> root;
+    }
+    catch (...)
+    {
+        m_debug.saveStatusMessage = "Save file is invalid.";
+        m_debug.saveStatusTimer = 3.0f;
+        return false;
+    }
+
+    const int version = root.value("version", 0);
+    if (version != 1)
+    {
+        m_debug.saveStatusMessage = "Save file version is not supported.";
+        m_debug.saveStatusTimer = 3.0f;
+        return false;
+    }
+
+    m_save.hasData = true;
+    m_save.mapCsvPath = root.value("mapCsvPath", m_lifecycle.currentMapCsvPath);
+    m_save.hasCheckpoint = root.value("hasCheckpoint", false);
+    m_save.activeCheckpointId = root.value("activeCheckpointId", -1);
+    m_save.stageStartX = root.value("stageStartX", 0.0f);
+    m_save.stageStartY = root.value("stageStartY", 0.0f);
+    m_save.respawnX = root.value("respawnX", 0.0f);
+    m_save.respawnY = root.value("respawnY", 0.0f);
+    m_save.playerX = root.value("playerX", 0.0f);
+    m_save.playerY = root.value("playerY", 0.0f);
+    m_save.cameraX = root.value("cameraX", 0.0f);
+    m_save.cameraY = root.value("cameraY", 0.0f);
+    m_save.sessionMaxHp = root.value("sessionMaxHp", 3);
+    m_save.sessionCurrentHp = root.value("sessionCurrentHp", m_save.sessionMaxHp);
+    m_save.sessionParts = root.value("sessionParts", 0);
+    m_save.sessionPhotoStorageSlots = root.value("sessionPhotoStorageSlots", 2);
+    m_save.sessionHasRecoveryFilter = root.value("sessionHasRecoveryFilter", false);
+    m_save.sessionTimeLimit = root.value("sessionTimeLimit", 60.0f);
+    m_save.sessionTimeRemaining = root.value("sessionTimeRemaining", m_save.sessionTimeLimit);
+    const auto photoIt = root.find("photo");
+    if (photoIt != root.end() && photoIt->is_object())
+    {
+        m_save.photo = DeserializePhotoState(*photoIt);
+    }
+
+    m_lifecycle.currentMapCsvPath = m_save.mapCsvPath;
+    m_debug.saveStatusMessage = "Loaded save file.";
+    m_debug.saveStatusTimer = 3.0f;
+    Logger::Info("Loaded save file from " + std::string(kGameProgressSavePath));
+    return true;
+}
+
+bool GameScene::SaveProgressState()
+{
+    m_save.hasData = true;
+    m_save.mapCsvPath = m_lifecycle.currentMapCsvPath;
+    m_save.hasCheckpoint = m_flow.hasCheckpoint;
+    m_save.activeCheckpointId = m_flow.activeCheckpointId;
+    m_save.stageStartX = m_flow.stageStartX;
+    m_save.stageStartY = m_flow.stageStartY;
+    m_save.respawnX = m_flow.respawnX;
+    m_save.respawnY = m_flow.respawnY;
+    m_save.cameraX = m_flow.cameraX;
+    m_save.cameraY = m_flow.cameraY;
+    m_save.photo = m_photo;
+
+    if (const Entity* player = FindEntityByTag(kTagPlayer))
+    {
+        if (const auto* transform = player->GetComponent<TransformComponent>())
+        {
+            m_save.playerX = transform->x;
+            m_save.playerY = transform->y;
+        }
+
+        if (const auto* health = player->GetComponent<HealthComponent>())
+        {
+            m_save.sessionMaxHp = health->GetMaxHealth();
+            m_save.sessionCurrentHp = health->GetCurrentHealth();
+        }
+    }
+
+    const GameSessionState& session = GameSession_Get();
+    m_save.sessionMaxHp = session.maxHp;
+    m_save.sessionCurrentHp = session.currentHp;
+    m_save.sessionParts = session.parts;
+    m_save.sessionPhotoStorageSlots = session.photoStorageSlots;
+    m_save.sessionHasRecoveryFilter = session.hasRecoveryFilter;
+    m_save.sessionTimeLimit = session.timeLimit;
+    m_save.sessionTimeRemaining = session.timeRemaining;
+
+    nlohmann::json root;
+    root["version"] = 1;
+    root["mapCsvPath"] = m_save.mapCsvPath;
+    root["hasCheckpoint"] = m_save.hasCheckpoint;
+    root["activeCheckpointId"] = m_save.activeCheckpointId;
+    root["stageStartX"] = m_save.stageStartX;
+    root["stageStartY"] = m_save.stageStartY;
+    root["respawnX"] = m_save.respawnX;
+    root["respawnY"] = m_save.respawnY;
+    root["playerX"] = m_save.playerX;
+    root["playerY"] = m_save.playerY;
+    root["cameraX"] = m_save.cameraX;
+    root["cameraY"] = m_save.cameraY;
+    root["sessionMaxHp"] = m_save.sessionMaxHp;
+    root["sessionCurrentHp"] = m_save.sessionCurrentHp;
+    root["sessionParts"] = m_save.sessionParts;
+    root["sessionPhotoStorageSlots"] = m_save.sessionPhotoStorageSlots;
+    root["sessionHasRecoveryFilter"] = m_save.sessionHasRecoveryFilter;
+    root["sessionTimeLimit"] = m_save.sessionTimeLimit;
+    root["sessionTimeRemaining"] = m_save.sessionTimeRemaining;
+    root["photo"] = SerializePhotoState(m_save.photo);
+
+    std::ofstream stream(kGameProgressSavePath, std::ios::binary | std::ios::trunc);
+    if (!stream.is_open())
+    {
+        m_debug.saveStatusMessage = "Failed to open save file for writing.";
+        m_debug.saveStatusTimer = 3.0f;
+        return false;
+    }
+
+    stream << root.dump(2);
+    m_debug.saveStatusMessage = "Saved progress.";
+    m_debug.saveStatusTimer = 3.0f;
+    Logger::Info("Saved progress to " + std::string(kGameProgressSavePath));
+    return true;
+}
+
+void GameScene::ApplyLoadedProgressState()
+{
+    if (!m_save.hasData)
+    {
+        return;
+    }
+
+    m_photo = m_save.photo;
+    m_photo.pendingStore = PendingPhotoStoreState{};
+    m_photo.placement.active = false;
+    m_photo.placement.valid = false;
+    m_photo.placement.blockedByUi = false;
+    m_photo.placement.draggingFromTray = false;
+    m_flow.hasCheckpoint = m_save.hasCheckpoint;
+    m_flow.activeCheckpointId = m_save.activeCheckpointId;
+    m_flow.stageStartX = m_save.stageStartX;
+    m_flow.stageStartY = m_save.stageStartY;
+    m_flow.respawnX = m_save.respawnX;
+    m_flow.respawnY = m_save.respawnY;
+    m_flow.cameraX = m_save.cameraX;
+    m_flow.cameraY = m_save.cameraY;
+    m_flow.timeLimit = m_save.sessionTimeLimit;
+    m_flow.timeRemaining = m_save.sessionTimeRemaining;
+
+    GameSession_Reset(m_save.sessionMaxHp, m_save.sessionTimeLimit);
+    GameSession_SetCurrentHp(m_save.sessionCurrentHp);
+    GameSession_AddParts(m_save.sessionParts);
+    GameSession_SetPhotoStorageSlots(m_save.sessionPhotoStorageSlots);
+    GameSession_SetRecoveryFilterOwned(m_save.sessionHasRecoveryFilter);
+    GameSession_SetTimeRemaining(m_save.sessionTimeRemaining);
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    if (player)
+    {
+        if (auto* transform = player->GetComponent<TransformComponent>())
+        {
+            transform->x = m_save.playerX;
+            transform->y = m_save.playerY;
+        }
+
+        if (auto* health = player->GetComponent<HealthComponent>())
+        {
+            health->SetCurrentHealth(m_save.sessionCurrentHp);
+        }
+
+        game_scene_player_visual_system::ResetSpriteAnimationToIdle(m_player, *player);
+    }
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Checkpoint))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* checkpoint = entity->GetComponent<CheckpointComponent>();
+        if (!checkpoint)
+        {
+            continue;
+        }
+
+        const bool shouldBeActive = m_save.hasCheckpoint && checkpoint->checkpointId == m_save.activeCheckpointId;
+        checkpoint->activated = shouldBeActive;
+        if (shouldBeActive)
+        {
+            if (auto* tint = entity->GetComponent<TintComponent>())
+            {
+                tint->r = 0.80f;
+                tint->g = 0.92f;
+                tint->b = 1.0f;
+                tint->a = 1.0f;
+            }
+        }
+    }
+
+    m_ui.hpUiInitialized = false;
+    m_ui.hpLastRaw = -1;
 }
 
 void GameScene::InitializeStageResources(ResourceManager& resources)

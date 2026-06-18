@@ -2488,6 +2488,7 @@ void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, floa
     m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY - m_flow.cameraY * viewScale, viewScale);
     DrawStageTransitionMarkersInView(viewOriginX, viewOriginY, viewScale);
     DrawMapEditorMarkersInView(viewOriginX, viewOriginY, viewScale);
+    DrawMidBoss2TeleportSlotsInView(viewOriginX, viewOriginY, viewScale);
     DrawStageGuideInView();
 }
 
@@ -2533,6 +2534,128 @@ void GameScene::DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY,
             SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
             DrawBox(left, top, right, bottom, GetColor(color.r, color.g, color.b), FALSE);
         }
+    }
+}
+
+void GameScene::DrawMidBoss2TeleportSlotsInView(float viewOriginX, float viewOriginY, float viewScale) const
+{
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    const float mapHeight = GetMapPixelHeight();
+    constexpr float kMidBoss2JumpCenterGridX = 36.0f;
+    constexpr float kMidBoss2ArenaHalfWidthGrid = 18.0f;
+
+    const auto getMidBoss2LeftX = [&](float centerGridX, float bossWidth)
+    {
+        return centerGridX * tileSize - bossWidth * 0.5f;
+    };
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<MidBoss2Component>();
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss2 || !transform)
+        {
+            continue;
+        }
+
+        if (!enemy->IsEnabled() || enemy->IsDefeated() || boss->state == MidBoss2State::Dead)
+        {
+            continue;
+        }
+
+        const float bossWidth = transform->width * transform->scale;
+        const float bossHeight = transform->height * transform->scale;
+        if (bossWidth <= 0.0f || bossHeight <= 0.0f)
+        {
+            continue;
+        }
+
+        const float arenaMinX = getMidBoss2LeftX(kMidBoss2JumpCenterGridX - kMidBoss2ArenaHalfWidthGrid, bossWidth);
+        const float arenaMaxX = getMidBoss2LeftX(kMidBoss2JumpCenterGridX + kMidBoss2ArenaHalfWidthGrid, bossWidth);
+        const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
+
+        const auto drawSlotSet = [&](const char* sideLabel, const std::array<MidBoss2Component::TeleportSlotConfig, 3>& slots)
+        {
+            int lowestSlotIndex = 0;
+            float lowestOffset = slots[0].hoverHeightOffsetGrid;
+            for (int index = 1; index < static_cast<int>(slots.size()); ++index)
+            {
+                if (slots[static_cast<size_t>(index)].hoverHeightOffsetGrid < lowestOffset)
+                {
+                    lowestOffset = slots[static_cast<size_t>(index)].hoverHeightOffsetGrid;
+                    lowestSlotIndex = index;
+                }
+            }
+
+            for (int index = 0; index < static_cast<int>(slots.size()); ++index)
+            {
+                const auto& slot = slots[static_cast<size_t>(index)];
+                const float rawX = getMidBoss2LeftX(slot.centerGridX, bossWidth);
+                const float rawY = mapHeight - bossHeight - (boss->params.teleportHoverBaseGrid + slot.hoverHeightOffsetGrid) * tileSize;
+                const float targetX = std::clamp(rawX, arenaMinX, arenaMaxX);
+                const float targetY = std::clamp(rawY, 0.0f, maxBossY);
+                const bool xClamped = std::fabs(targetX - rawX) > 0.1f;
+                const bool yClamped = std::fabs(targetY - rawY) > 0.1f;
+                const bool beamTarget = index == lowestSlotIndex;
+
+                const int left = static_cast<int>(std::round(viewOriginX + (targetX - m_flow.cameraX) * viewScale));
+                const int top = static_cast<int>(std::round(viewOriginY + (targetY - m_flow.cameraY) * viewScale));
+                const int right = static_cast<int>(std::round(viewOriginX + (targetX + bossWidth - m_flow.cameraX) * viewScale));
+                const int bottom = static_cast<int>(std::round(viewOriginY + (targetY + bossHeight - m_flow.cameraY) * viewScale));
+                if (right <= left || bottom <= top)
+                {
+                    continue;
+                }
+
+                const int centerX = (left + right) / 2;
+                const int centerY = (top + bottom) / 2;
+                const bool isLeftSide = sideLabel[0] == 'L';
+                const unsigned int sideFillColor = isLeftSide ? GetColor(78, 220, 255) : GetColor(255, 152, 84);
+                const unsigned int sideOutlineColor = isLeftSide ? GetColor(112, 242, 255) : GetColor(255, 202, 142);
+                const unsigned int fillColor = beamTarget ? GetColor(255, 214, 120) : sideFillColor;
+                const unsigned int outlineColor = beamTarget
+                    ? GetColor(255, 246, 200)
+                    : xClamped || yClamped
+                        ? GetColor(255, 120, 108)
+                        : sideOutlineColor;
+
+                SetDrawBlendMode(DX_BLENDMODE_ALPHA, beamTarget ? 68 : 36);
+                DrawBox(left, top, right, bottom, fillColor, TRUE);
+                SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+                DrawBox(left, top, right, bottom, outlineColor, FALSE);
+                DrawCircle(centerX, centerY, std::max(4, static_cast<int>(std::round(5.0f * viewScale))), outlineColor, FALSE);
+                DrawLine(centerX - 8, centerY, centerX + 8, centerY, outlineColor);
+                DrawLine(centerX, centerY - 8, centerX, centerY + 8, outlineColor);
+
+                const char* clampTag = (xClamped || yClamped) ? " CLAMP" : "";
+                const char* beamTag = beamTarget ? " BEAM" : "";
+                DrawFormatString(
+                    left,
+                    std::max(0, top - 18),
+                    outlineColor,
+                    "%s%d%s%s  H=%.2f",
+                    sideLabel,
+                    index + 1,
+                    beamTag,
+                    clampTag,
+                    boss->params.teleportHoverBaseGrid + slot.hoverHeightOffsetGrid);
+            }
+        };
+
+        drawSlotSet("L", boss->params.leftTeleportSlots);
+        drawSlotSet("R", boss->params.rightTeleportSlots);
     }
 }
 
@@ -2608,13 +2731,6 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     const float cursorWorldY = m_flow.cameraY + (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
     x = cursorWorldX - width * 0.5f;
     y = cursorWorldY - height * 0.5f;
-
-    const float mapWidth = GetMapPixelWidth();
-    const float mapHeight = GetMapPixelHeight();
-    const float maxX = std::max(0.0f, mapWidth - width);
-    const float maxY = std::max(0.0f, mapHeight - height);
-    x = std::clamp(x, 0.0f, maxX);
-    y = std::clamp(y, 0.0f, maxY);
 }
 
 Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) const

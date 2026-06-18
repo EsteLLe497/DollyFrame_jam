@@ -3,6 +3,7 @@
 #include "photo_paste_system.h"
 
 #include "game_scene_internal.h"
+#include "imgui_layer.h"
 #include "photo_filter_rules.h"
 #include "photo_shared.h"
 #include "DxLib.h"
@@ -227,6 +228,11 @@ void PhotoPasteSystem::CancelPhotoPlacement(GameScene& scene)
 void PhotoPasteSystem::HandleSpawn(GameScene& scene)
 {
     scene.m_photo.placement.valid = false;
+    if (ImGuiLayer_WantsCaptureMouse())
+    {
+        return;
+    }
+
     static bool previousRightDown = false;
     const bool rightDown = Input_IsKeyDown(VK_RBUTTON);
     const bool rightPressed = rightDown && !previousRightDown;
