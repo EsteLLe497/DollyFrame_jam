@@ -48,3 +48,13 @@ void fixedCameraRange::SetZoomHeight(float height)
 {
     zoomHeight = height;
 }
+
+void fixedCameraRange::SetOffsetX(int tiles, float tileSize)
+{
+    offsetX = tiles * tileSize;
+}
+
+void fixedCameraRange::SetOffsetY(int tiles, float tileSize)
+{
+    offsetY = tiles * tileSize;
+}

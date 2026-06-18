@@ -1,8 +1,9 @@
-ï»¿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
 #include <algorithm>
+#include <cmath>
 
 using namespace game_scene_detail;
 
@@ -50,15 +51,15 @@ bool GameScene::UpdateStageTransitionFlow(float deltaTime)
         return true;
     }
 
-    const bool transitioned = m_hasPendingStageTransition &&
+    const bool transitioned = m_lifecycle.hasPendingStageTransition &&
         ExecuteStageTransition(
-            m_pendingStageTransitionMapCsv,
-            m_pendingStageTransitionSpawnMarker,
-            m_pendingStageTransitionMarker);
-    m_hasPendingStageTransition = false;
-    m_pendingStageTransitionMapCsv.clear();
-    m_pendingStageTransitionSpawnMarker = '\0';
-    m_pendingStageTransitionMarker = '\0';
+            m_lifecycle.pendingStageTransitionMapCsv,
+            m_lifecycle.pendingStageTransitionSpawnMarker,
+            m_lifecycle.pendingStageTransitionMarker);
+    m_lifecycle.hasPendingStageTransition = false;
+    m_lifecycle.pendingStageTransitionMapCsv.clear();
+    m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
+    m_lifecycle.pendingStageTransitionMarker = '\0';
     m_flow.stageTransitionActive = false;
     m_flow.stageTransitionTimer = 0.0f;
     m_flow.stageTransitionFadeInTimer = transitioned ? kStageTransitionFadeInDuration : 0.0f;
@@ -68,19 +69,30 @@ bool GameScene::UpdateStageTransitionFlow(float deltaTime)
 void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime)
 {
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
-    m_flow.shutterFlashRemaining = std::max(0.0f, m_flow.shutterFlashRemaining - deltaTime);
-    m_flow.cameraFlash.pulseRemaining = std::max(0.0f, m_flow.cameraFlash.pulseRemaining - deltaTime);
+    m_ui.shutterFlashRemaining = std::max(0.0f, m_ui.shutterFlashRemaining - deltaTime);
+    m_ui.cameraFlash.pulseRemaining = std::max(0.0f, m_ui.cameraFlash.pulseRemaining - deltaTime);
     m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
     m_flow.stageTransitionFadeInTimer = std::max(0.0f, m_flow.stageTransitionFadeInTimer - deltaTime);
-    const bool previewWasActive = m_flow.developedPhotoPreviewRemaining > 0.0f;
-    m_flow.developedPhotoPreviewRemaining = std::max(0.0f, m_flow.developedPhotoPreviewRemaining - deltaTime);
-    if (previewWasActive && m_flow.developedPhotoPreviewRemaining <= 0.0f)
+    const float shieldBossCurtainTarget = IsShieldBossIntroCinematicActive() ? 1.0f : 0.0f;
+    const float shieldBossCurtainSpeed = 0.72f;
+    const float shieldBossCurtainBlend = 1.0f - std::pow(0.001f, deltaTime * shieldBossCurtainSpeed);
+    m_render.shieldBossIntroCurtainProgress = std::lerp(
+        m_render.shieldBossIntroCurtainProgress,
+        shieldBossCurtainTarget,
+        shieldBossCurtainBlend);
+    if (std::fabs(m_render.shieldBossIntroCurtainProgress - shieldBossCurtainTarget) <= 0.001f)
+    {
+        m_render.shieldBossIntroCurtainProgress = shieldBossCurtainTarget;
+    }
+    const bool previewWasActive = m_ui.developedPhotoPreviewRemaining > 0.0f;
+    m_ui.developedPhotoPreviewRemaining = std::max(0.0f, m_ui.developedPhotoPreviewRemaining - deltaTime);
+    if (previewWasActive && m_ui.developedPhotoPreviewRemaining <= 0.0f)
     {
         CommitPendingCapturedPhoto();
     }
     m_flow.pickupPulse += gameplayDeltaTime;
 
-    // HPãƒãƒ¼æ¼”å‡ºã®æ›´æ–°: å®ŸHPã¨ã¯åˆ¥ã«è¡¨ç¤ºç”¨æ¯”çŽ‡ã‚’è£œé–“ã™ã‚‹ã€‚
+    // HPƒo[‰‰o‚ÌXV: ŽÀHP‚Æ‚Í•Ê‚É•\Ž¦—p”ä—¦‚ð•âŠÔ‚·‚éB
     if (const Entity* player = FindEntityByTag(kTagPlayer))
     {
         if (const auto* health = player->GetComponent<HealthComponent>())
@@ -89,40 +101,40 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
             const int currentHp = std::clamp(health->GetCurrentHealth(), 0, maxHp);
             const float targetRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
 
-            if (!m_flow.hpUiInitialized)
+            if (!m_ui.hpUiInitialized)
             {
-                m_flow.hpDisplayRatio = targetRatio;
-                m_flow.hpDamageLagRatio = targetRatio;
-                m_flow.hpDamageFlash = 0.0f;
-                m_flow.hpLastRaw = currentHp;
-                m_flow.hpUiInitialized = true;
+                m_ui.hpDisplayRatio = targetRatio;
+                m_ui.hpDamageLagRatio = targetRatio;
+                m_ui.hpDamageFlash = 0.0f;
+                m_ui.hpLastRaw = currentHp;
+                m_ui.hpUiInitialized = true;
             }
             else
             {
-                if (m_flow.hpLastRaw >= 0 && currentHp < m_flow.hpLastRaw)
+                if (m_ui.hpLastRaw >= 0 && currentHp < m_ui.hpLastRaw)
                 {
-                    m_flow.hpDamageFlash = 1.0f;
+                    m_ui.hpDamageFlash = 1.0f;
                 }
-                m_flow.hpLastRaw = currentHp;
+                m_ui.hpLastRaw = currentHp;
 
-                const float displaySpeed = targetRatio < m_flow.hpDisplayRatio ? 10.0f : 14.0f;
-                m_flow.hpDisplayRatio += (targetRatio - m_flow.hpDisplayRatio) * std::min(1.0f, deltaTime * displaySpeed);
-                m_flow.hpDisplayRatio = std::clamp(m_flow.hpDisplayRatio, 0.0f, 1.0f);
+                const float displaySpeed = targetRatio < m_ui.hpDisplayRatio ? 10.0f : 14.0f;
+                m_ui.hpDisplayRatio += (targetRatio - m_ui.hpDisplayRatio) * std::min(1.0f, deltaTime * displaySpeed);
+                m_ui.hpDisplayRatio = std::clamp(m_ui.hpDisplayRatio, 0.0f, 1.0f);
 
-                if (m_flow.hpDamageLagRatio < m_flow.hpDisplayRatio)
+                if (m_ui.hpDamageLagRatio < m_ui.hpDisplayRatio)
                 {
-                    m_flow.hpDamageLagRatio = m_flow.hpDisplayRatio;
+                    m_ui.hpDamageLagRatio = m_ui.hpDisplayRatio;
                 }
                 else
                 {
                     const float lagSpeed = 2.4f;
-                    m_flow.hpDamageLagRatio += (m_flow.hpDisplayRatio - m_flow.hpDamageLagRatio) * std::min(1.0f, deltaTime * lagSpeed);
-                    m_flow.hpDamageLagRatio = std::clamp(m_flow.hpDamageLagRatio, 0.0f, 1.0f);
+                    m_ui.hpDamageLagRatio += (m_ui.hpDisplayRatio - m_ui.hpDamageLagRatio) * std::min(1.0f, deltaTime * lagSpeed);
+                    m_ui.hpDamageLagRatio = std::clamp(m_ui.hpDamageLagRatio, 0.0f, 1.0f);
                 }
             }
         }
     }
 
-    m_flow.hpDamageFlash = std::max(0.0f, m_flow.hpDamageFlash - deltaTime * 4.5f);
+    m_ui.hpDamageFlash = std::max(0.0f, m_ui.hpDamageFlash - deltaTime * 4.5f);
 }
 

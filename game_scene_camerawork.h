@@ -17,6 +17,11 @@ private:
     float zoomWidth = 1920.0f;
     float zoomHeight = 1080.0f;
 
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
+    int offsetTilesX = 0;
+    int offsetTilesY = 0;
+
 public:
     fixedCameraRange() = default;
 
@@ -46,5 +51,10 @@ public:
     float GetStartX() const { return startX; }
     float GetEndX() const { return endX; }
     float GetWidth() const;
+
+    void SetOffsetX(int tiles, float tileSize);
+    float GetOffsetX() const { return offsetX; }
+    void SetOffsetY(int tiles, float tileSize);
+    float GetOffsetY() const { return offsetY; }
 };
 

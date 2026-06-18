@@ -1,339 +1,188 @@
 # DirectXFoundation
 
-`DirectXFoundation` は、`DxLib` ベースで 2D ゲームを組み立てるための基盤プロジェクトです。  
-このリポジトリには、描画、入力、音、デバッグ UI、シーン管理、簡易 ECS、物理、スクリプト、イベント駆動の接続までをまとめています。
+`DirectXFoundation` は、DxLib をベースにした Windows 向け 2D ゲームプロジェクトです。
+シーン管理、入力、描画、音声、軽量 ECS、物理、写真撮影/貼り付け、Prefab、Lua、JSON/CSV データをひとつのゲーム基盤としてまとめています。
 
-## このプロジェクトでできること
+## プロジェクト構成
 
-- Win32 + Direct3D 11 のウィンドウアプリをそのまま起動できる
-- スプライトを描画できる
-- `ImGui` でデバッグ UI を表示できる
-- キーボードと `XInput` ゲームパッドを扱える
-- `XAudio2` で効果音を鳴らせる
-- `Box2D` で 2D 物理と接触判定を扱える
-- `Lua` からイベントを発行してゲームロジックを駆動できる
-- JSON でアセットとプレハブを定義できる
-- CSV でタイルマップを定義できる
+このリポジトリには Visual Studio 2022 用のソリューションが含まれています。
 
-## クイックスタート
+- `DirectXFoundation.sln`
+  メインのソリューションです。
+- `DirectXFoundation.vcxproj`
+  ゲーム本体です。
+- `TuningTool.vcxproj`
+  JSON ベースの調整データを扱う補助ツールです。
 
-### 必要環境
+対応構成は `Debug|x64` と `Release|x64` です。
+
+## 必要環境
 
 - Windows
 - Visual Studio 2022
 - MSVC v143
 - Windows SDK
+- Git
 
-### ビルド
+## ビルド
 
-Visual Studio の場合:
+Visual Studio でビルドする場合:
 
-1. `DirectXFoundation.vcxproj` を開く
+1. `DirectXFoundation.sln` を開く
 2. `Debug | x64` または `Release | x64` を選ぶ
-3. ビルドして実行する
+3. ソリューションをビルドする
 
-コマンドラインの場合:
+コマンドラインでビルドする場合:
 
 ```powershell
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" "D:\DollyFrame_jam\DirectXFoundation.sln" /p:Configuration=Debug /p:Platform=x64 /m
+& "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" DirectXFoundation.sln /t:Build /m:1 /p:Configuration=Debug /p:Platform=x64 /p:UseMultiToolTask=false /p:CL_MPCount=1
 ```
 
-出力先:
+主な出力先:
 
 - `build/Debug/DirectXFoundation.exe`
 - `build/Release/DirectXFoundation.exe`
 
-## 現在のサンプル内容
+## ディレクトリ
 
-- `TitleScene` から起動する
-- `TitleScene` から `GameScene` へ遷移できる
-- `GameScene` から `ResultScene` へ遷移できる
-- `ResultScene` から `TitleScene` か `GameScene` へ戻れる
-- `GameScene` に `HP`、`Goal`、写真撮影と貼り付けの基本ルールが入っている
-- `enemy` とダメージ無敵時間が入っている
-- `GameScene` の主要配置物は `assets/prefabs.json` の `sandbox_*` prefab から生成する
-- `player` と `target` の 2 つのプレハブを生成する
-- `player` は入力で動く
-- `target` は Lua スクリプトで揺れる
-- `player` が `target` に接触すると色、音、ログが連動する
-- Lua が一定間隔で音のイベントを発行する
-- 写真を撮ってポラロイドとして貼り付けられる
-- 貼り付けた写真は回転でき、10 秒でフェードアウトする
-- CSV タイルと撮影した写真の両方で坂タイルを扱える
-
-### 操作
-
-- `A / D` または `Arrow Keys`: 移動
-- `W / Space / Up`: ジャンプ
-- `Left Shift / Right Shift`: 回避
-- `Right Click`: カメラモード
-- `Left Click`: 撮影 / 配置確定
-- `C`: フィルター切り替え
-- `1 / 2 / 3 / 4 / 5`: `None / Hot / Cold / Invert / Sepia`
-- `E`: 写真配置モード
-- `Q`: 配置レイヤ切り替え
-- `F`: 左右反転
-- `B`: ブリッジ切り替え
-- `Z / X`: 配置中の写真を連続回転
-- `Enter`: タイトルからゲーム開始
-- `R`: シーン再読み込み
-- `T`: タイトルへ戻る
-- `GameScene` で `goal` に触れる: クリア
-- `GameScene` で `hazard` に触れる: HP が減少
-- `GameScene` で `enemy` に触れる: HP が減少
-- `ResultScene` で `Enter`: タイトルへ戻る
-- `ResultScene` で `R`: リトライ
-- `Gamepad Left Stick`: 移動
-- `Gamepad A`: ジャンプ
-- `Gamepad Triggers`: 配置中の写真回転
-
-## リポジトリの見方
-
-### 主要ディレクトリ
-
-- `main.cpp`
-  エントリポイントです。`Application` を起動します。
 - `core/`
-  アプリ基盤、シーン管理、入力、音、ログ、ECS の土台です。主要入力は `InputAction` / `InputAxis` に寄せています。
+  アプリケーション、シーン管理、入力、音声、ログ、イベント、リソース管理、軽量 ECS の基盤です。
 - `gameplay/`
-  ゲーム固有のコンポーネント、プレハブ生成、フィルター処理、`photo_system` などです。
+  ゲーム固有のコンポーネント、Prefab 生成、写真システム、フィルター、Lua スクリプト連携を扱います。
 - `physics/`
-  タイル、衝突、物理ワールドです。
+  衝突、タイルマップ、Box2D 連携、画像輪郭処理を扱います。
 - `rendering/`
-  `DxLib` / 描画ラッパ / シェーダ管理 / テクスチャ管理です。
+  DxLib/DirectX まわりの描画、スプライト、テクスチャ、シェーダ、ImGui レイヤーを扱います。
 - `scenes/`
-  `TitleScene`、`ResultScene`、`DemoScene`、`ShaderShowcaseScene` です。
+  `TitleScene`、`GameScene`、`ResultScene`、`DemoScene`、`ShaderShowcaseScene` などのシーン実装です。
 - `scenes/game/`
-  `GameScene` 本体です。更新、描画、衝突、ドメイン分割を含みます。
+  `GameScene` の詳細実装です。入力、描画、UI、衝突、敵、ギミック、商人、マップ編集、写真操作などが domain 単位で分割されています。
+- `assets/`
+  画像、音声、エフェクト、マップ CSV、Lua、JSON 設定を置きます。
+- `shaders/`
+  HLSL シェーダを置きます。
+- `third_party/`
+  外部ライブラリを置きます。
+- `docs/`
+  設計、ビルド、データ形式、拡張、チーム作業用のドキュメントを置きます。
+- `tools/`
+  DDS/PNG 変換などの補助ツールを置きます。
+- `exports/`
+  書き出し成果物を置きます。
 
-### よく触るファイル
+## エントリポイント
 
-- `core/application.h` / `core/application.cpp`
-  アプリ全体の初期化、メインループ、描画、イベント消費です。
-- `core/scene.h`
-  すべてのシーンの抽象基底です。
-- `core/scene_manager.h` / `core/scene_manager.cpp`
-  現在シーンの所有と更新です。
-- `core/scene_registry.h` / `core/scene_registry.cpp`
-  シーン ID からシーンインスタンスを生成します。
-- `scenes/title_scene.h` / `scenes/title_scene.cpp`
-  タイトルシーンです。
-- `scenes/game/game_scene.h`
-  `GameScene` の状態と宣言です。
-- `scenes/game/game_scene.cpp`
-  `GameScene` コンストラクタ実装です。
-- `scenes/game/game_scene_entry_domain.cpp`
-  `GetSceneId`、`Update`、`Draw`、`GetEventBus` の入口です。
-- `scenes/game/game_scene_lifecycle_domain.cpp`
-  `OnEnter`、`OnExit` のライフサイクルです。
-- `scenes/game/game_scene_facade_domain.cpp`
-  フレーム進行のフェーズ制御です。
-- `scenes/game/game_scene_flow_domain.cpp`
-  リスタート、シーン遷移、フレームタイマー更新です。
-- `scenes/game/game_scene_photo_control_domain.cpp`
-  カメラモード、撮影時スロー、フィルター入力です。
-- `scenes/game/game_scene_control_domain.cpp`
-  全体ショートカット、キャンセル操作、tuningホットリロードです。
-- `scenes/game/game_scene_gameplay_pipeline_domain.cpp`
-  `RunGameplayFrame` の更新パイプラインです。
-- `scenes/game/game_scene_setup.cpp`
-  ステージ初期化、prefab 配置、チューニング入出力です。
-- `scenes/game/game_scene_gameplay.cpp`
-  プレイヤー、バッテリー、写真操作の中核更新です。
-- `scenes/game/game_scene_enemy_domain.cpp`
-  敵更新ドメインです。
-- `scenes/game/game_scene_gimmick_domain.cpp`
-  ギミック更新ドメインです。
-- `scenes/game/game_scene_marker_spawn_domain.cpp`
-  マーカー駆動の再生成です。
-- `scenes/game/game_scene_map_editor_domain.cpp`
-  マップエディタ入力と保存/新規作成です。
-- `scenes/game/game_scene_menu_domain.cpp`
-  Escape メニュー入力と描画です。
-- `scenes/game/game_scene_effects_domain.cpp`
-  エフェクト更新です。
-- `scenes/game/game_scene_debug_domain.cpp`
-  デバッグUIです。
-- `scenes/game/game_scene_entity_query_domain.cpp`
-  エンティティ検索クエリです。
-- `scenes/game/game_scene_render.cpp`
-  エンティティ描画とワールド側の見た目です。
-- `scenes/game/game_scene_render_ui.cpp`
-  背景、HUD、撮影オーバーレイ、写真プレビュー、調整 UI です。
-- `scenes/game/game_scene_collision.cpp`
-  地形判定、重なり判定、配置判定です。
-- `gameplay/photo_filter_rules.h` / `gameplay/photo_filter_rules.cpp`
-  写真フィルターの名称、順序、効果本体です。
-- `gameplay/photo_system.h` / `gameplay/photo_system.cpp`
-  写真機能のファサードです。実体は capture/paste/shared へ分割されています。
-- `gameplay/photo_capture_system.*`
-  撮影処理本体です。
-- `gameplay/photo_paste_system.*`
-  配置処理本体です。
-- `gameplay/photo_shared.*`
-  capture/paste 共通処理です。
-- `gameplay/prefab_factory.h` / `gameplay/prefab_factory.cpp`
-  `assets/prefabs.json` を読み、エンティティを生成します。
-- `rendering/shader.h` / `rendering/shader.cpp`
-  2D スプライト描画用シェーダのセットアップです。
-- `rendering/sprite.h` / `rendering/sprite.cpp`
-  スプライト描画ラッパです。
+`main.cpp` の `WinMain` がエントリポイントです。
 
-### データファイル
+```cpp
+Application app;
+return app.Run(hInstance, nCmdShow);
+```
+
+アプリケーション本体の初期化、メインループ、シーン更新、描画は `core/application.*` が担当します。
+
+## 主なシーン
+
+- `TitleScene`
+  タイトル画面です。
+- `GameScene`
+  メインのゲームシーンです。現在もっとも大きい実装で、複数の domain ファイルに分割されています。
+- `ResultScene`
+  リザルト画面です。
+- `DemoScene`
+  Lua や基本機能の確認用シーンです。
+- `ShaderShowcaseScene`
+  シェーダや描画効果の確認用シーンです。
+
+## データファイル
 
 - `assets/manifest.json`
-  テクスチャ定義です。
+  テクスチャなどのアセット ID を定義します。
 - `assets/prefabs.json`
-  プレハブ定義です。`GameScene` の主要配置物は `sandbox_*` prefab を使います。
+  エンティティ生成用の Prefab を定義します。
+- `assets/input_bindings.json`
+  キーボード/ゲームパッド入力のアクション割り当てを定義します。
+- `assets/tuning.json`
+  移動、回避、ゲームプレイ調整値を定義します。
 - `assets/demo_scene.lua`
-  サンプルシーンの Lua スクリプトです。
-- `assets/maps/side_scroll_stage01.csv`
-  CSV ベースのサンプルタイルマップです。
+  Lua スクリプトのサンプルです。
+- `assets/maps/`
+  CSV ベースのステージ、マップ、遷移データを置きます。
 
-### 外部ライブラリ
+## 入力
 
-- `third_party/imgui`
-- `third_party/tracy`
-- `third_party/spdlog`
-- `third_party/json`
-- `third_party/lua54`
-- `third_party/sol2`
-- `third_party/box2d`
+入力は `assets/input_bindings.json` でアクション名に割り当てられています。
+代表的な操作は次の通りです。
 
-`third_party` 配下はライブラリ本体なので、通常の改修対象は `core/` `gameplay/` `physics/` `rendering/` `scenes/` 配下です。
+- `Enter` / `Space`: 決定、ゲーム開始
+- `Esc`: キャンセル
+- `A` / `D` / 矢印キー: 移動
+- `W` / `Space` / `Up`: ジャンプ
+- `Shift`: 回避
+- `Right Click`: カメラ保持
+- `Left Click`: 撮影、配置確定
+- `E`: 配置モード保持
+- `Q`: 攻撃貼り付け、または配置レイヤー切り替え
+- `C`: フィルター切り替え
+- `1` - `5`: フィルター直接選択
+- `F1`: チューニングパネル切り替え
+- `F2`: ポストプロセス切り替え
+- `F3`: 衝突デバッグ表示切り替え
+- `R`: シーン再読み込み
+- `T`: タイトルへ戻る
 
-## 設計の要点
+## 外部ライブラリ
 
-### 1. `Application` は基盤統括
+主な依存ライブラリは次の通りです。
 
-`Application` は以下を担当します。
+- DxLib
+- ImGui
+- Tracy
+- spdlog
+- nlohmann/json
+- Lua 5.4
+- sol2
+- Box2D
+- DirectXTex
 
-- Win32 ウィンドウ作成
-- DirectX 初期化
-- ミドルウェア初期化
-- フレーム更新
-- シーン更新と描画
-- シーンイベントの消費
+Debug ビルドでは `DxLib_vs2015_x64_MTd.lib` 系、Release ビルドでは `DxLib_vs2015_x64_MT.lib` 系をリンクします。
+DxLib のライブラリは `dxlib_support_libs/` に配置されています。
 
-### 2. `Scene` はゲーム進行の単位
+## よく触るファイル
 
-各シーンは `Scene` を継承し、以下を実装します。
+- `core/application.cpp`
+  アプリ全体の初期化、メインループ、描画、イベント処理です。
+- `core/input.cpp`
+  キーボード/マウス/ゲームパッド入力の集約です。
+- `core/scene_manager.cpp`
+  シーンの更新、描画、遷移処理です。
+- `core/scene_registry.cpp`
+  シーン ID とシーン生成処理の登録です。
+- `scenes/game/game_scene.h`
+  `GameScene` の状態と主要メンバーです。
+- `scenes/game/game_scene_setup.cpp`
+  ステージ初期化、Prefab 配置、チューニング入力です。
+- `scenes/game/game_scene_gameplay.cpp`
+  プレイヤー、バッテリー、写真操作などの中核更新です。
+- `scenes/game/game_scene_render.cpp`
+  ゲーム内エンティティとワールド描画です。
+- `scenes/game/game_scene_render_ui.cpp`
+  HUD、写真プレビュー、調整 UI などの描画です。
+- `gameplay/prefab_factory.cpp`
+  `assets/prefabs.json` からエンティティを生成します。
+- `gameplay/photo_capture_system.cpp`
+  写真撮影処理です。
+- `gameplay/photo_paste_system.cpp`
+  写真貼り付け処理です。
+- `physics/tile_map.cpp`
+  CSV マップとタイル衝突です。
+- `rendering/shader.cpp`
+  シェーダの読み込みと適用です。
 
-- `GetSceneId()`
-- `OnEnter()`
-- `Update()`
-- `Draw()`
-- `DrawDebugUI()`
+## 作業時の注意
 
-### 3. `Entity` + `Component` で挙動を組む
-
-現在の主なコンポーネント:
-
-- `TransformComponent`
-- `TintComponent`
-- `TagComponent`
-- `SpriteRenderComponent`
-- `PlayerControllerComponent`
-- `RigidBodyComponent`
-- `BoxColliderComponent`
-
-### 4. `EventBus` でシステム間を疎結合にする
-
-主なイベント種別:
-
-- `ContactBegin`
-- `ContactEnd`
-- `PlaySoundRequest`
-- `SceneChangeRequested`
-- `LogMessage`
-
-シーンやコンポーネントはイベントを発行し、実際の音再生は `Application` 側が処理します。
-
-### 5. データ駆動の入口は JSON と Lua
-
-- `manifest.json`: テクスチャ定義
-- `prefabs.json`: プレハブ定義
-- `side_scroll_stage01.csv`: タイル ID 配列
-- `demo_scene.lua`: シーンロジックの一部
-
-### CSV タイルマップ
-
-`assets/maps/side_scroll_stage01.csv` は 1 セル = 1 タイルの CSV です。現状のサンプルでは次の値を使っています。
-
-- `0`: 空
-- `1`: 地面
-- `2`: 足場
-- `3`: 装飾床
-- `4`: 危険帯の目印
-- `5`: ゴール目印
-- `6`: 右上がり坂
-- `7`: 右下がり坂
-
-`6` と `7` は通常タイルだけでなく、写真で撮って貼った `PhotoBox` 側にも保存されます。見た目も当たり判定も坂として扱います。
-
-## ドキュメント一覧
-
-- [docs/architecture.md](docs/architecture.md)
-  クラス構成、更新順、イベントの流れ、責務分離
-- [docs/data-formats.md](docs/data-formats.md)
-  `manifest.json`、`prefabs.json`、Lua API の説明
-- [docs/extension-guide.md](docs/extension-guide.md)
-  新しいシーン、コンポーネント、プレハブ、イベントの追加手順
-- [docs/middleware.md](docs/middleware.md)
-  導入済みミドルウェアの役割と接続先
-- [docs/programming-guide.md](docs/programming-guide.md)
-  現在の実装に合わせたプログラミング説明書
-- [docs/team-programming-guide.md](docs/team-programming-guide.md)
-  チーム制作メンバー向けのプログラム作業ガイド
-- [docs/git-and-artifacts-guide.md](docs/git-and-artifacts-guide.md)
-  Git 運用と生成物の扱い方
-- [docs/build-setup-guide.md](docs/build-setup-guide.md)
-  チーム向けビルド環境セットアップ手順
-- [docs/filter-spec.md](docs/filter-spec.md)
-  `Hot / Cold / Invert / Sepia` の仕様書
-- [docs/level-editing-guide.md](docs/level-editing-guide.md)
-  ステージ編集と配置作業のルール
-- [docs/task-recipes.md](docs/task-recipes.md)
-  敵追加、ギミック追加、フィルター追加の実装レシピ集
-- [docs/glossary.md](docs/glossary.md)
-  用語集
-- [docs/troubleshooting.md](docs/troubleshooting.md)
-  よくある詰まりどころと対処
-- [docs/coding-conventions.md](docs/coding-conventions.md)
-  このプロジェクト向けのコーディング規約メモ
-- [docs/scene-reference.md](docs/scene-reference.md)
-  シーン別の入口と担当範囲
-- [docs/rendering-effects-guide.md](docs/rendering-effects-guide.md)
-  レンダリング・演出担当向けガイド
-- [docs/ui-guide.md](docs/ui-guide.md)
-  UI担当向けガイド
-- [docs/refactor-candidates.md](docs/refactor-candidates.md)
-  今後の改善候補一覧
-- [docs/domain-ownership-guide.md](docs/domain-ownership-guide.md)
-  ドメイン担当境界の固定ルール
-- [docs/recent-changes.md](docs/recent-changes.md)
-  直近変更の要点サマリ
-
-## どこから触るべきか
-
-用途別の開始地点は以下です。
-
-- 新しいシーンを作る
-  `core/scene.h`、`core/scene_registry.h`、`core/application.cpp`
-- プレイヤーや敵を増やす
-  `gameplay/components.h`、`gameplay/prefab_factory.cpp`、`assets/prefabs.json`
-- `GameScene` の初期配置を変える
-  `scenes/game/game_scene_setup.cpp`、`assets/prefabs.json`
-- データを調整したい
-  `assets/manifest.json`、`assets/prefabs.json`
-- スクリプトで試したい
-  `gameplay/script_engine.cpp`、`assets/demo_scene.lua`
-- 音を増やす
-  `core/audio.cpp`、`core/event_bus.h`
-
-## 補足
-
-- 現在の基盤は 2D 前提です。
-- 3D へ進める場合は、カメラ、メッシュ、マテリアル、深度有効描画、シーン定数の再設計が必要です。
-- `third_party` は依存ライブラリです。通常の保守対象としては扱わない前提で構成しています。
-
+- `third_party/` と `dxlib_support_libs/` は基本的に外部依存として扱います。
+- 新しい `.cpp` / `.h` を追加した場合は、`.vcxproj` と `.vcxproj.filters` への登録も確認してください。
+- 実行時ログは `foundation.log` に出ます。
+- `assets/` の JSON/CSV を変更した場合は、ゲーム起動後の読み込み結果も確認してください。
+- README や docs に古い記述がある場合は、実装と `.vcxproj` の状態を優先して確認してください。

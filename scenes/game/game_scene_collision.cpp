@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "photo_shared.h"
@@ -769,15 +769,42 @@ bool GameScene::IsStandingOnGround(const TransformComponent& transform) const
         }
     }
 
-    // ?????]??????? PhotoBox / ?^?C??????
-    for (const auto& entity : m_entities)
+    std::vector<Entity*> solidEntities;
+    solidEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size());
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::PhotoBox))
+    {
+        if (entity)
+        {
+            solidEntities.push_back(entity);
+        }
+    }
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Log))
+    {
+        if (entity)
+        {
+            solidEntities.push_back(entity);
+        }
+    }
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::CapturedShield))
+    {
+        if (entity)
+        {
+            solidEntities.push_back(entity);
+        }
+    }
+
+    for (Entity* entity : solidEntities)
     {
         if (!entity || !IsSolidPolygonEntity(*entity))
         {
             continue;
         }
 
-        if (!entity->GetComponent<TransformComponent>())
+        const auto* entityTransform = entity->GetComponent<TransformComponent>();
+        if (!entityTransform || entityTransform == &transform)
         {
             continue;
         }
@@ -880,15 +907,42 @@ bool GameScene::TrySnapToGroundUsingPlatforms(
         }
     }
 
-    // ?????]??????? PhotoBox ?x?[?X??z???t??????
-    for (const auto& entity : m_entities)
+    std::vector<Entity*> solidEntities;
+    solidEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size());
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::PhotoBox))
+    {
+        if (entity)
+        {
+            solidEntities.push_back(entity);
+        }
+    }
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Log))
+    {
+        if (entity)
+        {
+            solidEntities.push_back(entity);
+        }
+    }
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::CapturedShield))
+    {
+        if (entity)
+        {
+            solidEntities.push_back(entity);
+        }
+    }
+
+    for (Entity* entity : solidEntities)
     {
         if (!entity || !IsSolidPolygonEntity(*entity))
         {
             continue;
         }
 
-        if (!entity->GetComponent<TransformComponent>())
+        const auto* entityTransform = entity->GetComponent<TransformComponent>();
+        if (!entityTransform || entityTransform == &transform)
         {
             continue;
         }
@@ -1224,7 +1278,7 @@ bool GameScene::IntersectsSolidPhotoBox(const TransformComponent& transform) con
         transform.rotation,
         candidatePolygon);
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::PhotoBox))
     {
         if (!entity || !IsSolidPolygonEntity(*entity))
         {
@@ -1265,7 +1319,7 @@ bool GameScene::IntersectsSolidPhotoBoxForMovement(const TransformComponent& tra
     float probeXs[kGroundProbeCount]{};
     GetGroundProbeXs(transform, probeXs);
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::PhotoBox))
     {
         if (!entity || !IsSolidPolygonEntity(*entity))
         {
@@ -1323,13 +1377,35 @@ bool GameScene::IntersectsSolidPhotoBoxForMovement(const TransformComponent& tra
 
 bool GameScene::GetEntityBoundsByTag(const char* tag, float& x, float& y, float& width, float& height) const
 {
-    Entity* entity = FindEntityByTag(tag);
-    if (!entity)
+    const EntityTag entityTag = EntityTagFromString(tag);
+    if (entityTag == EntityTag::Unknown)
+    {
+        Entity* entity = FindEntityByTag(tag);
+        if (!entity)
+        {
+            return false;
+        }
+
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform)
+        {
+            return false;
+        }
+
+        x = transform->x;
+        y = transform->y;
+        width = transform->width * transform->scale;
+        height = transform->height * transform->scale;
+        return true;
+    }
+
+    const auto& entities = m_world.EntitiesByTag(entityTag);
+    if (entities.empty() || !entities.front())
     {
         return false;
     }
 
-    const auto* transform = entity->GetComponent<TransformComponent>();
+    const auto* transform = entities.front()->GetComponent<TransformComponent>();
     if (!transform)
     {
         return false;
@@ -1345,7 +1421,31 @@ bool GameScene::GetEntityBoundsByTag(const char* tag, float& x, float& y, float&
 void GameScene::GetEntityBoundsByTag(const char* tag, std::vector<TransformComponent>& bounds) const
 {
     bounds.clear();
-    for (const auto& entity : m_entities)
+    const EntityTag entityTag = EntityTagFromString(tag);
+    if (entityTag != EntityTag::Unknown)
+    {
+        const auto& entities = m_world.EntitiesByTag(entityTag);
+        for (Entity* entity : entities)
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (!transform)
+            {
+                continue;
+            }
+
+            TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
+            rect.scale = transform->scale;
+            bounds.push_back(rect);
+        }
+        return;
+    }
+
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, tag))
         {
@@ -1384,49 +1484,67 @@ bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
 void GameScene::GetGroundPlatformBounds(std::vector<TransformComponent>& bounds) const
 {
     bounds.clear();
-    for (const auto& entity : m_entities)
+    auto appendGroundEntities = [&](EntityTag tag)
     {
-        if (!entity || !IsGroundPlatformEntity(*entity))
+        for (Entity* entity : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
+            if (!entity || !IsGroundPlatformEntity(*entity))
+            {
+                continue;
+            }
 
-        const auto* transform = entity->GetComponent<TransformComponent>();
-        if (!transform)
-        {
-            continue;
-        }
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (!transform)
+            {
+                continue;
+            }
 
-        TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
-        rect.scale = transform->scale;
-        bounds.push_back(rect);
-    }
+            TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
+            rect.scale = transform->scale;
+            bounds.push_back(rect);
+        }
+    };
+
+    appendGroundEntities(EntityTag::PhotoSource);
+    appendGroundEntities(EntityTag::BatterySwitch);
+    appendGroundEntities(EntityTag::Elevator);
+    appendGroundEntities(EntityTag::LaserSwitch);
+    appendGroundEntities(EntityTag::Shutter);
+    appendGroundEntities(EntityTag::LaserTurret);
+    appendGroundEntities(EntityTag::SepiaElevator);
+    appendGroundEntities(EntityTag::ProtectiveWall);
 }
 
 void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const
 {
     bounds.clear();
-    for (const auto& entity : m_entities)
+    auto appendSolidEntities = [&](EntityTag tag)
     {
-        if (!entity || !IsSolidPolygonEntity(*entity))
+        for (Entity* entity : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
-        CollisionPolygon polygon;
-        if (!BuildEntityCollisionPolygon(*entity, polygon))
-        {
-            continue;
-        }
+            if (!entity || !IsSolidPolygonEntity(*entity))
+            {
+                continue;
+            }
+            CollisionPolygon polygon;
+            if (!BuildEntityCollisionPolygon(*entity, polygon))
+            {
+                continue;
+            }
 
-        float left = 0.0f;
-        float top = 0.0f;
-        float right = 0.0f;
-        float bottom = 0.0f;
-        GetPolygonAabb(polygon, left, top, right, bottom);
-        TransformComponent rect(left, top, right - left, bottom - top);
-        rect.scale = 1.0f;
-        bounds.push_back(rect);
-    }
+            float left = 0.0f;
+            float top = 0.0f;
+            float right = 0.0f;
+            float bottom = 0.0f;
+            GetPolygonAabb(polygon, left, top, right, bottom);
+            TransformComponent rect(left, top, right - left, bottom - top);
+            rect.scale = 1.0f;
+            bounds.push_back(rect);
+        }
+    };
+
+    appendSolidEntities(EntityTag::PhotoBox);
+    appendSolidEntities(EntityTag::CapturedShield);
 }
 
 bool GameScene::FindSpawnPosition(float desiredX, float objectWidth, float objectHeight, float& outX, float& outY) const
@@ -1536,6 +1654,8 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
 {
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
+    const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    const auto& playerEntities = m_world.EntitiesByTag(EntityTag::Player);
 
     const float tileSize = m_tileMap.GetTileSize();
     auto buildCandidatePolygon = [](const TransformComponent& candidate, CollisionPolygon& outPolygon, float inset = 0.0f)
@@ -1555,15 +1675,9 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     {
         CollisionPolygon candidatePolygon;
         buildCandidatePolygon(candidate, candidatePolygon);
-        for (const auto& entity : m_entities)
+        for (Entity* entity : enemyEntities)
         {
             if (!entity)
-            {
-                continue;
-            }
-
-            const bool isEnemyEntity = HasTag(*entity, kTagEnemy) || entity->GetComponent<EnemyComponent>() != nullptr;
-            if (!isEnemyEntity)
             {
                 continue;
             }
@@ -1591,9 +1705,9 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
     {
         CollisionPolygon candidatePolygon;
         buildCandidatePolygon(candidate, candidatePolygon);
-        for (const auto& entity : m_entities)
+        for (Entity* entity : playerEntities)
         {
-            if (!entity || !HasTag(*entity, kTagPlayer))
+            if (!entity)
             {
                 continue;
             }

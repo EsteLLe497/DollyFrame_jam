@@ -8,9 +8,41 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <vector>
 
 using namespace game_scene_detail;
+
+namespace
+{
+    int GetAttackCaptureCount(const PhotoCaptureState& capture)
+    {
+        if (capture.attackCaptureCount > 0)
+        {
+            return capture.attackCaptureCount;
+        }
+
+        const int countedItems = static_cast<int>(std::count_if(
+            capture.items.begin(),
+            capture.items.end(),
+            [](const CapturedPhotoItem& item)
+            {
+                return item.enemyAttackPaste;
+            }));
+        if (countedItems > 0)
+        {
+            return countedItems;
+        }
+
+        return capture.hasPhoto && capture.containsEnemyAttackPaste ? 1 : 0;
+    }
+
+    void PreserveSelectedTheme(PhotoCaptureState& capture, PhotoFilterTheme theme)
+    {
+        capture = PhotoCaptureState{};
+        capture.selectedTheme = theme;
+    }
+}
 
 void GameScene::UpdatePlayerAfterimages(float deltaTime)
 {
@@ -34,25 +66,79 @@ void GameScene::HandlePhotoSpawn()
 
 void GameScene::TryUseAttackCaptureSlot()
 {
-    if (!Input_IsKeyPressed('Q') ||
-        m_flow.cameraMode ||
-        m_photo.placement.active ||
-        m_player.pasteAnimationActive ||
-        !m_photo.attackCapture.hasPhoto ||
-        !m_photo.attackCapture.containsEnemyAttackPaste)
+    const bool attackPastePressed = Input_IsActionPressed(InputAction::AttackPaste);
+    if (!attackPastePressed)
     {
         return;
     }
 
+    Logger::Info(
+        std::string("AttackPaste pressed: cameraMode=") +
+        (m_flow.cameraMode ? "1" : "0") +
+        " placementActive=" + (m_photo.placement.active ? "1" : "0") +
+        " pasteActive=" + (m_player.pasteAnimationActive ? "1" : "0") +
+        " attackHasPhoto=" + (m_photo.attackCapture.hasPhoto ? "1" : "0") +
+        " attackContainsPaste=" + (m_photo.attackCapture.containsEnemyAttackPaste ? "1" : "0") +
+        " attackCount=" + std::to_string(GetAttackCaptureCount(m_photo.attackCapture)) +
+        " selectedCount=" + std::to_string(GetAttackCaptureCount(m_photo.capture)));
+
+    if (m_flow.cameraMode ||
+        m_photo.placement.active ||
+        m_player.pasteAnimationActive)
+    {
+        Logger::Info("AttackPaste blocked: camera/placement/paste animation active");
+        return;
+    }
+
+    if (!m_photo.attackCapture.hasPhoto || !m_photo.attackCapture.containsEnemyAttackPaste)
+    {
+        if (m_photo.capture.hasPhoto && m_photo.capture.containsEnemyAttackPaste)
+        {
+            const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
+            const int existingCount = GetAttackCaptureCount(m_photo.attackCapture);
+            const int captureCount = GetAttackCaptureCount(m_photo.capture);
+            m_photo.attackCapture = m_photo.capture;
+            m_photo.attackCapture.attackCaptureCount = existingCount + captureCount;
+            PreserveSelectedTheme(m_photo.capture, selectedTheme);
+            Logger::Info(
+                std::string("AttackPaste promoted current capture: count=") +
+                std::to_string(m_photo.attackCapture.attackCaptureCount));
+        }
+        else if (m_photo.selectedCaptureSlot >= 0 &&
+            m_photo.selectedCaptureSlot < static_cast<int>(m_photo.savedCaptures.size()) &&
+            m_photo.savedCaptures[m_photo.selectedCaptureSlot].hasPhoto &&
+            m_photo.savedCaptures[m_photo.selectedCaptureSlot].containsEnemyAttackPaste)
+        {
+            m_photo.attackCapture = m_photo.savedCaptures[m_photo.selectedCaptureSlot];
+            m_photo.savedCaptures[m_photo.selectedCaptureSlot] = PhotoCaptureState{};
+            Logger::Info(
+                std::string("AttackPaste loaded from saved slot: slot=") +
+                std::to_string(m_photo.selectedCaptureSlot) +
+                " count=" + std::to_string(GetAttackCaptureCount(m_photo.attackCapture)));
+        }
+    }
+
+    if (!m_photo.attackCapture.hasPhoto || !m_photo.attackCapture.containsEnemyAttackPaste)
+    {
+        Logger::Info("AttackPaste aborted: no enemy-attack capture available");
+        return;
+    }
+
+    // Keep the selected attack capture available to the normal paste flow.
+    // This lets the existing placement/spawn path handle Q-triggered attack shots.
+    m_photo.capture = m_photo.attackCapture;
+
     Entity* player = FindEntityByTag(kTagPlayer);
     if (!player)
     {
+        Logger::Warn("AttackPaste aborted: player entity not found");
         return;
     }
 
     const auto* playerTransform = player->GetComponent<TransformComponent>();
     if (!playerTransform)
     {
+        Logger::Warn("AttackPaste aborted: player transform missing");
         return;
     }
 
@@ -68,19 +154,328 @@ void GameScene::TryUseAttackCaptureSlot()
 
     if (!attackItem)
     {
+        Logger::Warn("AttackPaste aborted: enemy-attack item missing from capture");
         return;
     }
 
-    auto finishAttackUse = [&]()
+    const int desiredBossMotionClip =
+        attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst ? 1 :
+        attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst ? 2 :
+        0;
+    const CapturedPhotoItem* bossMotionItem = nullptr;
+    for (const auto& item : m_photo.attackCapture.items)
     {
+        if (!item.enemyAttackPaste &&
+            item.spawnArchetype == CapturedSpawnArchetype::None &&
+            item.origin == PhotoCopyOrigin::Enemy &&
+            (desiredBossMotionClip == 0 || item.bossMotionClip == desiredBossMotionClip))
+        {
+            bossMotionItem = &item;
+            break;
+        }
+    }
+    if (!bossMotionItem && desiredBossMotionClip != 0)
+    {
+        for (const auto& item : m_photo.attackCapture.items)
+        {
+            if (!item.enemyAttackPaste &&
+                item.spawnArchetype == CapturedSpawnArchetype::None &&
+                item.origin == PhotoCopyOrigin::Enemy)
+            {
+                bossMotionItem = &item;
+                break;
+            }
+        }
+    }
+
+    auto finishAttackUse = [&](int remainingAttackCount = -1)
+    {
+        const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
         m_player.captureAnimationActive = false;
         m_player.captureAnimationReleased = false;
         m_player.pasteAnimationActive = true;
         m_player.pasteAnimationEnemyAttack = true;
         m_player.pasteAnimationReleased = true;
-        m_photo.attackCapture = PhotoCaptureState{};
+        if (remainingAttackCount >= 0)
+        {
+            if (remainingAttackCount > 0)
+            {
+                PhotoCaptureState remainingCapture = m_photo.attackCapture;
+                remainingCapture.attackCaptureCount = remainingAttackCount;
+                m_photo.attackCapture = remainingCapture;
+                m_photo.capture = remainingCapture;
+            }
+            else
+            {
+                PreserveSelectedTheme(m_photo.attackCapture, selectedTheme);
+                PreserveSelectedTheme(m_photo.capture, selectedTheme);
+            }
+        }
+        else
+        {
+            PreserveSelectedTheme(m_photo.attackCapture, selectedTheme);
+            PreserveSelectedTheme(m_photo.capture, selectedTheme);
+        }
         m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Used captured attack", 0.0f, 0.0f });
     };
+
+    struct AttackAim
+    {
+        float x = 1.0f;
+        float y = 0.0f;
+        int direction = 1;
+    };
+
+    const auto resolveAttackAimTowardBoss = [&](float fromX, float fromY) -> AttackAim
+    {
+        const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+        const Entity* bestBoss = nullptr;
+        float bestDistanceSq = std::numeric_limits<float>::max();
+        for (const auto& candidate : m_world.Entities())
+        {
+            if (!candidate)
+            {
+                continue;
+            }
+
+            const auto* enemy = candidate->GetComponent<EnemyComponent>();
+            const auto* boss = candidate->GetComponent<MidBoss3Component>();
+            const auto* transform = candidate->GetComponent<TransformComponent>();
+            if (!enemy || !boss || !transform || !enemy->IsEnabled() || enemy->IsDefeated())
+            {
+                continue;
+            }
+
+            const float bossCenterX = transform->x + transform->width * transform->scale * 0.5f;
+            const float bossCenterY = transform->y + transform->height * transform->scale * 0.5f;
+            const float dx = bossCenterX - fromX;
+            const float dy = bossCenterY - fromY;
+            const float distanceSq = dx * dx + dy * dy;
+            if (distanceSq < bestDistanceSq)
+            {
+                bestDistanceSq = distanceSq;
+                bestBoss = candidate.get();
+            }
+        }
+
+        if (bestBoss)
+        {
+            const auto* transform = bestBoss->GetComponent<TransformComponent>();
+            const float bossCenterX = transform->x + transform->width * transform->scale * 0.5f;
+            const float bossCenterY = transform->y + transform->height * transform->scale * 0.5f;
+            const float dx = bossCenterX - fromX;
+            const float dy = bossCenterY - fromY;
+            const float length = std::max(0.001f, std::hypot(dx, dy));
+            return {
+                dx / length,
+                dy / length,
+                bossCenterX >= playerCenterX ? 1 : -1,
+            };
+        }
+
+        const int fallbackDirection = m_player.facingRight ? 1 : -1;
+        return { static_cast<float>(fallbackDirection), 0.0f, fallbackDirection };
+    };
+
+    const auto resolveAttackAimTowardMidBoss2 = [&](float fromX, float fromY) -> AttackAim
+    {
+        const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+        const Entity* bestBoss = nullptr;
+        float bestDistanceSq = std::numeric_limits<float>::max();
+        for (const auto& candidate : m_world.Entities())
+        {
+            if (!candidate)
+            {
+                continue;
+            }
+
+            const auto* enemy = candidate->GetComponent<EnemyComponent>();
+            const auto* boss = candidate->GetComponent<MidBoss2Component>();
+            const auto* transform = candidate->GetComponent<TransformComponent>();
+            if (!enemy || !boss || !transform || !enemy->IsEnabled() || enemy->IsDefeated())
+            {
+                continue;
+            }
+
+            const float bossCenterX = transform->x + transform->width * transform->scale * 0.5f;
+            const float bossCenterY = transform->y + transform->height * transform->scale * 0.5f;
+            const float dx = bossCenterX - fromX;
+            const float dy = bossCenterY - fromY;
+            const float distanceSq = dx * dx + dy * dy;
+            if (distanceSq < bestDistanceSq)
+            {
+                bestDistanceSq = distanceSq;
+                bestBoss = candidate.get();
+            }
+        }
+
+        if (bestBoss)
+        {
+            const auto* transform = bestBoss->GetComponent<TransformComponent>();
+            const float bossCenterX = transform->x + transform->width * transform->scale * 0.5f;
+            const float bossCenterY = transform->y + transform->height * transform->scale * 0.5f;
+            const float dx = bossCenterX - fromX;
+            const float dy = bossCenterY - fromY;
+            const float length = std::max(0.001f, std::hypot(dx, dy));
+            return {
+                dx / length,
+                dy / length,
+                bossCenterX >= playerCenterX ? 1 : -1,
+            };
+        }
+
+        const int fallbackDirection = m_player.facingRight ? 1 : -1;
+        return { static_cast<float>(fallbackDirection), 0.0f, fallbackDirection };
+    };
+
+    if (attackItem->spawnArchetype == CapturedSpawnArchetype::MidBoss3FistAttack)
+    {
+        constexpr float kTileSize = 48.0f;
+        constexpr float kFistSpeed = 560.0f;
+        constexpr float kFistGap = kTileSize;
+        const float playerWidth = playerTransform->width * playerTransform->scale;
+        const float playerHeight = playerTransform->height * playerTransform->scale;
+        const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
+        const float playerCenterY = playerTransform->y + playerHeight * 0.5f;
+        const AttackAim placementAim = resolveAttackAimTowardBoss(playerCenterX, playerCenterY);
+        const int attackDirection = placementAim.direction;
+        const bool facingRight = attackDirection >= 0;
+        const float fistW = kTileSize * 3.0f;
+        const float fistH = kTileSize * 2.0f;
+        const float fistX = facingRight
+            ? playerTransform->x + playerWidth + kFistGap
+            : playerTransform->x - kFistGap - fistW;
+        const float fistY = playerTransform->y + playerHeight * 0.5f - fistH * 0.5f;
+        const AttackAim fireAim = resolveAttackAimTowardBoss(
+            fistX + fistW * 0.5f,
+            fistY + fistH * 0.5f);
+
+        auto fistEntity = std::make_unique<Entity>();
+        fistEntity->AddComponent<TagComponent>(kTagBullet);
+        fistEntity->AddComponent<TransformComponent>(fistX, fistY, fistW, fistH);
+        fistEntity->AddComponent<TintComponent>(0.96f, 0.52f, 0.18f, 1.0f);
+        fistEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        fistEntity->AddComponent<ProjectileComponent>(
+            fireAim.x * kFistSpeed,
+            fireAim.y * kFistSpeed,
+            1,
+            ProjectileComponent::Owner::Photo);
+        auto& attack = fistEntity->AddComponent<CapturedMidBoss3AttackComponent>(CapturedMidBoss3AttackKind::Fist);
+        attack.aimX = fireAim.x;
+        attack.aimY = fireAim.y;
+        attack.direction = fireAim.direction;
+        attack.launched = true;
+        if (auto* sprite = fistEntity->GetComponent<SpriteRenderComponent>())
+        {
+            sprite->SetSourceRect(0.0f, 0.0f, 1.0f, 1.0f);
+            sprite->SetFlipX(!facingRight);
+        }
+        if (auto* transform = fistEntity->GetComponent<TransformComponent>())
+        {
+            transform->rotation = std::atan2(fireAim.y, fireAim.x);
+        }
+        m_world.QueueSpawn(std::move(fistEntity));
+        finishAttackUse();
+        return;
+    }
+
+    if (attackItem->spawnArchetype == CapturedSpawnArchetype::MidBoss3DrillAttack)
+    {
+        constexpr float kTileSize = 48.0f;
+        constexpr float kDrillWaitSeconds = 3.0f;
+        const float playerWidth = playerTransform->width * playerTransform->scale;
+        const float playerHeight = playerTransform->height * playerTransform->scale;
+        const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
+        const float playerCenterY = playerTransform->y + playerHeight * 0.5f;
+        const AttackAim placementAim = resolveAttackAimTowardBoss(playerCenterX, playerCenterY);
+        const int attackDirection = placementAim.direction;
+        const float drillW = kTileSize * 4.0f;
+        const float drillH = kTileSize * 2.0f;
+        const float drillX = playerCenterX - drillW * 0.5f;
+        const float drillY = std::max(0.0f, playerTransform->y - drillH - kTileSize);
+
+        auto drillEntity = std::make_unique<Entity>();
+        drillEntity->AddComponent<TagComponent>(kTagBullet);
+        drillEntity->AddComponent<TransformComponent>(drillX, drillY, drillW, drillH);
+        drillEntity->AddComponent<TintComponent>(1.0f, 0.55f, 0.18f, 0.92f);
+        drillEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        drillEntity->AddComponent<ProjectileComponent>(0.0f, 0.0f, 2, ProjectileComponent::Owner::Photo);
+        auto& attack = drillEntity->AddComponent<CapturedMidBoss3AttackComponent>(CapturedMidBoss3AttackKind::Drill);
+        attack.waitRemaining = kDrillWaitSeconds;
+        attack.direction = attackDirection;
+        attack.aimX = static_cast<float>(attackDirection);
+        attack.aimY = 0.0f;
+        attack.launched = false;
+        attack.groundRush = false;
+        attack.attachedToBoss = false;
+        attack.bossDamageTimer = 0.0f;
+        attack.knockbackRemaining = 0.0f;
+        attack.followOffsetX = drillX - playerTransform->x;
+        attack.followOffsetY = drillY - playerTransform->y;
+        if (auto* transform = drillEntity->GetComponent<TransformComponent>())
+        {
+            const AttackAim fireAim = resolveAttackAimTowardBoss(
+                transform->x + transform->width * transform->scale * 0.5f,
+                transform->y + transform->height * transform->scale * 0.5f);
+            attack.aimX = fireAim.x;
+            attack.aimY = fireAim.y;
+            attack.direction = fireAim.direction;
+            transform->rotation = std::atan2(fireAim.y, fireAim.x);
+        }
+        m_world.QueueSpawn(std::move(drillEntity));
+        finishAttackUse();
+        return;
+    }
+
+    if (attackItem->spawnArchetype == CapturedSpawnArchetype::Projectile && attackItem->spearProjectile)
+    {
+        constexpr float kTileSize = 48.0f;
+        constexpr float kSpearLaunchDelay = 0.14f;
+        const float playerWidth = playerTransform->width * playerTransform->scale;
+        const float playerHeight = playerTransform->height * playerTransform->scale;
+        const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
+        const float spearW = attackItem->width > 0.0f ? attackItem->width : kTileSize;
+        const float spearH = attackItem->height > 0.0f ? attackItem->height : kTileSize * 2.0f;
+        const float kSpearSpawnGap = std::max(12.0f, playerHeight * 0.08f);
+        const float spearX = playerCenterX - spearW * 0.5f;
+        const float spearY = std::max(0.0f, playerTransform->y - spearH - kSpearSpawnGap);
+        const AttackAim fireAim = resolveAttackAimTowardMidBoss2(
+            spearX + spearW * 0.5f,
+            spearY + spearH * 0.5f);
+
+        auto spearEntity = std::make_unique<Entity>();
+        spearEntity->AddComponent<TagComponent>(kTagBullet);
+        spearEntity->AddComponent<TransformComponent>(spearX, spearY, spearW, spearH);
+        spearEntity->AddComponent<TintComponent>(attackItem->tintR, attackItem->tintG, attackItem->tintB, attackItem->tintA);
+        spearEntity->AddComponent<SpriteRenderComponent>(attackItem->textureId >= 0 ? attackItem->textureId : m_tileTexture);
+        spearEntity->AddComponent<ProjectileComponent>(0.0f, 0.0f, attackItem->projectileDamage, ProjectileComponent::Owner::Photo);
+        auto& spear = spearEntity->AddComponent<MidBoss2SpearComponent>();
+        spear.launched = false;
+        spear.stuck = false;
+        spear.directionX = fireAim.x;
+        spear.directionY = fireAim.y;
+        spear.targetDirectionX = fireAim.x;
+        spear.targetDirectionY = fireAim.y;
+        spear.launchDelay = kSpearLaunchDelay;
+        spear.launchTimer = 0.0f;
+        spear.fadeDuration = 1.0f;
+        spear.fadeRemaining = spear.fadeDuration;
+        spear.travelDistance = 0.0f;
+        if (auto* transform = spearEntity->GetComponent<TransformComponent>())
+        {
+            transform->rotation = std::atan2(fireAim.y, fireAim.x);
+        }
+        m_world.QueueSpawn(std::move(spearEntity));
+        Logger::Info(
+            std::string("AttackPaste spawned MidBoss2 spear: x=") +
+            std::to_string(spearX) +
+            " y=" + std::to_string(spearY) +
+            " dirX=" + std::to_string(fireAim.x) +
+            " dirY=" + std::to_string(fireAim.y) +
+            " countBefore=" + std::to_string(GetAttackCaptureCount(m_photo.attackCapture)));
+        finishAttackUse(std::max(0, GetAttackCaptureCount(m_photo.attackCapture) - 1));
+        return;
+    }
 
     if (attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst ||
         attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst)
@@ -88,14 +483,33 @@ void GameScene::TryUseAttackCaptureSlot()
         constexpr float kTileSize = 48.0f;
         constexpr float kBossRushSpeed = 520.0f;
         constexpr float kBossJumpDescendSpeed = 1200.0f;
+        constexpr float kBossSlamShieldVisualWidth = 288.0f;
+        constexpr float kBossSlamShieldVisualHeight = 234.0f;
+        constexpr int kCapturedBossRushStartFrame = 80;
+        constexpr int kCapturedBossSlamStartFrame = 99;
+        constexpr float kCapturedBossRushVisualLifetime = 0.5f;
+        constexpr float kCapturedBossSlamVisualLifetime = 0.65f;
+        const bool rushCapture = attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst;
+        const bool slamCapture = attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldJumpBurst;
+        const bool spawnBossAttackVisual = rushCapture;
         const bool facingRight = m_player.facingRight;
+        const float rushVelocityX = facingRight ? kBossRushSpeed : -kBossRushSpeed;
+        const float visualVelocityX = rushCapture ? rushVelocityX : 0.0f;
+        const float visualVelocityY = slamCapture ? kBossJumpDescendSpeed : 0.0f;
+        const float capturedBossVisualLifetime = rushCapture
+            ? kCapturedBossRushVisualLifetime
+            : kCapturedBossSlamVisualLifetime;
+        const int capturedBossVisualStartFrame = rushCapture
+            ? kCapturedBossRushStartFrame
+            : kCapturedBossSlamStartFrame;
+        const int attackPasteOrder = m_photo.groups.nextPasteOrder++;
         const float playerWidth = playerTransform->width * playerTransform->scale;
         const float playerHeight = playerTransform->height * playerTransform->scale;
         const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
         const float playerFootY = playerTransform->y + playerHeight;
 
         float shieldW = kTileSize;
-        float shieldH = kTileSize * 3.0f;
+        float shieldH = kTileSize * 4.0f;
         float shieldX = facingRight
             ? playerTransform->x + playerWidth
             : playerTransform->x - shieldW;
@@ -103,8 +517,6 @@ void GameScene::TryUseAttackCaptureSlot()
 
         if (attackItem->spawnArchetype == CapturedSpawnArchetype::ShieldRushBurst)
         {
-            shieldW = kTileSize * 2.0f;
-            shieldH = kTileSize * 4.0f;
             shieldX = facingRight
                 ? playerTransform->x + playerWidth
                 : playerTransform->x - shieldW;
@@ -112,24 +524,28 @@ void GameScene::TryUseAttackCaptureSlot()
         }
         else
         {
-            shieldW = kTileSize * 3.0f;
-            shieldH = kTileSize;
+            shieldW = kBossSlamShieldVisualWidth;
+            shieldH = kBossSlamShieldVisualHeight;
             const float playerFrontX = facingRight
-                ? playerTransform->x + playerWidth + shieldW * 0.5f
-                : playerTransform->x - shieldW * 0.5f;
+                ? playerTransform->x + playerWidth + kTileSize * 0.5f
+                : playerTransform->x - kTileSize * 0.5f;
             shieldX = playerFrontX - shieldW * 0.5f;
             shieldY = playerFootY - kTileSize * 6.0f - shieldH;
         }
 
         auto shieldEntity = std::make_unique<Entity>();
         shieldEntity->AddComponent<TagComponent>("CapturedShield");
+        shieldEntity->AddComponent<PhotoPasteOrderComponent>(attackPasteOrder);
         shieldEntity->AddComponent<TransformComponent>(shieldX, shieldY, shieldW, shieldH);
         shieldEntity->AddComponent<TintComponent>(
             attackItem->tintR,
             attackItem->tintG,
             attackItem->tintB,
-            attackItem->tintA);
-        shieldEntity->AddComponent<SpriteRenderComponent>(attackItem->textureId >= 0 ? attackItem->textureId : m_tileTexture);
+            rushCapture ? 0.0f : attackItem->tintA);
+        const int actualShieldTextureId = slamCapture
+            ? m_assets.GetTexture("boss1_shield_attack02")
+            : attackItem->textureId;
+        shieldEntity->AddComponent<SpriteRenderComponent>(actualShieldTextureId >= 0 ? actualShieldTextureId : m_tileTexture);
         auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
         shieldComp.attached = false;
         shieldComp.photoSpawned = true;
@@ -141,7 +557,20 @@ void GameScene::TryUseAttackCaptureSlot()
         shieldComp.grounded = false;
         shieldComp.shockwaveSpawned = false;
 
-        if (auto* sprite = shieldEntity->GetComponent<SpriteRenderComponent>())
+        if (slamCapture)
+        {
+            ConfigureBossShieldSpriteAnimation(*shieldEntity);
+            if (auto* animation = shieldEntity->GetComponent<SpriteSheetAnimationComponent>())
+            {
+                animation->Play("attack02", true);
+                animation->SetCurrentLocalFrameIndex(kCapturedBossSlamStartFrame);
+            }
+            if (auto* sprite = shieldEntity->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetFlipX(facingRight);
+            }
+        }
+        else if (auto* sprite = shieldEntity->GetComponent<SpriteRenderComponent>())
         {
             sprite->SetSourceRect(attackItem->sourceX, attackItem->sourceY, attackItem->sourceWidth, attackItem->sourceHeight);
             sprite->SetFlipX(!facingRight);
@@ -152,7 +581,7 @@ void GameScene::TryUseAttackCaptureSlot()
             shieldComp.capturedMode = CapturedShieldMode::RushBurst;
             shieldComp.gravityEnabled = false;
             shieldComp.contactDamage = 2;
-            shieldComp.velocityX = facingRight ? kBossRushSpeed : -kBossRushSpeed;
+            shieldComp.velocityX = rushVelocityX;
             shieldEntity->AddComponent<PhotoCopyLifetimeComponent>(0.5f);
         }
         else
@@ -168,7 +597,107 @@ void GameScene::TryUseAttackCaptureSlot()
             shieldEntity->AddComponent<PhotoCopyLifetimeComponent>(2.0f);
         }
 
-        m_entities.push_back(std::move(shieldEntity));
+        m_world.Spawn(std::move(shieldEntity));
+        if (spawnBossAttackVisual)
+        {
+            const bool hasBossMotionItem = bossMotionItem != nullptr;
+            const float relativeVisualX = hasBossMotionItem ? bossMotionItem->relativeX - attackItem->relativeX : 0.0f;
+            const float relativeVisualY = hasBossMotionItem ? bossMotionItem->relativeY - attackItem->relativeY : 0.0f;
+            const float bossVisualWidth = hasBossMotionItem ? bossMotionItem->width : kTileSize * 5.0f;
+            const float bossVisualHeight = hasBossMotionItem ? bossMotionItem->height : kTileSize * 4.0625f;
+            const float bossVisualX = hasBossMotionItem
+                ? shieldX + relativeVisualX
+                : shieldX + shieldW * 0.5f - bossVisualWidth * 0.5f;
+            const float bossVisualY = hasBossMotionItem
+                ? shieldY + relativeVisualY
+                : shieldY + shieldH * 0.5f - bossVisualHeight * 0.5f;
+            const float visualRotation = hasBossMotionItem ? bossMotionItem->rotation : 0.0f;
+            const PhotoFilterTheme visualTheme = hasBossMotionItem ? bossMotionItem->appliedTheme : attackItem->appliedTheme;
+            const int bodyTextureId = hasBossMotionItem && bossMotionItem->textureId >= 0
+                ? bossMotionItem->textureId
+                : m_assets.GetTexture(rushCapture ? "boss1_body_attack01" : "boss1_body_attack02");
+            const int shieldTextureId = attackItem->textureId >= 0
+                ? attackItem->textureId
+                : m_assets.GetTexture(rushCapture ? "boss1_shield_attack01" : "boss1_shield_attack02");
+            const float bossTintR = hasBossMotionItem ? bossMotionItem->tintR : attackItem->tintR;
+            const float bossTintG = hasBossMotionItem ? bossMotionItem->tintG : attackItem->tintG;
+            const float bossTintB = hasBossMotionItem ? bossMotionItem->tintB : attackItem->tintB;
+            const float bossTintA = hasBossMotionItem ? bossMotionItem->tintA : 0.92f;
+
+            auto bossVisualEntity = std::make_unique<Entity>();
+            bossVisualEntity->AddComponent<TagComponent>(kTagPhotoBox);
+            bossVisualEntity->AddComponent<PhotoPasteOrderComponent>(attackPasteOrder);
+            bossVisualEntity->AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
+            bossVisualEntity->AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+            bossVisualEntity->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Enemy);
+            bossVisualEntity->AddComponent<PhotoCopyEffectComponent>(visualTheme);
+            bossVisualEntity->AddComponent<PhotoCopyLifetimeComponent>(capturedBossVisualLifetime);
+            auto& bossVisualTransform = bossVisualEntity->AddComponent<TransformComponent>(
+                bossVisualX,
+                bossVisualY,
+                bossVisualWidth,
+                bossVisualHeight);
+            if (rushCapture || slamCapture)
+            {
+                auto& motion = bossVisualEntity->AddComponent<PhotoMotionComponent>(visualVelocityX, visualVelocityY);
+                motion.BindTransform(&bossVisualTransform);
+            }
+            bossVisualEntity->AddComponent<TintComponent>(
+                bossTintR,
+                bossTintG,
+                bossTintB,
+                bossTintA);
+            bossVisualEntity->AddComponent<SpriteRenderComponent>(
+                bodyTextureId >= 0 ? bodyTextureId : m_tileTexture);
+            ConfigureShieldBossSpriteAnimation(*bossVisualEntity);
+            const char* clipName = rushCapture ? "attack01" : "attack02";
+            if (auto* animation = bossVisualEntity->GetComponent<SpriteSheetAnimationComponent>())
+            {
+                animation->Play(clipName, true);
+                animation->SetCurrentLocalFrameIndex(capturedBossVisualStartFrame);
+            }
+            if (auto* sprite = bossVisualEntity->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetFlipX(facingRight);
+            }
+            bossVisualTransform.rotation = visualRotation;
+            m_world.Spawn(std::move(bossVisualEntity));
+
+            auto shieldVisualEntity = std::make_unique<Entity>();
+            shieldVisualEntity->AddComponent<TagComponent>(kTagPhotoBox);
+            shieldVisualEntity->AddComponent<PhotoPasteOrderComponent>(attackPasteOrder);
+            shieldVisualEntity->AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
+            shieldVisualEntity->AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+            shieldVisualEntity->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Enemy);
+            shieldVisualEntity->AddComponent<PhotoCopyEffectComponent>(attackItem->appliedTheme);
+            shieldVisualEntity->AddComponent<PhotoCopyLifetimeComponent>(capturedBossVisualLifetime);
+            auto& shieldVisualTransform = shieldVisualEntity->AddComponent<TransformComponent>(
+                bossVisualX,
+                bossVisualY,
+                bossVisualWidth,
+                bossVisualHeight);
+            shieldVisualTransform.rotation = visualRotation;
+            auto& shieldVisualMotion = shieldVisualEntity->AddComponent<PhotoMotionComponent>(visualVelocityX, visualVelocityY);
+            shieldVisualMotion.BindTransform(&shieldVisualTransform);
+            shieldVisualEntity->AddComponent<TintComponent>(
+                attackItem->tintR,
+                attackItem->tintG,
+                attackItem->tintB,
+                attackItem->tintA);
+            shieldVisualEntity->AddComponent<SpriteRenderComponent>(
+                shieldTextureId >= 0 ? shieldTextureId : m_tileTexture);
+            ConfigureBossShieldSpriteAnimation(*shieldVisualEntity);
+            if (auto* animation = shieldVisualEntity->GetComponent<SpriteSheetAnimationComponent>())
+            {
+                animation->Play(clipName, true);
+                animation->SetCurrentLocalFrameIndex(capturedBossVisualStartFrame);
+            }
+            if (auto* sprite = shieldVisualEntity->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetFlipX(facingRight);
+            }
+            m_world.Spawn(std::move(shieldVisualEntity));
+        }
         finishAttackUse();
         return;
     }
@@ -196,7 +725,7 @@ void GameScene::TryUseAttackCaptureSlot()
     attackEntity->AddComponent<TintComponent>(1.0f, 0.55f, 0.15f, 0.72f);
     attackEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
     attackEntity->AddComponent<PhotoCopyLifetimeComponent>(kAttackLifetime);
-    m_entities.push_back(std::move(attackEntity));
+    m_world.Spawn(std::move(attackEntity));
 
     finishAttackUse();
 }
@@ -208,8 +737,8 @@ void GameScene::StartCameraFlashPulse(float durationSeconds)
         return;
     }
 
-    m_flow.cameraFlash.pulseDuration = (std::max)(m_flow.cameraFlash.pulseDuration, durationSeconds);
-    m_flow.cameraFlash.pulseRemaining = (std::max)(m_flow.cameraFlash.pulseRemaining, durationSeconds);
+    m_ui.cameraFlash.pulseDuration = (std::max)(m_ui.cameraFlash.pulseDuration, durationSeconds);
+    m_ui.cameraFlash.pulseRemaining = (std::max)(m_ui.cameraFlash.pulseRemaining, durationSeconds);
 }
 
 void GameScene::StoreCapturedPhoto()
@@ -219,7 +748,9 @@ void GameScene::StoreCapturedPhoto()
     for (const auto& item : m_photo.capture.items)
     {
         if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround ||
-            item.sepiaRestoredMarkerObject)
+            item.sepiaRestoredMarkerObject ||
+            (item.spawnArchetype == CapturedSpawnArchetype::FallingRock &&
+                item.appliedTheme == PhotoFilterTheme::Sepia))
         {
             hasSepiaGroundItem = true;
             break;
@@ -228,6 +759,7 @@ void GameScene::StoreCapturedPhoto()
 
     const bool sepiaDryRun = 
 		!hasSepiaGroundItem &&
+        !m_photo.capture.containsEnemyAttackPaste &&
         (m_debug.sepiaFilmFilterDryRunEnabled ||
          m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia ||
          m_photo.capture.capturedTheme == PhotoFilterTheme::Sepia);
@@ -244,17 +776,24 @@ void GameScene::StoreCapturedPhoto()
 
     if (m_photo.capture.containsEnemyAttackPaste)
     {
+        const int existingCount = GetAttackCaptureCount(m_photo.attackCapture);
+        const int captureCount = GetAttackCaptureCount(m_photo.capture);
         const PhotoFilterTheme selectedTheme = m_photo.capture.selectedTheme;
         // Enemy attacks use a dedicated one-slot inventory and never enter the photo tray.
         m_photo.attackCapture = m_photo.capture;
-        m_photo.capture = PhotoCaptureState{};
+        m_photo.attackCapture.attackCaptureCount = existingCount + captureCount;
+        m_photo.capture = PhotoCaptureState{}; 
         m_photo.capture.selectedTheme = selectedTheme;
         m_photo.pendingStore = PendingPhotoStoreState{};
         return;
     }
 
     int slotToStore = -1;
-    for (int index = 0; index < static_cast<int>(m_photo.savedCaptures.size()); ++index)
+    const int usablePhotoSlots = std::clamp(
+        GameSession_Get().photoStorageSlots,
+        1,
+        static_cast<int>(m_photo.savedCaptures.size()));
+    for (int index = 0; index < usablePhotoSlots; ++index)
     {
         if (!m_photo.savedCaptures[index].hasPhoto)
         {
@@ -265,7 +804,7 @@ void GameScene::StoreCapturedPhoto()
 
     if (slotToStore < 0)
     {
-        slotToStore = m_photo.nextCaptureSlot;
+        slotToStore = std::clamp(m_photo.nextCaptureSlot, 0, usablePhotoSlots - 1);
     }
 
     m_photo.pendingStore.active = true;
@@ -274,7 +813,7 @@ void GameScene::StoreCapturedPhoto()
     m_photo.pendingStore.capture = m_photo.capture;
     m_photo.savedCaptures[slotToStore] = m_photo.capture;
     m_photo.selectedCaptureSlot = slotToStore;
-    m_photo.nextCaptureSlot = (slotToStore + 1) % static_cast<int>(m_photo.savedCaptures.size());
+    m_photo.nextCaptureSlot = (slotToStore + 1) % usablePhotoSlots;
 }
 
 void GameScene::CommitPendingCapturedPhoto()
@@ -292,7 +831,10 @@ void GameScene::CommitPendingCapturedPhoto()
     bool hasSepiaGroundItem = false;
     for (const auto& item : m_photo.pendingStore.capture.items)
     {
-        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround ||
+            item.sepiaRestoredMarkerObject ||
+            (item.spawnArchetype == CapturedSpawnArchetype::FallingRock &&
+                item.appliedTheme == PhotoFilterTheme::Sepia))
         {
             hasSepiaGroundItem = true;
             break;
@@ -300,6 +842,7 @@ void GameScene::CommitPendingCapturedPhoto()
     }
     const bool sepiaDryRun =
 		!hasSepiaGroundItem &&
+        !m_photo.pendingStore.capture.containsEnemyAttackPaste &&
         (m_debug.sepiaFilmFilterDryRunEnabled ||
          m_photo.pendingStore.capture.selectedTheme == PhotoFilterTheme::Sepia ||
          m_photo.pendingStore.capture.capturedTheme == PhotoFilterTheme::Sepia);
@@ -381,7 +924,7 @@ void GameScene::UpdatePhotoTraySelection()
 {
     game_scene_photo_tray_system::UpdateSelection(
         m_photo,
-        m_flow.photoTrayReveal,
+        m_ui.photoTrayReveal,
         [this](int slotIndex)
         {
             SetSelectedPhotoSlot(slotIndex);
@@ -407,7 +950,7 @@ void GameScene::HandleAttackHits()
     const float playerTop = playerTransform->y;
     const float playerBottom = playerTransform->y + playerTransform->height * playerTransform->scale;
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
     {
         if (!entity)
         {
@@ -430,7 +973,7 @@ void GameScene::HandleAttackHits()
 
             if (intersects)
             {
-                HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by melee attack");
+                HandlePlayerDamage(*player, entity, "GameScene player damaged by melee attack");
             }
         }
     }
@@ -466,7 +1009,7 @@ void GameScene::RefreshPhotoGroupState()
     m_photo.groups.hasSpawnedCopy = FindEntityByTag(kTagPhotoBox) != nullptr;
     int maxGroupId = 0;
     std::vector<int> groups;
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, kTagPhotoBox))
         {
@@ -494,7 +1037,7 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
         return;
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -548,3 +1091,5 @@ void GameScene::UpdateSepiaRestoredLifetimes(float deltaTime)
         }
     }
 }
+
+

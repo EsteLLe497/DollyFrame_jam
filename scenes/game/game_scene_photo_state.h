@@ -11,6 +11,7 @@ enum class CapturedSpawnArchetype
     None,
     Log,
     Barrel,
+    FallingRock,
     Battery,
     Projectile,
     LaserTurret,
@@ -19,6 +20,8 @@ enum class CapturedSpawnArchetype
     ShieldRushBurst,
     ShieldJumpBurst,
     SepiaGround,
+    MidBoss3FistAttack,
+    MidBoss3DrillAttack,
 };
 
 enum class PhotoPlacementRuleGroup
@@ -63,7 +66,7 @@ inline constexpr std::array<PhotoPlacementRuleDefinition, 3> kPhotoPlacementRule
     },
     PhotoPlacementRuleDefinition{
         PhotoPlacementRuleGroup::Group3,
-        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // 制限なし
+        ToPlacementForbiddenMask(PhotoPlacementForbiddenTarget::None),  // 制限なぁE
     },
 };
 
@@ -123,6 +126,7 @@ struct CapturedPhotoItem
     bool flipX = false;
     bool vanishOnCapture = false;
     bool enemyAttackPaste = false;
+    int attackCaptureCount = 0;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
     PhotoPlacementRuleGroup placementRuleGroup = PhotoPlacementRuleGroup::Group1;
     float projectileVelocityX = 0.0f;
@@ -138,6 +142,7 @@ struct CapturedPhotoItem
     float laserEnemyKnockbackSpeed = 0.0f;
     float lightRadius = 0.0f;
     float lightIntensity = 0.0f;
+    int bossMotionClip = 0;
     std::vector<OutlinePoint> collisionOutline;
 };
 
@@ -146,6 +151,7 @@ struct PhotoCaptureState
     bool hasPhoto = false;
     PhotoFilterTheme selectedTheme = PhotoFilterTheme::None;
     PhotoFilterTheme capturedTheme = PhotoFilterTheme::None;
+    int attackCaptureCount = 0;
     std::vector<CapturedPhotoItem> items;
     bool containsEnemyAttackPaste = false;
     int textureId = -1;
@@ -200,7 +206,7 @@ struct PhotoState
 {
     PhotoCaptureState capture;
     PhotoCaptureState attackCapture;
-    std::array<PhotoCaptureState, 3> savedCaptures;
+    std::array<PhotoCaptureState, 4> savedCaptures;
     int selectedCaptureSlot = 0;
     int nextCaptureSlot = 0;
     PendingPhotoStoreState pendingStore;

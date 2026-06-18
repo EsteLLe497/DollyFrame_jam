@@ -1,4 +1,4 @@
-ï»¿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "DxLib.h"
@@ -32,22 +32,22 @@ void GameScene::UpdateCameraMode()
 float GameScene::UpdatePhotoModes(float deltaTime)
 {
     UpdateCameraMode();
-    m_flow.captureRapidTimer = std::max(0.0f, m_flow.captureRapidTimer - deltaTime);
-    m_flow.captureLockoutRemaining = std::max(0.0f, m_flow.captureLockoutRemaining - deltaTime);
-    if (m_flow.captureRapidTimer <= 0.0f)
+    m_ui.captureRapidTimer = std::max(0.0f, m_ui.captureRapidTimer - deltaTime);
+    m_ui.captureLockoutRemaining = std::max(0.0f, m_ui.captureLockoutRemaining - deltaTime);
+    if (m_ui.captureRapidTimer <= 0.0f)
     {
-        m_flow.captureRapidCount = 0;
+        m_ui.captureRapidCount = 0;
     }
 
-    // 3çŠ¶æ…‹ï¼ˆæ’®å½±/é…ç½®/ç¾åƒãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ï¼‰ã‹ã‚‰ã€ãƒˆãƒ¬ã‚¤è¡¨ç¤ºã¨ã‚¹ãƒ­ãƒ¼æ¼”å‡ºã‚’ä¸€å…ƒæ±ºå®šã™ã‚‹ã€‚
+    // 3ó‘ÔiŽB‰e/”z’u/Œ»‘œƒvƒŒƒrƒ…[j‚©‚çAƒgƒŒƒC•\Ž¦‚ÆƒXƒ[‰‰o‚ðˆêŒ³Œˆ’è‚·‚éB
     const bool placementActive = m_photo.placement.active;
-    const bool previewActive = m_photo.pendingStore.active && m_flow.developedPhotoPreviewRemaining > 0.0f;
+    const bool previewActive = m_photo.pendingStore.active && m_ui.developedPhotoPreviewRemaining > 0.0f;
     const bool previewOrbAttached =
         previewActive &&
-        m_flow.developedPhotoPreviewRemaining <= 0.34f;
+        m_ui.developedPhotoPreviewRemaining <= 0.34f;
     const bool showPhotoTray = true;
     const float trayTarget = 1.0f;
-    m_flow.photoTrayReveal += (trayTarget - m_flow.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
+    m_ui.photoTrayReveal += (trayTarget - m_ui.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
     if (showPhotoTray)
     {
         UpdatePhotoTraySelection();
@@ -58,7 +58,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
     m_flow.placementSlowRemaining = placementActive ? kPlacementFocusDuration : 0.0f;
     const bool slowForCapture = m_flow.cameraMode;
     const bool slowForPlacement = placementActive;
-    // ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ä¸­ã ã‘ã‚²ãƒ¼ãƒ å…¨ä½“ã‚’æ¸›é€Ÿã•ã›ã‚‹ã€‚
+    // ƒtƒH[ƒJƒX’†‚¾‚¯ƒQ[ƒ€‘S‘Ì‚ðŒ¸‘¬‚³‚¹‚éB
     return (slowForCapture || slowForPlacement)
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
@@ -97,8 +97,8 @@ void GameScene::UpdateCaptureFinderZoomInput()
 
     if (zoomDirection != 0)
     {
-        m_flow.captureFinderScale = std::clamp(
-            m_flow.captureFinderScale + static_cast<float>(zoomDirection) * kCaptureFinderScaleStep,
+        m_ui.captureFinderScale = std::clamp(
+            m_ui.captureFinderScale + static_cast<float>(zoomDirection) * kCaptureFinderScaleStep,
             kCaptureFinderScaleMin,
             kCaptureFinderScaleMax);
     }

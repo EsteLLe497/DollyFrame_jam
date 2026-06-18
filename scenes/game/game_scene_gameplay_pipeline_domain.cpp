@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -18,11 +18,15 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     TryUseAttackCaptureSlot();
     HandlePhotoSpawn();
     UpdateBarrels(gameplayDeltaTime);
+    UpdateFallingRocks(gameplayDeltaTime);
+    UpdateJumpPads(gameplayDeltaTime);
     UpdateBatteries(gameplayDeltaTime);
     UpdateLaserTurrets(gameplayDeltaTime);
     UpdateLinkedGimmicks(gameplayDeltaTime);
+    UpdateMerchants(gameplayDeltaTime);
     UpdateEnemies();
     UpdateShields(gameplayDeltaTime);
+    ApplyShieldBossSlamCameraWork(gameplayDeltaTime);
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
     UpdateSepiaRestoredLifetimes(gameplayDeltaTime);
@@ -38,11 +42,5 @@ void GameScene::ResolveGameplayOutcomes(float gameplayDeltaTime)
 
 void GameScene::FlushPendingEntities()
 {
-    // Flush entities queued during gameplay update.
-    for (auto& entity : m_pendingEntities)
-    {
-        m_entities.push_back(std::move(entity));
-    }
-    m_pendingEntities.clear();
+    m_world.FlushPending();
 }
-

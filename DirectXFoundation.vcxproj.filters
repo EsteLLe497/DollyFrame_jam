@@ -99,7 +99,13 @@
     <ClCompile Include="core\event_bus.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="core\game_object_world.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="scenes\game\game_scene.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_viewport.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
     <ClCompile Include="scenes\game\game_scene_collision.cpp">
@@ -112,6 +118,9 @@
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
     <ClCompile Include="scenes\game\game_scene_player_state_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_player_state_logic.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
     <ClCompile Include="scenes\game\game_scene_render.cpp">
@@ -138,6 +147,9 @@
     <ClCompile Include="scenes\game\game_scene_gimmick_domain.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_merchant_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
     <ClCompile Include="core\game_session.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -160,6 +172,9 @@
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="gameplay\photo_filter_rules.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="gameplay\photo_geometry.cpp">
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="gameplay\photo_shared.cpp">
@@ -398,8 +413,14 @@
     <ClInclude Include="gameplay\components.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
+    <ClInclude Include="gameplay\entity_tag.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
     <ClInclude Include="scenes\demo_scene.h">
       <Filter>Header Files\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\game\game_viewport.h">
+      <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>
     <ClInclude Include="rendering\directX.h">
       <Filter>Header Files\Rendering</Filter>
@@ -417,6 +438,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="core\game_object.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\game_object_world.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="scenes\game\game_scene.h">

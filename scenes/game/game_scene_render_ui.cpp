@@ -22,9 +22,11 @@ namespace
     constexpr float kStageTransitionFadeOutDuration = 0.45f;
     constexpr float kStageTransitionFadeInDuration = 1.10f;
 
-    constexpr int kPhotoTraySlotCount = 3;
-    constexpr float kPhotoTraySlotWidth = 270.0f;
-    constexpr float kPhotoTraySlotHeight = 140.0f;
+    constexpr int kPhotoTraySlotCount = 4;
+    constexpr int kPhotoTrayOriginalSlotCount = 3;
+    constexpr float kPhotoTrayScale = 1.1f;
+    constexpr float kPhotoTraySlotWidth = 270.0f * kPhotoTrayScale;
+    constexpr float kPhotoTraySlotHeight = kPhotoTraySlotWidth * 89.0f / 127.0f;
     constexpr float kPhotoTraySlotGap = 18.0f;
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
@@ -39,6 +41,8 @@ namespace
     constexpr float kTuningButtonWidth = 52.0f;
     constexpr float kTuningButtonHeight = 18.0f;
     constexpr int kDarknessOverlayActiveLightLimit = 6;
+    constexpr float kPhotoTrayBottomMargin = 28.0f;
+    constexpr float kPhotoTrayHiddenOffset = 36.0f;
 
     float SmoothStep01(float t);
 
@@ -74,6 +78,20 @@ namespace
         int maxDarknessAlpha = 0;
         float tileSize = 0.0f;
     };
+
+    float GetPhotoTrayLeftX()
+    {
+        const float originalTrayWidth = kPhotoTrayOriginalSlotCount * kPhotoTraySlotWidth +
+            (kPhotoTrayOriginalSlotCount - 1) * kPhotoTraySlotGap;
+        return (static_cast<float>(SCREEN_WIDTH) - originalTrayWidth) * 0.5f -
+            (kPhotoTraySlotWidth + kPhotoTraySlotGap);
+    }
+
+    float GetPhotoTrayTopY(float trayReveal)
+    {
+        const float hiddenOffset = (1.0f - trayReveal) * (kPhotoTraySlotHeight + kPhotoTrayHiddenOffset);
+        return static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - kPhotoTrayBottomMargin + hiddenOffset;
+    }
 
     float WorldToOverlayScreenX(const DarknessOverlayContext& ctx, float worldX)
     {
@@ -114,6 +132,129 @@ namespace
         overlayLights.push_back(light);
     }
 
+    template <typename Fn>
+    void ForEachCaptureTargetCandidate(
+        const GameScene& scene,
+        const TransformComponent& captureFrame,
+        Fn&& fn)
+    {
+        const auto& photoBoxEntities = scene.EntitiesByTag(EntityTag::PhotoBox);
+        const auto& goalEntities = scene.EntitiesByTag(EntityTag::Goal);
+        const auto& photoSourceEntities = scene.EntitiesByTag(EntityTag::PhotoSource);
+        const auto& hazardEntities = scene.EntitiesByTag(EntityTag::Hazard);
+        const auto& bulletEntities = scene.EntitiesByTag(EntityTag::Bullet);
+        const auto& dropItemEntities = scene.EntitiesByTag(EntityTag::DropItem);
+        const auto& batteryEntities = scene.EntitiesByTag(EntityTag::Battery);
+        const auto& logEntities = scene.EntitiesByTag(EntityTag::Log);
+        const auto& damagePlatformEntities = scene.EntitiesByTag(EntityTag::DamagePlatform);
+        const auto& damagePlatformSpikeEntities = scene.EntitiesByTag(EntityTag::DamagePlatformSpike);
+        const auto& laserTurretEntities = scene.EntitiesByTag(EntityTag::LaserTurret);
+        const auto& markerLightEntities = scene.EntitiesByTag(EntityTag::MarkerLight);
+        const auto& sepiaRubbleEntities = scene.EntitiesByTag(EntityTag::SepiaRubble);
+        const auto& sepiaElevatorEntities = scene.EntitiesByTag(EntityTag::SepiaElevator);
+        const auto& filterEntities = scene.EntitiesByTag(EntityTag::Filter);
+        const auto& barrelEntities = scene.EntitiesByTag(EntityTag::Barrel);
+        const auto& shieldEntities = scene.EntitiesByTag(EntityTag::Shield);
+        const auto& bossShieldEntities = scene.EntitiesByTag(EntityTag::BossShield);
+        const auto& boss1ShieldEntities = scene.EntitiesByTag(EntityTag::Boss1Shield);
+        const auto& midBoss1ShieldEntities = scene.EntitiesByTag(EntityTag::MidBoss1Shield);
+        const auto& capturedShieldEntities = scene.EntitiesByTag(EntityTag::CapturedShield);
+        const auto& walkerMeleeAttackEntities = scene.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+        const auto& bossShockwaveEntities = scene.EntitiesByTag(EntityTag::BossShockwave);
+
+        auto considerCaptureTarget = [&](Entity* entity)
+        {
+            if (!entity)
+            {
+                return;
+            }
+
+            if (HasTag(*entity, EntityTag::Player) ||
+                HasTag(*entity, EntityTag::Enemy) ||
+                HasTag(*entity, EntityTag::BatterySwitch) ||
+                HasTag(*entity, EntityTag::Elevator) ||
+                HasTag(*entity, EntityTag::LaserSwitch) ||
+                HasTag(*entity, EntityTag::Shutter) ||
+                HasTag(*entity, EntityTag::LaserBeam) ||
+                HasTag(*entity, EntityTag::StageLight))
+            {
+                return;
+            }
+
+            if (HasTag(*entity, EntityTag::PhotoBox))
+            {
+                const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
+                if (!layer || layer->layer != PhotoCopyLayer::Foreground)
+                {
+                    return;
+                }
+
+                if (const auto* pasteAnimation = entity->GetComponent<PhotoPasteAnimationComponent>())
+                {
+                    if (!pasteAnimation->IsFinished())
+                    {
+                        return;
+                    }
+                }
+            }
+
+            if (const auto* shield = entity->GetComponent<ShieldComponent>())
+            {
+                if (shield->ownerBoss)
+                {
+                    if (const auto* boss = shield->ownerBoss->GetComponent<ShieldBossComponent>())
+                    {
+                        if (boss->deathAnimationActive || boss->deathAnimationFinished)
+                        {
+                            return;
+                        }
+                    }
+                }
+            }
+
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            const auto* sprite = entity->GetComponent<SpriteRenderComponent>();
+            if (!transform || !sprite || !IntersectsRect(captureFrame, *transform))
+            {
+                return;
+            }
+
+            fn(entity, *transform);
+        };
+
+        auto scanCandidates = [&](const std::vector<Entity*>& entities)
+        {
+            for (Entity* entity : entities)
+            {
+                considerCaptureTarget(entity);
+            }
+        };
+
+        scanCandidates(photoBoxEntities);
+        scanCandidates(goalEntities);
+        scanCandidates(photoSourceEntities);
+        scanCandidates(hazardEntities);
+        scanCandidates(bulletEntities);
+        scanCandidates(dropItemEntities);
+        scanCandidates(batteryEntities);
+        scanCandidates(logEntities);
+        scanCandidates(damagePlatformEntities);
+        scanCandidates(damagePlatformSpikeEntities);
+        scanCandidates(laserTurretEntities);
+        scanCandidates(markerLightEntities);
+        scanCandidates(sepiaRubbleEntities);
+        scanCandidates(sepiaElevatorEntities);
+        scanCandidates(filterEntities);
+        scanCandidates(barrelEntities);
+        scanCandidates(shieldEntities);
+        scanCandidates(bossShieldEntities);
+        scanCandidates(boss1ShieldEntities);
+        scanCandidates(midBoss1ShieldEntities);
+        scanCandidates(capturedShieldEntities);
+        scanCandidates(walkerMeleeAttackEntities);
+        scanCandidates(bossShockwaveEntities);
+    }
+
     void AddPlayerOverlayLight(std::vector<OverlayLightSource>& overlayLights, const DarknessOverlayContext& ctx, float innerRadius, float outerRadius)
     {
         AppendOverlayLight(
@@ -135,17 +276,13 @@ namespace
     }
 
     void CollectMarkerLightOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagMarkerLight))
-            {
-                continue;
-            }
-
+            if (!entity) continue;
             const auto* extraLight = entity->GetComponent<MarkerLightComponent>();
             const auto* extraTransform = entity->GetComponent<TransformComponent>();
             if (!extraLight || !extraTransform || !extraLight->activated)
@@ -173,20 +310,16 @@ namespace
                 ctx,
                 12.0f);
         }
-    }
+    };
 
     void CollectStageLightOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagStageLight))
-            {
-                continue;
-            }
-
+            if (!entity) continue;
             const auto* stageLight = entity->GetComponent<StageLightComponent>();
             const auto* stageTransform = entity->GetComponent<TransformComponent>();
             if (!stageLight || !stageTransform || !stageLight->enabled)
@@ -220,17 +353,14 @@ namespace
     }
 
     void CollectBatteryOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
         const float batteryOuterRadius = ctx.tileSize * ctx.viewScale;
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagBattery))
-            {
-                continue;
-            }
+            if (!entity) continue;
             const auto* battery = entity->GetComponent<BatteryComponent>();
             const auto* batteryTransform = entity->GetComponent<TransformComponent>();
             if (!battery || !batteryTransform)
@@ -260,17 +390,14 @@ namespace
     }
 
     void CollectLaserBeamOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
         const float laserFeather = ctx.tileSize * ctx.viewScale * 0.6f;
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagLaserBeam))
-            {
-                continue;
-            }
+            if (!entity) continue;
             const auto* beamTransform = entity->GetComponent<TransformComponent>();
             if (!beamTransform || beamTransform->width <= 0.0f || beamTransform->height <= 0.0f)
             {
@@ -305,17 +432,14 @@ namespace
     }
 
     void CollectBlasterBulletOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& entities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
         const float blasterBulletOuterRadius = ctx.tileSize * ctx.viewScale * 0.9f;
-        for (const auto& entity : entities)
+        for (Entity* entity : entities)
         {
-            if (!entity || !HasTag(*entity, kTagBullet))
-            {
-                continue;
-            }
+            if (!entity) continue;
             const auto* projectile = entity->GetComponent<ProjectileComponent>();
             const auto* bulletTransform = entity->GetComponent<TransformComponent>();
             if (!projectile || !bulletTransform || projectile->GetOwner() != ProjectileComponent::Owner::BlasterRobot)
@@ -345,21 +469,25 @@ namespace
     }
 
     void CollectDarknessOverlayLights(
-        const std::vector<std::unique_ptr<Entity>>& entities,
+        const std::vector<Entity*>& markerLightEntities,
+        const std::vector<Entity*>& stageLightEntities,
+        const std::vector<Entity*>& batteryEntities,
+        const std::vector<Entity*>& laserBeamEntities,
+        const std::vector<Entity*>& blasterBulletEntities,
         const DarknessOverlayContext& ctx,
         std::vector<OverlayLightSource>& overlayLights)
     {
         AddPlayerOverlayLight(overlayLights, ctx, 74.0f * ctx.viewScale, 170.0f * ctx.viewScale);
-        CollectMarkerLightOverlayLights(entities, ctx, overlayLights);
-        CollectStageLightOverlayLights(entities, ctx, overlayLights);
+        CollectMarkerLightOverlayLights(markerLightEntities, ctx, overlayLights);
+        CollectStageLightOverlayLights(stageLightEntities, ctx, overlayLights);
 
         if (ctx.tileSize > 0.0f)
         {
-            CollectBatteryOverlayLights(entities, ctx, overlayLights);
-            CollectLaserBeamOverlayLights(entities, ctx, overlayLights);
-            CollectBlasterBulletOverlayLights(entities, ctx, overlayLights);
+            CollectBatteryOverlayLights(batteryEntities, ctx, overlayLights);
+            CollectLaserBeamOverlayLights(laserBeamEntities, ctx, overlayLights);
+            CollectBlasterBulletOverlayLights(blasterBulletEntities, ctx, overlayLights);
         }
-    }
+    };
 
     DarknessOverlayParams BuildDarknessOverlayParams(
         const DarknessOverlayContext& ctx,
@@ -852,7 +980,7 @@ namespace
 
 void GameScene::DrawStageDarknessOverlay() const
 {
-    if (!m_darknessStageEnabled)
+    if (!m_lifecycle.darknessStageEnabled)
     {
         return;
     }
@@ -899,9 +1027,9 @@ void GameScene::DrawStageDarknessOverlay() const
     const float viewScale = GetViewScale();
     int maxDarknessAlpha = kBaseDarknessAlpha;
 
-    if (m_flow.cameraFlash.enabled && m_flow.cameraFlash.pulseRemaining > 0.0f && m_flow.cameraFlash.pulseDuration > 0.0f)
+    if (m_ui.cameraFlash.enabled && m_ui.cameraFlash.pulseRemaining > 0.0f && m_ui.cameraFlash.pulseDuration > 0.0f)
     {
-        const float flashT = Clamp01(m_flow.cameraFlash.pulseRemaining / m_flow.cameraFlash.pulseDuration);
+        const float flashT = Clamp01(m_ui.cameraFlash.pulseRemaining / m_ui.cameraFlash.pulseDuration);
         const float flashEase = flashT * flashT * (3.0f - 2.0f * flashT);
         maxDarknessAlpha = static_cast<int>(std::round(std::lerp(228.0f, 160.0f, flashEase)));
     }
@@ -923,20 +1051,29 @@ void GameScene::DrawStageDarknessOverlay() const
 
     std::vector<OverlayLightSource> overlayLights;
     overlayLights.reserve(kMaxDarknessOverlayLights * 2);
-    CollectDarknessOverlayLights(m_entities, ctx, overlayLights);
+    CollectDarknessOverlayLights(
+        m_world.EntitiesByTag(EntityTag::MarkerLight),
+        m_world.EntitiesByTag(EntityTag::StageLight),
+        m_world.EntitiesByTag(EntityTag::Battery),
+        m_world.EntitiesByTag(EntityTag::LaserBeam),
+        m_world.EntitiesByTag(EntityTag::Bullet),
+        ctx,
+        overlayLights);
 
     const int renderedLightLimit = (std::min)(kMaxDarknessOverlayLights, kDarknessOverlayActiveLightLimit);
     if (overlayLights.size() > static_cast<size_t>(renderedLightLimit))
     {
-        std::partial_sort(
+        const auto priorityCompare = [](const OverlayLightSource& a, const OverlayLightSource& b)
+        {
+            return a.priority > b.priority;
+        };
+        std::nth_element(
             overlayLights.begin(),
             overlayLights.begin() + renderedLightLimit,
             overlayLights.end(),
-            [](const OverlayLightSource& a, const OverlayLightSource& b)
-            {
-                return a.priority > b.priority;
-            });
+            priorityCompare);
         overlayLights.resize(renderedLightLimit);
+        std::sort(overlayLights.begin(), overlayLights.end(), priorityCompare);
     }
 
     if (DirectXHasDarknessOverlay())
@@ -1005,9 +1142,9 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     DrawSepiaFilmDust(effectLeft, effectTop, effectRight, effectBottom, frame);
     DrawSepiaFilmScratches(effectLeft, effectTop, effectRight, effectBottom, frame);
     // フレーム内の瓦礫を足場テクスチャでプレビュー描画
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
     {
-        if (!entity || !HasTag(*entity, kTagSepiaRubble))
+        if (!entity)
         {
             continue;
         }
@@ -1049,22 +1186,157 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         const float sourceY = std::clamp((overlapTop - t->y) / objectWorldY, 0.0f, 1.0f);
         const float sourceW = std::clamp(overlapWidth / objectWorldX, 0.0f, 1.0f - sourceX);
         const float sourceH = std::clamp(overlapHeight / objectWorldY, 0.0f, 1.0f - sourceY);
+        const auto* rubble = entity->GetComponent<SepiaRubbleComponent>();
+        const bool attackRubble =
+            rubble &&
+            (rubble->source == SepiaRubbleSource::MidBoss3Fist ||
+                rubble->source == SepiaRubbleSource::MidBoss3Drill);
         Shader_ResetStyle();
-        Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
+        if (attackRubble)
+        {
+            Shader_SetTint(0.96f, 0.52f, 0.18f, 0.95f);
+        }
+        else
+        {
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
+        }
         SpriteDraw(
-            m_assets.GetTexture("sepia_ground"),
+            attackRubble ? m_whiteTexture : m_assets.GetTexture("sepia_ground"),
             drawEntityX, drawEntityY,
             drawEntityW, drawEntityH,
-            sourceX, sourceY, sourceW, sourceH);
+            attackRubble ? 0.0f : sourceX,
+            attackRubble ? 0.0f : sourceY,
+            attackRubble ? 1.0f : sourceW,
+            attackRubble ? 1.0f : sourceH);
 
     }
     Shader_ResetStyle();
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
 
+void GameScene::DrawShieldBossSlamVignetteOverlay() const
+{
+    float strength = 0.0f;
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        if (!enemy ||
+            enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
+            !enemy->IsEnabled() ||
+            !boss ||
+            !boss->shieldEntity)
+        {
+            continue;
+        }
+
+        const auto* shieldTint = boss->shieldEntity->GetComponent<TintComponent>();
+        const float shieldAlpha = shieldTint ? shieldTint->a : 1.0f;
+        if (shieldAlpha <= 0.05f)
+        {
+            continue;
+        }
+
+        float stateStrength = 0.0f;
+        switch (boss->state)
+        {
+        case ShieldBossState::JumpAscend:
+            stateStrength = 0.50f + 0.25f * Clamp01(boss->stateTimer / 0.28f);
+            break;
+        case ShieldBossState::AirHover:
+            stateStrength = 0.80f + 0.08f * std::sin(boss->stateTimer * 18.0f);
+            break;
+        case ShieldBossState::JumpDescend:
+            stateStrength = 0.70f;
+            break;
+        default:
+            break;
+        }
+
+        strength = std::max(strength, stateStrength * Clamp01(shieldAlpha));
+    }
+
+    if (strength <= 0.01f)
+    {
+        return;
+    }
+
+    const float screenW = static_cast<float>(SCREEN_WIDTH);
+    const float screenH = static_cast<float>(SCREEN_HEIGHT);
+    const float shortSide = std::min(screenW, screenH);
+    const int outerColor = GetColor(8, 10, 14);
+    const int innerColor = GetColor(30, 24, 20);
+
+    const auto drawBand = [](float x, float y, float width, float height, int alpha, int color)
+    {
+        if (alpha <= 0 || width <= 0.0f || height <= 0.0f)
+        {
+            return;
+        }
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(alpha, 0, 255));
+        DrawBoxAA(x, y, x + width, y + height, color, TRUE);
+    };
+
+    const float edge0 = shortSide * 0.055f;
+    const float edge1 = shortSide * 0.115f;
+    const float edge2 = shortSide * 0.205f;
+    const int outerAlpha = static_cast<int>(std::round(118.0f * strength));
+    const int midAlpha = static_cast<int>(std::round(72.0f * strength));
+    const int innerAlpha = static_cast<int>(std::round(34.0f * strength));
+
+    drawBand(0.0f, 0.0f, screenW, edge2, innerAlpha, innerColor);
+    drawBand(0.0f, screenH - edge2, screenW, edge2, innerAlpha, innerColor);
+    drawBand(0.0f, 0.0f, edge2, screenH, innerAlpha, innerColor);
+    drawBand(screenW - edge2, 0.0f, edge2, screenH, innerAlpha, innerColor);
+
+    drawBand(0.0f, 0.0f, screenW, edge1, midAlpha, outerColor);
+    drawBand(0.0f, screenH - edge1, screenW, edge1, midAlpha, outerColor);
+    drawBand(0.0f, 0.0f, edge1, screenH, midAlpha, outerColor);
+    drawBand(screenW - edge1, 0.0f, edge1, screenH, midAlpha, outerColor);
+
+    drawBand(0.0f, 0.0f, screenW, edge0, outerAlpha, outerColor);
+    drawBand(0.0f, screenH - edge0, screenW, edge0, outerAlpha, outerColor);
+    drawBand(0.0f, 0.0f, edge0, screenH, outerAlpha, outerColor);
+    drawBand(screenW - edge0, 0.0f, edge0, screenH, outerAlpha, outerColor);
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+}
+
+void GameScene::DrawShieldBossIntroCurtainOverlay() const
+{
+    const float progress = Clamp01(m_render.shieldBossIntroCurtainProgress);
+    if (progress <= 0.001f)
+    {
+        return;
+    }
+
+    // 登場演出中だけ、上下から1グリッド程度の黒幕を滑らかに出し入れする。
+    const float easedProgress = progress * progress * (3.0f - 2.0f * progress);
+    const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+    const int maxCurtainHeight = std::clamp(
+        static_cast<int>(std::round(tileSize * GetViewScale())),
+        32,
+        120);
+    const int curtainHeight = static_cast<int>(std::round(static_cast<float>(maxCurtainHeight) * easedProgress));
+    if (curtainHeight <= 0)
+    {
+        return;
+    }
+    const int curtainColor = GetColor(0, 0, 0);
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawBox(0, 0, SCREEN_WIDTH, curtainHeight, curtainColor, TRUE);
+    DrawBox(0, SCREEN_HEIGHT - curtainHeight, SCREEN_WIDTH, SCREEN_HEIGHT, curtainColor, TRUE);
+}
+
 void GameScene::DrawMarkerLightOutlines() const
 {
-    if (!m_darknessStageEnabled)
+    if (!m_lifecycle.darknessStageEnabled)
     {
         return;
     }
@@ -1074,13 +1346,9 @@ void GameScene::DrawMarkerLightOutlines() const
     const float viewOriginY = GetViewOriginY();
     const unsigned int outlineColor = GetColor(248, 248, 252);
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::MarkerLight))
     {
-        if (!entity || !HasTag(*entity, kTagMarkerLight))
-        {
-            continue;
-        }
-
+        if (!entity) continue;
         const auto* markerLight = entity->GetComponent<MarkerLightComponent>();
         const auto* transform = entity->GetComponent<TransformComponent>();
         if (!markerLight || !transform || markerLight->activated)
@@ -1214,7 +1482,7 @@ void GameScene::DrawCaptureOverlay() const
     const int right = static_cast<int>(std::round(drawX + drawWidth));
     const int bottom = static_cast<int>(std::round(drawY + drawHeight));
 
-    const float shutterT = Clamp01(m_flow.shutterFlashRemaining / gShutterFlashSeconds);
+    const float shutterT = Clamp01(m_ui.shutterFlashRemaining / gShutterFlashSeconds);
     const float frameInset = 10.0f * shutterT * viewScale;
     const float innerX = drawX + frameInset;
     const float innerY = drawY + frameInset;
@@ -1265,6 +1533,7 @@ void GameScene::DrawCaptureOverlay() const
     const int cornerLength = std::max(18, static_cast<int>(std::round(34.0f * viewScale)));
     const int cornerThickness = std::max(2, static_cast<int>(std::round(3.0f + shutterT * 2.0f)));
     const int guideInset = std::max(12, static_cast<int>(std::round(24.0f * viewScale)));
+    const unsigned int gridColor = GetColor(242, 246, 252);
 
     if (m_flow.cameraMode)
     {
@@ -1300,6 +1569,80 @@ void GameScene::DrawCaptureOverlay() const
     drawFrameBand(drawX, drawY + drawHeight - std::max(4.0f, 8.0f * viewScale), drawWidth, std::max(4.0f, 8.0f * viewScale), 0.30f + shutterT * 0.16f);
     drawFrameBand(drawX, drawY, std::max(4.0f, 8.0f * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
     drawFrameBand(drawX + drawWidth - std::max(4.0f, 8.0f * viewScale), drawY, std::max(4.0f, 8.0f * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
+
+    const auto drawFinderGrid = [&](int columns, int rows)
+    {
+        if (columns <= 0 || rows <= 0)
+        {
+            return;
+        }
+
+        const float gridCellWidth = drawWidth / static_cast<float>(columns);
+        const float gridCellHeight = drawHeight / static_cast<float>(rows);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 78);
+        for (int column = 1; column < columns; ++column)
+        {
+            const int x = static_cast<int>(std::round(drawX + gridCellWidth * static_cast<float>(column)));
+            DrawLine(
+                x,
+                static_cast<int>(std::round(drawY)),
+                x,
+                static_cast<int>(std::round(drawY + drawHeight)),
+                gridColor);
+        }
+        for (int row = 1; row < rows; ++row)
+        {
+            const int y = static_cast<int>(std::round(drawY + gridCellHeight * static_cast<float>(row)));
+            DrawLine(
+                static_cast<int>(std::round(drawX)),
+                y,
+                static_cast<int>(std::round(drawX + drawWidth)),
+                y,
+                gridColor);
+        }
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    };
+
+    const int gridColumns = std::max(1, static_cast<int>(std::round(gCaptureWidthTiles)));
+    const int gridRows = std::max(1, static_cast<int>(std::round(gCaptureHeightTiles)));
+    const Entity* bestTarget = FindCaptureTarget(*transform);
+
+    ForEachCaptureTargetCandidate(*this, *transform, [&](Entity* entity, const TransformComponent& targetTransform)
+    {
+        const float targetLeft = targetTransform.x;
+        const float targetTop = targetTransform.y;
+        const float targetRight = targetTransform.x + targetTransform.width * targetTransform.scale;
+        const float targetBottom = targetTransform.y + targetTransform.height * targetTransform.scale;
+        const float overlapLeft = std::max(frameX, targetLeft);
+        const float overlapTop = std::max(frameY, targetTop);
+        const float overlapRight = std::min(frameX + frameWidth, targetRight);
+        const float overlapBottom = std::min(frameY + frameHeight, targetBottom);
+        const float overlapWidth = overlapRight - overlapLeft;
+        const float overlapHeight = overlapBottom - overlapTop;
+        if (overlapWidth <= 0.0f || overlapHeight <= 0.0f)
+        {
+            return;
+        }
+
+        const float glowX = viewOriginX + (overlapLeft - m_flow.cameraX) * viewScale;
+        const float glowY = viewOriginY + (overlapTop - m_flow.cameraY) * viewScale;
+        const float glowWidth = overlapWidth * viewScale;
+        const float glowHeight = overlapHeight * viewScale;
+        const bool isBestTarget = entity == bestTarget;
+
+        Shader_ResetStyle();
+        Shader_SetBlendMode(ShaderBlendMode2D::Additive);
+        Shader_SetTint(1.0f, 1.0f, 1.0f, isBestTarget ? 0.42f : 0.24f);
+        SpriteDraw(m_whiteTexture, glowX, glowY, glowWidth, glowHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        if (isBestTarget)
+        {
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 0.16f);
+            SpriteDraw(m_whiteTexture, glowX - 2.0f, glowY - 2.0f, glowWidth + 4.0f, glowHeight + 4.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+        }
+        Shader_ResetStyle();
+    });
+
+    drawFinderGrid(gridColumns, gridRows);
     drawCornerFrame(left, top, right, bottom, cornerThickness, cornerLength, frameColor);
 
     const int centerX = (left + right) / 2;
@@ -1308,21 +1651,54 @@ void GameScene::DrawCaptureOverlay() const
     DrawLine(centerX, centerY - guideInset, centerX, centerY + guideInset, guideColor);
     DrawBox(left + guideInset, top + guideInset, right - guideInset, bottom - guideInset, guideColor, FALSE);
 
-    if (Entity* target = FindCaptureTarget(*transform))
+    if (m_ui.captureLockoutRemaining > 0.0f || m_ui.captureRapidCount > 0)
     {
-        if (const auto* targetTransform = target->GetComponent<TransformComponent>())
+        const int limitCount = std::max(1, static_cast<int>(std::round(gCaptureRapidShotLimit)));
+        const int currentCount = std::clamp(m_ui.captureRapidCount, 0, limitCount);
+        const float warningWidth = 196.0f;
+        const float warningHeight = 56.0f;
+        const float warningX = 18.0f;
+        const float warningY = 18.0f;
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 210);
+        DrawBox(
+            static_cast<int>(std::round(warningX)),
+            static_cast<int>(std::round(warningY)),
+            static_cast<int>(std::round(warningX + warningWidth)),
+            static_cast<int>(std::round(warningY + warningHeight)),
+            GetColor(22, 12, 14),
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        DrawBox(
+            static_cast<int>(std::round(warningX)),
+            static_cast<int>(std::round(warningY)),
+            static_cast<int>(std::round(warningX + warningWidth)),
+            static_cast<int>(std::round(warningY + warningHeight)),
+            m_ui.captureLockoutRemaining > 0.0f ? GetColor(255, 92, 72) : GetColor(255, 220, 116),
+            FALSE);
+        DrawString(
+            static_cast<int>(std::round(warningX + 12.0f)),
+            static_cast<int>(std::round(warningY + 10.0f)),
+            m_ui.captureLockoutRemaining > 0.0f ? "CAPTURE LOCK" : "CAPTURE COUNT",
+            m_ui.captureLockoutRemaining > 0.0f ? GetColor(255, 228, 220) : GetColor(255, 244, 214));
+        DrawFormatString(
+            static_cast<int>(std::round(warningX + 12.0f)),
+            static_cast<int>(std::round(warningY + 28.0f)),
+            GetColor(236, 246, 255),
+            "%d / %d",
+            currentCount,
+            limitCount);
+        if (m_ui.captureLockoutRemaining > 0.0f)
         {
-            const float targetDrawX = viewOriginX + (targetTransform->x - m_flow.cameraX) * viewScale;
-            const float targetDrawY = viewOriginY + (targetTransform->y - m_flow.cameraY) * viewScale;
-            const float targetDrawWidth = targetTransform->width * targetTransform->scale * viewScale;
-            const float targetDrawHeight = targetTransform->height * targetTransform->scale * viewScale;
-            Shader_SetOutline(0.34f, 1.0f, 0.48f, 1.0f, 1.8f);
-            Shader_SetTint(0.10f, 0.30f, 0.14f, 0.12f);
-            SpriteDraw(m_whiteTexture, targetDrawX, targetDrawY, targetDrawWidth, targetDrawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+            DrawFormatString(
+                static_cast<int>(std::round(warningX + 112.0f)),
+                static_cast<int>(std::round(warningY + 28.0f)),
+                GetColor(255, 196, 196),
+                "%.1fs",
+                m_ui.captureLockoutRemaining);
         }
     }
 
-    if (m_flow.shutterFlashRemaining > 0.0f)
+    if (m_ui.shutterFlashRemaining > 0.0f)
     {
         Shader_ResetStyle();
         Shader_SetTint(overlayR, overlayG, overlayB, 0.10f + shutterT * 0.55f);
@@ -1451,31 +1827,29 @@ void GameScene::DrawTuningPanel()
 
 void GameScene::DrawDevelopedPhotoPreview() const
 {
-    if (m_flow.developedPhotoPreviewRemaining <= 0.0f || !m_photo.pendingStore.active || m_photo.pendingStore.capture.items.empty())
+    if (m_ui.developedPhotoPreviewRemaining <= 0.0f || !m_photo.pendingStore.active || m_photo.pendingStore.capture.items.empty())
     {
         return;
     }
 
     const PhotoCaptureState& previewCapture = m_photo.pendingStore.capture;
     constexpr float kPreviewLifetime = 4.2f;
-    const float progress = 1.0f - Clamp01(m_flow.developedPhotoPreviewRemaining / kPreviewLifetime);
+    const float progress = 1.0f - Clamp01(m_ui.developedPhotoPreviewRemaining / kPreviewLifetime);
     const float cardPhaseT = Clamp01(progress / 0.34f);
     const float orbPhaseT = Clamp01((progress - 0.14f) / 0.30f);
     const float orbArriveT = Clamp01((progress - 0.34f) / 0.10f);
-    const float finalFade = Clamp01(m_flow.developedPhotoPreviewRemaining / 0.34f);
+    const float finalFade = Clamp01(m_ui.developedPhotoPreviewRemaining / 0.34f);
 
     float accentR = 0.32f;
     float accentG = 0.92f;
     float accentB = 1.0f;
     GetPhotoFilterThemeOverlayColor(previewCapture.capturedTheme, accentR, accentG, accentB);
 
-    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
-    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
+    const float trayX = GetPhotoTrayLeftX();
+    const float trayY = GetPhotoTrayTopY(m_ui.photoTrayReveal);
     const float targetSlotX = trayX + m_photo.pendingStore.slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-    const float targetCenterX = targetSlotX + 98.0f;
-    const float targetCenterY = trayY + 78.0f;
+    const float targetCenterX = targetSlotX + 98.0f * kPhotoTrayScale;
+    const float targetCenterY = trayY + 78.0f * kPhotoTrayScale;
 
     const float photoWidth = 220.0f;
     const float photoHeight = 248.0f;
@@ -1702,15 +2076,14 @@ void GameScene::DrawDevelopedPhotoPreview() const
 
 bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 {
-    if (m_flow.photoTrayReveal <= 0.05f)
+    if (m_ui.photoTrayReveal <= 0.05f)
     {
         return false;
     }
 
     const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
-    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
+    const float trayX = GetPhotoTrayLeftX();
+    const float trayY = GetPhotoTrayTopY(m_ui.photoTrayReveal);
     return
         screenX >= trayX &&
         screenX <= trayX + trayWidth &&
@@ -1720,19 +2093,14 @@ bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 
 void GameScene::DrawPhotoStorageTray() const
 {
-    if (m_flow.photoTrayReveal <= 0.01f)
+    if (m_ui.photoTrayReveal <= 0.01f)
     {
         return;
     }
 
     constexpr float kInnerPadding = 10.0f;
-    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - trayWidth) * 0.5f;
-    const float hiddenOffset = (1.0f - m_flow.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
-    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
-    const int textBright = static_cast<int>(150.0f + m_flow.photoTrayReveal * 105.0f);
-    const int textBrightCool = std::min(255, textBright + 10);
-
+    const float trayX = GetPhotoTrayLeftX();
+    const float trayY = GetPhotoTrayTopY(m_ui.photoTrayReveal);
     const int trayBackdropTexture = m_assets.GetTexture("photo_tray_backdrop");
     if (trayBackdropTexture >= 0)
     {
@@ -1744,8 +2112,8 @@ void GameScene::DrawPhotoStorageTray() const
             const float drawHeight = drawWidth * (textureHeight / textureWidth);
             const float drawY = static_cast<float>(SCREEN_HEIGHT) - drawHeight;
             Shader_ResetStyle();
-            Shader_SetTint(1.0f, 1.0f, 1.0f, m_flow.photoTrayReveal);
-           // SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, m_ui.photoTrayReveal);
+            //SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
             Shader_ResetStyle();
         }
     }
@@ -1775,27 +2143,15 @@ void GameScene::DrawPhotoStorageTray() const
             outlineColor,
             FALSE);
 
-        DrawFormatString(
-            static_cast<int>(slotX + 10.0f),
-            static_cast<int>(slotY + 8.0f),
-            selected ? GetColor(255, textBright, 196) : GetColor(textBright, textBrightCool, 244),
-            "PHOTO %d",
-            slotIndex + 1);
-
         if (!storedCapture.hasPhoto || storedCapture.items.empty())
         {
-            DrawString(
-                static_cast<int>(slotX + 50.0f),
-                static_cast<int>(slotY + 42.0f),
-                slotIsPending ? "STORING" : "EMPTY",
-                slotIsPending ? GetColor(214, 204, 156) : GetColor(122, 136, 156));
             continue;
         }
 
-        const float previewX = slotX + kInnerPadding;
-        const float previewY = slotY + 28.0f;
-        const float previewWidth = 176.0f;
-        const float previewHeight = 100.0f;
+        const float previewWidth = (kPhotoTraySlotWidth - kInnerPadding * 2.0f);
+        const float previewHeight = (kPhotoTraySlotHeight - kInnerPadding * 2.0f);
+        const float previewX = slotX + (kPhotoTraySlotWidth - previewWidth) * 0.5f;
+        const float previewY = slotY + (kPhotoTraySlotHeight - previewHeight) * 0.5f;
         const float scale = std::min(
             previewWidth / std::max(1.0f, storedCapture.width),
             previewHeight / std::max(1.0f, storedCapture.height));
@@ -1830,25 +2186,6 @@ void GameScene::DrawPhotoStorageTray() const
             GetColor(215, 205, 180),
             FALSE);
 
-        DrawFormatString(
-            static_cast<int>(slotX + 198.0f),
-            static_cast<int>(slotY + 34.0f),
-            GetColor(230, 236, 242),
-            "%s",
-            GetPhotoFilterThemeLabel(storedCapture.capturedTheme));
-        DrawFormatString(
-            static_cast<int>(slotX + 198.0f),
-            static_cast<int>(slotY + 56.0f),
-            GetColor(170, 186, 204),
-            "%.0fx%.0f",
-            storedCapture.width,
-            storedCapture.height);
-        DrawFormatString(
-            static_cast<int>(slotX + 198.0f),
-            static_cast<int>(slotY + 74.0f),
-            slotIsPending ? GetColor(230, 214, 158) : GetColor(150, 170, 190),
-            "%s",
-            slotIsPending ? "Storing..." : (selected ? "Drag to place" : "Drag"));
     }
 }
 
@@ -2073,7 +2410,7 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
             const StageTransitionLink* transition = nullptr;
             for (const StageTransitionLink& link : gStageTransitionLinks)
             {
-                const bool sourceMatches = link.sourceMapCsv == "*" || link.sourceMapCsv == gCurrentMapCsvPath;
+                const bool sourceMatches = link.sourceMapCsv == "*" || link.sourceMapCsv == m_lifecycle.currentMapCsvPath;
                 if (sourceMatches && link.marker == marker)
                 {
                     transition = &link;
@@ -2266,90 +2603,25 @@ void GameScene::DrawPhotoFilterPanelInView() const
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
 {
     static_cast<void>(playerTransform);
-    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_flow.captureFinderScale;
-    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_flow.captureFinderScale;
-
-    const float cursorStartWorldX = m_flow.cameraX + gCameraViewWidth * 0.5f;
-    const float cursorStartWorldY = m_flow.cameraY + gCameraViewHeight * 0.5f;
-
-    static float padCursorWorldX = cursorStartWorldX;
-    static float padCursorWorldY = cursorStartWorldY;
-    static float padCursorVelocityX = 0.0f;
-    static float padCursorVelocityY = 0.0f;
-    static unsigned int lastTimeMs = 0;
-    static bool initialized = false;
-    static int lastSessionId = -1;
-    static float lastPadInputSeconds = -1000.0f;
-    static int lastMouseX = Input_GetMouseX();
-    static int lastMouseY = Input_GetMouseY();
-
-    if (!initialized)
-    {
-        padCursorWorldX = cursorStartWorldX;
-        padCursorWorldY = cursorStartWorldY;
-        initialized = true;
-    }
-
-    if (lastSessionId != m_flow.cameraModeSessionId)
-    {
-        padCursorWorldX = cursorStartWorldX;
-        padCursorWorldY = cursorStartWorldY;
-        padCursorVelocityX = 0.0f;
-        padCursorVelocityY = 0.0f;
-        lastPadInputSeconds = -1000.0f;
-        lastSessionId = m_flow.cameraModeSessionId;
-    }
-
-    const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
-    const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
-    lastTimeMs = nowMs;
-
-    const int mouseX = Input_GetMouseX();
-    const int mouseY = Input_GetMouseY();
-    const bool mouseMoved = mouseX != lastMouseX || mouseY != lastMouseY;
-    lastMouseX = mouseX;
-    lastMouseY = mouseY;
-
-    // Mouse-to-world must use the same transform as rendering, especially when camera zoom markers pull back the view.
-    const float viewScale = GetViewScale();
+    const float viewScale = std::max(0.0001f, GetViewScale());
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
-    const float mouseWorldX = ((static_cast<float>(mouseX) - viewOriginX) / viewScale) + m_flow.cameraX;
-    const float mouseWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale) + m_flow.cameraY;
 
-    const float rightX = Input_GetRightStickX();
-    const float rightY = Input_GetRightStickY();
-    UpdatePadCursor(
-        mouseWorldX,
-        mouseWorldY,
-        mouseMoved,
-        rightX,
-        rightY,
-        dt,
-        padCursorWorldX,
-        padCursorWorldY,
-        padCursorVelocityX,
-        padCursorVelocityY,
-        lastPadInputSeconds,
-        static_cast<float>(nowMs) / 1000.0f);
+    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_ui.captureFinderScale;
+    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_ui.captureFinderScale;
+
+    // Cursor-centered finder: the visible frame and actual capture bounds must match.
+    const float cursorWorldX = m_flow.cameraX + (static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale;
+    const float cursorWorldY = m_flow.cameraY + (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
+    x = cursorWorldX - width * 0.5f;
+    y = cursorWorldY - height * 0.5f;
 
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
-    const float halfWidth = width * 0.5f;
-    const float halfHeight = height * 0.5f;
-    const float minCursorX = std::max(halfWidth, m_flow.cameraX + halfWidth);
-    const float maxCursorX = std::min(std::max(halfWidth, mapWidth - halfWidth), m_flow.cameraX + gCameraViewWidth - halfWidth);
-    const float minCursorY = std::max(halfHeight, m_flow.cameraY + halfHeight);
-    const float maxCursorY = std::min(std::max(halfHeight, mapHeight - halfHeight), m_flow.cameraY + gCameraViewHeight - halfHeight);
-    padCursorWorldX = minCursorX <= maxCursorX
-        ? std::clamp(padCursorWorldX, minCursorX, maxCursorX)
-        : m_flow.cameraX + gCameraViewWidth * 0.5f;
-    padCursorWorldY = minCursorY <= maxCursorY
-        ? std::clamp(padCursorWorldY, minCursorY, maxCursorY)
-        : m_flow.cameraY + gCameraViewHeight * 0.5f;
-
-    x = padCursorWorldX - width * 0.5f;
-    y = padCursorWorldY - height * 0.5f;
+    const float maxX = std::max(0.0f, mapWidth - width);
+    const float maxY = std::max(0.0f, mapHeight - height);
+    x = std::clamp(x, 0.0f, maxX);
+    y = std::clamp(y, 0.0f, maxY);
 }
 
 Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) const
@@ -2363,53 +2635,18 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     TransformComponent captureFrame(frameX, frameY, frameWidth, frameHeight);
     Entity* bestTarget = nullptr;
     float bestDistance = 1000000.0f;
-    for (const auto& entity : m_entities)
+
+    ForEachCaptureTargetCandidate(*this, captureFrame, [&](Entity* entity, const TransformComponent& transform)
     {
-        if (HasTag(*entity, kTagPlayer) ||
-            HasTag(*entity, kTagEnemy) ||
-            HasTag(*entity, kTagBatterySwitch) ||
-            HasTag(*entity, kTagElevator) ||
-            HasTag(*entity, kTagLaserSwitch) ||
-            HasTag(*entity, kTagShutter) ||
-            HasTag(*entity, kTagLaserBeam) ||
-            HasTag(*entity, kTagStageLight))
-        {
-            continue;
-        }
-
-        if (HasTag(*entity, kTagPhotoBox))
-        {
-            const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
-            if (!layer || layer->layer != PhotoCopyLayer::Foreground)
-            {
-                continue;
-            }
-
-            if (const auto* pasteAnimation = entity->GetComponent<PhotoPasteAnimationComponent>())
-            {
-                if (!pasteAnimation->IsFinished())
-                {
-                    continue;
-                }
-            }
-        }
-
-        const auto* transform = entity->GetComponent<TransformComponent>();
-        const auto* sprite = entity->GetComponent<SpriteRenderComponent>();
-        if (!transform || !sprite || !IntersectsRect(captureFrame, *transform))
-        {
-            continue;
-        }
-
-        const float targetCenterX = transform->x + transform->width * transform->scale * 0.5f;
+        const float targetCenterX = transform.x + transform.width * transform.scale * 0.5f;
         const float playerCenterX = playerTransform.x + playerTransform.width * playerTransform.scale * 0.5f;
         const float distance = std::fabs(targetCenterX - playerCenterX);
         if (!bestTarget || distance < bestDistance)
         {
-            bestTarget = entity.get();
+            bestTarget = entity;
             bestDistance = distance;
         }
-    }
+    });
 
     return bestTarget;
 }
@@ -2421,13 +2658,9 @@ void GameScene::DrawBatterySwitchCounters() const
     const float viewOriginY = GetViewOriginY();
     const float tileOffsetY = m_tileMap.GetTileSize() * 2.0f * viewScale;
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::BatterySwitch))
     {
-        if (!entity || !HasTag(*entity, kTagBatterySwitch))
-        {
-            continue;
-        }
-
+        if (!entity) continue;
         const auto* transform = entity->GetComponent<TransformComponent>();
         const auto* batterySwitch = entity->GetComponent<BatterySwitchComponent>();
         if (!transform || !batterySwitch)

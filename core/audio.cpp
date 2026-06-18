@@ -26,11 +26,12 @@ namespace
     CueData g_sceneCue;
     WAVEFORMATEX g_waveFormat{};
 
-    float g_masterVolume = 0.6f;
-    float g_seVolume = 1.0f;
+    float g_masterVolume = 0.8f;
+    float g_seVolume = 0.8f;
 
     // Loaded file cue handles by cue name.
     std::unordered_map<std::string, int> g_fileCues;
+    std::string g_currentBgmCueName;
 
     float Clamp01(float value)
     {
@@ -96,6 +97,14 @@ namespace
         }
     }
 
+    void PlayLoopHandle(int handle)
+    {
+        if (handle >= 0)
+        {
+            PlaySoundMem(handle, DX_PLAYTYPE_LOOP, TRUE);
+        }
+    }
+
     void RefreshAllVolumes()
     {
         ApplyCueVolume(g_testCue.handle, "test_tone");
@@ -129,6 +138,8 @@ bool Audio_Initialize()
 
 void Audio_Shutdown()
 {
+    Audio_StopBgm();
+
     if (g_testCue.handle >= 0)
     {
         DeleteSoundMem(g_testCue.handle);
@@ -199,6 +210,47 @@ void Audio_PlayCue(const char* cueName)
     }
 }
 
+void Audio_PlayBgmCue(const char* cueName)
+{
+    if (!cueName)
+    {
+        return;
+    }
+
+    const std::string cue(cueName);
+    auto it = g_fileCues.find(cue);
+    if (it == g_fileCues.end() || it->second < 0)
+    {
+        return;
+    }
+
+    if (g_currentBgmCueName == cue)
+    {
+        ApplyCueVolume(it->second, cue);
+        return;
+    }
+
+    Audio_StopBgm();
+    g_currentBgmCueName = cue;
+    ApplyCueVolume(it->second, cue);
+    PlayLoopHandle(it->second);
+}
+
+void Audio_StopBgm()
+{
+    if (g_currentBgmCueName.empty())
+    {
+        return;
+    }
+
+    auto it = g_fileCues.find(g_currentBgmCueName);
+    if (it != g_fileCues.end() && it->second >= 0)
+    {
+        StopSoundMem(it->second);
+    }
+    g_currentBgmCueName.clear();
+}
+
 bool Audio_LoadCueFromFile(const char* cueName, const char* filePath)
 {
     if (!cueName || !filePath)
@@ -238,6 +290,11 @@ void Audio_UnloadCue(const char* cueName)
 
     if (it->second >= 0)
     {
+        if (g_currentBgmCueName == cueName)
+        {
+            StopSoundMem(it->second);
+            g_currentBgmCueName.clear();
+        }
         DeleteSoundMem(it->second);
     }
     g_fileCues.erase(it);

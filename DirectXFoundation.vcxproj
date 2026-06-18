@@ -15,7 +15,7 @@
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{8F8C2B89-7B81-45B7-A9AC-486D8A5331CA}</ProjectGuid>
     <RootNamespace>DirectXFoundation</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -95,6 +95,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="game_scene_camerawork.cpp" />
+    <ClCompile Include="scenes\game\game_viewport.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -109,11 +110,13 @@
     <ClCompile Include="rendering\directX.cpp" />
     <ClCompile Include="core\entity.cpp" />
     <ClCompile Include="core\event_bus.cpp" />
+    <ClCompile Include="core\game_object_world.cpp" />
     <ClCompile Include="scenes\game\game_scene.cpp" />
     <ClCompile Include="scenes\game\game_scene_collision.cpp" />
     <ClCompile Include="scenes\game\game_scene_gameplay.cpp" />
     <ClCompile Include="scenes\game\game_scene_gameplay_state_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_player_state_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_player_state_logic.cpp" />
     <ClCompile Include="scenes\game\game_scene_render.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui_helpers.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui.cpp" />
@@ -132,6 +135,7 @@
     <ClCompile Include="scenes\game\game_scene_entry_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_enemy_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_gimmick_domain.cpp" />
+    <ClCompile Include="scenes\game\game_scene_merchant_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_menu_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_map_editor_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_marker_spawn_domain.cpp" />
@@ -145,6 +149,7 @@
       <ObjectFileName>$(IntDir)foundation_physics_world.obj</ObjectFileName>
     </ClCompile>
     <ClCompile Include="gameplay\photo_filter_rules.cpp" />
+    <ClCompile Include="gameplay\photo_geometry.cpp" />
     <ClCompile Include="gameplay\photo_shared.cpp" />
     <ClCompile Include="gameplay\photo_capture_system.cpp" />
     <ClCompile Include="gameplay\photo_paste_system.cpp" />
@@ -361,6 +366,7 @@
     <ClInclude Include="physics\collision.h" />
     <ClInclude Include="core\component.h" />
     <ClInclude Include="gameplay\components.h" />
+    <ClInclude Include="gameplay\entity_tag.h" />
     <ClInclude Include="scenes\demo_scene.h" />
     <ClInclude Include="rendering\directX.h" />
     <ClInclude Include="DirectXTex.h" />
@@ -368,6 +374,7 @@
     <ClInclude Include="core\event_bus.h" />
     <ClInclude Include="core\game_object_fwd.h" />
     <ClInclude Include="core\game_object.h" />
+    <ClInclude Include="core\game_object_world.h" />
     <ClInclude Include="scenes\game\game_scene.h" />
     <ClInclude Include="scenes\game\game_scene_internal.h" />
     <ClInclude Include="scenes\game\game_scene_draw_helpers.h" />

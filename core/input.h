@@ -24,6 +24,7 @@ enum class InputAction
     CapturePhoto,
     HoldPlacement,
     ConfirmPlacement,
+    AttackPaste,
     CyclePlacementLayer,
     FlipPlacement,
     ToggleBridgePlacement,
