@@ -122,10 +122,16 @@ int AssetManifest::GetTexture(const std::string& key) const
         return -1;
     }
 
+    Logger::Info("Loading texture '" + key + "' from " + path->second);
     const int textureId = m_resources->LoadTexture(ToWideString(path->second));
     if (textureId >= 0)
     {
         m_textureIds.emplace(key, textureId);
+        Logger::Info("Loaded texture '" + key + "' as id " + std::to_string(textureId));
+    }
+    else
+    {
+        Logger::Warn("Failed to load texture '" + key + "' from " + path->second);
     }
     return textureId;
 }

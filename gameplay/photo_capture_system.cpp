@@ -15,6 +15,10 @@ namespace
 {
     constexpr float kDevelopedPhotoPreviewSeconds = 4.2f;
     constexpr float kUnlockedCameraFlashPulseSeconds = 0.28f;
+    constexpr float kMidBoss3CapturedFistWidth = 144.0f;
+    constexpr float kMidBoss3CapturedFistHeight = 96.0f;
+    constexpr float kMidBoss3CapturedDrillWidth = 192.0f;
+    constexpr float kMidBoss3CapturedDrillHeight = 96.0f;
 
     using OutlinePoint = CapturedPhotoItem::OutlinePoint;
 
@@ -146,6 +150,7 @@ namespace
         const Entity& entity,
         bool capturedVanishObject,
         bool capturedBarrel,
+        bool capturedFallingRock,
         bool capturedBattery,
         bool capturedProjectile,
         bool capturedLaserTurret,
@@ -161,7 +166,7 @@ namespace
             return PhotoPlacementRuleGroup::Group3;
         }
 
-        if (capturedBarrel || capturedBattery || capturedProjectile)
+        if (capturedBarrel || capturedBattery || capturedProjectile || capturedFallingRock)
         {
             return PhotoPlacementRuleGroup::Group2;
         }
@@ -215,6 +220,19 @@ namespace
             item.tintA = 1.0f;
             item.sepiaRestoredMarkerObject = true;
             return true;
+        case 'S':
+            item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
+            item.textureId = textureId;
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Generic;
+            item.placementRuleGroup = PhotoPlacementRuleGroup::Group2;
+            item.tintR = 0.6f;
+            item.tintG = 0.6f;
+            item.tintB = 0.6f;
+            item.tintA = 1.0f;
+            item.sepiaRestoredMarkerObject = true;
+            return true;
         case '+':
             item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
             item.textureId = restoredTextureId;
@@ -228,9 +246,99 @@ namespace
             item.tintA = 1.0f;
             item.sepiaRestoredMarkerObject = true;
             return true;
-            // ここに書いてください
         default:
             return false;
+        }
+    }
+
+    bool AppendShieldBossMotionCaptureItem(
+        PhotoCaptureState& capture,
+        PhotoFilterTheme selectedTheme,
+        const ShieldComponent& shield,
+        float frameX,
+        float frameY,
+        std::vector<const Entity*>& capturedBossVisuals)
+    {
+        const Entity* bossEntity = shield.ownerBoss;
+        if (!bossEntity)
+        {
+            return false;
+        }
+
+        if (std::find(capturedBossVisuals.begin(), capturedBossVisuals.end(), bossEntity) != capturedBossVisuals.end())
+        {
+            return false;
+        }
+
+        const auto* boss = bossEntity->GetComponent<ShieldBossComponent>();
+        const auto* transform = bossEntity->GetComponent<TransformComponent>();
+        const auto* sprite = bossEntity->GetComponent<SpriteRenderComponent>();
+        if (!boss ||
+            boss->deathAnimationActive ||
+            boss->deathAnimationFinished ||
+            !transform ||
+            !sprite)
+        {
+            return false;
+        }
+
+        const float drawWidth = transform->width * transform->scale * sprite->GetRenderScaleX();
+        const float drawHeight = transform->height * transform->scale * sprite->GetRenderScaleY();
+        if (drawWidth <= 1.0f || drawHeight <= 1.0f)
+        {
+            return false;
+        }
+
+        // 攻撃キャプチャのシールドだけでなく、ボス本体の現在モーションも写真に同梱する。
+        CapturedPhotoItem bossItem;
+        bossItem.textureId = sprite->GetTextureId();
+        bossItem.role = PhotoCopyRole::Hazard;
+        bossItem.layer = PhotoCopyLayer::Background;
+        bossItem.origin = PhotoCopyOrigin::Enemy;
+        bossItem.appliedTheme = selectedTheme;
+        bossItem.relativeX = transform->x + sprite->GetRenderOffsetX() - frameX;
+        bossItem.relativeY = transform->y + sprite->GetRenderOffsetY() - frameY;
+        bossItem.width = drawWidth;
+        bossItem.height = drawHeight;
+        bossItem.sourceX = sprite->GetSourceX();
+        bossItem.sourceY = sprite->GetSourceY();
+        bossItem.sourceWidth = sprite->GetSourceWidth();
+        bossItem.sourceHeight = sprite->GetSourceHeight();
+        bossItem.rotation = transform->rotation + sprite->GetRenderRotationOffset();
+        bossItem.flipX = sprite->GetFlipX();
+        bossItem.tintA = 0.92f;
+        bossItem.spawnArchetype = CapturedSpawnArchetype::None;
+        bossItem.enemyAttackPaste = false;
+        bossItem.placementRuleGroup = PhotoPlacementRuleGroup::Group3;
+        bossItem.bossMotionClip =
+            boss->state == ShieldBossState::Rush
+            ? 1
+            : 2;
+
+        if (const auto* tint = bossEntity->GetComponent<TintComponent>())
+        {
+            bossItem.tintR = tint->r;
+            bossItem.tintG = tint->g;
+            bossItem.tintB = tint->b;
+            bossItem.tintA = std::min(tint->a, bossItem.tintA);
+        }
+
+        capture.items.push_back(bossItem);
+        capturedBossVisuals.push_back(bossEntity);
+        return true;
+    }
+
+    void AppendEntitiesByTag(
+        std::vector<Entity*>& outEntities,
+        const GameScene& scene,
+        EntityTag tag)
+    {
+        for (Entity* entity : scene.EntitiesByTag(tag))
+        {
+            if (entity)
+            {
+                outEntities.push_back(entity);
+            }
         }
     }
 
@@ -366,23 +474,23 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         return;
     }
 
-    if (scene.m_flow.captureLockoutRemaining > 0.0f)
+    if (scene.m_ui.captureLockoutRemaining > 0.0f)
     {
         return;
     }
 
-    if (scene.m_flow.captureRapidTimer <= 0.0f)
+    if (scene.m_ui.captureRapidTimer <= 0.0f)
     {
-        scene.m_flow.captureRapidCount = 0;
+        scene.m_ui.captureRapidCount = 0;
     }
 
-    ++scene.m_flow.captureRapidCount;
-    scene.m_flow.captureRapidTimer = gCaptureRapidWindowSeconds;
-    if (scene.m_flow.captureRapidCount > static_cast<int>(std::round(gCaptureRapidShotLimit)))
+    ++scene.m_ui.captureRapidCount;
+    scene.m_ui.captureRapidTimer = gCaptureRapidWindowSeconds;
+    if (scene.m_ui.captureRapidCount > static_cast<int>(std::round(gCaptureRapidShotLimit)))
     {
-        scene.m_flow.captureLockoutRemaining = gCaptureOverheatLockSeconds;
-        scene.m_flow.captureRapidCount = 0;
-        scene.m_flow.captureRapidTimer = 0.0f;
+        scene.m_ui.captureLockoutRemaining = gCaptureOverheatLockSeconds;
+        scene.m_ui.captureRapidCount = 0;
+        scene.m_ui.captureRapidTimer = 0.0f;
         return;
     }
 
@@ -402,14 +510,16 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float frameY = 0.0f;
     float frameWidth = 0.0f;
     float frameHeight = 0.0f;
+    // 撮影判定も描画時と同じビュー状態で計算し、ファインダーの見た目と一致させる。
+    scene.PrepareFrameRendering();
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
     bool restoredSepiaBackground = false;
     scene.m_flow.cameraMode = false;
     bool hasSepiaRubbleInFrame = false;
-    for (const auto& entity : scene.m_entities)
+    bool hasEnemyAttackCaptureCandidateInFrame = false;
+    for (const auto& entity : scene.m_world.Entities())
     {
-
-        if (!entity || !entity->GetComponent<SepiaRubbleComponent>())
+        if (!entity)
         {
             continue;
         }
@@ -423,16 +533,33 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
             std::min(frameX + frameWidth, t->x + t->width * t->scale) - std::max(frameX, t->x));
         const float overlapH = std::max(0.0f,
             std::min(frameY + frameHeight, t->y + t->height * t->scale) - std::max(frameY, t->y));
-        if (overlapW > 1.0f && overlapH > 1.0f)
+        if (overlapW > 0.0f && overlapH > 0.0f)
         {
-            hasSepiaRubbleInFrame = true;
-            break;
+            if (entity->GetComponent<SepiaRubbleComponent>())
+            {
+                hasSepiaRubbleInFrame = true;
+            }
+            if (const auto* midBoss3Fist = entity->GetComponent<MidBoss3FistComponent>())
+            {
+                const bool fistAttackActive =
+                    midBoss3Fist->state == MidBoss3FistState::Launching ||
+                    midBoss3Fist->state == MidBoss3FistState::MeteorFalling;
+                if (fistAttackActive && !midBoss3Fist->captureJammerActive)
+                {
+                    hasEnemyAttackCaptureCandidateInFrame = true;
+                }
+            }
+            if (hasSepiaRubbleInFrame && hasEnemyAttackCaptureCandidateInFrame)
+            {
+                break;
+            }
         }
     }
 
-    const bool flashEnabled = scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled;
+    const bool flashEnabled = scene.m_ui.cameraFlash.unlocked && scene.m_ui.cameraFlash.enabled;
     const bool sepiaDryRun =
         !hasSepiaRubbleInFrame &&
+        !hasEnemyAttackCaptureCandidateInFrame &&
         (scene.m_debug.sepiaFilmFilterDryRunEnabled ||
          scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia);
 
@@ -446,8 +573,8 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         scene.m_photo.placement.active = false;
         scene.m_photo.placement.valid = false;
         scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
-        scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
-        scene.m_flow.developedPhotoPreviewRemaining = 0.0f;
+        scene.m_ui.shutterFlashRemaining = gShutterFlashSeconds;
+        scene.m_ui.developedPhotoPreviewRemaining = 0.0f;
         if (flashEnabled)
         {
             scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
@@ -459,6 +586,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
 
     scene.m_photo.capture.items.clear();
     scene.m_photo.capture.containsEnemyAttackPaste = false;
+    scene.m_photo.capture.attackCaptureCount = 0;
     float capturedMaxRight = 0.0f;
     float capturedMaxBottom = 0.0f;
     CaptureEntitiesInFrame(scene, frameX, frameY, frameWidth, frameHeight, capturedMaxRight, capturedMaxBottom, restoredSepiaBackground);
@@ -470,7 +598,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
         if (flashEnabled || defeatedGhostInFinder || restoredSepiaBackground)
         {
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
-            scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
+            scene.m_ui.shutterFlashRemaining = gShutterFlashSeconds;
             if (flashEnabled)
             {
                 scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
@@ -493,13 +621,80 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     bool& restoredSepiaBackground)
 {
     std::vector<Entity*> entitiesToRemove;
-    for (const auto& entity : scene.m_entities)
+    bool capturedMidBoss3FistRubbleAttack = false;
+    bool capturedMidBoss3DrillRubbleAttack = false;
+    bool capturedMidBoss2Spear = false;
+    std::vector<const Entity*> capturedBossVisuals;
+    std::vector<Entity*> captureCandidates;
+    captureCandidates.reserve(
+        scene.EntitiesByTag(EntityTag::Enemy).size() +
+        scene.EntitiesByTag(EntityTag::PhotoBox).size() +
+        scene.EntitiesByTag(EntityTag::Goal).size() +
+        scene.EntitiesByTag(EntityTag::PhotoSource).size() +
+        scene.EntitiesByTag(EntityTag::Hazard).size() +
+        scene.EntitiesByTag(EntityTag::Battery).size() +
+        scene.EntitiesByTag(EntityTag::BatterySwitch).size() +
+        scene.EntitiesByTag(EntityTag::Elevator).size() +
+        scene.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        scene.EntitiesByTag(EntityTag::Shutter).size() +
+        scene.EntitiesByTag(EntityTag::ProtectiveWall).size() +
+        scene.EntitiesByTag(EntityTag::LaserTurret).size() +
+        scene.EntitiesByTag(EntityTag::LaserBeam).size() +
+        scene.EntitiesByTag(EntityTag::StageLight).size() +
+        scene.EntitiesByTag(EntityTag::MarkerLight).size() +
+        scene.EntitiesByTag(EntityTag::SepiaRubble).size() +
+        scene.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        scene.EntitiesByTag(EntityTag::Filter).size() +
+        scene.EntitiesByTag(EntityTag::Bullet).size() +
+        scene.EntitiesByTag(EntityTag::Shield).size() +
+        scene.EntitiesByTag(EntityTag::BossShield).size() +
+        scene.EntitiesByTag(EntityTag::Boss1Shield).size() +
+        scene.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
+        scene.EntitiesByTag(EntityTag::CapturedShield).size() +
+        scene.EntitiesByTag(EntityTag::MidBoss3Fist).size() +
+        scene.EntitiesByTag(EntityTag::Barrel).size() +
+        scene.EntitiesByTag(EntityTag::Log).size() +
+        scene.EntitiesByTag(EntityTag::FallingRock).size() +
+        scene.EntitiesByTag(EntityTag::DamagePlatform).size() +
+        scene.EntitiesByTag(EntityTag::DamagePlatformSpike).size());
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Enemy);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::PhotoBox);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Goal);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::PhotoSource);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Hazard);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Battery);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::BatterySwitch);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Elevator);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::LaserSwitch);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Shutter);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::ProtectiveWall);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::LaserTurret);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::LaserBeam);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::StageLight);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::MarkerLight);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::SepiaRubble);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::SepiaElevator);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Filter);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Bullet);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Shield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::BossShield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Boss1Shield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::MidBoss1Shield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::CapturedShield);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::MidBoss3Fist);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Barrel);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Log);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::FallingRock);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::DamagePlatform);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::DamagePlatformSpike);
+
+    for (Entity* entity : captureCandidates)
     {
-        if (!entity || HasTag(*entity, "Player") || HasTag(*entity, kTagDropItem))
+        if (!entity || HasTag(*entity, EntityTag::Player) || HasTag(*entity, EntityTag::DropItem))
         {
             continue;
         }
-        if (HasTag(*entity, "Enemy"))
+        if (HasTag(*entity, EntityTag::Enemy))
         {
             const auto* enemyComp = entity->GetComponent<EnemyComponent>();
             if (!enemyComp ||
@@ -511,21 +706,36 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         const auto* bossBeamCapture = entity->GetComponent<BossBeamCaptureComponent>();
         const bool isCapturableBossBeam =
-            HasTag(*entity, kTagLaserBeam) &&
+            HasTag(*entity, EntityTag::LaserBeam) &&
             bossBeamCapture &&
             bossBeamCapture->captureEnabled;
-        if ((HasTag(*entity, kTagLaserBeam) && !isCapturableBossBeam) ||
-            (HasTag(*entity, kTagLaserTurret) &&
+        if ((HasTag(*entity, EntityTag::LaserBeam) && !isCapturableBossBeam) ||
+            (HasTag(*entity, EntityTag::LaserTurret) &&
                 (!bossBeamCapture || !bossBeamCapture->captureEnabled)) ||
-            HasTag(*entity, kTagStageLight))
+            HasTag(*entity, EntityTag::StageLight))
         {
             continue;
         }
-        if (HasTag(*entity, "BossShockwave"))
+        if (HasTag(*entity, EntityTag::BossShockwave))
         {
             continue;
         }
-        const bool isPhotoBox = HasTag(*entity, "PhotoBox");
+        const auto* midBoss3Fist = entity->GetComponent<MidBoss3FistComponent>();
+        if (midBoss3Fist)
+        {
+            if (midBoss3Fist->captureJammerActive)
+            {
+                continue;
+            }
+            const bool fistAttackActive =
+                midBoss3Fist->state == MidBoss3FistState::Launching ||
+                midBoss3Fist->state == MidBoss3FistState::MeteorFalling;
+            if (!fistAttackActive)
+            {
+                continue;
+            }
+        }
+        const bool isPhotoBox = HasTag(*entity, EntityTag::PhotoBox);
         if (isPhotoBox)
         {
             const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
@@ -543,11 +753,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             }
         }
 
-        if (HasTag(*entity, kTagBatterySwitch) ||
-            HasTag(*entity, kTagElevator) ||
-            HasTag(*entity, kTagLaserSwitch) ||
-            HasTag(*entity, kTagShutter) ||
-            HasTag(*entity, kTagProtectiveWall))
+        if (HasTag(*entity, EntityTag::BatterySwitch) ||
+            HasTag(*entity, EntityTag::Elevator) ||
+            HasTag(*entity, EntityTag::LaserSwitch) ||
+            HasTag(*entity, EntityTag::Shutter) ||
+            HasTag(*entity, EntityTag::ProtectiveWall))
         {
             continue;
         }
@@ -569,7 +779,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const float overlapBottom = (std::min)(frameY + frameHeight, targetY + targetHeight);
         const float overlapWidth = (std::max)(0.0f, overlapRight - overlapLeft);
         const float overlapHeight = (std::max)(0.0f, overlapBottom - overlapTop);
-        if (overlapWidth <= 1.0f || overlapHeight <= 1.0f)
+        if (overlapWidth <= 0.0f || overlapHeight <= 0.0f)
         {
             continue;
         }
@@ -581,7 +791,18 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
         CapturedPhotoItem item;
         const bool capturedLog = HasTag(*entity, kTagLog);
+        const bool capturedDamagePlatform = HasTag(*entity, kTagDamagePlatform);
+        const bool capturedDamagePlatformSpike = HasTag(*entity, kTagDamagePlatformSpike);
         const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr && !capturedLog;
+        const auto* fallingRock = entity->GetComponent<FallingRockComponent>();
+        const bool capturedFallingRock = fallingRock != nullptr && !capturedLog;
+        if (capturedFallingRock)
+        {
+            if (fallingRock->rubbleActive || fallingRock->cooldownActive)
+            {
+                continue;
+            }
+        }
         const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr && !capturedLog;
         const auto* laserBeam = entity->GetComponent<LaserBeamComponent>();
         const bool capturedBossBeam = isCapturableBossBeam && laserBeam != nullptr;
@@ -594,7 +815,24 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         const auto* vanishOnCapture = entity->GetComponent<VanishOnCaptureComponent>();
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
-        const bool capturedSepiaRubble = entity->GetComponent<SepiaRubbleComponent>() != nullptr;
+        const auto* sepiaRubble = entity->GetComponent<SepiaRubbleComponent>();
+        const bool capturedSepiaRubble = sepiaRubble != nullptr;
+        const bool capturedMidBoss3FistRubble =
+            sepiaRubble && sepiaRubble->source == SepiaRubbleSource::MidBoss3Fist;
+        const bool capturedMidBoss3DrillRubble =
+            sepiaRubble && sepiaRubble->source == SepiaRubbleSource::MidBoss3Drill;
+        const bool capturedFallingRockRubble =
+            sepiaRubble && sepiaRubble->source == SepiaRubbleSource::FallingRock;
+        if (capturedMidBoss3FistRubble && capturedMidBoss3FistRubbleAttack)
+        {
+            entitiesToRemove.push_back(entity);
+            continue;
+        }
+        if (capturedMidBoss3DrillRubble && capturedMidBoss3DrillRubbleAttack)
+        {
+            entitiesToRemove.push_back(entity);
+            continue;
+        }
         auto* sepiaGroup = entity->GetComponent<SepiaRubbleGroupComponent>();
         const bool capturedNumericSepiaRubble = capturedSepiaRubble && sepiaGroup &&
                    sepiaGroup->markerType == '>' && sepiaGroup->restoredMarkerType == '\0';
@@ -643,8 +881,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                                 ? sepiaGroup->cellRestoredMarkerParameters[ci] : 0;
 
                                 if (SpawnRestoredSepiaMarkerObject(
-                                    scene.m_pendingEntities,
-                                    scene.m_whiteTexture, 
+                                    scene.m_world.PendingEntities(),
+                                    scene.m_whiteTexture,
                                     tileSize,
                                     restoredLifetimeSeconds,
                                     restoredMarkerType,
@@ -713,6 +951,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 item.sourceTileValue = tileValue;
 
                 scene.m_photo.capture.items.push_back(item);
+                scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
                 capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
                 capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
                 continue;
@@ -736,6 +975,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     item.sourceHeight = sprite->GetSourceHeight() * localHeight;
                     
                     scene.m_photo.capture.items.push_back(item);
+                    scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
                     scene.m_photo.capture.containsEnemyAttackPaste =
                         scene.m_photo.capture.containsEnemyAttackPaste || item.enemyAttackPaste;
 
@@ -767,6 +1007,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             if (const auto* bossComp = shieldComp->ownerBoss->GetComponent<ShieldBossComponent>())
             {
+                if (bossComp->deathAnimationActive || bossComp->deathAnimationFinished)
+                {
+                    continue;
+                }
                 if (bossComp->state == ShieldBossState::SlamPhase1 ||
                     bossComp->state == ShieldBossState::SlamPhase2)
                 {
@@ -827,7 +1071,38 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         item.layer = PhotoCopyLayer::Foreground;
         item.origin = GetEntityCopyOrigin(*entity);
         item.appliedTheme = scene.m_photo.capture.selectedTheme;
-        if (capturedSepiaRubble)
+        if (capturedMidBoss3FistRubble || midBoss3Fist)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::MidBoss3FistAttack;
+            item.role = PhotoCopyRole::Hazard;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Hazard;
+            item.textureId = scene.m_whiteTexture;
+        }
+        else if (capturedMidBoss3DrillRubble)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::MidBoss3DrillAttack;
+            item.role = PhotoCopyRole::Hazard;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Hazard;
+            item.textureId = scene.m_whiteTexture;
+        }
+        else if (capturedFallingRockRubble)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Generic;
+            item.textureId = scene.m_whiteTexture;
+        }
+        else if (capturedFallingRock)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Generic;
+        }
+        else if (capturedSepiaRubble)
         {
             item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
             item.textureId = capturedNumericSepiaRubble
@@ -849,6 +1124,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             item.spawnArchetype = CapturedSpawnArchetype::Log;
         }
+        else if (capturedFallingRock)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
+        }
         else if (capturedBattery)
         {
             item.spawnArchetype = CapturedSpawnArchetype::Battery;
@@ -869,11 +1148,19 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             item.spawnArchetype = CapturedSpawnArchetype::None;
         }
-        item.enemyAttackPaste = capturedWalker || capturedShieldAttack;
+        item.enemyAttackPaste =
+            capturedWalker ||
+            capturedShieldAttack ||
+            capturedLaserTurret ||
+            capturedMidBoss2Spear ||
+            midBoss3Fist != nullptr ||
+            capturedMidBoss3FistRubble ||
+            capturedMidBoss3DrillRubble;
         item.placementRuleGroup = ResolvePlacementRuleGroupForCapturedEntity(
             *entity,
             capturedVanishObject,
             capturedBarrel,
+            capturedFallingRock,
             capturedBattery,
             capturedProjectile,
             capturedLaserTurret,
@@ -911,6 +1198,81 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.tintB = tint->b;
             item.tintA = tint->a;
         }
+        if (capturedShield)
+        {
+            constexpr float kCapturedShieldWidth = 240.0f;
+            constexpr float kCapturedShieldHeight = 192.0f;
+            const float capturedCenterX = overlapLeft + overlapWidth * 0.5f;
+            const float capturedCenterY = overlapTop + overlapHeight * 0.5f;
+            item.relativeX = capturedCenterX - frameX - kCapturedShieldWidth * 0.5f;
+            item.relativeY = capturedCenterY - frameY - kCapturedShieldHeight * 0.5f;
+            item.width = kCapturedShieldWidth;
+            item.height = kCapturedShieldHeight;
+            item.rotation = 0.0f;
+            item.sourceX = sprite->GetSourceX();
+            item.sourceY = sprite->GetSourceY();
+            item.sourceWidth = sprite->GetSourceWidth();
+            item.sourceHeight = sprite->GetSourceHeight();
+            item.collisionOutline.clear();
+            item.collisionOutline.push_back({ 0.0f, 0.0f });
+            item.collisionOutline.push_back({ 1.0f, 0.0f });
+            item.collisionOutline.push_back({ 1.0f, 1.0f });
+            item.collisionOutline.push_back({ 0.0f, 1.0f });
+        }
+        if (capturedMidBoss3FistRubble || capturedMidBoss3DrillRubble)
+        {
+            const float capturedCenterX = overlapLeft + overlapWidth * 0.5f;
+            const float capturedCenterY = overlapTop + overlapHeight * 0.5f;
+            const float capturedAttackWidth = capturedMidBoss3DrillRubble ? kMidBoss3CapturedDrillWidth : kMidBoss3CapturedFistWidth;
+            const float capturedAttackHeight = capturedMidBoss3DrillRubble ? kMidBoss3CapturedDrillHeight : kMidBoss3CapturedFistHeight;
+            item.textureId = scene.m_whiteTexture;
+            item.relativeX = capturedCenterX - frameX - capturedAttackWidth * 0.5f;
+            item.relativeY = capturedCenterY - frameY - capturedAttackHeight * 0.5f;
+            item.width = capturedAttackWidth;
+            item.height = capturedAttackHeight;
+            item.sourceX = 0.0f;
+            item.sourceY = 0.0f;
+            item.sourceWidth = 1.0f;
+            item.sourceHeight = 1.0f;
+            item.rotation = 0.0f;
+            item.flipX = false;
+            item.tintR = 0.96f;
+            item.tintG = 0.52f;
+            item.tintB = 0.18f;
+            item.tintA = 1.0f;
+            item.role = PhotoCopyRole::Hazard;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Hazard;
+        }
+        else if (capturedFallingRockRubble)
+        {
+            item.textureId = scene.m_whiteTexture;
+            item.sourceX = 0.0f;
+            item.sourceY = 0.0f;
+            item.sourceWidth = 1.0f;
+            item.sourceHeight = 1.0f;
+            item.tintA = 1.0f;
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Generic;
+            item.placementRuleGroup = PhotoPlacementRuleGroup::Group2;
+        }
+        else if (capturedFallingRock)
+        {
+            item.tintA = 1.0f;
+        }
+        else if (midBoss3Fist)
+        {
+            item.textureId = scene.m_whiteTexture;
+            item.sourceX = 0.0f;
+            item.sourceY = 0.0f;
+            item.sourceWidth = 1.0f;
+            item.sourceHeight = 1.0f;
+            item.tintR = 0.96f;
+            item.tintG = 0.52f;
+            item.tintB = 0.18f;
+            item.tintA = 1.0f;
+        }
         if (markerLight)
         {
             markerLight->activated = !markerLight->activated;
@@ -926,11 +1288,24 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
             if (const auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
             {
+                if (capturedMidBoss2Spear)
+                {
+                    continue;
+                }
+                capturedMidBoss2Spear = true;
+                item.enemyAttackPaste = true;
                 item.spearProjectile = true;
                 item.spearStuck = spear->stuck;
                 item.spearDirectionX = spear->stuck ? spear->directionX : spear->targetDirectionX;
                 item.spearDirectionY = spear->stuck ? spear->directionY : spear->targetDirectionY;
                 item.spearTravelDistance = spear->travelDistance;
+                Logger::Info(
+                    std::string("Captured MidBoss2 spear: stuck=") +
+                    (spear->stuck ? "1" : "0") +
+                    " travel=" + std::to_string(spear->travelDistance) +
+                    " dirX=" + std::to_string(item.spearDirectionX) +
+                    " dirY=" + std::to_string(item.spearDirectionY) +
+                    " projectileDamage=" + std::to_string(item.projectileDamage));
                 if (std::fabs(item.spearDirectionX) > 0.0001f || std::fabs(item.spearDirectionY) > 0.0001f)
                 {
                     item.rotation = std::atan2(item.spearDirectionY, item.spearDirectionX);
@@ -938,6 +1313,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             }
         }
         else if (capturedWalker)  
+        {
+            item.role = PhotoCopyRole::Hazard;
+            item.layer = PhotoCopyLayer::Foreground;
+        }
+        else if (midBoss3Fist || capturedMidBoss3FistRubble || capturedMidBoss3DrillRubble)
         {
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
@@ -959,17 +1339,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 item.laserEnemyKnockbackSpeed = laserBeam->enemyKnockbackSpeed;
             }
         }
-        else if (damagePlatform)
+        else if (capturedDamagePlatform)
+        {
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+        }
+        else if (capturedDamagePlatformSpike || damagePlatform || spikeStrip)
         {
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
         }
-        else if (spikeStrip)
-        {
-            item.role = PhotoCopyRole::Hazard;
-            item.layer = PhotoCopyLayer::Foreground;
-        }
-        else if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedShield && !damagePlatform && !spikeStrip && !capturedSepiaRubble)
+        else if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedLaserTurret && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !capturedSepiaRubble && !midBoss3Fist)
         {
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
@@ -990,36 +1370,59 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedBattery && !capturedLaserTurret && !capturedLog && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble)
+        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !midBoss3Fist)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }
         scene.m_photo.capture.items.push_back(item);
+        scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
+        if (capturedShieldAttack && shieldComp)
+        {
+            if (AppendShieldBossMotionCaptureItem(
+                    scene.m_photo.capture,
+                    scene.m_photo.capture.selectedTheme,
+                    *shieldComp,
+                    frameX,
+                    frameY,
+                    capturedBossVisuals))
+            {
+                const CapturedPhotoItem& bossItem = scene.m_photo.capture.items.back();
+                capturedMaxRight = (std::max)(capturedMaxRight, bossItem.relativeX + bossItem.width);
+                capturedMaxBottom = (std::max)(capturedMaxBottom, bossItem.relativeY + bossItem.height);
+            }
+        }
+        if (capturedMidBoss3FistRubble)
+        {
+            capturedMidBoss3FistRubbleAttack = true;
+            entitiesToRemove.push_back(entity);
+        }
+        if (capturedMidBoss3DrillRubble)
+        {
+            capturedMidBoss3DrillRubbleAttack = true;
+            entitiesToRemove.push_back(entity);
+        }
+        if (capturedFallingRockRubble)
+        {
+            entitiesToRemove.push_back(entity);
+        }
         scene.m_photo.capture.containsEnemyAttackPaste =
             scene.m_photo.capture.containsEnemyAttackPaste || item.enemyAttackPaste;
+        if (item.enemyAttackPaste)
+        {
+            Logger::Info(
+                std::string("Captured attack item appended: archetype=") +
+                std::to_string(static_cast<int>(item.spawnArchetype)) +
+                " attackCount=" + std::to_string(scene.m_photo.capture.attackCaptureCount) +
+                " containsEnemyAttackPaste=" + (scene.m_photo.capture.containsEnemyAttackPaste ? "1" : "0"));
+        }
         capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
         capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
         if (capturedVanishObject)
         {
-            entitiesToRemove.push_back(entity.get());
+            entitiesToRemove.push_back(entity);
         }
     }
-    if (!entitiesToRemove.empty())
-    {
-        scene.m_entities.erase(
-            std::remove_if(
-                scene.m_entities.begin(),
-                scene.m_entities.end(),
-                [&](const std::unique_ptr<Entity>& candidate)
-                {
-                    if (!candidate)
-                    {
-                        return false;
-                    }
-                    return std::find(entitiesToRemove.begin(), entitiesToRemove.end(), candidate.get()) != entitiesToRemove.end();
-                }),
-            scene.m_entities.end());
-    }
+    scene.m_world.RemoveByPointerList(entitiesToRemove);
 }
 
 void PhotoCaptureSystem::CaptureTilesInFrame(
@@ -1090,6 +1493,7 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
             GetTileCaptureTint(tileValue, item.tintR, item.tintG, item.tintB, item.tintA);
             item.sourceTileValue = tileValue;
             scene.m_photo.capture.items.push_back(item);
+            scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
             capturedMaxRight = (std::max)(capturedMaxRight, item.relativeX + item.width);
             capturedMaxBottom = (std::max)(capturedMaxBottom, item.relativeY + item.height);
         }
@@ -1114,14 +1518,23 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     scene.m_photo.capture.tintG = scene.m_photo.capture.items.front().tintG;
     scene.m_photo.capture.tintB = scene.m_photo.capture.items.front().tintB;
     scene.m_photo.capture.tintA = scene.m_photo.capture.items.front().tintA;
+    if (scene.m_photo.capture.containsEnemyAttackPaste)
+    {
+        Logger::Info(
+            std::string("FinalizeCapturedPhoto attack capture: items=") +
+            std::to_string(scene.m_photo.capture.items.size()) +
+            " attackCount=" + std::to_string(scene.m_photo.capture.attackCaptureCount) +
+            " theme=" + std::to_string(static_cast<int>(scene.m_photo.capture.capturedTheme)));
+    }
     scene.StoreCapturedPhoto();
 
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, nullptr, "shutter", 0.0f, 0.0f });
-    scene.m_flow.shutterFlashRemaining = gShutterFlashSeconds;
-    if (scene.m_flow.cameraFlash.unlocked && scene.m_flow.cameraFlash.enabled)
+    scene.m_ui.shutterFlashRemaining = gShutterFlashSeconds;
+    if (scene.m_ui.cameraFlash.unlocked && scene.m_ui.cameraFlash.enabled)
     {
         scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
     }
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
-    scene.m_flow.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
+    scene.m_ui.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
 }
+

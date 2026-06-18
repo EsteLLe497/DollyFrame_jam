@@ -1,7 +1,9 @@
 ﻿#include "pch.h"
 
 #include "game_scene_internal.h"
-#include "game_scene_combat_system.h"
+#include "game_scene_combat_common.h"
+#include "game_scene_combat_enemy_system.h"
+#include "game_scene_combat_bullet_system.h"
 
 #include <algorithm>
 #include <array>
@@ -31,42 +33,86 @@ namespace
     inline constexpr int kEnemy2AttackSheetRows = 8;
     inline constexpr int kEnemy2AttackFrameCount = 80;
     inline constexpr float kEnemy2AttackFps = 18.0f;
-    inline constexpr int kBoss1IdleSheetColumns = 5;
-    inline constexpr int kBoss1IdleSheetRows = 6;
-    inline constexpr int kBoss1IdleFrameCount = 30;
-    inline constexpr float kBoss1IdleFps = 10.0f;
-    inline constexpr int kBoss1RushStartSheetColumns = 8;
-    inline constexpr int kBoss1RushStartSheetRows = 8;
-    inline constexpr int kBoss1RushStartFrameCount = 64;
-    inline constexpr int kBoss1RushAttackSheetColumns = 6;
-    inline constexpr int kBoss1RushAttackSheetRows = 10;
-    inline constexpr int kBoss1RushAttackFrameCount = 60;
-    inline constexpr int kBoss1RushEndSheetColumns = 5;
-    inline constexpr int kBoss1RushEndSheetRows = 11;
-    inline constexpr int kBoss1RushEndFrameCount = 55;
+    inline constexpr int kBoss1MoveSheetColumns = 5;
+    inline constexpr int kBoss1MoveSheetRows = 6;
+    inline constexpr int kBoss1MoveFrameCount = 30;
+    inline constexpr int kBoss1Attack01SheetColumns = 10;
+    inline constexpr int kBoss1Attack01SheetRows = 18;
+    inline constexpr int kBoss1Attack01FrameCount = 180;
+    inline constexpr int kBoss1Attack02SheetColumns = 11;
+    inline constexpr int kBoss1Attack02SheetRows = 15;
+    inline constexpr int kBoss1Attack02FrameCount = 165;
+    inline constexpr int kBoss1KnockbackSheetColumns = 5;
+    inline constexpr int kBoss1KnockbackSheetRows = 6;
+    inline constexpr int kBoss1KnockbackFrameCount = 30;
     inline constexpr int kBoss1DeathSheetColumns = 10;
     inline constexpr int kBoss1DeathSheetRows = 12;
     inline constexpr int kBoss1DeathFrameCount = 120;
     inline constexpr int kBoss1AppearSheetColumns = 10;
-    inline constexpr int kBoss1AppearFirstPageRows = 8;
-    inline constexpr int kBoss1AppearSecondPageRows = 7;
+    inline constexpr int kBoss1AppearSheetRows = 15;
     inline constexpr int kBoss1AppearFrameCount = 150;
-    inline constexpr int kBoss1RoarSheetColumns = 10;
-    inline constexpr int kBoss1RoarFirstPageRows = 8;
-    inline constexpr int kBoss1RoarSecondPageRows = 7;
-    inline constexpr int kBoss1RoarFrameCount = 150;
-    inline constexpr float kBoss1RushStartFps = 24.0f;
-    inline constexpr float kBoss1RushAttackFps = 30.0f;
-    inline constexpr float kBoss1RushEndFps = 24.0f;
-    inline constexpr float kBoss1DeathFps = 24.0f;
+    inline constexpr float kBoss1IdleFps = 6.0f;
+    inline constexpr float kBoss1MoveFps = 12.0f;
+    inline constexpr float kBoss1AttackFps = 30.0f;
+    inline constexpr float kBoss1KnockbackFps = 30.0f;
+    inline constexpr float kBoss1DeathFps = 30.0f;
     inline constexpr float kBoss1AppearFps = 30.0f;
-    inline constexpr float kBoss1RoarFps = 24.0f;
-    inline constexpr float kBoss1BodyVisualScale = 1.35f;
-    inline constexpr float kBoss1RoarVisualScale = 1.35f;
 
     constexpr float kEnemyDefeatHitStopSeconds = 0.08f;
     constexpr float kEnemyDefeatShakeSeconds = 0.18f;
     constexpr float kEnemyDefeatShakeAmplitude = 14.0f;
+    constexpr float kEnemyKnockbackHitStopSeconds = 0.055f;
+    constexpr float kEnemyKnockbackShakeSeconds = 0.16f;
+    constexpr float kEnemyKnockbackShakeAmplitude = 15.0f;
+    constexpr float kBossKnockbackHitStopSeconds = 0.085f;
+    constexpr float kBossKnockbackShakeSeconds = 0.26f;
+    constexpr float kBossKnockbackShakeAmplitude = 60.0f;
+    constexpr float kBossDefeatStartHitStopSeconds = 0.14f;
+    constexpr float kBossDefeatStartShakeSeconds = 0.44f;
+    constexpr float kBossDefeatStartShakeAmplitude = 64.0f;
+    constexpr float kBossDefeatFinishHitStopSeconds = 0.08f;
+    constexpr float kBossDefeatFinishShakeSeconds = 0.34f;
+    constexpr float kBossDefeatFinishShakeAmplitude = 42.0f;
+
+    float ResolveMidBoss3DamageDirection(const Entity& enemy, const Entity* sourceEntity)
+    {
+        if (sourceEntity)
+        {
+            if (const auto* projectile = sourceEntity->GetComponent<ProjectileComponent>())
+            {
+                const float projectileDirection = projectile->GetVelocityX();
+                if (std::fabs(projectileDirection) > 0.01f)
+                {
+                    return projectileDirection > 0.0f ? 1.0f : -1.0f;
+                }
+            }
+            if (const auto* capturedAttack = sourceEntity->GetComponent<CapturedMidBoss3AttackComponent>())
+            {
+                if (std::fabs(capturedAttack->aimX) > 0.01f)
+                {
+                    return capturedAttack->aimX > 0.0f ? 1.0f : -1.0f;
+                }
+            }
+        }
+
+        const auto* enemyTransform = enemy.GetComponent<TransformComponent>();
+        const auto* sourceTransform = sourceEntity ? sourceEntity->GetComponent<TransformComponent>() : nullptr;
+        if (enemyTransform && sourceTransform)
+        {
+            const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
+            const float sourceCenterX = sourceTransform->x + sourceTransform->width * sourceTransform->scale * 0.5f;
+            if (std::fabs(enemyCenterX - sourceCenterX) > 1.0f)
+            {
+                return enemyCenterX > sourceCenterX ? 1.0f : -1.0f;
+            }
+        }
+
+        if (const auto* boss = enemy.GetComponent<MidBoss3Component>())
+        {
+            return boss->facingRight ? -1.0f : 1.0f;
+        }
+        return 1.0f;
+    }
 
     struct RotatedPoint
     {
@@ -160,6 +206,48 @@ namespace
         flow.screenShakeRemaining = kEnemyDefeatShakeSeconds;
         flow.screenShakeDuration = kEnemyDefeatShakeSeconds;
         flow.screenShakeAmplitude = kEnemyDefeatShakeAmplitude;
+    }
+
+    void TriggerEnemyKnockbackFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kEnemyKnockbackHitStopSeconds);
+        if (!screenShakeEnabled)
+        {
+            return;
+        }
+
+        flow.screenShakeRemaining = (std::max)(flow.screenShakeRemaining, kEnemyKnockbackShakeSeconds);
+        flow.screenShakeDuration = (std::max)(flow.screenShakeDuration, kEnemyKnockbackShakeSeconds);
+        flow.screenShakeAmplitude = (std::max)(flow.screenShakeAmplitude, kEnemyKnockbackShakeAmplitude);
+    }
+
+    void TriggerBossKnockbackFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossKnockbackHitStopSeconds);
+        if (!screenShakeEnabled)
+        {
+            return;
+        }
+
+        flow.screenShakeRemaining = (std::max)(flow.screenShakeRemaining, kBossKnockbackShakeSeconds);
+        flow.screenShakeDuration = (std::max)(flow.screenShakeDuration, kBossKnockbackShakeSeconds);
+        flow.screenShakeAmplitude = (std::max)(flow.screenShakeAmplitude, kBossKnockbackShakeAmplitude);
+    }
+
+    void TriggerBossDefeatStartFeedback(GameSceneFlowState& flow)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossDefeatStartHitStopSeconds);
+        flow.screenShakeRemaining = kBossDefeatStartShakeSeconds;
+        flow.screenShakeDuration = kBossDefeatStartShakeSeconds;
+        flow.screenShakeAmplitude = kBossDefeatStartShakeAmplitude;
+    }
+
+    void TriggerBossDefeatFinishFeedback(GameSceneFlowState& flow)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossDefeatFinishHitStopSeconds);
+        flow.screenShakeRemaining = kBossDefeatFinishShakeSeconds;
+        flow.screenShakeDuration = kBossDefeatFinishShakeSeconds;
+        flow.screenShakeAmplitude = kBossDefeatFinishShakeAmplitude;
     }
 
     using BossTextureResolver = std::function<int(const std::string&)>;
@@ -298,49 +386,44 @@ void GameScene::ConfigureShieldBossSpriteAnimation(Entity& enemy)
         animation = &enemy.AddComponent<SpriteSheetAnimationComponent>();
     }
 
-    // 本体の当たり判定は維持し、描画だけ足元基準で大きく見せる。
-    sprite->SetRenderScale(kBoss1BodyVisualScale, kBoss1BodyVisualScale);
-    sprite->SetRenderOffset(
-        transform->width * (1.0f - kBoss1BodyVisualScale) * 0.5f,
-        transform->height * (1.0f - kBoss1BodyVisualScale));
-
-    const int idleTexture = m_assets.GetTexture("boss1_body_idle");
+    const int idleTexture = m_assets.GetTexture("boss1_body_move");
     const int fallbackTexture = sprite->GetTextureId();
     const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
     const BossTextureResolver resolveTexture = [this](const std::string& key) { return m_assets.GetTexture(key); };
 
-    // Rush系とRoarは状態名に寄せて、戦闘状態から同期しやすくする。
-    animation->DefineClip("idle", resolvedIdleTexture, kBoss1IdleSheetColumns, kBoss1IdleSheetRows, 0, kBoss1IdleFrameCount, kBoss1IdleFps, true);
+    // DDS版Boss01の攻撃名を、そのまま戦闘フロー用のクリップ名に寄せる。
+    animation->DefineClip("idle", resolvedIdleTexture, kBoss1MoveSheetColumns, kBoss1MoveSheetRows, 0, kBoss1MoveFrameCount, kBoss1IdleFps, true);
+    animation->DefineClip("move", resolvedIdleTexture, kBoss1MoveSheetColumns, kBoss1MoveSheetRows, 0, kBoss1MoveFrameCount, kBoss1MoveFps, true);
     DefineLazySingleSheetClip(
         *animation,
-        "rush_start",
-        "boss1_body_rush_start",
+        "attack01",
+        "boss1_body_attack01",
         resolveTexture,
-        kBoss1RushStartSheetColumns,
-        kBoss1RushStartSheetRows,
-        kBoss1RushStartFrameCount,
-        kBoss1RushStartFps,
+        kBoss1Attack01SheetColumns,
+        kBoss1Attack01SheetRows,
+        kBoss1Attack01FrameCount,
+        kBoss1AttackFps,
         false);
     DefineLazySingleSheetClip(
         *animation,
-        "rush_attack",
-        "boss1_body_rush_attack",
+        "attack02",
+        "boss1_body_attack02",
         resolveTexture,
-        kBoss1RushAttackSheetColumns,
-        kBoss1RushAttackSheetRows,
-        kBoss1RushAttackFrameCount,
-        kBoss1RushAttackFps,
+        kBoss1Attack02SheetColumns,
+        kBoss1Attack02SheetRows,
+        kBoss1Attack02FrameCount,
+        kBoss1AttackFps,
+        false);
+    DefineLazySingleSheetClip(
+        *animation,
+        "knockback",
+        "boss1_body_knockback",
+        resolveTexture,
+        kBoss1KnockbackSheetColumns,
+        kBoss1KnockbackSheetRows,
+        kBoss1KnockbackFrameCount,
+        kBoss1KnockbackFps,
         true);
-    DefineLazySingleSheetClip(
-        *animation,
-        "rush_end",
-        "boss1_body_rush_end",
-        resolveTexture,
-        kBoss1RushEndSheetColumns,
-        kBoss1RushEndSheetRows,
-        kBoss1RushEndFrameCount,
-        kBoss1RushEndFps,
-        false);
     DefineLazySingleSheetClip(
         *animation,
         "death",
@@ -351,44 +434,35 @@ void GameScene::ConfigureShieldBossSpriteAnimation(Entity& enemy)
         kBoss1DeathFrameCount,
         kBoss1DeathFps,
         false);
-    DefineLazyRowsClip(
+    DefineLazySingleSheetClip(
         *animation,
         "appear",
-        std::vector<std::string>{
-            "boss1_body_appear_page_0",
-            "boss1_body_appear_page_1",
-        },
+        "boss1_body_start",
         resolveTexture,
         kBoss1AppearSheetColumns,
-        std::vector<int>{
-            kBoss1AppearFirstPageRows,
-            kBoss1AppearSecondPageRows,
-        },
+        kBoss1AppearSheetRows,
         kBoss1AppearFrameCount,
         kBoss1AppearFps,
         false);
-    DefineLazyRowsClip(
+    DefineLazySingleSheetClip(
         *animation,
         "roar",
-        std::vector<std::string>{
-            "boss1_body_roar_page_0",
-            "boss1_body_roar_page_1",
-        },
+        "boss1_body_start",
         resolveTexture,
-        kBoss1RoarSheetColumns,
-        std::vector<int>{
-            kBoss1RoarFirstPageRows,
-            kBoss1RoarSecondPageRows,
-        },
-        kBoss1RoarFrameCount,
-        kBoss1RoarFps,
+        kBoss1AppearSheetColumns,
+        kBoss1AppearSheetRows,
+        kBoss1AppearFrameCount,
+        kBoss1AppearFps,
         false);
 
     if (auto* boss = enemy.GetComponent<ShieldBossComponent>();
-        boss && !boss->appearAnimationFinished && animation->HasClip("appear"))
+        boss && !boss->combatStarted && !boss->appearAnimationFinished)
     {
-        boss->appearAnimationActive = true;
-        animation->Play("appear", true);
+        if (auto* tint = enemy.GetComponent<TintComponent>())
+        {
+            tint->a = 0.0f;
+        }
+        animation->Play("idle", true);
     }
     else
     {
@@ -411,50 +485,44 @@ void GameScene::ConfigureBossShieldSpriteAnimation(Entity& shield)
         animation = &shield.AddComponent<SpriteSheetAnimationComponent>();
     }
 
-    constexpr float kBoss1BodyHeight = 192.0f;
-    const float shieldVisualScale = (kBoss1BodyHeight * kBoss1BodyVisualScale) / transform->height;
-    sprite->SetRenderScale(shieldVisualScale, shieldVisualScale);
-    sprite->SetRenderOffset(
-        144.0f * 0.5f - transform->width * shieldVisualScale * 0.5f,
-        kBoss1BodyHeight - transform->height * shieldVisualScale);
-
-    const int idleTexture = m_assets.GetTexture("boss1_shield_idle");
+    const int idleTexture = m_assets.GetTexture("boss1_shield_move");
     const int fallbackTexture = sprite->GetTextureId();
     const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
     const BossTextureResolver resolveTexture = [this](const std::string& key) { return m_assets.GetTexture(key); };
 
-    // 盾は本体と同じキャンバスの分割素材なので、同じフレーム定義で同期する。
-    animation->DefineClip("idle", resolvedIdleTexture, kBoss1IdleSheetColumns, kBoss1IdleSheetRows, 0, kBoss1IdleFrameCount, kBoss1IdleFps, true);
+    // 盾用DDSは本体と同じフレーム数で、攻撃中だけ本体と同期させる。
+    animation->DefineClip("idle", resolvedIdleTexture, kBoss1MoveSheetColumns, kBoss1MoveSheetRows, 0, kBoss1MoveFrameCount, kBoss1IdleFps, true);
+    animation->DefineClip("move", resolvedIdleTexture, kBoss1MoveSheetColumns, kBoss1MoveSheetRows, 0, kBoss1MoveFrameCount, kBoss1MoveFps, true);
     DefineLazySingleSheetClip(
         *animation,
-        "rush_start",
-        "boss1_shield_rush_start",
+        "attack01",
+        "boss1_shield_attack01",
         resolveTexture,
-        kBoss1RushStartSheetColumns,
-        kBoss1RushStartSheetRows,
-        kBoss1RushStartFrameCount,
-        kBoss1RushStartFps,
+        kBoss1Attack01SheetColumns,
+        kBoss1Attack01SheetRows,
+        kBoss1Attack01FrameCount,
+        kBoss1AttackFps,
         false);
     DefineLazySingleSheetClip(
         *animation,
-        "rush_attack",
-        "boss1_shield_rush_attack",
+        "attack02",
+        "boss1_shield_attack02",
         resolveTexture,
-        kBoss1RushAttackSheetColumns,
-        kBoss1RushAttackSheetRows,
-        kBoss1RushAttackFrameCount,
-        kBoss1RushAttackFps,
+        kBoss1Attack02SheetColumns,
+        kBoss1Attack02SheetRows,
+        kBoss1Attack02FrameCount,
+        kBoss1AttackFps,
+        false);
+    DefineLazySingleSheetClip(
+        *animation,
+        "knockback",
+        "boss1_shield_knockback",
+        resolveTexture,
+        kBoss1KnockbackSheetColumns,
+        kBoss1KnockbackSheetRows,
+        kBoss1KnockbackFrameCount,
+        kBoss1KnockbackFps,
         true);
-    DefineLazySingleSheetClip(
-        *animation,
-        "rush_end",
-        "boss1_shield_rush_end",
-        resolveTexture,
-        kBoss1RushEndSheetColumns,
-        kBoss1RushEndSheetRows,
-        kBoss1RushEndFrameCount,
-        kBoss1RushEndFps,
-        false);
     animation->Play("idle", true);
 }
 
@@ -462,8 +530,101 @@ void GameScene::UpdateEnemies()
 {
     Entity* player = FindEntityByTag(kTagPlayer);
     const TransformComponent* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    const auto& photoBoxEntities = m_world.EntitiesByTag(EntityTag::PhotoBox);
+    const auto& batteryEntities = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& barrelEntities = m_world.EntitiesByTag(EntityTag::Barrel);
+    const auto& dropItemEntities = m_world.EntitiesByTag(EntityTag::DropItem);
+    const auto& batterySwitchEntities = m_world.EntitiesByTag(EntityTag::BatterySwitch);
+    const auto& elevatorEntities = m_world.EntitiesByTag(EntityTag::Elevator);
+    const auto& laserSwitchEntities = m_world.EntitiesByTag(EntityTag::LaserSwitch);
+    const auto& shutterEntities = m_world.EntitiesByTag(EntityTag::Shutter);
+    const auto& protectiveWallEntities = m_world.EntitiesByTag(EntityTag::ProtectiveWall);
+    const auto& laserTurretEntities = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& laserBeamEntities = m_world.EntitiesByTag(EntityTag::LaserBeam);
+    const auto& stageLightEntities = m_world.EntitiesByTag(EntityTag::StageLight);
+    const auto& markerLightEntities = m_world.EntitiesByTag(EntityTag::MarkerLight);
+    const auto& sepiaRubbleEntities = m_world.EntitiesByTag(EntityTag::SepiaRubble);
+    const auto& sepiaElevatorEntities = m_world.EntitiesByTag(EntityTag::SepiaElevator);
+    const auto& goalEntities = m_world.EntitiesByTag(EntityTag::Goal);
+    const auto& photoSourceEntities = m_world.EntitiesByTag(EntityTag::PhotoSource);
+    const auto& hazardEntities = m_world.EntitiesByTag(EntityTag::Hazard);
+    const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& shieldEntities = m_world.EntitiesByTag(EntityTag::Shield);
+    const auto& bossShieldEntities = m_world.EntitiesByTag(EntityTag::BossShield);
+    const auto& boss1ShieldEntities = m_world.EntitiesByTag(EntityTag::Boss1Shield);
+    const auto& midBoss1ShieldEntities = m_world.EntitiesByTag(EntityTag::MidBoss1Shield);
+    const auto& capturedShieldEntities = m_world.EntitiesByTag(EntityTag::CapturedShield);
+    const auto& walkerMeleeAttackEntities = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+    const auto& bossShockwaveEntities = m_world.EntitiesByTag(EntityTag::BossShockwave);
+    std::vector<Entity*> interactionEntities;
+    interactionEntities.reserve(
+        photoBoxEntities.size() +
+        enemyEntities.size() +
+        batteryEntities.size() +
+        barrelEntities.size() +
+        dropItemEntities.size() +
+        batterySwitchEntities.size() +
+        elevatorEntities.size() +
+        laserSwitchEntities.size() +
+        shutterEntities.size() +
+        protectiveWallEntities.size() +
+        laserTurretEntities.size() +
+        laserBeamEntities.size() +
+        stageLightEntities.size() +
+        markerLightEntities.size() +
+        sepiaRubbleEntities.size() +
+        sepiaElevatorEntities.size() +
+        goalEntities.size() +
+        photoSourceEntities.size() +
+        hazardEntities.size() +
+        bulletEntities.size() +
+        shieldEntities.size() +
+        bossShieldEntities.size() +
+        boss1ShieldEntities.size() +
+        midBoss1ShieldEntities.size() +
+        capturedShieldEntities.size() +
+        walkerMeleeAttackEntities.size() +
+        bossShockwaveEntities.size());
+    auto appendInteractionEntities = [&](EntityTag tag)
+    {
+        for (Entity* candidate : m_world.EntitiesByTag(tag))
+        {
+            if (candidate)
+            {
+                interactionEntities.push_back(candidate);
+            }
+        }
+    };
+    appendInteractionEntities(EntityTag::PhotoBox);
+    appendInteractionEntities(EntityTag::Enemy);
+    appendInteractionEntities(EntityTag::Battery);
+    appendInteractionEntities(EntityTag::Barrel);
+    appendInteractionEntities(EntityTag::DropItem);
+    appendInteractionEntities(EntityTag::BatterySwitch);
+    appendInteractionEntities(EntityTag::Elevator);
+    appendInteractionEntities(EntityTag::LaserSwitch);
+    appendInteractionEntities(EntityTag::Shutter);
+    appendInteractionEntities(EntityTag::ProtectiveWall);
+    appendInteractionEntities(EntityTag::LaserTurret);
+    appendInteractionEntities(EntityTag::LaserBeam);
+    appendInteractionEntities(EntityTag::StageLight);
+    appendInteractionEntities(EntityTag::MarkerLight);
+    appendInteractionEntities(EntityTag::SepiaRubble);
+    appendInteractionEntities(EntityTag::SepiaElevator);
+    appendInteractionEntities(EntityTag::Goal);
+    appendInteractionEntities(EntityTag::PhotoSource);
+    appendInteractionEntities(EntityTag::Hazard);
+    appendInteractionEntities(EntityTag::Bullet);
+    appendInteractionEntities(EntityTag::Shield);
+    appendInteractionEntities(EntityTag::BossShield);
+    appendInteractionEntities(EntityTag::Boss1Shield);
+    appendInteractionEntities(EntityTag::MidBoss1Shield);
+    appendInteractionEntities(EntityTag::CapturedShield);
+    appendInteractionEntities(EntityTag::WalkerMeleeAttack);
+    appendInteractionEntities(EntityTag::BossShockwave);
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : enemyEntities)
     {
         if (!entity)
         {
@@ -476,7 +637,7 @@ void GameScene::UpdateEnemies()
             continue;
         }
 
-        // どの生成経路でもボス1がシート丸出しにならないよう、更新入口で補完する。
+        // どの生成経路でも中ボス1が仮テクスチャのままにならないよう補完する。
         if (!entity->GetComponent<SpriteSheetAnimationComponent>())
         {
             ConfigureShieldBossSpriteAnimation(*entity);
@@ -508,12 +669,17 @@ void GameScene::UpdateEnemies()
 
                         if (const auto* transform = entity->GetComponent<TransformComponent>())
                         {
+                            const float centerX = transform->x + transform->width * transform->scale * 0.5f;
+                            const float centerY = transform->y + transform->height * transform->scale * 0.5f;
+                            const float groundY = transform->y + transform->height * transform->scale;
+                            const float width = transform->width * transform->scale;
                             SpawnDropItems(
-                                transform->x + transform->width * transform->scale * 0.5f,
-                                transform->y + transform->height * transform->scale * 0.5f,
+                                centerX,
+                                centerY,
                                 GetEnemyDropCount(enemy->GetArchetype()));
+                            SpawnBossDefeatStartEffect(centerX, groundY, width);
                         }
-                        TriggerEnemyDefeatFeedback(m_flow);
+                        TriggerBossDefeatFinishFeedback(m_flow);
                     }
                 }
                 if (boss->shieldEntity)
@@ -527,13 +693,20 @@ void GameScene::UpdateEnemies()
         }
     }
 
+    std::vector<Entity*> photoBoxesToRemove;
+
     game_scene_combat_system::UpdateEnemies(
-        m_entities,
+        m_world.Entities(),
+        enemyEntities,
+        interactionEntities,
         m_tileTexture,
+        m_assets.GetTexture("sepia_rubble"),
         GetMapPixelWidth(),
         GetMapPixelHeight(),
         m_flow,
         m_photo,
+        player,
+        &m_player,
         playerTransform,
         [this](TransformComponent& transform) -> bool
         {
@@ -547,26 +720,52 @@ void GameScene::UpdateEnemies()
         {
             static_cast<void>(bossEntity);
         },
-        
-        [this](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
+        [this](float fromX, float fromY, float toX, float toY, float width, float height)
         {
-            for (auto it = m_entities.begin(); it != m_entities.end(); ++it)
+            SpawnTeleportTrailEffect(fromX, fromY, toX, toY, width, height);
+        },
+        [this](float centerX, float groundY, float width)
+        {
+            SpawnSlamImpactEffect(centerX, groundY, width);
+        },
+        [this](float centerX, float groundY, float direction)
+        {
+            SpawnRushSmokeEffect(centerX, groundY, direction);
+        },
+        [this](float centerX, float groundY, float width)
+        {
+            SpawnLightLandingEffect(centerX, groundY, width);
+        },
+        [this](float centerX, float groundY, float width)
+        {
+            SpawnBossRoarEffect(centerX, groundY, width);
+        },
+        [this, player](Entity* sourceEntity, int amount, const char* logMessage)
+        {
+            if (player)
             {
-                if (!*it) continue;
-                const bool isPhotoBox = HasTag(**it, kTagPhotoBox);
+                HandlePlayerDamage(*player, sourceEntity, logMessage, amount);
+            }
+        },
+        [this, &photoBoxesToRemove, &interactionEntities](const TransformComponent& bossTransform, Entity& bossEntity) -> bool
+        {
+            for (Entity* candidate : interactionEntities)
+            {
+                if (!candidate) continue;
+                const bool isPhotoBox = HasTag(*candidate, EntityTag::PhotoBox);
                 const bool isGroundedCapturedShield =
-                    HasTag(**it, "CapturedShield") &&
-                    (*it)->GetComponent<ShieldComponent>() &&
-                    (*it)->GetComponent<ShieldComponent>()->photoSpawned &&
-                    (*it)->GetComponent<ShieldComponent>()->grounded;
+                    HasTag(*candidate, EntityTag::CapturedShield) &&
+                    candidate->GetComponent<ShieldComponent>() &&
+                    candidate->GetComponent<ShieldComponent>()->photoSpawned &&
+                    candidate->GetComponent<ShieldComponent>()->grounded;
                 if (!isPhotoBox && !isGroundedCapturedShield) continue;
-                const auto* photoTransform = (*it)->GetComponent<TransformComponent>();
+                const auto* photoTransform = candidate->GetComponent<TransformComponent>();
                 if (!photoTransform) continue;
                 if (IntersectsRect(bossTransform, *photoTransform))
                 {
                     if (isPhotoBox)
                     {
-                        it = m_entities.erase(it);
+                        photoBoxesToRemove.push_back(candidate);
                     }
                     return true;
                 }
@@ -577,6 +776,8 @@ void GameScene::UpdateEnemies()
         {
             return IsSolidTile(column, row);
         });
+
+    m_world.RemoveByPointerList(photoBoxesToRemove);
 }
 
 int GameScene::HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight)
@@ -584,9 +785,9 @@ int GameScene::HandleFinderDefeatGhosts(float frameX, float frameY, float frameW
     TransformComponent finderBounds(frameX, frameY, frameWidth, frameHeight);
     int defeatedGhostCount = 0;
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
-        if (!entity || !HasTag(*entity, kTagEnemy)) continue;
+        if (!entity) continue;
 
         auto* enemy = entity->GetComponent<EnemyComponent>();
         if (!enemy || !enemy->IsEnabled()) continue;
@@ -606,9 +807,45 @@ int GameScene::HandleFinderDefeatGhosts(float frameX, float frameY, float frameW
 void GameScene::UpdateBullets()
 {
     Entity* player = FindEntityByTag(kTagPlayer);
+    const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    std::vector<TransformComponent> obstacleBounds;
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetGroundPlatformBounds(tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetPhotoBoxBounds(tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetEntityBoundsByTag("Battery", tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetEntityBoundsByTag("Log", tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetEntityBoundsByTag("DamagePlatform", tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetEntityBoundsByTag("DamagePlatformSpike", tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    std::vector<Entity*> bulletsToRemove;
     
     game_scene_combat_system::UpdateBullets(
-        m_entities,
+        bulletEntities,
+        enemyEntities,
+        obstacleBounds,
         GetMapPixelWidth(),
         GetMapPixelHeight(),
         m_flow.lastDeltaTime,
@@ -625,14 +862,16 @@ void GameScene::UpdateBullets()
         {
             HandleEnemyDamage(enemyEntity, sourceEntity, amount, logMessage);
         },
-        
         [this](float x, float y) -> bool
         {
             const float tileSize = m_tileMap.GetTileSize();
             const int column = static_cast<int>(x / tileSize);
             const int row = static_cast<int>(y / tileSize);
             return IsSolidTile(column, row);
-        });
+        },
+        bulletsToRemove);
+
+    m_world.RemoveByPointerList(bulletsToRemove);
 }
 
 void GameScene::SpawnDropItems(float x, float y, int count)
@@ -653,7 +892,7 @@ void GameScene::SpawnDropItems(float x, float y, int count)
         item->AddComponent<TintComponent>(0.96f, 0.76f + hue * 0.2f, 0.10f + hue * 0.3f, 1.0f);
         item->AddComponent<SpriteRenderComponent>(m_whiteTexture);
         item->AddComponent<DropItemComponent>(1, velX, velY);
-        m_pendingEntities.push_back(std::move(item));
+        m_world.QueueSpawn(std::move(item));
     }
 }
 
@@ -671,9 +910,9 @@ void GameScene::UpdateDropItems()
 
     std::vector<Entity*> collected;
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::DropItem))
     {
-        if (!entity || !HasTag(*entity, kTagDropItem)) continue;
+        if (!entity) continue;
 
         auto* transform = entity->GetComponent<TransformComponent>();
         auto* drop = entity->GetComponent<DropItemComponent>();
@@ -689,7 +928,8 @@ void GameScene::UpdateDropItems()
 
             if (dist < kCollectRange)
             {
-                collected.push_back(entity.get());
+                GameSession_AddParts(drop->GetValue());
+                collected.push_back(entity);
                 continue;
             }
 
@@ -736,27 +976,11 @@ void GameScene::UpdateDropItems()
         const float mapHeight = GetMapPixelHeight();
         if (transform->y > mapHeight)
         {
-            collected.push_back(entity.get());
+            collected.push_back(entity);
         }
     }
 
-    if (!collected.empty())
-    {
-        m_entities.erase(
-            std::remove_if(
-                m_entities.begin(),
-                m_entities.end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    for (Entity* ptr : collected)
-                    {
-                        if (e.get() == ptr) return true;
-                    }
-                    return false;
-                }),
-            m_entities.end());
-    }
+    m_world.RemoveByPointerList(collected);
 }
 
 int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
@@ -771,6 +995,7 @@ int GameScene::GetEnemyDropCount(EnemyArchetype archetype) const
         return 10 + (rand() % 21);
     case EnemyArchetype::ShieldBoss:
     case EnemyArchetype::MidBoss2:
+    case EnemyArchetype::MidBoss3:
         return 50;
     default:
         return 5;
@@ -787,6 +1012,99 @@ void GameScene::UpdateShields(float deltaTime)
     std::vector<std::unique_ptr<Entity>> spawnedShockwaves;
     std::vector<Entity*> shieldsToRemove;
     std::vector<Entity*> objectsToRemove;
+    const auto& photoBoxEntities = m_world.EntitiesByTag(EntityTag::PhotoBox);
+    const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    const auto& batteryEntities = m_world.EntitiesByTag(EntityTag::Battery);
+    const auto& barrelEntities = m_world.EntitiesByTag(EntityTag::Barrel);
+    const auto& dropItemEntities = m_world.EntitiesByTag(EntityTag::DropItem);
+    const auto& batterySwitchEntities = m_world.EntitiesByTag(EntityTag::BatterySwitch);
+    const auto& elevatorEntities = m_world.EntitiesByTag(EntityTag::Elevator);
+    const auto& laserSwitchEntities = m_world.EntitiesByTag(EntityTag::LaserSwitch);
+    const auto& shutterEntities = m_world.EntitiesByTag(EntityTag::Shutter);
+    const auto& protectiveWallEntities = m_world.EntitiesByTag(EntityTag::ProtectiveWall);
+    const auto& laserTurretEntities = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& laserBeamEntities = m_world.EntitiesByTag(EntityTag::LaserBeam);
+    const auto& stageLightEntities = m_world.EntitiesByTag(EntityTag::StageLight);
+    const auto& markerLightEntities = m_world.EntitiesByTag(EntityTag::MarkerLight);
+    const auto& sepiaRubbleEntities = m_world.EntitiesByTag(EntityTag::SepiaRubble);
+    const auto& sepiaElevatorEntities = m_world.EntitiesByTag(EntityTag::SepiaElevator);
+    const auto& goalEntities = m_world.EntitiesByTag(EntityTag::Goal);
+    const auto& photoSourceEntities = m_world.EntitiesByTag(EntityTag::PhotoSource);
+    const auto& hazardEntities = m_world.EntitiesByTag(EntityTag::Hazard);
+    const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
+    const auto& shieldTagEntities = m_world.EntitiesByTag(EntityTag::Shield);
+    const auto& bossShieldTagEntities = m_world.EntitiesByTag(EntityTag::BossShield);
+    const auto& boss1ShieldTagEntities = m_world.EntitiesByTag(EntityTag::Boss1Shield);
+    const auto& midBoss1ShieldTagEntities = m_world.EntitiesByTag(EntityTag::MidBoss1Shield);
+    const auto& capturedShieldTagEntities = m_world.EntitiesByTag(EntityTag::CapturedShield);
+    const auto& walkerMeleeAttackEntities = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+    const auto& bossShockwaveEntities = m_world.EntitiesByTag(EntityTag::BossShockwave);
+    std::vector<Entity*> shieldImpactCandidates;
+    shieldImpactCandidates.reserve(
+        photoBoxEntities.size() +
+        enemyEntities.size() +
+        batteryEntities.size() +
+        barrelEntities.size() +
+        dropItemEntities.size() +
+        batterySwitchEntities.size() +
+        elevatorEntities.size() +
+        laserSwitchEntities.size() +
+        shutterEntities.size() +
+        protectiveWallEntities.size() +
+        laserTurretEntities.size() +
+        laserBeamEntities.size() +
+        stageLightEntities.size() +
+        markerLightEntities.size() +
+        sepiaRubbleEntities.size() +
+        sepiaElevatorEntities.size() +
+        goalEntities.size() +
+        photoSourceEntities.size() +
+        hazardEntities.size() +
+        bulletEntities.size() +
+        shieldTagEntities.size() +
+        bossShieldTagEntities.size() +
+        boss1ShieldTagEntities.size() +
+        midBoss1ShieldTagEntities.size() +
+        capturedShieldTagEntities.size() +
+        walkerMeleeAttackEntities.size() +
+        bossShockwaveEntities.size());
+    auto appendShieldImpactCandidates = [&](EntityTag tag)
+    {
+        for (Entity* candidate : m_world.EntitiesByTag(tag))
+        {
+            if (candidate)
+            {
+                shieldImpactCandidates.push_back(candidate);
+            }
+        }
+    };
+    appendShieldImpactCandidates(EntityTag::PhotoBox);
+    appendShieldImpactCandidates(EntityTag::Enemy);
+    appendShieldImpactCandidates(EntityTag::Battery);
+    appendShieldImpactCandidates(EntityTag::Barrel);
+    appendShieldImpactCandidates(EntityTag::DropItem);
+    appendShieldImpactCandidates(EntityTag::BatterySwitch);
+    appendShieldImpactCandidates(EntityTag::Elevator);
+    appendShieldImpactCandidates(EntityTag::LaserSwitch);
+    appendShieldImpactCandidates(EntityTag::Shutter);
+    appendShieldImpactCandidates(EntityTag::ProtectiveWall);
+    appendShieldImpactCandidates(EntityTag::LaserTurret);
+    appendShieldImpactCandidates(EntityTag::LaserBeam);
+    appendShieldImpactCandidates(EntityTag::StageLight);
+    appendShieldImpactCandidates(EntityTag::MarkerLight);
+    appendShieldImpactCandidates(EntityTag::SepiaRubble);
+    appendShieldImpactCandidates(EntityTag::SepiaElevator);
+    appendShieldImpactCandidates(EntityTag::Goal);
+    appendShieldImpactCandidates(EntityTag::PhotoSource);
+    appendShieldImpactCandidates(EntityTag::Hazard);
+    appendShieldImpactCandidates(EntityTag::Bullet);
+    appendShieldImpactCandidates(EntityTag::Shield);
+    appendShieldImpactCandidates(EntityTag::BossShield);
+    appendShieldImpactCandidates(EntityTag::Boss1Shield);
+    appendShieldImpactCandidates(EntityTag::MidBoss1Shield);
+    appendShieldImpactCandidates(EntityTag::CapturedShield);
+    appendShieldImpactCandidates(EntityTag::WalkerMeleeAttack);
+    appendShieldImpactCandidates(EntityTag::BossShockwave);
 
     auto startEnemyKnockback = [](Entity& target, EnemyComponent& enemy, TransformComponent& transform, float direction, float distance)
     {
@@ -799,23 +1117,45 @@ void GameScene::UpdateShields(float deltaTime)
                 shieldBoss->state == ShieldBossState::SlamPhase1 ||
                 shieldBoss->state == ShieldBossState::SlamPhase2)
             {
-                return;
+                return false;
             }
             shieldBoss->knockbackActive = true;
             shieldBoss->knockbackTimer = 0.0f;
             shieldBoss->knockbackStartX = transform.x;
             shieldBoss->knockbackStartY = transform.y;
             shieldBoss->knockbackTargetX = transform.x + direction * distance;
-            return;
+            return true;
         }
         enemy.knockbackActive = true;
         enemy.knockbackTimer = 0.0f;
         enemy.knockbackStartX = transform.x;
         enemy.knockbackStartY = transform.y;
         enemy.knockbackTargetX = transform.x + direction * distance;
+        return true;
     };
 
-    for (const auto& entity : m_entities)
+    std::vector<Entity*> shieldEntities;
+    shieldEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::BossShield).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size());
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::BossShield))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+        shieldEntities.push_back(entity);
+    }
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::CapturedShield))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+        shieldEntities.push_back(entity);
+    }
+
+    for (Entity* entity : shieldEntities)
     {
         if (!entity)
         {
@@ -825,13 +1165,6 @@ void GameScene::UpdateShields(float deltaTime)
         auto* shield = entity->GetComponent<ShieldComponent>();
         auto* shieldTransform = entity->GetComponent<TransformComponent>();
         if (!shield || !shieldTransform)
-        {
-            continue;
-        }
-
-        const bool isBossShield = HasTag(*entity, "BossShield");
-        const bool isCapturedShield = HasTag(*entity, "CapturedShield");
-        if (!isBossShield && !isCapturedShield)
         {
             continue;
         }
@@ -1013,9 +1346,9 @@ void GameScene::UpdateShields(float deltaTime)
                         previousY,
                         shieldTransform->width * shieldTransform->scale,
                         shieldTransform->height * shieldTransform->scale + travelY);
-                    for (const auto& target : m_entities)
+                    for (Entity* target : shieldImpactCandidates)
                     {
-                        if (!target || target.get() == entity.get())
+                        if (!target || target == entity)
                         {
                             continue;
                         }
@@ -1037,7 +1370,7 @@ void GameScene::UpdateShields(float deltaTime)
                         {
                             continue;
                         }
-                        objectsToRemove.push_back(target.get());
+                        objectsToRemove.push_back(target);
                     }
                     bool hitGround = false;
                     if (snapShieldToTileGround(*shieldTransform, shield->descendSpeed * deltaTime + 4.0f))
@@ -1060,7 +1393,7 @@ void GameScene::UpdateShields(float deltaTime)
                             const float shockW = kTileSize * 8.0f;
                             const float shockH = kTileSize * 3.0f;
                             auto shockwave = std::make_unique<Entity>();
-                            shockwave->AddComponent<TagComponent>("BossShockwave");
+                            shockwave->AddComponent<TagComponent>(EntityTag::BossShockwave);
                             const float shockGroundY = shieldTransform->y + shieldTransform->height * shieldTransform->scale;
                             shockwave->AddComponent<TransformComponent>(
                                 shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f - shockW * 0.5f,
@@ -1075,7 +1408,16 @@ void GameScene::UpdateShields(float deltaTime)
                             shockComp.lifetime = 0.4f;
                             shockComp.damagesPlayer = false;
                             spawnedShockwaves.push_back(std::move(shockwave));
+
+                            m_flow.screenShakeRemaining = std::max(m_flow.screenShakeRemaining, 0.18f);
+                            m_flow.screenShakeDuration = std::max(m_flow.screenShakeDuration, 0.18f);
+                            m_flow.screenShakeAmplitude = std::max(m_flow.screenShakeAmplitude, 16.0f);
+                            SpawnSlamImpactEffect(
+                                shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f,
+                                shockGroundY,
+                                shockW);
                         }
+                        shieldsToRemove.push_back(entity);
                     }
                 }
                 break;
@@ -1124,6 +1466,7 @@ void GameScene::UpdateShields(float deltaTime)
             }
         }
 
+        const bool isBossShield = HasTag(*entity, "BossShield");
         if (isBossShield && shield->ownerBoss)
         {
             auto* ownerBoss = shield->ownerBoss->GetComponent<ShieldBossComponent>();
@@ -1131,7 +1474,8 @@ void GameScene::UpdateShields(float deltaTime)
             if (ownerBoss && ownerTransform && ownerBoss->knockbackActive)
             {
                 constexpr float kGuardShieldW = 48.0f;
-                constexpr float kGuardShieldH = 144.0f;
+                constexpr float kGuardShieldH = 192.0f;
+                constexpr float kGuardOverlapX = kGuardShieldW * 1.5f;
                 const float ownerW = ownerTransform->width * ownerTransform->scale;
                 shield->attached = true;
                 shield->attackType = ShieldAttackType::None;
@@ -1143,8 +1487,8 @@ void GameScene::UpdateShields(float deltaTime)
                 shieldTransform->height = kGuardShieldH;
                 shieldTransform->rotation = 0.0f;
                 shieldTransform->x = ownerBoss->facing == ShieldBossFacing::Right
-                    ? ownerTransform->x + ownerW
-                    : ownerTransform->x - kGuardShieldW;
+                    ? ownerTransform->x + ownerW - kGuardOverlapX
+                    : ownerTransform->x - kGuardShieldW + kGuardOverlapX;
                 shieldTransform->y = ownerTransform->y;
             }
         }
@@ -1161,18 +1505,18 @@ void GameScene::UpdateShields(float deltaTime)
             (!shield->photoSpawned || shield->capturedMode == CapturedShieldMode::Normal) &&
             player && playerTransform && IntersectsRotatedRect(*playerTransform, *shieldTransform))
         {
-            ApplyHazardDamageToPlayer(*player, entity.get(),
+            ApplyHazardDamageToPlayer(*player, entity,
                 "BossShield damaged player", shield->contactDamage);
             if (canRemoveNormalCapturedShield)
             { 
-                shieldsToRemove.push_back(entity.get());
+                shieldsToRemove.push_back(entity);
             }
         }
 
         bool removeShieldAfterObjectHit = false;
-        for (const auto& target : m_entities)
+        for (Entity* target : shieldImpactCandidates)
         {
-            if (!target || target.get() == entity.get())
+            if (!target || target == entity)
             {
                 continue;
             }
@@ -1180,7 +1524,7 @@ void GameScene::UpdateShields(float deltaTime)
             {
                 continue;
             }
-            if (target.get() == shield->ownerBoss)
+            if (target == shield->ownerBoss)
             {
                 continue;
             }
@@ -1211,7 +1555,7 @@ void GameScene::UpdateShields(float deltaTime)
                 const bool alreadyHit = std::find(
                     shield->hitEntities.begin(),
                     shield->hitEntities.end(),
-                    target.get()) != shield->hitEntities.end();
+                    target) != shield->hitEntities.end();
                 if (alreadyHit)
                 {
                     if (canRemoveNormalCapturedShield)
@@ -1221,10 +1565,10 @@ void GameScene::UpdateShields(float deltaTime)
                     }
                     continue;
                 }
-                shield->hitEntities.push_back(target.get());
+                shield->hitEntities.push_back(target);
             }
 
-            HandleEnemyDamage(*target, entity.get(), shield->contactDamage, "BossShield damaged enemy");
+            HandleEnemyDamage(*target, entity, shield->contactDamage, "BossShield damaged enemy");
 
             const auto* shieldBoss = target->GetComponent<ShieldBossComponent>();
             float dir = 0.0f;
@@ -1238,7 +1582,17 @@ void GameScene::UpdateShields(float deltaTime)
                 const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
                 dir = enemyCenterX >= shieldCenterX ? 1.0f : -1.0f;
             }
-            startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize);
+            if (startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize))
+            {
+                if (shieldBoss)
+                {
+                    TriggerBossKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+                else
+                {
+                    TriggerEnemyKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+            }
 
             if (canRemoveNormalCapturedShield)
             {
@@ -1249,33 +1603,21 @@ void GameScene::UpdateShields(float deltaTime)
 
         if (removeShieldAfterObjectHit)
         {
-            shieldsToRemove.push_back(entity.get());
+            shieldsToRemove.push_back(entity);
         }
     }
 
     for (auto& shockwave : spawnedShockwaves)
     {
-        m_entities.push_back(std::move(shockwave));
+        m_world.Spawn(std::move(shockwave));
     }
 
-    if (!objectsToRemove.empty())
-    {
-        m_entities.erase(
-            std::remove_if(
-                m_entities.begin(),
-                m_entities.end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    return std::find(objectsToRemove.begin(), objectsToRemove.end(), e.get()) != objectsToRemove.end();
-                }),
-            m_entities.end());
-    }
+    m_world.RemoveByPointerList(objectsToRemove);
 
     std::vector<Entity*> shockwavesToRemove;
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::BossShockwave))
     {
-        if (!entity || !HasTag(*entity, "BossShockwave")) continue;
+        if (!entity) continue;
 
         auto* shockwave = entity->GetComponent<ShieldShockwaveComponent>();
         auto* shockTransform = entity->GetComponent<TransformComponent>();
@@ -1284,7 +1626,7 @@ void GameScene::UpdateShields(float deltaTime)
         shockwave->elapsed += deltaTime;
         if (shockwave->elapsed >= shockwave->lifetime)
         {
-            shockwavesToRemove.push_back(entity.get());
+            shockwavesToRemove.push_back(entity);
             continue;
         }
 
@@ -1292,23 +1634,23 @@ void GameScene::UpdateShields(float deltaTime)
             !shockwave->hitPlayer && player && playerTransform
             && IntersectsRect(*playerTransform, *shockTransform))
         {
-            ApplyHazardDamageToPlayer(*player, entity.get(),
+            ApplyHazardDamageToPlayer(*player, entity,
                 "BossShockwave damaged player", shockwave->damage);
             shockwave->hitPlayer = true;
         }
 
-        for (const auto& target : m_entities)
+        for (Entity* target : shieldImpactCandidates)
         {
-            if (!target || target.get() == entity.get()) continue;
+            if (!target || target == entity) continue;
             if (HasTag(*target, "BossShield") || HasTag(*target, "CapturedShield") || HasTag(*target, "BossShockwave")) continue;
-            if (target.get() == shockwave->ownerBoss) continue;
+            if (target == shockwave->ownerBoss) continue;
 
             auto* enemyTransform = target->GetComponent<TransformComponent>();
             if (!enemyTransform || !IntersectsRect(*shockTransform, *enemyTransform)) continue;
 
             if (HasTag(*target, kTagPhotoBox))
             {
-                objectsToRemove.push_back(target.get());
+                objectsToRemove.push_back(target);
                 continue;
             }
 
@@ -1318,11 +1660,11 @@ void GameScene::UpdateShields(float deltaTime)
             const bool alreadyHit = std::find(
                 shockwave->hitEntities.begin(),
                 shockwave->hitEntities.end(),
-                target.get()) != shockwave->hitEntities.end();
+                target) != shockwave->hitEntities.end();
             if (alreadyHit) continue;
 
-            HandleEnemyDamage(*target, entity.get(), shockwave->damage, "BossShockwave damaged enemy");
-            shockwave->hitEntities.push_back(target.get());
+            HandleEnemyDamage(*target, entity, shockwave->damage, "BossShockwave damaged enemy");
+            shockwave->hitEntities.push_back(target);
 
             const auto* shieldBoss = target->GetComponent<ShieldBossComponent>();
             float dir = 0.0f;
@@ -1349,55 +1691,23 @@ void GameScene::UpdateShields(float deltaTime)
                 const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
                 dir = enemyCenterX >= shockCenterX ? 1.0f : -1.0f;
             }
-            startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shockwave->knockbackGrids * kTileSize);
+            if (startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shockwave->knockbackGrids * kTileSize))
+            {
+                if (shieldBoss)
+                {
+                    TriggerBossKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+                else
+                {
+                    TriggerEnemyKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+            }
         }
     }
 
-    if (!objectsToRemove.empty())
-    {
-        m_entities.erase(
-            std::remove_if(
-                m_entities.begin(),
-                m_entities.end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    return std::find(objectsToRemove.begin(), objectsToRemove.end(), e.get()) != objectsToRemove.end();
-                }),
-            m_entities.end());
-    }
-
-    if (!shieldsToRemove.empty())
-    {
-        m_entities.erase(
-            std::remove_if(
-                m_entities.begin(),
-                m_entities.end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    return std::find(shieldsToRemove.begin(), shieldsToRemove.end(), e.get()) != shieldsToRemove.end();
-                }),
-            m_entities.end());
-    }
-
-    if (!shockwavesToRemove.empty())
-    {
-        m_entities.erase(
-            std::remove_if(
-                m_entities.begin(),
-                m_entities.end(),
-                [&](const std::unique_ptr<Entity>& e) -> bool
-                {
-                    if (!e) return false;
-                    for (Entity* ptr : shockwavesToRemove)
-                    {
-                        if (e.get() == ptr) return true;
-                    }
-                    return false;
-                }),
-            m_entities.end());
-    }
+    m_world.RemoveByPointerList(objectsToRemove);
+    m_world.RemoveByPointerList(shieldsToRemove);
+    m_world.RemoveByPointerList(shockwavesToRemove);
 }
 void GameScene::HandleEnemyPlayerCollisions(Entity& player)
 {
@@ -1407,9 +1717,9 @@ void GameScene::HandleEnemyPlayerCollisions(Entity& player)
         return;
     }
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
-        if (!entity || entity.get() == &player)
+        if (!entity || entity == &player)
         {
             continue;
         }
@@ -1434,7 +1744,7 @@ void GameScene::HandleEnemyPlayerCollisions(Entity& player)
 
         ApplyHazardDamageToPlayer(
             player,
-            entity.get(),
+            entity,
             "GameScene player damaged by enemy",
             enemy->GetContactDamage());
     }
@@ -1444,12 +1754,9 @@ void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
 {
     const auto* playerTransform = player.GetComponent<TransformComponent>();
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack))
     {
         if (!entity) continue;
-
-        const auto* tag = entity->GetComponent<TagComponent>();
-        if (!tag || tag->tag != "WalkerMeleeAttack") continue;
 
         const auto* meleeTransform = entity->GetComponent<TransformComponent>();
         if (!meleeTransform) continue;
@@ -1459,13 +1766,13 @@ void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
         {
             ApplyHazardDamageToPlayer(
                 player,
-                entity.get(),
+                entity,
                 "GameScene player damaged by WalkerMeleeAttack",
                 1);
         }
 
         // 敵へのダメージ
-        for (const auto& target : m_entities)
+        for (Entity* target : m_world.EntitiesByTag(EntityTag::Enemy))
         {
             if (!target) continue;
 
@@ -1477,7 +1784,7 @@ void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
 
             if (!IntersectsRect(*meleeTransform, *enemyTransform)) continue;
 
-            HandleEnemyDamage(*target, entity.get(), 1, "WalkerMeleeAttack hit enemy");
+            HandleEnemyDamage(*target, entity, 1, "WalkerMeleeAttack hit enemy");
         }
     }
 }
@@ -1487,7 +1794,7 @@ void GameScene::RemoveDefeatedEnemies()
     const float cameraLeft = m_flow.cameraX - 48.0f;
     const float cameraRight = m_flow.cameraX + gCameraViewWidth + 48.0f;
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
         if (!entity) continue;
 
@@ -1531,46 +1838,60 @@ void GameScene::RemoveDefeatedEnemies()
         }
     }
 
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [&](const std::unique_ptr<Entity>& entity)
+    m_world.EraseIf(
+        [&](const std::unique_ptr<Entity>& entity)
+        {
+            const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
+            if (enemy && enemy->IsDefeated() && !enemy->respawnEnabled)
             {
-                const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
-                if (enemy && enemy->IsDefeated() && !enemy->respawnEnabled)
+                return true;
+            }
+            const auto* shield = entity ? entity->GetComponent<ShieldComponent>() : nullptr;
+            if (shield && HasTag(*entity, "BossShield"))
+            {
+                bool ownerFound = false;
+                bool ownerDefeated = true;
+                for (Entity* candidate : m_world.EntitiesByTag(EntityTag::Enemy))
+                {
+                    if (!candidate || candidate != shield->ownerBoss)
+                    {
+                        continue;
+                    }
+                    ownerFound = true;
+                    const auto* ownerEnemy = candidate->GetComponent<EnemyComponent>();
+                    ownerDefeated = !ownerEnemy || ownerEnemy->IsDefeated();
+                    break;
+                }
+                if (!ownerFound || ownerDefeated)
                 {
                     return true;
                 }
-                const auto* shield = entity ? entity->GetComponent<ShieldComponent>() : nullptr;
-                if (shield && HasTag(*entity, "BossShield"))
+            }
+            const auto* midBoss3Fist = entity ? entity->GetComponent<MidBoss3FistComponent>() : nullptr;
+            if (midBoss3Fist && midBoss3Fist->ownerBoss)
+            {
+                const auto* ownerEnemy = midBoss3Fist->ownerBoss->GetComponent<EnemyComponent>();
+                if (!ownerEnemy || ownerEnemy->IsDefeated())
                 {
-                    bool ownerFound = false;
-                    bool ownerDefeated = true;
-                    for (const auto& candidate : m_entities)
-                    {
-                        if (!candidate || candidate.get() != shield->ownerBoss)
-                        {
-                            continue;
-                        }
-                        ownerFound = true;
-                        const auto* ownerEnemy = candidate->GetComponent<EnemyComponent>();
-                        ownerDefeated = !ownerEnemy || ownerEnemy->IsDefeated();
-                        break;
-                    }
-                    if (!ownerFound || ownerDefeated)
-                    {
-                        return true;
-                    }
+                    return true;
                 }
-                const auto* lifetime = entity ? entity->GetComponent<PhotoCopyLifetimeComponent>() : nullptr;
-                if (!lifetime)
+            }
+            const auto* capturedMidBoss3Attack = entity ? entity->GetComponent<CapturedMidBoss3AttackComponent>() : nullptr;
+            if (capturedMidBoss3Attack && capturedMidBoss3Attack->carriedBoss)
+            {
+                const auto* carriedEnemy = capturedMidBoss3Attack->carriedBoss->GetComponent<EnemyComponent>();
+                if (!carriedEnemy || carriedEnemy->IsDefeated())
                 {
-                    return false;
+                    return true;
                 }
-                return lifetime->IsExpired();
-            }),
-        m_entities.end());
+            }
+            const auto* lifetime = entity ? entity->GetComponent<PhotoCopyLifetimeComponent>() : nullptr;
+            if (!lifetime)
+            {
+                return false;
+            }
+            return lifetime->IsExpired();
+        });
 
     RefreshPhotoGroupState();
 }
@@ -1589,6 +1910,40 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
             return;
         }
     }
+    const auto cleanupMidBoss3Defeat = [](Entity& defeatedBoss)
+    {
+        auto* midBoss3 = defeatedBoss.GetComponent<MidBoss3Component>();
+        if (!midBoss3)
+        {
+            return;
+        }
+        midBoss3->drillActive = false;
+        midBoss3->drillFormed = false;
+        midBoss3->drillGroundRush = false;
+        midBoss3->reloadActive = false;
+        for (Entity* fistEntity : midBoss3->fistEntities)
+        {
+            auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+            if (fist)
+            {
+                fist->state = MidBoss3FistState::Broken;
+                fist->broken = true;
+                fist->captureJammerActive = false;
+                fist->impactAttackActive = false;
+                fist->impactDamageApplied = false;
+                fist->impactAttackRemaining = 0.0f;
+            }
+            if (auto* tint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr)
+            {
+                tint->a = 0.0f;
+            }
+            if (auto* transform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr)
+            {
+                transform->x = -10000.0f;
+                transform->y = -10000.0f;
+            }
+        }
+    };
 
     auto* damageFlash = enemy.GetComponent<DamageCooldownComponent>();
     if (!damageFlash)
@@ -1596,6 +1951,24 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         damageFlash = &enemy.AddComponent<DamageCooldownComponent>(0.18f);
     }
     damageFlash->Trigger();
+
+    if (auto* midBoss3 = enemy.GetComponent<MidBoss3Component>())
+    {
+        bool requestDamageMotion = true;
+        if (sourceEntity)
+        {
+            if (const auto* capturedAttack = sourceEntity->GetComponent<CapturedMidBoss3AttackComponent>())
+            {
+                requestDamageMotion = capturedAttack->kind != CapturedMidBoss3AttackKind::Drill ||
+                    !capturedAttack->attachedToBoss;
+            }
+        }
+        if (requestDamageMotion)
+        {
+            midBoss3->damageMotionRequested = true;
+            midBoss3->damageMotionDirection = ResolveMidBoss3DamageDirection(enemy, sourceEntity);
+        }
+    }
 
     if (auto* boss = enemy.GetComponent<ShieldBossComponent>())
     {
@@ -1618,12 +1991,25 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         {
             if (auto* shieldBoss = enemy.GetComponent<ShieldBossComponent>())
             {
-                shieldBoss->deathAnimationActive = true;
-                shieldBoss->stateTimer = 0.0f;
                 if (auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>())
                 {
+                    shieldBoss->deathAnimationActive = true;
+                    shieldBoss->stateTimer = 0.0f;
                     animation->Play("death", true);
+                    if (shieldBoss->shieldEntity)
+                    {
+                        if (auto* shieldTint = shieldBoss->shieldEntity->GetComponent<TintComponent>())
+                        {
+                            shieldTint->a = 0.0f;
+                        }
+                    }
+                    TriggerBossDefeatStartFeedback(m_flow);
+                    m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
+                    m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
+                    return;
                 }
+                shieldBoss->deathAnimationActive = false;
+                shieldBoss->deathAnimationFinished = true;
                 if (shieldBoss->shieldEntity)
                 {
                     if (auto* shieldTint = shieldBoss->shieldEntity->GetComponent<TintComponent>())
@@ -1631,9 +2017,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                         shieldTint->a = 0.0f;
                     }
                 }
-                m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
-                m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
-                return;
+                TriggerBossDefeatStartFeedback(m_flow);
             }
 
             enemyComponent->MarkDefeated();
@@ -1729,9 +2113,18 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     }
     if (defeatedThisHit)
     {
-        TriggerEnemyDefeatFeedback(m_flow);
+        cleanupMidBoss3Defeat(enemy);
+        if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)
+        {
+            TriggerBossDefeatStartFeedback(m_flow);
+        }
+        else
+        {
+            TriggerEnemyDefeatFeedback(m_flow);
+        }
     }
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
 }
+
 

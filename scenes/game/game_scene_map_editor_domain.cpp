@@ -293,9 +293,9 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
 {
     if (Input_IsKeyPressed(VK_F5))
     {
-        if (m_tileMap.SaveToCsv(gCurrentMapCsvPath))
+        if (m_tileMap.SaveToCsv(m_lifecycle.currentMapCsvPath))
         {
-            m_mapEditor.statusMessage = "保存しました: " + gCurrentMapCsvPath;
+            m_mapEditor.statusMessage = "保存しました: " + m_lifecycle.currentMapCsvPath;
             m_mapEditor.statusMessageTimer = 2.4f;
         }
         else
@@ -307,16 +307,16 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
 
     if (Input_IsKeyPressed(VK_F6))
     {
-        if (m_tileMap.LoadFromCsv(gCurrentMapCsvPath, tileSize))
+        if (m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, tileSize))
         {
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
-            m_mapEditor.statusMessage = "CSVを再読み込みしました";
+            m_mapEditor.statusMessage = "CSVを再読込しました";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
         else
         {
-            m_mapEditor.statusMessage = "再読み込みに失敗しました";
+            m_mapEditor.statusMessage = "再読込に失敗しました";
             m_mapEditor.statusMessageTimer = 2.4f;
         }
     }
@@ -329,7 +329,7 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
         if (WriteEmptyMapCsv(newMapPath, newWidth, newHeight, 0) &&
             m_tileMap.LoadFromCsv(newMapPath, tileSize))
         {
-            gCurrentMapCsvPath = newMapPath;
+            m_lifecycle.currentMapCsvPath = newMapPath;
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
             m_flow.cameraX = 0.0f;
@@ -350,7 +350,7 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
         std::filesystem::create_directories(kEditorMapOutputDir);
         if (m_tileMap.SaveToCsv(duplicatedMapPath))
         {
-            gCurrentMapCsvPath = duplicatedMapPath;
+            m_lifecycle.currentMapCsvPath = duplicatedMapPath;
             m_mapEditor.statusMessage = "別名保存しました: " + duplicatedMapPath;
             m_mapEditor.statusMessageTimer = 3.0f;
         }

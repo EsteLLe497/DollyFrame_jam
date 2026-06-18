@@ -1,8 +1,9 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
 #include "game_scene_world_interaction_system.h"
+#include "game_scene_player_state_logic.h"
 
 #include <algorithm>
 
@@ -90,7 +91,7 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
 
     if (health->IsDead())
     {
-        for (const auto& entity : m_entities)
+        for (Entity* entity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
         {
             if (!entity)
             {
@@ -129,17 +130,7 @@ void GameScene::RespawnPlayer(Entity& player)
     transform->x = spawnX;
     transform->y = spawnY;
 
-    m_player.velocityX = 0.0f;
-    m_player.velocityY = 0.0f;
-    m_player.grounded = false;
-    m_player.coyoteTimeRemaining = 0.0f;
-    m_player.dodgeRemaining = 0.0f;
-    m_player.dodgeCooldownRemaining = 0.0f;
-    m_player.afterimages.clear();
-    m_player.visualOffsetY = 0.0f;
-    m_player.visualRotation = 0.0f;
-    m_player.visualScaleX = 1.0f;
-    m_player.visualScaleY = 1.0f;
+    game_scene_player_state_logic::ResetPlayerStateAfterRespawn(m_player);
     game_scene_player_visual_system::ResetSpriteAnimationToIdle(m_player, player);
 
     if (auto* health = player.GetComponent<HealthComponent>())
@@ -162,20 +153,20 @@ void GameScene::RespawnPlayer(Entity& player)
     m_flow.pitRestartActive = false;
     m_flow.pitRestartTimer = 0.0f;
     m_flow.pitRestartFadeInTimer = kPitRestartFadeDuration;
-    m_hasPreviousPlayerCameraProbe = false;
-    m_floorCameraTransitionActive = false;
-    m_floorCameraTransitionElapsed = 0.0f;
-    m_cameraFixedLockActive = false;
-    m_cameraFixedLockStartX = 0.0f;
-    m_cameraFixedLockEndX = 0.0f;
-    m_cameraFixedLockX = 0.0f;
-    m_cameraFixedLockY = 0.0f;
-    for (CameraTransitionMarker& marker : m_cameraTransitionMarkers)
+    m_camera.hasPreviousPlayerCameraProbe = false;
+    m_camera.floorCameraTransitionActive = false;
+    m_camera.floorCameraTransitionElapsed = 0.0f;
+    m_camera.cameraFixedLockActive = false;
+    m_camera.cameraFixedLockStartX = 0.0f;
+    m_camera.cameraFixedLockEndX = 0.0f;
+    m_camera.cameraFixedLockX = 0.0f;
+    m_camera.cameraFixedLockY = 0.0f;
+    for (CameraTransitionMarker& marker : m_camera.transitionMarkers)
     {
         marker.wasInside = false;
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -208,20 +199,20 @@ void GameScene::RespawnPlayer(Entity& player)
         }
     }
 
-    const float playerWidth = transform->width * transform->scale;
-    const float playerHeight = transform->height * transform->scale;
-    const float mapWidth = GetMapPixelWidth();
-    const float mapHeight = GetMapPixelHeight();
-    const float targetCameraX = transform->x - (gCameraViewWidth - playerWidth) * 0.5f;
-    m_flow.cameraX = std::clamp(targetCameraX, 0.0f, std::max(0.0f, mapWidth - gCameraViewWidth));
-    const bool followY = gCameraFollowY >= 0.5f;
-    if (followY)
+    const GameScenePlayerRespawnContext cameraContext
     {
-        const float targetCameraY = transform->y - (gCameraViewHeight - playerHeight) * 0.5f;
-        m_flow.cameraY = std::clamp(targetCameraY, 0.0f, std::max(0.0f, mapHeight - gCameraViewHeight));
-    }
-    else
-    {
-        m_flow.cameraY = 0.0f;
-    }
+        transform->x,
+        transform->y,
+        transform->width * transform->scale,
+        transform->height * transform->scale,
+        GetMapPixelWidth(),
+        GetMapPixelHeight(),
+        gCameraViewWidth,
+        gCameraViewHeight,
+        gCameraFollowY >= 0.5f,
+    };
+    const GameScenePlayerRespawnResult cameraResult =
+        game_scene_player_state_logic::ComputeRespawnCamera(cameraContext);
+    m_flow.cameraX = cameraResult.cameraX;
+    m_flow.cameraY = cameraResult.cameraY;
 }

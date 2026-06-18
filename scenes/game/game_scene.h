@@ -7,6 +7,7 @@
 #include "asset_manifest.h"
 #include "entity.h"
 #include "event_bus.h"
+#include "game_object_world.h"
 #include "game_session.h"
 #include "physics_world.h"
 #include "scene.h"
@@ -36,6 +37,14 @@ public:
     void DrawDebugUI() override;
     bool OnCancelAction() override;
     EventBus* GetEventBus() override;
+    GameSceneTuningState& Tuning();
+    const GameSceneTuningState& Tuning() const;
+    float GetViewScale() const;
+    float GetViewWidth() const;
+    float GetViewHeight() const;
+    float GetViewOriginX() const;
+    float GetViewOriginY() const;
+    const std::vector<Entity*>& EntitiesByTag(EntityTag tag) const;
 
 private:
     // Camera marker data
@@ -69,28 +78,35 @@ private:
     void PrepareFrameRendering();
     void DrawWorldAndUiLayers();
     void ResetFrameRendering();
+    bool IsMidBoss3IntroCinematicActive() const;
+    bool IsShieldBossIntroCinematicActive() const;
 
     // Lifecycle / setup
     void UpdateLoading(float deltaTime);
     void AdvanceLoadingStep();
     void FinishLoading();
+    void PlayStageBgmForCurrentMap();
     void DrawLoadingScreen() const;
     void LoadTuningState();
     void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
     void BuildCameraMarkers();
-    void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime);
+    void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY = true);
+    void ApplyShieldBossSlamCameraWork(float deltaTime);
     bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
     void StartFloorCameraTransition(int directionX, int directionY);
 
     // Entity query / spawn
     Entity& SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y);
     Entity* FindEntityByTag(const char* tag) const;
+    Entity* FindEntityByTag(EntityTag tag) const;
 
     // Gameplay pipeline
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
+    void UpdateFallingRocks(float deltaTime);
+    void UpdateJumpPads(float deltaTime);
     void UpdateBatteries(float deltaTime);
     void UpdateLaserTurrets(float deltaTime);
     void UpdateSingleBattery(
@@ -106,6 +122,7 @@ private:
     float GetBatteryPushDirectionFromPlayer(const TransformComponent& playerTransform, const TransformComponent& batteryTransform) const;
     void BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bounds) const;
     void UpdateLinkedGimmicks(float deltaTime);
+    void UpdateMerchants(float deltaTime);
     void UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame);
     void UpdatePlayerAfterimages(float deltaTime);
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
@@ -136,6 +153,7 @@ private:
     void RefreshEnemiesFromMarkers();
     void RefreshBatteriesFromMarkers();
     void RefreshLogsFromMarkers();
+    void RefreshJumpPadsFromMarkers();
     void RefreshMarkerLightsFromMarkers();
     void RefreshStageLightsFromMarkers();
     void RefreshLaserTurretsFromMarkers();
@@ -143,9 +161,11 @@ private:
     void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
+    void ReflashFallingRockfromMarkers();
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();
+    void UpdateMerchantShopInput();
     void ToggleEscapeMenuBgm();
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);
@@ -155,6 +175,11 @@ private:
     void UpdateGameplayActors(float gameplayDeltaTime);
     void ResolveGameplayOutcomes(float gameplayDeltaTime);
     void FlushPendingEntities();
+    void SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize);
+    void SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize);
+    void SpawnLaserSwitchMarker(float x, float y, int linkId, float tileSize);
+    void SpawnShutterMarker(float x, float y, int moveRangeTiles, int linkId, bool useBossDefeatSignal, bool opensWhenUnpowered, float tileSize);
+    void SpawnProtectiveWallMarker(float x, float y, int durability, int linkId, int widthTiles, int markerHeightTiles, int heightTiles, float tileSize);
 
     // Photo control / photo runtime
     void HandleEnemyPlayerCollisions(Entity& player);
@@ -189,6 +214,12 @@ private:
     void RespawnPlayer(Entity& player);
     void StartPitRestart(Entity* player, const char* logMessage);
     void SpawnBarrelBreakEffect(float x, float y, float width, float height);
+    void SpawnSlamImpactEffect(float centerX, float groundY, float width);
+    void SpawnBossDefeatStartEffect(float centerX, float groundY, float width);
+    void SpawnRushSmokeEffect(float centerX, float groundY, float direction);
+    void SpawnLightLandingEffect(float centerX, float groundY, float width);
+    void SpawnBossRoarEffect(float centerX, float groundY, float width);
+    void SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height);
     void QueueResult(GameEndReason reason);
 
     // Effects / UI overlays
@@ -198,6 +229,8 @@ private:
     void DrawPitRestartOverlay() const;
     void DrawStageDarknessOverlay() const;
     void DrawSepiaFilmFilterOverlay() const;
+    void DrawShieldBossSlamVignetteOverlay() const;
+    void DrawShieldBossIntroCurtainOverlay() const;
     void DrawMarkerLightOutlines() const;
     void DrawEffects() const;
     void DrawEnemyAttackRects() const;
@@ -209,7 +242,12 @@ private:
     void DrawBossShockwavesUnderlay() const;
     void DrawPastedEntitiesFront() const;
     void DrawPlayerHpBar() const;
+    void DrawPartsHud() const;
+    void DrawMidBoss2HpBar() const;
+    void DrawMidBoss3HpBar() const;
     void DrawAttackCaptureSlot() const;
+    void DrawMerchantPrompts() const;
+    void DrawMerchantShopOverlay() const;
     void DrawBatterySwitchCounters() const;
     void DrawEscapeMenuOverlay() const;
     void DrawMapEditorOverlay() const;
@@ -276,63 +314,50 @@ private:
     PhysicsWorld m_physicsWorld;
     ScriptEngine m_scriptEngine;
     TileMap m_tileMap;
-    std::vector<std::unique_ptr<Entity>> m_entities;
-    std::vector<std::unique_ptr<Entity>> m_pendingEntities;
+    GameObjectWorld m_world;
     PhotoState m_photo;
     GameSceneFlowState m_flow;
     GameScenePlayerState m_player;
     GameSceneDebugState m_debug;
     GameSceneEffectsState m_effects;
     GameSceneMapEditorState m_mapEditor;
-    std::vector<CameraTransitionMarker> m_cameraTransitionMarkers;
-    std::vector<CameraFixedRange> m_cameraFixedRanges;
-    bool m_hasPreviousPlayerCameraProbe = false;
-    float m_previousPlayerCameraProbeX = 0.0f;
-    float m_previousPlayerCameraProbeY = 0.0f;
-    bool m_hasCameraSmoothedPlayerY = false;
-    float m_cameraSmoothedPlayerCenterY = 0.0f;
-    bool m_floorCameraTransitionActive = false;
-    float m_floorCameraTransitionElapsed = 0.0f;
-    float m_floorCameraTransitionDuration = 0.45f;
-    float m_floorCameraTransitionStartX = 0.0f;
-    float m_floorCameraTransitionStartY = 0.0f;
-    float m_floorCameraTransitionTargetX = 0.0f;
-    float m_floorCameraTransitionTargetY = 0.0f;
-    bool m_cameraFixedLockActive = false;
-    float m_cameraFixedLockStartX = 0.0f;
-    float m_cameraFixedLockEndX = 0.0f;
-    float m_cameraFixedLockX = 0.0f;
-    float m_cameraFixedLockY = 0.0f;
-    bool m_hasPendingStageTransition = false;
-    std::string m_pendingStageTransitionMapCsv;
-    char m_pendingStageTransitionSpawnMarker = '\0';
-    char m_pendingStageTransitionMarker = '\0';
-    bool m_darknessStageEnabled = false;
-    ResourceManager* m_loadingResources = nullptr;
-    bool m_loadingActive = false;
-    bool m_loadingFinished = false;
-    mutable int m_loadingWarmupFramesRemaining = 0;
-    int m_loadingStep = 0;
-    float m_loadingElapsed = 0.0f;
-    float m_loadingProgress = 0.0f;
-
-    int m_cameraFixedLockNum = -1;
-    void ActivateCameraRange(int cameraNum);
-    //std::vector<CameraZoomMarker> m_zoomMarkers;
-    void RecalculateViewScale();
-    bool m_isZoomed = false;
-    float m_zoomedViewWidth = 2560.0f;
-    float m_zoomedViewHeight = 1440.0f;
-
-    int m_backdropTextureId = -1;
-    int m_backdropTexture1Id = -1;
+    GameSceneUiState m_ui;
+    GameSceneRenderState m_render;
+    GameSceneTuningState m_tuning;
+    struct CameraRuntimeState
+    {
+        std::vector<fixedCameraRange> fixedRanges;
+        int backdropTextureId = -1;
+        int backdropTexture1Id = -1;
+        std::vector<CameraTransitionMarker> transitionMarkers;
+        bool hasPreviousPlayerCameraProbe = false;
+        float previousPlayerCameraProbeX = 0.0f;
+        float previousPlayerCameraProbeY = 0.0f;
+        bool hasCameraSmoothedPlayerY = false;
+        float cameraSmoothedPlayerCenterY = 0.0f;
+        bool floorCameraTransitionActive = false;
+        float floorCameraTransitionElapsed = 0.0f;
+        float floorCameraTransitionDuration = 0.45f;
+        float floorCameraTransitionStartX = 0.0f;
+        float floorCameraTransitionStartY = 0.0f;
+        float floorCameraTransitionTargetX = 0.0f;
+        float floorCameraTransitionTargetY = 0.0f;
+        bool cameraFixedLockActive = false;
+        float cameraFixedLockStartX = 0.0f;
+        float cameraFixedLockEndX = 0.0f;
+        float cameraFixedLockX = 0.0f;
+        float cameraFixedLockY = 0.0f;
+        bool midBoss3CameraYLockInitialized = false;
+        float midBoss3CameraYLock = 0.0f;
+        int prevCameraIndex = -1;
+        bool easingActive = false;
+        float easingElapsedTime = 0.0f;
+        float easingStartX = 0.0f;
+        float easingStartY = 0.0f;
+        float easingTargetX = 0.0f;
+        float easingTargetY = 0.0f;
+    };
+    CameraRuntimeState m_camera;
+    GameSceneLifecycleState m_lifecycle;
     static constexpr float easingTime = 0.35f;
-    bool m_easingActive = false;
-    float m_easingElapsedTime = 0.0f;
-    float m_easingStartX = 0.0f;
-    float m_easingStartY = 0.0f;
-    float m_easingTargetX = 0.0f;
-    float m_easingTargetY = 0.0f;
-    int m_prevCameraIndex = -1;
-    std::vector<fixedCameraRange> m_fixedRanges;
 };

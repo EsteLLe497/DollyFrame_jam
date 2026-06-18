@@ -102,7 +102,7 @@ void GameScene::DrawMapEditorOverlay() const
         panelTop + 234,
         GetColor(220, 230, 244),
         "現在マップ: %s",
-        GetMapDisplayName(gCurrentMapCsvPath).c_str());
+        GetMapDisplayName(m_lifecycle.currentMapCsvPath).c_str());
     if (!m_mapEditor.statusMessage.empty())
     {
         DrawString(panelLeft + 16, panelTop + 258, m_mapEditor.statusMessage.c_str(), GetColor(142, 236, 166));

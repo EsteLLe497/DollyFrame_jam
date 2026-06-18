@@ -169,7 +169,7 @@ namespace
         return false;
     }
 
-    constexpr std::array<NamedValue<InputAction>, 34> kActionNameMap =
+    constexpr std::array<NamedValue<InputAction>, 35> kActionNameMap =
     {{
         { "CONFIRM", InputAction::Confirm },
         { "CANCEL", InputAction::Cancel },
@@ -192,6 +192,7 @@ namespace
         { "CAPTUREPHOTO", InputAction::CapturePhoto },
         { "HOLDPLACEMENT", InputAction::HoldPlacement },
         { "CONFIRMPLACEMENT", InputAction::ConfirmPlacement },
+        { "ATTACKPASTE", InputAction::AttackPaste },
         { "CYCLEPLACEMENTLAYER", InputAction::CyclePlacementLayer },
         { "FLIPPLACEMENT", InputAction::FlipPlacement },
         { "TOGGLEBRIDGEPLACEMENT", InputAction::ToggleBridgePlacement },
@@ -386,6 +387,7 @@ namespace
         { InputAction::CapturePhoto, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_LBUTTON, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadRightTriggerPressed, nullptr, nullptr } },
         { InputAction::HoldPlacement, { 'E', kNoKey, kNoKey, kNoKey }, { 'E', kNoKey, kNoKey, kNoKey }, false, { IsGamepadNorthPressed, nullptr, nullptr }, { IsGamepadNorthPressed, nullptr, nullptr } },
         { InputAction::ConfirmPlacement, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_LBUTTON, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadRightTriggerPressed, IsGamepadSouthPressed, nullptr } },
+        { InputAction::AttackPaste, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'Q', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadEastPressed, nullptr, nullptr } },
         { InputAction::CyclePlacementLayer, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'Q', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
         { InputAction::FlipPlacement, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'F', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
         { InputAction::ToggleBridgePlacement, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'B', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
@@ -563,6 +565,7 @@ namespace
         case InputAction::CapturePhoto: return "CapturePhoto";
         case InputAction::HoldPlacement: return "HoldPlacement";
         case InputAction::ConfirmPlacement: return "ConfirmPlacement";
+        case InputAction::AttackPaste: return "AttackPaste";
         case InputAction::CyclePlacementLayer: return "CyclePlacementLayer";
         case InputAction::FlipPlacement: return "FlipPlacement";
         case InputAction::ToggleBridgePlacement: return "ToggleBridgePlacement";

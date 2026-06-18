@@ -44,7 +44,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
     bool shieldBossDefeated = false;
     bool hasProtectiveWalls = false;
     bool hasIntactProtectiveWall = false;
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -165,7 +165,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         const float platformLeft = platform.x;
         const float platformRight = platform.x + platformWidth;
 
-        for (const auto& batteryEntity : m_entities)
+        for (const auto& batteryEntity : m_world.Entities())
         {
             if (!batteryEntity)
             {
@@ -198,7 +198,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
     };
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -232,7 +232,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         };
 
         int batteriesOnTop = 0;
-        for (const auto& batteryEntity : m_entities)
+        for (const auto& batteryEntity : m_world.Entities())
         {
             if (!batteryEntity)
             {
@@ -303,7 +303,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -323,7 +323,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         switchBounds.scale = 1.0f;
 
         bool isLaserHit = false;
-        for (const auto& beamEntity : m_entities)
+        for (const auto& beamEntity : m_world.Entities())
         {
             if (!beamEntity || !HasTag(*beamEntity, kTagLaserBeam))
             {
@@ -359,7 +359,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         setEntityTint(*entity, isLaserHit ? 1.0f : 0.92f, isLaserHit ? 0.94f : 0.82f, isLaserHit ? 0.34f : 0.22f);
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -437,7 +437,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         setEntityTint(*entity, powered ? 0.74f : 0.42f, powered ? 0.86f : 0.46f, powered ? 0.98f : 0.52f);
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -495,7 +495,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             kPlatformBatteryInsetX);
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -569,10 +569,22 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
     if (hasProtectiveWalls && !hasIntactProtectiveWall)
     {
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            if (auto* markerLight = entity->GetComponent<MarkerLightComponent>())
+            {
+                markerLight->activated = false;
+            }
+        }
         RefreshProtectiveWallsFromMarkers();
     }
 
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity)
         {
@@ -648,7 +660,7 @@ const Entity* GameScene::FindNearestMarkerLightEntity(
 
     const Entity* nearestEntity = nullptr;
     float nearestDistanceSq = std::numeric_limits<float>::max();
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, kTagMarkerLight))
         {
@@ -742,7 +754,7 @@ void GameScene::HandleWorldInteractions()
 
     std::vector<Entity*> consumedGimmicks;
     game_scene_world_interaction_system::HandleEntityInteractions(
-        m_entities,
+        m_world.Entities(),
         m_flow,
         *player,
         consumedGimmicks,
@@ -772,7 +784,7 @@ void GameScene::HandleWorldInteractions()
     std::vector<Entity*> consumedPickups;
     std::vector<Entity*> defeatedEnemies;
     game_scene_world_interaction_system::HandlePhotoBoxInteractions(
-        m_entities,
+        m_world.Entities(),
         m_flow,
         *player,
         consumedPickups,
@@ -798,7 +810,7 @@ void GameScene::HandleWorldInteractions()
 
     std::vector<Entity*> entitiesToRemove = consumedGimmicks;
     entitiesToRemove.insert(entitiesToRemove.end(), consumedPickups.begin(), consumedPickups.end());
-    game_scene_world_interaction_system::RemoveEntitiesByPointerList(m_entities, entitiesToRemove);
+    m_world.RemoveByPointerList(entitiesToRemove);
 
     if (!defeatedEnemies.empty())
     {
@@ -808,28 +820,28 @@ void GameScene::HandleWorldInteractions()
 
 bool GameScene::TryQueueStageTransition(Entity& player)
 {
-    if (m_flow.stageTransitionActive || m_hasPendingStageTransition)
+    if (m_flow.stageTransitionActive || m_lifecycle.hasPendingStageTransition)
     {
         return false;
     }
 
     if (gStageTransitionLinks.empty())
     {
-        gLastStageTransitionMarker = '\0';
+        m_lifecycle.lastStageTransitionMarker = '\0';
         return false;
     }
 
     auto* playerTransform = player.GetComponent<TransformComponent>();
     if (!playerTransform)
     {
-        gLastStageTransitionMarker = '\0';
+        m_lifecycle.lastStageTransitionMarker = '\0';
         return false;
     }
 
     const float tileSize = m_tileMap.GetTileSize();
     if (tileSize <= 0.0f)
     {
-        gLastStageTransitionMarker = '\0';
+        m_lifecycle.lastStageTransitionMarker = '\0';
         return false;
     }
 
@@ -840,11 +852,11 @@ bool GameScene::TryQueueStageTransition(Entity& player)
     const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
     if (marker == '\0')
     {
-        gLastStageTransitionMarker = '\0';
+        m_lifecycle.lastStageTransitionMarker = '\0';
         return false;
     }
 
-    if (marker == gLastStageTransitionMarker)
+    if (marker == m_lifecycle.lastStageTransitionMarker)
     {
         return false;
     }
@@ -854,7 +866,7 @@ bool GameScene::TryQueueStageTransition(Entity& player)
     {
         const bool sourceMatches =
             link.sourceMapCsv == "*" ||
-            link.sourceMapCsv == gCurrentMapCsvPath;
+            link.sourceMapCsv == m_lifecycle.currentMapCsvPath;
         if (!sourceMatches || link.marker != marker)
         {
             continue;
@@ -869,11 +881,11 @@ bool GameScene::TryQueueStageTransition(Entity& player)
         return false;
     }
 
-    m_hasPendingStageTransition = true;
-    m_pendingStageTransitionMapCsv = matchedLink->destinationMapCsv;
-    m_pendingStageTransitionSpawnMarker = matchedLink->spawnMarker;
-    m_pendingStageTransitionMarker = marker;
-    gLastStageTransitionMarker = marker;
+    m_lifecycle.hasPendingStageTransition = true;
+    m_lifecycle.pendingStageTransitionMapCsv = matchedLink->destinationMapCsv;
+    m_lifecycle.pendingStageTransitionSpawnMarker = matchedLink->spawnMarker;
+    m_lifecycle.pendingStageTransitionMarker = marker;
+    m_lifecycle.lastStageTransitionMarker = marker;
     m_flow.stageTransitionActive = true;
     m_flow.stageTransitionTimer = kStageTransitionFadeOutDuration;
     m_flow.stageTransitionFadeInTimer = 0.0f;
@@ -894,15 +906,15 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     }
 
     const GameSessionState session = GameSession_Get();
-    gCurrentMapCsvPath = destinationMapCsv;
-    gLastStageTransitionMarker = marker;
+    m_lifecycle.currentMapCsvPath = destinationMapCsv;
+    m_lifecycle.lastStageTransitionMarker = marker;
     RefreshStageRenderProfile();
 
-    m_entities.clear();
-    m_pendingEntities.clear();
+    m_world.Clear();
     m_photo = PhotoState{};
     m_player = GameScenePlayerState{};
     m_flow = GameSceneFlowState{};
+    m_ui = GameSceneUiState{};
     m_effects = GameSceneEffectsState{};
     m_mapEditor.active = false;
     m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
@@ -913,38 +925,41 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_mapEditor.selectedStageLightFixtureTiles = 1;
     m_mapEditor.statusMessage.clear();
     m_mapEditor.statusMessageTimer = 0.0f;
-    m_cameraTransitionMarkers.clear();
-    m_cameraFixedRanges.clear();
-    m_hasPreviousPlayerCameraProbe = false;
-    m_previousPlayerCameraProbeX = 0.0f;
-    m_previousPlayerCameraProbeY = 0.0f;
-    m_floorCameraTransitionActive = false;
-    m_floorCameraTransitionElapsed = 0.0f;
-    m_floorCameraTransitionStartX = 0.0f;
-    m_floorCameraTransitionStartY = 0.0f;
-    m_floorCameraTransitionTargetX = 0.0f;
-    m_floorCameraTransitionTargetY = 0.0f;
-    m_cameraFixedLockActive = false;
-    m_cameraFixedLockStartX = 0.0f;
-    m_cameraFixedLockEndX = 0.0f;
-    m_cameraFixedLockX = 0.0f;
-    m_cameraFixedLockY = 0.0f;
-    m_hasPendingStageTransition = false;
-    m_pendingStageTransitionMapCsv.clear();
-    m_pendingStageTransitionSpawnMarker = '\0';
-    m_pendingStageTransitionMarker = '\0';
+    m_camera.transitionMarkers.clear();
+
+    m_camera.hasPreviousPlayerCameraProbe = false;
+    m_camera.previousPlayerCameraProbeX = 0.0f;
+    m_camera.previousPlayerCameraProbeY = 0.0f;
+    m_camera.floorCameraTransitionActive = false;
+    m_camera.floorCameraTransitionElapsed = 0.0f;
+    m_camera.floorCameraTransitionStartX = 0.0f;
+    m_camera.floorCameraTransitionStartY = 0.0f;
+    m_camera.floorCameraTransitionTargetX = 0.0f;
+    m_camera.floorCameraTransitionTargetY = 0.0f;
+    m_camera.cameraFixedLockActive = false;
+    m_camera.cameraFixedLockStartX = 0.0f;
+    m_camera.cameraFixedLockEndX = 0.0f;
+    m_camera.cameraFixedLockX = 0.0f;
+    m_camera.cameraFixedLockY = 0.0f;
+    m_camera.midBoss3CameraYLockInitialized = false;
+    m_camera.midBoss3CameraYLock = 0.0f;
+    m_lifecycle.hasPendingStageTransition = false;
+    m_lifecycle.pendingStageTransitionMapCsv.clear();
+    m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
+    m_lifecycle.pendingStageTransitionMarker = '\0';
     m_flow.timeLimit = session.timeLimit;
     m_flow.timeRemaining = session.timeRemaining;
 
     m_eventBus.Clear();
     m_physicsWorld.Shutdown();
     m_physicsWorld.Initialize(0.0f, 0.0f, m_eventBus);
-    if (!m_tileMap.LoadFromCsv(gCurrentMapCsvPath, tileSize))
+    if (!m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, tileSize))
     {
         return false;
     }
 
     InitializeStageEntities();
+    PlayStageBgmForCurrentMap();
 
     Entity* transitionedPlayer = FindEntityByTag(kTagPlayer);
     if (transitionedPlayer)
@@ -1017,7 +1032,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     GameSession_SetTimeRemaining(session.timeRemaining);
     Entity* currentPlayer = FindEntityByTag(kTagPlayer);
     m_eventBus.Publish({ EventType::PlaySoundRequest, currentPlayer, nullptr, "scene_change", 0.0f, 0.0f });
-    m_eventBus.Publish({ EventType::LogMessage, currentPlayer, nullptr, std::string("Stage transition: ") + gCurrentMapCsvPath, 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::LogMessage, currentPlayer, nullptr, std::string("Stage transition: ") + m_lifecycle.currentMapCsvPath, 0.0f, 0.0f });
     return true;
 }
 
@@ -1053,7 +1068,7 @@ void GameScene::HandleWorldTileInteractions(Entity& player)
 
 void GameScene::HandleWorldEntityInteractions(Entity& player, std::vector<Entity*>& consumedGimmicks)
 {
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || entity.get() == &player || !IntersectsEntity(player, *entity))
         {
@@ -1107,7 +1122,7 @@ void GameScene::HandleWorldEntityInteractions(Entity& player, std::vector<Entity
 
 void GameScene::HandlePhotoBoxInteractions(Entity& player, std::vector<Entity*>& consumedPickups, std::vector<Entity*>& defeatedEnemies)
 {
-    for (const auto& entity : m_entities)
+    for (const auto& entity : m_world.Entities())
     {
         if (!entity || !HasTag(*entity, kTagPhotoBox))
         {
@@ -1130,7 +1145,7 @@ void GameScene::HandlePhotoBoxInteractions(Entity& player, std::vector<Entity*>&
         case PhotoCopyRole::Hazard:
             break;
         case PhotoCopyRole::Ally:
-            for (const auto& enemyEntity : m_entities)
+            for (const auto& enemyEntity : m_world.Entities())
             {
                 if (!enemyEntity || enemyEntity.get() == entity.get())
                 {
@@ -1169,20 +1184,7 @@ void GameScene::HandlePhotoBoxInteractions(Entity& player, std::vector<Entity*>&
 
 void GameScene::RemoveEntitiesByPointerList(const std::vector<Entity*>& entitiesToRemove)
 {
-    if (entitiesToRemove.empty())
-    {
-        return;
-    }
-
-    m_entities.erase(
-        std::remove_if(
-            m_entities.begin(),
-            m_entities.end(),
-            [&](const std::unique_ptr<Entity>& entity)
-            {
-                return entity && std::find(entitiesToRemove.begin(), entitiesToRemove.end(), entity.get()) != entitiesToRemove.end();
-            }),
-        m_entities.end());
+    m_world.RemoveByPointerList(entitiesToRemove);
 }
 
 void GameScene::ActivateCheckpoint(Entity& player, Entity& checkpoint)

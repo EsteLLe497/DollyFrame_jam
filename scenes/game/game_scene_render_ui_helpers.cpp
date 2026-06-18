@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_render_ui_helpers.h"
 #include "game_scene_draw_helpers.h"
@@ -26,6 +26,7 @@ RgbColor game_scene_detail::GetEditorMarkerColor(char marker)
     case '$': return { 255, 82, 72 };
     case '?': return { 255, 248, 150 };
     case '!': return { 255, 248, 150 };
+    case '%': return { 255, 202, 92 };
     case 'A': return { 176, 176, 255 };
     case 'D': return { 96, 230, 150 };
     case 'S': return { 255, 176, 88 };

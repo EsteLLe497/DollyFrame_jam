@@ -1,7 +1,9 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
-#include "game_scene_combat_system.h"
+#include "game_scene_combat_common.h"
+#include "game_scene_combat_enemy_system.h"
+#include "game_scene_combat_bullet_system.h"
 #include "game_scene_player_system.h"
 #include "game_scene_player_movement_system.h"
 #include "game_scene_player_visual_system.h"
@@ -67,6 +69,183 @@ namespace
         return pointX >= x && pointX <= x + width && pointY >= y && pointY <= y + height;
     }
 
+    struct JumpPadBoardGeometry
+    {
+        float centerX = 0.0f;
+        float centerY = 0.0f;
+        float halfLength = 0.0f;
+        float halfThickness = 0.0f;
+        float dirX = 1.0f;
+        float dirY = 0.0f;
+        float normalX = 0.0f;
+        float normalY = 1.0f;
+    };
+
+    struct JumpPadContact
+    {
+        bool edgeContact = false;
+        int side = 0;
+    };
+
+    JumpPadBoardGeometry BuildJumpPadBoardGeometry(const TransformComponent& transform, const JumpPadComponent& jumpPad)
+    {
+        const float width = transform.width * transform.scale;
+        const float height = transform.height * transform.scale;
+        const float boardHeight = height * 0.5f;
+        const float cosTilt = std::cos(jumpPad.tilt);
+        const float sinTilt = std::sin(jumpPad.tilt);
+        return JumpPadBoardGeometry{
+            transform.x + width * 0.5f,
+            transform.y + boardHeight * 0.5f,
+            width * 0.5f,
+            boardHeight * 0.5f,
+            cosTilt,
+            sinTilt,
+            -sinTilt,
+            cosTilt,
+        };
+    }
+
+    void WorldToJumpPadLocal(const JumpPadBoardGeometry& board, float worldX, float worldY, float& outLocalX, float& outLocalY)
+    {
+        const float dx = worldX - board.centerX;
+        const float dy = worldY - board.centerY;
+        outLocalX = dx * board.dirX + dy * board.dirY;
+        outLocalY = dx * board.normalX + dy * board.normalY;
+    }
+
+    float GetJumpPadLocalX(const JumpPadBoardGeometry& board, float worldX, float worldY)
+    {
+        return (worldX - board.centerX) * board.dirX + (worldY - board.centerY) * board.dirY;
+    }
+
+    bool TryGetJumpPadTopYAtX(const JumpPadBoardGeometry& board, float worldX, float& outY)
+    {
+        if (std::fabs(board.normalY) <= 0.0001f)
+        {
+            return false;
+        }
+
+        const float topLocalY = -board.halfThickness;
+        outY = board.centerY + (topLocalY - (worldX - board.centerX) * board.normalX) / board.normalY;
+        return true;
+    }
+
+    bool TryResolveJumpPadContact(
+        TransformComponent& bounds,
+        const TransformComponent& jumpPadTransform,
+        const JumpPadComponent& jumpPad,
+        float verticalTolerance,
+        float edgeVerticalTolerance,
+        float horizontalEdgeAllowance,
+        float minHorizontalOverlap,
+        float edgeZoneWidth,
+        JumpPadContact* outContact = nullptr,
+        float previousBoundsY = 0.0f,
+        bool useSweptContact = false)
+    {
+        const float width = bounds.width * bounds.scale;
+        const float height = bounds.height * bounds.scale;
+        if (width <= 0.0f || height <= 0.0f)
+        {
+            return false;
+        }
+
+        const float bottom = bounds.y + height;
+        const float previousBottom = previousBoundsY + height;
+        const JumpPadBoardGeometry board = BuildJumpPadBoardGeometry(jumpPadTransform, jumpPad);
+        const float topLocalY = -board.halfThickness;
+        const float allowance = std::max(0.0f, horizontalEdgeAllowance);
+        const float minLocalX = -board.halfLength - allowance;
+        const float maxLocalX = board.halfLength + allowance;
+
+        const float leftLocalX = GetJumpPadLocalX(board, bounds.x, bottom);
+        const float rightLocalX = GetJumpPadLocalX(board, bounds.x + width, bottom);
+        const float objectLocalLeft = std::min(leftLocalX, rightLocalX);
+        const float objectLocalRight = std::max(leftLocalX, rightLocalX);
+        const float overlapLeft = std::max(objectLocalLeft, minLocalX);
+        const float overlapRight = std::min(objectLocalRight, maxLocalX);
+        const float requiredOverlap = std::max(1.0f, std::min(minHorizontalOverlap, width * 0.35f));
+        if (overlapRight - overlapLeft < requiredOverlap)
+        {
+            return false;
+        }
+
+        const float sampleXs[3] = { bounds.x, bounds.x + width * 0.5f, bounds.x + width };
+        bool foundContact = false;
+        bool bestEdgeContact = false;
+        int bestSide = 0;
+        float bestSurfaceY = 0.0f;
+        float bestDistance = 0.0f;
+        for (float sampleX : sampleXs)
+        {
+            float localX = 0.0f;
+            float localY = 0.0f;
+            WorldToJumpPadLocal(board, sampleX, bottom, localX, localY);
+            if (localX < minLocalX || localX > maxLocalX)
+            {
+                continue;
+            }
+
+            float surfaceY = bottom;
+            if (!TryGetJumpPadTopYAtX(board, sampleX, surfaceY))
+            {
+                continue;
+            }
+
+            const float surfaceLocalX = GetJumpPadLocalX(board, sampleX, surfaceY);
+            if (surfaceLocalX < minLocalX || surfaceLocalX > maxLocalX)
+            {
+                continue;
+            }
+
+            const bool edgeContact =
+                edgeZoneWidth > 0.0f &&
+                std::fabs(surfaceLocalX) >= board.halfLength - edgeZoneWidth;
+            const float tolerance = edgeContact ? edgeVerticalTolerance : verticalTolerance;
+            const bool nearSurface = std::fabs(localY - topLocalY) <= tolerance;
+            bool sweptSurface = false;
+            if (useSweptContact)
+            {
+                float previousLocalX = 0.0f;
+                float previousLocalY = 0.0f;
+                WorldToJumpPadLocal(board, sampleX, previousBottom, previousLocalX, previousLocalY);
+                sweptSurface =
+                    previousLocalX >= minLocalX &&
+                    previousLocalX <= maxLocalX &&
+                    previousLocalY <= topLocalY + tolerance &&
+                    localY >= topLocalY - tolerance;
+            }
+            if (!nearSurface && !sweptSurface)
+            {
+                continue;
+            }
+
+            const float distance = std::fabs(localY - topLocalY);
+            if (!foundContact || surfaceY < bestSurfaceY || (std::fabs(surfaceY - bestSurfaceY) <= 0.001f && distance < bestDistance))
+            {
+                bestSurfaceY = surfaceY;
+                bestDistance = distance;
+                bestEdgeContact = edgeContact;
+                bestSide = surfaceLocalX < 0.0f ? -1 : 1;
+                foundContact = true;
+            }
+        }
+
+        if (!foundContact)
+        {
+            return false;
+        }
+
+        bounds.y = bestSurfaceY - height;
+        if (outContact)
+        {
+            outContact->edgeContact = bestEdgeContact;
+            outContact->side = bestSide;
+        }
+        return true;
+    }
+
     float EaseInOutCubic(float t)
     {
         const float clamped = Clamp01(t);
@@ -108,23 +287,13 @@ namespace
         const float aspect = gCameraViewHeight / safeViewWidth;
         return std::max(1.0f, visibleWidth * aspect);
     }
+
+    bool IsMidBoss3CameraStabilizeStage(const std::string& mapPath)
+    {
+        return GetMapDisplayName(mapPath) == "ruins_boss";
+    }
 }
 
-//bool GameScene::TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const
-//{
-//    (void)playerCenterY;
-//    for (const CameraFixedRange& range : m_cameraFixedRanges)
-//    {
-//        if (playerCenterX >= range.startX && playerCenterX <= range.endX)
-//        {
-//            outCameraX = range.cameraX;
-//            outCameraY = range.cameraY;
-//            return true;
-//        }
-//    }
-//
-//    return false;
-//}
 
 void GameScene::StartFloorCameraTransition(int directionX, int directionY)
 {
@@ -146,17 +315,17 @@ void GameScene::StartFloorCameraTransition(int directionX, int directionY)
         return;
     }
 
-    m_floorCameraTransitionActive = true;
-    m_floorCameraTransitionElapsed = 0.0f;
-    m_floorCameraTransitionStartX = m_flow.cameraX;
-    m_floorCameraTransitionStartY = m_flow.cameraY;
-    m_floorCameraTransitionTargetX = targetX;
-    m_floorCameraTransitionTargetY = targetY;
+    m_camera.floorCameraTransitionActive = true;
+    m_camera.floorCameraTransitionElapsed = 0.0f;
+    m_camera.floorCameraTransitionStartX = m_flow.cameraX;
+    m_camera.floorCameraTransitionStartY = m_flow.cameraY;
+    m_camera.floorCameraTransitionTargetX = targetX;
+    m_camera.floorCameraTransitionTargetY = targetY;
 }
 
 
 
-void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime)
+void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY)
 {
     const float playerWidth = playerTransform.width * playerTransform.scale;
     const float playerHeight = playerTransform.height * playerTransform.scale;
@@ -166,9 +335,9 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     int activeIndex = -1;
     int bestPriority = -1;
 
-    for (int i = 0; i < m_fixedRanges.size(); i++)
+    for (int i = 0; i < m_camera.fixedRanges.size(); i++)
     {
-        const auto& fixedCamera = m_fixedRanges[i];
+        const auto& fixedCamera = m_camera.fixedRanges[i];
 
         if (fixedCamera.IsInRange(playerCenterX, playerCenterY))
         {
@@ -180,7 +349,7 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         }
     }
 
-    bool prevFollow = (m_prevCameraIndex == -1);
+    bool prevFollow = (m_camera.prevCameraIndex == -1);
     bool currFollow = (activeIndex == -1);
 
     bool easingNeeded = true;
@@ -189,76 +358,313 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         easingNeeded = false;
     }
 
-    if (easingNeeded && m_prevCameraIndex != activeIndex)
+    if (easingNeeded && m_camera.prevCameraIndex != activeIndex)
     {
-        m_easingActive = true;
-        m_easingElapsedTime = 0.0f;
+        m_camera.easingActive = true;
+        m_camera.easingElapsedTime = 0.0f;
 
-        m_easingStartX = m_flow.cameraX;
-        m_easingStartY = m_flow.cameraY;
+        m_camera.easingStartX = m_flow.cameraX;
+        m_camera.easingStartY = m_flow.cameraY;
 
         if (activeIndex == -1)
         {
-            // 追従カメラ
-            m_easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
-            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
+            m_camera.easingTargetX = playerCenterX - (gCameraViewWidth * 0.25f);
+            m_camera.easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
         }
         else
         {
-            // 固定カメラ
-            const auto& cam = m_fixedRanges[activeIndex];
+            const auto& cam = m_camera.fixedRanges[activeIndex];
 
             gCameraViewWidth = cam.GetZoomWidth();
             gCameraViewHeight = cam.GetZoomHeight();
 
             float centerX = (cam.GetStartX() + cam.GetEndX()) * 0.5f;
 
-            m_easingTargetX = centerX - (gCameraViewWidth * 0.25f);
-            m_easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f);
+            m_camera.easingTargetX = centerX - (gCameraViewWidth * 0.25f) + cam.GetOffsetX();
+            m_camera.easingTargetY = playerCenterY - (gCameraViewHeight * 0.5f) + cam.GetOffsetY();
         }
     }
 
-    if (m_easingActive)
+    if (m_camera.easingActive)
     {
-        m_easingElapsedTime += deltaTime;
-        float t = m_easingElapsedTime / easingTime;
+        m_camera.easingElapsedTime += deltaTime;
+        float t = m_camera.easingElapsedTime / easingTime;
 
         if (t >= 1.0f)
         {
             t = 1.0f;
-            m_easingActive = false;
+            m_camera.easingActive = false;
         }
 
-        m_flow.cameraX = std::lerp(m_easingStartX, m_easingTargetX, t);
-        m_flow.cameraY = std::lerp(m_easingStartY, m_easingTargetY, t);
+        m_flow.cameraX = std::lerp(m_camera.easingStartX, m_camera.easingTargetX, t);
+        m_flow.cameraY = std::lerp(m_camera.easingStartY, m_camera.easingTargetY, t);
 
-        m_prevCameraIndex = activeIndex;
+        m_camera.prevCameraIndex = activeIndex;
         return;
     }
 
     // 追従カメラ
     if (activeIndex < 0)
     {
-        m_flow.cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
-        m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
+        if (m_camera.prevCameraIndex >= 0)
+        {
+            const auto& prevCam = m_camera.fixedRanges[m_camera.prevCameraIndex];
 
-        m_prevCameraIndex = activeIndex;
+            gCameraViewWidth = prevCam.GetZoomWidth();
+            gCameraViewHeight = prevCam.GetZoomHeight();
+
+            float centerX = (prevCam.GetStartX() + prevCam.GetEndX()) * 0.5f;
+
+            m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f) + prevCam.GetOffsetX();
+            m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f) + prevCam.GetOffsetY();
+
+            return;
+        }
+
+        m_flow.cameraX = playerCenterX - (gCameraViewWidth * 0.25f);
+        if (followY)
+        {
+            m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
+        }
+
+        m_camera.prevCameraIndex = activeIndex;
         return;
     }
 
     // 固定カメラ
-    const auto& cameraRange = m_fixedRanges[activeIndex];
+    const auto& cameraRange = m_camera.fixedRanges[activeIndex];
 
     gCameraViewWidth = cameraRange.GetZoomWidth();
     gCameraViewHeight = cameraRange.GetZoomHeight();
 
     float centerX = (cameraRange.GetStartX() + cameraRange.GetEndX()) * 0.5f;
 
-    m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f);
-    m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f);
+    m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f) + cameraRange.GetOffsetX();
+    m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f) + cameraRange.GetOffsetY();
 
-    m_prevCameraIndex = activeIndex;
+    m_camera.prevCameraIndex = activeIndex;
 }
+
+void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
+{
+    m_render.slamCameraZoomBoost = 0.0f;
+    if (m_mapEditor.active || deltaTime <= 0.0f)
+    {
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraInfluence = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
+        return;
+    }
+
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    if (!playerTransform)
+    {
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraInfluence = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
+        return;
+    }
+
+    const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+    const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
+    float bestWeight = 0.0f;
+    float bestTargetCenterX = playerCenterX;
+    float bestTargetCenterY = playerCenterY;
+    float bestZoomBoost = 0.0f;
+    float bestCameraSpeed = 4.0f;
+    bool bestIntroCameraWork = false;
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        const auto* bossTransform = entity->GetComponent<TransformComponent>();
+        const auto* bossSprite = entity->GetComponent<SpriteRenderComponent>();
+        if (!enemy ||
+            enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
+            !enemy->IsEnabled() ||
+            !boss ||
+            !bossTransform)
+        {
+            continue;
+        }
+
+        float weight = 0.0f;
+        float verticalLookBias = 0.0f;
+        float zoomBoost = 0.0f;
+        float targetBossBlendX = 0.44f;
+        float targetBossBlendY = 0.52f;
+        float cameraSpeed = 4.0f;
+        bool introCameraWork = false;
+        if (boss->introDropActive)
+        {
+            // Point 1: wide upper camera that shows the boss dropping in.
+            weight = 0.34f;
+            verticalLookBias = -132.0f;
+            zoomBoost = 0.0f;
+            targetBossBlendX = 0.38f;
+            targetBossBlendY = 0.34f;
+            cameraSpeed = 9.5f;
+            introCameraWork = true;
+        }
+        else if (boss->appearAnimationActive)
+        {
+            // Point 1 hold: keep the pullback until the roar actually starts.
+            weight = 0.34f;
+            verticalLookBias = -132.0f;
+            zoomBoost = 0.0f;
+            targetBossBlendX = 0.38f;
+            targetBossBlendY = 0.34f;
+            cameraSpeed = 9.5f;
+            introCameraWork = true;
+        }
+        else if (boss->roarAnimationActive)
+        {
+            // Point 1 hold: keep the pullback through the full entrance.
+            weight = 0.34f;
+            verticalLookBias = -132.0f;
+            zoomBoost = 0.0f;
+            targetBossBlendX = 0.38f;
+            targetBossBlendY = 0.34f;
+            cameraSpeed = 9.5f;
+            introCameraWork = true;
+        }
+        switch (boss->state)
+        {
+        case ShieldBossState::JumpAscend:
+            if (!introCameraWork)
+            {
+                weight = 0.46f;
+                verticalLookBias = -72.0f;
+                zoomBoost = 0.020f;
+            }
+            break;
+        case ShieldBossState::AirHover:
+            if (!introCameraWork)
+            {
+                weight = 0.58f;
+                verticalLookBias = -112.0f;
+                zoomBoost = 0.030f;
+            }
+            break;
+        case ShieldBossState::JumpDescend:
+            if (!introCameraWork)
+            {
+                weight = 0.66f;
+                verticalLookBias = -46.0f;
+                zoomBoost = 0.045f;
+            }
+            break;
+        case ShieldBossState::SlamPhase2:
+            if (!introCameraWork)
+            {
+                weight = std::max(0.0f, 0.32f * (1.0f - std::min(1.0f, boss->stateTimer / 0.34f)));
+                verticalLookBias = 38.0f;
+                zoomBoost = 0.018f * (weight / 0.32f);
+            }
+            break;
+        default:
+            break;
+        }
+
+        if (weight <= bestWeight)
+        {
+            continue;
+        }
+
+        const float bossDrawWidth = bossTransform->width * bossTransform->scale * (bossSprite ? bossSprite->GetRenderScaleX() : 1.0f);
+        const float bossDrawHeight = bossTransform->height * bossTransform->scale * (bossSprite ? bossSprite->GetRenderScaleY() : 1.0f);
+        const float bossCenterX = bossTransform->x + (bossSprite ? bossSprite->GetRenderOffsetX() : 0.0f) + bossDrawWidth * 0.5f;
+        const float bossCenterY = bossTransform->y + (bossSprite ? bossSprite->GetRenderOffsetY() : 0.0f) + bossDrawHeight * 0.5f;
+        bestWeight = weight;
+        bestTargetCenterX = std::lerp(playerCenterX, bossCenterX, targetBossBlendX);
+        bestTargetCenterY = std::lerp(playerCenterY, bossCenterY, targetBossBlendY) + verticalLookBias;
+        bestZoomBoost = zoomBoost;
+        bestCameraSpeed = cameraSpeed;
+        bestIntroCameraWork = introCameraWork;
+    }
+
+    auto applyCameraTarget = [&](float targetCenterX, float targetCenterY, float weight, float speedScale, bool clampToMap, bool useIntroPullView)
+    {
+        float cameraViewWidth = gCameraViewWidth;
+        float cameraViewHeight = gCameraViewHeight;
+        if (useIntroPullView)
+        {
+            const float tileSize = m_tileMap.GetTileSize();
+            if (tileSize > 0.0f)
+            {
+                constexpr float kIntroPullTargetTilesX = 23.0f;
+                const float targetWorldWidth = tileSize * kIntroPullTargetTilesX;
+                if (targetWorldWidth > 0.0f)
+                {
+                    const float introViewScale = std::max(0.0001f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
+                    cameraViewWidth = static_cast<float>(SCREEN_WIDTH) / introViewScale;
+                    cameraViewHeight = static_cast<float>(SCREEN_HEIGHT) / introViewScale;
+                }
+            }
+        }
+
+        const float desiredCameraX = targetCenterX - cameraViewWidth * 0.5f;
+        const float desiredCameraY = targetCenterY - cameraViewHeight * 0.5f;
+        const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - cameraViewWidth);
+        const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - cameraViewHeight);
+        const float targetCameraX = clampToMap ? std::clamp(desiredCameraX, 0.0f, maxCameraX) : desiredCameraX;
+        const float targetCameraY = clampToMap ? std::clamp(desiredCameraY, 0.0f, maxCameraY) : desiredCameraY;
+        const float blend = 1.0f - std::pow(0.001f, deltaTime * speedScale);
+
+        m_flow.cameraX = std::lerp(m_flow.cameraX, targetCameraX, blend * weight);
+        m_flow.cameraY = std::lerp(m_flow.cameraY, targetCameraY, blend * weight);
+    };
+
+    const bool hasActiveCameraWork = bestWeight > 0.0f;
+    if (hasActiveCameraWork && bestIntroCameraWork)
+    {
+        const float influenceBlend = 1.0f - std::pow(0.001f, deltaTime * 5.8f);
+        m_render.bossIntroCameraInfluence = std::lerp(m_render.bossIntroCameraInfluence, 1.0f, influenceBlend);
+        m_render.bossIntroCameraTargetX = bestTargetCenterX;
+        m_render.bossIntroCameraTargetY = bestTargetCenterY;
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
+        applyCameraTarget(
+            bestTargetCenterX,
+            bestTargetCenterY,
+            bestWeight * m_render.bossIntroCameraInfluence,
+            bestCameraSpeed,
+            false,
+            true);
+    }
+    else
+    {
+        m_render.bossIntroCameraAnchorActive = false;
+        const float returnBlend = 1.0f - std::pow(0.001f, deltaTime * 0.58f);
+        m_render.bossIntroCameraInfluence = std::lerp(m_render.bossIntroCameraInfluence, 0.0f, returnBlend);
+        m_render.bossIntroCameraZoomBoost = std::lerp(m_render.bossIntroCameraZoomBoost, 0.0f, returnBlend);
+        if (m_render.bossIntroCameraInfluence <= 0.01f)
+        {
+            m_render.bossIntroCameraInfluence = 0.0f;
+            m_render.bossIntroCameraZoomBoost = 0.0f;
+        }
+
+        if (hasActiveCameraWork)
+        {
+            applyCameraTarget(
+                bestTargetCenterX,
+                bestTargetCenterY,
+                bestWeight,
+                5.5f + bestWeight * 5.0f,
+                true,
+                false);
+            m_render.slamCameraZoomBoost = bestZoomBoost;
+        }
+    }
+}
+
 
 
 void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float height)
@@ -303,6 +709,404 @@ void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float heig
         particle.g = colors[index % 4][1];
         particle.b = colors[index % 4][2];
         m_effects.barrelDebris.push_back(particle);
+    }
+}
+
+void GameScene::SpawnSlamImpactEffect(float centerX, float groundY, float width)
+{
+    constexpr float kDustLifetime = 0.58f;
+    constexpr int kFlashCount = 7;
+    constexpr int kGroundStreakCount = 14;
+    constexpr int kDustCount = 36;
+    constexpr int kChipCount = 26;
+    constexpr int kVerticalBurstCount = 18;
+    const float clampedWidth = std::max(128.0f, width * 1.18f);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    for (int index = 0; index < kFlashCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kFlashCount - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(clampedWidth * 0.34f, clampedWidth * 1.05f, t);
+        particle.height = std::lerp(16.0f, 46.0f, t);
+        particle.x = centerX - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.70f;
+        particle.velocityX = 0.0f;
+        particle.velocityY = -28.0f - t * 38.0f;
+        particle.rotation = (index % 2 == 0 ? -1.0f : 1.0f) * (0.03f + t * 0.05f);
+        particle.rotationSpeed = particle.rotation * -3.0f;
+        particle.life = std::lerp(0.13f, 0.25f, t);
+        particle.maxLife = particle.life;
+        particle.alphaScale = std::lerp(1.0f, 0.58f, t);
+        particle.r = std::lerp(1.0f, 0.78f, t);
+        particle.g = std::lerp(0.98f, 0.86f, t);
+        particle.b = std::lerp(0.86f, 0.68f, t);
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kGroundStreakCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kGroundStreakCount / 2) - 1);
+        const float distance = std::lerp(0.08f, 0.92f, spreadT) * halfWidth;
+        SlamDustParticle particle;
+        particle.width = std::lerp(84.0f, 154.0f, 1.0f - spreadT);
+        particle.height = std::lerp(8.0f, 17.0f, 1.0f - spreadT);
+        particle.x = centerX + side * distance - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.5f - static_cast<float>(GetRand(5));
+        particle.velocityX = side * (460.0f + static_cast<float>(GetRand(220)));
+        particle.velocityY = -20.0f - static_cast<float>(GetRand(34));
+        particle.rotation = side * std::lerp(0.04f, 0.13f, spreadT);
+        particle.rotationSpeed = side * 0.8f;
+        particle.life = 0.26f + spreadT * 0.12f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.92f;
+        particle.r = 0.92f;
+        particle.g = 0.78f;
+        particle.b = 0.48f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kVerticalBurstCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kVerticalBurstCount - 1);
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float offset = side * std::lerp(4.0f, halfWidth * 0.26f, t);
+        SlamDustParticle particle;
+        particle.width = 8.0f + static_cast<float>(GetRand(12));
+        particle.height = 70.0f + static_cast<float>(GetRand(78));
+        particle.x = centerX + offset - particle.width * 0.5f;
+        particle.y = groundY - particle.height;
+        particle.velocityX = side * (58.0f + t * 150.0f + static_cast<float>(GetRand(70)));
+        particle.velocityY = -300.0f - static_cast<float>(GetRand(260));
+        particle.rotation = side * std::lerp(0.02f, 0.30f, t);
+        particle.rotationSpeed = side * (1.5f + t * 2.0f);
+        particle.life = 0.28f + static_cast<float>(GetRand(14)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.84f;
+        particle.r = 0.82f;
+        particle.g = 0.90f;
+        particle.b = 1.0f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kDustCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kDustCount / 2) - 1);
+        const float outward = std::lerp(0.08f, 1.16f, spreadT);
+        const float jitter = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 38.0f;
+        const float sizeT = 1.52f - spreadT * 0.46f;
+
+        SlamDustParticle particle;
+        particle.width = (58.0f + static_cast<float>(GetRand(46))) * sizeT;
+        particle.height = (20.0f + static_cast<float>(GetRand(18))) * sizeT;
+        particle.x = centerX + side * outward * halfWidth * 0.50f + jitter - particle.width * 0.5f;
+        particle.y = groundY - 16.0f - static_cast<float>(GetRand(24)) - particle.height * 0.35f;
+        particle.velocityX = side * (320.0f + outward * 330.0f + static_cast<float>(GetRand(150)));
+        particle.velocityY = -72.0f - static_cast<float>(GetRand(120));
+        particle.rotation = side * (0.08f + spreadT * 0.18f);
+        particle.rotationSpeed = side * (0.7f + spreadT * 0.8f);
+        particle.life = kDustLifetime + static_cast<float>(GetRand(12)) * 0.01f;
+        particle.maxLife = kDustLifetime;
+        particle.alphaScale = 0.86f;
+        particle.r = 0.70f;
+        particle.g = 0.63f;
+        particle.b = 0.52f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kChipCount; ++index)
+    {
+        const float angle = -3.1415926f + (static_cast<float>(index) + 0.5f) / static_cast<float>(kChipCount) * 3.1415926f;
+        const float speed = 240.0f + static_cast<float>(GetRand(310));
+        SlamDustParticle particle;
+        particle.width = 10.0f + static_cast<float>(GetRand(16));
+        particle.height = 6.0f + static_cast<float>(GetRand(10));
+        particle.x = centerX + (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * clampedWidth * 0.30f - particle.width * 0.5f;
+        particle.y = groundY - 10.0f - particle.height * 0.5f;
+        particle.velocityX = std::cos(angle) * speed;
+        particle.velocityY = -126.0f - std::abs(std::sin(angle)) * (220.0f + static_cast<float>(GetRand(150)));
+        particle.rotation = static_cast<float>(GetRand(628)) * 0.01f;
+        particle.rotationSpeed = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 10.0f;
+        particle.life = 0.56f + static_cast<float>(GetRand(16)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.92f;
+        particle.r = 0.46f;
+        particle.g = 0.40f;
+        particle.b = 0.32f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnBossDefeatStartEffect(float centerX, float groundY, float width)
+{
+    constexpr int kCoreFlashCount = 6;
+    constexpr int kShockStreakCount = 18;
+    constexpr int kEmberCount = 28;
+    constexpr int kSmokeCount = 34;
+    const float clampedWidth = std::max(180.0f, width * 1.45f);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    // ボス撃破開始専用。通常スラムより暗く、赤い破片と重い黒煙で差別化する。
+    for (int index = 0; index < kCoreFlashCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kCoreFlashCount - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(clampedWidth * 0.24f, clampedWidth * 1.18f, t);
+        particle.height = std::lerp(28.0f, 82.0f, t);
+        particle.x = centerX - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.74f;
+        particle.velocityX = 0.0f;
+        particle.velocityY = -18.0f - t * 34.0f;
+        particle.rotation = (index % 2 == 0 ? -1.0f : 1.0f) * (0.04f + t * 0.08f);
+        particle.rotationSpeed = particle.rotation * -2.4f;
+        particle.life = std::lerp(0.16f, 0.30f, t);
+        particle.maxLife = particle.life;
+        particle.alphaScale = std::lerp(0.98f, 0.62f, t);
+        particle.r = std::lerp(1.0f, 0.58f, t);
+        particle.g = std::lerp(0.62f, 0.16f, t);
+        particle.b = std::lerp(0.28f, 0.16f, t);
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kShockStreakCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kShockStreakCount / 2) - 1);
+        const float distance = std::lerp(0.06f, 1.06f, spreadT) * halfWidth;
+        SlamDustParticle particle;
+        particle.width = std::lerp(126.0f, 58.0f, spreadT) + static_cast<float>(GetRand(28));
+        particle.height = std::lerp(18.0f, 7.0f, spreadT);
+        particle.x = centerX + side * distance - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.65f - static_cast<float>(GetRand(8));
+        particle.velocityX = side * (520.0f + spreadT * 260.0f + static_cast<float>(GetRand(180)));
+        particle.velocityY = -28.0f - static_cast<float>(GetRand(46));
+        particle.rotation = side * std::lerp(0.05f, 0.18f, spreadT);
+        particle.rotationSpeed = side * 1.25f;
+        particle.life = 0.34f + spreadT * 0.14f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.78f;
+        particle.r = 0.42f;
+        particle.g = 0.12f;
+        particle.b = 0.14f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kEmberCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kEmberCount - 1);
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float offset = side * std::lerp(8.0f, halfWidth * 0.38f, t);
+        SlamDustParticle particle;
+        particle.width = 6.0f + static_cast<float>(GetRand(12));
+        particle.height = 34.0f + static_cast<float>(GetRand(74));
+        particle.x = centerX + offset - particle.width * 0.5f;
+        particle.y = groundY - particle.height - static_cast<float>(GetRand(24));
+        particle.velocityX = side * (80.0f + t * 210.0f + static_cast<float>(GetRand(120)));
+        particle.velocityY = -260.0f - static_cast<float>(GetRand(320));
+        particle.rotation = side * std::lerp(0.08f, 0.42f, t);
+        particle.rotationSpeed = side * (2.2f + t * 3.4f);
+        particle.life = 0.36f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.86f;
+        particle.r = 1.0f;
+        particle.g = 0.28f;
+        particle.b = 0.12f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kSmokeCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kSmokeCount / 2) - 1);
+        const float jitter = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 52.0f;
+        SlamDustParticle particle;
+        particle.width = std::lerp(92.0f, 148.0f, 1.0f - spreadT) + static_cast<float>(GetRand(48));
+        particle.height = std::lerp(32.0f, 58.0f, 1.0f - spreadT) + static_cast<float>(GetRand(22));
+        particle.x = centerX + side * std::lerp(0.04f, 0.72f, spreadT) * halfWidth + jitter - particle.width * 0.5f;
+        particle.y = groundY - 28.0f - static_cast<float>(GetRand(36)) - particle.height * 0.42f;
+        particle.velocityX = side * (170.0f + spreadT * 260.0f + static_cast<float>(GetRand(130)));
+        particle.velocityY = -64.0f - static_cast<float>(GetRand(118));
+        particle.rotation = side * (0.08f + spreadT * 0.22f);
+        particle.rotationSpeed = side * (0.45f + spreadT * 0.9f);
+        particle.life = 0.66f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.72f;
+        particle.r = 0.22f;
+        particle.g = 0.16f;
+        particle.b = 0.18f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnRushSmokeEffect(float centerX, float groundY, float direction)
+{
+    const float dir = direction >= 0.0f ? 1.0f : -1.0f;
+    constexpr int kSmokeCount = 6;
+
+    for (int index = 0; index < kSmokeCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kSmokeCount - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(36.0f, 76.0f, t) + static_cast<float>(GetRand(18));
+        particle.height = std::lerp(22.0f, 48.0f, t) + static_cast<float>(GetRand(12));
+        particle.x = centerX - dir * (8.0f + static_cast<float>(GetRand(24)) + t * 22.0f) - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 1.18f - 16.0f - static_cast<float>(GetRand(18)) - t * 16.0f;
+        particle.velocityX = -dir * (170.0f + static_cast<float>(GetRand(170)) + t * 105.0f);
+        particle.velocityY = -132.0f - static_cast<float>(GetRand(110)) - t * 96.0f;
+        particle.rotation = -dir * (0.22f + t * 0.32f);
+        particle.rotationSpeed = -dir * (1.8f + t * 2.7f);
+        particle.life = 0.42f + static_cast<float>(GetRand(14)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = std::lerp(0.88f, 0.52f, t);
+        particle.r = 0.64f;
+        particle.g = 0.58f;
+        particle.b = 0.50f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnLightLandingEffect(float centerX, float groundY, float width)
+{
+    constexpr int kDustCount = 10;
+    const float clampedWidth = std::max(72.0f, width);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    for (int index = 0; index < kDustCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kDustCount / 2) - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(24.0f, 46.0f, 1.0f - spreadT) + static_cast<float>(GetRand(12));
+        particle.height = std::lerp(8.0f, 17.0f, 1.0f - spreadT) + static_cast<float>(GetRand(5));
+        particle.x = centerX + side * std::lerp(0.12f, 0.52f, spreadT) * halfWidth - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.55f - static_cast<float>(GetRand(7));
+        particle.velocityX = side * (120.0f + spreadT * 170.0f + static_cast<float>(GetRand(60)));
+        particle.velocityY = -34.0f - static_cast<float>(GetRand(54));
+        particle.rotation = side * (0.05f + spreadT * 0.14f);
+        particle.rotationSpeed = side * (0.6f + spreadT * 0.7f);
+        particle.life = 0.26f + static_cast<float>(GetRand(8)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.58f;
+        particle.r = 0.72f;
+        particle.g = 0.66f;
+        particle.b = 0.56f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnBossRoarEffect(float centerX, float groundY, float width)
+{
+    constexpr int kShockCount = 14;
+    constexpr int kBurstCount = 12;
+    const float clampedWidth = std::max(128.0f, width * 1.18f);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    for (int index = 0; index < kShockCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kShockCount / 2) - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(48.0f, 98.0f, 1.0f - spreadT) + static_cast<float>(GetRand(20));
+        particle.height = std::lerp(8.0f, 18.0f, 1.0f - spreadT) + static_cast<float>(GetRand(6));
+        particle.x = centerX + side * std::lerp(0.08f, 0.86f, spreadT) * halfWidth - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.75f - static_cast<float>(GetRand(12));
+        particle.velocityX = side * (220.0f + spreadT * 260.0f + static_cast<float>(GetRand(120)));
+        particle.velocityY = -42.0f - static_cast<float>(GetRand(76));
+        particle.rotation = side * (0.06f + spreadT * 0.18f);
+        particle.rotationSpeed = side * (0.9f + spreadT * 1.1f);
+        particle.life = 0.34f + static_cast<float>(GetRand(12)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.76f;
+        particle.r = 0.94f;
+        particle.g = 0.82f;
+        particle.b = 0.58f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kBurstCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kBurstCount - 1);
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        SlamDustParticle particle;
+        particle.width = 7.0f + static_cast<float>(GetRand(10));
+        particle.height = 42.0f + static_cast<float>(GetRand(58));
+        particle.x = centerX + side * std::lerp(8.0f, halfWidth * 0.34f, t) - particle.width * 0.5f;
+        particle.y = groundY - particle.height - 18.0f - static_cast<float>(GetRand(34));
+        particle.velocityX = side * (44.0f + t * 180.0f + static_cast<float>(GetRand(70)));
+        particle.velocityY = -170.0f - static_cast<float>(GetRand(190));
+        particle.rotation = side * std::lerp(0.08f, 0.36f, t);
+        particle.rotationSpeed = side * (1.4f + t * 2.2f);
+        particle.life = 0.30f + static_cast<float>(GetRand(12)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.68f;
+        particle.r = 1.0f;
+        particle.g = 0.93f;
+        particle.b = 0.76f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height)
+{
+    const float sourceCenterX = fromX + width * 0.5f;
+    const float sourceCenterY = fromY + height * 0.5f;
+    const float targetCenterX = toX + width * 0.5f;
+    const float targetCenterY = toY + height * 0.5f;
+    const float deltaX = targetCenterX - sourceCenterX;
+    const float deltaY = targetCenterY - sourceCenterY;
+    const float distance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+    const float directionLength = std::max(1.0f, distance);
+    const float directionX = deltaX / directionLength;
+    const float directionY = deltaY / directionLength;
+    const float perpendicularX = -directionY;
+    const float perpendicularY = directionX;
+    const int trailCount = std::clamp(static_cast<int>(std::round(distance / 44.0f)) + 10, 10, 24);
+    const float travelTime = std::max(0.26f, distance / 1120.0f);
+    const float travelSpeed = distance / travelTime;
+
+    for (int index = 0; index < trailCount; ++index)
+    {
+        const float t = trailCount <= 1 ? 1.0f : static_cast<float>(index) / static_cast<float>(trailCount - 1);
+        const float jitterSeed = static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f;
+        const float wave = std::sin(t * 6.28318530718f * 2.0f);
+        const float lineX = std::lerp(sourceCenterX, targetCenterX, t);
+        const float lineY = std::lerp(sourceCenterY, targetCenterY, t);
+        const float spread = std::lerp(6.0f, 18.0f, 1.0f - std::fabs(0.5f - t) * 2.0f);
+
+        LaserSparkParticle spark;
+        spark.x = lineX + perpendicularX * jitterSeed * spread + directionX * wave * 4.0f;
+        spark.y = lineY + perpendicularY * jitterSeed * spread + directionY * wave * 4.0f;
+        spark.velocityX = directionX * (travelSpeed + jitterSeed * 120.0f) + perpendicularX * jitterSeed * 90.0f;
+        spark.velocityY = directionY * (travelSpeed + jitterSeed * 120.0f) + perpendicularY * jitterSeed * 90.0f;
+        spark.life = 0.30f;
+        spark.maxLife = 0.30f;
+        spark.gravityScale = 0.0f;
+        spark.r = 0.58f;
+        spark.g = 0.92f;
+        spark.b = 1.0f;
+        m_effects.laserSparks.push_back(spark);
+    }
+
+    constexpr int kArrivalSparkCount = 6;
+    for (int index = 0; index < kArrivalSparkCount; ++index)
+    {
+        const float angle = static_cast<float>(index) / static_cast<float>(kArrivalSparkCount) * 6.28318530718f;
+        const float radius = 10.0f + static_cast<float>(GetRand(8));
+
+        LaserSparkParticle spark;
+        spark.x = targetCenterX + std::cos(angle) * radius;
+        spark.y = targetCenterY + std::sin(angle) * radius;
+        spark.velocityX = std::cos(angle) * (40.0f + static_cast<float>(GetRand(40)));
+        spark.velocityY = std::sin(angle) * (40.0f + static_cast<float>(GetRand(40)));
+        spark.life = 0.26f;
+        spark.maxLife = 0.26f;
+        spark.gravityScale = 0.0f;
+        spark.r = 0.88f;
+        spark.g = 0.98f;
+        spark.b = 1.0f;
+        m_effects.laserSparks.push_back(spark);
     }
 }
 
@@ -411,12 +1215,26 @@ void GameScene::UpdatePlayer(float deltaTime)
         return;
     }
 
-    // Camera mode should still allow movement so the player can shoot photos while repositioning.
-    const bool blockPlayerInput = m_photo.placement.active;
+    const bool shieldBossIntroActive = IsShieldBossIntroCinematicActive();
+    // Boss intro locks the player so the entrance reads like a short cutscene.
+    const bool blockPlayerInput = m_photo.placement.active || shieldBossIntroActive;
     const auto controls = game_scene_player_system::SampleControls(blockPlayerInput);
     const float moveAxis = controls.moveAxis;
     const float tileSize = m_tileMap.GetTileSize();
-    const bool wasGrounded = IsStandingOnGround(*transform);
+    const float playerWidth = transform->width * transform->scale;
+    const float playerHeight = transform->height * transform->scale;
+    const bool wasGrounded = m_player.grounded || IsStandingOnGround(*transform);
+
+    if (shieldBossIntroActive)
+    {
+        m_player.velocityX = 0.0f;
+        m_player.velocityY = 0.0f;
+        m_player.dodgeRemaining = 0.0f;
+        UpdatePlayerAfterimages(deltaTime);
+        UpdatePlayerPresentation(*player, deltaTime, 0.0f, wasGrounded, false, false);
+        return;
+    }
+
     const float dodgeDuration = wasGrounded
         ? GetPlayerDodgeDuration()
         : (gPlayerDodgeSpeed > 0.0f ? tileSize / gPlayerDodgeSpeed : 0.0f);
@@ -437,11 +1255,11 @@ void GameScene::UpdatePlayer(float deltaTime)
     }
 
     const bool isDodging = m_player.dodgeRemaining > 0.0f;
-    const float playerWidth = transform->width * transform->scale;
-    const float playerHeight = transform->height * transform->scale;
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
-    const bool canJumpNow = !isDodging && controls.jumpPressed && (wasGrounded || m_player.coyoteTimeRemaining > 0.0f);
+    const bool canJumpNow = !isDodging &&
+        controls.jumpPressed &&
+        (wasGrounded || m_player.coyoteTimeRemaining > 0.0f);
     if (canJumpNow)
     {
         m_player.velocityY = gPlayerJumpSpeed;
@@ -462,11 +1280,17 @@ void GameScene::UpdatePlayer(float deltaTime)
         moveAxis,
         gPlayerDodgeSpeed,
         gPlayerMoveSpeed);
+    const float estimatedHorizontalVelocity =
+        !isDodging &&
+            !wasGrounded &&
+            std::fabs(m_player.velocityX) > std::fabs(targetHorizontalVelocity) + 1.0f
+            ? m_player.velocityX
+            : targetHorizontalVelocity;
     const float estimatedVerticalVelocity = canJumpNow
         ? gPlayerJumpSpeed
         : std::min(gPlayerMaxFallSpeed, m_player.velocityY + gPlayerGravity * deltaTime);
     const float maxDisplacement = std::max(
-        std::fabs(targetHorizontalVelocity) * deltaTime,
+        std::fabs(estimatedHorizontalVelocity) * deltaTime,
         std::fabs(estimatedVerticalVelocity) * deltaTime);
     const int subSteps = std::clamp(static_cast<int>(std::ceil(maxDisplacement / 8.0f)), 1, 8);
     const float stepDeltaTime = deltaTime / static_cast<float>(subSteps);
@@ -474,7 +1298,15 @@ void GameScene::UpdatePlayer(float deltaTime)
     bool groundedAtStepStart = wasGrounded;
     for (int stepIndex = 0; stepIndex < subSteps; ++stepIndex)
     {
-        m_player.velocityX = targetHorizontalVelocity;
+        float horizontalVelocity = targetHorizontalVelocity;
+        if (!isDodging &&
+            !groundedAtStepStart &&
+            std::fabs(m_player.velocityX) > std::fabs(targetHorizontalVelocity) + 1.0f)
+        {
+            const float airLaunchBlend = std::clamp(4.0f * stepDeltaTime, 0.0f, 1.0f);
+            horizontalVelocity = m_player.velocityX + (targetHorizontalVelocity - m_player.velocityX) * airLaunchBlend;
+        }
+        m_player.velocityX = horizontalVelocity;
         m_player.grounded = groundedAtStepStart;
         if (groundedAtStepStart)
         {
@@ -515,7 +1347,7 @@ void GameScene::UpdatePlayer(float deltaTime)
             previousBottom,
             verticalSnapDistance,
         };
-        const float horizontalVelocity = m_player.velocityX;
+        const float movementHorizontalVelocity = m_player.velocityX;
         const auto intersectsPhotoBoxForHorizontalMove = [this, groundedAtStepStart, tileSize](const TransformComponent& candidate)
         {
             if (!groundedAtStepStart)
@@ -532,9 +1364,9 @@ void GameScene::UpdatePlayer(float deltaTime)
             *transform,
             m_player,
             movementContext,
-            [this, horizontalVelocity](int column, int row)
+            [this, movementHorizontalVelocity](int column, int row)
             {
-                return horizontalVelocity > 0.0f
+                return movementHorizontalVelocity > 0.0f
                     ? IsTileBlockingFromLeft(column, row)
                     : IsTileBlockingFromRight(column, row);
             },
@@ -601,6 +1433,72 @@ void GameScene::UpdatePlayer(float deltaTime)
     const bool landedThisFrame = !wasGrounded && m_player.grounded;
     UpdatePlayerPresentation(*player, deltaTime, moveAxis, wasGrounded, isDodging, landedThisFrame);
 
+    if (IsMidBoss3IntroCinematicActive())
+    {
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            const auto* enemy = entity->GetComponent<EnemyComponent>();
+            const auto* boss = entity->GetComponent<MidBoss3Component>();
+            const auto* bossTransform = entity->GetComponent<TransformComponent>();
+            if (!enemy ||
+                !boss ||
+                !bossTransform ||
+                enemy->GetArchetype() != EnemyArchetype::MidBoss3 ||
+                enemy->IsDefeated())
+            {
+                continue;
+            }
+
+            const float bossWidth = bossTransform->width * bossTransform->scale;
+            const float bossHeight = bossTransform->height * bossTransform->scale;
+            const float visibleWidth = GetCameraFollowSpanX(m_tileMap);
+            const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
+            const float maxCameraX = std::max(0.0f, mapWidth - visibleWidth);
+            const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
+            const float targetCameraX = std::clamp(
+                bossTransform->x + bossWidth * 0.5f - visibleWidth * 0.5f,
+                0.0f,
+                maxCameraX);
+            const float targetCameraY = std::clamp(
+                bossTransform->y + bossHeight * 0.5f - visibleHeight * 0.5f,
+                0.0f,
+                maxCameraY);
+            const float followRate = std::clamp(5.0f * deltaTime, 0.0f, 1.0f);
+            m_flow.cameraX += (targetCameraX - m_flow.cameraX) * followRate;
+            m_flow.cameraY += (targetCameraY - m_flow.cameraY) * followRate;
+            m_camera.midBoss3CameraYLockInitialized = false;
+            m_camera.midBoss3CameraYLock = 0.0f;
+            return;
+        }
+    }
+
+    const bool shieldBossIntroReturnActive = m_render.bossIntroCameraInfluence > 0.01f;
+    const float shieldBossIntroReturnStartX = m_flow.cameraX;
+    const float shieldBossIntroReturnStartY = m_flow.cameraY;
+
+    const bool stabilizeMidBoss3CameraY = IsMidBoss3CameraStabilizeStage(m_lifecycle.currentMapCsvPath);
+    const float cameraYBeforeFollow = m_flow.cameraY;
+    if (stabilizeMidBoss3CameraY)
+    {
+        const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
+        const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
+        if (!m_camera.midBoss3CameraYLockInitialized)
+        {
+            m_camera.midBoss3CameraYLockInitialized = true;
+            m_camera.midBoss3CameraYLock = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
+        }
+    }
+    else
+    {
+        m_camera.midBoss3CameraYLockInitialized = false;
+        m_camera.midBoss3CameraYLock = 0.0f;
+    }
+
     game_scene_player_movement_system::UpdateCamera(
         m_flow.cameraX,
         m_flow.cameraY,
@@ -614,8 +1512,45 @@ void GameScene::UpdatePlayer(float deltaTime)
         mapHeight,
         GetCameraFollowOffsetY(m_tileMap),
         deltaTime,
-        gCameraFollowY >= 0.5f);
-    UpdateCameraByMarkers(*transform, deltaTime);
+        gCameraFollowY >= 0.5f && !stabilizeMidBoss3CameraY);
+    if (stabilizeMidBoss3CameraY)
+    {
+        m_flow.cameraY = cameraYBeforeFollow;
+    }
+    if (!stabilizeMidBoss3CameraY)
+    {
+        UpdateCameraByMarkers(*transform, deltaTime);
+    }
+    if (shieldBossIntroReturnActive && !stabilizeMidBoss3CameraY)
+    {
+        // Point 3: ease from the cinematic point back to the normal gameplay camera.
+        const float normalCameraX = m_flow.cameraX;
+        const float normalCameraY = m_flow.cameraY;
+        const float returnBlend = 1.0f - std::pow(0.001f, deltaTime * 0.95f);
+        m_flow.cameraX = std::lerp(shieldBossIntroReturnStartX, normalCameraX, returnBlend);
+        m_flow.cameraY = std::lerp(shieldBossIntroReturnStartY, normalCameraY, returnBlend);
+    }
+
+    if (stabilizeMidBoss3CameraY)
+    {
+        const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
+        const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
+        const float targetY = std::clamp(
+            transform->y + playerHeight * 0.5f - visibleHeight * 0.5f + GetCameraFollowOffsetY(m_tileMap),
+            0.0f,
+            maxCameraY);
+        const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+        const float deadZone = tileSize * 1.75f;
+        const float deltaY = targetY - m_camera.midBoss3CameraYLock;
+        if (m_player.grounded && std::fabs(deltaY) > deadZone)
+        {
+            const float desiredY = targetY - std::copysign(deadZone, deltaY);
+            const float followRate = std::clamp(3.0f * deltaTime, 0.0f, 1.0f);
+            m_camera.midBoss3CameraYLock += (desiredY - m_camera.midBoss3CameraYLock) * followRate;
+        }
+        m_flow.cameraY = std::clamp(m_camera.midBoss3CameraYLock, 0.0f, maxCameraY);
+        return;
+    }
 
     // Safety clamp: keep the player inside the vertical camera view even when marker/fixed-lock
     // transitions are active, so the player never drops out of frame.
@@ -654,6 +1589,10 @@ void GameScene::BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bo
     std::vector<TransformComponent> batteryBounds;
     GetEntityBoundsByTag(kTagBattery, batteryBounds);
     bounds.insert(bounds.end(), batteryBounds.begin(), batteryBounds.end());
+
+    std::vector<TransformComponent> logBounds;
+    GetEntityBoundsByTag(kTagLog, logBounds);
+    bounds.insert(bounds.end(), logBounds.begin(), logBounds.end());
 
     std::vector<TransformComponent> enemyBounds;
     GetEntityBoundsByTag(kTagEnemy, enemyBounds);
@@ -701,12 +1640,65 @@ void GameScene::UpdateBarrels(float deltaTime)
         setBarrelVisible(barrelEntity, false);
     };
 
+    std::vector<Entity*> barrelCollisionCandidates;
+    barrelCollisionCandidates.reserve(
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size() +
+        m_world.EntitiesByTag(EntityTag::BatterySwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Elevator).size() +
+        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Shutter).size() +
+        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size() +
+        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
+        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
+        m_world.EntitiesByTag(EntityTag::StageLight).size() +
+        m_world.EntitiesByTag(EntityTag::MarkerLight).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaRubble).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        m_world.EntitiesByTag(EntityTag::Shield).size() +
+        m_world.EntitiesByTag(EntityTag::BossShield).size() +
+        m_world.EntitiesByTag(EntityTag::Boss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size() +
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size());
+    auto appendBarrelCollisionCandidates = [&](EntityTag tag)
+    {
+        for (Entity* candidate : m_world.EntitiesByTag(tag))
+        {
+            if (candidate)
+            {
+                barrelCollisionCandidates.push_back(candidate);
+            }
+        }
+    };
+    appendBarrelCollisionCandidates(EntityTag::PhotoBox);
+    appendBarrelCollisionCandidates(EntityTag::Battery);
+    appendBarrelCollisionCandidates(EntityTag::BatterySwitch);
+    appendBarrelCollisionCandidates(EntityTag::Elevator);
+    appendBarrelCollisionCandidates(EntityTag::LaserSwitch);
+    appendBarrelCollisionCandidates(EntityTag::Shutter);
+    appendBarrelCollisionCandidates(EntityTag::ProtectiveWall);
+    appendBarrelCollisionCandidates(EntityTag::LaserTurret);
+    appendBarrelCollisionCandidates(EntityTag::LaserBeam);
+    appendBarrelCollisionCandidates(EntityTag::StageLight);
+    appendBarrelCollisionCandidates(EntityTag::MarkerLight);
+    appendBarrelCollisionCandidates(EntityTag::SepiaRubble);
+    appendBarrelCollisionCandidates(EntityTag::SepiaElevator);
+    appendBarrelCollisionCandidates(EntityTag::Shield);
+    appendBarrelCollisionCandidates(EntityTag::BossShield);
+    appendBarrelCollisionCandidates(EntityTag::Boss1Shield);
+    appendBarrelCollisionCandidates(EntityTag::MidBoss1Shield);
+    appendBarrelCollisionCandidates(EntityTag::CapturedShield);
+    appendBarrelCollisionCandidates(EntityTag::Barrel);
+    appendBarrelCollisionCandidates(EntityTag::Log);
+
     auto isBarrelObjectCollision = [&](const Entity& barrelEntity, const TransformComponent& barrelBounds, Entity*& outHit) -> bool
     {
         outHit = nullptr;
-        for (const auto& candidate : m_entities)
+        for (Entity* candidate : barrelCollisionCandidates)
         {
-            if (!candidate || candidate.get() == &barrelEntity)
+            if (!candidate || candidate == &barrelEntity)
             {
                 continue;
             }
@@ -738,7 +1730,7 @@ void GameScene::UpdateBarrels(float deltaTime)
 
             if (IntersectsRect(barrelBounds, *otherTransform))
             {
-                outHit = candidate.get();
+                outHit = candidate;
                 return true;
             }
         }
@@ -778,7 +1770,62 @@ void GameScene::UpdateBarrels(float deltaTime)
         return false;
     };
 
-    for (const auto& entity : m_entities)
+    std::vector<Entity*> barrelEnemyEntities;
+    barrelEnemyEntities.reserve(m_world.EntitiesByTag(EntityTag::Enemy).size());
+    for (Entity* enemyEntity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!enemyEntity)
+        {
+            continue;
+        }
+
+        auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled())
+        {
+            continue;
+        }
+
+        barrelEnemyEntities.push_back(enemyEntity);
+    }
+
+    std::vector<Entity*> barrelGimmickEntities;
+    auto appendBarrelGimmickEntities = [&](EntityTag tag)
+    {
+        for (Entity* gimmickEntity : m_world.EntitiesByTag(tag))
+        {
+            if (gimmickEntity)
+            {
+                barrelGimmickEntities.push_back(gimmickEntity);
+            }
+        }
+    };
+    appendBarrelGimmickEntities(EntityTag::BatterySwitch);
+    appendBarrelGimmickEntities(EntityTag::Elevator);
+    appendBarrelGimmickEntities(EntityTag::LaserSwitch);
+    appendBarrelGimmickEntities(EntityTag::Shutter);
+    appendBarrelGimmickEntities(EntityTag::ProtectiveWall);
+    appendBarrelGimmickEntities(EntityTag::SepiaElevator);
+
+    std::vector<Entity*> barrelEntities;
+    barrelEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size());
+    for (Entity* barrelEntity : m_world.EntitiesByTag(EntityTag::Barrel))
+    {
+        if (barrelEntity)
+        {
+            barrelEntities.push_back(barrelEntity);
+        }
+    }
+    for (Entity* logEntity : m_world.EntitiesByTag(EntityTag::Log))
+    {
+        if (logEntity)
+        {
+            barrelEntities.push_back(logEntity);
+        }
+    }
+
+    for (Entity* entity : barrelEntities)
     {
         if (!entity)
         {
@@ -928,26 +1975,25 @@ void GameScene::UpdateBarrels(float deltaTime)
 
         if (player && IntersectsEntity(*entity, *player))
         {
-            HandlePlayerDamage(*player, entity.get(), "GameScene player damaged by barrel");
+            HandlePlayerDamage(*player, entity, "GameScene player damaged by barrel");
             resetBarrel(*entity, *barrel, *transform);
             continue;
         }
 
         bool consumed = false;
-        for (const auto& enemyEntity : m_entities)
+        for (Entity* enemyEntity : barrelEnemyEntities)
         {
-            if (!enemyEntity || enemyEntity.get() == entity.get())
+            if (!enemyEntity || enemyEntity == entity)
             {
                 continue;
             }
 
-            auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
-            if (!enemy || !enemy->IsEnabled() || !IntersectsEntity(*entity, *enemyEntity))
+            if (!IntersectsEntity(*entity, *enemyEntity))
             {
                 continue;
             }
 
-            HandleEnemyDamage(*enemyEntity, entity.get(), barrel->contactDamage, "Barrel hit enemy");
+            HandleEnemyDamage(*enemyEntity, entity, barrel->contactDamage, "Barrel hit enemy");
             resetBarrel(*entity, *barrel, *transform);
             consumed = true;
             break;
@@ -957,9 +2003,9 @@ void GameScene::UpdateBarrels(float deltaTime)
             continue;
         }
 
-        for (const auto& gimmickEntity : m_entities)
+        for (Entity* gimmickEntity : barrelGimmickEntities)
         {
-            if (!gimmickEntity || gimmickEntity.get() == entity.get())
+            if (!gimmickEntity || gimmickEntity == entity)
             {
                 continue;
             }
@@ -987,6 +2033,734 @@ void GameScene::UpdateBarrels(float deltaTime)
 
     }
 }
+
+void GameScene::UpdateFallingRocks(float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    const float tileSize = m_tileMap.GetTileSize();
+    const float mapWidth = GetMapPixelWidth();
+    const float mapHeight = GetMapPixelHeight();
+    const float activeLeft = std::max(0.0f, m_flow.cameraX - gBarrelActivationPaddingX);
+    const float activeRight = std::min(mapWidth, m_flow.cameraX + gCameraViewWidth + gBarrelActivationPaddingX);
+    const float activationDistance = tileSize * 11.0f;
+    const float kFallingRockRubbleLifetime = 3.0f;
+
+    auto setFallingRockVisible = [](Entity& fallingrockEntity, bool visible)
+        {
+            if (auto* tint = fallingrockEntity.GetComponent<TintComponent>())
+            {
+                tint->a = visible ? 1.0f : 0.0f;
+            }
+        };
+
+    const auto spawnFallingRockRubble = [&](const TransformComponent& sourceTransform)
+        {
+            const float sourceWidth = sourceTransform.width * sourceTransform.scale;
+            const float sourceHeight = sourceTransform.height * sourceTransform.scale;
+            const float rubbleSize = std::clamp(
+                std::min(sourceWidth, sourceHeight),
+                tileSize * 0.75f,
+                tileSize * 2.0f);
+
+            const int sepiaRubbleTextureId = m_assets.GetTexture("sepia_rubble");
+
+            auto rubble = std::make_unique<Entity>();
+            rubble->AddComponent<TagComponent>(kTagSepiaRubble);
+            rubble->AddComponent<TransformComponent>(
+                sourceTransform.x + sourceWidth * 0.5f - rubbleSize * 0.5f,
+                sourceTransform.y + sourceHeight * 0.5f - rubbleSize * 0.5f,
+                rubbleSize,
+                rubbleSize);
+            rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            rubble->AddComponent<SpriteRenderComponent>(sepiaRubbleTextureId >= 0 ? sepiaRubbleTextureId : m_whiteTexture);
+            rubble->AddComponent<SepiaRubbleComponent>(SepiaRubbleSource::FallingRock);
+            rubble->AddComponent<PhotoCopyLifetimeComponent>(kFallingRockRubbleLifetime);
+            m_world.QueueSpawn(std::move(rubble));
+        };
+
+    auto resetFallingRock = [&](Entity& fallingRockEntity, FallingRockComponent& fallingRock, TransformComponent& transform)
+        {
+            SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
+            m_eventBus.Publish({ EventType::PlaySoundRequest, &fallingRockEntity, nullptr, "fallingrock", 0.0f, 0.0f });
+            
+            spawnFallingRockRubble(transform);
+
+            const bool pastedFallingRock =
+                fallingRockEntity.GetComponent<PhotoPasteOrderComponent>() != nullptr;
+            if (pastedFallingRock)
+            {
+                fallingRock.destroyed = true;
+            }
+            fallingRock.active = false;
+            fallingRock.cooldownActive = false;
+            fallingRock.cooldownRemaining = 0.0f;
+            fallingRock.velocityX = 0.0f;
+            fallingRock.velocityY = 0.0f;
+            fallingRock.grounded = false;
+            fallingRock.accumulatedFallDistance = 0.0f;
+            fallingRock.rubbleActive = true;
+            fallingRock.rubbleRemaining = kFallingRockRubbleLifetime;
+            fallingRock.pendingJumpPadBreak = false;
+            setFallingRockVisible(fallingRockEntity, false);
+        };
+
+    std::vector<Entity*> fallingrockCollisionCandidates;
+    fallingrockCollisionCandidates.reserve(
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size() +
+        m_world.EntitiesByTag(EntityTag::BatterySwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Elevator).size() +
+        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Shutter).size() +
+        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size() +
+        m_world.EntitiesByTag(EntityTag::LaserTurret).size() +
+        m_world.EntitiesByTag(EntityTag::LaserBeam).size() +
+        m_world.EntitiesByTag(EntityTag::StageLight).size() +
+        m_world.EntitiesByTag(EntityTag::MarkerLight).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaRubble).size() +
+        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        m_world.EntitiesByTag(EntityTag::Shield).size() +
+        m_world.EntitiesByTag(EntityTag::BossShield).size() +
+        m_world.EntitiesByTag(EntityTag::Boss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::MidBoss1Shield).size() +
+        m_world.EntitiesByTag(EntityTag::CapturedShield).size() +
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::FallingRock).size() +
+        m_world.EntitiesByTag(EntityTag::Log).size());
+    auto appendFallingRockCollisionCandidates = [&](EntityTag tag)
+        {
+            for (Entity* candidate : m_world.EntitiesByTag(tag))
+            {
+                if (candidate)
+                {
+                    fallingrockCollisionCandidates.push_back(candidate);
+                }
+            }
+        };
+    appendFallingRockCollisionCandidates(EntityTag::PhotoBox);
+    appendFallingRockCollisionCandidates(EntityTag::Battery);
+    appendFallingRockCollisionCandidates(EntityTag::BatterySwitch);
+    appendFallingRockCollisionCandidates(EntityTag::Elevator);
+    appendFallingRockCollisionCandidates(EntityTag::LaserSwitch);
+    appendFallingRockCollisionCandidates(EntityTag::Shutter);
+    appendFallingRockCollisionCandidates(EntityTag::ProtectiveWall);
+    appendFallingRockCollisionCandidates(EntityTag::LaserTurret);
+    appendFallingRockCollisionCandidates(EntityTag::LaserBeam);
+    appendFallingRockCollisionCandidates(EntityTag::StageLight);
+    appendFallingRockCollisionCandidates(EntityTag::MarkerLight);
+    appendFallingRockCollisionCandidates(EntityTag::SepiaRubble);
+    appendFallingRockCollisionCandidates(EntityTag::SepiaElevator);
+    appendFallingRockCollisionCandidates(EntityTag::Shield);
+    appendFallingRockCollisionCandidates(EntityTag::BossShield);
+    appendFallingRockCollisionCandidates(EntityTag::Boss1Shield);
+    appendFallingRockCollisionCandidates(EntityTag::MidBoss1Shield);
+    appendFallingRockCollisionCandidates(EntityTag::CapturedShield);
+    appendFallingRockCollisionCandidates(EntityTag::Barrel);
+    appendFallingRockCollisionCandidates(EntityTag::FallingRock);
+    appendFallingRockCollisionCandidates(EntityTag::Log);
+
+    auto isFallingRockObjectCollision = [&](const Entity& fallingrockEntity, const TransformComponent& fallingrockBounds, Entity*& outHit) -> bool
+        {
+            outHit = nullptr;
+            for (Entity* candidate : fallingrockCollisionCandidates)
+            {
+                if (!candidate || candidate == &fallingrockEntity)
+                {
+                    continue;
+                }
+
+                if (candidate->GetComponent<FallingRockComponent>())
+                {
+                    continue;
+                }
+
+                if (HasTag(*candidate, kTagPlayer) || HasTag(*candidate, kTagEnemy) || HasTag(*candidate, kTagBullet))
+                {
+                    continue;
+                }
+
+                if (HasTag(*candidate, kTagPhotoBox))
+                {
+                    const auto* layer = candidate->GetComponent<PhotoCopyLayerComponent>();
+                    if (layer && layer->layer != PhotoCopyLayer::Foreground)
+                    {
+                        continue;
+                    }
+                }
+
+                const auto* otherTransform = candidate->GetComponent<TransformComponent>();
+                if (!otherTransform)
+                {
+                    continue;
+                }
+
+                if (IntersectsRect(fallingrockBounds, *otherTransform))
+                {
+                    outHit = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+    auto intersectsDespawnTile = [&](const TransformComponent& bounds) -> bool
+        {
+            const float width = bounds.width * bounds.scale;
+            const float height = bounds.height * bounds.scale;
+            const int left = std::max(0, static_cast<int>((bounds.x + 2.0f) / tileSize));
+            const int right = std::min(m_tileMap.GetWidth() - 1, static_cast<int>((bounds.x + width - 2.0f) / tileSize));
+            const int top = std::max(0, static_cast<int>((bounds.y + 2.0f) / tileSize));
+            const int bottom = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bounds.y + height - 2.0f) / tileSize));
+            for (int row = top; row <= bottom; ++row)
+            {
+                for (int column = left; column <= right; ++column)
+                {
+                    const int tileValue = m_tileMap.GetTile(column, row);
+                    if (tileValue != 1 && tileValue != TileMap::kPitTileValue)
+                    {
+                        continue;
+                    }
+
+                    TransformComponent tileBounds(
+                        static_cast<float>(column) * tileSize,
+                        static_cast<float>(row) * tileSize,
+                        tileSize,
+                        tileSize);
+                    if (IntersectsRect(bounds, tileBounds))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
+    std::vector<Entity*> fallingrockEnemyEntities;
+    fallingrockEnemyEntities.reserve(m_world.EntitiesByTag(EntityTag::Enemy).size());
+    for (Entity* enemyEntity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!enemyEntity)
+        {
+            continue;
+        }
+
+        auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled())
+        {
+            continue;
+        }
+
+        fallingrockEnemyEntities.push_back(enemyEntity);
+    }
+
+    std::vector<Entity*> fallingrockGimmickEntities;
+    auto appendFallingRockGimmickEntities = [&](EntityTag tag)
+        {
+            for (Entity* gimmickEntity : m_world.EntitiesByTag(tag))
+            {
+                if (gimmickEntity)
+                {
+                    fallingrockGimmickEntities.push_back(gimmickEntity);
+                }
+            }
+        };
+    appendFallingRockGimmickEntities(EntityTag::BatterySwitch);
+    appendFallingRockGimmickEntities(EntityTag::Elevator);
+    appendFallingRockGimmickEntities(EntityTag::LaserSwitch);
+    appendFallingRockGimmickEntities(EntityTag::Shutter);
+    appendFallingRockGimmickEntities(EntityTag::ProtectiveWall);
+    appendFallingRockGimmickEntities(EntityTag::SepiaElevator);
+
+    std::vector<Entity*> fallingRockEntities;
+    fallingRockEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::FallingRock).size());
+    for (Entity* fallingRockEntity : m_world.EntitiesByTag(EntityTag::FallingRock))
+    {
+        if (fallingRockEntity)
+        {
+            fallingRockEntities.push_back(fallingRockEntity);
+        }
+    }
+
+    auto tryLandFallingRockOnJumpPad = [&](Entity& fallingRockEntity, FallingRockComponent& fallingRock, TransformComponent& rockTransform, float previousY) -> bool
+    {
+        if (fallingRock.velocityY < 0.0f)
+        {
+            return false;
+        }
+
+        for (Entity* jumpPadEntity : m_world.EntitiesByTag(EntityTag::JumpPad))
+        {
+            if (!jumpPadEntity)
+            {
+                continue;
+            }
+
+            auto* jumpPad = jumpPadEntity->GetComponent<JumpPadComponent>();
+            auto* jumpPadTransform = jumpPadEntity->GetComponent<TransformComponent>();
+            if (!jumpPad || !jumpPadTransform)
+            {
+                continue;
+            }
+
+            JumpPadContact contact;
+            const float tolerance = std::max(10.0f, std::fabs(fallingRock.velocityY) * deltaTime + tileSize * 0.3f);
+            const float edgeTolerance = std::max(
+                std::fabs(fallingRock.velocityY) * deltaTime + tileSize * 0.75f,
+                tileSize * 0.55f);
+            if (!TryResolveJumpPadContact(
+                rockTransform,
+                *jumpPadTransform,
+                *jumpPad,
+                tolerance,
+                edgeTolerance,
+                tileSize * 0.20f,
+                tileSize * 0.10f,
+                tileSize * 0.20f,
+                &contact,
+                previousY,
+                true))
+            {
+                continue;
+            }
+
+            if (jumpPad->boardGrounded && fallingRock.pendingJumpPadBreak)
+            {
+                resetFallingRock(fallingRockEntity, fallingRock, rockTransform);
+            }
+            else
+            {
+                fallingRock.velocityY = 0.0f;
+                fallingRock.grounded = true;
+                fallingRock.pendingJumpPadBreak = jumpPad->boardGrounded;
+            }
+            return true;
+        }
+
+        return false;
+    };
+
+    for (Entity* entity : fallingRockEntities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* fallingRock = entity->GetComponent<FallingRockComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!fallingRock || !transform)
+        {
+            continue;
+        }
+
+        if (fallingRock->destroyed)
+        {
+            setFallingRockVisible(*entity, false);
+            continue;
+        }
+
+        const float fallingrockWidth = transform->width * transform->scale;
+        const float fallingrockHeight = transform->height * transform->scale;
+        if (fallingRock->rubbleActive)
+        {
+            setFallingRockVisible(*entity, false);
+            fallingRock->active = false;
+            fallingRock->velocityX = 0.0f;
+            fallingRock->velocityY = 0.0f;
+            fallingRock->grounded = false;
+            fallingRock->accumulatedFallDistance = 0.0f;
+            fallingRock->rubbleRemaining = std::max(0.0f, fallingRock->rubbleRemaining - deltaTime);
+
+            if (fallingRock->rubbleRemaining <= 0.0f)
+            {
+                fallingRock->rubbleActive = false;
+                fallingRock->cooldownActive = !fallingRock->destroyed;
+                fallingRock->cooldownRemaining = fallingRock->cooldownActive ? 1.0f : 0.0f;
+            }
+
+            continue;
+        }
+        if (fallingRock->respawnWhenOffscreen)
+        {
+            const float cameraLeft = m_flow.cameraX - kBarrelRespawnOffscreenMargin;
+            const float cameraRight = m_flow.cameraX + gCameraViewWidth + kBarrelRespawnOffscreenMargin;
+            const float cameraBottom = m_flow.cameraY + gCameraViewHeight + kBarrelRespawnOffscreenMargin;
+            const bool isOffscreen =
+                (transform->x + fallingrockWidth) < cameraLeft ||
+                transform->x > cameraRight ||
+                transform->y > cameraBottom;
+            if (isOffscreen)
+            {
+                transform->x = std::clamp(fallingRock->spawnX, 0.0f, std::max(0.0f, mapWidth - fallingrockWidth));
+                transform->y = std::clamp(fallingRock->spawnY, 0.0f, std::max(0.0f, mapHeight - fallingrockHeight));
+                fallingRock->velocityX = 0.0f;
+                fallingRock->velocityY = 0.0f;
+                fallingRock->accumulatedFallDistance = 0.0f;
+                fallingRock->grounded = false;
+                fallingRock->destroyed = false;
+                continue;
+            }
+        }
+
+        if ((transform->x + fallingrockWidth < activeLeft || transform->x > activeRight))
+        {
+            continue;
+        }
+
+        if (fallingRock->cooldownActive)
+        {
+            fallingRock->cooldownRemaining = std::max(0.0f, fallingRock->cooldownRemaining - deltaTime);
+            if (fallingRock->cooldownRemaining <= 0.0f)
+            {
+                fallingRock->cooldownActive = false;
+                transform->x = fallingRock->spawnX;
+                transform->y = fallingRock->spawnY;
+                setFallingRockVisible(*entity, true);
+            }
+            else
+            {
+                continue;
+            }
+        }
+
+        if (!fallingRock->active)
+        {
+            fallingRock->velocityX = 0.0f;
+            fallingRock->velocityY = 0.0f;
+            fallingRock->grounded = false;
+            fallingRock->accumulatedFallDistance = 0.0f;
+
+            if (!fallingRock->cooldownActive)
+            {
+                transform->x = fallingRock->spawnX;
+                transform->y = fallingRock->spawnY;
+            }
+
+            if (!fallingRock->cooldownActive && player)
+            {
+                const auto* playerTransform = player->GetComponent<TransformComponent>();
+                if (playerTransform)
+                {
+                    const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+                    const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
+                    const float fallingrockCenterX = transform->x + fallingrockWidth * 0.5f;
+                    const float fallingrockCenterY = transform->y + fallingrockHeight * 0.5f;
+                    const float dx = playerCenterX - fallingrockCenterX;
+                    const float dy = playerCenterY - fallingrockCenterY;
+                    const float distance = std::sqrt(dx * dx + dy * dy);
+                    if (distance <= activationDistance)
+                    {
+                        fallingRock->active = true;
+                        setFallingRockVisible(*entity, true);
+                    }
+                }
+            }
+            else if (!fallingRock->respawnEnabled)
+            {
+                fallingRock->active = true;
+                setFallingRockVisible(*entity, true);
+            }
+
+            continue;
+        }
+
+        fallingRock->velocityY = std::min(fallingRock->maxFallSpeed, fallingRock->velocityY + fallingRock->gravity * deltaTime);
+        const float previousY = transform->y;
+        transform->y += fallingRock->velocityY * deltaTime;
+        fallingRock->accumulatedFallDistance += std::max(0.0f, transform->y - previousY);
+        const bool canCollideAfterDrop = transform->y >= fallingRock->spawnY + std::max(8.0f, tileSize * 0.25f);
+
+        if (tryLandFallingRockOnJumpPad(*entity, *fallingRock, *transform, previousY))
+        {
+            continue;
+        }
+        fallingRock->pendingJumpPadBreak = false;
+
+        if (transform->y + fallingrockHeight >= mapHeight)
+        {
+            resetFallingRock(*entity, *fallingRock, *transform);
+            continue;
+        }
+
+        if (canCollideAfterDrop && intersectsDespawnTile(*transform))
+        {
+            resetFallingRock(*entity, *fallingRock, *transform);
+            continue;
+        }
+
+        if (player && IntersectsEntity(*entity, *player))
+        {
+            HandlePlayerDamage(*player, entity, "GameScene player damaged by fallingrock");
+            resetFallingRock(*entity, *fallingRock, *transform);
+            continue;
+        }
+
+        bool consumed = false;
+        for (Entity* enemyEntity : fallingrockEnemyEntities)
+        {
+            if (!enemyEntity || enemyEntity == entity)
+            {
+                continue;
+            }
+
+            if (!IntersectsEntity(*entity, *enemyEntity))
+            {
+                continue;
+            }
+
+            HandleEnemyDamage(*enemyEntity, entity, fallingRock->contactDamage, "FallingRock hit enemy");
+            resetFallingRock(*entity, *fallingRock, *transform);
+            consumed = true;
+            break;
+        }
+        if (consumed)
+        {
+            continue;
+        }
+
+        for (Entity* gimmickEntity : fallingrockGimmickEntities)
+        {
+            if (!gimmickEntity || gimmickEntity == entity)
+            {
+                continue;
+            }
+
+            auto* gimmick = gimmickEntity->GetComponent<GimmickComponent>();
+            if (!gimmick || !gimmick->IsEnabled() || !IntersectsEntity(*entity, *gimmickEntity))
+            {
+                continue;
+            }
+
+            if (gimmick->GetType() == GimmickType::Switch)
+            {
+                m_flow.goalUnlockedBySwitch = true;
+                gimmick->Consume();
+            }
+
+            resetFallingRock(*entity, *fallingRock, *transform);
+            consumed = true;
+            break;
+        }
+        if (consumed)
+        {
+            continue;
+        }
+
+    }
+}
+
+void GameScene::UpdateJumpPads(float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    const float maxTiltRadians = std::clamp(gJumpPadMaxTiltDegrees, 0.0f, 89.0f) * 3.14159265f / 180.0f;
+
+    for (Entity* jumpPadEntity : m_world.EntitiesByTag(EntityTag::JumpPad))
+    {
+        if (!jumpPadEntity)
+        {
+            continue;
+        }
+
+        auto* jumpPad = jumpPadEntity->GetComponent<JumpPadComponent>();
+        auto* jumpPadTransform = jumpPadEntity->GetComponent<TransformComponent>();
+        if (!jumpPad || !jumpPadTransform)
+        {
+            continue;
+        }
+
+        jumpPad->maxTiltRadians = maxTiltRadians;
+        jumpPad->leftLoad = 0.0f;
+        jumpPad->rightLoad = 0.0f;
+        jumpPad->lastRockFallDistance = 0.0f;
+        jumpPad->edgeRockContactGrace = std::max(0.0f, jumpPad->edgeRockContactGrace - deltaTime);
+        if (jumpPad->edgeRockContactGrace <= 0.0f)
+        {
+            jumpPad->edgeRockSide = 0;
+            jumpPad->edgeRockFallDistance = 0.0f;
+        }
+
+        bool playerOnPad = false;
+        int playerSide = 0;
+        if (playerTransform)
+        {
+            const float tolerance = std::max(12.0f, std::fabs(m_player.velocityY) * deltaTime + tileSize * 0.35f);
+            JumpPadContact contact;
+            if (m_player.velocityY >= -1.0f &&
+                TryResolveJumpPadContact(
+                    *playerTransform,
+                    *jumpPadTransform,
+                    *jumpPad,
+                    tolerance,
+                    tolerance,
+                    0.0f,
+                    tileSize * 0.12f,
+                    0.0f,
+                    &contact))
+            {
+                playerSide = contact.side;
+                if (playerSide < 0)
+                {
+                    jumpPad->leftLoad += 1.0f;
+                }
+                else
+                {
+                    jumpPad->rightLoad += 1.0f;
+                }
+                playerOnPad = true;
+                m_player.velocityY = 0.0f;
+                m_player.grounded = true;
+                m_player.coyoteTimeRemaining = gCoyoteTimeSeconds;
+            }
+        }
+
+        bool rockOnPad = false;
+        int rockSide = 0;
+        for (Entity* rockEntity : m_world.EntitiesByTag(EntityTag::FallingRock))
+        {
+            if (!rockEntity)
+            {
+                continue;
+            }
+
+            auto* rock = rockEntity->GetComponent<FallingRockComponent>();
+            auto* rockTransform = rockEntity->GetComponent<TransformComponent>();
+            if (!rock || !rockTransform || rock->destroyed || rock->rubbleActive)
+            {
+                continue;
+            }
+
+            JumpPadContact contact;
+            const float tolerance = std::max(12.0f, std::fabs(rock->velocityY) * deltaTime + tileSize * 0.40f);
+            const float edgeTolerance = std::max(
+                std::fabs(rock->velocityY) * deltaTime + tileSize * 0.75f,
+                tileSize * 0.55f);
+            if (!TryResolveJumpPadContact(
+                *rockTransform,
+                *jumpPadTransform,
+                *jumpPad,
+                tolerance,
+                edgeTolerance,
+                tileSize * 0.20f,
+                tileSize * 0.10f,
+                tileSize * 0.20f,
+                &contact))
+            {
+                continue;
+            }
+
+            const int side = contact.side;
+            if (side < 0)
+            {
+                jumpPad->leftLoad += 3.0f;
+            }
+            else
+            {
+                jumpPad->rightLoad += 3.0f;
+            }
+            rockOnPad = true;
+            rockSide = side;
+            jumpPad->lastRockFallDistance = std::max(jumpPad->lastRockFallDistance, rock->accumulatedFallDistance);
+            if (contact.edgeContact)
+            {
+                jumpPad->edgeRockContactGrace = 0.10f;
+                jumpPad->edgeRockSide = side;
+                jumpPad->edgeRockFallDistance = std::max(jumpPad->edgeRockFallDistance, rock->accumulatedFallDistance);
+            }
+            rock->velocityY = 0.0f;
+            rock->grounded = true;
+        }
+
+        if (!rockOnPad && jumpPad->edgeRockContactGrace > 0.0f && jumpPad->edgeRockSide != 0)
+        {
+            if (jumpPad->edgeRockSide < 0)
+            {
+                jumpPad->leftLoad += 3.0f;
+            }
+            else
+            {
+                jumpPad->rightLoad += 3.0f;
+            }
+            rockOnPad = true;
+            rockSide = jumpPad->edgeRockSide;
+            jumpPad->lastRockFallDistance = std::max(jumpPad->lastRockFallDistance, jumpPad->edgeRockFallDistance);
+        }
+
+        if (jumpPad->rightLoad > jumpPad->leftLoad + 0.01f)
+        {
+            jumpPad->targetTilt = jumpPad->maxTiltRadians;
+        }
+        else if (jumpPad->leftLoad > jumpPad->rightLoad + 0.01f)
+        {
+            jumpPad->targetTilt = -jumpPad->maxTiltRadians;
+        }
+        else
+        {
+            jumpPad->targetTilt = 0.0f;
+        }
+
+        const float speed = std::fabs(jumpPad->targetTilt) > 0.001f ? jumpPad->tiltSpeed : jumpPad->returnSpeed;
+        const float blend = std::clamp(speed * deltaTime, 0.0f, 1.0f);
+        jumpPad->tilt += (jumpPad->targetTilt - jumpPad->tilt) * blend;
+        jumpPad->boardGrounded =
+            std::fabs(jumpPad->targetTilt) > 0.001f &&
+            jumpPad->maxTiltRadians > 0.0f &&
+            std::fabs(jumpPad->tilt) >= jumpPad->maxTiltRadians - 0.015f;
+
+        const bool canLaunchPlayer =
+            player &&
+            playerTransform &&
+            playerOnPad &&
+            rockOnPad &&
+            playerSide != 0 &&
+            rockSide != 0 &&
+            playerSide != rockSide &&
+            !jumpPad->launchConsumed &&
+            ((playerSide < 0 && jumpPad->tilt > jumpPad->maxTiltRadians * 0.12f) ||
+                (playerSide > 0 && jumpPad->tilt < -jumpPad->maxTiltRadians * 0.12f));
+        if (canLaunchPlayer)
+        {
+            float launchVelocity = jumpPad->baseLaunchVelocity - jumpPad->lastRockFallDistance * jumpPad->fallDistanceLaunchScale;
+            launchVelocity = std::max(jumpPad->maxLaunchVelocity, launchVelocity);
+            const float horizontalLaunchSpeed = std::clamp(
+                std::fabs(launchVelocity) * 0.7f,
+                gPlayerMoveSpeed * 0.75f,
+                gPlayerMoveSpeed * 2.8f);
+            m_player.velocityY = launchVelocity;
+            m_player.velocityX = (playerSide < 0 ? -1.0f : 1.0f) * horizontalLaunchSpeed;
+            m_player.grounded = false;
+            m_player.coyoteTimeRemaining = 0.0f;
+            playerTransform->y -= std::max(2.0f, tileSize * 0.10f);
+            jumpPad->launchConsumed = true;
+            m_eventBus.Publish({ EventType::PlaySoundRequest, player, jumpPadEntity, "test_tone", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, player, jumpPadEntity, "JumpPad launched player", 0.0f, 0.0f });
+        }
+
+        if (!playerOnPad || !rockOnPad)
+        {
+            jumpPad->launchConsumed = false;
+        }
+    }
+}
+
 void GameScene::UpdateBatteries(float deltaTime)
 {
     if (deltaTime <= 0.0f)
@@ -1002,10 +2776,10 @@ void GameScene::UpdateBatteries(float deltaTime)
 
     Entity* player = FindEntityByTag(kTagPlayer);
     std::vector<Entity*> enemies;
-    enemies.reserve(m_entities.size());
-    for (const auto& candidate : m_entities)
+    enemies.reserve(m_world.EntitiesByTag(EntityTag::Enemy).size());
+    for (Entity* candidate : m_world.EntitiesByTag(EntityTag::Enemy))
     {
-        if (!candidate || !HasTag(*candidate, kTagEnemy))
+        if (!candidate)
         {
             continue;
         }
@@ -1016,12 +2790,12 @@ void GameScene::UpdateBatteries(float deltaTime)
                 continue;
             }
         }
-        enemies.push_back(candidate.get());
+        enemies.push_back(candidate);
     }
     std::vector<TransformComponent> groundPlatformsForSnap;
     GetGroundPlatformBounds(groundPlatformsForSnap);
 
-    for (const auto& entity : m_entities)
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Battery))
     {
         if (!entity)
         {
@@ -1048,6 +2822,10 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
     const float mapHeight = GetMapPixelHeight();
     Entity* player = FindEntityByTag(kTagPlayer);
     TransformComponent* playerLaserBlockTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    const auto& enemyTagEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    const auto& batterySwitchEntities = m_world.EntitiesByTag(EntityTag::BatterySwitch);
+    const auto& laserTurretEntities = m_world.EntitiesByTag(EntityTag::LaserTurret);
+    const auto& laserBeamEntities = m_world.EntitiesByTag(EntityTag::LaserBeam);
     auto intersectsRect = [](const TransformComponent& a, const TransformComponent& b) -> bool
     {
         const float aWidth = a.width * a.scale;
@@ -1061,32 +2839,76 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
     };
 
     std::vector<Entity*> enemyEntities;
-    enemyEntities.reserve(m_entities.size());
+    enemyEntities.reserve(enemyTagEntities.size());
+    std::vector<Entity*> beamBlockerEntities;
+    beamBlockerEntities.reserve(
+        m_world.EntitiesByTag(EntityTag::Barrel).size() +
+        m_world.EntitiesByTag(EntityTag::Battery).size() +
+        m_world.EntitiesByTag(EntityTag::PhotoBox).size() +
+        m_world.EntitiesByTag(EntityTag::PhotoSource).size() +
+        batterySwitchEntities.size() +
+        m_world.EntitiesByTag(EntityTag::Elevator).size() +
+        m_world.EntitiesByTag(EntityTag::LaserSwitch).size() +
+        m_world.EntitiesByTag(EntityTag::Shutter).size() +
+        laserTurretEntities.size() +
+        m_world.EntitiesByTag(EntityTag::SepiaElevator).size() +
+        m_world.EntitiesByTag(EntityTag::ProtectiveWall).size());
     bool hasLaserPowerSwitch = false;
     bool laserPowerEnabled = false;
-    for (const auto& entity : m_entities)
+    for (Entity* entity : batterySwitchEntities)
     {
-        if (entity)
-        {
-            if (const auto* batterySwitch = entity->GetComponent<BatterySwitchComponent>())
-            {
-                if (batterySwitch->controlsLaserPower)
-                {
-                    hasLaserPowerSwitch = true;
-                    laserPowerEnabled = laserPowerEnabled || batterySwitch->isPressed;
-                }
-            }
-        }
-        if (!entity || !entity->GetComponent<EnemyComponent>())
+        if (!entity)
         {
             continue;
         }
-        enemyEntities.push_back(entity.get());
+        if (const auto* batterySwitch = entity->GetComponent<BatterySwitchComponent>())
+        {
+            if (batterySwitch->controlsLaserPower)
+            {
+                hasLaserPowerSwitch = true;
+                laserPowerEnabled = laserPowerEnabled || batterySwitch->isPressed;
+            }
+        }
+    }
+    for (Entity* entity : enemyTagEntities)
+    {
+        if (!entity)
+        {
+            continue;
+        }
+        enemyEntities.push_back(entity);
+    }
+    auto appendBlockingEntities = [&](EntityTag tag)
+    {
+        for (Entity* entity : m_world.EntitiesByTag(tag))
+        {
+            if (entity)
+            {
+                beamBlockerEntities.push_back(entity);
+            }
+        }
+    };
+    appendBlockingEntities(EntityTag::Barrel);
+    appendBlockingEntities(EntityTag::Battery);
+    appendBlockingEntities(EntityTag::PhotoBox);
+    appendBlockingEntities(EntityTag::PhotoSource);
+    appendBlockingEntities(EntityTag::BatterySwitch);
+    appendBlockingEntities(EntityTag::Elevator);
+    appendBlockingEntities(EntityTag::LaserSwitch);
+    appendBlockingEntities(EntityTag::Shutter);
+    appendBlockingEntities(EntityTag::LaserTurret);
+    appendBlockingEntities(EntityTag::SepiaElevator);
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::ProtectiveWall))
+    {
+        if (entity && IsGroundPlatformEntity(*entity))
+        {
+            beamBlockerEntities.push_back(entity);
+        }
     }
 
-    for (auto& turretCandidate : m_entities)
+    for (Entity* turretCandidate : laserTurretEntities)
     {
-        if (!turretCandidate || !HasTag(*turretCandidate, kTagLaserTurret))
+        if (!turretCandidate)
         {
             continue;
         }
@@ -1108,12 +2930,12 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
         const bool firesLeft = fireDirection == LaserTurretFireDirection::Left;
         const bool firesUp = fireDirection == LaserTurretFireDirection::Up;
         const bool firesVertical = IsVerticalLaserDirection(fireDirection);
-        if (!beamEntity || !HasTag(*beamEntity, kTagLaserBeam))
+        if (!beamEntity || !HasTag(*beamEntity, EntityTag::LaserBeam))
         {
             beamEntity = nullptr;
-            for (const auto& beamCandidate : m_entities)
+            for (Entity* beamCandidate : laserBeamEntities)
             {
-                if (!beamCandidate || !HasTag(*beamCandidate, kTagLaserBeam))
+                if (!beamCandidate)
                 {
                     continue;
                 }
@@ -1141,7 +2963,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                         : beamTransform->y >= turretTransform->y);
                 if (matchesHorizontal || matchesVertical)
                 {
-                    beamEntity = beamCandidate.get();
+                    beamEntity = beamCandidate;
                     turret->beamEntity = beamEntity;
                     break;
                 }
@@ -1266,20 +3088,16 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             }
 
             TransformComponent beamAabb(beamX, beamAabbY, beamThickness, beamAabbHeight);
-            for (const auto& entity : m_entities)
+            for (Entity* entity : beamBlockerEntities)
             {
-                if (!entity || entity.get() == turretCandidate.get() || entity.get() == beamEntity)
-                {
-                    continue;
-                }
-                if (HasTag(*entity, kTagPlayer) || entity->GetComponent<EnemyComponent>())
+                if (!entity || entity == turretCandidate || entity == beamEntity)
                 {
                     continue;
                 }
                 if (!(entity->GetComponent<BarrelComponent>() ||
                     entity->GetComponent<BatteryComponent>() ||
                     IsGroundPlatformEntity(*entity) ||
-                    HasTag(*entity, kTagPhotoBox)))
+                    HasTag(*entity, EntityTag::PhotoBox)))
                 {
                     continue;
                 }
@@ -1306,8 +3124,8 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                     if (objectHitY > hitY)
                     {
                         hitY = objectHitY;
-                        blockedProtectiveWall = HasTag(*entity, kTagProtectiveWall)
-                            ? entity.get()
+                        blockedProtectiveWall = HasTag(*entity, EntityTag::ProtectiveWall)
+                            ? entity
                             : nullptr;
                     }
                 }
@@ -1325,8 +3143,8 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                     if (transform->y < hitY)
                     {
                         hitY = transform->y;
-                        blockedProtectiveWall = HasTag(*entity, kTagProtectiveWall)
-                            ? entity.get()
+                        blockedProtectiveWall = HasTag(*entity, EntityTag::ProtectiveWall)
+                            ? entity
                             : nullptr;
                     }
                 }
@@ -1413,20 +3231,16 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             const float beamAabbLeft = firesLeft ? 0.0f : beamStartX;
             const float beamAabbRight = firesLeft ? beamStartX : mapWidth;
             TransformComponent beamAabb(beamAabbLeft, beamY, std::max(0.0f, beamAabbRight - beamAabbLeft), beamThickness);
-            for (const auto& entity : m_entities)
+            for (Entity* entity : beamBlockerEntities)
             {
-                if (!entity || entity.get() == turretCandidate.get() || entity.get() == beamEntity)
-                {
-                    continue;
-                }
-                if (HasTag(*entity, kTagPlayer) || entity->GetComponent<EnemyComponent>())
+                if (!entity || entity == turretCandidate || entity == beamEntity)
                 {
                     continue;
                 }
                 if (!(entity->GetComponent<BarrelComponent>() ||
                     entity->GetComponent<BatteryComponent>() ||
                     IsGroundPlatformEntity(*entity) ||
-                    HasTag(*entity, kTagPhotoBox)))
+                    HasTag(*entity, EntityTag::PhotoBox)))
                 {
                     continue;
                 }
@@ -1457,8 +3271,8 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                 if (nearerHit)
                 {
                     hitX = objectHitX;
-                    blockedProtectiveWall = HasTag(*entity, kTagProtectiveWall)
-                        ? entity.get()
+                    blockedProtectiveWall = HasTag(*entity, EntityTag::ProtectiveWall)
+                        ? entity
                         : nullptr;
                 }
             }
@@ -1509,7 +3323,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                     m_flow.playerTouchingHazard = true;
                     while (turret->playerDamageTimer >= damageInterval)
                     {
-                        HandlePlayerDamage(*player, turretCandidate.get(), "Laser damaged player", 1);
+                        HandlePlayerDamage(*player, turretCandidate, "Laser damaged player", 1);
                         turret->playerDamageTimer -= damageInterval;
                     }
                 }
@@ -1619,35 +3433,71 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
         return true;
     }
 
-    for (const auto& entity : m_entities)
+    auto testTagGroup = [&](EntityTag tag) -> bool
     {
-        if (!entity || entity.get() == self)
+        for (Entity* entity : m_world.EntitiesByTag(tag))
         {
-            continue;
+            if (!entity || entity == self)
+            {
+                continue;
+            }
+            if (!(entity->GetComponent<BarrelComponent>() ||
+                entity->GetComponent<BatteryComponent>() ||
+                IsGroundPlatformEntity(*entity)))
+            {
+                continue;
+            }
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            if (!transform)
+            {
+                continue;
+            }
+
+            const bool isDynamicPlatform = HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator);
+            if (isDynamicPlatform)
+            {
+                const float boundsBottom = bounds.y + height;
+                const float platformTop = transform->y;
+                const float topTolerance = std::max(6.0f, tileSize * 0.22f);
+                if (boundsBottom <= platformTop + topTolerance)
+                {
+                    continue;
+                }
+            }
+
+            if (IntersectsRect(bounds, *transform))
+            {
+                return true;
+            }
         }
-        if (!(entity->GetComponent<BarrelComponent>() ||
-            entity->GetComponent<BatteryComponent>() ||
-            IsGroundPlatformEntity(*entity)))
-        {
-            continue;
-        }
-        const auto* transform = entity->GetComponent<TransformComponent>();
-        if (!transform)
+        return false;
+    };
+
+    if (testTagGroup(EntityTag::Barrel) ||
+        testTagGroup(EntityTag::Log) ||
+        testTagGroup(EntityTag::Battery) ||
+        testTagGroup(EntityTag::PhotoSource) ||
+        testTagGroup(EntityTag::BatterySwitch) ||
+        testTagGroup(EntityTag::Elevator) ||
+        testTagGroup(EntityTag::LaserSwitch) ||
+        testTagGroup(EntityTag::Shutter) ||
+        testTagGroup(EntityTag::LaserTurret) ||
+        testTagGroup(EntityTag::SepiaElevator))
+    {
+        return true;
+    }
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::ProtectiveWall))
+    {
+        if (!entity || entity == self || !IsGroundPlatformEntity(*entity))
         {
             continue;
         }
 
-        // スイッチ/エレベーターの天面上に乗っているときは横衝突扱いにしない。
-        const bool isDynamicPlatform = HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator);
-        if (isDynamicPlatform)
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!transform)
         {
-            const float boundsBottom = bounds.y + height;
-            const float platformTop = transform->y;
-            const float topTolerance = std::max(6.0f, tileSize * 0.22f);
-            if (boundsBottom <= platformTop + topTolerance)
-            {
-                continue;
-            }
+            continue;
         }
 
         if (IntersectsRect(bounds, *transform))
@@ -1668,32 +3518,37 @@ bool GameScene::IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bound
     const float boundsBottom = bounds.y + boundsHeight;
     const float topTolerance = std::max(6.0f, tileSize * 0.22f);
 
-    for (const auto& other : m_entities)
+    auto testTopGroup = [&](EntityTag tag) -> bool
     {
-        if (!other || other.get() == self)
+        for (Entity* other : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
-        if (!(HasTag(*other, kTagBatterySwitch) || HasTag(*other, kTagElevator)))
-        {
-            continue;
-        }
+            if (!other || other == self)
+            {
+                continue;
+            }
 
-        const auto* otherTransform = other->GetComponent<TransformComponent>();
-        if (!otherTransform)
-        {
-            continue;
-        }
+            const auto* otherTransform = other->GetComponent<TransformComponent>();
+            if (!otherTransform)
+            {
+                continue;
+            }
 
-        const float platformWidth = otherTransform->width * otherTransform->scale;
-        const float platformLeft = otherTransform->x;
-        const float platformRight = otherTransform->x + platformWidth;
-        const bool overlapX = boundsRight > platformLeft && boundsLeft < platformRight;
-        const bool onTop = std::fabs(boundsBottom - otherTransform->y) <= topTolerance;
-        if (overlapX && onTop)
-        {
-            return true;
+            const float platformWidth = otherTransform->width * otherTransform->scale;
+            const float platformLeft = otherTransform->x;
+            const float platformRight = otherTransform->x + platformWidth;
+            const bool overlapX = boundsRight > platformLeft && boundsLeft < platformRight;
+            const bool onTop = std::fabs(boundsBottom - otherTransform->y) <= topTolerance;
+            if (overlapX && onTop)
+            {
+                return true;
+            }
         }
+        return false;
+    };
+
+    if (testTopGroup(EntityTag::BatterySwitch) || testTopGroup(EntityTag::Elevator))
+    {
+        return true;
     }
     return false;
 }
@@ -1707,37 +3562,42 @@ bool GameScene::SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, con
     const float bottom = bounds.y + height;
     const float topTolerance = std::max(8.0f, tileSize * 0.28f);
 
-    for (const auto& other : m_entities)
+    auto snapToTopGroup = [&](EntityTag tag) -> bool
     {
-        if (!other || other.get() == self)
+        for (Entity* other : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
-        if (!(HasTag(*other, kTagBatterySwitch) || HasTag(*other, kTagElevator)))
-        {
-            continue;
-        }
+            if (!other || other == self)
+            {
+                continue;
+            }
 
-        const auto* otherTransform = other->GetComponent<TransformComponent>();
-        if (!otherTransform)
-        {
-            continue;
-        }
+            const auto* otherTransform = other->GetComponent<TransformComponent>();
+            if (!otherTransform)
+            {
+                continue;
+            }
 
-        const float platformWidth = otherTransform->width * otherTransform->scale;
-        const float platformLeft = otherTransform->x;
-        const float platformRight = otherTransform->x + platformWidth;
-        const bool overlapX = right > platformLeft && left < platformRight;
-        if (!overlapX)
-        {
-            continue;
-        }
+            const float platformWidth = otherTransform->width * otherTransform->scale;
+            const float platformLeft = otherTransform->x;
+            const float platformRight = otherTransform->x + platformWidth;
+            const bool overlapX = right > platformLeft && left < platformRight;
+            if (!overlapX)
+            {
+                continue;
+            }
 
-        if (std::fabs(bottom - otherTransform->y) <= topTolerance)
-        {
-            bounds.y = otherTransform->y - height;
-            return true;
+            if (std::fabs(bottom - otherTransform->y) <= topTolerance)
+            {
+                bounds.y = otherTransform->y - height;
+                return true;
+            }
         }
+        return false;
+    };
+
+    if (snapToTopGroup(EntityTag::BatterySwitch) || snapToTopGroup(EntityTag::Elevator))
+    {
+        return true;
     }
 
     return false;
@@ -1925,3 +3785,4 @@ void GameScene::UpdateSingleBattery(
         battery->velocityY = 0.0f;
     }
 }
+

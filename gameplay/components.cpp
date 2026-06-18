@@ -16,12 +16,57 @@
 #include "shader.h"
 #include "sprite.h"
 
+#include <array>
+
 namespace
 {
+    constexpr std::array<const char*, 10> kEnemyArchetypeLabels = {
+        "Floater",
+        "Walker",
+        "Turret",
+        "Ranged",
+        "ShieldBoss",
+        "MidBoss2",
+        "MidBoss3",
+        "Ghost",
+        "BlasterRobot",
+        "Charger",
+    };
+
+    constexpr std::array<const char*, 8> kGimmickTypeLabels = {
+        "Hazard",
+        "Goal",
+        "Checkpoint",
+        "Pickup",
+        "Photo Source",
+        "Filter",
+        "Gate",
+        "Switch",
+    };
+
+    constexpr std::array<const char*, 4> kLaserTurretFireDirectionLabels = {
+        "Down",
+        "Up",
+        "Left",
+        "Right",
+    };
+
     constexpr float kMoveSpeed = 420.0f;
     constexpr float kRotateSpeed = 1.8f;
     constexpr float kScaleSpeed = 0.9f;
     constexpr float kPixelsPerMeter = 100.0f;
+
+    template <typename T, size_t N>
+    const char* EnumLabel(const std::array<const char*, N>& labels, T value, const char* fallback)
+    {
+        const size_t index = static_cast<size_t>(value);
+        if (index >= labels.size())
+        {
+            return fallback;
+        }
+
+        return labels[index];
+    }
 }
 
 // ============================================================================
@@ -66,6 +111,75 @@ void BarrelComponent::DrawDebugUI()
     ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
     ImGui::Text("Fall Distance: %.1f", accumulatedFallDistance);
     ImGui::Text("Respawn Offscreen: %s", respawnWhenOffscreen ? "Yes" : "No");
+}
+
+FallingRockComponent::FallingRockComponent(
+    float gravityValue,
+    float maxFallSpeedValue,
+    float rollSpeedValue,
+    float groundFrictionValue,
+    int contactDamageValue,
+    float breakMinFallDistanceValue,
+    float breakMinImpactSpeedValue)
+    : gravity(gravityValue)
+    , maxFallSpeed(maxFallSpeedValue)
+    , rollSpeed(rollSpeedValue)
+    , groundFriction(groundFrictionValue)
+    , contactDamage(std::max(1, contactDamageValue))
+    , breakMinFallDistance(breakMinFallDistanceValue)
+    , breakMinImpactSpeed(breakMinImpactSpeedValue)
+{}
+
+void FallingRockComponent::OnAttach(GameObject& owner)
+{
+    MonoBehaviour::OnAttach(owner);
+
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        spawnX = transform->x;
+        spawnY = transform->y;
+    }
+}
+
+void FallingRockComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("FallingRock");
+    ImGui::Text("Velocity: %.1f, %.1f", velocityX, velocityY);
+    ImGui::Text("Grounded: %s", grounded ? "Yes" : "No");
+    ImGui::Text("Active: %s", active ? "Yes" : "No");
+    ImGui::Text("Cooldown: %.2f", cooldownRemaining);
+    ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
+    ImGui::Text("Fall Distance: %.1f", accumulatedFallDistance);
+    ImGui::Text("Respawn Offscreen: %s", respawnWhenOffscreen ? "Yes" : "No");
+    ImGui::Text("Rubble Active: %s", rubbleActive ? "Yes" : "No");
+}
+
+JumpPadComponent::JumpPadComponent(
+    float maxTiltRadians,
+    float tiltSpeed,
+    float returnSpeed,
+    float baseLaunchVelocity,
+    float fallDistanceLaunchScale,
+    float maxLaunchVelocity)
+    : maxTiltRadians((std::max)(0.0f, maxTiltRadians))
+    , tiltSpeed((std::max)(0.0f, tiltSpeed))
+    , returnSpeed((std::max)(0.0f, returnSpeed))
+    , baseLaunchVelocity(baseLaunchVelocity)
+    , fallDistanceLaunchScale((std::max)(0.0f, fallDistanceLaunchScale))
+    , maxLaunchVelocity(maxLaunchVelocity)
+{
+}
+
+void JumpPadComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("JumpPad");
+    ImGui::Text("Tilt: %.3f / %.3f", tilt, targetTilt);
+    ImGui::Text("Load L/R: %.1f / %.1f", leftLoad, rightLoad);
+    ImGui::Text("Rock Fall: %.1f", lastRockFallDistance);
+    ImGui::Text("Edge Rock Grace: %.2f", edgeRockContactGrace);
+    ImGui::Text("Edge Rock Side: %d", edgeRockSide);
+    ImGui::Text("Launch Consumed: %s", launchConsumed ? "Yes" : "No");
+    ImGui::Text("Board Grounded: %s", boardGrounded ? "Yes" : "No");
 }
 
 BatteryComponent::BatteryComponent(
@@ -306,22 +420,7 @@ LaserTurretComponent::LaserTurretComponent(
 
 void LaserTurretComponent::DrawDebugUI()
 {
-    const char* directionName = "Down";
-    switch (fireDirection)
-    {
-    case LaserTurretFireDirection::Down:
-        directionName = "Down";
-        break;
-    case LaserTurretFireDirection::Up:
-        directionName = "Up";
-        break;
-    case LaserTurretFireDirection::Left:
-        directionName = "Left";
-        break;
-    case LaserTurretFireDirection::Right:
-        directionName = "Right";
-        break;
-    }
+    const char* directionName = EnumLabel(kLaserTurretFireDirectionLabels, fireDirection, "Down");
 
     ImGui::SeparatorText("Laser Turret");
     ImGui::Text("Beam Thickness: %.1f", beamThickness);
@@ -472,8 +571,38 @@ void StageLightComponent::DrawDebugUI()
 }
 
 TagComponent::TagComponent(const char* value)
-    : tag(value ? value : "")
+    : tagId(EntityTagFromString(value ? value : ""))
 {
+    if (tagId == EntityTag::Unknown && value && *value)
+    {
+        m_customTag = std::make_unique<std::string>(value);
+    }
+}
+
+TagComponent::TagComponent(EntityTag value)
+    : tagId(value)
+{
+}
+
+bool TagComponent::Is(EntityTag value) const
+{
+    return tagId == value;
+}
+
+bool TagComponent::Is(const char* value) const
+{
+    if (!value)
+    {
+        return tagId == EntityTag::Unknown && m_customTag && m_customTag->empty();
+    }
+
+    const EntityTag expected = EntityTagFromString(value);
+    if (expected != EntityTag::Unknown)
+    {
+        return tagId == expected;
+    }
+
+    return m_customTag && *m_customTag == value;
 }
 
 // ============================================================================
@@ -530,6 +659,36 @@ float PhotoCopyLifetimeComponent::GetLifetimeSeconds() const
 bool PhotoCopyLifetimeComponent::IsExpired() const
 {
     return m_remainingSeconds <= 0.0f;
+}
+
+PhotoMotionComponent::PhotoMotionComponent(float velocityXValue, float velocityYValue)
+    : velocityX(velocityXValue)
+    , velocityY(velocityYValue)
+{
+}
+
+void PhotoMotionComponent::BindTransform(TransformComponent* transform)
+{
+    m_transform = transform;
+}
+
+void PhotoMotionComponent::Update(float deltaTime)
+{
+    auto* transform = m_transform;
+    if (!transform && m_owner)
+    {
+        transform = m_owner->GetComponent<TransformComponent>();
+        m_transform = transform;
+    }
+
+    if (!transform)
+    {
+        return;
+    }
+
+    // 演出用の写真オブジェクトだけを軽く動かす。物理や当たり判定には関与しない。
+    transform->x += velocityX * deltaTime;
+    transform->y += velocityY * deltaTime;
 }
 
 PhotoPasteAnimationComponent::PhotoPasteAnimationComponent(float durationSeconds)
@@ -633,55 +792,6 @@ void SepiaElevatorComponent::DrawDebugUI()
 
 namespace
 {
-    const char* ToEnemyArchetypeLabel(EnemyArchetype archetype)
-    {
-        switch (archetype)
-        {
-        case EnemyArchetype::Walker:
-            return "Walker";
-        case EnemyArchetype::Turret:
-            return "Turret";
-        case EnemyArchetype::Ranged: 
-            return "Ranged";
-        case EnemyArchetype::ShieldBoss:
-            return "ShieldBoss";
-        case EnemyArchetype::MidBoss2:
-            return "MidBoss2";
-        case EnemyArchetype::Ghost:
-            return "Ghost";
-        case EnemyArchetype::BlasterRobot:
-            return "BlasterRobot";
-        case EnemyArchetype::Charger:
-            return "Charger";
-        case EnemyArchetype::Floater:
-        default:
-            return "Floater";
-        }
-    }
-
-    const char* ToGimmickTypeLabel(GimmickType type)
-    {
-        switch (type)
-        {
-        case GimmickType::Goal:
-            return "Goal";
-        case GimmickType::Pickup:
-            return "Pickup";
-        case GimmickType::Checkpoint:
-            return "Checkpoint";
-        case GimmickType::PhotoSource:
-            return "Photo Source";
-        case GimmickType::Filter:
-            return "Filter";
-        case GimmickType::Gate:
-            return "Gate";
-        case GimmickType::Switch:
-            return "Switch";
-        case GimmickType::Hazard:
-        default:
-            return "Hazard";
-        }
-    }
 }
 
 PhotoCopyEffectComponent::PhotoCopyEffectComponent(PhotoFilterTheme themeValue)
@@ -719,7 +829,7 @@ EnemyComponent::EnemyComponent(EnemyArchetype archetype, int contactDamage)
 void EnemyComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Enemy");
-    ImGui::Text("Type: %s", ToEnemyArchetypeLabel(m_archetype));
+    ImGui::Text("Type: %s", EnumLabel(kEnemyArchetypeLabels, m_archetype, "Floater"));
     ImGui::Text("Contact Damage: %d", m_contactDamage);
     ImGui::Text("Enabled: %s", m_enabled ? "Yes" : "No");
     ImGui::Text("Defeated: %s", m_defeated ? "Yes" : "No");
@@ -788,7 +898,7 @@ GimmickComponent::GimmickComponent(GimmickType type, bool startsEnabled, bool on
 void GimmickComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Gimmick");
-    ImGui::Text("Type: %s", ToGimmickTypeLabel(m_type));
+    ImGui::Text("Type: %s", EnumLabel(kGimmickTypeLabels, m_type, "Hazard"));
     ImGui::Text("Enabled: %s", m_enabled ? "Yes" : "No");
     ImGui::Text("One Shot: %s", m_oneShot ? "Yes" : "No");
     ImGui::Text("Consumed: %s", m_consumed ? "Yes" : "No");
@@ -1507,6 +1617,47 @@ int SpriteSheetAnimationComponent::GetCurrentFrameIndex() const
         ? static_cast<int>(rawFrame) % clip.frameCount
         : (std::min)(clip.frameCount - 1, static_cast<int>(rawFrame));
     return clip.startFrame + localFrame;
+}
+
+int SpriteSheetAnimationComponent::GetCurrentLocalFrameIndex() const
+{
+    const auto found = m_clips.find(m_currentClipName);
+    if (found == m_clips.end())
+    {
+        return 0;
+    }
+
+    const Clip& clip = found->second;
+    if (clip.frameCount <= 1 || clip.fps <= 0.0f)
+    {
+        return 0;
+    }
+
+    const float rawFrame = m_elapsedSeconds * clip.fps;
+    return clip.loop
+        ? static_cast<int>(rawFrame) % clip.frameCount
+        : (std::min)(clip.frameCount - 1, static_cast<int>(rawFrame));
+}
+
+void SpriteSheetAnimationComponent::SetCurrentLocalFrameIndex(int frameIndex)
+{
+    const auto found = m_clips.find(m_currentClipName);
+    if (found == m_clips.end())
+    {
+        return;
+    }
+
+    const Clip& clip = found->second;
+    if (clip.frameCount <= 1 || clip.fps <= 0.0f)
+    {
+        m_elapsedSeconds = 0.0f;
+        ApplyFrameToSprite();
+        return;
+    }
+
+    const int localFrame = std::clamp(frameIndex, 0, clip.frameCount - 1);
+    m_elapsedSeconds = static_cast<float>(localFrame) / clip.fps;
+    ApplyFrameToSprite();
 }
 
 bool SpriteSheetAnimationComponent::IsCurrentClipFinished() const

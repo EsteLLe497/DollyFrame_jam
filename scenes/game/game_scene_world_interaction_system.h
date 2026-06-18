@@ -148,7 +148,7 @@ void HandlePhotoBoxInteractions(
         }
 
         const auto* tag = entity->GetComponent<TagComponent>();
-        if (!tag || tag->tag != kTagPhotoBox)
+        if (!tag || !tag->Is(kTagPhotoBox))
         {
             continue;
         }

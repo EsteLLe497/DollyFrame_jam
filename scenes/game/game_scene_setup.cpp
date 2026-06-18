@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -61,7 +61,7 @@ namespace
     bool IsEnemySpawnMarker(char marker)
     {
         const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(marker)));
-        return upper == 'W' || upper == 'R' || upper == 'N' || upper == '!' || upper == '?' || upper == '$';
+        return upper == 'W' || upper == 'R' || upper == 'N' || upper == '!' || upper == '?' || upper == '$' || upper == '%';
     }
 
     void LoadStageTransitionLinks()
@@ -175,6 +175,7 @@ namespace
         root["printed_photo_min_height"] = gPrintedPhotoMinHeight;
         root["printed_photo_matte_inset"] = gPrintedPhotoMatteInset;
         root["pickup_time_bonus"] = gPickupTimeBonus;
+        root["jump_pad_max_tilt_degrees"] = gJumpPadMaxTiltDegrees;
         return root;
     }
 
@@ -182,79 +183,195 @@ namespace
 
 void GameScene::RefreshStageRenderProfile()
 {
-    m_darknessStageEnabled = IsDarknessStageMapPath(gCurrentMapCsvPath);
+    m_lifecycle.darknessStageEnabled = IsDarknessStageMapPath(m_lifecycle.currentMapCsvPath);
 }
 
 void GameScene::BuildCameraMarkers()
 {
-    m_cameraFixedRanges.clear();
-    m_fixedRanges.clear();
+
+    m_camera.fixedRanges.clear();
 
     float tileSize = m_tileMap.GetTileSize();
 
-    //カメラ1
-    {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(-2, 6, tileSize); // 左上タイル
-        cameraRange.SetEndTiles(22, 18, tileSize);   // 右下タイル
-        cameraRange.SetCameraNum(0);
-        cameraRange.SetFollowPlayer(false);
+    std::filesystem::path path(m_lifecycle.currentMapCsvPath);
+    std::string stageName = path.stem().string();
 
-        m_fixedRanges.push_back(cameraRange);
+    //森林ステージ    
+    if (stageName == "forest")
+    {
+        //カメラ1
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(-2, 6, tileSize); // 左上タイル
+            cameraRange.SetEndTiles(22, 18, tileSize);   // 右下タイル
+            cameraRange.SetCameraNum(0);
+            cameraRange.SetFollowPlayer(false);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        //カメラ2
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(22, 6, tileSize);
+            cameraRange.SetEndTiles(42, 19, tileSize);
+            cameraRange.SetCameraNum(1);
+            cameraRange.SetFollowPlayer(false);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        //カメラ3
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(72, 2, tileSize);
+            cameraRange.SetEndTiles(93, 28, tileSize);
+            cameraRange.SetCameraNum(2);
+            cameraRange.SetFollowPlayer(false);
+
+            cameraRange.SetZoomWidth(2560.0f);
+            cameraRange.SetZoomHeight(1440.0f);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        //カメラ4
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(113, 4, tileSize);
+            cameraRange.SetEndTiles(133, 21, tileSize);
+            cameraRange.SetCameraNum(3);
+            cameraRange.SetFollowPlayer(false);
+
+            cameraRange.SetZoomHeight(1440.0f);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        //カメラ5
+        {
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(131, 10, tileSize);
+            cameraRange.SetEndTiles(148, 21, tileSize);
+            cameraRange.SetCameraNum(4);
+            cameraRange.SetFollowPlayer(false);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
     }
 
-    //カメラ2
+    //地下ステージ
+    if (stageName == "under")
     {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(22, 6, tileSize);
-        cameraRange.SetEndTiles(42, 19, tileSize);
-        cameraRange.SetCameraNum(1);
-        cameraRange.SetFollowPlayer(false);
+        {
+            //カメラ1
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(0, 0, tileSize);
+            cameraRange.SetEndTiles(19, 11, tileSize);
+            cameraRange.SetCameraNum(0);
+            cameraRange.SetFollowPlayer(false);
 
-        m_fixedRanges.push_back(cameraRange);
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ2-1
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(19, 0, tileSize);
+            cameraRange.SetEndTiles(30, 19, tileSize);
+            cameraRange.SetCameraNum(1);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(10, tileSize);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ2-2
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(19, 11, tileSize);
+            cameraRange.SetEndTiles(30, 33, tileSize);
+            cameraRange.SetCameraNum(2);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(10, tileSize);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ3
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(30, 19, tileSize);
+            cameraRange.SetEndTiles(47, 30, tileSize);
+            cameraRange.SetCameraNum(3);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(3, tileSize);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ4
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(67, 10, tileSize);
+            cameraRange.SetEndTiles(82, 27, tileSize);
+            cameraRange.SetCameraNum(4);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(-3, tileSize);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ5
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(48, 21, tileSize);
+            cameraRange.SetEndTiles(67, 27, tileSize);
+            cameraRange.SetCameraNum(5);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(5, tileSize);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ6
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(47, 25, tileSize);
+            cameraRange.SetEndTiles(62, 34, tileSize);
+            cameraRange.SetCameraNum(6);
+            cameraRange.SetFollowPlayer(false);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ7
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(84, 25, tileSize);
+            cameraRange.SetEndTiles(93, 32, tileSize);
+            cameraRange.SetCameraNum(7);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(2, tileSize);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
+        {
+            //カメラ8
+            fixedCameraRange cameraRange;
+            cameraRange.SetStartTiles(93, 14, tileSize);
+            cameraRange.SetEndTiles(107, 32, tileSize);
+            cameraRange.SetCameraNum(8);
+            cameraRange.SetFollowPlayer(false);
+            cameraRange.SetOffsetY(2, tileSize);
+
+            m_camera.fixedRanges.push_back(cameraRange);
+        }
+
     }
-
-    //カメラ3
-    {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(72, 2, tileSize);
-        cameraRange.SetEndTiles(93, 28, tileSize);
-        cameraRange.SetCameraNum(2);
-        cameraRange.SetFollowPlayer(false);
-
-        cameraRange.SetZoomWidth(2560.0f);
-        cameraRange.SetZoomHeight(1440.0f);
-
-        m_fixedRanges.push_back(cameraRange);
-    }
-
-    //カメラ4
-    {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(113, 4, tileSize);
-        cameraRange.SetEndTiles(133, 21, tileSize);
-        cameraRange.SetCameraNum(3);
-        cameraRange.SetFollowPlayer(false);
-
-        cameraRange.SetZoomHeight(1440.0f);
-
-        m_fixedRanges.push_back(cameraRange);
-    }
-
-    //カメラ5
-    {
-        fixedCameraRange cameraRange;
-        cameraRange.SetStartTiles(131, 10, tileSize);
-        cameraRange.SetEndTiles(148, 21, tileSize);
-        cameraRange.SetCameraNum(4);
-        cameraRange.SetFollowPlayer(false);
-
-        m_fixedRanges.push_back(cameraRange);
-    }
-
 
 }
-
 namespace game_scene_detail
 {
     constexpr float kDefaultCameraViewWidth = 1920.0f;
@@ -318,15 +435,16 @@ namespace game_scene_detail
         gPrintedPhotoMinHeight = root.value("printed_photo_min_height", gPrintedPhotoMinHeight);
         gPrintedPhotoMatteInset = root.value("printed_photo_matte_inset", gPrintedPhotoMatteInset);
         gPickupTimeBonus = root.value("pickup_time_bonus", gPickupTimeBonus);
+        gJumpPadMaxTiltDegrees = root.value("jump_pad_max_tilt_degrees", gJumpPadMaxTiltDegrees);
     }
 }
 
 void GameScene::ResetSceneState()
 {
-    m_entities.clear();
-    m_pendingEntities.clear();
+    m_world.Clear();
     m_photo = PhotoState{};
     m_flow = GameSceneFlowState{};
+    m_ui = GameSceneUiState{};
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
     m_mapEditor.active = false;
@@ -370,6 +488,7 @@ void GameScene::ResetSceneState()
 
 void GameScene::LoadTuningState()
 {
+    const ActiveGameSceneScope activeScene(*this);
     LoadTuningJsonFile();
     std::error_code ec;
     const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
@@ -386,12 +505,11 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_assets.LoadDefaults(resources);
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
-    m_tileMap.LoadFromCsv(gCurrentMapCsvPath, 48.0f);
+    m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, 48.0f);
     const size_t mapCellCount =
         static_cast<size_t>((std::max)(0, m_tileMap.GetWidth())) *
         static_cast<size_t>((std::max)(0, m_tileMap.GetHeight()));
-    m_entities.reserve(128 + mapCellCount / 8);
-    m_pendingEntities.reserve(64);
+    m_world.Reserve(128 + mapCellCount / 8, 64);
     RefreshStageRenderProfile();
     gCameraViewWidth = kDefaultCameraViewWidth;
     gCameraViewHeight = kDefaultCameraViewHeight;
@@ -403,7 +521,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
 void GameScene::InitializeStageEntities()
 {
     PrefabFactory prefabs(m_assets, m_physicsWorld, m_eventBus);
-    const bool isDebugStageMap = gCurrentMapCsvPath == "assets/maps/stage_a.csv";
+    const bool isDebugStageMap = m_lifecycle.currentMapCsvPath == "assets/maps/stage_a.csv";
     const auto spawnRespawnableBarrel = [&](float x, float y)
     {
         Entity& barrel = SpawnStagePrefab(prefabs, "sandbox_barrel", x, y);
@@ -533,6 +651,40 @@ void GameScene::InitializeStageEntities()
         return transform;
     };
 
+    const auto spawnMidBoss3Fists = [&](PrefabFactory& prefabs, Entity& boss)
+    {
+        auto* bossTransform = boss.GetComponent<TransformComponent>();
+        auto* bossComp = boss.GetComponent<MidBoss3Component>();
+        if (!bossTransform || !bossComp)
+        {
+            return;
+        }
+
+        bossComp->fistEntities.clear();
+        const float offsets[4][2] = {
+            { tileSize * 1.0f, -tileSize * 3.0f },
+            { tileSize * 1.0f,  tileSize * 5.0f },
+            { tileSize * 5.0f, -tileSize * 2.0f },
+            { tileSize * 5.0f,  tileSize * 4.5f },
+        };
+
+        for (int index = 0; index < 4; ++index)
+        {
+            Entity& fist = SpawnStagePrefab(
+                prefabs,
+                "sandbox_mid_boss3_fist",
+                bossTransform->x + offsets[index][0],
+                bossTransform->y + offsets[index][1]);
+            auto& fistComp = fist.AddComponent<MidBoss3FistComponent>();
+            fistComp.ownerBoss = &boss;
+            fistComp.fistIndex = index;
+            fistComp.baseOffsetX = offsets[index][0];
+            fistComp.baseOffsetY = offsets[index][1];
+            fistComp.idlePhase = static_cast<float>(index) * 1.35f;
+            bossComp->fistEntities.push_back(&fist);
+        }
+    };
+
     // Spawn walker/ranged enemies from CSV markers.
     for (const TileMarker& stageMarker : stageMarkers)
     {
@@ -598,7 +750,7 @@ void GameScene::InitializeStageEntities()
                 if (auto* bossComp = boss.GetComponent<ShieldBossComponent>())
                 {
                     constexpr float kShieldW = 48.0f;
-                    constexpr float kShieldH = 144.0f;
+                    constexpr float kShieldH = 192.0f;
                     auto shieldEntity = std::make_unique<Entity>();
                     shieldEntity->AddComponent<TagComponent>("BossShield");
                     shieldEntity->AddComponent<TransformComponent>(
@@ -610,7 +762,7 @@ void GameScene::InitializeStageEntities()
                         0.72f,
                         0.78f,
                         0.90f,
-                        bossComp->appearAnimationActive ? 0.0f : 1.0f);
+                        (!bossComp->combatStarted && !bossComp->appearAnimationFinished) ? 0.0f : 1.0f);
                     shieldEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
                     auto& shieldComp = shieldEntity->AddComponent<ShieldComponent>();
                     shieldComp.attached = true;
@@ -619,7 +771,7 @@ void GameScene::InitializeStageEntities()
                     shieldComp.followOffsetX = -kShieldW;
                     shieldComp.followOffsetY = 0.0f;
                     bossComp->shieldEntity = shieldEntity.get();
-                    m_entities.push_back(std::move(shieldEntity));
+                    m_world.Spawn(std::move(shieldEntity));
                 }
             }
         }
@@ -639,7 +791,42 @@ void GameScene::InitializeStageEntities()
                 }
             }
         }
-        else if (marker == 'A') // ゴースト
+        else if (marker == '%') // MidBoss3
+        {
+            Entity& boss = SpawnStagePrefab(
+                prefabs,
+                "sandbox_mid_boss3",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            if (auto* transform = boss.GetComponent<TransformComponent>())
+            {
+                transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
+                transform->y = static_cast<float>(row) * tileSize + (tileSize - transform->height * transform->scale) * 0.5f;
+                transform->y += tileSize * 2.0f;
+                if (auto* enemy = boss.GetComponent<EnemyComponent>())
+                {
+                    enemy->spawnX = transform->x;
+                    enemy->spawnY = transform->y;
+                    enemy->respawnEnabled = false;
+                }
+                if (auto* bossComp = boss.GetComponent<MidBoss3Component>())
+                {
+                    bossComp->homeX = transform->x;
+                    bossComp->homeY = transform->y;
+                    bossComp->initializedHome = true;
+                    bossComp->introWaitingForTrigger = true;
+                    bossComp->introStarted = false;
+                    bossComp->introFinished = false;
+                    bossComp->introGroundInitialized = false;
+                    bossComp->introTimer = 0.0f;
+                    bossComp->introFloatHomeX = transform->x;
+                    bossComp->introFloatHomeY = transform->y;
+                    bossComp->introTriggerX = transform->x - tileSize * 7.0f;
+                }
+                spawnMidBoss3Fists(prefabs, boss);
+            }
+        }
+        else if (marker == 'A') // 繧ｴ繝ｼ繧ｹ繝・
         {
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
@@ -655,7 +842,7 @@ void GameScene::InitializeStageEntities()
                 }
             }
         }
-        else if (marker == 'D') // ブラロボ
+        else if (marker == 'D') // 繝悶Λ繝ｭ繝・
         {
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
@@ -664,7 +851,7 @@ void GameScene::InitializeStageEntities()
                 static_cast<float>(row) * tileSize);
             if (auto* transform = enemy.GetComponent<TransformComponent>())
             {
-                // FindSpawnPositionを使わずCSVの座標をそのまま使う
+                // FindSpawnPosition繧剃ｽｿ繧上★CSV縺ｮ蠎ｧ讓吶ｒ縺昴・縺ｾ縺ｾ菴ｿ縺・
                 transform->x = static_cast<float>(column) * tileSize;
                 transform->y = static_cast<float>(row) * tileSize;
                 if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
@@ -674,13 +861,42 @@ void GameScene::InitializeStageEntities()
                 }
                 if (auto* blasterRobot = enemy.GetComponent<BlasterRobotComponent>())
                 {
-                    // 天井判定：マーカーの上のタイルが壁なら天井設置
+                    // 螟ｩ莠募愛螳夲ｼ壹・繝ｼ繧ｫ繝ｼ縺ｮ荳翫・繧ｿ繧､繝ｫ縺悟｣√↑繧牙､ｩ莠戊ｨｭ鄂ｮ
                     if (row > 0 && m_tileMap.GetTile(column, row - 1) > 0)
                     {
                         blasterRobot->mountedOnCeiling = true;
                     }
                 }
             }
+        }
+        else if (marker == 'M')
+        {
+            constexpr float kMerchantSignAspect = 401.0f / 1172.0f;
+            const float merchantX = static_cast<float>(column) * tileSize;
+            const float merchantY = static_cast<float>(row) * tileSize;
+            const float merchantSize = tileSize * 4.0f;
+            const float signWidth = tileSize * 1.8f;
+            const float signHeight = signWidth * kMerchantSignAspect;
+            auto merchant = std::make_unique<Entity>();
+            merchant->AddComponent<TagComponent>(EntityTag::Merchant);
+            merchant->AddComponent<TransformComponent>(
+                merchantX,
+                merchantY,
+                merchantSize,
+                merchantSize);
+            const int merchantTexture = m_assets.GetTexture("merchant_sign");
+            merchant->AddComponent<MerchantComponent>();
+            m_world.Spawn(std::move(merchant));
+
+            auto sign = std::make_unique<Entity>();
+            sign->AddComponent<TransformComponent>(
+                merchantX + (merchantSize - signWidth) * 0.5f,
+                merchantY - signHeight - tileSize * 0.15f,
+                signWidth,
+                signHeight);
+            sign->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            sign->AddComponent<SpriteRenderComponent>(merchantTexture >= 0 ? merchantTexture : m_whiteTexture);
+            m_world.Spawn(std::move(sign));
         }
     }
 
@@ -706,7 +922,7 @@ void GameScene::InitializeStageEntities()
             260.0f,
             320.0f,
             1);
-        if (m_darknessStageEnabled)
+        if (m_lifecycle.darknessStageEnabled)
         {
             battery->AddComponent<FlickerLightComponent>(
                 56.0f,
@@ -725,7 +941,7 @@ void GameScene::InitializeStageEntities()
                 0.0f,
                 0.0f);
         }
-        m_entities.push_back(std::move(battery));
+        m_world.Spawn(std::move(battery));
     }
 
     for (const TileMarker& stageMarker : stageMarkers)
@@ -741,6 +957,8 @@ void GameScene::InitializeStageEntities()
     }
 
     RefreshLogsFromMarkers();
+    RefreshJumpPadsFromMarkers();
+    ReflashFallingRockfromMarkers();
     RefreshMarkerLightsFromMarkers();
     RefreshStageLightsFromMarkers();
 
@@ -836,7 +1054,7 @@ void GameScene::InitializeStageEntities()
     RefreshLaserTurretsFromMarkers();
     BuildCameraMarkers();
 
-    // Choose backdrop keys from gCurrentMapCsvPath and cache texture IDs
+    // Choose backdrop keys from m_lifecycle.currentMapCsvPath and cache texture IDs
     auto ResolveBackdropKeysForMap = [](const std::string& mapPath) -> std::pair<std::string, std::string>
     {
         std::string stem;
@@ -892,7 +1110,7 @@ Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId
         enemy->spawnY = y;
     }
 
-    m_entities.push_back(std::move(entity));
+    m_world.Spawn(std::move(entity));
     return entityRef;
 }
 

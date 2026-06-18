@@ -104,6 +104,11 @@ std::unique_ptr<Entity> PrefabFactory::Create(const std::string& prefabId) const
         entity->AddComponent<MidBoss2Component>();
     }
 
+    if (definition.hasMidBoss3)
+    {
+        entity->AddComponent<MidBoss3Component>();
+    }
+
     if (definition.hasGhost)
     {
         entity->AddComponent<GhostComponent>();
@@ -203,6 +208,7 @@ void PrefabFactory::LoadDefinitions()
         return;
     }
 
+    m_definitions.reserve(prefabs.size());
     for (auto it = prefabs.begin(); it != prefabs.end(); ++it)
     {
         const auto& data = it.value();
@@ -286,6 +292,10 @@ void PrefabFactory::LoadDefinitions()
         {
             definition.enemyArchetype = EnemyArchetype::MidBoss2;
         }
+        else if (enemyArchetype == "mid_boss_3")
+        {
+            definition.enemyArchetype = EnemyArchetype::MidBoss3;
+        }
         else if (enemyArchetype == "ghost")
         {
             definition.enemyArchetype = EnemyArchetype::Ghost;
@@ -312,6 +322,7 @@ void PrefabFactory::LoadDefinitions()
 
         definition.hasShieldBoss = enemy.value("shieldBoss", false);
         definition.hasMidBoss2 = enemy.value("midBoss2", false);
+        definition.hasMidBoss3 = enemy.value("midBoss3", false);
 
         definition.hasGhost = enemy.value("ghost", false);
         definition.hasBlasterRobot = enemy.value("blasterRobot", false);
@@ -463,6 +474,8 @@ void PrefabFactory::LoadDefinitions()
 
 void PrefabFactory::LoadBuiltInDefaults()
 {
+    m_definitions.reserve(5);
+
     PrefabDefinition player;
     player.tag = "Player";
     player.textureKey = "player";

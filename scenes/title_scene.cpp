@@ -157,7 +157,7 @@ TitleScene::TitleScene()
     , m_menuSelection(0)
     , m_optionsSelection(0)
     , m_bgmEnabled(true)
-    , m_bgmRestoreVolume(0.6f)
+    , m_bgmRestoreVolume(1.0f)
 {
 }
 
@@ -178,7 +178,7 @@ void TitleScene::OnEnter(ResourceManager& resources)
     m_menuSelection = 0;
     m_optionsSelection = 0;
     m_bgmEnabled = Audio_GetMasterVolume() > 0.001f;
-    m_bgmRestoreVolume = m_bgmEnabled ? Audio_GetMasterVolume() : 0.6f;
+    m_bgmRestoreVolume = m_bgmEnabled ? Audio_GetMasterVolume() : 1.0f;
     Logger::Info("TitleScene entered");
 }
 
@@ -479,6 +479,6 @@ void TitleScene::ToggleBgm()
         return;
     }
 
-    Audio_SetMasterVolume(m_bgmRestoreVolume > 0.001f ? m_bgmRestoreVolume : 0.6f);
+    Audio_SetMasterVolume(m_bgmRestoreVolume > 0.001f ? m_bgmRestoreVolume : 1.0f);
     m_bgmEnabled = true;
 }
