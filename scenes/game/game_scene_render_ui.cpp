@@ -2224,9 +2224,10 @@ void GameScene::DrawBackdropBaseInView(
 {
     int bgTexture = m_backdropTextureId >= 0 ? m_backdropTextureId : m_assets.GetTexture("forest_bg");
     int bg1Texture = m_backdropTexture1Id >= 0 ? m_backdropTexture1Id : m_assets.GetTexture("forest_fg");
-    
+    int bg2Texture = m_assets.GetTexture("forest1_bg");
     if (bgTexture < 0) bgTexture = m_assets.GetTexture("forest_bg");
     if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("forest_fg");
+    if (bg2Texture < 0) bg2Texture = m_assets.GetTexture("forest1_bg");
 
     if (bgTexture < 0 || bg1Texture < 0)
     {
@@ -2351,7 +2352,7 @@ void GameScene::DrawBackdropBaseInView(
     // 背景前景（手前）を描画（Y を下にオフセット）
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
     
-    int bg2Texture = m_assets.GetTexture("forest1_bg");
+    //int bg2Texture = m_assets.GetTexture("forest1_bg");
     if (bg2Texture >= 0)
     {
         const int texW2 = TextureGetWidth(bg2Texture);

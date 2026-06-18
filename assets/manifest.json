@@ -187,7 +187,7 @@
     "photo_tray_backdrop": {
       "type": "file",
       "path": "assets/texture/photo_tray_backdrop.png"
-    }
+    },
 
     "under_bg": {
       "type": "file",
