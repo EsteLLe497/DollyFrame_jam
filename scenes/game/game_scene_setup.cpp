@@ -362,7 +362,7 @@ void GameScene::ResetSceneState()
     m_pendingStageTransitionSpawnMarker = '\0';
     m_pendingStageTransitionMarker = '\0';
     m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/ruins.csv";
+    gCurrentMapCsvPath = "assets/maps/stages/forest.csv";
     gLastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -845,10 +845,10 @@ void GameScene::InitializeStageEntities()
 
         // CSV 名に "forest" または "ruins" を含めて識別しているとのことなのでそれに合わせる
 		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };//マップのCSVファイル名に "ruins" を含む場合は廃墟の背景と前景を使用
-        if (stem.find("forest") != std::string::npos) return { "sinrin10", "sinrin11" };
+        if (stem.find("forest") != std::string::npos) return { "forest_bg", "forest_fg" };
         if (stem.find("under") != std::string::npos) return { "under_bg", "under_fg" };
-        // デフォルト
-        return { "sinrin10", "sinrin11" };
+        // デフォルトbg
+        return { "forest_bg", "forest_fg" };
     };
 
     {
@@ -856,8 +856,9 @@ void GameScene::InitializeStageEntities()
         m_backdropTextureId = m_assets.GetTexture(keys.first);
         m_backdropTexture1Id = m_assets.GetTexture(keys.second);
         // manifest 未登録なら既存キーにフォールバック
-        if (m_backdropTextureId < 0) m_backdropTextureId = m_assets.GetTexture("sinrin10");
-        if (m_backdropTexture1Id < 0) m_backdropTexture1Id = m_assets.GetTexture("sinrin11");
+
+        if (m_backdropTextureId < 0) m_backdropTextureId = m_assets.GetTexture("forest_bg");
+        if (m_backdropTexture1Id < 0) m_backdropTexture1Id = m_assets.GetTexture("forest_fg");
     }
 }
 

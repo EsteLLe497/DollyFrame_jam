@@ -147,13 +147,31 @@
       "path": "assets/texture/Apple.png"
     },
 
-    "sinrin10": {
+    "forest_bg": {
       "type": "file",
-      "path": "assets/texture/BG/forest/sinrin10.png"
+      "path": "assets/texture/BG/forest/BG_Forest.png"
     },
-    "sinrin11": {
+    "forest_fg": {
       "type": "file",
-      "path": "assets/texture/BG/forest/sinrin11.png"
+      "path": "assets/texture/BG/forest/BG_Forest.png"
+    },
+
+    "forest1_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_03.png"
+    },
+    "forest1_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_03.png"
+    },
+
+    "forest2_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_04.png"
+    },
+    "forest2_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_04.png"
     },
 
     "ruins_bg": {
@@ -173,6 +191,5 @@
       "type": "file",
       "path": "assets/texture/BG/underground/under.png"
     }
-
   }
 }
