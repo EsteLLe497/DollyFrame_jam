@@ -809,6 +809,18 @@ void GameScene::UpdateEnemies()
         {
             SpawnBossRoarEffect(centerX, groundY, width);
         },
+        [this](float x, float y, float radius, float intensity)
+        {
+            BeamShockwaveParticle shockwave;
+            shockwave.x = x;
+            shockwave.y = y;
+            shockwave.startRadius = radius * 0.22f;
+            shockwave.endRadius = radius * std::max(0.1f, intensity);
+            shockwave.thickness = std::max(8.0f, radius * 0.08f);
+            shockwave.life = 0.36f;
+            shockwave.maxLife = shockwave.life;
+            m_effects.beamShockwaves.push_back(shockwave);
+        },
         [this](float x, float y, float width, float height)
         {
             SpawnMidBoss3FistImpactEffect(x, y, width, height);
