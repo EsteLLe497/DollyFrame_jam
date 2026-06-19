@@ -7,7 +7,7 @@
 
 namespace game_scene_combat_system
 {
-template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename PlayShieldBossCueFn, typename StopShieldBossCueFn, typename SpawnTeleportTrailFn, typename SpawnSlamImpactEffectFn, typename SpawnRushSmokeEffectFn, typename SpawnLightLandingEffectFn, typename SpawnBossRoarEffectFn, typename SpawnBeamShockwaveFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
+template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename PlayShieldBossCueFn, typename StopShieldBossCueFn, typename SpawnTeleportTrailFn, typename SpawnSlamImpactEffectFn, typename SpawnRushSmokeEffectFn, typename SpawnLightLandingEffectFn, typename SpawnBossRoarEffectFn, typename SpawnBeamShockwaveFn, typename SpawnMidBoss3FistImpactEffectFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
     const std::vector<Entity*>& enemyEntities,
@@ -31,6 +31,7 @@ inline void UpdateEnemies(
     SpawnRushSmokeEffectFn&& spawnRushSmokeEffect,
     SpawnLightLandingEffectFn&& spawnLightLandingEffect,
     SpawnBossRoarEffectFn&& spawnBossRoarEffect,
+    SpawnBeamShockwaveFn&& spawnBeamShockwave,
     SpawnMidBoss3FistImpactEffectFn&& spawnMidBoss3FistImpactEffect,
     HandlePlayerDamageFn&& handlePlayerDamage,
     CheckPhotoBoxCollisionFn&& checkPhotoBoxCollision,
