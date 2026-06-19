@@ -412,6 +412,9 @@ void GameScene::TryUseAttackCaptureSlot()
         attack.knockbackRemaining = 0.0f;
         attack.followOffsetX = drillX - playerTransform->x;
         attack.followOffsetY = drillY - playerTransform->y;
+        attack.waitBaseX = drillX;
+        attack.waitBaseY = drillY;
+        attack.waitBaseInitialized = true;
         if (auto* transform = drillEntity->GetComponent<TransformComponent>())
         {
             const AttackAim fireAim = resolveAttackAimTowardBoss(

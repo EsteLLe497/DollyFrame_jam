@@ -31,7 +31,7 @@ inline void UpdateEnemies(
     SpawnRushSmokeEffectFn&& spawnRushSmokeEffect,
     SpawnLightLandingEffectFn&& spawnLightLandingEffect,
     SpawnBossRoarEffectFn&& spawnBossRoarEffect,
-    SpawnBeamShockwaveFn&& spawnBeamShockwave,
+    SpawnMidBoss3FistImpactEffectFn&& spawnMidBoss3FistImpactEffect,
     HandlePlayerDamageFn&& handlePlayerDamage,
     CheckPhotoBoxCollisionFn&& checkPhotoBoxCollision,
     IsSolidTileFn&& isSolidTile)
@@ -228,6 +228,36 @@ inline void UpdateEnemies(
                 }
                 return false;
             };
+            const auto rectLeadingSideIntersectsSolid = [&](float x, float y, float width, float height, float velocityX) -> bool
+            {
+                const int columnCount = std::max(1, static_cast<int>(mapWidth / kTileSize));
+                const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
+                const float sampleX = velocityX >= 0.0f ? x + width - 1.0f : x;
+                const int column = static_cast<int>(std::floor(sampleX / kTileSize));
+                if (column < 0 || column >= columnCount)
+                {
+                    return true;
+                }
+
+                const int topRow = static_cast<int>(std::floor((y + height * 0.18f) / kTileSize));
+                const int bottomRow = static_cast<int>(std::floor((y + height * 0.72f) / kTileSize));
+                for (int row = topRow; row <= bottomRow; ++row)
+                {
+                    if (row >= rowCount)
+                    {
+                        return true;
+                    }
+                    if (row < 0)
+                    {
+                        continue;
+                    }
+                    if (isSolidTile(column, row))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
             const auto findIntroGroundY = [&]() -> float
             {
                 const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
@@ -412,6 +442,16 @@ inline void UpdateEnemies(
             };
             const auto breakFistAtCollision = [&](MidBoss3FistComponent& targetFist, TransformComponent& targetTransform)
             {
+                constexpr float kFistImpactShakeSeconds = 0.24f;
+                constexpr float kFistImpactShakeAmplitude = 24.0f;
+                flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kFistImpactShakeSeconds);
+                flow.screenShakeDuration = std::max(flow.screenShakeDuration, kFistImpactShakeSeconds);
+                flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kFistImpactShakeAmplitude);
+                spawnMidBoss3FistImpactEffect(
+                    targetTransform.x,
+                    targetTransform.y,
+                    targetTransform.width * targetTransform.scale,
+                    targetTransform.height * targetTransform.scale);
                 targetFist.state = MidBoss3FistState::Broken;
                 targetFist.broken = true;
                 targetFist.damageApplied = true;
@@ -547,8 +587,13 @@ inline void UpdateEnemies(
                 }
                 else if (safePattern == 1)
                 {
-                    offsetXGrid = 0.0f;
-                    offsetYGrid = 0.0f;
+                    const float points[2][2] = {
+                        { 12.0f, 0.0f },
+                        {  0.0f, 0.0f },
+                    };
+                    const int pointIndex = std::min(safeStep, 1);
+                    offsetXGrid = points[pointIndex][0];
+                    offsetYGrid = points[pointIndex][1];
                 }
                 else
                 {
@@ -567,7 +612,7 @@ inline void UpdateEnemies(
             };
             const auto getMovePointCount = [](int pattern) -> int
             {
-                return pattern == 1 ? 1 : 3;
+                return pattern == 1 ? 2 : 3;
             };
             const auto setAllFistsState = [&](MidBoss3FistState state, bool useJammer)
             {
@@ -618,6 +663,33 @@ inline void UpdateEnemies(
                         }
                     }
                     return;
+                }
+            };
+            const auto setMeteorFistsReady = [&](int a, int b)
+            {
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                    auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+                    if (!fist || (fist->fistIndex != a && fist->fistIndex != b))
+                    {
+                        continue;
+                    }
+                    if (fist->state == MidBoss3FistState::MeteorReady ||
+                        fist->state == MidBoss3FistState::MeteorFalling)
+                    {
+                        continue;
+                    }
+                    fist->state = MidBoss3FistState::MeteorReady;
+                    resetFistForAttack(*fist);
+                    if (fistTransform)
+                    {
+                        fistTransform->rotation = 1.5707963f;
+                    }
+                    if (auto* tint = fistEntity->GetComponent<TintComponent>())
+                    {
+                        tint->a = 1.0f;
+                    }
                 }
             };
             const auto beginReload = [&]()
@@ -756,14 +828,7 @@ inline void UpdateEnemies(
                 }
                 setFixedLauncherLanes(fistHeight);
                 setAllFistsState(MidBoss3FistState::Docked, true);
-                for (Entity* fistEntity : boss->fistEntities)
-                {
-                    auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
-                    if (fist && fist->fistIndex <= 1)
-                    {
-                        fist->state = MidBoss3FistState::MeteorReady;
-                    }
-                }
+                setMeteorFistsReady(0, 1);
             };
             const auto prepareDrillAttack = [&]()
             {
@@ -892,13 +957,6 @@ inline void UpdateEnemies(
                             boss->moving = false;
                             boss->moveTimer = 0.0f;
                             ++boss->moveStep;
-                            if (!boss->reloadStartedForMove &&
-                                boss->reloadStartMoveStep >= 0 &&
-                                boss->moveStep >= boss->reloadStartMoveStep)
-                            {
-                                boss->reloadStartedForMove = true;
-                                beginReload();
-                            }
                         }
                     }
                     else
@@ -929,6 +987,13 @@ inline void UpdateEnemies(
 
                             boss->moveStartX = boss->homeX;
                             boss->moveStartY = boss->homeY;
+                            if (!boss->reloadStartedForMove &&
+                                boss->reloadStartMoveStep >= 0 &&
+                                boss->moveStep == boss->reloadStartMoveStep)
+                            {
+                                boss->reloadStartedForMove = true;
+                                beginReload();
+                            }
                             getMovePoint(boss->moveSide, boss->movePattern, boss->moveStep, boss->moveTargetX, boss->moveTargetY);
                             boss->moveTargetX = std::clamp(
                                 boss->moveTargetX,
@@ -1034,9 +1099,10 @@ inline void UpdateEnemies(
                     if (launchMeteorPair(0, 1))
                     {
                         boss->meteorShotsFired = 2;
+                        boss->stateTimer = 0.0f;
                     }
                 }
-                if (boss->stateTimer >= boss->params.meteorWindupTime + boss->params.meteorPairInterval && boss->meteorShotsFired == 2)
+                if (boss->stateTimer >= boss->params.meteorPairInterval && boss->meteorShotsFired == 2)
                 {
                     if (boss->state == MidBoss3State::MeteorFist)
                     {
@@ -1086,7 +1152,7 @@ inline void UpdateEnemies(
                 {
                     if (boss->stateTimer < boss->params.drillFormTime + boss->params.drillWaitTime)
                     {
-                        const float shakePhase = boss->idleTimer * 52.0f;
+                        const float shakePhase = boss->idleTimer * 92.0f;
                         const float shakeX = std::sin(shakePhase) * boss->params.drillChargeShakeAmplitude;
                         const float shakeY = std::cos(shakePhase * 1.31f) * boss->params.drillChargeShakeAmplitude * 0.45f;
                         boss->drillX = std::clamp(
@@ -1130,6 +1196,16 @@ inline void UpdateEnemies(
                                 rectIntersectsSolid(nextX, boss->drillY, boss->drillWidth, boss->drillHeight);
                             if (hitWall)
                             {
+                                constexpr float kDrillImpactShakeSeconds = 0.24f;
+                                constexpr float kDrillImpactShakeAmplitude = 24.0f;
+                                flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kDrillImpactShakeSeconds);
+                                flow.screenShakeDuration = std::max(flow.screenShakeDuration, kDrillImpactShakeSeconds);
+                                flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kDrillImpactShakeAmplitude);
+                                spawnMidBoss3FistImpactEffect(
+                                    boss->drillX,
+                                    boss->drillY,
+                                    boss->drillWidth,
+                                    boss->drillHeight);
                                 spawnSepiaCollisionRubble(
                                     boss->drillX,
                                     boss->drillY,
@@ -1147,7 +1223,37 @@ inline void UpdateEnemies(
                         {
                             float nextX = boss->drillX + boss->drillVelocityX * deltaTime;
                             float nextY = boss->drillY + boss->drillVelocityY * deltaTime;
-                            if (rectIntersectsSolid(nextX, nextY, boss->drillWidth, boss->drillHeight))
+                            const bool hitWall =
+                                nextX < 0.0f ||
+                                nextX + boss->drillWidth > mapWidth ||
+                                rectLeadingSideIntersectsSolid(
+                                    nextX,
+                                    nextY,
+                                    boss->drillWidth,
+                                    boss->drillHeight,
+                                    boss->drillVelocityX);
+                            const bool hitSolid = rectIntersectsSolid(nextX, nextY, boss->drillWidth, boss->drillHeight);
+                            if (hitWall)
+                            {
+                                constexpr float kDrillImpactShakeSeconds = 0.24f;
+                                constexpr float kDrillImpactShakeAmplitude = 24.0f;
+                                flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kDrillImpactShakeSeconds);
+                                flow.screenShakeDuration = std::max(flow.screenShakeDuration, kDrillImpactShakeSeconds);
+                                flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kDrillImpactShakeAmplitude);
+                                spawnMidBoss3FistImpactEffect(
+                                    boss->drillX,
+                                    boss->drillY,
+                                    boss->drillWidth,
+                                    boss->drillHeight);
+                                spawnSepiaCollisionRubble(
+                                    boss->drillX,
+                                    boss->drillY,
+                                    boss->drillWidth,
+                                    boss->drillHeight,
+                                    SepiaRubbleSource::MidBoss3Drill);
+                                boss->drillActive = false;
+                            }
+                            else if (hitSolid)
                             {
                                 if (boss->drillVelocityY >= 0.0f)
                                 {
@@ -1165,6 +1271,16 @@ inline void UpdateEnemies(
                                 }
                                 else
                                 {
+                                    constexpr float kDrillImpactShakeSeconds = 0.24f;
+                                    constexpr float kDrillImpactShakeAmplitude = 24.0f;
+                                    flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kDrillImpactShakeSeconds);
+                                    flow.screenShakeDuration = std::max(flow.screenShakeDuration, kDrillImpactShakeSeconds);
+                                    flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kDrillImpactShakeAmplitude);
+                                    spawnMidBoss3FistImpactEffect(
+                                        boss->drillX,
+                                        boss->drillY,
+                                        boss->drillWidth,
+                                        boss->drillHeight);
                                     spawnSepiaCollisionRubble(
                                         boss->drillX,
                                         boss->drillY,
@@ -1319,13 +1435,13 @@ inline void UpdateEnemies(
                         boss->nextFlowAttack = 1;
                         boss->movePattern = 0;
                         boss->chooseMoveSideFromStageCenter = true;
-                        boss->reloadStartMoveStep = 2;
+                        boss->reloadStartMoveStep = 1;
                         break;
                     case 3:
                         boss->nextFlowAttack = 4;
                         boss->movePattern = 0;
                         boss->chooseMoveSideFromStageCenter = true;
-                        boss->reloadStartMoveStep = 2;
+                        boss->reloadStartMoveStep = 1;
                         break;
                     case 4:
                         boss->nextFlowAttack = 2;
@@ -1346,11 +1462,6 @@ inline void UpdateEnemies(
                     boss->drillFormed = false;
                     boss->drillGroundRush = false;
                     boss->drillDamageApplied = false;
-                    if (boss->reloadStartMoveStep == 0)
-                    {
-                        boss->reloadStartedForMove = true;
-                        beginReload();
-                    }
                 }
             }
 
@@ -1613,10 +1724,9 @@ inline void UpdateEnemies(
                     if (fist->atAttackStart)
                     {
                         fist->attackReadyTimer += deltaTime;
-                        const float phase = boss->idleTimer * 58.0f + static_cast<float>(fist->fistIndex) * 2.17f;
-                        const float shakeX = std::sin(phase) * boss->params.fistPreLaunchShakeAmplitude;
-                        const float shakeY = std::cos(phase * 1.29f) * boss->params.fistPreLaunchShakeAmplitude * 0.45f;
-                        fistTransform->x = launcherStartX + shakeX;
+                        const float phase = boss->idleTimer * 104.0f + static_cast<float>(fist->fistIndex) * 2.17f;
+                        const float shakeY = std::sin(phase) * boss->params.fistPreLaunchShakeAmplitude;
+                        fistTransform->x = launcherStartX;
                         fistTransform->y = launcherStartY + shakeY;
                     }
                     else
@@ -1630,21 +1740,30 @@ inline void UpdateEnemies(
                     fistTransform->x = moveToward(fistTransform->x, meteorStartX, followStep);
                     fistTransform->y = moveToward(fistTransform->y, meteorStartY, followStep);
                     fistTransform->rotation = 1.5707963f;
-                    fist->atAttackStart =
+                    const bool reachedAttackStart =
                         std::fabs(fistTransform->x - meteorStartX) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f &&
                         std::fabs(fistTransform->y - meteorStartY) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f;
+                    const bool telegraphActive =
+                        boss->state != MidBoss3State::MeteorFist ||
+                        boss->meteorShotsFired >= 2 ||
+                        fist->fistIndex <= 1;
+                    fist->atAttackStart = reachedAttackStart && telegraphActive;
                     if (fist->atAttackStart)
                     {
                         fist->attackReadyTimer += deltaTime;
-                        const float phase = boss->idleTimer * 58.0f + static_cast<float>(fist->fistIndex) * 2.17f;
-                        const float shakeX = std::sin(phase) * boss->params.fistPreLaunchShakeAmplitude * 0.45f;
-                        const float shakeY = std::cos(phase * 1.29f) * boss->params.fistPreLaunchShakeAmplitude;
+                        const float phase = boss->idleTimer * 104.0f + static_cast<float>(fist->fistIndex) * 2.17f;
+                        const float shakeX = std::sin(phase) * boss->params.fistPreLaunchShakeAmplitude;
                         fistTransform->x = meteorStartX + shakeX;
-                        fistTransform->y = meteorStartY + shakeY;
+                        fistTransform->y = meteorStartY;
                     }
                     else
                     {
                         fist->attackReadyTimer = 0.0f;
+                        if (reachedAttackStart)
+                        {
+                            fistTransform->x = meteorStartX;
+                            fistTransform->y = meteorStartY;
+                        }
                     }
                 }
                 else if (fist->state == MidBoss3FistState::DrillForming)
@@ -1672,6 +1791,11 @@ inline void UpdateEnemies(
                     fistTransform->x += fist->velocityX * deltaTime;
                     fistTransform->y += fist->velocityY * deltaTime;
                     fistTransform->rotation = 0.0f;
+                    const float launchDirection = fist->velocityX >= 0.0f ? 1.0f : -1.0f;
+                    const float acceleratedSpeed = std::min(
+                        boss->params.launcherFistMaxSpeed,
+                        std::fabs(fist->velocityX) + boss->params.launcherFistAcceleration * deltaTime);
+                    fist->velocityX = launchDirection * acceleratedSpeed;
 
                     const int leadingColumn = static_cast<int>(
                         (fist->velocityX >= 0.0f
@@ -1700,6 +1824,16 @@ inline void UpdateEnemies(
                     {
                         if (hitSolidTile && canBreakOnSolid)
                         {
+                            constexpr float kFistImpactShakeSeconds = 0.24f;
+                            constexpr float kFistImpactShakeAmplitude = 24.0f;
+                            flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kFistImpactShakeSeconds);
+                            flow.screenShakeDuration = std::max(flow.screenShakeDuration, kFistImpactShakeSeconds);
+                            flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kFistImpactShakeAmplitude);
+                            spawnMidBoss3FistImpactEffect(
+                                fistTransform->x,
+                                fistTransform->y,
+                                fistWidth,
+                                fistHeight);
                             spawnSepiaCollisionRubble(
                                 fistTransform->x,
                                 fistTransform->y,
@@ -1755,11 +1889,21 @@ inline void UpdateEnemies(
                         fist->impactAttackY = std::clamp(impactTopY, 0.0f, std::max(0.0f, mapHeight - kTileSize * 2.0f));
                         fist->impactAttackWidth = kTileSize * 4.0f;
                         fist->impactAttackHeight = kTileSize * 2.0f;
-                        fist->impactAttackRemaining = 0.28f;
+                        fist->impactAttackRemaining = 0.16f;
                         fist->impactAttackActive = true;
                         fist->impactDamageApplied = false;
                         if (hitSolidTile && canBreakOnSolid)
                         {
+                            constexpr float kFistImpactShakeSeconds = 0.24f;
+                            constexpr float kFistImpactShakeAmplitude = 24.0f;
+                            flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kFistImpactShakeSeconds);
+                            flow.screenShakeDuration = std::max(flow.screenShakeDuration, kFistImpactShakeSeconds);
+                            flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kFistImpactShakeAmplitude);
+                            spawnMidBoss3FistImpactEffect(
+                                fist->impactAttackX,
+                                fist->impactAttackY,
+                                fist->impactAttackWidth,
+                                fist->impactAttackHeight);
                             spawnSepiaCollisionRubble(
                                 fist->impactAttackX,
                                 fist->impactAttackY,

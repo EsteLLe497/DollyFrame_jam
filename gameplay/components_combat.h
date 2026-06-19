@@ -369,7 +369,7 @@ class MidBoss3Component final : public MonoBehaviour
 public:
     struct Params
     {
-        int boss3Hp = 20;
+        int boss3Hp = 1;
         int boss3WidthGrid = 4;
         int boss3HeightGrid = 4;
         int fistWidthGrid = 3;
@@ -381,24 +381,26 @@ public:
         float moveArcHeightGrid = 1.2f;
         float initialFlowDelayTime = 4.0f;
         float launcherWindupTime = 0.8f;
-        float launcherFistInterval = 0.5f;
-        float launcherFistSpeed = 672.0f;
+        float launcherFistInterval = 0.75f;
+        float launcherFistSpeed = 520.0f;
+        float launcherFistAcceleration = 900.0f;
+        float launcherFistMaxSpeed = 1700.0f;
         float launcherCooldownTime = 0.5f;
         float meteorWindupTime = 0.9f;
         float meteorPairInterval = 0.85f;
-        float meteorFistSpeed = 816.0f;
+        float meteorFistSpeed = 2050.0f;
         float meteorCooldownTime = 0.5f;
         float fistReloadTime = 2.0f;
         float fistReturnSpeed = 720.0f;
-        float fistPreLaunchShakeTime = 0.28f;
-        float fistPreLaunchShakeAmplitude = 5.0f;
+        float fistPreLaunchShakeTime = 0.65f;
+        float fistPreLaunchShakeAmplitude = 2.4f;
         float introRiseTime = 2.4f;
         float drillFormTime = 0.8f;
         float drillWaitTime = 2.0f;
         float drillLaunchSpeed = 620.0f;
         float drillRushSpeed = 720.0f;
         float drillCooldownTime = 2.0f;
-        float drillChargeShakeAmplitude = 4.0f;
+        float drillChargeShakeAmplitude = 2.0f;
     };
 
     MidBoss3Component() = default;
@@ -621,13 +623,18 @@ public:
     float waitRemaining = 0.0f;
     float followOffsetX = 0.0f;
     float followOffsetY = 0.0f;
+    float waitBaseX = 0.0f;
+    float waitBaseY = 0.0f;
+    float waitShakeTimer = 0.0f;
     float aimX = 1.0f;
     float aimY = 0.0f;
     int direction = 1;
     bool launched = true;
     bool groundRush = false;
     bool attachedToBoss = false;
+    bool waitBaseInitialized = false;
     float bossDamageTimer = 0.0f;
+    float attachedLifeRemaining = 0.0f;
     float knockbackRemaining = 0.0f;
     float settleRemaining = 0.0f;
     float settleDuration = 0.18f;

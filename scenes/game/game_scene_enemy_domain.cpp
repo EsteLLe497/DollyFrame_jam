@@ -809,9 +809,9 @@ void GameScene::UpdateEnemies()
         {
             SpawnBossRoarEffect(centerX, groundY, width);
         },
-        [this](float x, float y, float radius, float intensity)
+        [this](float x, float y, float width, float height)
         {
-            SpawnBeamShockwaveEffect(x, y, radius, intensity);
+            SpawnMidBoss3FistImpactEffect(x, y, width, height);
         },
         [this, player](Entity* sourceEntity, int amount, const char* logMessage)
         {

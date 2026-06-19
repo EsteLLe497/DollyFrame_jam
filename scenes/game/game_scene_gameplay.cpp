@@ -1110,22 +1110,104 @@ void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, fl
     }
 }
 
-void GameScene::SpawnBeamShockwaveEffect(float x, float y, float radius, float intensity)
+void GameScene::SpawnMidBoss3FistImpactEffect(float x, float y, float width, float height)
 {
-    const float clampedIntensity = std::clamp(intensity, 0.0f, 1.0f);
+    const float centerX = x + width * 0.5f;
+    const float centerY = y + height * 0.5f;
+    constexpr float kPi = 3.1415926535f;
 
-    BeamShockwaveParticle shockwave;
-    shockwave.x = x;
-    shockwave.y = y;
-    shockwave.startRadius = std::max(8.0f, radius * 0.18f);
-    shockwave.endRadius = std::max(shockwave.startRadius + 1.0f, radius);
-    shockwave.thickness = std::max(2.0f, radius * 0.10f);
-    shockwave.life = 0.28f;
-    shockwave.maxLife = 0.28f;
-    shockwave.r = std::lerp(0.72f, 1.0f, clampedIntensity);
-    shockwave.g = std::lerp(0.90f, 0.98f, clampedIntensity);
-    shockwave.b = 1.0f;
-    m_effects.beamShockwaves.push_back(shockwave);
+    constexpr int kHotSparkCount = 34;
+    for (int index = 0; index < kHotSparkCount; ++index)
+    {
+        const float baseAngle = (static_cast<float>(index) / static_cast<float>(kHotSparkCount)) * kPi * 2.0f;
+        const float angle = baseAngle + (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 0.95f;
+        const float speed = 220.0f + static_cast<float>(GetRand(340));
+        const float spawnRadius = 10.0f + static_cast<float>(GetRand(28));
+
+        LaserSparkParticle spark;
+        spark.x = centerX + std::cos(angle) * spawnRadius;
+        spark.y = centerY + std::sin(angle) * spawnRadius;
+        spark.velocityX = std::cos(angle) * speed;
+        spark.velocityY = std::sin(angle) * speed - 90.0f;
+        spark.life = 0.26f + static_cast<float>(GetRand(18)) * 0.01f;
+        spark.maxLife = spark.life;
+        spark.gravityScale = 0.14f;
+        spark.r = 1.0f;
+        spark.g = 0.58f + static_cast<float>(GetRand(28)) * 0.01f;
+        spark.b = 0.16f;
+        m_effects.laserSparks.push_back(spark);
+    }
+
+    constexpr int kPlasmaCount = 18;
+    for (int index = 0; index < kPlasmaCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float speed = 130.0f + static_cast<float>(GetRand(230));
+
+        LaserSparkParticle spark;
+        spark.x = centerX + static_cast<float>(GetRand(25)) - 12.0f;
+        spark.y = centerY + static_cast<float>(GetRand(25)) - 12.0f;
+        spark.velocityX = std::cos(angle) * speed;
+        spark.velocityY = std::sin(angle) * speed;
+        spark.life = 0.18f + static_cast<float>(GetRand(12)) * 0.01f;
+        spark.maxLife = spark.life;
+        spark.gravityScale = 0.0f;
+        const bool blue = index % 2 == 0;
+        spark.r = blue ? 0.52f : 0.96f;
+        spark.g = blue ? 0.86f : 0.48f;
+        spark.b = 1.0f;
+        m_effects.laserSparks.push_back(spark);
+    }
+
+    constexpr int kPlasmaStreakCount = 10;
+    for (int index = 0; index < kPlasmaStreakCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float length = 48.0f + static_cast<float>(GetRand(54));
+        SlamDustParticle streak;
+        streak.width = length;
+        streak.height = 5.0f + static_cast<float>(GetRand(5));
+        streak.x = centerX - streak.width * 0.5f + static_cast<float>(GetRand(37)) - 18.0f;
+        streak.y = centerY - streak.height * 0.5f + static_cast<float>(GetRand(37)) - 18.0f;
+        streak.velocityX = std::cos(angle) * (80.0f + static_cast<float>(GetRand(120)));
+        streak.velocityY = std::sin(angle) * (80.0f + static_cast<float>(GetRand(120)));
+        streak.rotation = angle;
+        streak.rotationSpeed = (index % 2 == 0 ? -1.0f : 1.0f) * (1.4f + static_cast<float>(GetRand(100)) * 0.01f);
+        streak.life = 0.16f + static_cast<float>(GetRand(10)) * 0.01f;
+        streak.maxLife = streak.life;
+        streak.alphaScale = 0.88f;
+        const bool blue = index % 2 == 0;
+        streak.r = blue ? 0.42f : 0.88f;
+        streak.g = blue ? 0.82f : 0.34f;
+        streak.b = 1.0f;
+        m_effects.slamDust.push_back(streak);
+    }
+
+    constexpr int kSmokeCount = 20;
+    for (int index = 0; index < kSmokeCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float speed = 22.0f + static_cast<float>(GetRand(88));
+        const float size = 34.0f + static_cast<float>(GetRand(58));
+
+        SlamDustParticle smoke;
+        smoke.width = size * (0.85f + static_cast<float>(GetRand(30)) * 0.01f);
+        smoke.height = size * (0.55f + static_cast<float>(GetRand(30)) * 0.01f);
+        smoke.x = centerX - smoke.width * 0.5f + static_cast<float>(GetRand(57)) - 28.0f;
+        smoke.y = centerY - smoke.height * 0.5f + static_cast<float>(GetRand(43)) - 24.0f;
+        smoke.velocityX = std::cos(angle) * speed;
+        smoke.velocityY = -46.0f - static_cast<float>(GetRand(70)) + std::sin(angle) * speed * 0.35f;
+        smoke.rotation = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 0.5f;
+        smoke.rotationSpeed = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 1.4f;
+        smoke.life = 0.55f + static_cast<float>(GetRand(24)) * 0.01f;
+        smoke.maxLife = smoke.life;
+        smoke.alphaScale = 0.46f;
+        const float shade = 0.08f + static_cast<float>(GetRand(8)) * 0.01f;
+        smoke.r = shade;
+        smoke.g = shade;
+        smoke.b = shade + 0.02f;
+        m_effects.slamDust.push_back(smoke);
+    }
 }
 
 void GameScene::UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame)

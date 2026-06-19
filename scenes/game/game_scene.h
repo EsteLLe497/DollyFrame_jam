@@ -224,7 +224,7 @@ private:
     void SpawnLightLandingEffect(float centerX, float groundY, float width);
     void SpawnBossRoarEffect(float centerX, float groundY, float width);
     void SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height);
-    void SpawnBeamShockwaveEffect(float x, float y, float radius, float intensity);
+    void SpawnMidBoss3FistImpactEffect(float x, float y, float width, float height);
     void QueueResult(GameEndReason reason);
 
     // Effects / UI overlays
