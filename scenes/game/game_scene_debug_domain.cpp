@@ -3,6 +3,8 @@
 #include "game_scene_internal.h"
 
 #include <algorithm>
+#include <filesystem>
+#include <system_error>
 
 using namespace game_scene_detail;
 
@@ -113,7 +115,39 @@ void GameScene::DrawDebugUI()
     }
 
     ImGui::Text("Events This Frame: %d", static_cast<int>(m_eventBus.GetEvents().size()));
+    ImGui::End();
+    DrawMidBoss2DebugWindow();
+    DrawProgressSavePanel();
+}
 
+void GameScene::DrawMidBoss2DebugWindow()
+{
+    const auto toMidBoss2StateLabel = [](MidBoss2State state) -> const char*
+    {
+        switch (state)
+        {
+        case MidBoss2State::Idle: return "Idle";
+        case MidBoss2State::SpearJump: return "SpearJump";
+        case MidBoss2State::SpearThrow: return "SpearThrow";
+        case MidBoss2State::SpearLanding: return "SpearLanding";
+        case MidBoss2State::SpearCooldown: return "SpearCooldown";
+        case MidBoss2State::BeamCharge: return "BeamCharge";
+        case MidBoss2State::BeamFire: return "BeamFire";
+        case MidBoss2State::BeamCooldown: return "BeamCooldown";
+        case MidBoss2State::Damaged: return "Damaged";
+        case MidBoss2State::Dead: return "Dead";
+        default: return "Unknown";
+        }
+    };
+
+    ImGui::SetNextWindowSize(ImVec2(520.0f, 700.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Boss2"))
+    {
+        ImGui::End();
+        return;
+    }
+
+    bool foundBoss = false;
     for (const auto& entity : m_world.Entities())
     {
         if (!entity)
@@ -121,15 +155,16 @@ void GameScene::DrawDebugUI()
             continue;
         }
 
-        const auto* enemy = entity->GetComponent<EnemyComponent>();
-        const auto* boss = entity->GetComponent<MidBoss2Component>();
-        const auto* transform = entity->GetComponent<TransformComponent>();
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        auto* boss = entity->GetComponent<MidBoss2Component>();
+        auto* transform = entity->GetComponent<TransformComponent>();
         if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss2 || !transform)
         {
             continue;
         }
 
-        ImGui::SeparatorText("MidBoss2");
+        foundBoss = true;
+
         ImGui::Text("Boss Hitbox: %.1f, %.1f, %.1f, %.1f",
             transform->x,
             transform->y,
@@ -140,6 +175,58 @@ void GameScene::DrawDebugUI()
         ImGui::Text("Cooldown Remaining: %.2f", boss->cooldownRemaining);
         ImGui::Text("Capture Window: %s", boss->captureWindowActive ? "Yes" : "No");
         ImGui::Text("Spear Direction: %.2f, %.2f", boss->lastSpearDirX, boss->lastSpearDirY);
+
+        ImGui::SeparatorText("Combat Params");
+        ImGui::DragInt("Spear Damage", &boss->params.spearDamage, 1.0f, 0, 999);
+        ImGui::DragFloat("Spear Fade Time", &boss->params.spearFadeTime, 0.05f, 0.05f, 10.0f, "%.2f");
+        ImGui::DragFloat("Spear Interval", &boss->params.spearInterval, 0.01f, 0.05f, 10.0f, "%.2f");
+        ImGui::DragFloat("Spear Cooldown After Landing", &boss->params.spearCooldownAfterLanding, 0.05f, 0.05f, 20.0f, "%.2f");
+        ImGui::DragFloat("Spear Landing Pause", &boss->params.spearLandingPauseTime, 0.01f, 0.0f, 5.0f, "%.2f");
+        ImGui::DragFloat("Spear Jump Height Grid", &boss->params.spearJumpHeightGrid, 0.1f, 0.0f, 20.0f, "%.2f");
+        ImGui::DragFloat("Spear Jump Horizontal Grid", &boss->params.spearJumpHorizontalGrid, 0.1f, 0.0f, 40.0f, "%.2f");
+        ImGui::DragFloat("Beam Charge Time", &boss->params.beamChargeTime, 0.05f, 0.05f, 20.0f, "%.2f");
+        ImGui::DragFloat("Beam Damage Per Second", &boss->params.beamDamagePerSecond, 0.05f, 0.0f, 50.0f, "%.2f");
+        ImGui::DragFloat("Beam Height Grid", &boss->params.beamHeightGrid, 0.05f, 0.5f, 20.0f, "%.2f");
+        ImGui::DragFloat("Beam Cooldown After Fire", &boss->params.beamCooldownAfterFire, 0.05f, 0.05f, 20.0f, "%.2f");
+        ImGui::SeparatorText("Teleport Height");
+        ImGui::TextUnformatted("Smaller values move the boss lower on screen.");
+        ImGui::TextUnformatted("Actual height = Base Height + Slot Height Adjustment.");
+        ImGui::DragFloat("Base Height Grid", &boss->params.teleportHoverBaseGrid, 0.1f, 0.0f, 20.0f, "%.2f");
+
+        ImGui::SeparatorText("Teleport Slots");
+        ImGui::Text("Values are in grid units.");
+        const auto drawTeleportSlots = [&](const char* sectionLabel, std::array<MidBoss2Component::TeleportSlotConfig, 3>& slots)
+        {
+            ImGui::PushID(sectionLabel);
+            ImGui::TextUnformatted(sectionLabel);
+            for (int index = 0; index < static_cast<int>(slots.size()); ++index)
+            {
+                auto& slot = slots[static_cast<size_t>(index)];
+                float actualHeightGrid = boss->params.teleportHoverBaseGrid + slot.hoverHeightOffsetGrid;
+
+                ImGui::PushID(index);
+                ImGui::Text("Slot %d", index + 1);
+                ImGui::DragFloat("Center X Grid", &slot.centerGridX, 0.1f, 0.0f, 120.0f, "%.2f");
+                if (ImGui::DragFloat("Teleport Height Grid", &actualHeightGrid, 0.1f, 0.0f, 20.0f, "%.2f"))
+                {
+                    slot.hoverHeightOffsetGrid = actualHeightGrid - boss->params.teleportHoverBaseGrid;
+                }
+                ImGui::Text("Height adjustment from base: %.2f", slot.hoverHeightOffsetGrid);
+                ImGui::PopID();
+            }
+            ImGui::PopID();
+        };
+        if (ImGui::BeginTable("TeleportSlotsTable", 2, ImGuiTableFlags_SizingStretchSame))
+        {
+            ImGui::TableNextColumn();
+            drawTeleportSlots("Left", boss->params.leftTeleportSlots);
+            ImGui::TableNextColumn();
+            drawTeleportSlots("Right", boss->params.rightTeleportSlots);
+            ImGui::EndTable();
+        }
+        ImGui::TextUnformatted("World view shows the actual teleport boxes.");
+        ImGui::TextUnformatted("Left = cyan, Right = orange, Beam = gold.");
+        ImGui::TextUnformatted("Gold = beam teleport. Red = clamped by arena bounds.");
 
         if (boss->beamEntity)
         {
@@ -154,6 +241,62 @@ void GameScene::DrawDebugUI()
         }
     }
 
+    if (!foundBoss)
+    {
+        ImGui::TextUnformatted("MidBoss2 not found in this scene.");
+    }
+
+    ImGui::End();
+}
+
+void GameScene::DrawProgressSavePanel()
+{
+    ImGui::SetNextWindowSize(ImVec2(360.0f, 170.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Save"))
+    {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Text("File: %s", kGameProgressSavePath);
+    if (ImGui::Button("Save Now"))
+    {
+        SaveProgressState();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reload Save"))
+    {
+        if (std::filesystem::exists(kGameProgressSavePath))
+        {
+            m_debug.saveStatusMessage = "Reloading from save file...";
+            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+        }
+        else
+        {
+            m_debug.saveStatusMessage = "No save file found.";
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Delete Save"))
+    {
+        std::error_code ec;
+        if (std::filesystem::remove(kGameProgressSavePath, ec) && !ec)
+        {
+            m_debug.saveStatusMessage = "Deleted save file.";
+        }
+        else
+        {
+            m_debug.saveStatusMessage = "No save file to delete.";
+        }
+    }
+
+    if (!m_debug.saveStatusMessage.empty())
+    {
+        ImGui::Separator();
+        ImGui::TextWrapped("%s", m_debug.saveStatusMessage.c_str());
+    }
+
+    ImGui::TextUnformatted("F5 save / F8 reload");
     ImGui::End();
 }
 

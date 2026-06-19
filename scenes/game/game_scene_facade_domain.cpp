@@ -83,7 +83,7 @@ bool GameScene::TryHandleModalUpdates(float deltaTime)
         return true;
     }
 
-    HandleGlobalSceneShortcuts();
+    HandleGlobalSceneShortcuts(deltaTime);
     ProcessFilterInput();
 
     UpdateTuningPanel();
@@ -127,6 +127,7 @@ void GameScene::FinalizeGameplayFrame(float effectiveGameplayDeltaTime)
 {
     GameSession_SetTimeRemaining(m_flow.timeRemaining);
     RunGameplayFrame(effectiveGameplayDeltaTime);
+    UpdateShieldBossBgmCue();
     if (Entity* player = FindEntityByTag(kTagPlayer))
     {
         game_scene_player_visual_system::UpdateAnimation(m_player, m_flow, *player, m_player.dodgeRemaining > 0.0f);

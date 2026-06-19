@@ -39,6 +39,58 @@ inline void BuildMidBoss2SpearCollisionSegment(
     outRadius = std::max(4.5f, height * 0.12f);
 }
 
+inline void BuildMidBoss2SpearTipCollisionSegment(
+    const TransformComponent& transform,
+    const ProjectileComponent& projectile,
+    const MidBoss2SpearComponent& spear,
+    CollisionPoint& outStart,
+    CollisionPoint& outEnd,
+    float& outRadius)
+{
+    const float width = transform.width * transform.scale;
+    const float height = transform.height * transform.scale;
+    const float centerX = transform.x + width * 0.5f;
+    const float centerY = transform.y + height * 0.5f;
+    const float halfLength = width * 0.44f;
+    const float tipLength = std::min(halfLength, std::max(width * 0.20f, height * 0.5f));
+
+    float dirX = projectile.GetVelocityX();
+    float dirY = projectile.GetVelocityY();
+    float dirLength = std::hypot(dirX, dirY);
+    if (dirLength < 0.0001f)
+    {
+        dirX = spear.directionX;
+        dirY = spear.directionY;
+        dirLength = std::hypot(dirX, dirY);
+    }
+    if (dirLength < 0.0001f)
+    {
+        dirX = std::cos(transform.rotation);
+        dirY = std::sin(transform.rotation);
+        dirLength = std::hypot(dirX, dirY);
+    }
+    if (dirLength < 0.0001f)
+    {
+        dirX = 1.0f;
+        dirY = 0.0f;
+        dirLength = 1.0f;
+    }
+
+    dirX /= dirLength;
+    dirY /= dirLength;
+
+    const float tipStartDistance = halfLength - tipLength;
+    outStart = {
+        centerX + dirX * tipStartDistance,
+        centerY + dirY * tipStartDistance
+    };
+    outEnd = {
+        centerX + dirX * halfLength,
+        centerY + dirY * halfLength
+    };
+    outRadius = std::max(4.5f, height * 0.12f);
+}
+
 inline bool SegmentIntersectsExpandedAabb(
     const CollisionPoint& start,
     const CollisionPoint& end,
@@ -90,6 +142,7 @@ template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename H
 inline void UpdateBullets(
     const std::vector<Entity*>& bulletEntities,
     const std::vector<Entity*>& enemyEntities,
+    const std::vector<Entity*>& protectiveWallEntities,
     const std::vector<TransformComponent>& obstacleBounds,
     float mapWidth,
     float mapHeight,
@@ -487,7 +540,7 @@ inline void UpdateBullets(
                 CollisionPoint spearStart;
                 CollisionPoint spearEnd;
                 float spearRadius = 0.0f;
-                BuildMidBoss2SpearCollisionSegment(*transform, spearStart, spearEnd, spearRadius);
+                BuildMidBoss2SpearTipCollisionSegment(*transform, *projectile, *spear, spearStart, spearEnd, spearRadius);
 
                 Entity* targetBoss = nullptr;
                 float bestDistanceSq = std::numeric_limits<float>::max();
@@ -544,7 +597,7 @@ inline void UpdateBullets(
                 CollisionPoint spearStart;
                 CollisionPoint spearEnd;
                 float spearRadius = 0.0f;
-                BuildMidBoss2SpearCollisionSegment(*transform, spearStart, spearEnd, spearRadius);
+                BuildMidBoss2SpearTipCollisionSegment(*transform, *projectile, *spear, spearStart, spearEnd, spearRadius);
 
                 const auto spearHitsSolidTile = [&]() -> bool
                 {
@@ -574,6 +627,34 @@ inline void UpdateBullets(
                         }
                     }
                     return false;
+                };
+
+                const auto spearHitsProtectiveWall = [&]() -> Entity*
+                {
+                    for (Entity* wallEntity : protectiveWallEntities)
+                    {
+                        if (!wallEntity)
+                        {
+                            continue;
+                        }
+
+                        auto* wall = wallEntity->GetComponent<ProtectiveWallComponent>();
+                        auto* wallTransform = wallEntity->GetComponent<TransformComponent>();
+                        if (!wall || !wallTransform || wall->IsDestroyed() || !wall->isOn)
+                        {
+                            continue;
+                        }
+
+                        const float left = wallTransform->x - spearRadius;
+                        const float top = wallTransform->y - spearRadius;
+                        const float right = wallTransform->x + wallTransform->width * wallTransform->scale + spearRadius;
+                        const float bottom = wallTransform->y + wallTransform->height * wallTransform->scale + spearRadius;
+                        if (SegmentIntersectsExpandedAabb(spearStart, spearEnd, left, top, right, bottom))
+                        {
+                            return wallEntity;
+                        }
+                    }
+                    return nullptr;
                 };
 
                 const auto spearHitsPlayer = [&]() -> bool
@@ -612,8 +693,16 @@ inline void UpdateBullets(
                     return false;
                 };
 
-                if (spearHitsSolidTile() || spearHitsObstacle())
+                Entity* hitProtectiveWall = spearHitsProtectiveWall();
+                if (spearHitsSolidTile() || spearHitsObstacle() || hitProtectiveWall)
                 {
+                    if (hitProtectiveWall)
+                    {
+                        if (auto* wall = hitProtectiveWall->GetComponent<ProtectiveWallComponent>())
+                        {
+                            wall->ApplyDamage(1);
+                        }
+                    }
                     const float hitLength = std::hypot(projectile->GetVelocityX(), projectile->GetVelocityY());
                     if (hitLength > 0.0001f)
                     {

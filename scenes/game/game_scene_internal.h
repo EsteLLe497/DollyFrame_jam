@@ -37,6 +37,7 @@ struct StageTransitionLink
 inline std::vector<StageTransitionLink> gStageTransitionLinks;
 
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";
+inline constexpr const char* kGameProgressSavePath = "savegame.json";
 constexpr float kPixelsPerMeter = 100.0f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
 constexpr float kHorizontalCollisionEpsilon = 1.0f;

@@ -1,6 +1,7 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 
 #include "game_scene_internal.h"
+#include "imgui_layer.h"
 #include "DxLib.h"
 
 #include <algorithm>
@@ -39,7 +40,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
         m_ui.captureRapidCount = 0;
     }
 
-    // 3ó‘ÔiB‰e/”z’u/Œ»‘œƒvƒŒƒrƒ…[j‚©‚çAƒgƒŒƒC•\¦‚ÆƒXƒ[‰‰o‚ğˆêŒ³Œˆ’è‚·‚éB
+    // 3çŠ¶æ…‹ï¼ˆæ’®å½±/é…ç½®/ç¾åƒãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ï¼‰ã‹ã‚‰ã€ãƒˆãƒ¬ã‚¤è¡¨ç¤ºã¨ã‚¹ãƒ­ãƒ¼æ¼”å‡ºã‚’ä¸€å…ƒæ±ºå®šã™ã‚‹ã€‚
     const bool placementActive = m_photo.placement.active;
     const bool previewActive = m_photo.pendingStore.active && m_ui.developedPhotoPreviewRemaining > 0.0f;
     const bool previewOrbAttached =
@@ -58,7 +59,7 @@ float GameScene::UpdatePhotoModes(float deltaTime)
     m_flow.placementSlowRemaining = placementActive ? kPlacementFocusDuration : 0.0f;
     const bool slowForCapture = m_flow.cameraMode;
     const bool slowForPlacement = placementActive;
-    // ƒtƒH[ƒJƒX’†‚¾‚¯ƒQ[ƒ€‘S‘Ì‚ğŒ¸‘¬‚³‚¹‚éB
+    // ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ä¸­ã ã‘ã‚²ãƒ¼ãƒ å…¨ä½“ã‚’æ¸›é€Ÿã•ã›ã‚‹ã€‚
     return (slowForCapture || slowForPlacement)
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
@@ -66,7 +67,12 @@ float GameScene::UpdatePhotoModes(float deltaTime)
 
 void GameScene::UpdateCaptureFinderZoomInput()
 {
-    if (Input_IsKeyDown(VK_RBUTTON) || m_photo.placement.active)
+    if (!m_flow.cameraMode)
+    {
+        return;
+    }
+
+    if (ImGuiLayer_WantsCaptureMouse())
     {
         return;
     }

@@ -947,6 +947,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_lifecycle.pendingStageTransitionMapCsv.clear();
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
+    m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     m_flow.timeLimit = session.timeLimit;
     m_flow.timeRemaining = session.timeRemaining;
 
@@ -1215,6 +1216,7 @@ void GameScene::ActivateCheckpoint(Entity& player, Entity& checkpoint)
 
     m_eventBus.Publish({ EventType::PlaySoundRequest, &player, &checkpoint, "scene_change", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &player, &checkpoint, "Checkpoint activated", 0.0f, 0.0f });
+    SaveProgressState();
 }
 
 void GameScene::QueueResult(GameEndReason reason)

@@ -33,6 +33,43 @@ namespace
     constexpr float SCENE_TRANSITION_DURATION = 0.70f;
     constexpr float SCENE_TRANSITION_SWAP_TIME = SCENE_TRANSITION_DURATION * 0.5f;
 
+    struct SoundCueAsset
+    {
+        const char* cueName;
+        const char* filePath;
+    };
+
+    constexpr SoundCueAsset kSoundCueAssets[] =
+    {
+        { "shutter", "assets/effects/Sound/Plater_SE/shutter.wav" },
+        { "barrel", "assets/effects/Sound/Stage_SE/barrel.wav" },
+        { "cant_paste", "assets/effects/Sound/Plater_SE/cantPaste.wav" },
+        { "enemy_gun", "assets/effects/Sound/Enemy_SE/EnemyGun.wav" },
+        { "bgm_forest", "assets/effects/Sound/Stage_BGM/forest.wav" },
+        { "bgm_ruins", "assets/effects/Sound/Stage_BGM/ruins.wav" },
+        { "bgm_under", "assets/effects/Sound/Stage_BGM/under.wav" },
+        { "bgm_forest_boss", "assets/effects/Sound/Boss_BGM/forest_boss.wav" },
+        { "boss_forest_attack2", "assets/effects/Sound/Boss_SE/Forest/attack2.wav" },
+        { "boss_forest_boost", "assets/effects/Sound/Boss_SE/Forest/boost.wav" },
+        { "boss_forest_dead", "assets/effects/Sound/Boss_SE/Forest/dead.wav" },
+        { "boss_forest_destroy", "assets/effects/Sound/Boss_SE/Forest/detroy.wav" },
+        { "boss_forest_knockback", "assets/effects/Sound/Boss_SE/Forest/nockback.wav" },
+        { "boss_forest_roar", "assets/effects/Sound/Boss_SE/Forest/roar.wav" },
+        { "boss_forest_shield_drop", "assets/effects/Sound/Boss_SE/Forest/shield_drop.wav" },
+    };
+
+    void LoadSoundCueAssets()
+    {
+        // Register split sound files once so gameplay can request cues by stable names.
+        for (const SoundCueAsset& asset : kSoundCueAssets)
+        {
+            if (!Audio_LoadCueFromFile(asset.cueName, asset.filePath))
+            {
+                Logger::Warn(std::string("Failed to load sound cue: ") + asset.cueName + " from " + asset.filePath);
+            }
+        }
+    }
+
     void ConfigureDpiAwareness()
     {
         HMODULE user32 = GetModuleHandleA("user32.dll");
@@ -180,13 +217,7 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
         return false;
     }
 
-    Audio_LoadCueFromFile("shutter", "assets/effects/Sound/shutter.wav");
-    Audio_LoadCueFromFile("barrel", "assets/effects/Sound/barrel.wav");
-    Audio_LoadCueFromFile("cant_paste", "assets/effects/Sound/cantPaste.wav");
-    Audio_LoadCueFromFile("enemy_gun", "assets/effects/Sound/EnemyGun.wav");
-    Audio_LoadCueFromFile("bgm_forest", "assets/effects/Sound/forest.wav");
-    Audio_LoadCueFromFile("bgm_ruins", "assets/effects/Sound/ruins.wav");
-    Audio_LoadCueFromFile("bgm_under", "assets/effects/Sound/under.wav");
+    LoadSoundCueAssets();
 
     m_sceneRegistry->Register("title", []()
         {
@@ -299,6 +330,9 @@ void Application::Draw()
     {
         DrawExitConfirmation();
     }
+    ImGuiLayer_BeginFrame();
+    m_sceneManager->DrawDebugUI();
+    ImGuiLayer_EndFrame();
     ImGuiLayer_DrawFoundationWindow(m_currentFps);
     Present();
 }
@@ -477,6 +511,10 @@ HWND Application::CreateAppWindow(HINSTANCE instance, int nCmdShow)
 
 LRESULT Application::HandleMessage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (ImGuiLayer_WndProcHandler(hWnd, message, wParam, lParam))
+    {
+        return TRUE;
+    }
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
 

@@ -88,6 +88,8 @@ private:
     void AdvanceLoadingStep();
     void FinishLoading();
     void PlayStageBgmForCurrentMap();
+    void CrossFadeStageBgmForCurrentMap(float durationSeconds);
+    void UpdateShieldBossBgmCue();
     void DrawLoadingScreen() const;
     void LoadTuningState();
     void RefreshStageRenderProfile();
@@ -144,7 +146,7 @@ private:
     void UpdateCaptureFinderZoomInput();
     void ProcessFilterInput();
     void UpdateTuningHotReload(float deltaTime);
-    void HandleGlobalSceneShortcuts();
+    void HandleGlobalSceneShortcuts(float deltaTime);
     void UpdateMapEditorInput(float deltaTime);
     void UpdateMapEditorStatusMessage(float deltaTime);
     bool HandleMapEditorModeShortcuts();
@@ -229,6 +231,8 @@ private:
     void UpdateEffects(float deltaTime);
     void UpdateTuningPanel();
     void DrawTuningPanel();
+    void DrawMidBoss2DebugWindow();
+    void DrawProgressSavePanel();
     void DrawPitRestartOverlay() const;
     void DrawStageDarknessOverlay() const;
     void DrawSepiaFilmFilterOverlay() const;
@@ -262,8 +266,12 @@ private:
     void DrawCameraWorldInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
+    void DrawMidBoss2TeleportSlotsInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawStageGuideInView() const;
     void DrawPhotoFilterPanelInView() const;
+    bool SaveProgressState();
+    bool LoadProgressStateFromDisk();
+    void ApplyLoadedProgressState();
 
     // Collision / map query helpers
     bool IsPhotoTrayHit(float screenX, float screenY) const;
@@ -327,6 +335,7 @@ private:
     GameSceneUiState m_ui;
     GameSceneRenderState m_render;
     GameSceneTuningState m_tuning;
+    GameSceneSaveState m_save;
     struct CameraRuntimeState
     {
         std::vector<fixedCameraRange> fixedRanges;
