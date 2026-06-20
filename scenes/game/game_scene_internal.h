@@ -362,6 +362,7 @@ inline constexpr const char* kTagHazard = "Hazard";
 inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagDropItem = "DropItem";
 inline constexpr const char* kTagBattery = "Battery";
+inline constexpr const char* kTagBatteryGenerator = "BatteryGenerator";
 inline constexpr const char* kTagLog = "Log";
 inline constexpr const char* kTagFallingRock = "FallingRock";
 inline constexpr const char* kTagJumpPad = "JumpPad";
@@ -459,6 +460,11 @@ inline bool IsEnemyMarker(char marker)
 }
 
 inline bool IsBatteryMarker(char marker)
+{
+    return IsMarkerInSet(marker, "Y");
+}
+
+inline bool IsBatteryGeneratorMarker(char marker)
 {
     return IsMarkerInSet(marker, "Y");
 }

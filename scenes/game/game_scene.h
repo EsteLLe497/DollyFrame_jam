@@ -22,6 +22,7 @@ class PhotoSystem;
 class PhotoCaptureSystem;
 class PhotoPasteSystem;
 class PrefabFactory;
+enum class SwitchPressMode;
 
 class GameScene final : public Scene
 {
@@ -179,7 +180,8 @@ private:
     void UpdateGameplayActors(float gameplayDeltaTime);
     void ResolveGameplayOutcomes(float gameplayDeltaTime);
     void FlushPendingEntities();
-    void SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize);
+    void SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize, SwitchPressMode pressMode);
+    void SpawnBatteryGeneratorMarker(float x, float y, int linkId, int spawnDirectionX, float tileSize);
     void SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize);
     void SpawnLaserSwitchMarker(float x, float y, int linkId, float tileSize);
     void SpawnShutterMarker(float x, float y, int moveRangeTiles, int linkId, bool useBossDefeatSignal, bool opensWhenUnpowered, float tileSize);

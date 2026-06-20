@@ -222,13 +222,15 @@ BatterySwitchComponent::BatterySwitchComponent(
     float pressDepthValue,
     float pressSpeedValue,
     float releaseSpeedValue,
-    bool controlsLaserPowerValue)
+    bool controlsLaserPowerValue,
+    SwitchPressMode pressModeValue)
     : linkId((std::max)(0, linkIdValue))
     , requiredBatteryCount((std::max)(1, requiredBatteryCountValue))
     , pressDepth((std::max)(0.0f, pressDepthValue))
     , pressSpeed((std::max)(1.0f, pressSpeedValue))
     , releaseSpeed((std::max)(1.0f, releaseSpeedValue))
     , controlsLaserPower(controlsLaserPowerValue)
+    , pressMode(pressModeValue)
 {
 }
 
@@ -246,7 +248,15 @@ void BatterySwitchComponent::DrawDebugUI()
     ImGui::SeparatorText("Battery Switch");
     ImGui::Text("LinkId: %d", linkId);
     ImGui::Text("Target: %s", controlsLaserPower ? "Laser Power" : "Linked Gimmick");
-    ImGui::Text("Battery: %d / %d", insertedBatteryCount, requiredBatteryCount);
+    ImGui::Text("Press Mode: %s", pressMode == SwitchPressMode::Player ? "Player" : "Battery");
+    if (pressMode == SwitchPressMode::Player)
+    {
+        ImGui::Text("Player: %s", isPressed ? "On" : "Off");
+    }
+    else
+    {
+        ImGui::Text("Battery: %d / %d", insertedBatteryCount, requiredBatteryCount);
+    }
     ImGui::Text("Press: %.1f / %.1f", currentPress, pressDepth);
     ImGui::Text("Pressed: %s", isPressed ? "Yes" : "No");
     ImGui::Text("Grace: %.2f", activationGraceRemaining);
@@ -308,6 +318,25 @@ ShutterComponent::ShutterComponent(
     , useBossDefeatSignal(useBossDefeatSignalValue)
     , opensWhenUnpowered(opensWhenUnpoweredValue)
 {
+}
+
+BatteryGeneratorComponent::BatteryGeneratorComponent(
+    int linkIdValue,
+    float cooldownSecondsValue,
+    int spawnDirectionXValue)
+    : linkId((std::max)(0, linkIdValue))
+    , cooldownSeconds((std::max)(0.0f, cooldownSecondsValue))
+    , spawnDirectionX(spawnDirectionXValue < 0 ? -1 : 1)
+{
+}
+
+void BatteryGeneratorComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Battery Generator");
+    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("Cooldown: %.2f / %.2f", cooldownRemaining, cooldownSeconds);
+    ImGui::Text("Spawn Direction X: %d", spawnDirectionX);
+    ImGui::Text("Was Powered: %s", wasPowered ? "Yes" : "No");
 }
 
 void ShutterComponent::OnAttach(GameObject& owner)
