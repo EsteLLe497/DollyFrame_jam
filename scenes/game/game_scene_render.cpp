@@ -221,6 +221,98 @@ namespace
         DrawTriangleAA(ax, ay, cx, cy, dx, dy, color, TRUE);
     }
 
+    void DrawPlayerSwitchDomeFace(
+        int left,
+        int right,
+        int height,
+        int bevel,
+        int faceTop,
+        int faceBottom,
+        int faceColor,
+        int highlightColor,
+        int rimColor,
+        float pressRate,
+        float alphaMultiplier)
+    {
+        constexpr int kDomeSegments = 120;
+        constexpr float kPi = 3.14159265f;
+        constexpr float kHighlightStartT = 0.18f;
+        constexpr float kHighlightEndT = 0.82f;
+
+        const int shadowColor = GetColor(58, 42, 36);
+        const float domeLeft = static_cast<float>(left + bevel);
+        const float domeRight = static_cast<float>(right - bevel);
+        const float domeBaseY = static_cast<float>(faceBottom);
+        const float centerX = (domeLeft + domeRight) * 0.5f;
+        const float radiusX = std::max(1.0f, (domeRight - domeLeft) * 0.5f);
+        const float normalRadiusY = std::max(1.0f, static_cast<float>(faceBottom - faceTop));
+        const float flatRadiusY = std::max(1.0f, static_cast<float>(height) * 0.08f);
+        const float radiusY = std::lerp(normalRadiusY, flatRadiusY, std::clamp(pressRate, 0.0f, 1.0f));
+
+        struct Point
+        {
+            float x;
+            float y;
+        };
+
+        const auto pointOnDome = [&](float t)
+        {
+            const float theta = kPi * (1.0f - t);
+            return Point{
+                centerX + std::cos(theta) * radiusX,
+                domeBaseY - std::sin(theta) * radiusY
+            };
+        };
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(245.0f * alphaMultiplier)), 0, 255));
+        for (int index = 0; index < kDomeSegments; ++index)
+        {
+            const float t0 = static_cast<float>(index) / static_cast<float>(kDomeSegments);
+            const float t1 = static_cast<float>(index + 1) / static_cast<float>(kDomeSegments);
+            const auto p0 = pointOnDome(t0);
+            const auto p1 = pointOnDome(t1);
+            DrawQuadrangleAA(
+                p0.x, p0.y,
+                p1.x, p1.y,
+                p1.x, domeBaseY,
+                p0.x, domeBaseY,
+                faceColor,
+                TRUE);
+        }
+
+        const float highlightBottomOffset = std::max(2.0f, static_cast<float>(height) * 0.12f);
+        for (int index = 0; index < kDomeSegments; ++index)
+        {
+            const float segmentStart = static_cast<float>(index) / static_cast<float>(kDomeSegments);
+            const float segmentEnd = static_cast<float>(index + 1) / static_cast<float>(kDomeSegments);
+            const float t0 = std::lerp(kHighlightStartT, kHighlightEndT, segmentStart);
+            const float t1 = std::lerp(kHighlightStartT, kHighlightEndT, segmentEnd);
+            const auto p0 = pointOnDome(t0);
+            const auto p1 = pointOnDome(t1);
+            const float y0 = std::min(domeBaseY, p0.y + highlightBottomOffset);
+            const float y1 = std::min(domeBaseY, p1.y + highlightBottomOffset);
+            DrawQuadrangleAA(
+                p0.x, p0.y,
+                p1.x, p1.y,
+                p1.x, y1,
+                p0.x, y0,
+                highlightColor,
+                TRUE);
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(230.0f * alphaMultiplier)), 0, 255));
+        auto previous = pointOnDome(0.0f);
+        for (int index = 1; index <= kDomeSegments; ++index)
+        {
+            const float t = static_cast<float>(index) / static_cast<float>(kDomeSegments);
+            const auto current = pointOnDome(t);
+            DrawLineAA(previous.x, previous.y, current.x, current.y, rimColor, std::max(1.2f, static_cast<float>(height) * 0.08f));
+            previous = current;
+        }
+        DrawLineAA(domeLeft, domeBaseY, domeRight, domeBaseY, shadowColor, std::max(1.0f, static_cast<float>(height) * 0.06f));
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     void DrawMidBoss3DrillShape(
         float screenX,
         float screenY,
@@ -2357,6 +2449,27 @@ void GameScene::DrawEntity(const Entity& entity) const
         DrawBox(left, top, right, bottom, rimColor, FALSE);
         DrawBox(left + bevel, faceBottom, right - bevel, bottom, sideColor, TRUE);
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(245.0f * alphaMultiplier)));
+        if (batterySwitch && batterySwitch->pressMode == SwitchPressMode::Player)
+        {
+            const float pressRate = batterySwitch->pressDepth > 0.0f
+                ? std::clamp(batterySwitch->currentPress / batterySwitch->pressDepth, 0.0f, 1.0f)
+                : (batterySwitch->isPressed ? 1.0f : 0.0f);
+            DrawPlayerSwitchDomeFace(
+                left,
+                right,
+                height,
+                bevel,
+                faceTop,
+                faceBottom,
+                faceColor,
+                highlightColor,
+                rimColor,
+                pressRate,
+                alphaMultiplier);
+            Shader_ResetStyle();
+            return;
+        }
+
         DrawBox(left + bevel, faceTop, right - bevel, faceBottom, faceColor, TRUE);
         DrawBox(left + bevel, faceTop, right - bevel, faceBottom, rimColor, FALSE);
         DrawBox(left + bevel * 2, faceTop + 2, right - bevel * 2, faceTop + std::max(3, height / 5), highlightColor, TRUE);
