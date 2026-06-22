@@ -773,6 +773,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
 
         if (HasTag(*entity, EntityTag::BatterySwitch) ||
+            HasTag(*entity, EntityTag::BatteryGenerator) ||
             HasTag(*entity, EntityTag::Elevator) ||
             HasTag(*entity, EntityTag::LaserSwitch) ||
             HasTag(*entity, EntityTag::Shutter) ||

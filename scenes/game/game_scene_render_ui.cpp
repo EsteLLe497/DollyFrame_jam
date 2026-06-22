@@ -2800,15 +2800,27 @@ void GameScene::DrawBatterySwitchCounters() const
             static_cast<int>(std::round(panelY)),
             static_cast<int>(std::round(panelX + panelWidth)),
             static_cast<int>(std::round(panelY + panelHeight)),
-            batterySwitch->isPressed ? GetColor(180, 255, 196) : GetColor(242, 226, 190),
+            batterySwitch->isPressed
+                ? GetColor(180, 255, 196) : GetColor(242, 226, 190),
             FALSE);
 
-        DrawFormatString(
-            static_cast<int>(std::round(panelX + 10.0f)),
-            static_cast<int>(std::round(panelY + 4.0f)),
-            batterySwitch->isPressed ? GetColor(220, 255, 228) : GetColor(255, 244, 220),
-            "%d/%d",
-            batterySwitch->insertedBatteryCount,
-            batterySwitch->requiredBatteryCount);
+        if (batterySwitch->pressMode == SwitchPressMode::Player)
+        {
+            DrawString(
+                static_cast<int>(std::round(panelX + 7.0f)),
+                static_cast<int>(std::round(panelY + 4.0f)),
+                "PLAYER",
+                GetColor(255, 244, 220));
+        }
+        else
+        {
+            DrawFormatString(
+                static_cast<int>(std::round(panelX + 10.0f)),
+                static_cast<int>(std::round(panelY + 4.0f)),
+                batterySwitch->isPressed ? GetColor(220, 255, 228) : GetColor(255, 244, 220),
+                "%d/%d",
+                batterySwitch->insertedBatteryCount,
+                batterySwitch->requiredBatteryCount);
+        }
     }
 }

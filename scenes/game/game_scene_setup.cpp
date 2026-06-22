@@ -832,7 +832,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins_boss.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins1.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     m_flow.timeLimit = 60.0f;
@@ -1476,6 +1476,13 @@ void GameScene::InitializeStageEntities()
     for (const TileMarker& stageMarker : stageMarkers)
     {
         if (stageMarker.marker != 'Y')
+        {
+            continue;
+        }
+
+        const char marker2 = static_cast<char>(std::toupper(static_cast<unsigned char>(
+            m_tileMap.GetMarker2(stageMarker.column, stageMarker.row))));
+        if (marker2 != '\0')
         {
             continue;
         }

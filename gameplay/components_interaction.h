@@ -142,6 +142,12 @@ public:
     float spawnY = 0.0f;
 };
 
+enum class SwitchPressMode
+{
+    Battery,
+    Player,
+};
+
 class BatterySwitchComponent final : public MonoBehaviour
 {
 public:
@@ -151,7 +157,8 @@ public:
         float pressDepth,
         float pressSpeed,
         float releaseSpeed,
-        bool controlsLaserPower = false);
+        bool controlsLaserPower = false,
+        SwitchPressMode pressMode = SwitchPressMode::Battery);
 
     void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
@@ -168,6 +175,7 @@ public:
     float currentPress = 0.0f;
     bool isPressed = false;
     bool controlsLaserPower = false;
+    SwitchPressMode pressMode = SwitchPressMode::Battery;
 };
 
 class ElevatorComponent final : public MonoBehaviour
@@ -225,6 +233,23 @@ public:
     bool isOpen = false;
     bool useBossDefeatSignal = false;
     bool opensWhenUnpowered = false;
+};
+
+class BatteryGeneratorComponent final : public MonoBehaviour
+{
+public:
+    BatteryGeneratorComponent(
+        int linkId,
+        float cooldownSeconds,
+        int spawnDirectionX);
+
+    void DrawDebugUI() override;
+
+    int linkId = 0;
+    float cooldownSeconds = 3.0f;
+    float cooldownRemaining = 0.0f;
+    int spawnDirectionX = 1;
+    bool wasPowered = false;
 };
 
 class ProtectiveWallComponent final : public MonoBehaviour
