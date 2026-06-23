@@ -175,6 +175,8 @@ void GameScene::DrawMidBoss2DebugWindow()
         ImGui::Text("Cooldown Remaining: %.2f", boss->cooldownRemaining);
         ImGui::Text("Capture Window: %s", boss->captureWindowActive ? "Yes" : "No");
         ImGui::Text("Spear Direction: %.2f, %.2f", boss->lastSpearDirX, boss->lastSpearDirY);
+        ImGui::Text("Last Beam Slot Side: %s", boss->lastBeamTeleportLeftSide ? "Left" : "Right");
+        ImGui::Text("Next Spear Start Side: %s", boss->nextSpearStartLeftSide ? "Left" : "Right");
 
         ImGui::SeparatorText("Combat Params");
         ImGui::DragInt("Spear Damage", &boss->params.spearDamage, 1.0f, 0, 999);
@@ -192,6 +194,13 @@ void GameScene::DrawMidBoss2DebugWindow()
         ImGui::TextUnformatted("Smaller values move the boss lower on screen.");
         ImGui::TextUnformatted("Actual height = Base Height + Slot Height Adjustment.");
         ImGui::DragFloat("Base Height Grid", &boss->params.teleportHoverBaseGrid, 0.1f, 0.0f, 20.0f, "%.2f");
+
+        ImGui::SeparatorText("Teleport Spark");
+        ImGui::DragInt("Spark Count", &boss->params.teleportSparkCount, 1.0f, 0, 256);
+        ImGui::DragFloat("Min Particle Size", &boss->params.teleportSparkMinSize, 0.05f, 0.1f, 12.0f, "%.2f");
+        ImGui::DragFloat("Max Particle Size", &boss->params.teleportSparkMaxSize, 0.05f, 0.1f, 12.0f, "%.2f");
+        ImGui::DragFloat("Spread Scale", &boss->params.teleportSparkSpreadScale, 0.05f, 0.0f, 8.0f, "%.2f");
+        ImGui::DragFloat("Particle Lifetime", &boss->params.teleportSparkLifetime, 0.01f, 0.01f, 5.0f, "%.2f");
 
         ImGui::SeparatorText("Teleport Slots");
         ImGui::Text("Values are in grid units.");
@@ -227,6 +236,47 @@ void GameScene::DrawMidBoss2DebugWindow()
         ImGui::TextUnformatted("World view shows the actual teleport boxes.");
         ImGui::TextUnformatted("Left = cyan, Right = orange, Beam = gold.");
         ImGui::TextUnformatted("Gold = beam teleport. Red = clamped by arena bounds.");
+
+        ImGui::SeparatorText("Save");
+        ImGui::Text("File: %s", kTuningFilePath);
+        if (ImGui::Button("Save Boss2 Params"))
+        {
+            m_tuning.midBoss2Params = boss->params;
+            ApplyMidBoss2TuningToActiveBosses();
+            WriteTuningJsonFile();
+
+            std::error_code ec;
+            const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
+            if (!ec)
+            {
+                m_debug.tuningFileWriteTime = writeTime;
+                m_debug.hasTuningFileWriteTime = true;
+            }
+
+            m_debug.saveStatusMessage = "Saved Boss2 params to assets/tuning.json.";
+            m_debug.saveStatusTimer = 3.0f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Reload Boss2 Params"))
+        {
+            LoadTuningJsonFile();
+            ApplyMidBoss2TuningToActiveBosses();
+
+            std::error_code ec;
+            const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
+            if (!ec)
+            {
+                m_debug.tuningFileWriteTime = writeTime;
+                m_debug.hasTuningFileWriteTime = true;
+            }
+
+            m_debug.saveStatusMessage = "Reloaded Boss2 params from assets/tuning.json.";
+            m_debug.saveStatusTimer = 3.0f;
+        }
+        if (!m_debug.saveStatusMessage.empty())
+        {
+            ImGui::TextWrapped("%s", m_debug.saveStatusMessage.c_str());
+        }
 
         if (boss->beamEntity)
         {

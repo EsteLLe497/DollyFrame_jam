@@ -1961,9 +1961,24 @@ void GameScene::DrawEffects() const
     for (const auto& spark : m_effects.laserSparks)
     {
         const float lifeT = Clamp01(spark.life / std::max(0.001f, spark.maxLife));
-        const float size = (2.0f + 3.0f * lifeT) * viewScale;
+        const float size = (2.0f + 3.0f * lifeT) * std::max(0.1f, spark.sizeScale) * viewScale;
         const float drawX = viewOriginX + (spark.x - m_flow.cameraX) * viewScale;
         const float drawY = viewOriginY + (spark.y - m_flow.cameraY) * viewScale;
+        if (spark.drawCircle)
+        {
+            const int alpha = std::clamp(static_cast<int>(std::round(255.0f * lifeT)), 0, 255);
+            const int color = GetColor(
+                std::clamp(static_cast<int>(std::round(255.0f * spark.r)), 0, 255),
+                std::clamp(static_cast<int>(std::round(255.0f * spark.g)), 0, 255),
+                std::clamp(static_cast<int>(std::round(255.0f * spark.b)), 0, 255));
+
+            Shader_ResetStyle();
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+            DrawCircleAA(drawX, drawY, std::max(0.75f, size * 0.5f), 24, color, TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            continue;
+        }
+
         Shader_ResetStyle();
         Shader_SetTint(spark.r, spark.g, spark.b, lifeT);
         SpriteDraw(
@@ -1990,41 +2005,88 @@ void GameScene::DrawEffects() const
         const float drawX = viewOriginX + (shockwave.x - m_flow.cameraX) * viewScale;
         const float drawY = viewOriginY + (shockwave.y - m_flow.cameraY) * viewScale;
         const int alpha = static_cast<int>(std::round(150.0f * lifeT));
+        const int shockwaveColor = GetColor(
+            static_cast<int>(std::round(255.0f * shockwave.r)),
+            static_cast<int>(std::round(255.0f * shockwave.g)),
+            static_cast<int>(std::round(255.0f * shockwave.b)));
 
         SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
-        DrawCircleAA(
-            drawX,
-            drawY,
-            radius,
-            64,
-            GetColor(
-                static_cast<int>(std::round(255.0f * shockwave.r)),
-                static_cast<int>(std::round(255.0f * shockwave.g)),
-                static_cast<int>(std::round(255.0f * shockwave.b))),
-            FALSE,
-            thickness);
-        DrawCircleAA(
-            drawX,
-            drawY,
-            radius * 0.78f,
-            64,
-            GetColor(255, 255, 255),
-            FALSE,
-            std::max(1.0f, thickness * 0.42f));
-        DrawLineAA(
-            drawX - radius * 0.9f,
-            drawY,
-            drawX + radius * 0.9f,
-            drawY,
-            GetColor(188, 240, 255),
-            std::max(1.0f, thickness * 0.28f));
-        DrawLineAA(
-            drawX,
-            drawY - radius * 0.62f,
-            drawX,
-            drawY + radius * 0.62f,
-            GetColor(188, 240, 255),
-            std::max(1.0f, thickness * 0.22f));
+        if (std::fabs(shockwave.directionX) > 0.001f)
+        {
+            const float directionX = shockwave.directionX >= 0.0f ? 1.0f : -1.0f;
+            const float frontX = drawX + directionX * radius;
+            const float flareHeight = radius * 0.34f;
+            DrawLineAA(
+                drawX,
+                drawY,
+                frontX,
+                drawY,
+                shockwaveColor,
+                std::max(1.0f, thickness * 1.35f));
+            DrawLineAA(
+                drawX,
+                drawY - flareHeight * 0.32f,
+                frontX,
+                drawY,
+                GetColor(188, 240, 255),
+                std::max(1.0f, thickness * 0.58f));
+            DrawLineAA(
+                drawX,
+                drawY + flareHeight * 0.32f,
+                frontX,
+                drawY,
+                GetColor(188, 240, 255),
+                std::max(1.0f, thickness * 0.58f));
+            DrawCircleAA(
+                drawX,
+                drawY,
+                std::max(2.0f, radius * 0.13f),
+                48,
+                shockwaveColor,
+                FALSE,
+                std::max(1.0f, thickness * 0.72f));
+            DrawCircleAA(
+                frontX,
+                drawY,
+                std::max(2.0f, radius * 0.08f),
+                32,
+                GetColor(255, 255, 255),
+                TRUE,
+                std::max(1.0f, thickness * 0.24f));
+        }
+        else
+        {
+            DrawCircleAA(
+                drawX,
+                drawY,
+                radius,
+                64,
+                shockwaveColor,
+                FALSE,
+                thickness);
+            DrawCircleAA(
+                drawX,
+                drawY,
+                radius * 0.78f,
+                64,
+                GetColor(255, 255, 255),
+                FALSE,
+                std::max(1.0f, thickness * 0.42f));
+            DrawLineAA(
+                drawX - radius * 0.9f,
+                drawY,
+                drawX + radius * 0.9f,
+                drawY,
+                GetColor(188, 240, 255),
+                std::max(1.0f, thickness * 0.28f));
+            DrawLineAA(
+                drawX,
+                drawY - radius * 0.62f,
+                drawX,
+                drawY + radius * 0.62f,
+                GetColor(188, 240, 255),
+                std::max(1.0f, thickness * 0.22f));
+        }
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
@@ -2157,6 +2219,7 @@ void GameScene::DrawEntity(const Entity& entity) const
     const auto* midBoss2Spear = entity.GetComponent<MidBoss2SpearComponent>();
     const auto* midBoss2 = entity.GetComponent<MidBoss2Component>();
     const auto* bossBeamCapture = entity.GetComponent<BossBeamCaptureComponent>();
+    const auto* capturedBoss2BeamCharge = entity.GetComponent<CapturedBoss2BeamChargeComponent>();
     const bool midBoss2TeleportFlashActive =
         enemyComponent &&
         enemyComponent->GetArchetype() == EnemyArchetype::MidBoss2 &&
@@ -3045,8 +3108,9 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float wrapThickness = std::max(1.0f, renderDrawHeight * (isBossBeam ? 0.10f : 0.08f));
             const int wrapGlowAlpha = std::clamp(static_cast<int>(std::round((isBossBeam ? 104.0f : 84.0f) * alphaMultiplier * beamEnergy)), 0, 255);
             const int wrapCoreAlpha = std::clamp(static_cast<int>(std::round((isBossBeam ? 172.0f : 136.0f) * alphaMultiplier * beamEnergy)), 0, 255);
-            const float sourceX = bossBeamCapture && bossBeamCapture->sourceOnLeft ? renderDrawX : renderDrawX + renderDrawWidth;
-            const float targetX = bossBeamCapture && bossBeamCapture->sourceOnLeft ? renderDrawX + renderDrawWidth : renderDrawX;
+            const bool beamSourceOnLeft = !bossBeamCapture || bossBeamCapture->sourceOnLeft;
+            const float sourceX = beamSourceOnLeft ? renderDrawX : renderDrawX + renderDrawWidth;
+            const float targetX = beamSourceOnLeft ? renderDrawX + renderDrawWidth : renderDrawX;
             const float muzzlePulse = 0.88f + 0.12f * std::sin(timeSeconds * 18.0f);
             const float impactPulse = 0.84f + 0.16f * std::sin(timeSeconds * 11.0f + 1.7f);
 
@@ -3075,14 +3139,21 @@ void GameScene::DrawEntity(const Entity& entity) const
             auto drawWrappedLine = [&](int alpha, int color, float thickness, float pointRadius)
             {
                 SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
-                float previousX = renderDrawX;
-                float previousY = beamCenterY + std::sin(timeSeconds * wrapSpeed) * wrapAmplitude;
+                auto sampleX = [&](float t)
+                {
+                    return std::lerp(sourceX, targetX, t);
+                };
+                auto sampleY = [&](float t)
+                {
+                    return beamCenterY + std::sin(t * 6.28318530718f * wrapFrequency - timeSeconds * wrapSpeed) * wrapAmplitude;
+                };
+                float previousX = sampleX(0.0f);
+                float previousY = sampleY(0.0f);
                 for (int segment = 1; segment <= kWrapSegments; ++segment)
                 {
                     const float t = static_cast<float>(segment) / static_cast<float>(kWrapSegments);
-                    const float x = renderDrawX + renderDrawWidth * t;
-                    const float phase = timeSeconds * wrapSpeed + t * 6.28318530718f * wrapFrequency;
-                    const float y = beamCenterY + std::sin(phase) * wrapAmplitude;
+                    const float x = sampleX(t);
+                    const float y = sampleY(t);
                     DrawLineAA(previousX, previousY, x, y, color, thickness);
                     DrawCircle(
                         static_cast<int>(std::round(x)),
@@ -3527,6 +3598,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float innerRadius = std::max(3.0f, outerRadius * 0.40f);
             const float haloRadius = outerRadius * std::lerp(3.2f, 1.8f, chargeT);
             const float streamRadius = tileSize * viewScale * std::lerp(2.2f, 0.75f, chargeT);
+            const float beamDirectionX = boss->beamFacingRight ? 1.0f : -1.0f;
             const float flashT = Clamp01((chargeT - 0.84f) / 0.16f);
             const float flashBoost = 1.0f + flashT * flashT * 1.8f;
             const int haloAlpha = std::clamp(static_cast<int>(std::round(std::lerp(28.0f, 108.0f, chargeT) * flashBoost)), 0, 255);
@@ -3560,18 +3632,18 @@ void GameScene::DrawEntity(const Entity& entity) const
             {
                 const float seed = static_cast<float>(index) / static_cast<float>(kSparkCount);
                 const float cycle = std::fmod(timeSeconds * (1.3f + flashT * 0.7f) + seed * 1.7f, 1.0f);
-                const float travelT = 1.0f - std::pow(cycle, 1.85f);
+                const float travelT = std::pow(cycle, 1.35f);
                 const float randomA = seed * 6.28318530718f + std::sin(seed * 34.0f) * 0.7f;
                 const float randomR = streamRadius * (0.62f + 0.38f * std::fmod(seed * 13.0f, 1.0f));
-                const float startX = effectCenterX + std::cos(randomA) * randomR;
-                const float startY = effectCenterY + std::sin(randomA) * randomR;
-                const float sparkX = std::lerp(effectCenterX, startX, travelT);
-                const float sparkY = std::lerp(effectCenterY, startY, travelT);
-                const float tailT = std::min(1.0f, travelT + 0.16f + flashT * 0.08f);
-                const float tailX = std::lerp(effectCenterX, startX, tailT);
-                const float tailY = std::lerp(effectCenterY, startY, tailT);
-                const float sparkRadius = std::max(2.0f, tileSize * viewScale * std::lerp(0.10f, 0.028f, 1.0f - travelT) * (1.0f + flashT * 0.35f));
-                const int sparkAlpha = std::clamp(static_cast<int>(std::round(std::lerp(72.0f, 232.0f, travelT) * (0.75f + 0.55f * chargeT))), 0, 255);
+                const float streamEndX = effectCenterX + beamDirectionX * randomR * (1.06f + flashT * 0.34f);
+                const float streamEndY = effectCenterY + std::sin(randomA) * streamRadius * 0.44f;
+                const float sparkX = std::lerp(effectCenterX, streamEndX, travelT);
+                const float sparkY = std::lerp(effectCenterY, streamEndY, travelT);
+                const float tailT = std::max(0.0f, travelT - 0.16f - flashT * 0.08f);
+                const float tailX = std::lerp(effectCenterX, streamEndX, tailT);
+                const float tailY = std::lerp(effectCenterY, streamEndY, tailT);
+                const float sparkRadius = std::max(2.0f, tileSize * viewScale * std::lerp(0.10f, 0.028f, travelT) * (1.0f + flashT * 0.35f));
+                const int sparkAlpha = std::clamp(static_cast<int>(std::round(std::lerp(232.0f, 72.0f, travelT) * (0.75f + 0.55f * chargeT))), 0, 255);
                 const int tailAlpha = std::clamp(static_cast<int>(std::round(static_cast<float>(sparkAlpha) * (0.30f + flashT * 0.24f))), 0, 255);
                 SetDrawBlendMode(DX_BLENDMODE_ADD, tailAlpha);
                 DrawLine(
@@ -3596,9 +3668,9 @@ void GameScene::DrawEntity(const Entity& entity) const
             {
                 SetDrawBlendMode(DX_BLENDMODE_ADD, flashAlpha);
                 DrawLine(
-                    static_cast<int>(std::round(effectCenterX - flashCross)),
+                    static_cast<int>(std::round(effectCenterX)),
                     static_cast<int>(std::round(effectCenterY)),
-                    static_cast<int>(std::round(effectCenterX + flashCross)),
+                    static_cast<int>(std::round(effectCenterX + beamDirectionX * flashCross)),
                     static_cast<int>(std::round(effectCenterY)),
                     GetColor(255, 255, 255),
                     4);
@@ -3636,6 +3708,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float bodyRingThickness = std::max(2.0f, viewScale * std::lerp(2.4f, 4.8f, chargeT));
             const float beamRingThickness = std::max(1.5f, viewScale * std::lerp(1.8f, 3.5f, chargeT));
             const float swirlSpin = timeSeconds * std::lerp(2.8f, 5.4f, chargeT);
+            const float beamDirectionX = midBoss2->beamFacingRight ? 1.0f : -1.0f;
 
             SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((64.0f + chargeT * 92.0f) * alphaMultiplier * pulse)), 0, 255));
             DrawLineAA(
@@ -3662,9 +3735,9 @@ void GameScene::DrawEntity(const Entity& entity) const
                 FALSE,
                 beamRingThickness);
             DrawLineAA(
-                beamCenterX - beamRingRadius * 0.92f,
+                beamCenterX,
                 beamCenterY,
-                beamCenterX + beamRingRadius * 0.92f,
+                beamCenterX + beamDirectionX * beamRingRadius * 0.92f,
                 beamCenterY,
                 GetColor(176, 232, 255),
                 std::max(1.5f, beamRingThickness * 0.36f));
@@ -3676,16 +3749,16 @@ void GameScene::DrawEntity(const Entity& entity) const
                 GetColor(176, 232, 255),
                 std::max(1.5f, beamRingThickness * 0.32f));
             DrawLineAA(
-                beamCenterX - beamRingRadius * 0.68f,
-                beamCenterY - beamRingRadius * 0.44f,
-                beamCenterX + beamRingRadius * 0.68f,
+                beamCenterX,
+                beamCenterY,
+                beamCenterX + beamDirectionX * beamRingRadius * 0.68f,
                 beamCenterY + beamRingRadius * 0.44f,
                 GetColor(140, 224, 255),
                 std::max(1.4f, beamRingThickness * 0.22f));
             DrawLineAA(
-                beamCenterX - beamRingRadius * 0.68f,
-                beamCenterY + beamRingRadius * 0.44f,
-                beamCenterX + beamRingRadius * 0.68f,
+                beamCenterX,
+                beamCenterY,
+                beamCenterX + beamDirectionX * beamRingRadius * 0.68f,
                 beamCenterY - beamRingRadius * 0.44f,
                 GetColor(140, 224, 255),
                 std::max(1.4f, beamRingThickness * 0.22f));
@@ -3694,7 +3767,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             {
                 const float angle = swirlSpin + static_cast<float>(shardIndex) * 1.0471976f;
                 const float shardDistance = beamRingRadius * std::lerp(0.76f, 1.14f, 1.0f - chargeT);
-                const float shardX = beamCenterX + std::cos(angle) * shardDistance;
+                const float shardX = beamCenterX + beamDirectionX * std::fabs(std::cos(angle)) * shardDistance;
                 const float shardY = beamCenterY + std::sin(angle) * shardDistance * 0.74f;
                 DrawLineAA(
                     beamCenterX,
@@ -3714,6 +3787,124 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
             SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
             Shader_ResetStyle();
+        }
+    }
+
+    if (tag &&
+        HasTag(tag, kTagLaserTurret) &&
+        capturedBoss2BeamCharge &&
+        capturedBoss2BeamCharge->chargeDuration > 0.0f)
+    {
+        if (const auto* turret = entity.GetComponent<LaserTurretComponent>())
+        {
+            if (turret->warmupRemaining > 0.0f)
+            {
+                const float chargeT = Clamp01(1.0f - (turret->warmupRemaining / capturedBoss2BeamCharge->chargeDuration));
+                const float tileSize = 48.0f;
+                const float beamCenterX = viewOriginX + ((transform->x + turret->beamOriginOffsetX) - m_flow.cameraX) * viewScale;
+                const float beamCenterY = viewOriginY + ((transform->y + turret->beamOriginOffsetY) - m_flow.cameraY) * viewScale;
+                const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+                const float pulse = 0.92f + 0.08f * std::sin(static_cast<float>(GetNowCount()) * 0.01f + chargeT * 4.0f);
+                const float ringRadius = std::max(10.0f, tileSize * viewScale * std::lerp(0.72f, 1.24f, chargeT));
+                const float ringThickness = std::max(1.5f, viewScale * std::lerp(1.8f, 3.5f, chargeT));
+                const float swirlSpin = timeSeconds * std::lerp(2.8f, 5.4f, chargeT);
+                const float beamDirectionX = turret->fireDirection == LaserTurretFireDirection::Left ? -1.0f : 1.0f;
+                const float flashT = Clamp01((chargeT - 0.84f) / 0.16f);
+                const float flashBoost = 1.0f + flashT * flashT * 1.8f;
+                const int ringAlpha = std::clamp(
+                    static_cast<int>(std::round((72.0f + chargeT * 104.0f) * alphaMultiplier * pulse * flashBoost)),
+                    0,
+                    255);
+
+                SetDrawBlendMode(DX_BLENDMODE_ADD, ringAlpha);
+                DrawCircleAA(
+                    beamCenterX,
+                    beamCenterY,
+                    ringRadius,
+                    64,
+                    GetColor(255, 255, 255),
+                    FALSE,
+                    ringThickness);
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY,
+                    beamCenterX + beamDirectionX * ringRadius * 0.92f,
+                    beamCenterY,
+                    GetColor(176, 232, 255),
+                    std::max(1.5f, ringThickness * 0.36f));
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY - ringRadius * 0.7f,
+                    beamCenterX,
+                    beamCenterY + ringRadius * 0.7f,
+                    GetColor(176, 232, 255),
+                    std::max(1.5f, ringThickness * 0.32f));
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY,
+                    beamCenterX + beamDirectionX * ringRadius * 0.68f,
+                    beamCenterY + ringRadius * 0.44f,
+                    GetColor(140, 224, 255),
+                    std::max(1.4f, ringThickness * 0.22f));
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY,
+                    beamCenterX + beamDirectionX * ringRadius * 0.68f,
+                    beamCenterY - ringRadius * 0.44f,
+                    GetColor(140, 224, 255),
+                    std::max(1.4f, ringThickness * 0.22f));
+
+                constexpr int kShardCount = 6;
+                for (int shardIndex = 0; shardIndex < kShardCount; ++shardIndex)
+                {
+                    const float angle = swirlSpin + static_cast<float>(shardIndex) * 1.0471976f;
+                    const float shardDistance = ringRadius * std::lerp(0.76f, 1.14f, 1.0f - chargeT);
+                    const float shardX = beamCenterX + beamDirectionX * std::fabs(std::cos(angle)) * shardDistance;
+                    const float shardY = beamCenterY + std::sin(angle) * shardDistance * 0.74f;
+                    DrawLineAA(
+                        beamCenterX,
+                        beamCenterY,
+                        shardX,
+                        shardY,
+                        GetColor(184, 236, 255),
+                        std::max(1.2f, ringThickness * 0.16f));
+                    DrawCircleAA(
+                        shardX,
+                        shardY,
+                        std::max(1.0f, ringThickness * 0.18f),
+                        24,
+                        GetColor(255, 255, 255),
+                        TRUE,
+                        std::max(1.0f, ringThickness * 0.12f));
+                }
+
+                if (flashT > 0.0f)
+                {
+                    const float flashCross = tileSize * viewScale * std::lerp(0.28f, 1.05f, flashT);
+                    const int flashAlpha = std::clamp(
+                        static_cast<int>(std::round(255.0f * flashT * alphaMultiplier)),
+                        0,
+                        255);
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, flashAlpha);
+                    DrawLineAA(
+                        beamCenterX,
+                        beamCenterY,
+                        beamCenterX + beamDirectionX * flashCross,
+                        beamCenterY,
+                        GetColor(255, 255, 255),
+                        std::max(2.0f, 4.0f * viewScale));
+                    DrawLineAA(
+                        beamCenterX,
+                        beamCenterY - flashCross,
+                        beamCenterX,
+                        beamCenterY + flashCross,
+                        GetColor(220, 242, 255),
+                        std::max(1.5f, 3.0f * viewScale));
+                }
+
+                SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+                Shader_ResetStyle();
+            }
         }
     }
 

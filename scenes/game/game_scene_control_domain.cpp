@@ -31,6 +31,7 @@ void GameScene::UpdateTuningHotReload(float deltaTime)
         m_debug.tuningFileWriteTime = writeTime;
         m_debug.hasTuningFileWriteTime = true;
         LoadTuningJsonFile();
+        ApplyMidBoss2TuningToActiveBosses();
     }
 }
 

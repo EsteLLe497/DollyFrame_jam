@@ -3662,7 +3662,10 @@ inline void UpdateEnemies(
                 {
                     if (auto* beamTransform = beamEntity->GetComponent<TransformComponent>())
                     {
-                        beamTransform->x = beamOriginX;
+                        const float beamDrawWidth = std::max(0.0f, beamTransform->width * beamTransform->scale);
+                        beamTransform->x = beamFacingRight
+                            ? beamOriginX
+                            : beamOriginX - beamDrawWidth;
                         beamTransform->y = beamOriginY - beamHeight * 0.5f;
                         beamTransform->height = beamHeight;
                     }
@@ -3673,6 +3676,11 @@ inline void UpdateEnemies(
                     if (auto* beamDamage = beamEntity->GetComponent<LaserBeamComponent>())
                     {
                         beamDamage->damagePerSecond = boss->params.beamDamagePerSecond;
+                    }
+                    if (auto* beamCapture = beamEntity->GetComponent<BossBeamCaptureComponent>())
+                    {
+                        beamCapture->captureEnabled = true;
+                        beamCapture->sourceOnLeft = beamFacingRight;
                     }
                 }
             };
@@ -3698,7 +3706,13 @@ inline void UpdateEnemies(
                     const float bossWidth = transform->width * transform->scale;
                     const float bossHeight = transform->height * transform->scale;
                     const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
-                    pickMidBoss2SpearHoverTarget(true, bossWidth, bossHeight, maxBossY, boss->hoverTargetX, boss->hoverTargetY);
+                    pickMidBoss2SpearHoverTarget(
+                        boss->nextSpearStartLeftSide,
+                        bossWidth,
+                        bossHeight,
+                        maxBossY,
+                        boss->hoverTargetX,
+                        boss->hoverTargetY);
                     boss->state = MidBoss2State::SpearJump;
                     boss->stateTimer = 0.0f;
                 }
@@ -3714,7 +3728,8 @@ inline void UpdateEnemies(
                     boss->hoverTargetX,
                     boss->hoverTargetY,
                     transform->width * transform->scale,
-                    transform->height * transform->scale);
+                    transform->height * transform->scale,
+                    boss->params);
                 boss->teleportFlashRemaining = kMidBoss2TeleportFlashSeconds;
                 flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kMidBoss2TeleportShakeSeconds);
                 flow.screenShakeDuration = std::max(flow.screenShakeDuration, kMidBoss2TeleportShakeSeconds);
@@ -3790,8 +3805,10 @@ inline void UpdateEnemies(
                         const float bossHeight = transform->height * transform->scale;
                         const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
                         const bool playerOnRightSide = playerCenterX >= bossCenterX;
+                        const bool beamTeleportLeftSide = playerOnRightSide;
                         boss->beamFacingRight = playerOnRightSide;
-                        pickMidBoss2BeamTeleportTarget(playerOnRightSide, bossWidth, bossHeight, maxBossY, boss->beamTargetX, boss->beamTargetY);
+                        boss->lastBeamTeleportLeftSide = beamTeleportLeftSide;
+                        pickMidBoss2BeamTeleportTarget(beamTeleportLeftSide, bossWidth, bossHeight, maxBossY, boss->beamTargetX, boss->beamTargetY);
                         boss->state = MidBoss2State::BeamCharge;
                     }
                     else
@@ -3810,7 +3827,9 @@ inline void UpdateEnemies(
                 const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
                 if (boss->stateTimer >= boss->params.spearCooldownAfterLanding)
                 {
-                    const bool nextSpearLeft = (boss->spearCycleCount % 2) == 0;
+                    const bool nextSpearLeft = (boss->spearCycleCount % 2) == 0
+                        ? boss->nextSpearStartLeftSide
+                        : !boss->nextSpearStartLeftSide;
                     pickMidBoss2SpearHoverTarget(nextSpearLeft, bossWidth, bossHeight, maxBossY, boss->hoverTargetX, boss->hoverTargetY);
                     boss->state = MidBoss2State::SpearJump;
                     boss->stateTimer = 0.0f;
@@ -3838,7 +3857,8 @@ inline void UpdateEnemies(
                             boss->beamTargetX,
                             boss->beamTargetY,
                             bossWidth,
-                            bossHeight);
+                            bossHeight,
+                            boss->params);
                         boss->teleportFlashRemaining = kMidBoss2TeleportFlashSeconds;
                         flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kMidBoss2BeamChargeShakeSeconds);
                         flow.screenShakeDuration = std::max(flow.screenShakeDuration, kMidBoss2BeamChargeShakeSeconds);
@@ -3867,7 +3887,7 @@ inline void UpdateEnemies(
                     const float shockCenterX = beamFacingRight ? transform->x + bossWidth : transform->x;
                     const float shockCenterY = transform->y + bossHeight * 0.5f;
                     const float shockRadius = std::max(bossWidth, bossHeight) * 1.15f + kTileSize * 0.5f;
-                    spawnBeamShockwave(shockCenterX, shockCenterY, shockRadius, 1.0f);
+                    spawnBeamShockwave(shockCenterX, shockCenterY, shockRadius, 1.0f, beamFacingRight ? 1.0f : -1.0f);
                     boss->beamShockwaveSpawned = true;
                 }
                 {
@@ -3887,6 +3907,7 @@ inline void UpdateEnemies(
                 boss->cooldownRemaining = std::max(0.0f, boss->params.beamCooldownAfterFire - boss->stateTimer);
                 if (boss->stateTimer >= boss->params.beamCooldownAfterFire)
                 {
+                    boss->nextSpearStartLeftSide = !boss->lastBeamTeleportLeftSide;
                     boss->spearCycleCount = 0;
                     boss->spearShotsFired = 0;
                     boss->state = MidBoss2State::Idle;

@@ -299,6 +299,11 @@ public:
         float beamHeightGrid = 3.0f;
         float beamCooldownAfterFire = 1.5f;
         float teleportHoverBaseGrid = 7.0f;
+        int teleportSparkCount = 54;
+        float teleportSparkMinSize = 0.75f;
+        float teleportSparkMaxSize = 2.30f;
+        float teleportSparkSpreadScale = 1.0f;
+        float teleportSparkLifetime = 0.65f;
         float pastedBeamDamagePerSecond = 1.0f;
         std::array<TeleportSlotConfig, 3> leftTeleportSlots =
         {{
@@ -320,6 +325,8 @@ public:
     MidBoss2State state = MidBoss2State::Idle;
     bool facingRight = true;
     bool beamFacingRight = true;
+    bool lastBeamTeleportLeftSide = true;
+    bool nextSpearStartLeftSide = true;
     float stateTimer = 0.0f;
     float cooldownRemaining = 0.0f;
     int attackFlowStep = 1;

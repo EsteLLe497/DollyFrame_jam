@@ -320,6 +320,24 @@ public:
     float beamOriginOffsetY = 0.0f;
 };
 
+class CapturedBoss2BeamFollowComponent final : public MonoBehaviour
+{
+public:
+    CapturedBoss2BeamFollowComponent() = default;
+
+    GameObject* target = nullptr;
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
+};
+
+class CapturedBoss2BeamChargeComponent final : public MonoBehaviour
+{
+public:
+    CapturedBoss2BeamChargeComponent() = default;
+
+    float chargeDuration = 0.0f;
+};
+
 class LaserBeamComponent final : public MonoBehaviour
 {
 public:

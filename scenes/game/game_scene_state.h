@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "components_combat.h"
 #include "game_scene_photo_state.h"
 
 class ResourceManager;
@@ -43,6 +44,8 @@ struct LaserSparkParticle
     float life = 0.0f;
     float maxLife = 0.0f;
     float gravityScale = 0.35f;
+    float sizeScale = 1.0f;
+    bool drawCircle = false;
     float r = 1.0f;
     float g = 0.76f;
     float b = 0.28f;
@@ -75,6 +78,7 @@ struct BeamShockwaveParticle
     float thickness = 0.0f;
     float life = 0.0f;
     float maxLife = 0.0f;
+    float directionX = 0.0f;
     float r = 0.72f;
     float g = 0.94f;
     float b = 1.0f;
@@ -272,6 +276,7 @@ struct GameSceneTuningState
     float pastedObjectLifetimeSeconds = 10.0f;
     float pastedObjectPasteAnimationSeconds = 0.24f;
     float jumpPadMaxTiltDegrees = 18.0f;
+    MidBoss2Component::Params midBoss2Params;
 };
 
 struct GameSceneLifecycleState

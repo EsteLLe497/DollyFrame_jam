@@ -1048,7 +1048,14 @@ void GameScene::SpawnBossRoarEffect(float centerX, float groundY, float width)
     }
 }
 
-void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height)
+void GameScene::SpawnTeleportTrailEffect(
+    float fromX,
+    float fromY,
+    float toX,
+    float toY,
+    float width,
+    float height,
+    const MidBoss2Component::Params& params)
 {
     const float sourceCenterX = fromX + width * 0.5f;
     const float sourceCenterY = fromY + height * 0.5f;
@@ -1062,9 +1069,27 @@ void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, fl
     const float directionY = deltaY / directionLength;
     const float perpendicularX = -directionY;
     const float perpendicularY = directionX;
-    const int trailCount = std::clamp(static_cast<int>(std::round(distance / 44.0f)) + 10, 10, 24);
+    const int totalSparkCount = std::clamp(params.teleportSparkCount, 0, 256);
+    const int arrivalSparkCount = totalSparkCount > 0
+        ? std::min(totalSparkCount, std::clamp((totalSparkCount + 2) / 4, 1, 24))
+        : 0;
+    const int trailCount = std::max(0, totalSparkCount - arrivalSparkCount);
+    const float minSize = std::clamp(
+        std::min(params.teleportSparkMinSize, params.teleportSparkMaxSize),
+        0.1f,
+        12.0f);
+    const float maxSize = std::clamp(
+        std::max(params.teleportSparkMinSize, params.teleportSparkMaxSize),
+        minSize,
+        12.0f);
+    const float spreadScale = std::clamp(params.teleportSparkSpreadScale, 0.0f, 8.0f);
+    const float sparkLifetime = std::clamp(params.teleportSparkLifetime, 0.01f, 5.0f);
     const float travelTime = std::max(0.26f, distance / 1120.0f);
     const float travelSpeed = distance / travelTime;
+    const auto randomSizeScale = [&]()
+    {
+        return std::lerp(minSize, maxSize, static_cast<float>(GetRand(1000)) / 1000.0f);
+    };
 
     for (int index = 0; index < trailCount; ++index)
     {
@@ -1073,36 +1098,39 @@ void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, fl
         const float wave = std::sin(t * 6.28318530718f * 2.0f);
         const float lineX = std::lerp(sourceCenterX, targetCenterX, t);
         const float lineY = std::lerp(sourceCenterY, targetCenterY, t);
-        const float spread = std::lerp(6.0f, 18.0f, 1.0f - std::fabs(0.5f - t) * 2.0f);
+        const float spread = std::lerp(6.0f, 18.0f, 1.0f - std::fabs(0.5f - t) * 2.0f) * spreadScale;
 
         LaserSparkParticle spark;
         spark.x = lineX + perpendicularX * jitterSeed * spread + directionX * wave * 4.0f;
         spark.y = lineY + perpendicularY * jitterSeed * spread + directionY * wave * 4.0f;
-        spark.velocityX = directionX * (travelSpeed + jitterSeed * 120.0f) + perpendicularX * jitterSeed * 90.0f;
-        spark.velocityY = directionY * (travelSpeed + jitterSeed * 120.0f) + perpendicularY * jitterSeed * 90.0f;
-        spark.life = 0.30f;
-        spark.maxLife = 0.30f;
+        spark.velocityX = directionX * (travelSpeed + jitterSeed * 120.0f) + perpendicularX * jitterSeed * 90.0f * spreadScale;
+        spark.velocityY = directionY * (travelSpeed + jitterSeed * 120.0f) + perpendicularY * jitterSeed * 90.0f * spreadScale;
+        spark.life = sparkLifetime;
+        spark.maxLife = spark.life;
         spark.gravityScale = 0.0f;
+        spark.sizeScale = randomSizeScale();
+        spark.drawCircle = true;
         spark.r = 0.58f;
         spark.g = 0.92f;
         spark.b = 1.0f;
         m_effects.laserSparks.push_back(spark);
     }
 
-    constexpr int kArrivalSparkCount = 6;
-    for (int index = 0; index < kArrivalSparkCount; ++index)
+    for (int index = 0; index < arrivalSparkCount; ++index)
     {
-        const float angle = static_cast<float>(index) / static_cast<float>(kArrivalSparkCount) * 6.28318530718f;
-        const float radius = 10.0f + static_cast<float>(GetRand(8));
+        const float angle = static_cast<float>(index) / static_cast<float>(arrivalSparkCount) * 6.28318530718f;
+        const float radius = (10.0f + static_cast<float>(GetRand(8))) * spreadScale;
 
         LaserSparkParticle spark;
         spark.x = targetCenterX + std::cos(angle) * radius;
         spark.y = targetCenterY + std::sin(angle) * radius;
         spark.velocityX = std::cos(angle) * (40.0f + static_cast<float>(GetRand(40)));
         spark.velocityY = std::sin(angle) * (40.0f + static_cast<float>(GetRand(40)));
-        spark.life = 0.26f;
-        spark.maxLife = 0.26f;
+        spark.life = sparkLifetime;
+        spark.maxLife = spark.life;
         spark.gravityScale = 0.0f;
+        spark.sizeScale = randomSizeScale();
+        spark.drawCircle = true;
         spark.r = 0.88f;
         spark.g = 0.98f;
         spark.b = 1.0f;
@@ -3020,9 +3048,32 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             continue;
         }
 
+        if (auto* follow = turretCandidate->GetComponent<CapturedBoss2BeamFollowComponent>())
+        {
+            const auto* targetTransform = follow->target
+                ? follow->target->GetComponent<TransformComponent>()
+                : nullptr;
+            if (targetTransform)
+            {
+                turretTransform->x = targetTransform->x + follow->offsetX;
+                turretTransform->y = targetTransform->y + follow->offsetY;
+            }
+        }
+
         if (turret->warmupRemaining > 0.0f)
         {
+            const float previousWarmup = turret->warmupRemaining;
             turret->warmupRemaining = std::max(0.0f, turret->warmupRemaining - deltaTime);
+            if (turret->warmupRemaining <= 0.0f &&
+                previousWarmup > 0.0f &&
+                turretCandidate->GetComponent<CapturedBoss2BeamChargeComponent>())
+            {
+                constexpr float kCapturedBeamFireShakeSeconds = 0.16f;
+                constexpr float kCapturedBeamFireShakeAmplitude = 24.0f;
+                m_flow.screenShakeRemaining = std::max(m_flow.screenShakeRemaining, kCapturedBeamFireShakeSeconds);
+                m_flow.screenShakeDuration = std::max(m_flow.screenShakeDuration, kCapturedBeamFireShakeSeconds);
+                m_flow.screenShakeAmplitude = std::max(m_flow.screenShakeAmplitude, kCapturedBeamFireShakeAmplitude);
+            }
         }
 
         Entity* beamEntity = turret->beamEntity;
