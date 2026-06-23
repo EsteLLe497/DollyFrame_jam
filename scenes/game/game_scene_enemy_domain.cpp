@@ -789,9 +789,16 @@ void GameScene::UpdateEnemies()
             static_cast<void>(bossEntity);
             StopShieldBossSoundCue(cueName);
         },
-        [this](float fromX, float fromY, float toX, float toY, float width, float height)
+        [this](
+            float fromX,
+            float fromY,
+            float toX,
+            float toY,
+            float width,
+            float height,
+            const MidBoss2Component::Params& params)
         {
-            SpawnTeleportTrailEffect(fromX, fromY, toX, toY, width, height);
+            SpawnTeleportTrailEffect(fromX, fromY, toX, toY, width, height, params);
         },
         [this](float centerX, float groundY, float width)
         {
@@ -809,7 +816,7 @@ void GameScene::UpdateEnemies()
         {
             SpawnBossRoarEffect(centerX, groundY, width);
         },
-        [this](float x, float y, float radius, float intensity)
+        [this](float x, float y, float radius, float intensity, float directionX)
         {
             BeamShockwaveParticle shockwave;
             shockwave.x = x;
@@ -819,6 +826,7 @@ void GameScene::UpdateEnemies()
             shockwave.thickness = std::max(8.0f, radius * 0.08f);
             shockwave.life = 0.36f;
             shockwave.maxLife = shockwave.life;
+            shockwave.directionX = directionX;
             m_effects.beamShockwaves.push_back(shockwave);
         },
         [this](float x, float y, float width, float height)

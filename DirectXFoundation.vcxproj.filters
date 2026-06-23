@@ -476,6 +476,9 @@
     <ClInclude Include="gameplay\prefab_factory.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
+    <ClInclude Include="gameplay\components_combat.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
     <ClInclude Include="physics\physics_world.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>

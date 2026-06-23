@@ -11,7 +11,14 @@
 #include <sstream>
 #include <string>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 26495)
+#endif
 #include <nlohmann/json.hpp>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include "DxLib.h"
 #include "directX.h"
@@ -913,6 +920,11 @@ bool Input_IsKeyDown(int virtualKey)
         return (g_mouseButtons & MOUSE_INPUT_RIGHT) != 0;
     }
 
+    if (ImGuiLayer_WantsCaptureKeyboard())
+    {
+        return false;
+    }
+
     return virtualKey >= 0 &&
         virtualKey < 256 &&
         g_keyState[virtualKey];
@@ -937,6 +949,11 @@ bool Input_IsKeyPressed(int virtualKey)
         }
         return (g_mouseButtons & MOUSE_INPUT_RIGHT) != 0 &&
             (g_prevMouseButtons & MOUSE_INPUT_RIGHT) == 0;
+    }
+
+    if (ImGuiLayer_WantsCaptureKeyboard())
+    {
+        return false;
     }
 
     return virtualKey >= 0 &&

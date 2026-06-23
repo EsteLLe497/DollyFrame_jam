@@ -2,14 +2,24 @@
 
 #include "game_scene_internal.h"
 
+#include "components_combat.h"
+
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <fstream>
 #include <limits>
 #include <stdexcept>
 #include <sstream>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 26495)
+#endif
 #include <nlohmann/json.hpp>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include "prefab_factory.h"
 #include "game_scene_camerawork.h"
@@ -146,6 +156,118 @@ namespace
         }
     }
 
+    nlohmann::json BuildMidBoss2TeleportSlotsJson(
+        const std::array<MidBoss2Component::TeleportSlotConfig, 3>& slots)
+    {
+        nlohmann::json slotsJson = nlohmann::json::array();
+        for (const auto& slot : slots)
+        {
+            slotsJson.push_back({
+                { "center_grid_x", slot.centerGridX },
+                { "height_offset_grid", slot.hoverHeightOffsetGrid },
+            });
+        }
+        return slotsJson;
+    }
+
+    nlohmann::json BuildMidBoss2TuningJson(const MidBoss2Component::Params& params)
+    {
+        nlohmann::json root;
+        root["boss2_hp"] = params.boss2Hp;
+        root["boss2_width_grid"] = params.boss2WidthGrid;
+        root["boss2_height_grid"] = params.boss2HeightGrid;
+        root["spear_damage"] = params.spearDamage;
+        root["spear_fade_time"] = params.spearFadeTime;
+        root["spear_interval"] = params.spearInterval;
+        root["spear_cooldown_after_landing"] = params.spearCooldownAfterLanding;
+        root["spear_landing_pause_time"] = params.spearLandingPauseTime;
+        root["spear_jump_height_grid"] = params.spearJumpHeightGrid;
+        root["spear_jump_horizontal_grid"] = params.spearJumpHorizontalGrid;
+        root["beam_charge_time"] = params.beamChargeTime;
+        root["beam_damage_per_second"] = params.beamDamagePerSecond;
+        root["beam_height_grid"] = params.beamHeightGrid;
+        root["beam_cooldown_after_fire"] = params.beamCooldownAfterFire;
+        root["teleport_hover_base_grid"] = params.teleportHoverBaseGrid;
+        root["teleport_spark_count"] = params.teleportSparkCount;
+        root["teleport_spark_min_size"] = params.teleportSparkMinSize;
+        root["teleport_spark_max_size"] = params.teleportSparkMaxSize;
+        root["teleport_spark_spread_scale"] = params.teleportSparkSpreadScale;
+        root["teleport_spark_lifetime"] = params.teleportSparkLifetime;
+        root["pasted_beam_damage_per_second"] = params.pastedBeamDamagePerSecond;
+        root["left_teleport_slots"] = BuildMidBoss2TeleportSlotsJson(params.leftTeleportSlots);
+        root["right_teleport_slots"] = BuildMidBoss2TeleportSlotsJson(params.rightTeleportSlots);
+        return root;
+    }
+
+    void LoadMidBoss2TeleportSlotsJson(
+        const nlohmann::json& slotsJson,
+        std::array<MidBoss2Component::TeleportSlotConfig, 3>& slots)
+    {
+        if (!slotsJson.is_array())
+        {
+            return;
+        }
+
+        const size_t count = std::min(slots.size(), slotsJson.size());
+        for (size_t index = 0; index < count; ++index)
+        {
+            const auto& slotJson = slotsJson[index];
+            if (!slotJson.is_object())
+            {
+                continue;
+            }
+
+            auto& slot = slots[index];
+            slot.centerGridX = slotJson.value<float>("center_grid_x", slot.centerGridX);
+            slot.hoverHeightOffsetGrid = slotJson.value<float>("height_offset_grid", slot.hoverHeightOffsetGrid);
+        }
+    }
+
+    void LoadMidBoss2TuningJson(const nlohmann::json& root, MidBoss2Component::Params& params)
+    {
+        if (!root.is_object())
+        {
+            return;
+        }
+
+        params.boss2Hp = root.value<int>("boss2_hp", params.boss2Hp);
+        params.boss2WidthGrid = root.value<int>("boss2_width_grid", params.boss2WidthGrid);
+        params.boss2HeightGrid = root.value<int>("boss2_height_grid", params.boss2HeightGrid);
+        params.spearDamage = root.value<int>("spear_damage", params.spearDamage);
+        params.spearFadeTime = root.value<float>("spear_fade_time", params.spearFadeTime);
+        params.spearInterval = root.value<float>("spear_interval", params.spearInterval);
+        params.spearCooldownAfterLanding = root.value<float>(
+            "spear_cooldown_after_landing",
+            params.spearCooldownAfterLanding);
+        params.spearLandingPauseTime = root.value<float>("spear_landing_pause_time", params.spearLandingPauseTime);
+        params.spearJumpHeightGrid = root.value<float>("spear_jump_height_grid", params.spearJumpHeightGrid);
+        params.spearJumpHorizontalGrid = root.value<float>(
+            "spear_jump_horizontal_grid",
+            params.spearJumpHorizontalGrid);
+        params.beamChargeTime = root.value<float>("beam_charge_time", params.beamChargeTime);
+        params.beamDamagePerSecond = root.value<float>("beam_damage_per_second", params.beamDamagePerSecond);
+        params.beamHeightGrid = root.value<float>("beam_height_grid", params.beamHeightGrid);
+        params.beamCooldownAfterFire = root.value<float>("beam_cooldown_after_fire", params.beamCooldownAfterFire);
+        params.teleportHoverBaseGrid = root.value<float>("teleport_hover_base_grid", params.teleportHoverBaseGrid);
+        params.teleportSparkCount = root.value<int>("teleport_spark_count", params.teleportSparkCount);
+        params.teleportSparkMinSize = root.value<float>("teleport_spark_min_size", params.teleportSparkMinSize);
+        params.teleportSparkMaxSize = root.value<float>("teleport_spark_max_size", params.teleportSparkMaxSize);
+        params.teleportSparkSpreadScale = root.value<float>("teleport_spark_spread_scale", params.teleportSparkSpreadScale);
+        params.teleportSparkLifetime = root.value<float>("teleport_spark_lifetime", params.teleportSparkLifetime);
+        params.pastedBeamDamagePerSecond = root.value<float>(
+            "pasted_beam_damage_per_second",
+            params.pastedBeamDamagePerSecond);
+
+        if (const auto it = root.find("left_teleport_slots"); it != root.end())
+        {
+            LoadMidBoss2TeleportSlotsJson(*it, params.leftTeleportSlots);
+        }
+        if (const auto it = root.find("right_teleport_slots"); it != root.end())
+        {
+            LoadMidBoss2TeleportSlotsJson(*it, params.rightTeleportSlots);
+        }
+    }
+
     nlohmann::json BuildTuningJson()
     {
         nlohmann::json root;
@@ -178,6 +300,7 @@ namespace
         root["printed_photo_matte_inset"] = gPrintedPhotoMatteInset;
         root["pickup_time_bonus"] = gPickupTimeBonus;
         root["jump_pad_max_tilt_degrees"] = gJumpPadMaxTiltDegrees;
+        root["mid_boss_2"] = BuildMidBoss2TuningJson(GetActiveGameScene()->Tuning().midBoss2Params);
         return root;
     }
 
@@ -438,6 +561,11 @@ namespace game_scene_detail
         gPrintedPhotoMatteInset = root.value("printed_photo_matte_inset", gPrintedPhotoMatteInset);
         gPickupTimeBonus = root.value("pickup_time_bonus", gPickupTimeBonus);
         gJumpPadMaxTiltDegrees = root.value("jump_pad_max_tilt_degrees", gJumpPadMaxTiltDegrees);
+
+        if (const auto it = root.find("mid_boss_2"); it != root.end())
+        {
+            LoadMidBoss2TuningJson(*it, GetActiveGameScene()->Tuning().midBoss2Params);
+        }
     }
 }
 
@@ -832,7 +960,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins1.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/stage_58x25.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     m_flow.timeLimit = 60.0f;
@@ -1687,8 +1815,32 @@ Entity& GameScene::SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId
         enemy->spawnX = x;
         enemy->spawnY = y;
     }
+    if (auto* midBoss2 = entityRef.GetComponent<MidBoss2Component>())
+    {
+        midBoss2->params = m_tuning.midBoss2Params;
+    }
 
     m_world.Spawn(std::move(entity));
     return entityRef;
+}
+
+void GameScene::ApplyMidBoss2TuningToActiveBosses()
+{
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        auto* boss = entity->GetComponent<MidBoss2Component>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss2)
+        {
+            continue;
+        }
+
+        boss->params = m_tuning.midBoss2Params;
+    }
 }
 

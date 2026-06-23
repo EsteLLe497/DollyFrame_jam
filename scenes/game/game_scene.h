@@ -104,6 +104,7 @@ private:
 
     // Entity query / spawn
     Entity& SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y);
+    void ApplyMidBoss2TuningToActiveBosses();
     Entity* FindEntityByTag(const char* tag) const;
     Entity* FindEntityByTag(EntityTag tag) const;
 
@@ -225,7 +226,14 @@ private:
     void SpawnRushSmokeEffect(float centerX, float groundY, float direction);
     void SpawnLightLandingEffect(float centerX, float groundY, float width);
     void SpawnBossRoarEffect(float centerX, float groundY, float width);
-    void SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height);
+    void SpawnTeleportTrailEffect(
+        float fromX,
+        float fromY,
+        float toX,
+        float toY,
+        float width,
+        float height,
+        const MidBoss2Component::Params& params);
     void SpawnMidBoss3FistImpactEffect(float x, float y, float width, float height);
     void QueueResult(GameEndReason reason);
 

@@ -3,7 +3,7 @@
   "camera_follow_speed_y": 40.0,
   "camera_follow_y": true,
   "camera_view_height": 1080.0,
-  "camera_view_width": 1860.0,
+  "camera_view_width": 1920.0,
   "capture_height_tiles": 3.0,
   "capture_overheat_lock_seconds": 1.5,
   "capture_rapid_shot_limit": 4.0,
@@ -20,6 +20,57 @@
   "jump_pad_max_tilt_degrees": 18.0,
   "jump_speed": -1048.0,
   "max_fall_speed": 980.0,
+  "mid_boss_2": {
+    "beam_charge_time": 2.5,
+    "beam_cooldown_after_fire": 1.5,
+    "beam_damage_per_second": 1.0,
+    "beam_height_grid": 3.0,
+    "boss2_height_grid": 4,
+    "boss2_hp": 15,
+    "boss2_width_grid": 4,
+    "left_teleport_slots": [
+      {
+        "center_grid_x": 24.0,
+        "height_offset_grid": 3.0
+      },
+      {
+        "center_grid_x": 30.0,
+        "height_offset_grid": 0.0
+      },
+      {
+        "center_grid_x": 22.0,
+        "height_offset_grid": -3.0
+      }
+    ],
+    "pasted_beam_damage_per_second": 1.0,
+    "right_teleport_slots": [
+      {
+        "center_grid_x": 47.0,
+        "height_offset_grid": 3.0
+      },
+      {
+        "center_grid_x": 41.0,
+        "height_offset_grid": 0.0
+      },
+      {
+        "center_grid_x": 49.0,
+        "height_offset_grid": -3.0
+      }
+    ],
+    "spear_cooldown_after_landing": 2.0,
+    "spear_damage": 1,
+    "spear_fade_time": 1.0,
+    "spear_interval": 0.699999988079071,
+    "spear_jump_height_grid": 6.0,
+    "spear_jump_horizontal_grid": 8.0,
+    "spear_landing_pause_time": 0.20000000298023224,
+    "teleport_hover_base_grid": 7.0,
+    "teleport_spark_count": 64,
+    "teleport_spark_lifetime": 0.6499999761581421,
+    "teleport_spark_max_size": 6.0,
+    "teleport_spark_min_size": 0.75,
+    "teleport_spark_spread_scale": 1.5
+  },
   "move_speed": 320.0,
   "pickup_time_bonus": 8.0,
   "printed_photo_footer_height": 52.0,
