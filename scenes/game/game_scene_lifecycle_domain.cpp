@@ -184,6 +184,7 @@ void GameScene::OnExit()
     m_lifecycle.loadingWarmupFramesRemaining = 0;
     m_lifecycle.loadingResources = nullptr;
     m_scriptEngine.Shutdown();
+    ShutdownGameSceneTestPhotos(m_testPhotos);
     m_world.Clear();
     m_physicsWorld.Shutdown();
 }

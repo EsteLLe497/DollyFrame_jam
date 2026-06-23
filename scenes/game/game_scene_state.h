@@ -188,6 +188,7 @@ struct GameSceneDebugState
     bool showCollisionDebug = true;
     bool showTuningPanel = false;
     bool showEscapeMenu = false;
+    bool hideNonPhotoUi = false;
     int escapeMenuSelection = 0;
     bool effectPlacementPulseEnabled = true;
     bool effectPasteStickEnabled = true;
