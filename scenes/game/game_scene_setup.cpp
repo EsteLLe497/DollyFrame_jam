@@ -960,7 +960,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/stage_58x25.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/stage_a.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     m_flow.timeLimit = 60.0f;

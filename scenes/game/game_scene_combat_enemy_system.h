@@ -2157,7 +2157,7 @@ inline void UpdateEnemies(
             const bool inDetectRange = dx <= 0.0f && dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
             if (!inDetectRange)
             {
-                enemy->attackTimer = 0.0f;
+                enemy->attackTimer = enemy->attackCooldown;
                 enemy->attackFrameTriggered = false;
                 enemy->SetAIState(EnemyComponent::AIState::Idle);
                 PlayRangedSpriteAnimation(*entity, "idle");
@@ -2165,6 +2165,14 @@ inline void UpdateEnemies(
             }
 
             auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>();
+            const auto startRangedAttack = [&]()
+                {
+                    enemy->attackTimer = 0.0f;
+                    enemy->attackFrameTriggered = false;
+                    enemy->SetAIState(EnemyComponent::AIState::Attack);
+                    PlayRangedSpriteAnimation(*entity, "attack", true);
+                };
+
             if (enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
                 PlayRangedSpriteAnimation(*entity, "idle");
@@ -2172,10 +2180,7 @@ inline void UpdateEnemies(
 
                 if (enemy->attackTimer >= enemy->attackCooldown)
                 {
-                    enemy->attackTimer = 0.0f;
-                    enemy->attackFrameTriggered = false;
-                    enemy->SetAIState(EnemyComponent::AIState::Attack);
-                    PlayRangedSpriteAnimation(*entity, "attack", true);
+                    startRangedAttack();
                 }
                 continue;
             }
@@ -2209,7 +2214,7 @@ inline void UpdateEnemies(
             if (attackFrame >= kEnemy2AttackLastFrame)
             {
                 enemy->attackFrameTriggered = false;
-                enemy->SetAIState(EnemyComponent::AIState::Idle);
+                enemy->SetAIState(EnemyComponent::AIState::Chase);
                 PlayRangedSpriteAnimation(*entity, "idle", true);
             }
         }
