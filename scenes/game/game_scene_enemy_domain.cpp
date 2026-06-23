@@ -31,7 +31,7 @@ namespace
     inline constexpr int kEnemy2IdleFrameCount = 110;
     inline constexpr float kEnemy2IdleFps = 12.0f;
     inline constexpr int kEnemy2AttackSheetColumns = 10;
-    inline constexpr int kEnemy2AttackSheetRows = 8;
+    inline constexpr int kEnemy2AttackSheetRows = 11;
     inline constexpr int kEnemy2AttackFrameCount = 80;
     inline constexpr float kEnemy2AttackFps = 18.0f;
     inline constexpr int kBoss1MoveSheetColumns = 5;
@@ -406,6 +406,10 @@ void GameScene::ConfigureRangedSpriteAnimation(Entity& enemy)
     const int attackTexture = m_assets.GetTexture("enemy2_attack");
     const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : sprite->GetTextureId();
     const int resolvedAttackTexture = attackTexture >= 0 ? attackTexture : resolvedIdleTexture;
+    if (auto* enemyComponent = enemy.GetComponent<EnemyComponent>())
+    {
+        enemyComponent->attackTimer = enemyComponent->attackCooldown;
+    }
 
     // Enemy2 is left-facing; the shot is emitted on the attack clip's 39th frame.
     sprite->SetFlipX(false);
