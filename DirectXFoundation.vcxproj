@@ -123,6 +123,7 @@
     <ClCompile Include="scenes\game\game_scene_render_ui_editor.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui_status.cpp" />
     <ClCompile Include="scenes\game\game_scene_setup.cpp" />
+    <ClCompile Include="scenes\game\game_scene_test_photos.cpp" />
     <ClCompile Include="scenes\game\game_scene_facade_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_flow_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_gameplay_pipeline_domain.cpp" />
@@ -386,6 +387,7 @@
     <ClInclude Include="scenes\game\game_scene_internal.h" />
     <ClInclude Include="scenes\game\game_scene_draw_helpers.h" />
     <ClInclude Include="scenes\game\game_scene_render_ui_helpers.h" />
+    <ClInclude Include="scenes\game\game_scene_test_photos.h" />
     <ClInclude Include="core\game_session.h" />
     <ClInclude Include="rendering\imgui_layer.h" />
     <ClInclude Include="core\input.h" />

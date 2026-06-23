@@ -331,6 +331,7 @@ void Application::Draw()
         DrawExitConfirmation();
     }
     ImGuiLayer_BeginFrame();
+    ImGuiLayer_SetFoundationOverlayVisible(true);
     m_sceneManager->DrawDebugUI();
     ImGuiLayer_EndFrame();
     ImGuiLayer_DrawFoundationWindow(m_currentFps);
