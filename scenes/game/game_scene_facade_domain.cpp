@@ -263,12 +263,22 @@ void GameScene::DrawWorldAndUiLayers()
     DrawStageDarknessOverlay();
     DrawSepiaFilmFilterOverlay();
     DrawShieldBossSlamVignetteOverlay();
-    DrawMarkerLightOutlines();
+    if (!m_debug.hideNonPhotoUi)
+    {
+        DrawMarkerLightOutlines();
+    }
     if (hideUiForIntroCinematic)
     {
         DrawShieldBossIntroCurtainOverlay();
         return;
     }
+    if (m_debug.hideNonPhotoUi)
+    {
+        DrawTestPhotos();
+        DrawEscapeMenuOverlay();
+        return;
+    }
+    DrawTestPhotos();
     DrawPhotoPlacementPreview();
     DrawCaptureOverlay();
     DrawPhotoStorageTray();

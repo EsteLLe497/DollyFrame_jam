@@ -14,6 +14,7 @@
 #include "script_engine.h"
 #include "game_scene_photo_state.h"
 #include "game_scene_state.h"
+#include "game_scene_test_photos.h"
 #include "tile_map.h"
 #include "game_scene_camerawork.h"
 
@@ -96,6 +97,7 @@ private:
     void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
+    void InitializeTestPhotoResources(ResourceManager& resources);
     void BuildCameraMarkers();
     void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY = true);
     void ApplyShieldBossSlamCameraWork(float deltaTime);
@@ -251,6 +253,8 @@ private:
     void DrawMarkerLightOutlines() const;
     void DrawEffects() const;
     void DrawEnemyAttackRects() const;
+    void DrawTestPhotos() const;
+    void DrawTestPhotoPanel();
     void DrawCaptureOverlay() const;
     void DrawDevelopedPhotoPreview() const;
     void DrawPhotoStorageTray() const;
@@ -346,6 +350,7 @@ private:
     GameSceneRenderState m_render;
     GameSceneTuningState m_tuning;
     GameSceneSaveState m_save;
+    GameSceneTestPhotoState m_testPhotos;
     struct CameraRuntimeState
     {
         std::vector<fixedCameraRange> fixedRanges;

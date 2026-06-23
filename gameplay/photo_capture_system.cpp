@@ -1019,17 +1019,6 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedWalker = enemyComp && enemyComp->GetArchetype() == EnemyArchetype::Walker;
         const auto* shieldComp = entity->GetComponent<ShieldComponent>();
         const bool capturedShield = shieldComp != nullptr;
-        if (capturedShield && shieldComp->ownerBoss)
-        {
-            if (const auto* bossComp = shieldComp->ownerBoss->GetComponent<ShieldBossComponent>())
-            {
-                if (bossComp->state == ShieldBossState::Rush &&
-                    !IsShieldBossRushCaptureReady(*shieldComp->ownerBoss))
-                {
-                    continue;
-                }
-            }
-        }
         if (capturedShield && shieldComp->photoSpawned && shieldComp->grounded)
         {
             continue;
@@ -1076,6 +1065,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     switch (bossComp->state)
                     {
                     case ShieldBossState::Rush:
+                        // 攻撃①のチャージ中も盾だけは通常盾として保存できるようにします。
                         capturedShieldArchetype = IsShieldBossRushCaptureReady(*shieldComp->ownerBoss)
                             ? CapturedSpawnArchetype::ShieldRushBurst
                             : CapturedSpawnArchetype::ShieldNormal;

@@ -926,6 +926,7 @@ void GameScene::ResetSceneState()
     m_ui = GameSceneUiState{};
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
+    m_testPhotos = GameSceneTestPhotoState{};
     m_mapEditor.active = false;
     m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
     m_mapEditor.selectedTileValue = 1;
@@ -960,7 +961,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/stage_58x25.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     m_flow.timeLimit = 60.0f;
@@ -1205,6 +1206,7 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_assets.LoadDefaults(resources);
     m_whiteTexture = m_assets.GetTexture("white");
     m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
+    InitializeTestPhotoResources(resources);
     m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, 48.0f);
     const size_t mapCellCount =
         static_cast<size_t>((std::max)(0, m_tileMap.GetWidth())) *

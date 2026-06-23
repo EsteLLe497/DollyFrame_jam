@@ -16,6 +16,7 @@ namespace
     bool g_imguiInitialized = false;
     bool g_imguiWin32Initialized = false;
     bool g_imguiDx11Initialized = false;
+    bool g_foundationOverlayVisible = true;
     int g_prevMouseButtons = 0;
     std::array<DX_CHAR, 256> g_prevKeyState{};
 
@@ -344,9 +345,14 @@ void ImGuiLayer_EndFrame()
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
+void ImGuiLayer_SetFoundationOverlayVisible(bool visible)
+{
+    g_foundationOverlayVisible = visible;
+}
+
 void ImGuiLayer_DrawFoundationWindow(float fps)
 {
-    if (!g_imguiInitialized)
+    if (!g_imguiInitialized || !g_foundationOverlayVisible)
     {
         return;
     }

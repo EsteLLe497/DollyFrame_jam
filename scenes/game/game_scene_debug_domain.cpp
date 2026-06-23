@@ -6,11 +6,20 @@
 #include <filesystem>
 #include <system_error>
 
+#include "imgui_layer.h"
+
 using namespace game_scene_detail;
 
 void GameScene::DrawDebugUI()
 {
     const ActiveGameSceneScope activeScene(*this);
+    ImGuiLayer_SetFoundationOverlayVisible(!m_debug.hideNonPhotoUi);
+    if (m_debug.hideNonPhotoUi)
+    {
+        DrawTestPhotoPanel();
+        return;
+    }
+
     const auto toMidBoss2StateLabel = [](MidBoss2State state) -> const char*
     {
         switch (state)
@@ -118,6 +127,7 @@ void GameScene::DrawDebugUI()
     ImGui::End();
     DrawMidBoss2DebugWindow();
     DrawProgressSavePanel();
+    DrawTestPhotoPanel();
 }
 
 void GameScene::DrawMidBoss2DebugWindow()
