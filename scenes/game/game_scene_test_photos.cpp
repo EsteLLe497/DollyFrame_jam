@@ -40,11 +40,11 @@ namespace
     {{
             //                                                 X      Y      Size    アスペクト比維持のため変更すんな
         { true, L"assets\\texture\\testUI\\UIprov_Camera.png", 23.0f, 23.0f, 200.0f, 96.0f },
-        { true, L"assets\\texture\\testUI\\UI_HP.png", 244.0f, 19.0f, 100.0f, 96.0f },
-        { true, L"assets\\texture\\testUI\\UI_HP.png", 360.0f, 19.0, 100.0f, 96.0f },
-        { true, L"assets\\texture\\testUI\\UI_HP.png", 476.5f, 19.0, 100.0f, 96.0f },
-        { true, L"assets\\texture\\testUI\\UI_HP.png", 592.5f, 19.0, 100.0f, 96.0f },
-        { true, L"assets\\texture\\testUI\\UI_HP.png", 708.0f, 19.0, 100.0f, 96.0f },
+        { false, L"", 0.0f, 0.0f, 0.0f, 0.0f },
+        { false, L"", 0.0f, 0.0f, 0.0f, 0.0f },
+        { false, L"", 0.0f, 0.0f, 0.0f, 0.0f },
+        { false, L"", 0.0f, 0.0f, 0.0f, 0.0f },
+        { false, L"", 0.0f, 0.0f, 0.0f, 0.0f },
         { true, L"assets\\texture\\testUI\\UIprov_ItemCounter.png", 1598.5f, 17.0f, 300.0f, 96.0f },
         { true, L"assets\\texture\\testUI\\UIprov_CaptureSpace_Out.png", 24.5f, 854.0f, 610.0f, 96.0f },
         { true, L"assets\\texture\\testUI\\UIprov_CaptureSpace_In.png", 44.5f, 875.5f, 570.0f, 96.0f },
@@ -126,7 +126,9 @@ void InitializeGameSceneTestPhotos(GameSceneTestPhotoState& state, ResourceManag
         photo.y = setting.y;
         photo.width = setting.width;
         photo.height = setting.height;
-        photo.textureId = resources.LoadTexture(photo.filePath);
+        photo.textureId = (photo.filePath.empty() || photo.filePath[0] == L'\0')
+            ? -1
+            : resources.LoadTexture(photo.filePath);
 
         // UI扱いなので、初期サイズは画像ピクセルサイズそのまま使う。
         TryGetTextureSize(photo, photo.width, photo.height);

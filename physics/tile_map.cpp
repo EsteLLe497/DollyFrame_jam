@@ -605,7 +605,7 @@ public:
 class TileMapRenderer
 {
 public:
-    static void Draw(const TileMapData& data, int textureId, float originX, float originY, float scale, int tile2TextureId)
+    static void Draw(const TileMapData& data, int textureId, float originX, float originY, float scale, int tile2TextureId, int tile3TextureId)
     {
         if (textureId < 0 || data.tiles.empty() || data.width <= 0 || data.height <= 0)
         {
@@ -671,15 +671,16 @@ public:
                 float b = 1.0f;
                 float a = 1.0f;
                 const bool useSpecialTile2Texture = tileValue == 2 && tile2TextureId >= 0;
-                if (!useSpecialTile2Texture)
+                const bool useSpecialTile3Texture = tileValue == 3 && tile3TextureId >= 0;
+                if (!useSpecialTile2Texture && !useSpecialTile3Texture)
                 {
                     GetSquareTileTint(tileValue, r, g, b, a);
                 }
                 Shader_SetTint(r, g, b, a);
-                if (useSpecialTile2Texture)
+                if (useSpecialTile2Texture || useSpecialTile3Texture)
                 {
                     SpriteDraw(
-                        tile2TextureId,
+                        useSpecialTile2Texture ? tile2TextureId : tile3TextureId,
                         drawX,
                         drawY,
                         data.tileSize * scale,
@@ -791,9 +792,9 @@ void TileMap::Clear()
     m_data = TileMapData{};
 }
 
-void TileMap::Draw(int textureId, float originX, float originY, float scale, int tile2TextureId) const
+void TileMap::Draw(int textureId, float originX, float originY, float scale, int tile2TextureId, int tile3TextureId) const
 {
-    TileMapRenderer::Draw(m_data, textureId, originX, originY, scale, tile2TextureId);
+    TileMapRenderer::Draw(m_data, textureId, originX, originY, scale, tile2TextureId, tile3TextureId);
 }
 
 int TileMap::GetWidth() const

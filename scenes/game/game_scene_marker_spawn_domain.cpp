@@ -655,6 +655,7 @@ void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int sp
 void GameScene::SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize)
 {
     const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    const int elevatorOffTexture = m_assets.GetTexture("tile_value_elevator_off");
     auto elevatorEntity = std::make_unique<Entity>();
     elevatorEntity->AddComponent<TagComponent>(kTagElevator);
     elevatorEntity->AddComponent<TransformComponent>(
@@ -663,11 +664,11 @@ void GameScene::SpawnElevatorMarker(float x, float y, int moveRangeTiles, float 
         tileSize * widthTiles,
         tileSize * cfg.elevatorHeightTiles);
     elevatorEntity->AddComponent<TintComponent>(
-        cfg.elevatorColor.r,
-        cfg.elevatorColor.g,
-        cfg.elevatorColor.b,
+        1.0f,
+        1.0f,
+        1.0f,
         1.0f);
-    elevatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    elevatorEntity->AddComponent<SpriteRenderComponent>(elevatorOffTexture >= 0 ? elevatorOffTexture : m_whiteTexture);
     elevatorEntity->AddComponent<ElevatorComponent>(
         linkId,
         tileSize * static_cast<float>(moveRangeTiles),
@@ -981,6 +982,9 @@ void GameScene::RefreshEnemiesFromMarkers()
 
 void GameScene::RefreshBatteriesFromMarkers()
 {
+    const int batteryTexture = m_assets.GetTexture("tile_value_battery");
+    const int resolvedBatteryTexture = batteryTexture >= 0 ? batteryTexture : m_whiteTexture;
+
     m_world.EraseIf(
         [](const std::unique_ptr<Entity>& entity)
         {
@@ -1020,8 +1024,8 @@ void GameScene::RefreshBatteriesFromMarkers()
                 static_cast<float>(row) * tileSize,
                 tileSize,
                 tileSize);
-            battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
-            battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            battery->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            battery->AddComponent<SpriteRenderComponent>(resolvedBatteryTexture);
             battery->AddComponent<BatteryComponent>(
                 1900.0f,
                 980.0f,
@@ -1039,6 +1043,9 @@ void GameScene::RefreshBatteriesFromMarkers()
 
 void GameScene::RefreshLogsFromMarkers()
 {
+    const int logTexture = m_assets.GetTexture("tile_value_m_log");
+    const int resolvedLogTexture = logTexture >= 0 ? logTexture : m_whiteTexture;
+
     m_world.EraseIf(
         [](const std::unique_ptr<Entity>& entity)
         {
@@ -1072,8 +1079,8 @@ void GameScene::RefreshLogsFromMarkers()
                 static_cast<float>(row) * tileSize,
                 tileSize * 4.0f,
                 tileSize);
-            log->AddComponent<TintComponent>(0.54f, 0.34f, 0.16f, 1.0f);
-            log->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            log->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            log->AddComponent<SpriteRenderComponent>(resolvedLogTexture);
             log->AddComponent<ImageOutlineColliderComponent>(
                 std::vector<b2Vec2>{
                     { 0.0f, 0.0f },
@@ -1588,6 +1595,9 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
 
 void GameScene::RefreshDamageFootholdsFromMarkers()
 {
+    const int purpleTexture = m_assets.GetTexture("tile_value_3_purple");
+    const int damageTexture = purpleTexture >= 0 ? purpleTexture : m_whiteTexture;
+    const int damageSpikeTexture = m_assets.GetTexture("tile_value_h_damage");
     m_world.EraseIf(
         [](const std::unique_ptr<Entity>& entity)
         {
@@ -1618,42 +1628,44 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
             const float markerX = static_cast<float>(column) * tileSize;
             const float markerY = static_cast<float>(row) * tileSize;
             const int tileSpan = GetDamagePlatformTileSpanFromMarker(marker);
+            for (int cellIndex = 0; cellIndex < tileSpan; ++cellIndex)
+            {
+                const float cellX = markerX + tileSize * static_cast<float>(cellIndex);
 
-            auto damagePlatformBase = std::make_unique<Entity>();
-            damagePlatformBase->AddComponent<TagComponent>(kTagDamagePlatform);
-            damagePlatformBase->AddComponent<TransformComponent>(
-                markerX,
-                markerY + tileSize,
-                tileSize * static_cast<float>(tileSpan),
-                tileSize);
-            damagePlatformBase->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
-            damagePlatformBase->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            damagePlatformBase->AddComponent<ImageOutlineColliderComponent>(
-                std::vector<b2Vec2>{
-                    { 0.0f, 0.0f },
-                    { 1.0f, 0.0f },
-                    { 1.0f, 1.0f },
-                    { 0.0f, 1.0f }},
-                0.2f);
-            damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
-            m_world.Spawn(std::move(damagePlatformBase));
+                auto damagePlatformBase = std::make_unique<Entity>();
+                damagePlatformBase->AddComponent<TagComponent>(kTagDamagePlatform);
+                damagePlatformBase->AddComponent<TransformComponent>(
+                    cellX,
+                    markerY + tileSize,
+                    tileSize,
+                    tileSize);
+                damagePlatformBase->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
+                damagePlatformBase->AddComponent<SpriteRenderComponent>(damageTexture);
+                damagePlatformBase->AddComponent<DamagePlatformComponent>(1);
+                damagePlatformBase->AddComponent<ImageOutlineColliderComponent>(
+                    BuildDamagePlatformBaseOutline(),
+                    0.2f);
+                damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
+                m_world.Spawn(std::move(damagePlatformBase));
 
-            auto damagePlatformSpike = std::make_unique<Entity>();
-            damagePlatformSpike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
-            damagePlatformSpike->AddComponent<TransformComponent>(
-                markerX,
-                markerY,
-                tileSize * static_cast<float>(tileSpan),
-                tileSize);
-            damagePlatformSpike->AddComponent<TintComponent>(0.86f, 0.16f, 0.18f, 1.0f);
-            damagePlatformSpike->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
-            damagePlatformSpike->AddComponent<SpikeStripComponent>(tileSpan);
-            damagePlatformSpike->AddComponent<ImageOutlineColliderComponent>(
-                BuildDamagePlatformNormalizedOutline(tileSpan),
-                0.2f);
-            damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
-            m_world.Spawn(std::move(damagePlatformSpike));
+                auto damagePlatformSpike = std::make_unique<Entity>();
+                damagePlatformSpike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
+                damagePlatformSpike->AddComponent<TransformComponent>(
+                    cellX,
+                    markerY,
+                    tileSize,
+                    tileSize);
+                damagePlatformSpike->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+                damagePlatformSpike->AddComponent<SpriteRenderComponent>(
+                    damageSpikeTexture >= 0 ? damageSpikeTexture : damageTexture);
+                damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
+                damagePlatformSpike->AddComponent<SpikeStripComponent>(1);
+                damagePlatformSpike->AddComponent<ImageOutlineColliderComponent>(
+                    BuildDamagePlatformSpikeOutline(1),
+                    0.2f);
+                damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
+                m_world.Spawn(std::move(damagePlatformSpike));
+            }
         }
     }
 }

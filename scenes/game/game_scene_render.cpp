@@ -92,6 +92,133 @@ namespace
         }
     }
 
+    void DrawDropItemOctahedron(
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        float rotation,
+        float alphaMultiplier,
+        const TintComponent* tint,
+        float pulse)
+    {
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        const float halfW = drawWidth * 0.5f;
+        const float halfH = drawHeight * 0.5f;
+        const float innerW = halfW * 0.62f;
+        const float innerH = halfH * 0.38f;
+
+        float topX = centerX;
+        float topY = drawY;
+        float upperLeftX = centerX - innerW;
+        float upperLeftY = centerY - innerH;
+        float upperRightX = centerX + innerW;
+        float upperRightY = centerY - innerH;
+        float leftX = drawX;
+        float leftY = centerY;
+        float rightX = drawX + drawWidth;
+        float rightY = centerY;
+        float lowerLeftX = centerX - innerW;
+        float lowerLeftY = centerY + innerH;
+        float lowerRightX = centerX + innerW;
+        float lowerRightY = centerY + innerH;
+        float bottomX = centerX;
+        float bottomY = drawY + drawHeight;
+
+        RotatePoint(centerX, centerY, rotation, topX, topY);
+        RotatePoint(centerX, centerY, rotation, upperLeftX, upperLeftY);
+        RotatePoint(centerX, centerY, rotation, upperRightX, upperRightY);
+        RotatePoint(centerX, centerY, rotation, leftX, leftY);
+        RotatePoint(centerX, centerY, rotation, rightX, rightY);
+        RotatePoint(centerX, centerY, rotation, lowerLeftX, lowerLeftY);
+        RotatePoint(centerX, centerY, rotation, lowerRightX, lowerRightY);
+        RotatePoint(centerX, centerY, rotation, bottomX, bottomY);
+
+        const float tintR = tint ? tint->r : 0.96f;
+        const float tintG = tint ? tint->g : 0.76f;
+        const float tintB = tint ? tint->b : 0.18f;
+        const float tintA = tint ? tint->a : 1.0f;
+        const int alpha = std::clamp(static_cast<int>(std::round(255.0f * alphaMultiplier * tintA)), 0, 255);
+        if (alpha <= 0)
+        {
+            return;
+        }
+
+        const auto MakeColor = [](float r, float g, float b) -> unsigned int
+        {
+            return GetColor(
+                std::clamp(static_cast<int>(std::round(r * 255.0f)), 0, 255),
+                std::clamp(static_cast<int>(std::round(g * 255.0f)), 0, 255),
+                std::clamp(static_cast<int>(std::round(b * 255.0f)), 0, 255));
+        };
+
+        const unsigned int baseColor = MakeColor(tintR, tintG, tintB);
+        const unsigned int brightColor = MakeColor(
+            std::min(1.0f, tintR + 0.12f + pulse * 0.06f),
+            std::min(1.0f, tintG + 0.14f + pulse * 0.08f),
+            std::min(1.0f, tintB + 0.20f + pulse * 0.10f));
+        const unsigned int leftColor = MakeColor(
+            std::max(0.0f, tintR * 0.70f),
+            std::max(0.0f, tintG * 0.62f),
+            std::max(0.0f, tintB * 0.74f));
+        const unsigned int rightColor = MakeColor(
+            std::max(0.0f, tintR * 0.82f),
+            std::max(0.0f, tintG * 0.70f),
+            std::max(0.0f, tintB * 0.58f));
+        const unsigned int bottomColor = MakeColor(
+            std::max(0.0f, tintR * 0.58f),
+            std::max(0.0f, tintG * 0.46f),
+            std::max(0.0f, tintB * 0.40f));
+        const unsigned int outlineColor = MakeColor(
+            std::max(0.0f, tintR * 0.40f),
+            std::max(0.0f, tintG * 0.28f),
+            std::max(0.0f, tintB * 0.18f));
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+        DrawQuadrangleAA(topX, topY, rightX, rightY, bottomX, bottomY, leftX, leftY, baseColor, TRUE);
+        DrawTriangleAA(topX, topY, upperLeftX, upperLeftY, upperRightX, upperRightY, brightColor, TRUE);
+        DrawTriangleAA(leftX, leftY, upperLeftX, upperLeftY, lowerLeftX, lowerLeftY, leftColor, TRUE);
+        DrawTriangleAA(rightX, rightY, upperRightX, upperRightY, lowerRightX, lowerRightY, rightColor, TRUE);
+        DrawTriangleAA(bottomX, bottomY, lowerLeftX, lowerLeftY, lowerRightX, lowerRightY, bottomColor, TRUE);
+
+        const float innerScale = 0.56f + pulse * 0.05f;
+        float innerTopX = centerX;
+        float innerTopY = centerY - halfH * innerScale;
+        float innerLeftX = centerX - halfW * 0.42f;
+        float innerLeftY = centerY;
+        float innerRightX = centerX + halfW * 0.42f;
+        float innerRightY = centerY;
+        float innerBottomX = centerX;
+        float innerBottomY = centerY + halfH * innerScale;
+        RotatePoint(centerX, centerY, rotation, innerTopX, innerTopY);
+        RotatePoint(centerX, centerY, rotation, innerLeftX, innerLeftY);
+        RotatePoint(centerX, centerY, rotation, innerRightX, innerRightY);
+        RotatePoint(centerX, centerY, rotation, innerBottomX, innerBottomY);
+        DrawQuadrangleAA(innerTopX, innerTopY, innerRightX, innerRightY, innerBottomX, innerBottomY, innerLeftX, innerLeftY, brightColor, TRUE);
+
+        DrawLineAA(topX, topY, upperRightX, upperRightY, outlineColor, 1.5f);
+        DrawLineAA(upperRightX, upperRightY, rightX, rightY, outlineColor, 1.5f);
+        DrawLineAA(rightX, rightY, lowerRightX, lowerRightY, outlineColor, 1.5f);
+        DrawLineAA(lowerRightX, lowerRightY, bottomX, bottomY, outlineColor, 1.5f);
+        DrawLineAA(bottomX, bottomY, lowerLeftX, lowerLeftY, outlineColor, 1.5f);
+        DrawLineAA(lowerLeftX, lowerLeftY, leftX, leftY, outlineColor, 1.5f);
+        DrawLineAA(leftX, leftY, upperLeftX, upperLeftY, outlineColor, 1.5f);
+        DrawLineAA(upperLeftX, upperLeftY, topX, topY, outlineColor, 1.5f);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(84.0f * alphaMultiplier)), 0, 255));
+        DrawLineAA(topX, topY, centerX, centerY, GetColor(255, 255, 255), 1.1f);
+        DrawCircleAA(
+            centerX - halfW * 0.14f,
+            centerY - halfH * 0.22f,
+            std::max(1.2f, halfW * 0.12f),
+            24,
+            GetColor(255, 255, 255),
+            TRUE,
+            1.0f);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     const char* GetLayerEffectText(PhotoCopyLayer layer)
     {
         switch (layer)
@@ -613,7 +740,9 @@ namespace
         float y,
         float width,
         float height,
+        int textureId,
         const DamagePlatformComponent* damagePlatform,
+        const SpikeStripComponent* spikeStrip,
         const TintComponent* tint,
         float sourceX,
         float sourceY,
@@ -622,7 +751,7 @@ namespace
         float rotation,
         float alpha)
     {
-        if (!damagePlatform || !tint)
+        if (!damagePlatform || !tint || spikeStrip != nullptr)
         {
             return false;
         }
@@ -641,34 +770,45 @@ namespace
 
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f)), 0, 255));
 
-        std::vector<DamagePlatformPoint> basePolygon =
+        if (textureId >= 0)
         {
-            { 0.0f, 0.5f },
-            { 1.0f, 0.5f },
-            { 1.0f, 1.0f },
-            { 0.0f, 1.0f }
-        };
-        if (ClipDamagePlatformPolygonToCrop(basePolygon, cropLeft, cropTop, cropRight, cropBottom))
-        {
-            DrawDamagePlatformPolygon(basePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, baseColor);
-        }
-
-        const int spikeCount = (std::max)(1, damagePlatform->tileSpan);
-        const float spikeWidth = 1.0f / static_cast<float>(spikeCount);
-        for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
-        {
-            std::vector<DamagePlatformPoint> spikePolygon =
+            const int blockCount = (std::max)(1, damagePlatform->tileSpan);
+            const float blockWidth = width / static_cast<float>(blockCount);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, alpha);
+            for (int blockIndex = 0; blockIndex < blockCount; ++blockIndex)
             {
-                { static_cast<float>(spikeIndex) * spikeWidth, 0.5f },
-                { static_cast<float>(spikeIndex + 1) * spikeWidth, 0.5f },
-                { (static_cast<float>(spikeIndex) + 0.5f) * spikeWidth, 0.0f }
-            };
-            if (!ClipDamagePlatformPolygonToCrop(spikePolygon, cropLeft, cropTop, cropRight, cropBottom))
-            {
-                continue;
+                const float drawX = x + blockWidth * static_cast<float>(blockIndex);
+                const float drawWidth = blockIndex == blockCount - 1
+                    ? width - blockWidth * static_cast<float>(blockIndex)
+                    : blockWidth;
+                SpriteDraw(
+                    textureId,
+                    drawX,
+                    y,
+                    drawWidth,
+                    height,
+                    cropLeft,
+                    cropTop,
+                    cropRight - cropLeft,
+                    cropBottom - cropTop,
+                    false,
+                    rotation);
             }
-
-            DrawDamagePlatformPolygon(spikePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, spikeColor);
+            Shader_ResetStyle();
+        }
+        else
+        {
+            std::vector<DamagePlatformPoint> basePolygon =
+            {
+                { 0.0f, 0.5f },
+                { 1.0f, 0.5f },
+                { 1.0f, 1.0f },
+                { 0.0f, 1.0f }
+            };
+            if (ClipDamagePlatformPolygonToCrop(basePolygon, cropLeft, cropTop, cropRight, cropBottom))
+            {
+                DrawDamagePlatformPolygon(basePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, baseColor);
+            }
         }
 
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
@@ -680,6 +820,7 @@ namespace
         float y,
         float width,
         float height,
+        const DamagePlatformComponent* damagePlatform,
         const SpikeStripComponent* spikeStrip,
         const TintComponent* tint,
         float sourceX,
@@ -689,44 +830,12 @@ namespace
         float rotation,
         float alpha)
     {
-        if (!spikeStrip || !tint)
+        if (!damagePlatform || !spikeStrip || !tint)
         {
             return false;
         }
 
-        const int spikeColor = GetColor(
-            static_cast<int>(std::round(tint->r * 255.0f)),
-            static_cast<int>(std::round(tint->g * 255.0f)),
-            static_cast<int>(std::round(tint->b * 255.0f)));
-        const float cropLeft = std::clamp(sourceX, 0.0f, 1.0f);
-        const float cropTop = std::clamp(sourceY, 0.0f, 1.0f);
-        const float cropWidth = std::clamp(sourceWidth, 0.0001f, 1.0f);
-        const float cropHeight = std::clamp(sourceHeight, 0.0001f, 1.0f);
-        const float cropRight = std::clamp(cropLeft + cropWidth, 0.0f, 1.0f);
-        const float cropBottom = std::clamp(cropTop + cropHeight, 0.0f, 1.0f);
-
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f)), 0, 255));
-
-        const int spikeCount = (std::max)(1, spikeStrip->tileSpan);
-        const float spikeWidth = 1.0f / static_cast<float>(spikeCount);
-        for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
-        {
-            std::vector<DamagePlatformPoint> spikePolygon =
-            {
-                { static_cast<float>(spikeIndex) * spikeWidth, 1.0f },
-                { static_cast<float>(spikeIndex + 1) * spikeWidth, 1.0f },
-                { (static_cast<float>(spikeIndex) + 0.5f) * spikeWidth, 0.0f }
-            };
-            if (!ClipDamagePlatformPolygonToCrop(spikePolygon, cropLeft, cropTop, cropRight, cropBottom))
-            {
-                continue;
-            }
-
-            DrawDamagePlatformPolygon(spikePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, spikeColor);
-        }
-
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-        return true;
+        return false;
     }
         float ComputeLightFlicker(float timeSeconds, const TransformComponent& transform, const FlickerLightComponent& light)
     {
@@ -2736,6 +2845,22 @@ void GameScene::DrawEntity(const Entity& entity) const
         Shader_ResetStyle();
         return;
     }
+    else if (tag && HasTag(tag, EntityTag::DropItem))
+    {
+        const auto* drop = entity.GetComponent<DropItemComponent>();
+        const float pulse = drop ? Clamp01(drop->GetAttractTimer() / 0.18f) : 0.0f;
+        DrawDropItemOctahedron(
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            transform->rotation + pulse * 0.35f,
+            alphaMultiplier,
+            tint,
+            pulse);
+        Shader_ResetStyle();
+        return;
+    }
 
     if (fallingShieldTrailActive)
     {
@@ -3388,7 +3513,9 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawY,
             drawWidth,
             drawHeight,
+            sprite->GetTextureId(),
             damagePlatform,
+            spikeStrip,
             tint,
             sprite->GetSourceX(),
             sprite->GetSourceY(),
@@ -3401,6 +3528,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawY,
             drawWidth,
             drawHeight,
+            damagePlatform,
             spikeStrip,
             tint,
             sprite->GetSourceX(),
