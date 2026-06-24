@@ -18,6 +18,7 @@ struct TileMapData
     std::vector<int> markerParameters;
 	std::vector<char> markers2;
 	std::vector<int> markerParameters2;
+    std::string tileTextureKey;
     int width = 0;
     int height = 0;
     float tileSize = 0.0f;
@@ -34,11 +35,13 @@ public:
     bool SaveToCsv(const std::string& path) const;
     void Clear();
 
-    void Draw(int textureId, float originX, float originY, float scale = 1.0f) const;
+    void Draw(int textureId, float originX, float originY, float scale = 1.0f, int tile2TextureId = -1) const;
 
     int GetWidth() const;
     int GetHeight() const;
     float GetTileSize() const;
+    const std::string& GetTileTextureKey() const;
+    void SetTileTextureKey(const std::string& tileTextureKey);
     bool IsLoaded() const;
     int GetTile(int column, int row) const;
     char GetMarker(int column, int row) const;

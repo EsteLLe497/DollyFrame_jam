@@ -62,6 +62,18 @@
       "rgbaB": "FF1D143A",
       "cellSize": 18
     },
+    "tile_default": {
+      "type": "file",
+      "path": "assets/texture/block.png"
+    },
+    "tile_forest_ground": {
+      "type": "file",
+      "path": "assets/texture/maptip/forest_ground.png"
+    },
+    "tile_value_2_blue": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_2_blue.png"
+    },
     "enemy1_idle": {
       "type": "file",
       "path": "assets/texture/enemy1/enemy1_idle.png"

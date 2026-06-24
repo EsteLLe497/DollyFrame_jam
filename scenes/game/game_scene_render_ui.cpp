@@ -2531,7 +2531,12 @@ void GameScene::DrawBackdropFrameInView(float viewOriginX, float viewOriginY, fl
 
 void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, float viewScale) const
 {
-    m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY - m_flow.cameraY * viewScale, viewScale);
+    m_tileMap.Draw(
+        m_tileTexture,
+        viewOriginX - m_flow.cameraX * viewScale,
+        viewOriginY - m_flow.cameraY * viewScale,
+        viewScale,
+        m_tileTexture2);
     DrawStageTransitionMarkersInView(viewOriginX, viewOriginY, viewScale);
     DrawMapEditorMarkersInView(viewOriginX, viewOriginY, viewScale);
     DrawMidBoss2TeleportSlotsInView(viewOriginX, viewOriginY, viewScale);
