@@ -429,6 +429,13 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
         const float previousY = transform->y;
         const bool powered = linkPowered[elevator->linkId];
+        const int elevatorTexture = powered
+            ? m_assets.GetTexture("tile_value_elevator_on")
+            : m_assets.GetTexture("tile_value_elevator_off");
+        if (auto* sprite = entity->GetComponent<SpriteRenderComponent>())
+        {
+            sprite->SetTextureId(elevatorTexture >= 0 ? elevatorTexture : m_whiteTexture);
+        }
         if (!powered)
         {
             elevator->cycleStarted = false;
@@ -488,7 +495,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             std::max(kPlatformTopToleranceMin, tileSize * 0.24f),
             kPlatformPlayerInsetX);
 
-        setEntityTint(*entity, powered ? 0.74f : 0.42f, powered ? 0.86f : 0.46f, powered ? 0.98f : 0.52f);
+        setEntityTint(*entity, 1.0f, 1.0f, 1.0f);
     }
 
     for (const auto& entity : m_world.Entities())

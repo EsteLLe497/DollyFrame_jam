@@ -655,6 +655,7 @@ void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int sp
 void GameScene::SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize)
 {
     const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    const int elevatorOffTexture = m_assets.GetTexture("tile_value_elevator_off");
     auto elevatorEntity = std::make_unique<Entity>();
     elevatorEntity->AddComponent<TagComponent>(kTagElevator);
     elevatorEntity->AddComponent<TransformComponent>(
@@ -663,11 +664,11 @@ void GameScene::SpawnElevatorMarker(float x, float y, int moveRangeTiles, float 
         tileSize * widthTiles,
         tileSize * cfg.elevatorHeightTiles);
     elevatorEntity->AddComponent<TintComponent>(
-        cfg.elevatorColor.r,
-        cfg.elevatorColor.g,
-        cfg.elevatorColor.b,
+        1.0f,
+        1.0f,
+        1.0f,
         1.0f);
-    elevatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    elevatorEntity->AddComponent<SpriteRenderComponent>(elevatorOffTexture >= 0 ? elevatorOffTexture : m_whiteTexture);
     elevatorEntity->AddComponent<ElevatorComponent>(
         linkId,
         tileSize * static_cast<float>(moveRangeTiles),
@@ -981,6 +982,9 @@ void GameScene::RefreshEnemiesFromMarkers()
 
 void GameScene::RefreshBatteriesFromMarkers()
 {
+    const int batteryTexture = m_assets.GetTexture("tile_value_battery");
+    const int resolvedBatteryTexture = batteryTexture >= 0 ? batteryTexture : m_whiteTexture;
+
     m_world.EraseIf(
         [](const std::unique_ptr<Entity>& entity)
         {
@@ -1020,8 +1024,8 @@ void GameScene::RefreshBatteriesFromMarkers()
                 static_cast<float>(row) * tileSize,
                 tileSize,
                 tileSize);
-            battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
-            battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            battery->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            battery->AddComponent<SpriteRenderComponent>(resolvedBatteryTexture);
             battery->AddComponent<BatteryComponent>(
                 1900.0f,
                 980.0f,
@@ -1639,11 +1643,7 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
                 damagePlatformBase->AddComponent<SpriteRenderComponent>(damageTexture);
                 damagePlatformBase->AddComponent<DamagePlatformComponent>(1);
                 damagePlatformBase->AddComponent<ImageOutlineColliderComponent>(
-                    std::vector<b2Vec2>{
-                        { 0.0f, 0.0f },
-                        { 1.0f, 0.0f },
-                        { 1.0f, 1.0f },
-                        { 0.0f, 1.0f }},
+                    BuildDamagePlatformBaseOutline(),
                     0.2f);
                 damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
                 m_world.Spawn(std::move(damagePlatformBase));
@@ -1661,7 +1661,7 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
                 damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
                 damagePlatformSpike->AddComponent<SpikeStripComponent>(1);
                 damagePlatformSpike->AddComponent<ImageOutlineColliderComponent>(
-                    BuildDamagePlatformNormalizedOutline(1),
+                    BuildDamagePlatformSpikeOutline(1),
                     0.2f);
                 damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
                 m_world.Spawn(std::move(damagePlatformSpike));

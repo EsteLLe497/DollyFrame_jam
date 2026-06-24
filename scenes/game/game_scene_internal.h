@@ -640,11 +640,21 @@ inline int GetDamagePlatformTileSpanFromMarker(char marker)
     return upper == 'I' ? 2 : 3;
 }
 
-inline std::vector<b2Vec2> BuildDamagePlatformNormalizedOutline(int tileSpan)
+inline std::vector<b2Vec2> BuildDamagePlatformBaseOutline()
+{
+    return std::vector<b2Vec2>{
+        { 0.0f, 0.0f },
+        { 1.0f, 0.0f },
+        { 1.0f, 1.0f },
+        { 0.0f, 1.0f }
+    };
+}
+
+inline std::vector<b2Vec2> BuildDamagePlatformSpikeOutline(int tileSpan)
 {
     const int spikeCount = (std::max)(1, tileSpan);
     std::vector<b2Vec2> outline;
-    outline.reserve(static_cast<size_t>(spikeCount * 2 + 4));
+    outline.reserve(static_cast<size_t>(spikeCount * 2 + 1));
     outline.push_back({ 0.0f, 0.5f });
     for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
     {
@@ -653,8 +663,6 @@ inline std::vector<b2Vec2> BuildDamagePlatformNormalizedOutline(int tileSpan)
         outline.push_back({ peakX, 0.0f });
         outline.push_back({ valleyX, 0.5f });
     }
-    outline.push_back({ 1.0f, 1.0f });
-    outline.push_back({ 0.0f, 1.0f });
     return outline;
 }
 

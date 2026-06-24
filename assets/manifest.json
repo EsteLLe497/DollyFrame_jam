@@ -86,6 +86,18 @@
       "type": "file",
       "path": "assets/texture/maptip/tile_value_m_log.png"
     },
+    "tile_value_battery": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_battery.png"
+    },
+    "tile_value_elevator_off": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_elevator_off.png"
+    },
+    "tile_value_elevator_on": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_elevator_on.png"
+    },
     "enemy1_idle": {
       "type": "file",
       "path": "assets/texture/enemy1/enemy1_idle.png"

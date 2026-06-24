@@ -1695,8 +1695,9 @@ void GameScene::InitializeStageEntities()
             AlignToGrid(static_cast<float>(stageMarker.row) * tileSize, tileSize),
             tileSize,
             tileSize);
-        battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
-        battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        const int batteryTexture = m_assets.GetTexture("tile_value_battery");
+        battery->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+        battery->AddComponent<SpriteRenderComponent>(batteryTexture >= 0 ? batteryTexture : m_whiteTexture);
         battery->AddComponent<BatteryComponent>(
             1900.0f,
             980.0f,
