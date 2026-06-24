@@ -2222,8 +2222,8 @@ void GameScene::DrawBackdropBaseInView(
     float viewHeight,
     float viewScale) const
 {
-    int bgTexture = m_backdropTextureId >= 0 ? m_backdropTextureId : m_assets.GetTexture("forest_bg");
-    int bg1Texture = m_backdropTexture1Id >= 0 ? m_backdropTexture1Id : m_assets.GetTexture("forest_fg");
+    int bgTexture = m_camera.backdropTextureId >= 0 ? m_camera.backdropTextureId : m_assets.GetTexture("forest_bg");
+    int bg1Texture = m_camera.backdropTexture1Id >= 0 ? m_camera.backdropTexture1Id : m_assets.GetTexture("forest_fg");
     int bg2Texture = m_assets.GetTexture("forest1_bg");
     if (bgTexture < 0) bgTexture = m_assets.GetTexture("forest_bg");
     if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("forest_fg");

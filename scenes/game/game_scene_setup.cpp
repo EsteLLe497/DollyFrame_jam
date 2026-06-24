@@ -456,32 +456,32 @@ void GameScene::ResetSceneState()
     m_mapEditor.selectedStageLightFixtureTiles = 1;
     m_mapEditor.statusMessage.clear();
     m_mapEditor.statusMessageTimer = 0.0f;
-    m_cameraTransitionMarkers.clear();
-    m_cameraFixedRanges.clear();
-    m_hasPreviousPlayerCameraProbe = false;
-    m_previousPlayerCameraProbeX = 0.0f;
-    m_previousPlayerCameraProbeY = 0.0f;
-    m_hasCameraSmoothedPlayerY = false;
-    m_cameraSmoothedPlayerCenterY = 0.0f;
-    m_floorCameraTransitionActive = false;
-    m_floorCameraTransitionElapsed = 0.0f;
-    m_floorCameraTransitionDuration = 1.10f;
-    m_floorCameraTransitionStartX = 0.0f;
-    m_floorCameraTransitionStartY = 0.0f;
-    m_floorCameraTransitionTargetX = 0.0f;
-    m_floorCameraTransitionTargetY = 0.0f;
-    m_cameraFixedLockActive = false;
-    m_cameraFixedLockStartX = 0.0f;
-    m_cameraFixedLockEndX = 0.0f;
-    m_cameraFixedLockX = 0.0f;
-    m_cameraFixedLockY = 0.0f;
-    m_hasPendingStageTransition = false;
-    m_pendingStageTransitionMapCsv.clear();
-    m_pendingStageTransitionSpawnMarker = '\0';
-    m_pendingStageTransitionMarker = '\0';
-    m_darknessStageEnabled = false;
-    gCurrentMapCsvPath = "assets/maps/stages/forest.csv";
-    gLastStageTransitionMarker = '\0';
+    m_camera.transitionMarkers.clear();
+    m_camera.fixedRanges.clear();
+    m_camera.hasPreviousPlayerCameraProbe = false;
+    m_camera.previousPlayerCameraProbeX = 0.0f;
+    m_camera.previousPlayerCameraProbeY = 0.0f;
+    m_camera.hasCameraSmoothedPlayerY = false;
+    //m_camera.smoothedPlayerCenterY = 0.0f;
+    m_camera.floorCameraTransitionActive = false;
+    m_camera.floorCameraTransitionElapsed = 0.0f;
+    m_camera.floorCameraTransitionDuration = 1.10f;
+    m_camera.floorCameraTransitionStartX = 0.0f;
+    m_camera.floorCameraTransitionStartY = 0.0f;
+    m_camera.floorCameraTransitionTargetX = 0.0f;
+    m_camera.floorCameraTransitionTargetY = 0.0f;
+    m_camera.cameraFixedLockActive = false;
+    m_camera.cameraFixedLockStartX = 0.0f;
+    m_camera.cameraFixedLockEndX = 0.0f;
+    m_camera.cameraFixedLockX = 0.0f;
+    m_camera.cameraFixedLockY = 0.0f;
+    m_lifecycle.hasPendingStageTransition = false;
+    m_lifecycle.pendingStageTransitionMapCsv.clear();
+    m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
+    m_lifecycle.pendingStageTransitionMarker = '\0';
+    m_lifecycle.darknessStageEnabled = false;
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest.csv";
+    m_lifecycle.lastStageTransitionMarker = '\0';
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
 }
@@ -1070,13 +1070,13 @@ void GameScene::InitializeStageEntities()
     };
 
     {
-        const auto keys = ResolveBackdropKeysForMap(gCurrentMapCsvPath);
-        m_backdropTextureId = m_assets.GetTexture(keys.first);
-        m_backdropTexture1Id = m_assets.GetTexture(keys.second);
+        const auto keys = ResolveBackdropKeysForMap(m_lifecycle.currentMapCsvPath);
+        m_camera.backdropTextureId = m_assets.GetTexture(keys.first);
+        m_camera.backdropTexture1Id = m_assets.GetTexture(keys.second);
         // manifest 未登録なら既存キーにフォールバック
 
-        if (m_backdropTextureId < 0) m_backdropTextureId = m_assets.GetTexture("forest_bg");
-        if (m_backdropTexture1Id < 0) m_backdropTexture1Id = m_assets.GetTexture("forest_fg");
+        if (m_camera.backdropTextureId < 0) m_camera.backdropTextureId = m_assets.GetTexture("forest_bg");
+        if (m_camera.backdropTexture1Id < 0) m_camera.backdropTexture1Id = m_assets.GetTexture("forest_fg");
     }
 }
 
