@@ -196,6 +196,11 @@
     "photo_tray_backdrop": {
       "type": "file",
       "path": "assets/texture/photo_tray_backdrop.png"
+    },
+
+    "ui_hp": {
+      "type": "file",
+      "path": "assets/texture/testUI/UI_HP.png"
     }
 
   }

@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 
 #include "game_scene_internal.h"
+#include "game_scene_hp_ui_layout.h"
 #include "game_scene_combat_common.h"
 
 #include "DxLib.h"
@@ -9,6 +10,8 @@ using namespace game_scene_detail;
 
 namespace
 {
+    constexpr const char* kHpTextureKey = "ui_hp";
+
     unsigned int GetAttackCaptureIconColor(CapturedSpawnArchetype archetype)
     {
         switch (archetype)
@@ -78,130 +81,138 @@ void GameScene::DrawPlayerHpBar() const
 
     const int maxHp = (std::max)(1, health->GetMaxHealth());
     const int currentHp = std::clamp(health->GetCurrentHealth(), 0, maxHp);
-
-    constexpr float kBarWidth = 240.0f;
-    constexpr float kBarHeight = 24.0f;
-    constexpr float kPanelPadding = 12.0f;
-    constexpr float kMarginLeft = 32.0f;
-    constexpr float kMarginTop = 32.0f;
-
-    const float panelWidth = kBarWidth + kPanelPadding * 2.0f;
-    const float panelHeight = kBarHeight + 38.0f;
-    const float panelX = kMarginLeft;
-    const float panelY = kMarginTop;
-    const float barX = panelX + kPanelPadding;
-    const float barY = panelY + kPanelPadding;
-
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 204);
-    DrawBox(
-        static_cast<int>(std::round(panelX)),
-        static_cast<int>(std::round(panelY)),
-        static_cast<int>(std::round(panelX + panelWidth)),
-        static_cast<int>(std::round(panelY + panelHeight)),
-        GetColor(14, 20, 28),
-        TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    DrawBox(
-        static_cast<int>(std::round(panelX)),
-        static_cast<int>(std::round(panelY)),
-        static_cast<int>(std::round(panelX + panelWidth)),
-        static_cast<int>(std::round(panelY + panelHeight)),
-        GetColor(200, 214, 230),
-        FALSE);
-
     const float targetRatio = static_cast<float>(currentHp) / static_cast<float>(maxHp);
     const float displayRatio = m_ui.hpUiInitialized ? m_ui.hpDisplayRatio : targetRatio;
     const float lagRatio = m_ui.hpUiInitialized ? m_ui.hpDamageLagRatio : targetRatio;
     const float flash = m_ui.hpDamageFlash;
-
-    // バー背景
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth)),
-        static_cast<int>(std::round(barY + kBarHeight)),
-        GetColor(38, 46, 58),
-        TRUE);
-
-    // 被弾遅延バー（減った量が一瞬残る）
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth * std::clamp(lagRatio, 0.0f, 1.0f))),
-        static_cast<int>(std::round(barY + kBarHeight)),
-        GetColor(232, 94, 84),
-        TRUE);
-
-    // 現在HPバー（割合で色を変化）
-    const float clampedRatio = std::clamp(displayRatio, 0.0f, 1.0f);
-    const int hpR = static_cast<int>(std::round(230.0f - 160.0f * clampedRatio));
-    const int hpG = static_cast<int>(std::round(76.0f + 144.0f * clampedRatio));
-    const int hpB = static_cast<int>(std::round(72.0f + 46.0f * clampedRatio));
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth * clampedRatio)),
-        static_cast<int>(std::round(barY + kBarHeight)),
-        GetColor(hpR, hpG, hpB),
-        TRUE);
-
-    // ハイライト
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 84);
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth * clampedRatio)),
-        static_cast<int>(std::round(barY + kBarHeight * 0.45f)),
-        GetColor(255, 255, 255),
-        TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-
-    // 被弾フラッシュ
-    if (flash > 0.0f)
+    const int hpTexture = m_assets.GetTexture(kHpTextureKey);
+    if (hpTexture < 0)
     {
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(150.0f * flash)));
-        DrawBox(
-            static_cast<int>(std::round(barX)),
-            static_cast<int>(std::round(barY)),
-            static_cast<int>(std::round(barX + kBarWidth)),
-            static_cast<int>(std::round(barY + kBarHeight)),
-            GetColor(255, 246, 238),
-            TRUE);
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        return;
     }
 
-    // 目盛り
-    for (int i = 1; i < maxHp; ++i)
+    const int activeSlotCount = (std::min)(maxHp, static_cast<int>(game_scene_hp_ui_layout::kHpSlotRects.size()));
+    const float displayHp = std::clamp(displayRatio * static_cast<float>(maxHp), 0.0f, static_cast<float>(maxHp));
+    const float lagHp = std::clamp(lagRatio * static_cast<float>(maxHp), 0.0f, static_cast<float>(maxHp));
+    constexpr float kHeartSize = 72.0f;
+    constexpr float kHeartShadowOffsetX = 4.0f;
+    constexpr float kHeartShadowOffsetY = 5.0f;
+
+    Shader_SetBlendMode(ShaderBlendMode2D::Alpha);
+    for (int slotIndex = 0; slotIndex < activeSlotCount; ++slotIndex)
     {
-        const float x = barX + kBarWidth * (static_cast<float>(i) / static_cast<float>(maxHp));
-        DrawLine(
-            static_cast<int>(std::round(x)),
-            static_cast<int>(std::round(barY + 2.0f)),
-            static_cast<int>(std::round(x)),
-            static_cast<int>(std::round(barY + kBarHeight - 2.0f)),
-            GetColor(42, 48, 58));
+        const auto& slot = game_scene_hp_ui_layout::GetHpSlotRect(slotIndex);
+        const float slotFill = std::clamp(displayHp - static_cast<float>(slotIndex), 0.0f, 1.0f);
+        const float slotLag = std::clamp(lagHp - static_cast<float>(slotIndex), 0.0f, 1.0f);
+        const bool filled = currentHp > slotIndex;
+        const float heartX = slot.x + (slot.width - kHeartSize) * 0.5f;
+        const float heartY = slot.y + (slot.height - kHeartSize) * 0.5f + 2.0f;
+
+        Shader_SetTint(0.0f, 0.0f, 0.0f, filled ? 0.24f : 0.18f);
+        SpriteDraw(
+            hpTexture,
+            heartX + kHeartShadowOffsetX,
+            heartY + kHeartShadowOffsetY,
+            kHeartSize,
+            kHeartSize,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
+
+        Shader_SetTint(
+            filled ? (1.0f - 0.03f * (1.0f - slotFill)) : 0.40f,
+            filled ? (0.42f + 0.14f * slotFill) : 0.14f,
+            filled ? (0.45f + 0.12f * slotFill) : 0.18f,
+            filled ? (0.96f + 0.04f * slotFill) : 0.32f);
+        SpriteDraw(
+            hpTexture,
+            heartX,
+            heartY,
+            kHeartSize,
+            kHeartSize,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
+
+        if (filled)
+        {
+            Shader_SetBlendMode(ShaderBlendMode2D::Additive);
+            Shader_SetTint(1.0f, 0.82f, 0.88f, 0.10f + 0.10f * slotFill);
+            SpriteDraw(
+                hpTexture,
+                heartX - 1.0f,
+                heartY - 1.0f,
+                kHeartSize + 2.0f,
+                kHeartSize + 2.0f,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f);
+            Shader_SetBlendMode(ShaderBlendMode2D::Alpha);
+        }
+
+        if (slotLag > slotFill)
+        {
+            Shader_SetBlendMode(ShaderBlendMode2D::Additive);
+            Shader_SetTint(1.0f, 0.42f, 0.48f, 0.12f + 0.30f * (slotLag - slotFill));
+            SpriteDraw(
+                hpTexture,
+                heartX - 2.0f,
+                heartY - 2.0f,
+                kHeartSize + 4.0f,
+                kHeartSize + 4.0f,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f);
+            Shader_SetBlendMode(ShaderBlendMode2D::Alpha);
+        }
+
+        if (slotIndex == 0)
+        {
+            DrawString(
+                static_cast<int>(std::round(slot.x - 214.0f)),
+                static_cast<int>(std::round(slot.y + 8.0f)),
+                "LIFE",
+                GetColor(196, 214, 236));
+        }
     }
 
-    DrawBox(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY)),
-        static_cast<int>(std::round(barX + kBarWidth)),
-        static_cast<int>(std::round(barY + kBarHeight)),
-        GetColor(232, 236, 246),
-        FALSE);
-
-    DrawString(
-        static_cast<int>(std::round(barX)),
-        static_cast<int>(std::round(barY - 18.0f)),
-        "LIFE",
-        GetColor(196, 214, 236));
     DrawFormatString(
-        static_cast<int>(std::round(barX + kBarWidth * 0.5f) - 34.0f),
-        static_cast<int>(std::round(barY + 4.0f)),
+        static_cast<int>(std::round(game_scene_hp_ui_layout::GetHpSlotRect(0).x - 214.0f)),
+        static_cast<int>(std::round(game_scene_hp_ui_layout::GetHpSlotRect(0).y + 34.0f)),
         GetColor(255, 255, 255),
         "HP %d / %d",
         currentHp,
         maxHp);
+
+    if (flash > 0.0f)
+    {
+        Shader_SetBlendMode(ShaderBlendMode2D::Additive);
+        Shader_SetTint(1.0f, 0.82f, 0.84f, 0.10f + 0.18f * flash);
+        for (int slotIndex = 0; slotIndex < activeSlotCount; ++slotIndex)
+        {
+            const auto& slot = game_scene_hp_ui_layout::GetHpSlotRect(slotIndex);
+            if (currentHp > slotIndex)
+            {
+                SpriteDraw(
+                    hpTexture,
+                    slot.x,
+                    slot.y,
+                    slot.width,
+                    slot.height,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    1.0f);
+            }
+        }
+        Shader_SetBlendMode(ShaderBlendMode2D::Alpha);
+    }
+
+    Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 void GameScene::DrawPartsHud() const

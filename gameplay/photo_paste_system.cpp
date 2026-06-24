@@ -3,6 +3,7 @@
 #include "photo_paste_system.h"
 
 #include "game_scene_internal.h"
+#include "game_scene_photo_storage_layout.h"
 #include "imgui_layer.h"
 #include "photo_filter_rules.h"
 #include "photo_shared.h"
@@ -29,13 +30,6 @@ namespace
     constexpr float kValidPreviewTintAlphaMin = 0.46f;
     constexpr float kValidPreviewTintAlphaMax = 0.62f;
     constexpr float kZoomTargetTilesX = 23.0f;
-    constexpr int kPhotoTraySlotCount = 4;
-    constexpr int kPhotoTrayOriginalSlotCount = 3;
-    constexpr float kPhotoTrayScale = 1.1f;
-    constexpr float kPhotoTraySlotWidth = 270.0f * kPhotoTrayScale;
-    constexpr float kPhotoTraySlotHeight = kPhotoTraySlotWidth * 89.0f / 127.0f;
-    constexpr float kPhotoTraySlotGap = 18.0f;
-
     float NormalizeAngleRadians(float radians)
     {
         const float twoPi = 6.2831853072f;
@@ -172,30 +166,11 @@ namespace
 
 int PhotoPasteSystem::GetPhotoTraySlotAt(const GameScene& scene, float screenX, float screenY)
 {
-    if (scene.m_ui.photoTrayReveal <= 0.05f)
-    {
-        return -1;
-    }
-
-    const float originalTrayWidth = kPhotoTrayOriginalSlotCount * kPhotoTraySlotWidth + (kPhotoTrayOriginalSlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - originalTrayWidth) * 0.5f - (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-    const float hiddenOffset = (1.0f - scene.m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
-    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
-    if (screenY < trayY || screenY > trayY + kPhotoTraySlotHeight)
-    {
-        return -1;
-    }
-
-    for (int slotIndex = 0; slotIndex < kPhotoTraySlotCount; ++slotIndex)
-    {
-        const float slotX = trayX + slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-        if (screenX >= slotX && screenX <= slotX + kPhotoTraySlotWidth)
-        {
-            return slotIndex;
-        }
-    }
-
-    return -1;
+    return game_scene_photo_storage_layout::FindUnlockedSlotIndexAt(
+        screenX,
+        screenY,
+        scene.m_ui.photoTrayReveal,
+        GameSession_Get().photoStorageSlots);
 }
 
 void PhotoPasteSystem::BeginPhotoPlacement(GameScene& scene, bool draggingFromTray)

@@ -987,8 +987,7 @@ void GameScene::SpawnDropItems(float x, float y, int count)
         auto item = std::make_unique<Entity>();
         item->AddComponent<TagComponent>(kTagDropItem);
         item->AddComponent<TransformComponent>(x, y, 10.0f, 10.0f);
-        const float hue = static_cast<float>(rand() % 100) * 0.01f;
-        item->AddComponent<TintComponent>(0.96f, 0.76f + hue * 0.2f, 0.10f + hue * 0.3f, 1.0f);
+        item->AddComponent<TintComponent>(0.42f, 0.86f, 1.0f, 1.0f);
         item->AddComponent<SpriteRenderComponent>(m_whiteTexture);
         item->AddComponent<DropItemComponent>(1, velX, velY);
         m_world.QueueSpawn(std::move(item));

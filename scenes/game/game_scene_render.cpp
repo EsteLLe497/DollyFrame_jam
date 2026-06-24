@@ -92,6 +92,133 @@ namespace
         }
     }
 
+    void DrawDropItemOctahedron(
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        float rotation,
+        float alphaMultiplier,
+        const TintComponent* tint,
+        float pulse)
+    {
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        const float halfW = drawWidth * 0.5f;
+        const float halfH = drawHeight * 0.5f;
+        const float innerW = halfW * 0.62f;
+        const float innerH = halfH * 0.38f;
+
+        float topX = centerX;
+        float topY = drawY;
+        float upperLeftX = centerX - innerW;
+        float upperLeftY = centerY - innerH;
+        float upperRightX = centerX + innerW;
+        float upperRightY = centerY - innerH;
+        float leftX = drawX;
+        float leftY = centerY;
+        float rightX = drawX + drawWidth;
+        float rightY = centerY;
+        float lowerLeftX = centerX - innerW;
+        float lowerLeftY = centerY + innerH;
+        float lowerRightX = centerX + innerW;
+        float lowerRightY = centerY + innerH;
+        float bottomX = centerX;
+        float bottomY = drawY + drawHeight;
+
+        RotatePoint(centerX, centerY, rotation, topX, topY);
+        RotatePoint(centerX, centerY, rotation, upperLeftX, upperLeftY);
+        RotatePoint(centerX, centerY, rotation, upperRightX, upperRightY);
+        RotatePoint(centerX, centerY, rotation, leftX, leftY);
+        RotatePoint(centerX, centerY, rotation, rightX, rightY);
+        RotatePoint(centerX, centerY, rotation, lowerLeftX, lowerLeftY);
+        RotatePoint(centerX, centerY, rotation, lowerRightX, lowerRightY);
+        RotatePoint(centerX, centerY, rotation, bottomX, bottomY);
+
+        const float tintR = tint ? tint->r : 0.96f;
+        const float tintG = tint ? tint->g : 0.76f;
+        const float tintB = tint ? tint->b : 0.18f;
+        const float tintA = tint ? tint->a : 1.0f;
+        const int alpha = std::clamp(static_cast<int>(std::round(255.0f * alphaMultiplier * tintA)), 0, 255);
+        if (alpha <= 0)
+        {
+            return;
+        }
+
+        const auto MakeColor = [](float r, float g, float b) -> unsigned int
+        {
+            return GetColor(
+                std::clamp(static_cast<int>(std::round(r * 255.0f)), 0, 255),
+                std::clamp(static_cast<int>(std::round(g * 255.0f)), 0, 255),
+                std::clamp(static_cast<int>(std::round(b * 255.0f)), 0, 255));
+        };
+
+        const unsigned int baseColor = MakeColor(tintR, tintG, tintB);
+        const unsigned int brightColor = MakeColor(
+            std::min(1.0f, tintR + 0.12f + pulse * 0.06f),
+            std::min(1.0f, tintG + 0.14f + pulse * 0.08f),
+            std::min(1.0f, tintB + 0.20f + pulse * 0.10f));
+        const unsigned int leftColor = MakeColor(
+            std::max(0.0f, tintR * 0.70f),
+            std::max(0.0f, tintG * 0.62f),
+            std::max(0.0f, tintB * 0.74f));
+        const unsigned int rightColor = MakeColor(
+            std::max(0.0f, tintR * 0.82f),
+            std::max(0.0f, tintG * 0.70f),
+            std::max(0.0f, tintB * 0.58f));
+        const unsigned int bottomColor = MakeColor(
+            std::max(0.0f, tintR * 0.58f),
+            std::max(0.0f, tintG * 0.46f),
+            std::max(0.0f, tintB * 0.40f));
+        const unsigned int outlineColor = MakeColor(
+            std::max(0.0f, tintR * 0.40f),
+            std::max(0.0f, tintG * 0.28f),
+            std::max(0.0f, tintB * 0.18f));
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+        DrawQuadrangleAA(topX, topY, rightX, rightY, bottomX, bottomY, leftX, leftY, baseColor, TRUE);
+        DrawTriangleAA(topX, topY, upperLeftX, upperLeftY, upperRightX, upperRightY, brightColor, TRUE);
+        DrawTriangleAA(leftX, leftY, upperLeftX, upperLeftY, lowerLeftX, lowerLeftY, leftColor, TRUE);
+        DrawTriangleAA(rightX, rightY, upperRightX, upperRightY, lowerRightX, lowerRightY, rightColor, TRUE);
+        DrawTriangleAA(bottomX, bottomY, lowerLeftX, lowerLeftY, lowerRightX, lowerRightY, bottomColor, TRUE);
+
+        const float innerScale = 0.56f + pulse * 0.05f;
+        float innerTopX = centerX;
+        float innerTopY = centerY - halfH * innerScale;
+        float innerLeftX = centerX - halfW * 0.42f;
+        float innerLeftY = centerY;
+        float innerRightX = centerX + halfW * 0.42f;
+        float innerRightY = centerY;
+        float innerBottomX = centerX;
+        float innerBottomY = centerY + halfH * innerScale;
+        RotatePoint(centerX, centerY, rotation, innerTopX, innerTopY);
+        RotatePoint(centerX, centerY, rotation, innerLeftX, innerLeftY);
+        RotatePoint(centerX, centerY, rotation, innerRightX, innerRightY);
+        RotatePoint(centerX, centerY, rotation, innerBottomX, innerBottomY);
+        DrawQuadrangleAA(innerTopX, innerTopY, innerRightX, innerRightY, innerBottomX, innerBottomY, innerLeftX, innerLeftY, brightColor, TRUE);
+
+        DrawLineAA(topX, topY, upperRightX, upperRightY, outlineColor, 1.5f);
+        DrawLineAA(upperRightX, upperRightY, rightX, rightY, outlineColor, 1.5f);
+        DrawLineAA(rightX, rightY, lowerRightX, lowerRightY, outlineColor, 1.5f);
+        DrawLineAA(lowerRightX, lowerRightY, bottomX, bottomY, outlineColor, 1.5f);
+        DrawLineAA(bottomX, bottomY, lowerLeftX, lowerLeftY, outlineColor, 1.5f);
+        DrawLineAA(lowerLeftX, lowerLeftY, leftX, leftY, outlineColor, 1.5f);
+        DrawLineAA(leftX, leftY, upperLeftX, upperLeftY, outlineColor, 1.5f);
+        DrawLineAA(upperLeftX, upperLeftY, topX, topY, outlineColor, 1.5f);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(84.0f * alphaMultiplier)), 0, 255));
+        DrawLineAA(topX, topY, centerX, centerY, GetColor(255, 255, 255), 1.1f);
+        DrawCircleAA(
+            centerX - halfW * 0.14f,
+            centerY - halfH * 0.22f,
+            std::max(1.2f, halfW * 0.12f),
+            24,
+            GetColor(255, 255, 255),
+            TRUE,
+            1.0f);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     const char* GetLayerEffectText(PhotoCopyLayer layer)
     {
         switch (layer)
@@ -2715,6 +2842,22 @@ void GameScene::DrawEntity(const Entity& entity) const
     else if (tag && HasTag(tag, "BossShockwave"))
     {
         // 叩きつけ後の衝撃波は判定だけ残し、たたき台の青い可視判定は描かない。
+        Shader_ResetStyle();
+        return;
+    }
+    else if (tag && HasTag(tag, EntityTag::DropItem))
+    {
+        const auto* drop = entity.GetComponent<DropItemComponent>();
+        const float pulse = drop ? Clamp01(drop->GetAttractTimer() / 0.18f) : 0.0f;
+        DrawDropItemOctahedron(
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            transform->rotation + pulse * 0.35f,
+            alphaMultiplier,
+            tint,
+            pulse);
         Shader_ResetStyle();
         return;
     }
