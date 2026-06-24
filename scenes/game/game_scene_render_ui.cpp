@@ -2288,7 +2288,7 @@ void GameScene::DrawBackdropBaseInView(
     const float scrollV = calcScroll(-m_flow.cameraY, parallaxY, static_cast<float>(texH));
 
     const float scrollU1 = calcScroll(m_flow.cameraX, parallaxX1, static_cast<float>(texW1));
-    const float scrollV1 = calcScroll(-m_flow.cameraY, parallaxY1, static_cast<float>(texH1));
+    const float scrollV1 = 0.0f;//calcScroll(-m_flow.cameraY, parallaxY1, static_cast<float>(texH1));
     // view に対する UV のスパン（= 画面幅 / テクスチャ幅）
     const float uSpan = drawW / static_cast<float>(texW);
     const float vSpan = drawH / static_cast<float>(texH);
@@ -2296,7 +2296,8 @@ void GameScene::DrawBackdropBaseInView(
     const float vSpan1 = drawH1 / static_cast<float>(texH1);
 
     // Y を下にずらすオフセット（必要なら）
-    const float bg1OffsetY = 24.0f * viewScale;
+    //const float bg1OffsetY = 24.0f * viewScale;
+    const float bg1OffsetY = 0.0f;
 
     // 内部：1回分のuv塊を四分割して描くヘルパー（tx,tyは [0..inf) を許容し、小数部で扱う）
     const auto drawTiledChunk = [&](int textureId, float destX, float destY, float destW, float destH, float tx, float ty, float tw, float th)
@@ -2369,12 +2370,12 @@ void GameScene::DrawBackdropBaseInView(
         }
     };
 
-    // 背景（奥）を描画
-    drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
-
+    //// 背景（奥）を描画
+    //drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
+    // 
     // 背景前景（手前）を描画（Y を下にオフセット）
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
-    
+
     //int bg2Texture = m_assets.GetTexture("forest1_bg");
     if (bg2Texture >= 0)
     {
@@ -2391,21 +2392,7 @@ void GameScene::DrawBackdropBaseInView(
         }
     }
 
-    int bg4Texture = m_assets.GetTexture("forest3_bg");
-    if (bg4Texture >= 0)
-    {
-        const int texW4 = TextureGetWidth(bg4Texture);
-        const int texH4 = TextureGetHeight(bg4Texture);
-        if (texW4 > 0 && texH4 > 0)
-        {
-            // scrollU1をそのまま使う（BG_Forest.pngと完全同期）
-            const float uSpan4 = viewWidth / static_cast<float>(texW4);
-            const float vSpan4 = viewHeight / static_cast<float>(texH4);
-            drawTiledRepeating(bg4Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU1, scrollV1, uSpan4, vSpan4);
-        }
-    }
-
-	int bg3Texture = m_assets.GetTexture("forest2_bg");
+    int bg3Texture = m_assets.GetTexture("forest2_bg");
     if (bg3Texture >= 0)
     {
         const int texW3 = TextureGetWidth(bg3Texture);
@@ -2419,8 +2406,21 @@ void GameScene::DrawBackdropBaseInView(
             const float vSpan3 = viewHeight / static_cast<float>(texH3);
             drawTiledRepeating(bg3Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU3, scrollV3, uSpan3, vSpan3);
         }
-	}
+    }
 
+    int bg4Texture = m_assets.GetTexture("forest3_bg");
+    if (bg4Texture >= 0)
+    {
+        const int texW4 = TextureGetWidth(bg4Texture);
+        const int texH4 = TextureGetHeight(bg4Texture);
+        if (texW4 > 0 && texH4 > 0)
+        {
+            // scrollU1をそのまま使う（BG_Forest.pngと完全同期）
+            const float uSpan4 = viewWidth / static_cast<float>(texW4);
+            const float vSpan4 = viewHeight / static_cast<float>(texH4);
+            drawTiledRepeating(bg4Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU1, scrollV1, uSpan4, vSpan4);
+        }
+    }
 }
 
 void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const

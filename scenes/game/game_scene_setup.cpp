@@ -1839,9 +1839,8 @@ void GameScene::InitializeStageEntities()
 
         // CSV 蜷阪↓ "forest" 縺ｾ縺溘・ "ruins" 繧貞性繧√※隴伜挨縺励※縺・ｋ縺ｨ縺ｮ縺薙→縺ｪ縺ｮ縺ｧ縺昴ｌ縺ｫ蜷医ｏ縺帙ｋ
 		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };//繝槭ャ繝励・CSV繝輔ぃ繧､繝ｫ蜷阪↓ "ruins" 繧貞性繧蝣ｴ蜷医・蟒・｢溘・閭梧勹縺ｨ蜑肴勹繧剃ｽｿ逕ｨ
-        if (stem.find("forest") != std::string::npos) return { "sinrin10", "sinrin11" };
-        // 繝・ヵ繧ｩ繝ｫ繝・
-        return { "sinrin10", "sinrin11" };
+        if (stem.find("forest") != std::string::npos) return { "forest_bg", "forest_fg" };        // 繝・ヵ繧ｩ繝ｫ繝・
+        return { "forest_bg", "forest_fg" };
     };
 
     {
