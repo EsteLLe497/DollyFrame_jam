@@ -1782,9 +1782,10 @@ void GameScene::InitializeStageEntities()
         const auto keys = ResolveBackdropKeysForMap(m_lifecycle.currentMapCsvPath);
         m_camera.backdropTextureId = m_assets.GetTexture(keys.first);
         m_camera.backdropTexture1Id = m_assets.GetTexture(keys.second);
-        // manifest 譛ｪ逋ｻ骭ｲ縺ｪ繧画里蟄倥く繝ｼ縺ｫ繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ
-        if (m_camera.backdropTextureId < 0) m_camera.backdropTextureId = m_assets.GetTexture("sinrin10");
-        if (m_camera.backdropTexture1Id < 0) m_camera.backdropTexture1Id = m_assets.GetTexture("sinrin11");
+        // manifest 未登録なら既存キーにフォールバック
+
+        if (m_camera.backdropTextureId < 0) m_camera.backdropTextureId = m_assets.GetTexture("forest_bg");
+        if (m_camera.backdropTexture1Id < 0) m_camera.backdropTexture1Id = m_assets.GetTexture("forest_fg");
     }
 }
 

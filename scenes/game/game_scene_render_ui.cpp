@@ -2244,13 +2244,12 @@ void GameScene::DrawBackdropBaseInView(
     float viewHeight,
     float viewScale) const
 {
-    // 繧ｭ繝｣繝・す繝･縺輔ｌ縺溯レ譎ｯ繝・け繧ｹ繝√ΕID繧貞━蜈医＠縺ｦ菴ｿ縺・ｼ医↑縺代ｌ縺ｰ manifest 縺ｮ譌｢螳壹く繝ｼ縺ｫ繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ・・
-    int bgTexture = m_camera.backdropTextureId >= 0 ? m_camera.backdropTextureId : m_assets.GetTexture("sinrin10");
-    int bg1Texture = m_camera.backdropTexture1Id >= 0 ? m_camera.backdropTexture1Id : m_assets.GetTexture("sinrin11");
-
-    // 縺輔ｉ縺ｫ蠢ｵ縺ｮ縺溘ａ manifest 縺ｫ逋ｻ骭ｲ縺輔ｌ縺ｦ縺・↑縺代ｌ縺ｰ譌｢螳壹↓謌ｻ縺・
-    if (bgTexture < 0) bgTexture = m_assets.GetTexture("sinrin10");
-    if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("sinrin11");
+    int bgTexture = m_camera.backdropTextureId >= 0 ? m_camera.backdropTextureId : m_assets.GetTexture("forest_bg");
+    int bg1Texture = m_camera.backdropTexture1Id >= 0 ? m_camera.backdropTexture1Id : m_assets.GetTexture("forest_fg");
+    int bg2Texture = m_assets.GetTexture("forest1_bg");
+    if (bgTexture < 0) bgTexture = m_assets.GetTexture("forest_bg");
+    if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("forest_fg");
+    if (bg2Texture < 0) bg2Texture = m_assets.GetTexture("forest1_bg");
 
     if (bgTexture < 0 || bg1Texture < 0)
     {
@@ -2375,6 +2374,53 @@ void GameScene::DrawBackdropBaseInView(
 
     // 背景前景（手前）を描画（Y を下にオフセット）
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
+    
+    //int bg2Texture = m_assets.GetTexture("forest1_bg");
+    if (bg2Texture >= 0)
+    {
+        const int texW2 = TextureGetWidth(bg2Texture);
+        const int texH2 = TextureGetHeight(bg2Texture);
+        if (texW2 > 0 && texH2 > 0)
+        {
+            const float parallaxX2 = 0.65f; // 好みで調整
+            const float scrollU2 = calcScroll(m_flow.cameraX, parallaxX2, static_cast<float>(texW2));
+            const float scrollV2 = 0.0f;//calcScroll(-m_flow.cameraY, 0.45f, static_cast<float>(texH2));
+            const float uSpan2 = viewWidth / static_cast<float>(texW2);
+            const float vSpan2 = viewHeight / static_cast<float>(texH2);
+            drawTiledRepeating(bg2Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU2, scrollV2, uSpan2, vSpan2);
+        }
+    }
+
+    int bg4Texture = m_assets.GetTexture("forest3_bg");
+    if (bg4Texture >= 0)
+    {
+        const int texW4 = TextureGetWidth(bg4Texture);
+        const int texH4 = TextureGetHeight(bg4Texture);
+        if (texW4 > 0 && texH4 > 0)
+        {
+            // scrollU1をそのまま使う（BG_Forest.pngと完全同期）
+            const float uSpan4 = viewWidth / static_cast<float>(texW4);
+            const float vSpan4 = viewHeight / static_cast<float>(texH4);
+            drawTiledRepeating(bg4Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU1, scrollV1, uSpan4, vSpan4);
+        }
+    }
+
+	int bg3Texture = m_assets.GetTexture("forest2_bg");
+    if (bg3Texture >= 0)
+    {
+        const int texW3 = TextureGetWidth(bg3Texture);
+        const int texH3 = TextureGetHeight(bg3Texture);
+        if (texW3 > 0 && texH3 > 0)
+        {
+            const float parallaxX3 = 0.25f; // 好みで調整
+            const float scrollU3 = calcScroll(m_flow.cameraX, parallaxX3, static_cast<float>(texW3));
+            const float scrollV3 = 0.0f;//calcScroll(-m_flow.cameraY, 0.45f, static_cast<float>(texH3));
+            const float uSpan3 = viewWidth / static_cast<float>(texW3);
+            const float vSpan3 = viewHeight / static_cast<float>(texH3);
+            drawTiledRepeating(bg3Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU3, scrollV3, uSpan3, vSpan3);
+        }
+	}
+
 }
 
 void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const

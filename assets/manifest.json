@@ -148,6 +148,15 @@
       "path": "assets/texture/BG/forest/sinrin11.png"
     },
 
+    "forest3_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_05.png"
+    },
+    "forest3_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_05.png"
+    },
+
     "ruins_bg": {
       "type": "file",
       "path": "assets/texture/BG/ruins/ruins.png"
@@ -160,7 +169,7 @@
     "photo_tray_backdrop": {
       "type": "file",
       "path": "assets/texture/photo_tray_backdrop.png"
-    }
+    },
 
   }
 }
