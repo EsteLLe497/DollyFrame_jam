@@ -17,7 +17,7 @@ using namespace game_scene_detail;
 
 namespace
 {
-    constexpr int kEscapeMenuItemCount = 15;
+    constexpr int kEscapeMenuItemCount = 16;
     constexpr int kEscapeMenuPanelWidth = 560;
     constexpr int kEscapeMenuPanelHeight = 660;
     constexpr int kEscapeMenuRowStartOffset = 86;
@@ -43,10 +43,11 @@ namespace
         case 8: return "暗闇エフェクト";
         case 9: return "プレイヤーHPダメージ";
         case 10: return "写真以外のUI";
-        case 11: return "テスト写真UI";
-        case 12: return "シーンを再読み込み";
-        case 13: return "タイトルへ戻る";
-        case 14: return "ゲームを終了";
+        case 11: return "背景グリッド";
+        case 12: return "テスト写真UI";
+        case 13: return "シーンを再読み込み";
+        case 14: return "タイトルへ戻る";
+        case 15: return "ゲームを終了";
         default: return "";
         }
     }
@@ -149,6 +150,9 @@ void GameScene::UpdateEscapeMenuInput()
             m_debug.hideNonPhotoUi = !m_debug.hideNonPhotoUi;
             break;
         case 11:
+            m_debug.showBackdropGrid = !m_debug.showBackdropGrid;
+            break;
+        case 12:
             m_testPhotos.enabled = !m_testPhotos.enabled;
             break;
         default:
@@ -201,17 +205,20 @@ void GameScene::UpdateEscapeMenuInput()
         m_debug.hideNonPhotoUi = !m_debug.hideNonPhotoUi;
         break;
     case 11:
-        m_testPhotos.enabled = !m_testPhotos.enabled;
+        m_debug.showBackdropGrid = !m_debug.showBackdropGrid;
         break;
     case 12:
-        m_debug.showEscapeMenu = false;
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+        m_testPhotos.enabled = !m_testPhotos.enabled;
         break;
     case 13:
         m_debug.showEscapeMenu = false;
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
         break;
     case 14:
+        m_debug.showEscapeMenu = false;
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        break;
+    case 15:
         m_debug.showEscapeMenu = false;
         m_eventBus.Publish({ EventType::ExitApplicationRequested, nullptr, nullptr, "", 0.0f, 0.0f });
         break;
@@ -322,6 +329,9 @@ void GameScene::DrawEscapeMenuOverlay() const
             DrawFormatString(left + 34, rowTop + 10, textColor, "%s: %s", GetEscapeMenuItemLabel(index), GetOnOffLabel(!m_debug.hideNonPhotoUi));
             break;
         case 11:
+            DrawFormatString(left + 34, rowTop + 10, textColor, "%s: %s", GetEscapeMenuItemLabel(index), GetOnOffLabel(m_debug.showBackdropGrid));
+            break;
+        case 12:
             DrawFormatString(left + 34, rowTop + 10, textColor, "%s: %s", GetEscapeMenuItemLabel(index), GetOnOffLabel(m_testPhotos.enabled));
             break;
         default:

@@ -2225,7 +2225,10 @@ void GameScene::DrawBackdrop() const
 
     DrawBackdropBaseInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
 
-    DrawBackdropGridInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
+    if (m_debug.showBackdropGrid)
+    {
+        DrawBackdropGridInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
+    }
 
     DrawBackdropFrameInView(viewOriginX, viewOriginY, viewWidth, viewHeight);
 

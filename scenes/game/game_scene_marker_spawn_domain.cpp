@@ -1039,6 +1039,9 @@ void GameScene::RefreshBatteriesFromMarkers()
 
 void GameScene::RefreshLogsFromMarkers()
 {
+    const int logTexture = m_assets.GetTexture("tile_value_m_log");
+    const int resolvedLogTexture = logTexture >= 0 ? logTexture : m_whiteTexture;
+
     m_world.EraseIf(
         [](const std::unique_ptr<Entity>& entity)
         {
@@ -1072,8 +1075,8 @@ void GameScene::RefreshLogsFromMarkers()
                 static_cast<float>(row) * tileSize,
                 tileSize * 4.0f,
                 tileSize);
-            log->AddComponent<TintComponent>(0.54f, 0.34f, 0.16f, 1.0f);
-            log->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            log->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            log->AddComponent<SpriteRenderComponent>(resolvedLogTexture);
             log->AddComponent<ImageOutlineColliderComponent>(
                 std::vector<b2Vec2>{
                     { 0.0f, 0.0f },
