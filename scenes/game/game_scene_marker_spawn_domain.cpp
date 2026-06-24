@@ -652,6 +652,25 @@ void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int sp
     m_world.Spawn(std::move(generatorEntity));
 }
 
+void GameScene::SpawnConveyorBeltMarker(float x, float y, int widthTiles, int directionX, float tileSize)
+{
+    const int safeWidthTiles = (std::max)(1, widthTiles);
+    auto conveyorEntity = std::make_unique<Entity>();
+    conveyorEntity->AddComponent<TagComponent>(kTagConveyorBelt);
+    conveyorEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * static_cast<float>(safeWidthTiles),
+        tileSize);
+    conveyorEntity->AddComponent<TintComponent>(0.50f, 0.46f, 0.56f, 1.0f);
+    conveyorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    conveyorEntity->AddComponent<BeltConveyorComponent>(
+        safeWidthTiles,
+        directionX,
+        260.0f);
+    m_world.Spawn(std::move(conveyorEntity));
+}
+
 void GameScene::SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize)
 {
     const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
@@ -772,6 +791,7 @@ void GameScene::RefreshMarkerDrivenSystems()
     RefreshLaserTurretsFromMarkers();
     RefreshLinkedGimmicksFromMarkers();
     RefreshDamageFootholdsFromMarkers();
+    RefreshConveyorBeltsFromMarkers();
 	RefleshSepiaRubblesFromMarkers();
 }
 
@@ -802,6 +822,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
         markerChanged(IsBatteryGeneratorMarker);
     const bool laserTurretChanged = markerChanged(IsLaserTurretMarker);
     const bool damageFootholdChanged = markerChanged(IsDamageFootholdMarker);
+    const bool conveyorBeltChanged = markerChanged(IsConveyorBeltMarker);
 	const bool sepiaRubbleChanged =
         markerChanged(IsSepiaRubbleMarker) ||
         markerChanged(IsSepiaBackgroundMarker);
@@ -816,6 +837,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     if (linkedGimmickMarkerChanged) RefreshLinkedGimmicksFromMarkers();
     if (laserTurretChanged) RefreshLaserTurretsFromMarkers();
     if (damageFootholdChanged) RefreshDamageFootholdsFromMarkers();
+    if (conveyorBeltChanged) RefreshConveyorBeltsFromMarkers();
 	if (sepiaRubbleChanged) RefleshSepiaRubblesFromMarkers();
 }
 
@@ -1146,6 +1168,47 @@ void GameScene::RefreshJumpPadsFromMarkers()
                 1.8f,
                 gPlayerJumpSpeed * 5.0f);
             m_world.Spawn(std::move(jumpPad));
+        }
+    }
+}
+
+void GameScene::RefreshConveyorBeltsFromMarkers()
+{
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
+            {
+                return true;
+            }
+            return entity->GetComponent<BeltConveyorComponent>() != nullptr;
+        });
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = m_tileMap.GetMarker(column, row);
+            if (!IsConveyorBeltMarker(marker))
+            {
+                continue;
+            }
+
+            const int markerParameter = m_tileMap.GetMarkerParameter(column, row);
+            const int widthTiles = (std::max)(1, std::abs(markerParameter));
+            const int directionX = markerParameter < 0 ? -1 : 1;
+            SpawnConveyorBeltMarker(
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize,
+                widthTiles,
+                directionX,
+                tileSize);
         }
     }
 }

@@ -761,6 +761,13 @@ SpikeStripComponent::SpikeStripComponent(int tileSpanValue)
 {
 }
 
+BeltConveyorComponent::BeltConveyorComponent(int widthTilesValue, int directionXValue, float velocity)
+    : widthTiles(std::max(1, widthTilesValue))
+    , directionX(directionXValue < 0 ? -1 : 1)
+    , velocity(std::max(0.5f, velocity))
+{
+}
+
 VanishOnCaptureComponent::VanishOnCaptureComponent(bool enabledValue)
     : enabled(enabledValue)
 {

@@ -1486,7 +1486,8 @@ bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
         HasTag(entity, kTagLaserSwitch) ||
         HasTag(entity, kTagShutter) ||
         HasTag(entity, kTagLaserTurret) ||
-        HasTag(entity, kTagSepiaElevator);
+        HasTag(entity, kTagSepiaElevator)||
+        HasTag(entity, kTagConveyorBelt);
 }
 
 void GameScene::GetGroundPlatformBounds(std::vector<TransformComponent>& bounds) const
@@ -1521,6 +1522,7 @@ void GameScene::GetGroundPlatformBounds(std::vector<TransformComponent>& bounds)
     appendGroundEntities(EntityTag::LaserTurret);
     appendGroundEntities(EntityTag::SepiaElevator);
     appendGroundEntities(EntityTag::ProtectiveWall);
+    appendGroundEntities(EntityTag::ConveyorBelt);
 }
 
 void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const

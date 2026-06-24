@@ -150,6 +150,10 @@
       "type": "file",
       "path": "assets/texture/Apple.png"
     },
+    "arrow": {
+      "type": "file",
+      "path": "assets/texture/arrow.png"
+    },
 
     "sinrin10": {
       "type": "file",

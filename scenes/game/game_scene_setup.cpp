@@ -1026,7 +1026,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins1.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_lifecycle.currentTileTextureKey = "tile_forest_ground";
     m_lifecycle.shieldBossBgmCrossFadeStarted = false;
@@ -1803,7 +1803,8 @@ void GameScene::InitializeStageEntities()
     }
 
     RefreshDamageFootholdsFromMarkers();
-	RefleshSepiaRubblesFromMarkers();
+    RefreshConveyorBeltsFromMarkers();
+    RefleshSepiaRubblesFromMarkers();
  //   Entity& photoSourceA = SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(80.0f, tileSize), AlignToGrid(160.0f, tileSize)); 
 	//SetEntityTint(photoSourceA, 0.96f, 0.68f, 0.18f);
  //   Entity& photoSourceB= SpawnStagePrefab(prefabs, "sandbox_photo_source", AlignToGrid(1360.0f, tileSize), AlignToGrid(240.0f, tileSize)); 

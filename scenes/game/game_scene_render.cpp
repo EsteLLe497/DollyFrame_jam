@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "photo_filter_rules.h"
@@ -2482,6 +2482,106 @@ void GameScene::DrawEntity(const Entity& entity) const
             lifeProgress);
         Shader_ResetStyle();
         return;
+    }
+
+    if (tag && HasTag(tag, EntityTag::ConveyorBelt))
+    {
+        const auto* beltConveyor = entity.GetComponent<BeltConveyorComponent>();
+        if (beltConveyor)
+        {
+            const float directionX = beltConveyor->directionX < 0 ? -1.0f : 1.0f;
+            const int widthTiles = std::max(1, beltConveyor->widthTiles);
+            const float tileWidth = drawWidth / static_cast<float>(widthTiles);
+            const float baseR = tint ? tint->r : 0.50f;
+            const float baseG = tint ? tint->g : 0.46f;
+            const float baseB = tint ? tint->b : 0.56f;
+            const float baseA = tint ? tint->a : 1.0f;
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(230.0f * alphaMultiplier)));
+            Shader_SetTint(baseR, baseG, baseB, baseA * alphaMultiplier);
+            SpriteDraw(
+                m_whiteTexture,
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f);
+            Shader_ResetStyle();
+            DrawBoxAA(
+                drawX,
+                drawY,
+                drawX + drawWidth,
+                drawY + drawHeight,
+                GetColor(58, 48, 68),
+                FALSE,
+                std::max(1.0f, 2.0f * viewScale));
+
+            const int arrowTexture = m_assets.GetTexture("arrow");
+            if (arrowTexture >= 0)
+            {
+                const float arrowPaddingX = tileWidth * 0.10f;
+                const float arrowPaddingY = drawHeight * 0.16f;
+                Shader_SetTint(1.0f, 0.90f, 1.0f, 0.82f * alphaMultiplier);
+                SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(210.0f * alphaMultiplier)));
+                for (int tileIndex = 0; tileIndex < widthTiles; ++tileIndex)
+                {
+                    SpriteDraw(
+                        arrowTexture,
+                        drawX + static_cast<float>(tileIndex) * tileWidth + arrowPaddingX,
+                        drawY + arrowPaddingY,
+                        std::max(1.0f, tileWidth - arrowPaddingX * 2.0f),
+                        std::max(1.0f, drawHeight - arrowPaddingY * 2.0f),
+                        0.0f,
+                        0.0f,
+                        1.0f,
+                        1.0f,
+                        directionX < 0.0f,
+                        0.0f);
+                }
+                Shader_ResetStyle();
+            }
+
+            const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+            const float lineSpacing = std::max(10.0f, tileWidth * 0.48f);
+            const float lineLength = std::max(6.0f, tileWidth * 0.30f);
+            const float lineOffset = std::fmod(timeSeconds * lineSpacing * 1.8f, lineSpacing);
+            const float animatedOffset = directionX >= 0.0f ? lineOffset : -lineOffset;
+            const float lineTopY = drawY + std::max(2.0f, drawHeight * 0.10f);
+            const float lineBottomY = drawY + drawHeight - std::max(2.0f, drawHeight * 0.10f);
+            const float wideThickness = std::max(2.0f, 3.2f * viewScale);
+            const float coreThickness = std::max(1.0f, 1.4f * viewScale);
+            const int dashCount = std::max(4, widthTiles * 3 + 4);
+            const auto drawFlowLine = [&](float y)
+            {
+                for (int lineIndex = 0; lineIndex < dashCount; ++lineIndex)
+                {
+                    const float rawStartX =
+                        drawX - lineSpacing +
+                        static_cast<float>(lineIndex) * lineSpacing +
+                        animatedOffset;
+                    const float startX = std::clamp(rawStartX, drawX, drawX + drawWidth);
+                    const float endX = std::clamp(rawStartX + lineLength, drawX, drawX + drawWidth);
+                    if (endX <= startX)
+                    {
+                        continue;
+                    }
+
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(84.0f * alphaMultiplier)));
+                    DrawLineAA(startX, y, endX, y, GetColor(255, 76, 214), wideThickness);
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(188.0f * alphaMultiplier)));
+                    DrawLineAA(startX, y, endX, y, GetColor(255, 210, 250), coreThickness);
+                }
+            };
+
+            drawFlowLine(lineTopY);
+            drawFlowLine(lineBottomY);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            Shader_ResetStyle();
+            return;
+        }
     }
 
     if (tag && HasTag(tag, kTagBatterySwitch))
