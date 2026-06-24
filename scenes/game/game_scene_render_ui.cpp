@@ -1609,6 +1609,27 @@ void GameScene::DrawCaptureOverlay() const
 
     ForEachCaptureTargetCandidate(*this, *transform, [&](Entity* entity, const TransformComponent& targetTransform)
     {
+        const auto* photoOrigin = entity ? entity->GetComponent<PhotoCopyOriginComponent>() : nullptr;
+        const bool movingEnemyAttackVisual =
+            entity &&
+            entity->GetComponent<PhotoMotionComponent>() &&
+            photoOrigin &&
+            photoOrigin->origin == PhotoCopyOrigin::Enemy;
+        const bool hidesCaptureHitboxVisual =
+            entity &&
+            (HasTag(*entity, EntityTag::BossShield) ||
+                HasTag(*entity, EntityTag::Boss1Shield) ||
+                HasTag(*entity, EntityTag::MidBoss1Shield) ||
+                HasTag(*entity, EntityTag::CapturedShield) ||
+                HasTag(*entity, EntityTag::WalkerMeleeAttack) ||
+                HasTag(*entity, EntityTag::BossShockwave) ||
+                movingEnemyAttackVisual);
+        if (hidesCaptureHitboxVisual)
+        {
+            // 攻撃や盾の当たり判定は残し、たたき台の白い判定表示だけ隠す。
+            return;
+        }
+
         const float targetLeft = targetTransform.x;
         const float targetTop = targetTransform.y;
         const float targetRight = targetTransform.x + targetTransform.width * targetTransform.scale;
@@ -2215,6 +2236,7 @@ void GameScene::DrawBackdrop() const
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
+// DrawBackdropBaseInView を置き換える（該当関数全体）
 void GameScene::DrawBackdropBaseInView(
     float viewOriginX,
     float viewOriginY,
@@ -2233,7 +2255,7 @@ void GameScene::DrawBackdropBaseInView(
     {
         return;
     }
-	// テクスチャの幅と高さを取得
+
     const int texW = TextureGetWidth(bgTexture);
     const int texH = TextureGetHeight(bgTexture);
     if (texW <= 0 || texH <= 0) return;
@@ -2242,7 +2264,6 @@ void GameScene::DrawBackdropBaseInView(
     const int texH1 = TextureGetHeight(bg1Texture);
     if (texW1 <= 0 || texH1 <= 0) return;
 
-	// 画面に描く幅と高さ（viewのサイズをそのまま使う）
     const float drawW = viewWidth;
     const float drawH = viewHeight;
     const float drawW1 = viewWidth;
@@ -2263,9 +2284,11 @@ void GameScene::DrawBackdropBaseInView(
         return v;
     };
 
-	// UVオフセットを計算(カメラ位置に応じてテクスチャがスクロールするように)
+    const float scrollU = calcScroll(m_flow.cameraX, parallaxX, static_cast<float>(texW));
+    const float scrollV = calcScroll(-m_flow.cameraY, parallaxY, static_cast<float>(texH));
+
     const float scrollU1 = calcScroll(m_flow.cameraX, parallaxX1, static_cast<float>(texW1));
-    const float scrollV1 = 0.0f; //calcScroll(-m_flow.cameraY, parallaxY1, static_cast<float>(texH1));
+    const float scrollV1 = calcScroll(-m_flow.cameraY, parallaxY1, static_cast<float>(texH1));
     // view に対する UV のスパン（= 画面幅 / テクスチャ幅）
     const float uSpan = drawW / static_cast<float>(texW);
     const float vSpan = drawH / static_cast<float>(texH);
@@ -2273,7 +2296,7 @@ void GameScene::DrawBackdropBaseInView(
     const float vSpan1 = drawH1 / static_cast<float>(texH1);
 
     // Y を下にずらすオフセット（必要なら）
-    const float bg1OffsetY = 0.0f;
+    const float bg1OffsetY = 24.0f * viewScale;
 
     // 内部：1回分のuv塊を四分割して描くヘルパー（tx,tyは [0..inf) を許容し、小数部で扱う）
     const auto drawTiledChunk = [&](int textureId, float destX, float destY, float destW, float destH, float tx, float ty, float tw, float th)
@@ -2285,7 +2308,7 @@ void GameScene::DrawBackdropBaseInView(
         if (ty < 0.0f) ty += 1.0f;
 
         if (tw <= 0.0f || th <= 0.0f) return;
-        
+
         const float u1 = std::min(1.0f - tx, tw);
         const float u2 = tw - u1;
         const float v1 = std::min(1.0f - ty, th);
@@ -2296,12 +2319,12 @@ void GameScene::DrawBackdropBaseInView(
         const float h1 = destH * (v1 / th);
         const float h2 = destH - h1;
 
-		// 左上(tx,ty)から幅w1高さh1の部分
+        // 左上
         if (w1 > 0.5f && h1 > 0.5f)
         {
             SpriteDraw(textureId, destX, destY, w1, h1, tx, ty, u1, v1, false, 0.0f);
         }
-		// 右上(tx+u1,ty)から幅w2高さh1の部分
+        // 右上
         if (u2 > 0.0001f && w2 > 0.5f && h1 > 0.5f)
         {
             SpriteDraw(textureId, destX + w1, destY, w2, h1, 0.0f, ty, u2, v1, false, 0.0f);
@@ -2346,9 +2369,9 @@ void GameScene::DrawBackdropBaseInView(
         }
     };
 
-    //// 背景（奥）を描画
-    //drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
-    // 
+    // 背景（奥）を描画
+    drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
+
     // 背景前景（手前）を描画（Y を下にオフセット）
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
     
@@ -2511,6 +2534,7 @@ void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, floa
     m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY - m_flow.cameraY * viewScale, viewScale);
     DrawStageTransitionMarkersInView(viewOriginX, viewOriginY, viewScale);
     DrawMapEditorMarkersInView(viewOriginX, viewOriginY, viewScale);
+    DrawMidBoss2TeleportSlotsInView(viewOriginX, viewOriginY, viewScale);
     DrawStageGuideInView();
 }
 
@@ -2556,6 +2580,128 @@ void GameScene::DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY,
             SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
             DrawBox(left, top, right, bottom, GetColor(color.r, color.g, color.b), FALSE);
         }
+    }
+}
+
+void GameScene::DrawMidBoss2TeleportSlotsInView(float viewOriginX, float viewOriginY, float viewScale) const
+{
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    const float mapHeight = GetMapPixelHeight();
+    constexpr float kMidBoss2JumpCenterGridX = 36.0f;
+    constexpr float kMidBoss2ArenaHalfWidthGrid = 18.0f;
+
+    const auto getMidBoss2LeftX = [&](float centerGridX, float bossWidth)
+    {
+        return centerGridX * tileSize - bossWidth * 0.5f;
+    };
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<MidBoss2Component>();
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss2 || !transform)
+        {
+            continue;
+        }
+
+        if (!enemy->IsEnabled() || enemy->IsDefeated() || boss->state == MidBoss2State::Dead)
+        {
+            continue;
+        }
+
+        const float bossWidth = transform->width * transform->scale;
+        const float bossHeight = transform->height * transform->scale;
+        if (bossWidth <= 0.0f || bossHeight <= 0.0f)
+        {
+            continue;
+        }
+
+        const float arenaMinX = getMidBoss2LeftX(kMidBoss2JumpCenterGridX - kMidBoss2ArenaHalfWidthGrid, bossWidth);
+        const float arenaMaxX = getMidBoss2LeftX(kMidBoss2JumpCenterGridX + kMidBoss2ArenaHalfWidthGrid, bossWidth);
+        const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
+
+        const auto drawSlotSet = [&](const char* sideLabel, const std::array<MidBoss2Component::TeleportSlotConfig, 3>& slots)
+        {
+            int lowestSlotIndex = 0;
+            float lowestOffset = slots[0].hoverHeightOffsetGrid;
+            for (int index = 1; index < static_cast<int>(slots.size()); ++index)
+            {
+                if (slots[static_cast<size_t>(index)].hoverHeightOffsetGrid < lowestOffset)
+                {
+                    lowestOffset = slots[static_cast<size_t>(index)].hoverHeightOffsetGrid;
+                    lowestSlotIndex = index;
+                }
+            }
+
+            for (int index = 0; index < static_cast<int>(slots.size()); ++index)
+            {
+                const auto& slot = slots[static_cast<size_t>(index)];
+                const float rawX = getMidBoss2LeftX(slot.centerGridX, bossWidth);
+                const float rawY = mapHeight - bossHeight - (boss->params.teleportHoverBaseGrid + slot.hoverHeightOffsetGrid) * tileSize;
+                const float targetX = std::clamp(rawX, arenaMinX, arenaMaxX);
+                const float targetY = std::clamp(rawY, 0.0f, maxBossY);
+                const bool xClamped = std::fabs(targetX - rawX) > 0.1f;
+                const bool yClamped = std::fabs(targetY - rawY) > 0.1f;
+                const bool beamTarget = index == lowestSlotIndex;
+
+                const int left = static_cast<int>(std::round(viewOriginX + (targetX - m_flow.cameraX) * viewScale));
+                const int top = static_cast<int>(std::round(viewOriginY + (targetY - m_flow.cameraY) * viewScale));
+                const int right = static_cast<int>(std::round(viewOriginX + (targetX + bossWidth - m_flow.cameraX) * viewScale));
+                const int bottom = static_cast<int>(std::round(viewOriginY + (targetY + bossHeight - m_flow.cameraY) * viewScale));
+                if (right <= left || bottom <= top)
+                {
+                    continue;
+                }
+
+                const int centerX = (left + right) / 2;
+                const int centerY = (top + bottom) / 2;
+                const bool isLeftSide = sideLabel[0] == 'L';
+                const unsigned int sideFillColor = isLeftSide ? GetColor(78, 220, 255) : GetColor(255, 152, 84);
+                const unsigned int sideOutlineColor = isLeftSide ? GetColor(112, 242, 255) : GetColor(255, 202, 142);
+                const unsigned int fillColor = beamTarget ? GetColor(255, 214, 120) : sideFillColor;
+                const unsigned int outlineColor = beamTarget
+                    ? GetColor(255, 246, 200)
+                    : xClamped || yClamped
+                        ? GetColor(255, 120, 108)
+                        : sideOutlineColor;
+
+                SetDrawBlendMode(DX_BLENDMODE_ALPHA, beamTarget ? 68 : 36);
+                DrawBox(left, top, right, bottom, fillColor, TRUE);
+                SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+                DrawBox(left, top, right, bottom, outlineColor, FALSE);
+                DrawCircle(centerX, centerY, std::max(4, static_cast<int>(std::round(5.0f * viewScale))), outlineColor, FALSE);
+                DrawLine(centerX - 8, centerY, centerX + 8, centerY, outlineColor);
+                DrawLine(centerX, centerY - 8, centerX, centerY + 8, outlineColor);
+
+                const char* clampTag = (xClamped || yClamped) ? " CLAMP" : "";
+                const char* beamTag = beamTarget ? " BEAM" : "";
+                DrawFormatString(
+                    left,
+                    std::max(0, top - 18),
+                    outlineColor,
+                    "%s%d%s%s  H=%.2f",
+                    sideLabel,
+                    index + 1,
+                    beamTag,
+                    clampTag,
+                    boss->params.teleportHoverBaseGrid + slot.hoverHeightOffsetGrid);
+            }
+        };
+
+        drawSlotSet("L", boss->params.leftTeleportSlots);
+        drawSlotSet("R", boss->params.rightTeleportSlots);
     }
 }
 
@@ -2631,13 +2777,6 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     const float cursorWorldY = m_flow.cameraY + (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
     x = cursorWorldX - width * 0.5f;
     y = cursorWorldY - height * 0.5f;
-
-    const float mapWidth = GetMapPixelWidth();
-    const float mapHeight = GetMapPixelHeight();
-    const float maxX = std::max(0.0f, mapWidth - width);
-    const float maxY = std::max(0.0f, mapHeight - height);
-    x = std::clamp(x, 0.0f, maxX);
-    y = std::clamp(y, 0.0f, maxY);
 }
 
 Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) const
@@ -2707,15 +2846,27 @@ void GameScene::DrawBatterySwitchCounters() const
             static_cast<int>(std::round(panelY)),
             static_cast<int>(std::round(panelX + panelWidth)),
             static_cast<int>(std::round(panelY + panelHeight)),
-            batterySwitch->isPressed ? GetColor(180, 255, 196) : GetColor(242, 226, 190),
+            batterySwitch->isPressed
+                ? GetColor(180, 255, 196) : GetColor(242, 226, 190),
             FALSE);
 
-        DrawFormatString(
-            static_cast<int>(std::round(panelX + 10.0f)),
-            static_cast<int>(std::round(panelY + 4.0f)),
-            batterySwitch->isPressed ? GetColor(220, 255, 228) : GetColor(255, 244, 220),
-            "%d/%d",
-            batterySwitch->insertedBatteryCount,
-            batterySwitch->requiredBatteryCount);
+        if (batterySwitch->pressMode == SwitchPressMode::Player)
+        {
+            DrawString(
+                static_cast<int>(std::round(panelX + 7.0f)),
+                static_cast<int>(std::round(panelY + 4.0f)),
+                "PLAYER",
+                GetColor(255, 244, 220));
+        }
+        else
+        {
+            DrawFormatString(
+                static_cast<int>(std::round(panelX + 10.0f)),
+                static_cast<int>(std::round(panelY + 4.0f)),
+                batterySwitch->isPressed ? GetColor(220, 255, 228) : GetColor(255, 244, 220),
+                "%d/%d",
+                batterySwitch->insertedBatteryCount,
+                batterySwitch->requiredBatteryCount);
+        }
     }
 }

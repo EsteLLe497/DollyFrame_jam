@@ -11,10 +11,18 @@
 #include <sstream>
 #include <string>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 26495)
+#endif
 #include <nlohmann/json.hpp>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include "DxLib.h"
 #include "directX.h"
+#include "imgui_layer.h"
 #include "logger.h"
 
 namespace
@@ -897,11 +905,24 @@ bool Input_IsKeyDown(int virtualKey)
 {
     if (virtualKey == VK_LBUTTON)
     {
+        if (ImGuiLayer_WantsCaptureMouse())
+        {
+            return false;
+        }
         return (g_mouseButtons & MOUSE_INPUT_LEFT) != 0;
     }
     if (virtualKey == VK_RBUTTON)
     {
+        if (ImGuiLayer_WantsCaptureMouse())
+        {
+            return false;
+        }
         return (g_mouseButtons & MOUSE_INPUT_RIGHT) != 0;
+    }
+
+    if (ImGuiLayer_WantsCaptureKeyboard())
+    {
+        return false;
     }
 
     return virtualKey >= 0 &&
@@ -913,13 +934,26 @@ bool Input_IsKeyPressed(int virtualKey)
 {
     if (virtualKey == VK_LBUTTON)
     {
+        if (ImGuiLayer_WantsCaptureMouse())
+        {
+            return false;
+        }
         return (g_mouseButtons & MOUSE_INPUT_LEFT) != 0 &&
             (g_prevMouseButtons & MOUSE_INPUT_LEFT) == 0;
     }
     if (virtualKey == VK_RBUTTON)
     {
+        if (ImGuiLayer_WantsCaptureMouse())
+        {
+            return false;
+        }
         return (g_mouseButtons & MOUSE_INPUT_RIGHT) != 0 &&
             (g_prevMouseButtons & MOUSE_INPUT_RIGHT) == 0;
+    }
+
+    if (ImGuiLayer_WantsCaptureKeyboard())
+    {
+        return false;
     }
 
     return virtualKey >= 0 &&
@@ -930,17 +964,29 @@ bool Input_IsKeyPressed(int virtualKey)
 
 bool Input_IsMouseLeftPressed()
 {
+    if (ImGuiLayer_WantsCaptureMouse())
+    {
+        return false;
+    }
     return (g_mouseButtons & MOUSE_INPUT_LEFT) != 0 &&
         (g_prevMouseButtons & MOUSE_INPUT_LEFT) == 0;
 }
 
 bool Input_IsMouseLeftDown()
 {
+    if (ImGuiLayer_WantsCaptureMouse())
+    {
+        return false;
+    }
     return (g_mouseButtons & MOUSE_INPUT_LEFT) != 0;
 }
 
 bool Input_IsMouseLeftReleased()
 {
+    if (ImGuiLayer_WantsCaptureMouse())
+    {
+        return false;
+    }
     return (g_mouseButtons & MOUSE_INPUT_LEFT) == 0 &&
         (g_prevMouseButtons & MOUSE_INPUT_LEFT) != 0;
 }

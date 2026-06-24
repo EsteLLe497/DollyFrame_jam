@@ -166,7 +166,7 @@ namespace
         int restoredMarkerParameter = 0;
     };
 
-    bool TryGetSepiaMarkerCell( const TileMap& tileMap, int column, int row, 
+    bool TryGetSepiaMarkerCell( const TileMap& tileMap, int column, int row,
         SepiaMarkerCell& outCell)
     {
         if (column < 0 ||
@@ -191,7 +191,7 @@ namespace
             tileMap.GetMarkerParameter(column,row),
             tileMap.GetMarkerParameter2(column,row)
                 );
-   
+
         if (!parameter.valid)
         {
             return false;
@@ -219,6 +219,7 @@ namespace
         float y = 0.0f;
         int requiredBatteryCount = 1;
         bool controlsLaserPower = false;
+        SwitchPressMode pressMode = SwitchPressMode::Battery;
     };
 
     struct ElevatorMarker
@@ -257,6 +258,13 @@ namespace
         int heightTiles = 3;
     };
 
+    struct BatteryGeneratorMarker
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        int spawnDirectionX = 1;
+    };
+
     struct LinkedGimmickColor
     {
         float r = 1.0f;
@@ -281,7 +289,11 @@ namespace
         float shutterHeightTiles = 3.0f;
         float shutterSpeedTilesPerSec = 3.2f;
         float protectiveWallSpeedTilesPerSec = 4.0f;
+        float batteryGeneratorWidthTiles = 3.0f;
+        float batteryGeneratorHeightTiles = 2.0f;
+        float batteryGeneratorCooldownSeconds = 3.0f;
         LinkedGimmickColor batterySwitchColor{ 0.92f, 0.26f, 0.20f };
+        LinkedGimmickColor batteryGeneratorColor{ 0.32f, 0.32f, 0.32f };
         LinkedGimmickColor elevatorColor{ 0.42f, 0.46f, 0.52f };
         LinkedGimmickColor laserSwitchColor{ 0.96f, 0.86f, 0.20f };
         LinkedGimmickColor shutterColor{ 0.46f, 0.50f, 0.56f };
@@ -297,13 +309,15 @@ namespace
         std::vector<ElevatorMarker>& outElevatorMarkers,
         std::vector<LaserSwitchMarker>& outLaserSwitchMarkers,
         std::vector<ShutterMarker>& outShutterMarkers,
-        std::vector<ProtectiveWallMarker>& outProtectiveWallMarkers)
+        std::vector<ProtectiveWallMarker>& outProtectiveWallMarkers,
+        std::vector<BatteryGeneratorMarker>& outBatteryGeneratorMarkers)
     {
         outSwitchMarkers.clear();
         outElevatorMarkers.clear();
         outLaserSwitchMarkers.clear();
         outShutterMarkers.clear();
         outProtectiveWallMarkers.clear();
+        outBatteryGeneratorMarkers.clear();
 
         const size_t estimatedMarkerCount =
             static_cast<size_t>((std::max)(0, tileMap.GetWidth())) *
@@ -313,6 +327,7 @@ namespace
         outLaserSwitchMarkers.reserve(estimatedMarkerCount / 32 + 1);
         outShutterMarkers.reserve(estimatedMarkerCount / 32 + 1);
         outProtectiveWallMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outBatteryGeneratorMarkers.reserve(estimatedMarkerCount / 32 + 1);
 
         for (int row = 0; row < tileMap.GetHeight(); ++row)
         {
@@ -323,11 +338,15 @@ namespace
                 const float markerY = static_cast<float>(row) * tileSize;
                 if (marker == 'K')
                 {
+                    const bool isPlayerSwitch = static_cast<char>(
+                        std::toupper(static_cast<unsigned char>(
+                            tileMap.GetMarker2(column, row)))) == '*';
                     outSwitchMarkers.push_back(SwitchMarker{
                         markerX,
                         markerY + tileSize * 0.5f,
-                        (std::max)(1, tileMap.GetMarkerParameter(column, row)),
-                        false });
+                        isPlayerSwitch ? 1 : (std::max)(1, tileMap.GetMarkerParameter(column, row)),
+                        false,
+                        isPlayerSwitch ? SwitchPressMode::Player : SwitchPressMode::Battery });
                 }
                 else if (marker == 'L')
                 {
@@ -362,7 +381,8 @@ namespace
                         markerX,
                         markerY + tileSize * 0.5f,
                         (std::max)(1, markerParameter),
-                        true });
+                        true,
+                        SwitchPressMode::Battery });
                 }
                 else if (marker == 'J')
                 {
@@ -435,6 +455,20 @@ namespace
                         widthTiles,
                         heightTiles,
                         wallHeightTiles });
+                }
+                else if (marker == 'Y')
+                {
+                    const char marker2 = static_cast<char>(std::toupper(static_cast<unsigned char>(tileMap.GetMarker2(column, row))));
+                    const int markerParameter2 = tileMap.GetMarkerParameter2(column, row);
+                    if (marker2 != 'Y' || markerParameter2 == 0)
+                    {
+                        continue;
+                    }
+
+                    outBatteryGeneratorMarkers.push_back(BatteryGeneratorMarker{
+                        markerX,
+                        markerY,
+                        markerParameter2 < 0 ? -1 : 1 });
                 }
             }
         }
@@ -568,7 +602,7 @@ namespace
     }
 }
 
-void GameScene::SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize)
+void GameScene::SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize, SwitchPressMode pressMode)
 {
     const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
     auto switchEntity = std::make_unique<Entity>();
@@ -590,8 +624,32 @@ void GameScene::SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCo
         tileSize * cfg.batterySwitchPressDepthRatio,
         cfg.batterySwitchPressSpeed,
         cfg.batterySwitchReleaseSpeed,
-        controlsLaserPower);
+        controlsLaserPower,
+        pressMode);
     m_world.Spawn(std::move(switchEntity));
+}
+
+void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int spawnDirectionX, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    auto generatorEntity = std::make_unique<Entity>();
+    generatorEntity->AddComponent<TagComponent>(kTagBatteryGenerator);
+    generatorEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * cfg.batteryGeneratorWidthTiles,
+        tileSize * cfg.batteryGeneratorHeightTiles);
+    generatorEntity->AddComponent<TintComponent>(
+        cfg.batteryGeneratorColor.r,
+        cfg.batteryGeneratorColor.g,
+        cfg.batteryGeneratorColor.b,
+        1.0f);
+    generatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    generatorEntity->AddComponent<BatteryGeneratorComponent>(
+        linkId,
+        cfg.batteryGeneratorCooldownSeconds,
+        spawnDirectionX);
+    m_world.Spawn(std::move(generatorEntity));
 }
 
 void GameScene::SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize)
@@ -740,10 +798,11 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     const bool linkedGimmickMarkerChanged =
         markerChanged(IsShutterOrLaserSwitchMarker) ||
         markerChanged(IsElevatorMarker) ||
-        markerChanged(IsProtectiveWallMarker);
+        markerChanged(IsProtectiveWallMarker) ||
+        markerChanged(IsBatteryGeneratorMarker);
     const bool laserTurretChanged = markerChanged(IsLaserTurretMarker);
     const bool damageFootholdChanged = markerChanged(IsDamageFootholdMarker);
-	const bool sepiaRubbleChanged = 
+	const bool sepiaRubbleChanged =
         markerChanged(IsSepiaRubbleMarker) ||
         markerChanged(IsSepiaBackgroundMarker);
 
@@ -872,11 +931,12 @@ void GameScene::RefreshEnemiesFromMarkers()
                 }
                 constexpr float kShieldW = 48.0f;
                 constexpr float kShieldH = 192.0f;
+                constexpr float kShieldRaiseOffsetY = 24.0f;
                 auto shieldEntity = std::make_unique<Entity>();
                 shieldEntity->AddComponent<TagComponent>("BossShield");
                 shieldEntity->AddComponent<TransformComponent>(
                     transform->x - kShieldW,
-                    transform->y,
+                    transform->y - kShieldRaiseOffsetY,
                     kShieldW,
                     kShieldH);
                 shieldEntity->AddComponent<TintComponent>(
@@ -943,6 +1003,12 @@ void GameScene::RefreshBatteriesFromMarkers()
         {
             const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
             if (marker != 'Y')
+            {
+                continue;
+            }
+
+            const char marker2 = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker2(column, row))));
+            if(marker2 != '\0')
             {
                 continue;
             }
@@ -1349,6 +1415,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
                 return true;
             }
             return entity->GetComponent<BatterySwitchComponent>() != nullptr ||
+                entity->GetComponent<BatteryGeneratorComponent>() != nullptr ||
                 entity->GetComponent<ElevatorComponent>() != nullptr ||
                 entity->GetComponent<LaserSwitchComponent>() != nullptr ||
                 entity->GetComponent<ShutterComponent>() != nullptr ||
@@ -1366,6 +1433,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
     std::vector<LaserSwitchMarker> laserSwitchMarkers;
     std::vector<ShutterMarker> shutterMarkers;
     std::vector<ProtectiveWallMarker> protectiveWallMarkers;
+    std::vector<BatteryGeneratorMarker> batteryGeneratorMarkers;
     CollectLinkedGimmickMarkers(
         m_tileMap,
         tileSize,
@@ -1373,7 +1441,8 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         elevatorMarkers,
         laserSwitchMarkers,
         shutterMarkers,
-        protectiveWallMarkers);
+        protectiveWallMarkers,
+        batteryGeneratorMarkers);
     for (int index = 0; index < static_cast<int>(switchMarkers.size()); ++index)
     {
         const SwitchMarker& marker = switchMarkers[static_cast<size_t>(index)];
@@ -1383,7 +1452,8 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             marker.requiredBatteryCount,
             marker.controlsLaserPower,
             index,
-            tileSize);
+            tileSize,
+            marker.pressMode);
     }
 
     for (int index = 0; index < static_cast<int>(elevatorMarkers.size()); ++index)
@@ -1395,6 +1465,31 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             marker.moveRangeTiles,
             marker.widthTiles,
             index,
+            tileSize);
+    }
+
+    std::vector<int> batteryGeneratorSwitchLinkIds;
+    batteryGeneratorSwitchLinkIds.reserve(switchMarkers.size());
+    for (int index = 0; index < static_cast<int>(switchMarkers.size()); ++index)
+    {
+        const SwitchMarker& marker = switchMarkers[static_cast<size_t>(index)];
+        if (!marker.controlsLaserPower)
+        {
+            batteryGeneratorSwitchLinkIds.push_back(index);
+        }
+    }
+
+    for (int index = 0; index < static_cast<int>(batteryGeneratorMarkers.size()); ++index)
+    {
+        const BatteryGeneratorMarker& marker = batteryGeneratorMarkers[static_cast<size_t>(index)];
+        const int linkId = index < static_cast<int>(batteryGeneratorSwitchLinkIds.size())
+            ? batteryGeneratorSwitchLinkIds[static_cast<size_t>(index)]
+            : index;
+        SpawnBatteryGeneratorMarker(
+            marker.x,
+            marker.y,
+            linkId,
+            marker.spawnDirectionX,
             tileSize);
     }
 
@@ -1464,6 +1559,7 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
     std::vector<ElevatorMarker> elevatorMarkers;
     std::vector<LaserSwitchMarker> laserSwitchMarkers;
     std::vector<ShutterMarker> shutterMarkers;
+    std::vector<BatteryGeneratorMarker> batteryGeneratorMarkers;
     CollectLinkedGimmickMarkers(
         m_tileMap,
         tileSize,
@@ -1471,7 +1567,8 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
         elevatorMarkers,
         laserSwitchMarkers,
         shutterMarkers,
-        protectiveWallMarkers);
+        protectiveWallMarkers,
+        batteryGeneratorMarkers);
 
     for (int index = 0; index < static_cast<int>(protectiveWallMarkers.size()); ++index)
     {
@@ -1587,7 +1684,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
     {
         return;
     }
-    
+
     std::vector<bool> visited(
         static_cast<size_t>(mapWidth * mapHeight),
         false);
@@ -1614,7 +1711,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             {
                 continue;
             }
-            
+
             SepiaMarkerCell startCell;
             if (!TryGetSepiaMarkerCell(
                 m_tileMap,
@@ -1625,7 +1722,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 visited[startIndex] = true;
                 continue;
             }
-            
+
             const char targetMarker = m_tileMap.GetMarker(column, row);
             const int targetImageNo = startCell.imageNo;
             const int restoredTileValue = startCell.restoredTileValue;
@@ -1659,7 +1756,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 {
                     const int nextColumn = current.column + offset[0];
                     const int nextRow = current.row + offset[1];
-                    
+
                     if (nextColumn < 0 ||
                         nextRow < 0 ||
                         nextColumn >= mapWidth ||
@@ -1685,9 +1782,9 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                         visited[nextIndex] = true;
                         continue;
                     }
-					
-                    if ((nextCell.imageNo != targetImageNo) || 
-                        (nextCell.restoredMarkerType != targetRestoredMarkerType) || 
+
+                    if ((nextCell.imageNo != targetImageNo) ||
+                        (nextCell.restoredMarkerType != targetRestoredMarkerType) ||
                         (nextCell.restoredMarkerParameter != targetRestoredMarkerParameter) ||
                         (nextMarker != targetMarker))
                     {
@@ -1811,7 +1908,7 @@ void GameScene::ReflashFallingRockfromMarkers()
             {
                 continue;
             }
-           
+
             auto fallingRock = std::make_unique<Entity>();
             fallingRock->AddComponent<TagComponent>(kTagFallingRock);
             fallingRock->AddComponent<TransformComponent>(

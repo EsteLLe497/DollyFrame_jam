@@ -389,12 +389,12 @@ void DirectXResize(int width, int height)
 
 void* DirectXGetDevice(void)
 {
-    return nullptr;
+    return const_cast<void*>(GetUseDirect3D11Device());
 }
 
 void* DirectXGetDeviceContext(void)
 {
-    return nullptr;
+    return const_cast<void*>(GetUseDirect3D11DeviceContext());
 }
 
 void Clear(void)

@@ -6,7 +6,14 @@
 #include <iomanip>
 #include <sstream>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 26495)
+#endif
 #include <nlohmann/json.hpp>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include "logger.h"
 #include "resource_manager.h"

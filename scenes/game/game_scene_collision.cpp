@@ -1469,7 +1469,15 @@ bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
     if (HasTag(entity, kTagProtectiveWall))
     {
         const auto* wall = entity.GetComponent<ProtectiveWallComponent>();
-        return wall && !wall->IsDestroyed() && wall->isOn;
+        const auto* transform = entity.GetComponent<TransformComponent>();
+        if (!wall || !transform || wall->IsDestroyed())
+        {
+            return false;
+        }
+
+        // 展開・収納の途中でも、完全に引っ込むまでは障害物として扱う。
+        const float loweredY = wall->baseY + wall->moveRangeY;
+        return transform->y < loweredY - 0.5f;
     }
 
     return HasTag(entity, kTagPhotoSource) ||

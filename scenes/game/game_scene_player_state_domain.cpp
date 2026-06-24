@@ -199,6 +199,104 @@ void GameScene::RespawnPlayer(Entity& player)
         }
     }
 
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* enemy = entity->GetComponent<EnemyComponent>();
+        auto* boss = entity->GetComponent<MidBoss3Component>();
+        auto* bossTransform = entity->GetComponent<TransformComponent>();
+        if (!enemy ||
+            !boss ||
+            !bossTransform ||
+            enemy->GetArchetype() != EnemyArchetype::MidBoss3 ||
+            enemy->IsDefeated())
+        {
+            continue;
+        }
+
+        const float centerX = boss->initializedArena ? boss->arenaCenterX : bossTransform->x;
+        const float centerY = boss->initializedArena ? boss->arenaCenterY : bossTransform->y;
+        boss->homeX = centerX;
+        boss->homeY = centerY;
+        boss->moveStartX = centerX;
+        boss->moveStartY = centerY;
+        boss->moveTargetX = centerX;
+        boss->moveTargetY = centerY;
+        bossTransform->x = centerX;
+        bossTransform->y = centerY;
+        boss->state = MidBoss3State::Move;
+        boss->stateTimer = 0.0f;
+        boss->moveTimer = 0.0f;
+        boss->moveStep = 0;
+        boss->movePattern = 0;
+        boss->moveSide = -1;
+        boss->nextFlowAttack = 2;
+        boss->lastFlowMoveSide = -1;
+        boss->launcherShotsFired = 0;
+        boss->meteorShotsFired = 0;
+        boss->cooldownAttack = 0;
+        boss->launcherShotTimer = 0.0f;
+        boss->moving = false;
+        boss->reloadActive = false;
+        boss->reloadStartedForMove = false;
+        boss->reloadStartMoveStep = -1;
+        boss->reloadTimer = 0.0f;
+        boss->flowStarted = false;
+        boss->chooseMoveSideFromStageCenter = true;
+        boss->launcherPrepared = false;
+        boss->drillActive = false;
+        boss->drillFormed = false;
+        boss->drillGroundRush = false;
+        boss->drillDamageApplied = false;
+        boss->drillFloorObjectHits = 0;
+        boss->drillVelocityX = 0.0f;
+        boss->drillVelocityY = 0.0f;
+        boss->damageMotionRequested = false;
+        boss->damageMotionRemaining = 0.0f;
+        boss->damageMotionOffsetX = 0.0f;
+        boss->damageMotionOffsetY = 0.0f;
+
+        const float bossWidth = bossTransform->width * bossTransform->scale;
+        for (Entity* fistEntity : boss->fistEntities)
+        {
+            auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+            auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+            if (!fist || !fistTransform)
+            {
+                continue;
+            }
+
+            const float fistWidth = fistTransform->width * fistTransform->scale;
+            const float dockX = boss->facingRight
+                ? centerX + bossWidth - fist->baseOffsetX - fistWidth
+                : centerX + fist->baseOffsetX;
+            const float dockY = centerY + fist->baseOffsetY;
+            fist->state = MidBoss3FistState::Docked;
+            fist->velocityX = 0.0f;
+            fist->velocityY = 0.0f;
+            fist->launchTimer = 0.0f;
+            fist->attackReadyTimer = 0.0f;
+            fist->damageApplied = false;
+            fist->atAttackStart = false;
+            fist->captureJammerActive = false;
+            fist->broken = false;
+            fist->impactAttackActive = false;
+            fist->impactDamageApplied = false;
+            fist->impactAttackRemaining = 0.0f;
+            fistTransform->x = dockX;
+            fistTransform->y = dockY;
+            fistTransform->rotation = 0.0f;
+            if (auto* tint = fistEntity->GetComponent<TintComponent>())
+            {
+                tint->a = 1.0f;
+            }
+        }
+    }
+
     const GameScenePlayerRespawnContext cameraContext
     {
         transform->x,

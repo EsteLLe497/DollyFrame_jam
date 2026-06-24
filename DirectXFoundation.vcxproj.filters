@@ -141,6 +141,9 @@
     <ClCompile Include="scenes\game\game_scene_setup.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_test_photos.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
     <ClCompile Include="scenes\game\game_scene_enemy_domain.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
@@ -223,6 +226,12 @@
       <Filter>Source Files\Scenes</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui.cpp">
+      <Filter>Source Files\Third Party</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_dx11.cpp">
+      <Filter>Source Files\Third Party</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_win32.cpp">
       <Filter>Source Files\Third Party</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui_demo.cpp">
@@ -455,6 +464,9 @@
     <ClInclude Include="scenes\game\game_scene_render_ui_helpers.h">
       <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>
+    <ClInclude Include="scenes\game\game_scene_test_photos.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
     <ClInclude Include="core\game_session.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -468,6 +480,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="gameplay\prefab_factory.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
+    <ClInclude Include="gameplay\components_combat.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="physics\physics_world.h">

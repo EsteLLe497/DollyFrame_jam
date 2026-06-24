@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <vector>
 
 #include "game_object.h"
@@ -206,10 +207,15 @@ public:
     bool appearAnimationActive = false;
     bool appearAnimationFinished = false;
     bool roarPlayed = false;
+    bool roarSoundPlayed = false;
     bool roarAnimationActive = false;
     float roarTimer = 0.0f;
     bool deathAnimationActive = false;
     bool deathAnimationFinished = false;
+    bool attack2SoundPlayed = false;
+    bool deadSoundPlayed = false;
+    bool rushBoostSoundPlayed = false;
+    bool shieldDropSoundPlayed = false;
     GameObject* shieldEntity = nullptr;
 };
 
@@ -244,6 +250,8 @@ public:
     bool grounded = false;
     bool shockwaveSpawned = false;
     bool fadeStarted = false;
+    bool knockbackSoundPlayed = false;
+    bool shieldDropSoundPlayed = false;
     float hoverElapsed = 0.0f;
     float hoverDuration = 0.0f;
     float descendSpeed = 0.0f;
@@ -268,6 +276,12 @@ public:
 class MidBoss2Component final : public MonoBehaviour
 {
 public:
+    struct TeleportSlotConfig
+    {
+        float centerGridX = 0.0f;
+        float hoverHeightOffsetGrid = 0.0f;
+    };
+
     struct Params
     {
         int boss2Hp = 15;
@@ -284,7 +298,25 @@ public:
         float beamDamagePerSecond = 1.0f;
         float beamHeightGrid = 3.0f;
         float beamCooldownAfterFire = 1.5f;
+        float teleportHoverBaseGrid = 7.0f;
+        int teleportSparkCount = 54;
+        float teleportSparkMinSize = 0.75f;
+        float teleportSparkMaxSize = 2.30f;
+        float teleportSparkSpreadScale = 1.0f;
+        float teleportSparkLifetime = 0.65f;
         float pastedBeamDamagePerSecond = 1.0f;
+        std::array<TeleportSlotConfig, 3> leftTeleportSlots =
+        {{
+            { 22.5f, 5.0f },
+            { 28.5f, 4.0f },
+            { 21.0f, 3.0f },
+        }};
+        std::array<TeleportSlotConfig, 3> rightTeleportSlots =
+        {{
+            { 44.5f, 5.0f },
+            { 39.5f, 4.0f },
+            { 48.0f, 3.0f },
+        }};
     };
 
     MidBoss2Component() = default;
@@ -293,6 +325,8 @@ public:
     MidBoss2State state = MidBoss2State::Idle;
     bool facingRight = true;
     bool beamFacingRight = true;
+    bool lastBeamTeleportLeftSide = true;
+    bool nextSpearStartLeftSide = true;
     float stateTimer = 0.0f;
     float cooldownRemaining = 0.0f;
     int attackFlowStep = 1;
@@ -314,6 +348,7 @@ public:
     bool beamEntitiesSpawned = false;
     GameObject* beamTurretEntity = nullptr;
     GameObject* beamEntity = nullptr;
+    bool beamShockwaveSpawned = false;
     bool captureWindowActive = false;
     float teleportFlashRemaining = 0.0f;
 };
@@ -341,7 +376,7 @@ class MidBoss3Component final : public MonoBehaviour
 public:
     struct Params
     {
-        int boss3Hp = 20;
+        int boss3Hp = 1;
         int boss3WidthGrid = 4;
         int boss3HeightGrid = 4;
         int fistWidthGrid = 3;
@@ -353,24 +388,26 @@ public:
         float moveArcHeightGrid = 1.2f;
         float initialFlowDelayTime = 4.0f;
         float launcherWindupTime = 0.8f;
-        float launcherFistInterval = 0.5f;
-        float launcherFistSpeed = 672.0f;
+        float launcherFistInterval = 0.75f;
+        float launcherFistSpeed = 520.0f;
+        float launcherFistAcceleration = 900.0f;
+        float launcherFistMaxSpeed = 1700.0f;
         float launcherCooldownTime = 0.5f;
         float meteorWindupTime = 0.9f;
         float meteorPairInterval = 0.85f;
-        float meteorFistSpeed = 816.0f;
+        float meteorFistSpeed = 2050.0f;
         float meteorCooldownTime = 0.5f;
         float fistReloadTime = 2.0f;
         float fistReturnSpeed = 720.0f;
-        float fistPreLaunchShakeTime = 0.28f;
-        float fistPreLaunchShakeAmplitude = 5.0f;
+        float fistPreLaunchShakeTime = 0.65f;
+        float fistPreLaunchShakeAmplitude = 2.4f;
         float introRiseTime = 2.4f;
         float drillFormTime = 0.8f;
         float drillWaitTime = 2.0f;
         float drillLaunchSpeed = 620.0f;
         float drillRushSpeed = 720.0f;
         float drillCooldownTime = 2.0f;
-        float drillChargeShakeAmplitude = 4.0f;
+        float drillChargeShakeAmplitude = 2.0f;
     };
 
     MidBoss3Component() = default;
@@ -593,13 +630,18 @@ public:
     float waitRemaining = 0.0f;
     float followOffsetX = 0.0f;
     float followOffsetY = 0.0f;
+    float waitBaseX = 0.0f;
+    float waitBaseY = 0.0f;
+    float waitShakeTimer = 0.0f;
     float aimX = 1.0f;
     float aimY = 0.0f;
     int direction = 1;
     bool launched = true;
     bool groundRush = false;
     bool attachedToBoss = false;
+    bool waitBaseInitialized = false;
     float bossDamageTimer = 0.0f;
+    float attachedLifeRemaining = 0.0f;
     float knockbackRemaining = 0.0f;
     float settleRemaining = 0.0f;
     float settleDuration = 0.18f;
