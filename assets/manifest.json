@@ -147,6 +147,32 @@
       "type": "file",
       "path": "assets/texture/BG/forest/sinrin11.png"
     },
+    "forest_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest.png"
+    },
+    "forest_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest.png"
+    },
+    "forest1_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_03.png"
+    },
+    "forest1_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_03.png"
+    },
+
+    "forest2_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_04.png"
+    },
+
+    "forest2_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_04.png"
+    },
 
     "forest3_bg": {
       "type": "file",
@@ -169,7 +195,8 @@
     "photo_tray_backdrop": {
       "type": "file",
       "path": "assets/texture/photo_tray_backdrop.png"
-    },
+    }
+
 
   }
 }
