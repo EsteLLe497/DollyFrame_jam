@@ -98,6 +98,9 @@ private:
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
     void InitializeTestPhotoResources(ResourceManager& resources);
+    void RefreshTileTextureForCurrentMap();
+    void ApplyTileTextureKey(const std::string& tileTextureKey);
+    std::string ResolveDefaultTileTextureKeyForCurrentMap() const;
     void BuildCameraMarkers();
     void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY = true);
     void ApplyShieldBossSlamCameraWork(float deltaTime);
@@ -335,6 +338,7 @@ private:
     AssetManifest m_assets;
     int m_whiteTexture;
     int m_tileTexture;
+    int m_tileTexture2;
     EventBus m_eventBus;
     PhysicsWorld m_physicsWorld;
     ScriptEngine m_scriptEngine;

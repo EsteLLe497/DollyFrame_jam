@@ -103,8 +103,14 @@ void GameScene::DrawMapEditorOverlay() const
         GetColor(220, 230, 244),
         "現在マップ: %s",
         GetMapDisplayName(m_lifecycle.currentMapCsvPath).c_str());
+    DrawFormatString(
+        panelLeft + 16,
+        panelTop + 250,
+        GetColor(220, 230, 244),
+        "タイルテクスチャ: %s  (PageUp/PageDown)",
+        m_lifecycle.currentTileTextureKey.c_str());
     if (!m_mapEditor.statusMessage.empty())
     {
-        DrawString(panelLeft + 16, panelTop + 258, m_mapEditor.statusMessage.c_str(), GetColor(142, 236, 166));
+        DrawString(panelLeft + 16, panelTop + 268, m_mapEditor.statusMessage.c_str(), GetColor(142, 236, 166));
     }
 }

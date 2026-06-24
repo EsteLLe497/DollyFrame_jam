@@ -47,6 +47,24 @@ namespace
         return stem == "under";
     }
 
+    std::string ToLowerCopy(std::string value)
+    {
+        std::transform(
+            value.begin(),
+            value.end(),
+            value.begin(),
+            [](unsigned char ch)
+            {
+                return static_cast<char>(std::tolower(ch));
+            });
+        return value;
+    }
+
+    std::string ResolveDefaultTileTextureKeyForMapPath(const std::string& mapCsvPath)
+    {
+        return "tile_forest_ground";
+    }
+
     std::string Trim(const std::string& value)
     {
         const size_t start = value.find_first_not_of(" \t\r\n");
@@ -497,6 +515,53 @@ void GameScene::BuildCameraMarkers()
     }
 
 }
+
+void GameScene::ApplyTileTextureKey(const std::string& tileTextureKey)
+{
+    const std::string resolvedKey = tileTextureKey.empty()
+        ? ResolveDefaultTileTextureKeyForMapPath(m_lifecycle.currentMapCsvPath)
+        : tileTextureKey;
+
+    int textureId = m_assets.GetTexture(resolvedKey);
+    std::string finalKey = resolvedKey;
+    if (textureId < 0 && finalKey != "tile_forest_ground")
+    {
+        finalKey = "tile_forest_ground";
+        textureId = m_assets.GetTexture(finalKey);
+    }
+    if (textureId < 0 && finalKey != "tile_default")
+    {
+        finalKey = "tile_default";
+        textureId = m_assets.GetTexture(finalKey);
+    }
+    if (textureId < 0)
+    {
+        textureId = m_whiteTexture;
+    }
+
+    m_tileTexture = textureId;
+    m_tileTexture2 = m_assets.GetTexture("tile_value_2_blue");
+    if (m_tileTexture2 < 0)
+    {
+        m_tileTexture2 = m_tileTexture;
+    }
+    m_lifecycle.currentTileTextureKey = finalKey;
+    m_tileMap.SetTileTextureKey(finalKey);
+}
+
+std::string GameScene::ResolveDefaultTileTextureKeyForCurrentMap() const
+{
+    return ResolveDefaultTileTextureKeyForMapPath(m_lifecycle.currentMapCsvPath);
+}
+
+void GameScene::RefreshTileTextureForCurrentMap()
+{
+    const std::string tileTextureKey = m_tileMap.GetTileTextureKey().empty()
+        ? ResolveDefaultTileTextureKeyForCurrentMap()
+        : m_tileMap.GetTileTextureKey();
+    ApplyTileTextureKey(tileTextureKey);
+}
+
 namespace game_scene_detail
 {
     constexpr float kDefaultCameraViewWidth = 1920.0f;
@@ -963,6 +1028,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.darknessStageEnabled = false;
     m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
+    m_lifecycle.currentTileTextureKey = "tile_forest_ground";
     m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
@@ -1205,9 +1271,9 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     LoadStageTransitionLinks();
     m_assets.LoadDefaults(resources);
     m_whiteTexture = m_assets.GetTexture("white");
-    m_tileTexture = resources.LoadTexture(L"assets\\texture\\block.png");
     InitializeTestPhotoResources(resources);
     m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, 48.0f);
+    RefreshTileTextureForCurrentMap();
     const size_t mapCellCount =
         static_cast<size_t>((std::max)(0, m_tileMap.GetWidth())) *
         static_cast<size_t>((std::max)(0, m_tileMap.GetHeight()));

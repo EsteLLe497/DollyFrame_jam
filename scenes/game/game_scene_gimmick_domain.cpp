@@ -1068,6 +1068,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     {
         return false;
     }
+    RefreshTileTextureForCurrentMap();
 
     InitializeStageEntities();
     PlayStageBgmForCurrentMap();
