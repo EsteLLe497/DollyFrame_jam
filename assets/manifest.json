@@ -74,6 +74,14 @@
       "type": "file",
       "path": "assets/texture/maptip/tile_value_2_blue.png"
     },
+    "tile_value_3_purple": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_3_purple.png"
+    },
+    "tile_value_h_damage": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_h_damage.png"
+    },
     "enemy1_idle": {
       "type": "file",
       "path": "assets/texture/enemy1/enemy1_idle.png"

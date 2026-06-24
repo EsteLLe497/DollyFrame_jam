@@ -545,6 +545,11 @@ void GameScene::ApplyTileTextureKey(const std::string& tileTextureKey)
     {
         m_tileTexture2 = m_tileTexture;
     }
+    m_tileTexture3 = m_assets.GetTexture("tile_value_3_purple");
+    if (m_tileTexture3 < 0)
+    {
+        m_tileTexture3 = m_tileTexture;
+    }
     m_lifecycle.currentTileTextureKey = finalKey;
     m_tileMap.SetTileTextureKey(finalKey);
 }

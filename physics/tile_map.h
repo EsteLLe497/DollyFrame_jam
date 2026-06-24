@@ -35,7 +35,7 @@ public:
     bool SaveToCsv(const std::string& path) const;
     void Clear();
 
-    void Draw(int textureId, float originX, float originY, float scale = 1.0f, int tile2TextureId = -1) const;
+    void Draw(int textureId, float originX, float originY, float scale = 1.0f, int tile2TextureId = -1, int tile3TextureId = -1) const;
 
     int GetWidth() const;
     int GetHeight() const;

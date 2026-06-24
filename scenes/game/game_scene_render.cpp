@@ -613,7 +613,9 @@ namespace
         float y,
         float width,
         float height,
+        int textureId,
         const DamagePlatformComponent* damagePlatform,
+        const SpikeStripComponent* spikeStrip,
         const TintComponent* tint,
         float sourceX,
         float sourceY,
@@ -622,7 +624,7 @@ namespace
         float rotation,
         float alpha)
     {
-        if (!damagePlatform || !tint)
+        if (!damagePlatform || !tint || spikeStrip != nullptr)
         {
             return false;
         }
@@ -641,34 +643,45 @@ namespace
 
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f)), 0, 255));
 
-        std::vector<DamagePlatformPoint> basePolygon =
+        if (textureId >= 0)
         {
-            { 0.0f, 0.5f },
-            { 1.0f, 0.5f },
-            { 1.0f, 1.0f },
-            { 0.0f, 1.0f }
-        };
-        if (ClipDamagePlatformPolygonToCrop(basePolygon, cropLeft, cropTop, cropRight, cropBottom))
-        {
-            DrawDamagePlatformPolygon(basePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, baseColor);
-        }
-
-        const int spikeCount = (std::max)(1, damagePlatform->tileSpan);
-        const float spikeWidth = 1.0f / static_cast<float>(spikeCount);
-        for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
-        {
-            std::vector<DamagePlatformPoint> spikePolygon =
+            const int blockCount = (std::max)(1, damagePlatform->tileSpan);
+            const float blockWidth = width / static_cast<float>(blockCount);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, alpha);
+            for (int blockIndex = 0; blockIndex < blockCount; ++blockIndex)
             {
-                { static_cast<float>(spikeIndex) * spikeWidth, 0.5f },
-                { static_cast<float>(spikeIndex + 1) * spikeWidth, 0.5f },
-                { (static_cast<float>(spikeIndex) + 0.5f) * spikeWidth, 0.0f }
-            };
-            if (!ClipDamagePlatformPolygonToCrop(spikePolygon, cropLeft, cropTop, cropRight, cropBottom))
-            {
-                continue;
+                const float drawX = x + blockWidth * static_cast<float>(blockIndex);
+                const float drawWidth = blockIndex == blockCount - 1
+                    ? width - blockWidth * static_cast<float>(blockIndex)
+                    : blockWidth;
+                SpriteDraw(
+                    textureId,
+                    drawX,
+                    y,
+                    drawWidth,
+                    height,
+                    cropLeft,
+                    cropTop,
+                    cropRight - cropLeft,
+                    cropBottom - cropTop,
+                    false,
+                    rotation);
             }
-
-            DrawDamagePlatformPolygon(spikePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, spikeColor);
+            Shader_ResetStyle();
+        }
+        else
+        {
+            std::vector<DamagePlatformPoint> basePolygon =
+            {
+                { 0.0f, 0.5f },
+                { 1.0f, 0.5f },
+                { 1.0f, 1.0f },
+                { 0.0f, 1.0f }
+            };
+            if (ClipDamagePlatformPolygonToCrop(basePolygon, cropLeft, cropTop, cropRight, cropBottom))
+            {
+                DrawDamagePlatformPolygon(basePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, baseColor);
+            }
         }
 
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
@@ -680,6 +693,7 @@ namespace
         float y,
         float width,
         float height,
+        const DamagePlatformComponent* damagePlatform,
         const SpikeStripComponent* spikeStrip,
         const TintComponent* tint,
         float sourceX,
@@ -689,44 +703,12 @@ namespace
         float rotation,
         float alpha)
     {
-        if (!spikeStrip || !tint)
+        if (!damagePlatform || !spikeStrip || !tint)
         {
             return false;
         }
 
-        const int spikeColor = GetColor(
-            static_cast<int>(std::round(tint->r * 255.0f)),
-            static_cast<int>(std::round(tint->g * 255.0f)),
-            static_cast<int>(std::round(tint->b * 255.0f)));
-        const float cropLeft = std::clamp(sourceX, 0.0f, 1.0f);
-        const float cropTop = std::clamp(sourceY, 0.0f, 1.0f);
-        const float cropWidth = std::clamp(sourceWidth, 0.0001f, 1.0f);
-        const float cropHeight = std::clamp(sourceHeight, 0.0001f, 1.0f);
-        const float cropRight = std::clamp(cropLeft + cropWidth, 0.0f, 1.0f);
-        const float cropBottom = std::clamp(cropTop + cropHeight, 0.0f, 1.0f);
-
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f)), 0, 255));
-
-        const int spikeCount = (std::max)(1, spikeStrip->tileSpan);
-        const float spikeWidth = 1.0f / static_cast<float>(spikeCount);
-        for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
-        {
-            std::vector<DamagePlatformPoint> spikePolygon =
-            {
-                { static_cast<float>(spikeIndex) * spikeWidth, 1.0f },
-                { static_cast<float>(spikeIndex + 1) * spikeWidth, 1.0f },
-                { (static_cast<float>(spikeIndex) + 0.5f) * spikeWidth, 0.0f }
-            };
-            if (!ClipDamagePlatformPolygonToCrop(spikePolygon, cropLeft, cropTop, cropRight, cropBottom))
-            {
-                continue;
-            }
-
-            DrawDamagePlatformPolygon(spikePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, spikeColor);
-        }
-
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-        return true;
+        return false;
     }
         float ComputeLightFlicker(float timeSeconds, const TransformComponent& transform, const FlickerLightComponent& light)
     {
@@ -3388,7 +3370,9 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawY,
             drawWidth,
             drawHeight,
+            sprite->GetTextureId(),
             damagePlatform,
+            spikeStrip,
             tint,
             sprite->GetSourceX(),
             sprite->GetSourceY(),
@@ -3401,6 +3385,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawY,
             drawWidth,
             drawHeight,
+            damagePlatform,
             spikeStrip,
             tint,
             sprite->GetSourceX(),

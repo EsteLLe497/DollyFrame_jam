@@ -1588,6 +1588,9 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
 
 void GameScene::RefreshDamageFootholdsFromMarkers()
 {
+    const int purpleTexture = m_assets.GetTexture("tile_value_3_purple");
+    const int damageTexture = purpleTexture >= 0 ? purpleTexture : m_whiteTexture;
+    const int damageSpikeTexture = m_assets.GetTexture("tile_value_h_damage");
     m_world.EraseIf(
         [](const std::unique_ptr<Entity>& entity)
         {
@@ -1618,42 +1621,48 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
             const float markerX = static_cast<float>(column) * tileSize;
             const float markerY = static_cast<float>(row) * tileSize;
             const int tileSpan = GetDamagePlatformTileSpanFromMarker(marker);
+            for (int cellIndex = 0; cellIndex < tileSpan; ++cellIndex)
+            {
+                const float cellX = markerX + tileSize * static_cast<float>(cellIndex);
 
-            auto damagePlatformBase = std::make_unique<Entity>();
-            damagePlatformBase->AddComponent<TagComponent>(kTagDamagePlatform);
-            damagePlatformBase->AddComponent<TransformComponent>(
-                markerX,
-                markerY + tileSize,
-                tileSize * static_cast<float>(tileSpan),
-                tileSize);
-            damagePlatformBase->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
-            damagePlatformBase->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            damagePlatformBase->AddComponent<ImageOutlineColliderComponent>(
-                std::vector<b2Vec2>{
-                    { 0.0f, 0.0f },
-                    { 1.0f, 0.0f },
-                    { 1.0f, 1.0f },
-                    { 0.0f, 1.0f }},
-                0.2f);
-            damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
-            m_world.Spawn(std::move(damagePlatformBase));
+                auto damagePlatformBase = std::make_unique<Entity>();
+                damagePlatformBase->AddComponent<TagComponent>(kTagDamagePlatform);
+                damagePlatformBase->AddComponent<TransformComponent>(
+                    cellX,
+                    markerY + tileSize,
+                    tileSize,
+                    tileSize);
+                damagePlatformBase->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
+                damagePlatformBase->AddComponent<SpriteRenderComponent>(damageTexture);
+                damagePlatformBase->AddComponent<DamagePlatformComponent>(1);
+                damagePlatformBase->AddComponent<ImageOutlineColliderComponent>(
+                    std::vector<b2Vec2>{
+                        { 0.0f, 0.0f },
+                        { 1.0f, 0.0f },
+                        { 1.0f, 1.0f },
+                        { 0.0f, 1.0f }},
+                    0.2f);
+                damagePlatformBase->AddComponent<VanishOnCaptureComponent>(true);
+                m_world.Spawn(std::move(damagePlatformBase));
 
-            auto damagePlatformSpike = std::make_unique<Entity>();
-            damagePlatformSpike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
-            damagePlatformSpike->AddComponent<TransformComponent>(
-                markerX,
-                markerY,
-                tileSize * static_cast<float>(tileSpan),
-                tileSize);
-            damagePlatformSpike->AddComponent<TintComponent>(0.86f, 0.16f, 0.18f, 1.0f);
-            damagePlatformSpike->AddComponent<SpriteRenderComponent>(m_whiteTexture);
-            damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
-            damagePlatformSpike->AddComponent<SpikeStripComponent>(tileSpan);
-            damagePlatformSpike->AddComponent<ImageOutlineColliderComponent>(
-                BuildDamagePlatformNormalizedOutline(tileSpan),
-                0.2f);
-            damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
-            m_world.Spawn(std::move(damagePlatformSpike));
+                auto damagePlatformSpike = std::make_unique<Entity>();
+                damagePlatformSpike->AddComponent<TagComponent>(kTagDamagePlatformSpike);
+                damagePlatformSpike->AddComponent<TransformComponent>(
+                    cellX,
+                    markerY,
+                    tileSize,
+                    tileSize);
+                damagePlatformSpike->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+                damagePlatformSpike->AddComponent<SpriteRenderComponent>(
+                    damageSpikeTexture >= 0 ? damageSpikeTexture : damageTexture);
+                damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
+                damagePlatformSpike->AddComponent<SpikeStripComponent>(1);
+                damagePlatformSpike->AddComponent<ImageOutlineColliderComponent>(
+                    BuildDamagePlatformNormalizedOutline(1),
+                    0.2f);
+                damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
+                m_world.Spawn(std::move(damagePlatformSpike));
+            }
         }
     }
 }
