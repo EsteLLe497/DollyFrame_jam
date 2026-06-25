@@ -2008,14 +2008,29 @@ inline void UpdateEnemies(
             constexpr float kWalkerSpeed = 120.0f;
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
+            constexpr float kWalkerStopDistance = 48.0f;
             constexpr float kWalkerAttackActiveSeconds = 0.18f;
+            constexpr float kWalkerAttackFps = 18.0f;
             constexpr int kWalkerAttackFirstFrame = 24;
-            constexpr int kWalkerAttackHitFrame = 30;
+            constexpr int kWalkerAttackChargeFrame = 28;
+            constexpr float kWalkerAttackChargeSeconds = 1.0f;
+            constexpr int kWalkerAttackHitFrame = 34;
             constexpr int kWalkerAttackLastFrame = 39;
-            constexpr int kWalkerAttackCaptureStartFrame = kWalkerAttackHitFrame - 4;
-            constexpr int kWalkerAttackCaptureEndFrame = kWalkerAttackHitFrame + 8;
+            constexpr int kWalkerAttackCaptureStartFrame = kWalkerAttackFirstFrame;
+            constexpr int kWalkerAttackCaptureEndFrame = kWalkerAttackLastFrame;
             constexpr float kWalkerAttackFlashSeconds = 0.18f;
+            constexpr float kWalkerVisualScale = 1.55f;
+            constexpr float kWalkerVisualOffsetY = -22.0f;
 
+            const float enemyWidth = transform->width * transform->scale;
+            const float playerWidth = playerTransform->width * playerTransform->scale;
+            const float enemyCenterX = transform->x + enemyWidth * 0.5f;
+            const float playerCenterX = playerTransform->x + playerWidth * 0.5f;
+            const float centerDx = playerCenterX - enemyCenterX;
+            const float horizontalGap = centerDx >= 0.0f
+                ? playerTransform->x - (transform->x + enemyWidth)
+                : transform->x - (playerTransform->x + playerWidth);
+            const bool inAttackRange = horizontalGap <= kWalkerStopDistance;
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
             enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
@@ -2028,7 +2043,7 @@ inline void UpdateEnemies(
 
             if (inDetectRange && enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
-                enemy->facing = dx > 0.0f
+                enemy->facing = centerDx > 0.0f
                     ? EnemyComponent::FacingDirection::Right
                     : EnemyComponent::FacingDirection::Left;
             }
@@ -2053,33 +2068,40 @@ inline void UpdateEnemies(
                 enemy->attackWarningProgress = 0.0f;
                 if (inDetectRange)
                 {
+                    enemy->attackTimer = enemy->attackCooldown;
                     enemy->SetAIState(EnemyComponent::AIState::Chase);
                 }
                 break;
             case EnemyComponent::AIState::Chase:
                 enemy->attackCaptureWindowActive = false;
                 enemy->attackWarningProgress = 0.0f;
-                if (dist < enemy->attackRange)
+                enemy->attackTimer = std::min(enemy->attackCooldown, enemy->attackTimer + flow.lastDeltaTime);
+                if (inAttackRange)
                 {
-                    enemy->facing = dx > 0.0f
+                    enemy->facing = centerDx > 0.0f
                         ? EnemyComponent::FacingDirection::Right
                         : EnemyComponent::FacingDirection::Left;
 
-                    enemy->attackTimer = 0.0f;
-                    enemy->attackFrameTriggered = false;
-                    enemy->SetAIState(EnemyComponent::AIState::Attack);
-                    if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
+                    if (enemy->attackTimer >= enemy->attackCooldown)
                     {
-                        animation->Play("attack", true);
+                        enemy->attackTimer = 0.0f;
+                        enemy->attackFrameTriggered = false;
+                        enemy->SetAIState(EnemyComponent::AIState::Attack);
+                        if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
+                        {
+                            animation->SetPlaybackSpeed(1.0f);
+                            animation->Play("attack", true);
+                        }
                     }
                 }
                 else if (!inDetectRange)
                 {
+                    enemy->attackTimer = enemy->attackCooldown;
                     enemy->SetAIState(EnemyComponent::AIState::Idle);
                 }
                 else
                 {
-                    transform->x += (dx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * flow.lastDeltaTime;
+                    transform->x += (centerDx > 0.0f ? 1.0f : -1.0f) * kWalkerSpeed * flow.lastDeltaTime;
                     snapToGround(*transform);
                     walkerMoved = true;
                 }
@@ -2088,10 +2110,47 @@ inline void UpdateEnemies(
                 enemy->attackTimer += flow.lastDeltaTime;
                 if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
                 {
-                    const int attackFrame = animation->GetCurrentFrameIndex();
+                    int attackFrame = animation->GetCurrentFrameIndex();
+                    const float chargeStartSeconds =
+                        static_cast<float>(kWalkerAttackChargeFrame - kWalkerAttackFirstFrame) / kWalkerAttackFps;
+                    const float chargeElapsedSeconds = std::max(0.0f, enemy->attackTimer - chargeStartSeconds);
+                    const bool charging =
+                        attackFrame >= kWalkerAttackChargeFrame &&
+                        !enemy->attackFrameTriggered &&
+                        chargeElapsedSeconds < kWalkerAttackChargeSeconds;
+                    if (charging)
+                    {
+                        animation->SetCurrentLocalFrameIndex(kWalkerAttackChargeFrame - kWalkerAttackFirstFrame);
+                        animation->SetPlaybackSpeed(0.0f);
+                        attackFrame = kWalkerAttackChargeFrame;
+                        if (auto* sprite = entity->GetComponent<SpriteRenderComponent>())
+                        {
+                            const float baseOffsetX = transform->width * (1.0f - kWalkerVisualScale) * 0.5f;
+                            const float shakePhase = enemy->attackTimer * 72.0f;
+                            const float shakeX = std::sin(shakePhase) * 2.2f + std::sin(shakePhase * 1.7f) * 0.8f;
+                            const float shakeY = std::cos(shakePhase * 1.23f) * 1.4f;
+                            sprite->SetRenderOffset(baseOffsetX + shakeX, kWalkerVisualOffsetY + shakeY);
+                        }
+                    }
+                    else
+                    {
+                        animation->SetPlaybackSpeed(1.0f);
+                        if (auto* sprite = entity->GetComponent<SpriteRenderComponent>())
+                        {
+                            sprite->SetRenderOffset(
+                                transform->width * (1.0f - kWalkerVisualScale) * 0.5f,
+                                kWalkerVisualOffsetY);
+                        }
+                    }
+
                     enemy->attackWarningProgress = std::clamp(
-                        static_cast<float>(attackFrame - kWalkerAttackFirstFrame) /
-                            static_cast<float>(kWalkerAttackHitFrame - kWalkerAttackFirstFrame),
+                        charging
+                            ? std::max(
+                                static_cast<float>(attackFrame - kWalkerAttackFirstFrame) /
+                                    static_cast<float>(kWalkerAttackHitFrame - kWalkerAttackFirstFrame),
+                                chargeElapsedSeconds / kWalkerAttackChargeSeconds)
+                            : static_cast<float>(attackFrame - kWalkerAttackFirstFrame) /
+                                static_cast<float>(kWalkerAttackHitFrame - kWalkerAttackFirstFrame),
                         0.0f,
                         1.0f);
                     enemy->attackCaptureWindowActive =
@@ -2101,13 +2160,14 @@ inline void UpdateEnemies(
                     {
                         enemy->attackFrameTriggered = true;
                         enemy->attackFlashRemaining = kWalkerAttackFlashSeconds;
-                        const float attackWidth = 48.0f;
+                        const float attackWidth = 64.0f;
                         const float attackHeight = 60.0f;
+                        const float attackForwardOffset = 16.0f;
                         const float attackOffsetY = transform->height * transform->scale * -0.1f;
 
                         enemy->attackRectX = enemy->facing == EnemyComponent::FacingDirection::Right
-                            ? transform->x + transform->width * transform->scale
-                            : transform->x - attackWidth;
+                            ? transform->x + transform->width * transform->scale + attackForwardOffset
+                            : transform->x - attackWidth - attackForwardOffset;
                         enemy->attackRectY = transform->y + attackOffsetY;
                         enemy->attackRectWidth = attackWidth;
                         enemy->attackRectHeight = attackHeight;
@@ -2117,6 +2177,8 @@ inline void UpdateEnemies(
 
                     if (attackFrame >= kWalkerAttackLastFrame)
                     {
+                        animation->SetPlaybackSpeed(1.0f);
+                        enemy->attackTimer = 0.0f;
                         enemy->attackFrameTriggered = false;
                         enemy->attackCaptureWindowActive = false;
                         enemy->attackWarningProgress = 0.0f;
