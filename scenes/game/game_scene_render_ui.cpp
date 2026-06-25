@@ -1549,41 +1549,6 @@ void GameScene::DrawCaptureOverlay() const
     drawFrameBand(drawX, drawY, std::max(4.0f, 8.0f * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
     drawFrameBand(drawX + drawWidth - std::max(4.0f, 8.0f * viewScale), drawY, std::max(4.0f, 8.0f * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
 
-    const auto drawFinderGrid = [&](int columns, int rows)
-    {
-        if (columns <= 0 || rows <= 0)
-        {
-            return;
-        }
-
-        const float gridCellWidth = drawWidth / static_cast<float>(columns);
-        const float gridCellHeight = drawHeight / static_cast<float>(rows);
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 78);
-        for (int column = 1; column < columns; ++column)
-        {
-            const int x = static_cast<int>(std::round(drawX + gridCellWidth * static_cast<float>(column)));
-            DrawLine(
-                x,
-                static_cast<int>(std::round(drawY)),
-                x,
-                static_cast<int>(std::round(drawY + drawHeight)),
-                gridColor);
-        }
-        for (int row = 1; row < rows; ++row)
-        {
-            const int y = static_cast<int>(std::round(drawY + gridCellHeight * static_cast<float>(row)));
-            DrawLine(
-                static_cast<int>(std::round(drawX)),
-                y,
-                static_cast<int>(std::round(drawX + drawWidth)),
-                y,
-                gridColor);
-        }
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    };
-
-    const int gridColumns = std::max(1, static_cast<int>(std::round(gCaptureWidthTiles)));
-    const int gridRows = std::max(1, static_cast<int>(std::round(gCaptureHeightTiles)));
     const Entity* bestTarget = FindCaptureTarget(*transform);
 
     ForEachCaptureTargetCandidate(*this, *transform, [&](Entity* entity, const TransformComponent& targetTransform)
@@ -1642,7 +1607,6 @@ void GameScene::DrawCaptureOverlay() const
         Shader_ResetStyle();
     });
 
-    drawFinderGrid(gridColumns, gridRows);
     drawCornerFrame(left, top, right, bottom, cornerThickness, cornerLength, frameColor);
 
     const int centerX = (left + right) / 2;
@@ -2767,8 +2731,8 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
 
-    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_ui.captureFinderScale;
-    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_ui.captureFinderScale;
+    width = gCaptureFrameWidthPx * m_ui.captureFinderScale;
+    height = gCaptureFrameHeightPx * m_ui.captureFinderScale;
 
     // Cursor-centered finder: the visible frame and actual capture bounds must match.
     const float cursorWorldX = m_flow.cameraX + (static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale;

@@ -305,8 +305,8 @@ namespace
         root["coyote_time"] = gCoyoteTimeSeconds;
         root["ground_snap_distance"] = gGroundSnapDistance;
         root["ground_step_up_height"] = gGroundStepUpHeight;
-        root["capture_width_tiles"] = gCaptureWidthTiles;
-        root["capture_height_tiles"] = gCaptureHeightTiles;
+        root["capture_frame_width_px"] = gCaptureFrameWidthPx;
+        root["capture_frame_height_px"] = gCaptureFrameHeightPx;
         root["capture_rapid_shot_limit"] = gCaptureRapidShotLimit;
         root["capture_rapid_window_seconds"] = gCaptureRapidWindowSeconds;
         root["capture_overheat_lock_seconds"] = gCaptureOverheatLockSeconds;
@@ -618,8 +618,8 @@ namespace game_scene_detail
         gCoyoteTimeSeconds = root.value("coyote_time", gCoyoteTimeSeconds);
         gGroundSnapDistance = root.value("ground_snap_distance", gGroundSnapDistance);
         gGroundStepUpHeight = root.value("ground_step_up_height", gGroundStepUpHeight);
-        gCaptureWidthTiles = root.value("capture_width_tiles", gCaptureWidthTiles);
-        gCaptureHeightTiles = root.value("capture_height_tiles", gCaptureHeightTiles);
+        gCaptureFrameWidthPx = root.value("capture_frame_width_px", gCaptureFrameWidthPx);
+        gCaptureFrameHeightPx = root.value("capture_frame_height_px", gCaptureFrameHeightPx);
         gCaptureRapidShotLimit = root.value("capture_rapid_shot_limit", gCaptureRapidShotLimit);
         gCaptureRapidWindowSeconds = root.value("capture_rapid_window_seconds", gCaptureRapidWindowSeconds);
         gCaptureOverheatLockSeconds = root.value("capture_overheat_lock_seconds", gCaptureOverheatLockSeconds);
@@ -1031,7 +1031,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
     m_lifecycle.darknessStageEnabled = false;
-    m_lifecycle.currentMapCsvPath = "assets/maps/stages/ruins1.csv";
+    m_lifecycle.currentMapCsvPath = "assets/maps/stages/forest.csv";
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_lifecycle.currentTileTextureKey = "tile_forest_ground";
     m_lifecycle.shieldBossBgmCrossFadeStarted = false;

@@ -88,6 +88,7 @@ void GameScene::DrawDebugUI()
     ImGui::Text("Focus Slow: %s", ((m_flow.cameraMode && m_flow.captureSlowRemaining > 0.0f) || ((m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement)) && m_flow.placementSlowRemaining > 0.0f)) ? "On" : "Off");
     ImGui::Text("Capture Focus: %.2f", m_flow.captureSlowRemaining);
     ImGui::Text("Placement Focus: %.2f", m_flow.placementSlowRemaining);
+    ImGui::Text("Capture Frame Size: %.0f x %.0f px", gCaptureFrameWidthPx, gCaptureFrameHeightPx);
     ImGui::Text("Goal: %s", m_flow.goalUnlocked ? "Unlocked" : "Locked");
     ImGui::Text("Goal Contact: %s", m_flow.playerTouchingTarget ? "Hit" : "No Hit");
     ImGui::Text("Hazard Contact: %s", m_flow.playerTouchingHazard ? "Hit" : "No Hit");
