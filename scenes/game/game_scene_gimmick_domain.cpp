@@ -727,10 +727,9 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             0.0f,
             batteryGenerator->cooldownRemaining - deltaTime);
 
-        const bool powered = linkPowered[batteryGenerator->linkId];
-        const bool triggerPressedThisFrame = powered && !batteryGenerator->wasPowered;
-        if (triggerPressedThisFrame && batteryGenerator->cooldownRemaining <= 0.0f && tileSize > 0.0f)
-        {
+		const bool powered = linkPowered[batteryGenerator->linkId];
+        if (powered && batteryGenerator->cooldownRemaining <= 0.0f && tileSize > 0.0f)
+		{
             const float generatorWidth = transform->width * transform->scale;
             const float spawnX = batteryGenerator->spawnDirectionX < 0
                 ? transform->x - tileSize - 10.0f

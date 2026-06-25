@@ -128,9 +128,10 @@ private:
         float deltaTime,
         float tileSize);
     bool IsBatteryCollidingWithWorld(const TransformComponent& bounds, const Entity* self, float tileSize) const;
-    bool IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bounds, const Entity* self, float tileSize) const;
-    bool SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, const Entity* self, float tileSize) const;
+    bool IsBatteryOnTopOfSwitchOrDynamicEntity(const TransformComponent& bounds, const Entity* self, float tileSize) const;
+    bool SnapBatteryToSwitchOrDynamicEntity(TransformComponent& bounds, const Entity* self, float tileSize) const;
     float GetBatteryPushDirectionFromPlayer(const TransformComponent& playerTransform, const TransformComponent& batteryTransform) const;
+    bool IsConveyorUnderBattery(const TransformComponent& batteryTransform, float tileSize, int& outDirectionX,float& velocityX) const;
     void BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bounds) const;
     void UpdateLinkedGimmicks(float deltaTime);
     void UpdateMerchants(float deltaTime);
@@ -171,6 +172,7 @@ private:
     void RefreshLinkedGimmicksFromMarkers();
     void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
+    void RefreshConveyorBeltsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
     void ReflashFallingRockfromMarkers();
     void RefreshMarkerDrivenSystems();
@@ -188,6 +190,7 @@ private:
     void FlushPendingEntities();
     void SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize, SwitchPressMode pressMode);
     void SpawnBatteryGeneratorMarker(float x, float y, int linkId, int spawnDirectionX, float tileSize);
+    void SpawnConveyorBeltMarker(float x, float y, int widthTiles, int directionX, float tileSize);
     void SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize);
     void SpawnLaserSwitchMarker(float x, float y, int linkId, float tileSize);
     void SpawnShutterMarker(float x, float y, int moveRangeTiles, int linkId, bool useBossDefeatSignal, bool opensWhenUnpowered, float tileSize);

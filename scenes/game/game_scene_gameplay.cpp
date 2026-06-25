@@ -3604,7 +3604,10 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
                 continue;
             }
 
-            const bool isDynamicPlatform = HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator);
+            const bool isDynamicPlatform =
+                HasTag(*entity, kTagBatterySwitch) ||
+                HasTag(*entity, kTagElevator) ||
+                HasTag(*entity, kTagConveyorBelt);
             if (isDynamicPlatform)
             {
                 const float boundsBottom = bounds.y + height;
@@ -3633,7 +3636,8 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
         testTagGroup(EntityTag::LaserSwitch) ||
         testTagGroup(EntityTag::Shutter) ||
         testTagGroup(EntityTag::LaserTurret) ||
-        testTagGroup(EntityTag::SepiaElevator))
+        testTagGroup(EntityTag::SepiaElevator) ||
+        testTagGroup(EntityTag::ConveyorBelt))
     {
         return true;
     }
@@ -3660,7 +3664,7 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
     return false;
 }
 
-bool GameScene::IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bounds, const Entity* self, float tileSize) const
+bool GameScene::IsBatteryOnTopOfSwitchOrDynamicEntity(const TransformComponent& bounds, const Entity* self, float tileSize) const
 {
     const float boundsWidth = bounds.width * bounds.scale;
     const float boundsHeight = bounds.height * bounds.scale;
@@ -3697,14 +3701,14 @@ bool GameScene::IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bound
         return false;
     };
 
-    if (testTopGroup(EntityTag::BatterySwitch) || testTopGroup(EntityTag::Elevator))
+    if (testTopGroup(EntityTag::BatterySwitch) || testTopGroup(EntityTag::Elevator)|| testTopGroup(EntityTag::ConveyorBelt))
     {
         return true;
     }
     return false;
 }
 
-bool GameScene::SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, const Entity* self, float tileSize) const
+bool GameScene::SnapBatteryToSwitchOrDynamicEntity(TransformComponent& bounds, const Entity* self, float tileSize) const
 {
     const float width = bounds.width * bounds.scale;
     const float height = bounds.height * bounds.scale;
@@ -3746,7 +3750,7 @@ bool GameScene::SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, con
         return false;
     };
 
-    if (snapToTopGroup(EntityTag::BatterySwitch) || snapToTopGroup(EntityTag::Elevator))
+    if (snapToTopGroup(EntityTag::BatterySwitch) || snapToTopGroup(EntityTag::Elevator) || snapToTopGroup(EntityTag::ConveyorBelt))
     {
         return true;
     }
@@ -3790,6 +3794,47 @@ float GameScene::GetBatteryPushDirectionFromPlayer(const TransformComponent& pla
     }
 
     return 0.0f;
+}
+
+bool GameScene::IsConveyorUnderBattery(const TransformComponent& batteryTransform, float tileSize, int& outDirectionX, float& velocityX) const
+{
+    for (Entity* conveyorEntity : m_world.EntitiesByTag(EntityTag::ConveyorBelt))
+    {
+        if (!conveyorEntity)
+            continue;
+
+        auto* conveyor = conveyorEntity->GetComponent<BeltConveyorComponent>();
+        auto* conveyorTransform = conveyorEntity->GetComponent<TransformComponent>();
+        if (!conveyor || !conveyorTransform)
+            continue;
+
+        const float conveyorWidth = conveyorTransform->width * conveyorTransform->scale;
+        const float batteryWidth = batteryTransform.width * batteryTransform.scale;
+        const float conveyorLeft = conveyorTransform->x;
+        const float conveyorRight = conveyorTransform->x + conveyorWidth;
+        const float batteryLeft = batteryTransform.x;
+        const float batteryRight = batteryTransform.x + batteryWidth;
+        const float batteryHeight =
+            batteryTransform.height * batteryTransform.scale;
+        const float batteryBottom =
+            batteryTransform.y + batteryHeight;
+        const float conveyorTop = conveyorTransform->y;
+        
+        const bool overlapX = batteryRight > conveyorLeft && batteryLeft < conveyorRight;
+        const float topTolerance = std::max(6.0f, tileSize * 0.22f);
+        const bool onTop = std::fabs(batteryBottom - conveyorTop) <= topTolerance;
+
+        if (!overlapX || !onTop)
+        {
+            continue;
+        }
+
+        outDirectionX = conveyor->directionX;
+        velocityX = conveyor->velocity;
+        return true;
+    }
+
+    return false;
 }
 
 void GameScene::UpdateSingleBattery(
@@ -3862,12 +3907,12 @@ void GameScene::UpdateSingleBattery(
 
     if (!fallingHitActive)
     {
-        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrElevator(*transform, &batteryEntity, tileSize);
+        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrDynamicEntity(*transform, &batteryEntity, tileSize);
         if (onTopOfSwitchOrElevator)
         {
             battery->grounded = true;
             battery->velocityY = 0.0f;
-            SnapBatteryToSwitchOrElevatorTop(*transform, &batteryEntity, tileSize);
+            SnapBatteryToSwitchOrDynamicEntity(*transform, &batteryEntity, tileSize);
         }
 
         float pushDirection = 0.0f;
@@ -3905,7 +3950,7 @@ void GameScene::UpdateSingleBattery(
     {
         bool steppedUp = false;
         const float maxStepHeight = tileSize * 0.5f;
-        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrElevator(*transform, &batteryEntity, tileSize);
+        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrDynamicEntity(*transform, &batteryEntity, tileSize);
         if (battery->grounded && maxStepHeight > 0.0f && !onTopOfSwitchOrElevator)
         {
             TransformComponent stepCandidate = *transform;
@@ -3930,10 +3975,17 @@ void GameScene::UpdateSingleBattery(
         transform->y = std::max(previousY, transform->y - tileSize * 0.08f);
     }
 
-    if (SnapBatteryToSwitchOrElevatorTop(*transform, &batteryEntity, tileSize))
+    if (SnapBatteryToSwitchOrDynamicEntity(*transform, &batteryEntity, tileSize))
     {
         battery->grounded = true;
         battery->velocityY = 0.0f;
+    }
+
+    int direction = 0;
+    float velocity = 0.0f;
+    if (IsConveyorUnderBattery(*transform, tileSize, direction,velocity))
+    {
+        battery->velocityX = velocity * direction;
     }
 }
 

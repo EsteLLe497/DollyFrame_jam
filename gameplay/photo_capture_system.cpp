@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "photo_capture_system.h"
 
@@ -774,6 +774,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
         if (HasTag(*entity, EntityTag::BatterySwitch) ||
             HasTag(*entity, EntityTag::BatteryGenerator) ||
+            HasTag(*entity, EntityTag::ConveyorBelt) ||
             HasTag(*entity, EntityTag::Elevator) ||
             HasTag(*entity, EntityTag::LaserSwitch) ||
             HasTag(*entity, EntityTag::Shutter) ||

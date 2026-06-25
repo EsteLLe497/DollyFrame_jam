@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "game_scene.h"
 
@@ -367,6 +367,7 @@ inline constexpr const char* kTagLog = "Log";
 inline constexpr const char* kTagFallingRock = "FallingRock";
 inline constexpr const char* kTagJumpPad = "JumpPad";
 inline constexpr const char* kTagBatterySwitch = "BatterySwitch";
+inline constexpr const char* kTagConveyorBelt = "ConveyorBelt";
 inline constexpr const char* kTagElevator = "Elevator";
 inline constexpr const char* kTagDamagePlatform = "DamagePlatform";
 inline constexpr const char* kTagDamagePlatformSpike = "DamagePlatformSpike";
@@ -381,8 +382,8 @@ inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
 inline constexpr const char* kTagSepiaElevator = "SepiaElevator";
 inline constexpr const char* kTagMidBoss3Fist = "MidBoss3Fist";
 
-inline constexpr std::array<char, 32> kMarkerPresets = {
-    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<'
+inline constexpr std::array<char, 33> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<', '_'
 };
 inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -484,6 +485,11 @@ inline bool IsJumpPadMarker(char marker)
     return IsMarkerInSet(marker, "T");
 }
 
+inline bool IsConveyorBeltMarker(char marker)
+{
+    return marker == '_';
+}
+
 inline bool IsMarkerLightMarker(char marker)
 {
     return IsMarkerInSet(marker, "PF");
@@ -547,6 +553,7 @@ inline bool IsParameterizedEditorMarker(char marker)
     case '>':
     case '<':
     case 'S':
+    case '_':
         return true;
     default:
         return false;
@@ -578,6 +585,11 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
         return std::clamp(parameter, 0, 99);
     case '<':
         return std::clamp(parameter, 0, 999);
+    case '_':
+    {
+        const int clamped = std::clamp(parameter, -9, 9);
+        return clamped == 0 ? 1 : clamped;
+    }
     default:
         return 0;
     }
