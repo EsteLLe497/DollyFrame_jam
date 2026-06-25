@@ -111,31 +111,31 @@ void ShaderShowcaseScene::Draw()
 
 void ShaderShowcaseScene::DrawDebugUI()
 {
-    ImGui::Begin("Shader Showcase");
-    ImGui::Text("2D shader gallery");
-    ImGui::Text("T: title  G: game  D: demo");
-    ImGui::Text("Q / Left: prev page  E / Right: next page");
-    ImGui::Text("P: toggle additive pulse");
+    ImGui::Begin("シェーダー見本");
+    ImGui::Text("2D シェーダーギャラリー");
+    ImGui::Text("T: タイトル  G: ゲーム  D: デモ");
+    ImGui::Text("Q / 左: 前のページ  E / 右: 次のページ");
+    ImGui::Text("P: 加算パルスの切り替え");
     ImGui::Separator();
-    ImGui::Text("Page %d / %d", m_pageIndex + 1, kPageCount);
+    ImGui::Text("ページ %d / %d", m_pageIndex + 1, kPageCount);
     if (m_pageIndex == 0)
     {
-        ImGui::Text("Normal / Grayscale / Outline / Additive / Flash");
+        ImGui::Text("通常 / グレースケール / アウトライン / 加算 / フラッシュ");
     }
     else if (m_pageIndex == 1)
     {
-        ImGui::Text("UV Scroll / Dissolve / Mask Clip / Distortion / Palette Swap");
+        ImGui::Text("UVスクロール / ディゾルブ / マスククリップ / 歪み / パレット差し替え");
     }
     else if (m_pageIndex == 2)
     {
-        ImGui::Text("Posterize / Chromatic Aberration / Glitch / Pixelate / Wave");
+        ImGui::Text("ポスタライズ / 色収差 / グリッチ / ドット化 / 波");
     }
     else
     {
-        ImGui::Text("Rim Light / Gradient Map / Noise Reveal / Heat Overlay / Parallax / Normal Map");
+        ImGui::Text("リムライト / グラデーションマップ / ノイズ表示 / 熱演出 / 視差 / 法線マップ");
     }
     ImGui::Separator();
-    ImGui::Text("Status legend: Supported / Approximate / Unsupported");
+    ImGui::Text("凡例: 対応 / 近似 / 未対応");
     ImGui::End();
 }
 

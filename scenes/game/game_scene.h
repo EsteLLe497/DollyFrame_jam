@@ -94,6 +94,8 @@ private:
     void UpdateShieldBossBgmCue();
     void DrawLoadingScreen() const;
     void LoadTuningState();
+    bool SaveUiTuningState();
+    bool LoadUiTuningState();
     void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
@@ -249,6 +251,7 @@ private:
     void UpdateEffects(float deltaTime);
     void UpdateTuningPanel();
     void DrawTuningPanel();
+    void DrawUiAdjustmentWindow();
     void DrawMidBoss2DebugWindow();
     void DrawProgressSavePanel();
     void DrawPitRestartOverlay() const;
