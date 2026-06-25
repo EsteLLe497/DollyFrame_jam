@@ -13,7 +13,6 @@ using namespace game_scene_detail;
 
 namespace
 {
-    constexpr float kDevelopedPhotoPreviewSeconds = 4.2f;
     constexpr float kUnlockedCameraFlashPulseSeconds = 0.28f;
     constexpr float kMidBoss3CapturedFistWidth = 144.0f;
     constexpr float kMidBoss3CapturedFistHeight = 96.0f;
@@ -1561,6 +1560,6 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
         scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
     }
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
-    scene.m_ui.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
+    scene.m_ui.developedPhotoPreviewRemaining = scene.m_ui.tuning.developedPhotoPreview.lifetime;
 }
 

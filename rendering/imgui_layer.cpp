@@ -108,6 +108,31 @@ namespace
         { KEY_INPUT_COMMA, ImGuiKey_Comma },
     }};
 
+    bool LoadJapaneseFont(ImGuiIO& io)
+    {
+        ImFontConfig config{};
+        config.OversampleH = 3;
+        config.OversampleV = 3;
+        config.PixelSnapH = false;
+
+        const ImWchar* ranges = io.Fonts->GetGlyphRangesJapanese();
+        constexpr float kFontSize = 18.0f;
+
+        if (ImFont* font = io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/NotoSansJP-Regular.otf", kFontSize, &config, ranges))
+        {
+            io.FontDefault = font;
+            return true;
+        }
+
+        if (ImFont* font = io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/meiryo.ttc", kFontSize, &config, ranges))
+        {
+            io.FontDefault = font;
+            return true;
+        }
+
+        return false;
+    }
+
     bool IsDxKeyDown(const std::array<DX_CHAR, 256>& keyState, int dxKey)
     {
         return dxKey >= 0 && dxKey < static_cast<int>(keyState.size()) && keyState[static_cast<size_t>(dxKey)] != 0;
@@ -247,7 +272,7 @@ namespace
         DrawBox(left, top, right, bottom, GetColor(8, 10, 14), TRUE);
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
         DrawBox(left, top, right, bottom, GetColor(80, 90, 110), FALSE);
-        DrawFormatString(textX, textY, GetColor(235, 242, 255), "FPS %.0f", fps);
+        DrawFormatString(textX, textY, GetColor(235, 242, 255), "FPS: %.0f", fps);
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 }
@@ -258,6 +283,7 @@ bool ImGuiLayer_Initialize(HWND hWnd, void* device, void* context)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.DisplaySize = ImVec2(static_cast<float>(kVirtualScreenWidth), static_cast<float>(kVirtualScreenHeight));
+    LoadJapaneseFont(io);
     io.DeltaTime = 1.0f / 60.0f;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigDragClickToInputText = true;

@@ -18,12 +18,6 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr int kEscapeMenuItemCount = 16;
-    constexpr int kEscapeMenuPanelWidth = 560;
-    constexpr int kEscapeMenuPanelHeight = 660;
-    constexpr int kEscapeMenuRowStartOffset = 86;
-    constexpr int kEscapeMenuRowHeight = 38;
-    constexpr int kEscapeMenuRowPaddingX = 18;
-    constexpr int kEscapeMenuRowBottomInset = 4;
 
     // =========================================================
     // メニュー項目の名前取得
@@ -66,18 +60,19 @@ namespace
 // =========================================================
 void GameScene::UpdateEscapeMenuInput()
 {
-    const int panelLeft = (SCREEN_WIDTH - kEscapeMenuPanelWidth) / 2;
-    const int panelTop = (SCREEN_HEIGHT - kEscapeMenuPanelHeight) / 2;
-    const int rowStartY = panelTop + kEscapeMenuRowStartOffset;
-    const int rowLeft = panelLeft + kEscapeMenuRowPaddingX;
-    const int rowRight = panelLeft + kEscapeMenuPanelWidth - kEscapeMenuRowPaddingX;
+    const auto& menuUi = m_ui.tuning.escapeMenu;
+    const int panelLeft = static_cast<int>(std::round((static_cast<float>(SCREEN_WIDTH) - menuUi.panelWidth) * 0.5f));
+    const int panelTop = static_cast<int>(std::round((static_cast<float>(SCREEN_HEIGHT) - menuUi.panelHeight) * 0.5f));
+    const int rowStartY = static_cast<int>(std::round(panelTop + menuUi.rowStartOffset));
+    const int rowLeft = static_cast<int>(std::round(panelLeft + menuUi.rowPaddingX));
+    const int rowRight = static_cast<int>(std::round(panelLeft + menuUi.panelWidth - menuUi.rowPaddingX));
 
     const int mouseX = Input_GetMouseX();
     const int mouseY = Input_GetMouseY();
     for (int index = 0; index < kEscapeMenuItemCount; ++index)
     {
-        const int rowTop = rowStartY + index * kEscapeMenuRowHeight;
-        const int rowBottom = rowTop + kEscapeMenuRowHeight - kEscapeMenuRowBottomInset;
+        const int rowTop = static_cast<int>(std::round(rowStartY + index * menuUi.rowHeight));
+        const int rowBottom = static_cast<int>(std::round(rowTop + menuUi.rowHeight - menuUi.rowBottomInset));
         if (mouseX >= rowLeft && mouseX <= rowRight && mouseY >= rowTop && mouseY <= rowBottom)
         {
             m_debug.escapeMenuSelection = index;
@@ -259,10 +254,11 @@ void GameScene::DrawEscapeMenuOverlay() const
         return;
     }
 
-    const int left = (SCREEN_WIDTH - kEscapeMenuPanelWidth) / 2;
-    const int top = (SCREEN_HEIGHT - kEscapeMenuPanelHeight) / 2;
-    const int right = left + kEscapeMenuPanelWidth;
-    const int bottom = top + kEscapeMenuPanelHeight;
+    const auto& menuUi = m_ui.tuning.escapeMenu;
+    const int left = static_cast<int>(std::round((static_cast<float>(SCREEN_WIDTH) - menuUi.panelWidth) * 0.5f));
+    const int top = static_cast<int>(std::round((static_cast<float>(SCREEN_HEIGHT) - menuUi.panelHeight) * 0.5f));
+    const int right = static_cast<int>(std::round(left + menuUi.panelWidth));
+    const int bottom = static_cast<int>(std::round(top + menuUi.panelHeight));
 
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 156);
     DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
@@ -273,24 +269,24 @@ void GameScene::DrawEscapeMenuOverlay() const
     DrawString(left + 22, top + 18, "一時停止メニュー", GetColor(245, 248, 255));
     DrawString(left + 22, top + 44, "W/S・上下キー: 選択  A/D・左右キー: 調整  Enter/A/クリック: 決定  Esc: 閉じる", GetColor(170, 194, 220));
 
-    const int rowStartY = top + kEscapeMenuRowStartOffset;
+    const int rowStartY = static_cast<int>(std::round(top + menuUi.rowStartOffset));
     for (int index = 0; index < kEscapeMenuItemCount; ++index)
     {
-        const int rowTop = rowStartY + index * kEscapeMenuRowHeight;
-        const int rowBottom = rowTop + kEscapeMenuRowHeight - kEscapeMenuRowBottomInset;
+        const int rowTop = static_cast<int>(std::round(rowStartY + index * menuUi.rowHeight));
+        const int rowBottom = static_cast<int>(std::round(rowTop + menuUi.rowHeight - menuUi.rowBottomInset));
         const bool selected = (m_debug.escapeMenuSelection == index);
 
         DrawBox(
-            left + kEscapeMenuRowPaddingX,
+            left + static_cast<int>(std::round(menuUi.rowPaddingX)),
             rowTop,
-            right - kEscapeMenuRowPaddingX,
+            right - static_cast<int>(std::round(menuUi.rowPaddingX)),
             rowBottom,
             selected ? GetColor(72, 102, 136) : GetColor(28, 36, 46),
             TRUE);
         DrawBox(
-            left + kEscapeMenuRowPaddingX,
+            left + static_cast<int>(std::round(menuUi.rowPaddingX)),
             rowTop,
-            right - kEscapeMenuRowPaddingX,
+            right - static_cast<int>(std::round(menuUi.rowPaddingX)),
             rowBottom,
             selected ? GetColor(236, 244, 255) : GetColor(92, 116, 140),
             FALSE);

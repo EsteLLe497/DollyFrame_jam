@@ -94,6 +94,236 @@ struct CameraFlashState
     float pulseDuration = 0.0f;
 };
 
+struct GameSceneUiCaptureFinderTuning
+{
+    float scaleMin = 1.0f;
+    float scaleMax = 2.0f;
+    float scaleStep = 0.1f;
+    float zoomBlendResponse = 7.0f;
+};
+
+struct GameSceneUiCaptureOverlayTuning
+{
+    float frameInset = 10.0f;
+    float cornerLength = 34.0f;
+    float cornerThickness = 3.0f;
+    float guideInset = 24.0f;
+    float frameBandThickness = 8.0f;
+    float vignetteEdge0 = 34.0f;
+    float vignetteEdge1 = 72.0f;
+    float vignetteEdge2 = 118.0f;
+    float vignetteEdge3 = 164.0f;
+    float vignetteBoost = 1.22f;
+    float warningPanelX = 18.0f;
+    float warningPanelY = 18.0f;
+    float warningPanelWidth = 196.0f;
+    float warningPanelHeight = 56.0f;
+    float warningTitleX = 12.0f;
+    float warningTitleY = 10.0f;
+    float warningCountX = 12.0f;
+    float warningCountY = 28.0f;
+    float warningTimerX = 112.0f;
+    float pulseInset = 20.0f;
+};
+
+struct GameSceneUiPhotoTrayTuning
+{
+    float slotStartX = 68.0f;
+    float slotStartY = 906.0f;
+    float slotWidth = 149.0f;
+    float slotHeight = 96.0f;
+    float slotGapX = 36.0f;
+    float previewPadding = 8.0f;
+    float previewScale = 1.0f;
+    float emptyTextX = 12.0f;
+    float emptyTextY = 35.0f;
+    float lockTextX = 14.0f;
+    float lockTextY = 36.0f;
+    float revealSpeed = 12.0f;
+    float revealThreshold = 0.05f;
+};
+
+struct GameSceneUiDevelopedPhotoPreviewTuning
+{
+    float lifetime = 4.2f;
+    float cardWidth = 220.0f;
+    float cardHeight = 248.0f;
+    float cardRightMargin = 42.0f;
+    float cardStartYOffset = 30.0f;
+    float cardCruiseY = 34.0f;
+    float cardShadowOffset = 8.0f;
+    float cardOutlineOffset = 10.0f;
+    float frameInset = 16.0f;
+    float imageHeight = 150.0f;
+    float imageTopStripHeight = 20.0f;
+    float imageMiddleStripY = 22.0f;
+    float cardRiseEase = 0.56f;
+    float cardPauseStart = 0.44f;
+    float cardPauseEnd = 0.68f;
+    float cardPauseAmplitude = 10.0f;
+    float cardOvershootY = 14.0f;
+    float popScale = 0.015f;
+    float orbLaunchXOffset = 18.0f;
+    float orbLaunchYOffset = 0.48f;
+    float orbControl1YOffset = 172.0f;
+    float orbControl2YOffset = 138.0f;
+    float orbControl2XOffset = 4.0f;
+};
+
+struct GameSceneUiHpTuning
+{
+    float slotStartX = 244.0f;
+    float slotStartY = 19.0f;
+    float slotWidth = 100.0f;
+    float slotHeight = 96.0f;
+    float slotGapX = 16.0f;
+    float heartSize = 72.0f;
+    float heartYOffset = 2.0f;
+    float heartShadowOffsetX = 4.0f;
+    float heartShadowOffsetY = 5.0f;
+    float heartGlowExpand = 2.0f;
+    float heartLagGlowExpand = 4.0f;
+    float labelOffsetX = -214.0f;
+    float labelOffsetY = 8.0f;
+    float hpTextOffsetY = 34.0f;
+    float displayRiseSpeedDown = 10.0f;
+    float displayRiseSpeedUp = 14.0f;
+    float lagSpeed = 10.0f;
+    float flashDecaySpeed = 4.5f;
+};
+
+struct GameSceneUiPartsHudTuning
+{
+    float panelWidth = 176.0f;
+    float panelHeight = 58.0f;
+    float marginRight = 30.0f;
+    float marginBottom = 28.0f;
+    float iconX = 18.0f;
+    float iconY = 17.0f;
+    float iconSize = 22.0f;
+    float iconInnerInset = 5.0f;
+    float labelX = 52.0f;
+    float labelY = 10.0f;
+    float valueY = 30.0f;
+};
+
+struct GameSceneUiBossHpTuning
+{
+    float panelWidth = 360.0f;
+    float barHeight = 24.0f;
+    float panelPadding = 12.0f;
+    float marginTop = 30.0f;
+    float panelExtraHeight = 38.0f;
+    float titleOffsetY = -18.0f;
+    float hpTextOffsetY = 4.0f;
+};
+
+struct GameSceneUiAttackCaptureTuning
+{
+    float panelX = 32.0f;
+    float panelY = 124.0f;
+    float panelSize = 96.0f;
+    float iconRadius = 28.0f;
+    float titleX = 12.0f;
+    float titleY = 8.0f;
+    float countRightOffset = 30.0f;
+    float countBottomOffset = 24.0f;
+};
+
+struct GameSceneUiEscapeMenuTuning
+{
+    float panelWidth = 560.0f;
+    float panelHeight = 660.0f;
+    float rowStartOffset = 86.0f;
+    float rowHeight = 38.0f;
+    float rowPaddingX = 18.0f;
+    float rowBottomInset = 4.0f;
+    float titleX = 22.0f;
+    float titleY = 18.0f;
+    float helpY = 44.0f;
+    float rowTextX = 34.0f;
+    float rowTextY = 10.0f;
+};
+
+struct GameSceneUiMerchantTuning
+{
+    float panelWidth = 980.0f;
+    float panelHeight = 620.0f;
+    float rowHeight = 76.0f;
+    float listLeftOffset = 48.0f;
+    float listTopOffset = 142.0f;
+    float listRightOffset = 540.0f;
+    float detailLeftOffset = 590.0f;
+    float detailTopOffset = 142.0f;
+    float detailBottomOffset = 92.0f;
+    float promptHalfWidth = 88.0f;
+    float promptHeight = 32.0f;
+    float promptTextX = 16.0f;
+    float promptTextY = 9.0f;
+    float promptRiseOffsetY = 4.0f;
+    float promptPulseSpeed = 6.0f;
+};
+
+struct GameSceneUiFilterPanelTuning
+{
+    float panelWidth = 308.0f;
+    float panelHeight = 78.0f;
+    float marginRight = 22.0f;
+    float marginTop = 18.0f;
+    float swatchX = 10.0f;
+    float swatchY = 10.0f;
+    float swatchSize = 34.0f;
+    float titleX = 56.0f;
+    float titleY = 10.0f;
+    float effectY = 32.0f;
+    float hintX = 12.0f;
+    float hintY = 54.0f;
+};
+
+struct GameSceneUiBatteryCounterTuning
+{
+    float panelWidth = 58.0f;
+    float panelHeight = 22.0f;
+    float offsetY = 26.0f;
+    float tileOffsetMultiplier = 2.0f;
+    float iconSize = 22.0f;
+    float iconInnerInset = 5.0f;
+    float labelX = 52.0f;
+    float labelY = 10.0f;
+};
+
+struct GameSceneUiStageGuideTuning
+{
+    float x = 24.0f;
+    float yOffsetFromBottom = 42.0f;
+};
+
+struct GameSceneUiMapEditorTuning
+{
+    float panelLeft = 22.0f;
+    float panelTop = 22.0f;
+    float panelRight = 560.0f;
+    float panelBottom = 286.0f;
+};
+
+struct GameSceneUiTuningState
+{
+    GameSceneUiCaptureFinderTuning captureFinder;
+    GameSceneUiCaptureOverlayTuning captureOverlay;
+    GameSceneUiPhotoTrayTuning photoTray;
+    GameSceneUiDevelopedPhotoPreviewTuning developedPhotoPreview;
+    GameSceneUiHpTuning hp;
+    GameSceneUiPartsHudTuning partsHud;
+    GameSceneUiBossHpTuning bossHp;
+    GameSceneUiAttackCaptureTuning attackCapture;
+    GameSceneUiEscapeMenuTuning escapeMenu;
+    GameSceneUiMerchantTuning merchant;
+    GameSceneUiFilterPanelTuning filterPanel;
+    GameSceneUiBatteryCounterTuning batteryCounter;
+    GameSceneUiStageGuideTuning stageGuide;
+    GameSceneUiMapEditorTuning mapEditor;
+};
+
 struct GameSceneFlowState
 {
     bool playerTouchingTarget = false;
@@ -155,6 +385,7 @@ struct GameSceneUiState
     int merchantSelection = 0;
     float merchantMessageTimer = 0.0f;
     std::string merchantMessage;
+    GameSceneUiTuningState tuning;
 };
 
 struct GameScenePlayerState

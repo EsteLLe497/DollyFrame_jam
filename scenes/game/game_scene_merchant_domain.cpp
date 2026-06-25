@@ -106,21 +106,19 @@ void GameScene::UpdateMerchantShopInput()
         return;
     }
 
-    constexpr int panelWidth = 980;
-    constexpr int panelHeight = 620;
-    constexpr int rowHeight = 76;
-    const int left = (SCREEN_WIDTH - panelWidth) / 2;
-    const int top = (SCREEN_HEIGHT - panelHeight) / 2;
-    const int listLeft = left + 48;
-    const int listTop = top + 142;
-    const int listRight = left + 540;
+    const auto& merchantUi = m_ui.tuning.merchant;
+    const int left = static_cast<int>(std::round((static_cast<float>(SCREEN_WIDTH) - merchantUi.panelWidth) * 0.5f));
+    const int top = static_cast<int>(std::round((static_cast<float>(SCREEN_HEIGHT) - merchantUi.panelHeight) * 0.5f));
+    const int listLeft = static_cast<int>(std::round(left + merchantUi.listLeftOffset));
+    const int listTop = static_cast<int>(std::round(top + merchantUi.listTopOffset));
+    const int listRight = static_cast<int>(std::round(left + merchantUi.listRightOffset));
 
     const int mouseX = Input_GetMouseX();
     const int mouseY = Input_GetMouseY();
     for (int index = 0; index < GetShopItemCount(); ++index)
     {
-        const int rowTop = listTop + index * rowHeight;
-        const int rowBottom = rowTop + rowHeight - 10;
+        const int rowTop = static_cast<int>(std::round(listTop + index * merchantUi.rowHeight));
+        const int rowBottom = static_cast<int>(std::round(rowTop + merchantUi.rowHeight - 10.0f));
         if (IsPointInRect(mouseX, mouseY, listLeft, rowTop, listRight, rowBottom))
         {
             m_ui.merchantSelection = index;
@@ -205,22 +203,27 @@ void GameScene::DrawMerchantPrompts() const
             continue;
         }
 
-        const float pulse = 0.5f + 0.5f * std::sin(merchant->promptPulse * 6.0f);
+        const auto& merchantUi = m_ui.tuning.merchant;
+        const float pulse = 0.5f + 0.5f * std::sin(merchant->promptPulse * merchantUi.promptPulseSpeed);
         const float width = transform->width * transform->scale;
         const float height = transform->height * transform->scale;
         const float screenX = viewOriginX + (transform->x + width * 0.5f - m_flow.cameraX) * viewScale;
         const float screenY =
-            viewOriginY + (transform->y + height * 0.22f - m_flow.cameraY) * viewScale - pulse * 4.0f;
-        const int boxLeft = static_cast<int>(std::round(screenX - 88.0f));
+            viewOriginY + (transform->y + height * 0.22f - m_flow.cameraY) * viewScale - pulse * merchantUi.promptRiseOffsetY;
+        const int boxLeft = static_cast<int>(std::round(screenX - merchantUi.promptHalfWidth));
         const int boxTop = static_cast<int>(std::round(screenY));
-        const int boxRight = static_cast<int>(std::round(screenX + 88.0f));
-        const int boxBottom = static_cast<int>(std::round(screenY + 32.0f));
+        const int boxRight = static_cast<int>(std::round(screenX + merchantUi.promptHalfWidth));
+        const int boxBottom = static_cast<int>(std::round(screenY + merchantUi.promptHeight));
 
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, 210);
         DrawBox(boxLeft, boxTop, boxRight, boxBottom, GetColor(16, 20, 24), TRUE);
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         DrawBox(boxLeft, boxTop, boxRight, boxBottom, GetColor(238, 216, 132), FALSE);
-        DrawString(boxLeft + 16, boxTop + 9, "F: アイテムを購入する", GetColor(255, 246, 196));
+        DrawString(
+            boxLeft + static_cast<int>(std::round(merchantUi.promptTextX)),
+            boxTop + static_cast<int>(std::round(merchantUi.promptTextY)),
+            "F: アイテムを購入する",
+            GetColor(255, 246, 196));
     }
 }
 
@@ -232,16 +235,14 @@ void GameScene::DrawMerchantShopOverlay() const
     }
 
     const GameSessionState& session = GameSession_Get();
-    constexpr int panelWidth = 980;
-    constexpr int panelHeight = 620;
-    constexpr int rowHeight = 76;
-    const int left = (SCREEN_WIDTH - panelWidth) / 2;
-    const int top = (SCREEN_HEIGHT - panelHeight) / 2;
-    const int right = left + panelWidth;
-    const int bottom = top + panelHeight;
-    const int listLeft = left + 48;
-    const int listTop = top + 142;
-    const int listRight = left + 540;
+    const auto& merchantUi = m_ui.tuning.merchant;
+    const int left = static_cast<int>(std::round((static_cast<float>(SCREEN_WIDTH) - merchantUi.panelWidth) * 0.5f));
+    const int top = static_cast<int>(std::round((static_cast<float>(SCREEN_HEIGHT) - merchantUi.panelHeight) * 0.5f));
+    const int right = static_cast<int>(std::round(left + merchantUi.panelWidth));
+    const int bottom = static_cast<int>(std::round(top + merchantUi.panelHeight));
+    const int listLeft = static_cast<int>(std::round(left + merchantUi.listLeftOffset));
+    const int listTop = static_cast<int>(std::round(top + merchantUi.listTopOffset));
+    const int listRight = static_cast<int>(std::round(left + merchantUi.listRightOffset));
 
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 180);
     DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
@@ -256,8 +257,8 @@ void GameScene::DrawMerchantShopOverlay() const
     for (int index = 0; index < GetShopItemCount(); ++index)
     {
         const MerchantShopItem& item = kMerchantShopItems[static_cast<size_t>(index)];
-        const int rowTop = listTop + index * rowHeight;
-        const int rowBottom = rowTop + rowHeight - 10;
+        const int rowTop = static_cast<int>(std::round(listTop + index * merchantUi.rowHeight));
+        const int rowBottom = static_cast<int>(std::round(rowTop + merchantUi.rowHeight - 10.0f));
         const bool selected = index == std::clamp(m_ui.merchantSelection, 0, GetShopItemCount() - 1);
         const bool affordable = session.parts >= item.cost;
 
@@ -287,10 +288,10 @@ void GameScene::DrawMerchantShopOverlay() const
 
     const int selected = std::clamp(m_ui.merchantSelection, 0, GetShopItemCount() - 1);
     const MerchantShopItem& selectedItem = kMerchantShopItems[static_cast<size_t>(selected)];
-    const int detailLeft = left + 590;
-    const int detailTop = top + 142;
+    const int detailLeft = static_cast<int>(std::round(left + merchantUi.detailLeftOffset));
+    const int detailTop = static_cast<int>(std::round(top + merchantUi.detailTopOffset));
     const int detailRight = right - 44;
-    const int detailBottom = bottom - 92;
+    const int detailBottom = static_cast<int>(std::round(bottom - merchantUi.detailBottomOffset));
     DrawBox(detailLeft, detailTop, detailRight, detailBottom, GetColor(26, 31, 34), TRUE);
     DrawBox(detailLeft, detailTop, detailRight, detailBottom, GetColor(96, 112, 116), FALSE);
     DrawString(detailLeft + 22, detailTop + 22, selectedItem.name, GetColor(255, 246, 196));

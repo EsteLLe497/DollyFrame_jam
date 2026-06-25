@@ -37,6 +37,7 @@ struct StageTransitionLink
 inline std::vector<StageTransitionLink> gStageTransitionLinks;
 
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";
+inline constexpr const char* kUiTuningFilePath = "assets/ui_tuning.json";
 inline constexpr const char* kGameProgressSavePath = "savegame.json";
 constexpr float kPixelsPerMeter = 100.0f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
@@ -155,6 +156,44 @@ inline float GetPlayerDodgeDuration()
     return gPlayerDodgeSpeed > 0.0f
         ? gPlayerDodgeDistance / gPlayerDodgeSpeed
         : 0.0f;
+}
+
+struct UiLayoutRect
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+};
+
+inline UiLayoutRect MakePhotoTraySlotRect(const GameSceneUiTuningState& uiTuning, int slotIndex)
+{
+    const float stepX = uiTuning.photoTray.slotWidth + uiTuning.photoTray.slotGapX;
+    return {
+        uiTuning.photoTray.slotStartX + static_cast<float>(slotIndex) * stepX,
+        uiTuning.photoTray.slotStartY,
+        uiTuning.photoTray.slotWidth,
+        uiTuning.photoTray.slotHeight,
+    };
+}
+
+inline UiLayoutRect MakeHpSlotRect(const GameSceneUiTuningState& uiTuning, int slotIndex)
+{
+    const float stepX = uiTuning.hp.slotWidth + uiTuning.hp.slotGapX;
+    return {
+        uiTuning.hp.slotStartX + static_cast<float>(slotIndex) * stepX,
+        uiTuning.hp.slotStartY,
+        uiTuning.hp.slotWidth,
+        uiTuning.hp.slotHeight,
+    };
+}
+
+inline bool IsPointInRect(float x, float y, const UiLayoutRect& rect)
+{
+    return x >= rect.x &&
+        x <= rect.x + rect.width &&
+        y >= rect.y &&
+        y <= rect.y + rect.height;
 }
 
 inline auto BuildGameSceneTuningEntries()

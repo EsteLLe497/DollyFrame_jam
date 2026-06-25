@@ -13,10 +13,6 @@ namespace
     constexpr float kPhotoFocusTimeScale = 0.22f;
     constexpr float kCaptureFocusDuration = 0.8f;
     constexpr float kPlacementFocusDuration = 1.2f;
-    constexpr float kCaptureFinderScaleMin = 1.0f;
-    constexpr float kCaptureFinderScaleMax = 2.0f;
-    constexpr float kCaptureFinderScaleStep = 0.1f;
-    constexpr float kCaptureModeZoomResponse = 7.0f;
 }
 
 void GameScene::UpdateCameraMode()
@@ -48,13 +44,13 @@ float GameScene::UpdatePhotoModes(float deltaTime)
         m_ui.developedPhotoPreviewRemaining <= 0.34f;
     const bool showPhotoTray = true;
     const float trayTarget = 1.0f;
-    m_ui.photoTrayReveal += (trayTarget - m_ui.photoTrayReveal) * std::min(1.0f, deltaTime * 12.0f);
+    m_ui.photoTrayReveal += (trayTarget - m_ui.photoTrayReveal) * std::min(1.0f, deltaTime * m_ui.tuning.photoTray.revealSpeed);
     if (showPhotoTray)
     {
         UpdatePhotoTraySelection();
     }
     const float captureZoomTarget = m_flow.cameraMode ? 1.0f : 0.0f;
-    m_flow.captureModeZoomBlend += (captureZoomTarget - m_flow.captureModeZoomBlend) * std::min(1.0f, deltaTime * kCaptureModeZoomResponse);
+    m_flow.captureModeZoomBlend += (captureZoomTarget - m_flow.captureModeZoomBlend) * std::min(1.0f, deltaTime * m_ui.tuning.captureFinder.zoomBlendResponse);
     m_flow.captureSlowRemaining = m_flow.cameraMode ? kCaptureFocusDuration : 0.0f;
     m_flow.placementSlowRemaining = placementActive ? kPlacementFocusDuration : 0.0f;
     const bool slowForCapture = m_flow.cameraMode;
@@ -104,9 +100,9 @@ void GameScene::UpdateCaptureFinderZoomInput()
     if (zoomDirection != 0)
     {
         m_ui.captureFinderScale = std::clamp(
-            m_ui.captureFinderScale + static_cast<float>(zoomDirection) * kCaptureFinderScaleStep,
-            kCaptureFinderScaleMin,
-            kCaptureFinderScaleMax);
+            m_ui.captureFinderScale + static_cast<float>(zoomDirection) * m_ui.tuning.captureFinder.scaleStep,
+            m_ui.tuning.captureFinder.scaleMin,
+            m_ui.tuning.captureFinder.scaleMax);
     }
 }
 

@@ -99,7 +99,7 @@ namespace
         DrawBoxAA(x, y, x + width, y + height, GetColor(255, 236, 120), FALSE);
 
         char label[32]{};
-        std::snprintf(label, sizeof(label), "Photo%02d", photoNumber);
+        std::snprintf(label, sizeof(label), "写真%02d", photoNumber);
         DrawString(
             static_cast<int>(std::round(x + 8.0f)),
             static_cast<int>(std::round(y + 8.0f)),
@@ -189,34 +189,34 @@ void DrawGameSceneTestPhotos(const GameSceneTestPhotoState& state)
 void DrawGameSceneTestPhotoDebugUI(GameSceneTestPhotoState& state)
 {
     ImGui::SetNextWindowSize(ImVec2(520.0f, 620.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Test Photos"))
+    if (!ImGui::Begin("テスト写真"))
     {
         ImGui::End();
         return;
     }
 
-    ImGui::Checkbox("Enable Test Photos", &state.enabled);
-    ImGui::TextUnformatted("Screen UI mode. X/Y are screen pixels.");
-    ImGui::TextUnformatted("Initial size uses the original image pixel size.");
+    ImGui::Checkbox("テスト写真を有効にする", &state.enabled);
+    ImGui::TextUnformatted("画面UIモードです。X/Y は画面ピクセルです。");
+    ImGui::TextUnformatted("初期サイズは元画像のピクセルサイズを使います。");
 
-    ImGui::SeparatorText("Photo 1-15");
+    ImGui::SeparatorText("写真 1-15");
     for (int index = 0; index < kGameSceneTestPhotoCount; ++index)
     {
         auto& photo = state.photos[static_cast<size_t>(index)];
 
         ImGui::PushID(index);
         ImGui::Separator();
-        ImGui::Checkbox("Visible", &photo.visible);
+        ImGui::Checkbox("表示", &photo.visible);
         ImGui::SameLine();
-        ImGui::Text("Photo %02d", index + 1);
+        ImGui::Text("写真 %02d", index + 1);
         ImGui::DragFloat("X", &photo.x, 0.5f, -10000.0f, 10000.0f, "%.1f");
         ImGui::DragFloat("Y", &photo.y, 0.5f, -10000.0f, 10000.0f, "%.1f");
-        if (ImGui::DragFloat("Width", &photo.width, 0.5f, 1.0f, 4096.0f, "%.1f"))
+        if (ImGui::DragFloat("幅", &photo.width, 0.5f, 1.0f, 4096.0f, "%.1f"))
         {
             photo.height = GetAspectLockedHeight(photo);
         }
         photo.height = GetAspectLockedHeight(photo);
-        ImGui::Text("Height: %.1f (aspect locked)", photo.height);
+        ImGui::Text("高さ: %.1f（縦横比固定）", photo.height);
         ImGui::PopID();
     }
 
