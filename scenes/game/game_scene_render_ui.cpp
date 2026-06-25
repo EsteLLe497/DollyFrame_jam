@@ -2374,7 +2374,21 @@ void GameScene::DrawBackdropBaseInView(
     //drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
     // 
     // 背景前景（手前）を描画（Y を下にオフセット）
+    //drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
+    // 背景前景（手前）を描画（Y を下にオフセット）
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
+
+    // BG_Forest.png だけ少し光度を落とす黒膜
+    constexpr int kForestBaseDarkenAlpha = 200; // 0-255。32=薄め、64=やや暗め
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, kForestBaseDarkenAlpha);
+    DrawBox(
+        static_cast<int>(std::round(viewOriginX)),
+        static_cast<int>(std::round(viewOriginY + bg1OffsetY)),
+        static_cast<int>(std::round(viewOriginX + drawW1)),
+        static_cast<int>(std::round(viewOriginY + bg1OffsetY + drawH1)),
+        GetColor(0, 0, 0),
+        TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
     //int bg2Texture = m_assets.GetTexture("forest1_bg");
     if (bg2Texture >= 0)
