@@ -255,8 +255,8 @@ struct GameSceneTuningState
     float groundSnapDistance = 8.0f;
     float groundStepUpHeight = 0.25f;
     float shutterFlashSeconds = 0.18f;
-    float captureWidthTiles = 5.0f;
-    float captureHeightTiles = 3.0f;
+    float captureFrameWidthPx = 215.9f;
+    float captureFrameHeightPx = 151.3f;
     float captureRapidShotLimit = 4.0f;
     float captureRapidWindowSeconds = 1.2f;
     float captureOverheatLockSeconds = 1.5f;
@@ -287,7 +287,7 @@ struct GameSceneLifecycleState
     std::string pendingStageTransitionMapCsv;
     char pendingStageTransitionSpawnMarker = '\0';
     char pendingStageTransitionMarker = '\0';
-    std::string currentMapCsvPath = "assets/maps/stages/stage_58x25.csv";
+    std::string currentMapCsvPath = "assets/maps/stages/forest.csv";
     char lastStageTransitionMarker = '\0';
     bool darknessStageEnabled = false;
     ResourceManager* loadingResources = nullptr;
