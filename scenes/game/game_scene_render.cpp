@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "game_scene_internal.h"
+#include "game_scene_combat_common.h"
 #include "photo_filter_rules.h"
 #include "texture.h"
 
@@ -2104,6 +2105,27 @@ void GameScene::DrawEffects() const
             0.0f);
     }
 
+    for (const auto& particle : m_effects.midBoss2SpearMist)
+    {
+        const float lifeT = Clamp01(particle.life / std::max(0.001f, particle.maxLife));
+        const float riseT = 1.0f - lifeT;
+        const float bubbleAlpha = lifeT * lifeT;
+        const float pulse = 0.82f + 0.18f * std::sin((1.0f - riseT) * 18.0f + particle.pulsePhase);
+        const float size = (1.5f + 5.0f * lifeT) * std::max(0.2f, particle.sizeScale) * viewScale * pulse;
+        const float drawX = viewOriginX + (particle.x - m_flow.cameraX) * viewScale;
+        const float drawY = viewOriginY + (particle.y - m_flow.cameraY) * viewScale;
+        const int alpha = std::clamp(static_cast<int>(std::round(255.0f * bubbleAlpha)), 0, 255);
+        const int color = GetColor(
+            std::clamp(static_cast<int>(std::round(255.0f * particle.r)), 0, 255),
+            std::clamp(static_cast<int>(std::round(255.0f * particle.g)), 0, 255),
+            std::clamp(static_cast<int>(std::round(255.0f * particle.b)), 0, 255));
+
+        Shader_ResetStyle();
+        SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
+        DrawCircleAA(drawX, drawY, std::max(0.6f, size * 0.5f), 24, color, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     for (const auto& shockwave : m_effects.beamShockwaves)
     {
         const float lifeT = Clamp01(shockwave.life / std::max(0.001f, shockwave.maxLife));
@@ -3066,7 +3088,10 @@ void GameScene::DrawEntity(const Entity& entity) const
                 const float spearFade = spear
                     ? std::clamp(spear->fadeDuration > 0.0f ? spear->fadeRemaining / spear->fadeDuration : 1.0f, 0.0f, 1.0f)
                     : 1.0f;
-                const float formationStretch = isForming ? std::lerp(0.18f, 1.0f, progress) : 1.0f;
+                const float formationProgress = isForming
+                    ? std::clamp(progress * game_scene_combat_system::kMidBoss2SpearFormationSpeedMultiplier, 0.0f, 1.0f)
+                    : 1.0f;
+                const float formationStretch = isForming ? std::lerp(0.22f, 1.0f, formationProgress) : 1.0f;
                 const float shaftLength = drawWidth * std::lerp(0.24f, 0.88f, formationStretch);
                 const float shaftHalfThickness = std::max(1.5f, drawHeight * std::lerp(0.08f, 0.14f, formationStretch));
                 const float headLength = std::max(drawHeight * std::lerp(0.26f, 1.02f, formationStretch), drawWidth * 0.18f);
@@ -3106,8 +3131,8 @@ void GameScene::DrawEntity(const Entity& entity) const
                 RotatePoint(centerX, centerY, spearAngle, tailBackX, tailBackY);
 
                 const float spearAlphaScale = spear ? spearFade : 1.0f;
-                const int auraAlpha = std::clamp(static_cast<int>(std::round((isForming ? 128.0f + progress * 80.0f : 164.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
-                const int coreAlpha = std::clamp(static_cast<int>(std::round((isForming ? 180.0f + progress * 60.0f : 224.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
+                const int auraAlpha = std::clamp(static_cast<int>(std::round((isForming ? 128.0f + formationProgress * 92.0f : 164.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
+                const int coreAlpha = std::clamp(static_cast<int>(std::round((isForming ? 180.0f + formationProgress * 72.0f : 224.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
 
                 SetDrawBlendMode(DX_BLENDMODE_ADD, auraAlpha);
                 DrawLine(
@@ -3127,7 +3152,7 @@ void GameScene::DrawEntity(const Entity& entity) const
 
                 if (isForming)
                 {
-                    const float glowHeight = drawHeight * std::lerp(0.18f, 0.92f, progress);
+                    const float glowHeight = drawHeight * std::lerp(0.18f, 0.92f, formationProgress);
                     const float glowHalfWidth = std::max(2.0f, drawHeight * 0.16f);
                     float glowTopX = centerX;
                     float glowTopY = centerY - glowHeight * 0.5f;
@@ -3149,15 +3174,15 @@ void GameScene::DrawEntity(const Entity& entity) const
                         GetColor(138, 232, 255),
                         TRUE);
 
-                    const float telegraphRadius = std::max(drawWidth, drawHeight) * std::lerp(0.38f, 0.82f, progress);
-                    const float telegraphThickness = std::max(1.5f, drawHeight * std::lerp(0.06f, 0.12f, progress));
+                    const float telegraphRadius = std::max(drawWidth, drawHeight) * std::lerp(0.34f, 0.82f, formationProgress);
+                    const float telegraphThickness = std::max(1.5f, drawHeight * std::lerp(0.06f, 0.12f, formationProgress));
                     float telegraphLineStartX = centerX - telegraphRadius;
                     float telegraphLineStartY = centerY;
                     float telegraphLineEndX = centerX + telegraphRadius * 1.12f;
                     float telegraphLineEndY = centerY;
                     RotatePoint(centerX, centerY, spearAngle, telegraphLineStartX, telegraphLineStartY);
                     RotatePoint(centerX, centerY, spearAngle, telegraphLineEndX, telegraphLineEndY);
-                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((90.0f + progress * 110.0f) * alphaMultiplier * spearAlphaScale)), 0, 255));
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((90.0f + formationProgress * 110.0f) * alphaMultiplier * spearAlphaScale)), 0, 255));
                     DrawCircleAA(
                         centerX,
                         centerY,
@@ -3196,7 +3221,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                     GetColor(118, 220, 255),
                     TRUE);
 
-                const float runProgress = isForming ? progress : 1.0f;
+                const float runProgress = isForming ? formationProgress : 1.0f;
                 const float runX = std::lerp(tipX, tailBackX, runProgress);
                 const float runY = std::lerp(tipY, tailBackY, runProgress);
                 SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(168.0f * alphaMultiplier * spearAlphaScale)), 0, 255));
@@ -3207,7 +3232,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                     GetColor(255, 255, 255),
                     TRUE);
 
-                const float particleRadius = std::max(drawWidth, drawHeight) * std::lerp(0.85f, 0.42f, progress);
+                const float particleRadius = std::max(drawWidth, drawHeight) * std::lerp(0.85f, 0.42f, formationProgress);
                 const float spearTimeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
                 constexpr int kParticleCount = 8;
                 for (int index = 0; index < kParticleCount; ++index)
@@ -3221,7 +3246,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                     RotatePoint(centerX, centerY, spearAngle, orbitX, orbitY);
                     const float particleX = std::lerp(centerX, orbitX, travelT);
                     const float particleY = std::lerp(centerY, orbitY, travelT);
-                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((104.0f + progress * 92.0f) * alphaMultiplier * spearAlphaScale)), 0, 255));
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((104.0f + formationProgress * 92.0f) * alphaMultiplier * spearAlphaScale)), 0, 255));
                     DrawCircle(
                         static_cast<int>(std::round(particleX)),
                         static_cast<int>(std::round(particleY)),

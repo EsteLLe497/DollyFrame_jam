@@ -948,6 +948,8 @@ void GameScene::UpdateBullets()
         GetMapPixelWidth(),
         GetMapPixelHeight(),
         m_flow.lastDeltaTime,
+        m_flow,
+        m_debug.screenShakeEnabled,
         player,
         [this](const Entity& a, const Entity& b)
         {
@@ -960,6 +962,10 @@ void GameScene::UpdateBullets()
         [this](Entity& enemyEntity, Entity* sourceEntity, int amount, const char* logMessage)
         {
             HandleEnemyDamage(enemyEntity, sourceEntity, amount, logMessage);
+        },
+        [this](float centerX, float centerY, float width, float height)
+        {
+            SpawnMidBoss2SpearFadeEffect(centerX, centerY, width, height);
         },
         [this](float x, float y) -> bool
         {

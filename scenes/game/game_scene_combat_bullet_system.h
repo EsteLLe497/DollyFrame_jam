@@ -138,7 +138,7 @@ inline bool SegmentIntersectsExpandedAabb(
         clip(dy, bottom - start.y);
 }
 
-template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename HandleEnemyDamageFn, typename IsSolidTileFn>
+template <typename IntersectsEntityFn, typename HandlePlayerDamageFn, typename HandleEnemyDamageFn, typename SpawnMidBoss2SpearFadeEffectFn, typename IsSolidTileFn>
 inline void UpdateBullets(
     const std::vector<Entity*>& bulletEntities,
     const std::vector<Entity*>& enemyEntities,
@@ -147,10 +147,13 @@ inline void UpdateBullets(
     float mapWidth,
     float mapHeight,
     float deltaTime,
+    GameSceneFlowState& flow,
+    bool screenShakeEnabled,
     Entity* player,
     IntersectsEntityFn&& intersectsEntity,
     HandlePlayerDamageFn&& handlePlayerDamage,
     HandleEnemyDamageFn&& handleEnemyDamage,
+    SpawnMidBoss2SpearFadeEffectFn&& spawnMidBoss2SpearFadeEffect,
     IsSolidTileFn&& isSolidTile,
     std::vector<Entity*>& bulletsToRemove)
 {
@@ -176,6 +179,14 @@ inline void UpdateBullets(
             spear->launchTimer += deltaTime;
             if (!spear->launched)
             {
+                const float launchProgress = spear->launchDelay > 0.0f
+                    ? std::clamp(spear->launchTimer / spear->launchDelay, 0.0f, 1.0f)
+                    : 1.0f;
+                const float pullbackProgress = std::clamp((launchProgress - 0.08f) / 0.78f, 0.0f, 1.0f);
+                const float pullbackEase = pullbackProgress * pullbackProgress * (3.0f - 2.0f * pullbackProgress);
+                const float pullbackDistance = transform->width * kMidBoss2SpearPullbackRatio * pullbackEase;
+                transform->x = spear->spawnX - spear->targetDirectionX * pullbackDistance;
+                transform->y = spear->spawnY - spear->targetDirectionY * pullbackDistance;
                 if (spear->launchTimer < spear->launchDelay)
                 {
                     transform->rotation = targetAngle + spear->launchTimer * 18.0f;
@@ -186,6 +197,12 @@ inline void UpdateBullets(
                 projectile->SetVelocityX(spear->targetDirectionX * kMidBoss2SpearSpeed);
                 projectile->SetVelocityY(spear->targetDirectionY * kMidBoss2SpearSpeed);
                 transform->rotation = targetAngle;
+                if (screenShakeEnabled)
+                {
+                    flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kMidBoss2SpearLaunchShakeSeconds);
+                    flow.screenShakeDuration = std::max(flow.screenShakeDuration, kMidBoss2SpearLaunchShakeSeconds);
+                    flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kMidBoss2SpearLaunchShakeAmplitude);
+                }
             }
             else
             {
@@ -696,6 +713,11 @@ inline void UpdateBullets(
                 Entity* hitProtectiveWall = spearHitsProtectiveWall();
                 if (spearHitsSolidTile() || spearHitsObstacle() || hitProtectiveWall)
                 {
+                    spawnMidBoss2SpearFadeEffect(
+                        spearEnd.x,
+                        spearEnd.y,
+                        transform->width * transform->scale,
+                        transform->height * transform->scale);
                     if (hitProtectiveWall)
                     {
                         if (auto* wall = hitProtectiveWall->GetComponent<ProtectiveWallComponent>())
@@ -718,6 +740,11 @@ inline void UpdateBullets(
                 if (projectile->GetOwner() == ProjectileComponent::Owner::Enemy &&
                     spearHitsPlayer())
                 {
+                    spawnMidBoss2SpearFadeEffect(
+                        spearEnd.x,
+                        spearEnd.y,
+                        transform->width * transform->scale,
+                        transform->height * transform->scale);
                     handlePlayerDamage(*player, entity, "GameScene player damaged by spear");
                     bulletsToRemove.push_back(entity);
                     continue;
@@ -736,6 +763,15 @@ inline void UpdateBullets(
         {
             if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
             {
+                CollisionPoint spearStart;
+                CollisionPoint spearEnd;
+                float spearRadius = 0.0f;
+                BuildMidBoss2SpearTipCollisionSegment(*transform, *projectile, *spear, spearStart, spearEnd, spearRadius);
+                spawnMidBoss2SpearFadeEffect(
+                    spearEnd.x,
+                    spearEnd.y,
+                    transform->width * transform->scale,
+                    transform->height * transform->scale);
                 const float hitLength = std::hypot(projectile->GetVelocityX(), projectile->GetVelocityY());
                 if (hitLength > 0.0001f)
                 {

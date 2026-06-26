@@ -1138,6 +1138,56 @@ void GameScene::SpawnTeleportTrailEffect(
     }
 }
 
+void GameScene::SpawnMidBoss2SpearFadeEffect(float centerX, float centerY, float width, float height)
+{
+    constexpr float kPi = 3.1415926535f;
+    const float spreadX = std::max(10.0f, width * 0.22f);
+    const float spreadY = std::max(10.0f, height * 0.18f);
+
+    constexpr int kBubbleCount = 18;
+    for (int index = 0; index < kBubbleCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float radius = std::lerp(0.2f, 1.0f, static_cast<float>(GetRand(1000)) / 1000.0f);
+        const float sideJitter = static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f;
+
+        MidBoss2SpearMistParticle particle;
+        particle.x = centerX + std::cos(angle) * spreadX * radius;
+        particle.y = centerY + std::sin(angle) * spreadY * radius;
+        particle.velocityX = std::cos(angle) * (12.0f + static_cast<float>(GetRand(30))) + sideJitter * 18.0f;
+        particle.velocityY = -(70.0f + static_cast<float>(GetRand(110))) - radius * 46.0f;
+        particle.life = 0.42f + static_cast<float>(GetRand(28)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.sizeScale = 0.34f + static_cast<float>(GetRand(32)) * 0.01f;
+        particle.pulsePhase = static_cast<float>(GetRand(1000)) * 0.0062831853f;
+        particle.r = 0.76f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.g = 0.93f + static_cast<float>(GetRand(7)) * 0.01f;
+        particle.b = 1.0f;
+        m_effects.midBoss2SpearMist.push_back(particle);
+    }
+
+    constexpr int kTinyCount = 8;
+    for (int index = 0; index < kTinyCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float sideJitter = static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f;
+
+        MidBoss2SpearMistParticle particle;
+        particle.x = centerX + sideJitter * spreadX * 0.6f;
+        particle.y = centerY + sideJitter * spreadY * 0.35f;
+        particle.velocityX = std::cos(angle) * (8.0f + static_cast<float>(GetRand(22))) + sideJitter * 12.0f;
+        particle.velocityY = -(110.0f + static_cast<float>(GetRand(90)));
+        particle.life = 0.26f + static_cast<float>(GetRand(16)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.sizeScale = 0.18f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.pulsePhase = static_cast<float>(GetRand(1000)) * 0.0062831853f;
+        particle.r = 0.90f;
+        particle.g = 0.98f;
+        particle.b = 1.0f;
+        m_effects.midBoss2SpearMist.push_back(particle);
+    }
+}
+
 void GameScene::SpawnMidBoss3FistImpactEffect(float x, float y, float width, float height)
 {
     const float centerX = x + width * 0.5f;

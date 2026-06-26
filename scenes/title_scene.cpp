@@ -8,27 +8,77 @@
 #include "imgui.h"
 #include "input.h"
 #include "logger.h"
+#include "game_session.h"
 #include "resource_manager.h"
 #include "shader.h"
 #include "sprite.h"
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <tracy/Tracy.hpp>
 
 namespace
 {
-    constexpr int kMainMenuItemCount = 5;
+    struct StageSelectItem
+    {
+        const char* label;
+        const char* path;
+    };
+
+    constexpr int kMainMenuItemCount = 6;
     constexpr int kOptionsMenuItemCount = 4;
+    constexpr int kStageSelectItemCount = 10;
+    constexpr int kStageSelectColumnCount = 2;
+    constexpr int kStageSelectRowCount = (kStageSelectItemCount + kStageSelectColumnCount - 1) / kStageSelectColumnCount;
 
     constexpr const char* kMainMenuLabels[kMainMenuItemCount] = {
         "ゲーム開始",
+        "ステージ選択",
         "設定",
         "デモシーン",
         "シェーダーテスト",
         "終了",
     };
+
+    constexpr StageSelectItem kStageSelectItems[kStageSelectItemCount] = {
+        { "forest.csv", "assets/maps/stages/forest.csv" },
+        { "forest_boss.csv", "assets/maps/stages/forest_boss.csv" },
+        { "ruins.csv", "assets/maps/stages/ruins.csv" },
+        { "ruins_boss.csv", "assets/maps/stages/ruins_boss.csv" },
+        { "under.csv", "assets/maps/stages/under.csv" },
+        { "under_boss.csv", "assets/maps/stages/under_boss.csv" },
+        { "stage_a.csv", "assets/maps/stages/stage_a.csv" },
+        { "stage_58x25.csv", "assets/maps/stages/stage_58x25.csv" },
+        { "stage_58x25_check.csv", "assets/maps/stages/stage_58x25_check.csv" },
+        { "side_scroll_stage01.csv", "assets/maps/stages/side_scroll_stage01.csv" },
+    };
+
+    int FindStageSelectIndex(const std::string& path)
+    {
+        for (int index = 0; index < kStageSelectItemCount; ++index)
+        {
+            if (path == kStageSelectItems[index].path)
+            {
+                return index;
+            }
+        }
+        return 0;
+    }
+
+    std::string GetStageFileName(const std::string& path)
+    {
+        try
+        {
+            return std::filesystem::path(path).filename().string();
+        }
+        catch (...)
+        {
+            return path;
+        }
+    }
 
     void DrawOutlinedString(int x, int y, const char* text, int textColor, int outlineColor)
     {
@@ -155,6 +205,7 @@ TitleScene::TitleScene()
     , m_showPrompt(true)
     , m_menuMode(MenuMode::Main)
     , m_menuSelection(0)
+    , m_stageSelection(0)
     , m_optionsSelection(0)
     , m_bgmEnabled(true)
     , m_bgmRestoreVolume(1.0f)
@@ -176,6 +227,7 @@ void TitleScene::OnEnter(ResourceManager& resources)
     m_showPrompt = true;
     m_menuMode = MenuMode::Main;
     m_menuSelection = 0;
+    m_stageSelection = FindStageSelectIndex(GameSession_GetStartMapCsvPath());
     m_optionsSelection = 0;
     m_bgmEnabled = Audio_GetMasterVolume() > 0.001f;
     m_bgmRestoreVolume = m_bgmEnabled ? Audio_GetMasterVolume() : 1.0f;
@@ -206,9 +258,11 @@ void TitleScene::DrawDebugUI()
 {
     ImGui::Begin("Title Scene");
     ImGui::Text("ドリー・フレーム");
-    ImGui::Text("モード: %s", m_menuMode == MenuMode::Main ? "メイン" : "設定");
+    ImGui::Text("モード: %s", m_menuMode == MenuMode::Main ? "メイン" : m_menuMode == MenuMode::Options ? "設定" : "ステージ選択");
     ImGui::Text("メイン選択: %d", m_menuSelection);
+    ImGui::Text("ステージ選択: %d", m_stageSelection);
     ImGui::Text("設定選択: %d", m_optionsSelection);
+    ImGui::Text("開始CSV: %s", GameSession_GetStartMapCsvPath().c_str());
     ImGui::Text("操作: W/S・上下キーで選択、Enter/Space/Aで決定、Esc/Bで戻る");
     ImGui::Text("プロンプト表示: %s", m_showPrompt ? "あり" : "なし");
     ImGui::End();
@@ -274,13 +328,20 @@ void TitleScene::DrawMenu() const
     {
         DrawMainMenu();
     }
-    else
+    else if (m_menuMode == MenuMode::Options)
     {
         DrawOptionsMenu();
     }
+    else
+    {
+        DrawStageSelectMenu();
+    }
 
-    const int hintColor = m_showPrompt ? GetColor(252, 238, 214) : GetColor(168, 140, 104);
-    DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 574, "W/S・上下キー: 選択   Enter/Space/A: 決定   Esc/B: 戻る", hintColor, GetColor(28, 16, 9));
+    if (m_menuMode != MenuMode::StageSelect)
+    {
+        const int hintColor = m_showPrompt ? GetColor(252, 238, 214) : GetColor(168, 140, 104);
+        DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 574, "W/S・上下キー: 選択   Enter/Space/A: 決定   Esc/B: 戻る", hintColor, GetColor(28, 16, 9));
+    }
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
 }
 
@@ -298,12 +359,15 @@ void TitleScene::DrawMainMenu() const
         DrawMenuRow(rowLeft, top, rowWidth, rowHeight, kMainMenuLabels[index], m_menuSelection == index);
     }
 
-    DrawClassicFrame(548, 386, 812, 548);
+    const std::string startMapName = GetStageFileName(GameSession_GetStartMapCsvPath());
+    DrawClassicFrame(548, 386, 812, 580);
     DrawOutlinedString(570, 408, "開始", GetColor(255, 244, 220), GetColor(28, 16, 9));
     DrawString(570, 436, "次の露光を始める。", GetColor(242, 226, 194));
-    DrawString(570, 458, "カメラには新しいプレートが待っている。", GetColor(242, 226, 194));
-    DrawOutlinedString(570, 498, "設定", GetColor(255, 226, 164), GetColor(28, 16, 9));
-    DrawString(570, 526, "音量やシャッター感を調整する。", GetColor(242, 226, 194));
+    DrawString(570, 458, "現在の開始CSV:", GetColor(242, 226, 194));
+    DrawString(570, 480, startMapName.c_str(), GetColor(255, 226, 164));
+    DrawOutlinedString(570, 506, "ステージ選択", GetColor(255, 226, 164), GetColor(28, 16, 9));
+    DrawString(570, 534, "起動時に読み込むCSVを選ぶ。", GetColor(242, 226, 194));
+    DrawString(570, 556, "選んでからゲーム開始へ戻れる。", GetColor(242, 226, 194));
 }
 
 void TitleScene::DrawOptionsMenu() const
@@ -331,8 +395,112 @@ void TitleScene::DrawOptionsMenu() const
     DrawString(696, 432, "でダイヤルを回す。", GetColor(242, 226, 194));
 }
 
+void TitleScene::DrawStageSelectMenu() const
+{
+    constexpr int rowLeft = 146;
+    constexpr int rowTop = 386;
+    constexpr int rowWidth = 268;
+    constexpr int rowHeight = 34;
+    constexpr int rowGap = 8;
+    constexpr int columnGap = 18;
+
+    DrawClassicFrame(116, 282, 844, 604);
+    DrawBox(142, 306, 494, 324, GetColor(212, 165, 82), TRUE);
+    DrawOutlinedString(148, 338, "ステージ選択", GetColor(255, 244, 220), GetColor(28, 16, 9));
+    DrawString(150, 360, "開始時に読み込むCSVを選んでください。", GetColor(242, 226, 194));
+
+    for (int index = 0; index < kStageSelectItemCount; ++index)
+    {
+        const int column = index % kStageSelectColumnCount;
+        const int row = index / kStageSelectColumnCount;
+        const int left = rowLeft + column * (rowWidth + columnGap);
+        const int top = rowTop + row * (rowHeight + rowGap);
+        DrawMenuRow(left, top, rowWidth, rowHeight, kStageSelectItems[index].label, m_stageSelection == index);
+    }
+
+    const std::string currentStageName = GetStageFileName(GameSession_GetStartMapCsvPath());
+    const std::string currentStageText = std::string("現在: ") + currentStageName;
+    DrawCenteredOutlinedString(
+        SCREEN_WIDTH / 2,
+        552,
+        currentStageText.c_str(),
+        GetColor(255, 226, 164),
+        GetColor(28, 16, 9));
+    DrawCenteredOutlinedString(
+        SCREEN_WIDTH / 2,
+        574,
+        "上下: 行移動   左右: 列切替   Enter/Space/A: 決定   Esc/B: 戻る",
+        GetColor(252, 238, 214),
+        GetColor(28, 16, 9));
+}
+
 void TitleScene::UpdateMenuInput()
 {
+    if (m_menuMode == MenuMode::StageSelect)
+    {
+        constexpr int columnCount = kStageSelectColumnCount;
+        constexpr int rowCount = kStageSelectRowCount;
+
+        const int currentRow = m_stageSelection / columnCount;
+        const int currentColumn = m_stageSelection % columnCount;
+
+        if (Input_IsActionPressed(InputAction::MoveUp) || Input_IsDpadUpPressed())
+        {
+            const int nextRow = (currentRow + rowCount - 1) % rowCount;
+            const int nextIndex = nextRow * columnCount + currentColumn;
+            if (nextIndex < kStageSelectItemCount)
+            {
+                m_stageSelection = nextIndex;
+                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+            }
+        }
+        if (Input_IsActionPressed(InputAction::MoveDown) || Input_IsDpadDownPressed())
+        {
+            const int nextRow = (currentRow + 1) % rowCount;
+            const int nextIndex = nextRow * columnCount + currentColumn;
+            if (nextIndex < kStageSelectItemCount)
+            {
+                m_stageSelection = nextIndex;
+                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+            }
+        }
+        if (Input_IsActionPressed(InputAction::MoveLeft))
+        {
+            const int nextIndex = currentRow * columnCount;
+            if (nextIndex < kStageSelectItemCount)
+            {
+                m_stageSelection = nextIndex;
+                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+            }
+        }
+        if (Input_IsActionPressed(InputAction::MoveRight))
+        {
+            const int nextIndex = currentRow * columnCount + 1;
+            if (nextIndex < kStageSelectItemCount)
+            {
+                m_stageSelection = nextIndex;
+                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+            }
+        }
+
+        if (Input_IsActionPressed(InputAction::Cancel) || Input_IsEastButtonPressed())
+        {
+            m_menuMode = MenuMode::Main;
+            m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+            return;
+        }
+
+        const bool confirmPressed =
+            Input_IsActionPressed(InputAction::Confirm) ||
+            Input_IsActionPressed(InputAction::StartGame) ||
+            Input_IsSouthButtonPressed();
+        if (confirmPressed)
+        {
+            ConfirmStageSelectMenu();
+        }
+        return;
+    }
+
     int& selection = (m_menuMode == MenuMode::Main) ? m_menuSelection : m_optionsSelection;
     const int itemCount = (m_menuMode == MenuMode::Main) ? kMainMenuItemCount : kOptionsMenuItemCount;
 
@@ -414,22 +582,38 @@ void TitleScene::ConfirmMainMenu()
         PublishSceneChange("game");
         break;
     case 1:
+        m_menuMode = MenuMode::StageSelect;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
+        break;
+    case 2:
         m_menuMode = MenuMode::Options;
         m_optionsSelection = 0;
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
         break;
-    case 2:
+    case 3:
         PublishSceneChange("demo");
         break;
-    case 3:
+    case 4:
         PublishSceneChange("shader_showcase");
         break;
-    case 4:
+    case 5:
         m_eventBus.Publish({ EventType::ExitApplicationRequested, nullptr, nullptr, "", 0.0f, 0.0f });
         break;
     default:
         break;
     }
+}
+
+void TitleScene::ConfirmStageSelectMenu()
+{
+    if (m_stageSelection < 0 || m_stageSelection >= kStageSelectItemCount)
+    {
+        m_stageSelection = 0;
+    }
+
+    GameSession_SetStartMapCsvPath(kStageSelectItems[m_stageSelection].path);
+    m_menuMode = MenuMode::Main;
+    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
 }
 
 void TitleScene::ConfirmOptionsMenu()
