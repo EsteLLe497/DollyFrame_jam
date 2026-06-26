@@ -8,6 +8,14 @@ cbuffer PostProcessParams : register(b0)
     float gVignetteStrength;
     float gGrainStrength;
     float gLightBlend;
+    float gVignetteRadiusX;
+    float gVignetteRadiusY;
+    float gVignetteSoftness;
+    float gPlayerLightCenterX;
+    float gPlayerLightCenterY;
+    float gPlayerLightStrength;
+    float gPlayerLightRadius;
+    float gPlayerLightSoftness;
 };
 
 struct PSInput
@@ -107,6 +115,16 @@ float BuildForegroundShade(float2 uv)
     return nearMask * (0.04 + sideMask * 0.04);
 }
 
+float BuildPlayerLightMask(float2 pixelPosition)
+{
+    float2 offset = pixelPosition - float2(gPlayerLightCenterX, gPlayerLightCenterY);
+    float distanceFromPlayer = length(offset);
+    return 1.0 - smoothstep(
+        max(gPlayerLightRadius, 0.001),
+        max(gPlayerLightRadius + gPlayerLightSoftness, 0.002),
+        distanceFromPlayer);
+}
+
 float4 main(PSInput input) : SV_TARGET
 {
     float2 uv = input.uv;
@@ -114,15 +132,17 @@ float4 main(PSInput input) : SV_TARGET
     float3 light = lightTexture.Sample(sceneSampler, uv).rgb;
 
     float2 center = uv - float2(0.5, 0.5);
-    float vignette = saturate(1.0 - dot(center, center) * 1.55);
-    float vignetteMix = lerp(1.0 - gVignetteStrength, 1.0, vignette);
+    float2 vignetteRadius = max(float2(gVignetteRadiusX, gVignetteRadiusY), float2(0.001, 0.001));
+    float vignetteDistance = length(center / vignetteRadius);
+    float vignetteMask = smoothstep(1.0, 1.0 + max(gVignetteSoftness, 0.001), vignetteDistance);
+    float vignetteMix = 1.0 - saturate(gVignetteStrength) * vignetteMask;
 
     uint sceneWidth = 1;
     uint sceneHeight = 1;
     sceneTexture.GetDimensions(sceneWidth, sceneHeight);
     float grainScaleBase = min((float)sceneWidth, (float)sceneHeight);
     float grain = Hash21(uv * (grainScaleBase * 0.67) + gTime * 8.0) - 0.5;
-    float grainScale = gGrainStrength * (0.20 + (1.0 - vignette) * 0.16);
+    float grainScale = gGrainStrength * (0.20 + vignetteMask * 0.16);
 
     float3 color = ApplyEveningGrade(src.rgb) * vignetteMix;
     color += light * gLightBlend;
@@ -131,6 +151,11 @@ float4 main(PSInput input) : SV_TARGET
     color += BuildWarmBuildingHit(uv, src.rgb, light);
     color *= (1.0 - BuildForegroundShade(uv));
     color += grain * grainScale;
+
+    float playerLightMask = BuildPlayerLightMask(input.position.xy) * saturate(gPlayerLightStrength);
+    color = lerp(color, color + float3(0.22, 0.24, 0.22), playerLightMask);
+    color = lerp(color, float3(0.92, 0.94, 0.90), playerLightMask * 0.12);
+
     color *= 1.08;
 
     float luma = dot(color, float3(0.299, 0.587, 0.114));

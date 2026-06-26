@@ -62,6 +62,8 @@ bool DirectXHasPostProcess(void);
 void DirectXSetPostProcessEnabled(bool enabled);
 void DirectXTogglePostProcess(void);
 bool DirectXIsPostProcessEnabled(void);
+void DirectXSetPostProcessVignette(float strength, float radiusX, float radiusY, float softness);
+void DirectXSetPostProcessPlayerLight(float centerX, float centerY, float strength, float radius, float softness);
 bool DirectXHasDarknessOverlay(void);
 void DirectXResetDarknessOverlay(void);
 void DirectXSetDarknessOverlay(const DarknessOverlayParams& params);

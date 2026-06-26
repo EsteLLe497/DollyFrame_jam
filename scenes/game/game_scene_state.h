@@ -290,6 +290,7 @@ struct GameSceneLifecycleState
     std::string currentMapCsvPath = "assets/maps/stages/forest.csv";
     char lastStageTransitionMarker = '\0';
     bool darknessStageEnabled = false;
+    bool forestStageEnabled = false;
     ResourceManager* loadingResources = nullptr;
     bool loadingActive = false;
     bool loadingFinished = false;

@@ -67,9 +67,20 @@ void GameScene::Draw()
         if (m_lifecycle.loadingFinished && m_lifecycle.loadingWarmupFramesRemaining > 0)
         {
             PrepareFrameRendering();
+            UpdatePostProcessPlayerLight();
             DrawWorldAndUiLayers();
             ResetFrameRendering();
             --m_lifecycle.loadingWarmupFramesRemaining;
+        }
+        else
+        {
+            DirectXSetPostProcessPlayerLight(
+                static_cast<float>(kVirtualScreenWidth) * 0.5f,
+                static_cast<float>(kVirtualScreenHeight) * 0.5f,
+                0.0f,
+                120.0f,
+                170.0f);
+            DirectXCompositeSceneToBackBuffer(static_cast<float>(GetNowCount()) * 0.001f);
         }
 
         DrawLoadingScreen();
@@ -81,8 +92,51 @@ void GameScene::Draw()
     }
 
     PrepareFrameRendering();
+    UpdatePostProcessPlayerLight();
     DrawWorldAndUiLayers();
     ResetFrameRendering();
+}
+
+void GameScene::UpdatePostProcessPlayerLight() const
+{
+    if (!m_lifecycle.forestStageEnabled || m_lifecycle.loadingActive)
+    {
+        DirectXSetPostProcessPlayerLight(
+            static_cast<float>(kVirtualScreenWidth) * 0.5f,
+            static_cast<float>(kVirtualScreenHeight) * 0.5f,
+            0.0f,
+            120.0f,
+            170.0f);
+        return;
+    }
+
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* transform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    const auto* sprite = player ? player->GetComponent<SpriteRenderComponent>() : nullptr;
+    if (!transform || !sprite)
+    {
+        DirectXSetPostProcessPlayerLight(
+            static_cast<float>(kVirtualScreenWidth) * 0.5f,
+            static_cast<float>(kVirtualScreenHeight) * 0.5f,
+            0.0f,
+            120.0f,
+            170.0f);
+        return;
+    }
+
+    const float viewScale = GetViewScale();
+    const float playerCenterX =
+        transform->x +
+        sprite->GetRenderOffsetX() +
+        transform->width * transform->scale * sprite->GetRenderScaleX() * 0.5f;
+    const float playerCenterY =
+        transform->y +
+        sprite->GetRenderOffsetY() +
+        transform->height * transform->scale * sprite->GetRenderScaleY() * 0.5f;
+    const float screenX = GetViewOriginX() + (playerCenterX - m_flow.cameraX) * viewScale;
+    const float screenY = GetViewOriginY() + (playerCenterY - m_flow.cameraY) * viewScale;
+
+    DirectXSetPostProcessPlayerLight(screenX, screenY, 0.42f, 22.0f, 156.0f);
 }
 
 void GameScene::DrawLoadingScreen() const

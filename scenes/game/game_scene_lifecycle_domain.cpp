@@ -178,6 +178,13 @@ void GameScene::UpdateShieldBossBgmCue()
 void GameScene::OnExit()
 {
     const ActiveGameSceneScope activeScene(*this);
+    DirectXSetPostProcessVignette(0.08f, 0.72f, 0.72f, 0.70f);
+    DirectXSetPostProcessPlayerLight(
+        static_cast<float>(kVirtualScreenWidth) * 0.5f,
+        static_cast<float>(kVirtualScreenHeight) * 0.5f,
+        0.0f,
+        120.0f,
+        170.0f);
     Audio_StopBgm();
     m_lifecycle.loadingActive = false;
     m_lifecycle.loadingFinished = false;
