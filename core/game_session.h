@@ -20,7 +20,7 @@ struct GameSessionState
     float timeLimit = 30.0f;
     float timeRemaining = 30.0f;
     GameEndReason endReason = GameEndReason::None;
-    std::string startMapCsvPath = "assets/maps/stages/forest.csv";
+    std::string startMapCsvPath = "assets/maps/stages/forest_v2.csv";
     bool loadSavedProgress = true;
 };
 
