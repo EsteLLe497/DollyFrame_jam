@@ -83,7 +83,10 @@ void GameScene::AdvanceLoadingStep()
     {
     case 0:
         LoadTuningState();
-        LoadProgressStateFromDisk();
+        if (GameSession_ShouldLoadSavedProgress())
+        {
+            LoadProgressStateFromDisk();
+        }
         m_lifecycle.loadingProgress = 0.15f;
         ++m_lifecycle.loadingStep;
         break;

@@ -229,6 +229,7 @@ void TitleScene::OnEnter(ResourceManager& resources)
     m_menuSelection = 0;
     m_stageSelection = FindStageSelectIndex(GameSession_GetStartMapCsvPath());
     m_optionsSelection = 0;
+    GameSession_SetLoadSavedProgress(true);
     m_bgmEnabled = Audio_GetMasterVolume() > 0.001f;
     m_bgmRestoreVolume = m_bgmEnabled ? Audio_GetMasterVolume() : 1.0f;
     Logger::Info("TitleScene entered");
@@ -360,14 +361,15 @@ void TitleScene::DrawMainMenu() const
     }
 
     const std::string startMapName = GetStageFileName(GameSession_GetStartMapCsvPath());
+    const bool loadSavedProgress = GameSession_ShouldLoadSavedProgress();
     DrawClassicFrame(548, 386, 812, 580);
     DrawOutlinedString(570, 408, "開始", GetColor(255, 244, 220), GetColor(28, 16, 9));
     DrawString(570, 436, "次の露光を始める。", GetColor(242, 226, 194));
-    DrawString(570, 458, "現在の開始CSV:", GetColor(242, 226, 194));
+    DrawString(570, 458, loadSavedProgress ? "セーブを続きから読み込む。" : "選択したCSVで新規開始する。", GetColor(242, 226, 194));
     DrawString(570, 480, startMapName.c_str(), GetColor(255, 226, 164));
     DrawOutlinedString(570, 506, "ステージ選択", GetColor(255, 226, 164), GetColor(28, 16, 9));
     DrawString(570, 534, "起動時に読み込むCSVを選ぶ。", GetColor(242, 226, 194));
-    DrawString(570, 556, "選んでからゲーム開始へ戻れる。", GetColor(242, 226, 194));
+    DrawString(570, 556, "選んだらそのままゲームへ入る。", GetColor(242, 226, 194));
 }
 
 void TitleScene::DrawOptionsMenu() const
@@ -429,7 +431,7 @@ void TitleScene::DrawStageSelectMenu() const
     DrawCenteredOutlinedString(
         SCREEN_WIDTH / 2,
         574,
-        "上下: 行移動   左右: 列切替   Enter/Space/A: 決定   Esc/B: 戻る",
+        "上下: 行移動   左右: 列切替   Enter/Space/A: 決定すると即ゲーム開始   Esc/B: 戻る",
         GetColor(252, 238, 214),
         GetColor(28, 16, 9));
 }
@@ -612,8 +614,8 @@ void TitleScene::ConfirmStageSelectMenu()
     }
 
     GameSession_SetStartMapCsvPath(kStageSelectItems[m_stageSelection].path);
-    m_menuMode = MenuMode::Main;
-    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
+    GameSession_SetLoadSavedProgress(false);
+    PublishSceneChange("game");
 }
 
 void TitleScene::ConfirmOptionsMenu()
