@@ -369,6 +369,8 @@ public:
     float launchDelay = 0.0f;
     float launchTimer = 0.0f;
     float travelDistance = 0.0f;
+    float spawnX = 0.0f;
+    float spawnY = 0.0f;
 };
 
 class MidBoss3Component final : public MonoBehaviour

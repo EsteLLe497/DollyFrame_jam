@@ -37,6 +37,7 @@ struct StageTransitionLink
 inline std::vector<StageTransitionLink> gStageTransitionLinks;
 
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";
+inline constexpr const char* kUiTuningFilePath = "assets/ui_tuning.json";
 inline constexpr const char* kGameProgressSavePath = "savegame.json";
 constexpr float kPixelsPerMeter = 100.0f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
@@ -89,8 +90,8 @@ struct ActiveGameSceneScope
 #define gGroundSnapDistance (game_scene_detail::GetActiveGameScene()->Tuning().groundSnapDistance)
 #define gGroundStepUpHeight (game_scene_detail::GetActiveGameScene()->Tuning().groundStepUpHeight)
 #define gShutterFlashSeconds (game_scene_detail::GetActiveGameScene()->Tuning().shutterFlashSeconds)
-#define gCaptureWidthTiles (game_scene_detail::GetActiveGameScene()->Tuning().captureWidthTiles)
-#define gCaptureHeightTiles (game_scene_detail::GetActiveGameScene()->Tuning().captureHeightTiles)
+#define gCaptureFrameWidthPx (game_scene_detail::GetActiveGameScene()->Tuning().captureFrameWidthPx)
+#define gCaptureFrameHeightPx (game_scene_detail::GetActiveGameScene()->Tuning().captureFrameHeightPx)
 #define gCaptureRapidShotLimit (game_scene_detail::GetActiveGameScene()->Tuning().captureRapidShotLimit)
 #define gCaptureRapidWindowSeconds (game_scene_detail::GetActiveGameScene()->Tuning().captureRapidWindowSeconds)
 #define gCaptureOverheatLockSeconds (game_scene_detail::GetActiveGameScene()->Tuning().captureOverheatLockSeconds)
@@ -157,6 +158,44 @@ inline float GetPlayerDodgeDuration()
         : 0.0f;
 }
 
+struct UiLayoutRect
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+};
+
+inline UiLayoutRect MakePhotoTraySlotRect(const GameSceneUiTuningState& uiTuning, int slotIndex)
+{
+    const float stepX = uiTuning.photoTray.slotWidth + uiTuning.photoTray.slotGapX;
+    return {
+        uiTuning.photoTray.slotStartX + static_cast<float>(slotIndex) * stepX,
+        uiTuning.photoTray.slotStartY,
+        uiTuning.photoTray.slotWidth,
+        uiTuning.photoTray.slotHeight,
+    };
+}
+
+inline UiLayoutRect MakeHpSlotRect(const GameSceneUiTuningState& uiTuning, int slotIndex)
+{
+    const float stepX = uiTuning.hp.slotWidth + uiTuning.hp.slotGapX;
+    return {
+        uiTuning.hp.slotStartX + static_cast<float>(slotIndex) * stepX,
+        uiTuning.hp.slotStartY,
+        uiTuning.hp.slotWidth,
+        uiTuning.hp.slotHeight,
+    };
+}
+
+inline bool IsPointInRect(float x, float y, const UiLayoutRect& rect)
+{
+    return x >= rect.x &&
+        x <= rect.x + rect.width &&
+        y >= rect.y &&
+        y <= rect.y + rect.height;
+}
+
 inline auto BuildGameSceneTuningEntries()
 {
     return std::array<GameSceneTuningEntry, 29>
@@ -177,8 +216,8 @@ inline auto BuildGameSceneTuningEntries()
         { "Coyote", &gCoyoteTimeSeconds, 0.01f, 0.0f, 0.4f },
         { "Ground Snap", &gGroundSnapDistance, 0.5f, 0.0f, 24.0f },
         { "Step Up", &gGroundStepUpHeight, 0.25f, 0.0f, 8.0f },
-        { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
-        { "Capture H Tiles", &gCaptureHeightTiles, 0.25f, 1.0f, 16.0f },
+        { "Capture Frame W", &gCaptureFrameWidthPx, 1.0f, 16.0f, 1024.0f },
+        { "Capture Frame H", &gCaptureFrameHeightPx, 1.0f, 16.0f, 1024.0f },
         { "Capture Limit", &gCaptureRapidShotLimit, 1.0f, 1.0f, 20.0f },
         { "Capture Window", &gCaptureRapidWindowSeconds, 0.1f, 0.1f, 10.0f },
         { "Capture Lock", &gCaptureOverheatLockSeconds, 0.1f, 0.0f, 10.0f },

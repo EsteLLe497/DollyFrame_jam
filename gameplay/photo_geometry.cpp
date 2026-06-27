@@ -177,8 +177,5 @@ namespace photo_geometry
             item.relativeX -= minX;
             item.relativeY -= minY;
         }
-
-        width = maxX - minX;
-        height = maxY - minY;
     }
 }

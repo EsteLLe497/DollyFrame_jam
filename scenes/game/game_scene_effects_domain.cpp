@@ -28,6 +28,14 @@ void GameScene::UpdateEffects(float deltaTime)
         spark.y += spark.velocityY * deltaTime;
         spark.velocityY += kBarrelDebrisGravity * deltaTime * spark.gravityScale;
     }
+    for (auto& particle : m_effects.midBoss2SpearMist)
+    {
+        particle.life = std::max(0.0f, particle.life - deltaTime);
+        particle.x += particle.velocityX * deltaTime;
+        particle.y += particle.velocityY * deltaTime;
+        particle.velocityX *= std::max(0.0f, 1.0f - deltaTime * 2.6f);
+        particle.velocityY += kBarrelDebrisGravity * deltaTime * 0.05f;
+    }
     for (auto& particle : m_effects.slamDust)
     {
         particle.life = std::max(0.0f, particle.life - deltaTime);
@@ -60,6 +68,15 @@ void GameScene::UpdateEffects(float deltaTime)
                 return spark.life <= 0.0f;
             }),
         m_effects.laserSparks.end());
+    m_effects.midBoss2SpearMist.erase(
+        std::remove_if(
+            m_effects.midBoss2SpearMist.begin(),
+            m_effects.midBoss2SpearMist.end(),
+            [](const MidBoss2SpearMistParticle& particle)
+            {
+                return particle.life <= 0.0f;
+            }),
+        m_effects.midBoss2SpearMist.end());
     m_effects.slamDust.erase(
         std::remove_if(
             m_effects.slamDust.begin(),

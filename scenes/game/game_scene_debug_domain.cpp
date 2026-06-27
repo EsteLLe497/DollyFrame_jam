@@ -14,6 +14,7 @@ void GameScene::DrawDebugUI()
 {
     const ActiveGameSceneScope activeScene(*this);
     ImGuiLayer_SetFoundationOverlayVisible(!m_debug.hideNonPhotoUi);
+    DrawUiAdjustmentWindow();
     if (m_debug.hideNonPhotoUi)
     {
         DrawTestPhotoPanel();
@@ -24,81 +25,82 @@ void GameScene::DrawDebugUI()
     {
         switch (state)
         {
-        case MidBoss2State::Idle: return "Idle";
-        case MidBoss2State::SpearJump: return "SpearJump";
-        case MidBoss2State::SpearThrow: return "SpearThrow";
-        case MidBoss2State::SpearLanding: return "SpearLanding";
-        case MidBoss2State::SpearCooldown: return "SpearCooldown";
-        case MidBoss2State::BeamCharge: return "BeamCharge";
-        case MidBoss2State::BeamFire: return "BeamFire";
-        case MidBoss2State::BeamCooldown: return "BeamCooldown";
-        case MidBoss2State::Damaged: return "Damaged";
-        case MidBoss2State::Dead: return "Dead";
-        default: return "Unknown";
+        case MidBoss2State::Idle: return "待機";
+        case MidBoss2State::SpearJump: return "ワープ";
+        case MidBoss2State::SpearThrow: return "攻撃";
+        case MidBoss2State::SpearLanding: return "着地";
+        case MidBoss2State::SpearCooldown: return "再配置";
+        case MidBoss2State::BeamCharge: return "チャージ";
+        case MidBoss2State::BeamFire: return "ビーム発射";
+        case MidBoss2State::BeamCooldown: return "再配置";
+        case MidBoss2State::Damaged: return "被弾";
+        case MidBoss2State::Dead: return "撃破";
+        default: return "不明";
         }
     };
 
-    ImGui::Begin("Game Scene");
-    ImGui::Text("2D photo-platform prototype");
-    ImGui::Text("Move: A / D or gamepad stick");
-    ImGui::Text("Jump: W / Space / Gamepad A");
-    ImGui::Text("Dodge: Left Shift / Right Shift");
-    ImGui::Text("Camera: Right Click hold");
-    ImGui::Text("Capture: Left Click in camera mode");
-    ImGui::Text("Filter: C cycle  1 None  2 Hot  3 Cold  4 Invert  5 Sepia");
-    ImGui::Text("Spawn Captured Object: Hold E");
-    ImGui::Text("Placement: Flip F  Bridge B");
-    ImGui::Text("Stage: solve one gimmick at a time from left to right");
-    ImGui::Text("Restart: R  Title: T");
-    ImGui::Text("Collision Debug: F3 (%s)", m_debug.showCollisionDebug ? "On" : "Off");
-    ImGui::Text("Entity Count: %d", static_cast<int>(m_world.Entities().size()));
-    ImGui::Text("CSV TileMap: %s", m_tileMap.IsLoaded() ? "Loaded" : "Missing");
-    ImGui::Text("TileMap Size: %d x %d (tile %.0f)",
+    ImGui::Begin("ゲームシーン");
+    ImGui::Text("2D 写真プラットフォーム試作");
+    ImGui::Text("移動: A / D またはスティック");
+    ImGui::Text("ジャンプ: W / Space / ゲームパッドA");
+    ImGui::Text("回避: 左Shift / 右Shift");
+    ImGui::Text("カメラ: 右クリック押しっぱなし");
+    ImGui::Text("撮影: カメラモード中に左クリック");
+    ImGui::Text("フィルター: C 切替  1 なし  2 暖色  3 寒色  4 反転  5 セピア");
+    ImGui::Text("出現物生成: E 長押し");
+    ImGui::Text("設置: F 反転  B 橋");
+    ImGui::Text("ステージ: 左から順にギミックを解く");
+    ImGui::Text("再開: R  タイトル: T");
+    ImGui::Text("衝突デバッグ: F3 (%s)", m_debug.showCollisionDebug ? "オン" : "オフ");
+    ImGui::Text("エンティティ数: %d", static_cast<int>(m_world.Entities().size()));
+    ImGui::Text("CSV タイルマップ: %s", m_tileMap.IsLoaded() ? "読み込み済み" : "未読込");
+    ImGui::Text("タイルマップサイズ: %d x %d (tile %.0f)",
         m_tileMap.GetWidth(),
         m_tileMap.GetHeight(),
         m_tileMap.GetTileSize());
-    ImGui::Text("Camera X: %.1f / %.1f", m_flow.cameraX, std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth));
-    ImGui::Text("Camera Y: %.1f / %.1f", m_flow.cameraY, std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight));
-    ImGui::Text("Camera Follow Y: %s", gCameraFollowY >= 0.5f ? "On" : "Off");
+    ImGui::Text("カメラX: %.1f / %.1f", m_flow.cameraX, std::max(0.0f, GetMapPixelWidth() - gCameraViewWidth));
+    ImGui::Text("カメラY: %.1f / %.1f", m_flow.cameraY, std::max(0.0f, GetMapPixelHeight() - gCameraViewHeight));
+    ImGui::Text("カメラY追従: %s", gCameraFollowY >= 0.5f ? "オン" : "オフ");
     bool followY = gCameraFollowY >= 0.5f;
-    if (ImGui::Checkbox("Enable Camera Y Follow", &followY))
+    if (ImGui::Checkbox("カメラY追従を有効にする", &followY))
     {
         gCameraFollowY = followY ? 1.0f : 0.0f;
     }
-    ImGui::Text("View Scale: %.2f", GetViewScale());
-    ImGui::Text("Time Limit: Off");
-    ImGui::Text("Captured Photo: %s", m_photo.capture.hasPhoto ? "Ready" : "Missing");
-    ImGui::Text("Stored Photos: %d / 3",
+    ImGui::Text("表示倍率: %.2f", GetViewScale());
+    ImGui::Text("制限時間: なし");
+    ImGui::Text("撮影済み写真: %s", m_photo.capture.hasPhoto ? "あり" : "なし");
+    ImGui::Text("保存写真数: %d / 3",
         static_cast<int>(std::count_if(
             m_photo.savedCaptures.begin(),
             m_photo.savedCaptures.end(),
             [](const PhotoCaptureState& capture) { return capture.hasPhoto; })));
-    ImGui::Text("Selected Slot: %d", m_photo.selectedCaptureSlot + 1);
-    ImGui::Text("Developed Preview: %.2f", m_ui.developedPhotoPreviewRemaining);
-    ImGui::Text("Selected Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));
-    ImGui::Text("Captured Filter: %s", GetPhotoFilterThemeLabel(m_photo.capture.capturedTheme));
-    ImGui::Text("Spawned Copy: %s", m_photo.groups.hasSpawnedCopy ? "Active" : "None");
-    ImGui::Text("Copy Groups: %d / 3", m_photo.groups.activeGroupCount);
-    ImGui::Text("Active Enemies: %d", m_flow.enemyCount);
-    ImGui::Text("Placement Mode: %s", m_photo.placement.active ? "On" : "Off");
-    ImGui::Text("Map Editor: %s (F4)", m_mapEditor.active ? "On" : "Off");
-    ImGui::Text("Placement Flip: %s", m_photo.placement.flipX ? "On" : "Off");
-    ImGui::Text("Bridge: %s", m_photo.placement.bridgeEnabled ? "On" : "Off");
-    ImGui::Text("Camera Mode: %s", m_flow.cameraMode ? "On" : "Off");
-    ImGui::Text("Focus Slow: %s", ((m_flow.cameraMode && m_flow.captureSlowRemaining > 0.0f) || ((m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement)) && m_flow.placementSlowRemaining > 0.0f)) ? "On" : "Off");
-    ImGui::Text("Capture Focus: %.2f", m_flow.captureSlowRemaining);
-    ImGui::Text("Placement Focus: %.2f", m_flow.placementSlowRemaining);
-    ImGui::Text("Goal: %s", m_flow.goalUnlocked ? "Unlocked" : "Locked");
-    ImGui::Text("Goal Contact: %s", m_flow.playerTouchingTarget ? "Hit" : "No Hit");
-    ImGui::Text("Hazard Contact: %s", m_flow.playerTouchingHazard ? "Hit" : "No Hit");
-    ImGui::Checkbox("Show Collision Debug", &m_debug.showCollisionDebug);
-    ImGui::Checkbox("Enable HP Damage", &m_debug.playerHealthDamageEnabled);
+    ImGui::Text("選択スロット: %d", m_photo.selectedCaptureSlot + 1);
+    ImGui::Text("現像プレビュー: %.2f", m_ui.developedPhotoPreviewRemaining);
+    ImGui::Text("選択フィルター: %s", GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));
+    ImGui::Text("撮影フィルター: %s", GetPhotoFilterThemeLabel(m_photo.capture.capturedTheme));
+    ImGui::Text("生成コピー: %s", m_photo.groups.hasSpawnedCopy ? "あり" : "なし");
+    ImGui::Text("コピーグループ: %d / 3", m_photo.groups.activeGroupCount);
+    ImGui::Text("敵数: %d", m_flow.enemyCount);
+    ImGui::Text("設置モード: %s", m_photo.placement.active ? "オン" : "オフ");
+    ImGui::Text("マップエディター: %s (F4)", m_mapEditor.active ? "オン" : "オフ");
+    ImGui::Text("設置反転: %s", m_photo.placement.flipX ? "オン" : "オフ");
+    ImGui::Text("橋: %s", m_photo.placement.bridgeEnabled ? "オン" : "オフ");
+    ImGui::Text("カメラモード: %s", m_flow.cameraMode ? "オン" : "オフ");
+    ImGui::Text("集中スロー: %s", ((m_flow.cameraMode && m_flow.captureSlowRemaining > 0.0f) || ((m_photo.capture.hasPhoto && Input_IsActionDown(InputAction::HoldPlacement)) && m_flow.placementSlowRemaining > 0.0f)) ? "オン" : "オフ");
+    ImGui::Text("撮影集中: %.2f", m_flow.captureSlowRemaining);
+    ImGui::Text("設置集中: %.2f", m_flow.placementSlowRemaining);
+    ImGui::Text("撮影フレームサイズ: %.0f x %.0f px", gCaptureFrameWidthPx, gCaptureFrameHeightPx);
+    ImGui::Text("ゴール: %s", m_flow.goalUnlocked ? "解放" : "ロック");
+    ImGui::Text("ゴール接触: %s", m_flow.playerTouchingTarget ? "接触" : "未接触");
+    ImGui::Text("危険物接触: %s", m_flow.playerTouchingHazard ? "接触" : "未接触");
+    ImGui::Checkbox("衝突デバッグを表示", &m_debug.showCollisionDebug);
+    ImGui::Checkbox("HPダメージを有効にする", &m_debug.playerHealthDamageEnabled);
 
     if (auto* player = FindEntityByTag(kTagPlayer))
     {
         if (auto* transform = player->GetComponent<TransformComponent>())
         {
-            ImGui::Text("Player Pos: %.1f, %.1f", transform->x, transform->y);
+            ImGui::Text("プレイヤー位置: %.1f, %.1f", transform->x, transform->y);
             if (m_flow.cameraMode)
             {
                 float frameX = 0.0f;
@@ -106,24 +108,24 @@ void GameScene::DrawDebugUI()
                 float frameWidth = 0.0f;
                 float frameHeight = 0.0f;
                 GetCaptureFrameRect(*transform, frameX, frameY, frameWidth, frameHeight);
-                ImGui::Text("Capture Frame: %.1f, %.1f, %.1f, %.1f", frameX, frameY, frameWidth, frameHeight);
+                ImGui::Text("撮影フレーム: %.1f, %.1f, %.1f, %.1f", frameX, frameY, frameWidth, frameHeight);
             }
         }
-        ImGui::Text("Grounded: %s", m_player.grounded ? "Yes" : "No");
-        ImGui::Text("Velocity: %.1f, %.1f", m_player.velocityX, m_player.velocityY);
-        ImGui::Text("Dodge: %.2f / Cooldown: %.2f", m_player.dodgeRemaining, m_player.dodgeCooldownRemaining);
-        ImGui::Text("Coyote: %.2f", m_player.coyoteTimeRemaining);
+        ImGui::Text("接地: %s", m_player.grounded ? "あり" : "なし");
+        ImGui::Text("速度: %.1f, %.1f", m_player.velocityX, m_player.velocityY);
+        ImGui::Text("回避: %.2f / クールダウン: %.2f", m_player.dodgeRemaining, m_player.dodgeCooldownRemaining);
+        ImGui::Text("コヨーテ: %.2f", m_player.coyoteTimeRemaining);
         if (auto* health = player->GetComponent<HealthComponent>())
         {
-            ImGui::Text("Player HP: %d / %d", health->GetCurrentHealth(), health->GetMaxHealth());
+            ImGui::Text("プレイヤーHP: %d / %d", health->GetCurrentHealth(), health->GetMaxHealth());
         }
         if (auto* cooldown = player->GetComponent<DamageCooldownComponent>())
         {
-            ImGui::Text("Damage Cooldown: %.2f", cooldown->GetRemainingSeconds());
+            ImGui::Text("ダメージクールダウン: %.2f", cooldown->GetRemainingSeconds());
         }
     }
 
-    ImGui::Text("Events This Frame: %d", static_cast<int>(m_eventBus.GetEvents().size()));
+    ImGui::Text("このフレームのイベント: %d", static_cast<int>(m_eventBus.GetEvents().size()));
     ImGui::End();
     DrawMidBoss2DebugWindow();
     DrawProgressSavePanel();
@@ -136,22 +138,22 @@ void GameScene::DrawMidBoss2DebugWindow()
     {
         switch (state)
         {
-        case MidBoss2State::Idle: return "Idle";
-        case MidBoss2State::SpearJump: return "SpearJump";
-        case MidBoss2State::SpearThrow: return "SpearThrow";
-        case MidBoss2State::SpearLanding: return "SpearLanding";
-        case MidBoss2State::SpearCooldown: return "SpearCooldown";
-        case MidBoss2State::BeamCharge: return "BeamCharge";
-        case MidBoss2State::BeamFire: return "BeamFire";
-        case MidBoss2State::BeamCooldown: return "BeamCooldown";
-        case MidBoss2State::Damaged: return "Damaged";
-        case MidBoss2State::Dead: return "Dead";
-        default: return "Unknown";
+        case MidBoss2State::Idle: return "待機";
+        case MidBoss2State::SpearJump: return "ワープ";
+        case MidBoss2State::SpearThrow: return "攻撃";
+        case MidBoss2State::SpearLanding: return "着地";
+        case MidBoss2State::SpearCooldown: return "再配置";
+        case MidBoss2State::BeamCharge: return "チャージ";
+        case MidBoss2State::BeamFire: return "ビーム発射";
+        case MidBoss2State::BeamCooldown: return "再配置";
+        case MidBoss2State::Damaged: return "被弾";
+        case MidBoss2State::Dead: return "撃破";
+        default: return "不明";
         }
     };
 
     ImGui::SetNextWindowSize(ImVec2(520.0f, 700.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Boss2"))
+    if (!ImGui::Begin("ボス2"))
     {
         ImGui::End();
         return;
@@ -175,45 +177,45 @@ void GameScene::DrawMidBoss2DebugWindow()
 
         foundBoss = true;
 
-        ImGui::Text("Boss Hitbox: %.1f, %.1f, %.1f, %.1f",
+        ImGui::Text("ボス当たり判定: %.1f, %.1f, %.1f, %.1f",
             transform->x,
             transform->y,
             transform->width * transform->scale,
             transform->height * transform->scale);
-        ImGui::Text("State: %s", toMidBoss2StateLabel(boss->state));
-        ImGui::Text("Attack Flow: %d", boss->attackFlowStep);
-        ImGui::Text("Cooldown Remaining: %.2f", boss->cooldownRemaining);
-        ImGui::Text("Capture Window: %s", boss->captureWindowActive ? "Yes" : "No");
-        ImGui::Text("Spear Direction: %.2f, %.2f", boss->lastSpearDirX, boss->lastSpearDirY);
-        ImGui::Text("Last Beam Slot Side: %s", boss->lastBeamTeleportLeftSide ? "Left" : "Right");
-        ImGui::Text("Next Spear Start Side: %s", boss->nextSpearStartLeftSide ? "Left" : "Right");
+        ImGui::Text("状態: %s", toMidBoss2StateLabel(boss->state));
+        ImGui::Text("攻撃フロー: %d", boss->attackFlowStep);
+        ImGui::Text("クールダウン残り: %.2f", boss->cooldownRemaining);
+        ImGui::Text("撮影判定: %s", boss->captureWindowActive ? "あり" : "なし");
+        ImGui::Text("槍の向き: %.2f, %.2f", boss->lastSpearDirX, boss->lastSpearDirY);
+        ImGui::Text("最後のビーム側: %s", boss->lastBeamTeleportLeftSide ? "左" : "右");
+        ImGui::Text("次の槍開始側: %s", boss->nextSpearStartLeftSide ? "左" : "右");
 
-        ImGui::SeparatorText("Combat Params");
-        ImGui::DragInt("Spear Damage", &boss->params.spearDamage, 1.0f, 0, 999);
-        ImGui::DragFloat("Spear Fade Time", &boss->params.spearFadeTime, 0.05f, 0.05f, 10.0f, "%.2f");
-        ImGui::DragFloat("Spear Interval", &boss->params.spearInterval, 0.01f, 0.05f, 10.0f, "%.2f");
-        ImGui::DragFloat("Spear Cooldown After Landing", &boss->params.spearCooldownAfterLanding, 0.05f, 0.05f, 20.0f, "%.2f");
-        ImGui::DragFloat("Spear Landing Pause", &boss->params.spearLandingPauseTime, 0.01f, 0.0f, 5.0f, "%.2f");
-        ImGui::DragFloat("Spear Jump Height Grid", &boss->params.spearJumpHeightGrid, 0.1f, 0.0f, 20.0f, "%.2f");
-        ImGui::DragFloat("Spear Jump Horizontal Grid", &boss->params.spearJumpHorizontalGrid, 0.1f, 0.0f, 40.0f, "%.2f");
-        ImGui::DragFloat("Beam Charge Time", &boss->params.beamChargeTime, 0.05f, 0.05f, 20.0f, "%.2f");
-        ImGui::DragFloat("Beam Damage Per Second", &boss->params.beamDamagePerSecond, 0.05f, 0.0f, 50.0f, "%.2f");
-        ImGui::DragFloat("Beam Height Grid", &boss->params.beamHeightGrid, 0.05f, 0.5f, 20.0f, "%.2f");
-        ImGui::DragFloat("Beam Cooldown After Fire", &boss->params.beamCooldownAfterFire, 0.05f, 0.05f, 20.0f, "%.2f");
-        ImGui::SeparatorText("Teleport Height");
-        ImGui::TextUnformatted("Smaller values move the boss lower on screen.");
-        ImGui::TextUnformatted("Actual height = Base Height + Slot Height Adjustment.");
-        ImGui::DragFloat("Base Height Grid", &boss->params.teleportHoverBaseGrid, 0.1f, 0.0f, 20.0f, "%.2f");
+        ImGui::SeparatorText("戦闘パラメータ");
+        ImGui::DragInt("槍ダメージ", &boss->params.spearDamage, 1.0f, 0, 999);
+        ImGui::DragFloat("槍フェード時間", &boss->params.spearFadeTime, 0.05f, 0.05f, 10.0f, "%.2f");
+        ImGui::DragFloat("槍間隔", &boss->params.spearInterval, 0.01f, 0.05f, 10.0f, "%.2f");
+        ImGui::DragFloat("着地後クールダウン", &boss->params.spearCooldownAfterLanding, 0.05f, 0.05f, 20.0f, "%.2f");
+        ImGui::DragFloat("着地停止時間", &boss->params.spearLandingPauseTime, 0.01f, 0.0f, 5.0f, "%.2f");
+        ImGui::DragFloat("槍ジャンプ高さグリッド", &boss->params.spearJumpHeightGrid, 0.1f, 0.0f, 20.0f, "%.2f");
+        ImGui::DragFloat("槍ジャンプ横グリッド", &boss->params.spearJumpHorizontalGrid, 0.1f, 0.0f, 40.0f, "%.2f");
+        ImGui::DragFloat("ビーム準備時間", &boss->params.beamChargeTime, 0.05f, 0.05f, 20.0f, "%.2f");
+        ImGui::DragFloat("ビーム秒間ダメージ", &boss->params.beamDamagePerSecond, 0.05f, 0.0f, 50.0f, "%.2f");
+        ImGui::DragFloat("ビーム高さグリッド", &boss->params.beamHeightGrid, 0.05f, 0.5f, 20.0f, "%.2f");
+        ImGui::DragFloat("発射後クールダウン", &boss->params.beamCooldownAfterFire, 0.05f, 0.05f, 20.0f, "%.2f");
+        ImGui::SeparatorText("ワープ高さ");
+        ImGui::TextUnformatted("値を小さくするとボスは画面下側に下がります。");
+        ImGui::TextUnformatted("実際の高さ = 基準高さ + スロット補正。");
+        ImGui::DragFloat("基準高さグリッド", &boss->params.teleportHoverBaseGrid, 0.1f, 0.0f, 20.0f, "%.2f");
 
-        ImGui::SeparatorText("Teleport Spark");
-        ImGui::DragInt("Spark Count", &boss->params.teleportSparkCount, 1.0f, 0, 256);
-        ImGui::DragFloat("Min Particle Size", &boss->params.teleportSparkMinSize, 0.05f, 0.1f, 12.0f, "%.2f");
-        ImGui::DragFloat("Max Particle Size", &boss->params.teleportSparkMaxSize, 0.05f, 0.1f, 12.0f, "%.2f");
-        ImGui::DragFloat("Spread Scale", &boss->params.teleportSparkSpreadScale, 0.05f, 0.0f, 8.0f, "%.2f");
-        ImGui::DragFloat("Particle Lifetime", &boss->params.teleportSparkLifetime, 0.01f, 0.01f, 5.0f, "%.2f");
+        ImGui::SeparatorText("ワープエフェクト");
+        ImGui::DragInt("スパーク数", &boss->params.teleportSparkCount, 1.0f, 0, 256);
+        ImGui::DragFloat("最小粒子サイズ", &boss->params.teleportSparkMinSize, 0.05f, 0.1f, 12.0f, "%.2f");
+        ImGui::DragFloat("最大粒子サイズ", &boss->params.teleportSparkMaxSize, 0.05f, 0.1f, 12.0f, "%.2f");
+        ImGui::DragFloat("広がり倍率", &boss->params.teleportSparkSpreadScale, 0.05f, 0.0f, 8.0f, "%.2f");
+        ImGui::DragFloat("粒子寿命", &boss->params.teleportSparkLifetime, 0.01f, 0.01f, 5.0f, "%.2f");
 
-        ImGui::SeparatorText("Teleport Slots");
-        ImGui::Text("Values are in grid units.");
+        ImGui::SeparatorText("ワープスロット");
+        ImGui::Text("値はグリッド単位です。");
         const auto drawTeleportSlots = [&](const char* sectionLabel, std::array<MidBoss2Component::TeleportSlotConfig, 3>& slots)
         {
             ImGui::PushID(sectionLabel);
@@ -224,13 +226,13 @@ void GameScene::DrawMidBoss2DebugWindow()
                 float actualHeightGrid = boss->params.teleportHoverBaseGrid + slot.hoverHeightOffsetGrid;
 
                 ImGui::PushID(index);
-                ImGui::Text("Slot %d", index + 1);
-                ImGui::DragFloat("Center X Grid", &slot.centerGridX, 0.1f, 0.0f, 120.0f, "%.2f");
-                if (ImGui::DragFloat("Teleport Height Grid", &actualHeightGrid, 0.1f, 0.0f, 20.0f, "%.2f"))
+                ImGui::Text("スロット %d", index + 1);
+                ImGui::DragFloat("中心Xグリッド", &slot.centerGridX, 0.1f, 0.0f, 120.0f, "%.2f");
+                if (ImGui::DragFloat("ワープ高さグリッド", &actualHeightGrid, 0.1f, 0.0f, 20.0f, "%.2f"))
                 {
                     slot.hoverHeightOffsetGrid = actualHeightGrid - boss->params.teleportHoverBaseGrid;
                 }
-                ImGui::Text("Height adjustment from base: %.2f", slot.hoverHeightOffsetGrid);
+                ImGui::Text("基準からの高さ補正: %.2f", slot.hoverHeightOffsetGrid);
                 ImGui::PopID();
             }
             ImGui::PopID();
@@ -238,18 +240,18 @@ void GameScene::DrawMidBoss2DebugWindow()
         if (ImGui::BeginTable("TeleportSlotsTable", 2, ImGuiTableFlags_SizingStretchSame))
         {
             ImGui::TableNextColumn();
-            drawTeleportSlots("Left", boss->params.leftTeleportSlots);
+            drawTeleportSlots("左", boss->params.leftTeleportSlots);
             ImGui::TableNextColumn();
-            drawTeleportSlots("Right", boss->params.rightTeleportSlots);
+            drawTeleportSlots("右", boss->params.rightTeleportSlots);
             ImGui::EndTable();
         }
-        ImGui::TextUnformatted("World view shows the actual teleport boxes.");
-        ImGui::TextUnformatted("Left = cyan, Right = orange, Beam = gold.");
-        ImGui::TextUnformatted("Gold = beam teleport. Red = clamped by arena bounds.");
+        ImGui::TextUnformatted("ワールド表示には実際のワープ枠が出ます。");
+        ImGui::TextUnformatted("左 = シアン、右 = オレンジ、ビーム = 金色。");
+        ImGui::TextUnformatted("金色 = ビームワープ。赤 = アリーナ境界で制限。");
 
-        ImGui::SeparatorText("Save");
-        ImGui::Text("File: %s", kTuningFilePath);
-        if (ImGui::Button("Save Boss2 Params"))
+        ImGui::SeparatorText("保存");
+        ImGui::Text("ファイル: %s", kTuningFilePath);
+        if (ImGui::Button("ボス2パラメータを保存"))
         {
             m_tuning.midBoss2Params = boss->params;
             ApplyMidBoss2TuningToActiveBosses();
@@ -263,11 +265,11 @@ void GameScene::DrawMidBoss2DebugWindow()
                 m_debug.hasTuningFileWriteTime = true;
             }
 
-            m_debug.saveStatusMessage = "Saved Boss2 params to assets/tuning.json.";
+            m_debug.saveStatusMessage = "ボス2パラメータを assets/tuning.json に保存しました。";
             m_debug.saveStatusTimer = 3.0f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("Reload Boss2 Params"))
+        if (ImGui::Button("ボス2パラメータを再読込"))
         {
             LoadTuningJsonFile();
             ApplyMidBoss2TuningToActiveBosses();
@@ -280,7 +282,7 @@ void GameScene::DrawMidBoss2DebugWindow()
                 m_debug.hasTuningFileWriteTime = true;
             }
 
-            m_debug.saveStatusMessage = "Reloaded Boss2 params from assets/tuning.json.";
+            m_debug.saveStatusMessage = "assets/tuning.json からボス2パラメータを再読込しました。";
             m_debug.saveStatusTimer = 3.0f;
         }
         if (!m_debug.saveStatusMessage.empty())
@@ -292,7 +294,7 @@ void GameScene::DrawMidBoss2DebugWindow()
         {
             if (const auto* beamTransform = boss->beamEntity->GetComponent<TransformComponent>())
             {
-                ImGui::Text("Beam Hitbox: %.1f, %.1f, %.1f, %.1f",
+                ImGui::Text("ビーム当たり判定: %.1f, %.1f, %.1f, %.1f",
                     beamTransform->x,
                     beamTransform->y,
                     beamTransform->width * beamTransform->scale,
@@ -303,7 +305,7 @@ void GameScene::DrawMidBoss2DebugWindow()
 
     if (!foundBoss)
     {
-        ImGui::TextUnformatted("MidBoss2 not found in this scene.");
+        ImGui::TextUnformatted("このシーンに MidBoss2 は見つかりません。");
     }
 
     ImGui::End();
@@ -312,41 +314,41 @@ void GameScene::DrawMidBoss2DebugWindow()
 void GameScene::DrawProgressSavePanel()
 {
     ImGui::SetNextWindowSize(ImVec2(360.0f, 170.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Save"))
+    if (!ImGui::Begin("セーブ"))
     {
         ImGui::End();
         return;
     }
 
-    ImGui::Text("File: %s", kGameProgressSavePath);
-    if (ImGui::Button("Save Now"))
+    ImGui::Text("ファイル: %s", kGameProgressSavePath);
+    if (ImGui::Button("今すぐ保存"))
     {
         SaveProgressState();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Reload Save"))
+    if (ImGui::Button("セーブを再読込"))
     {
         if (std::filesystem::exists(kGameProgressSavePath))
         {
-            m_debug.saveStatusMessage = "Reloading from save file...";
+            m_debug.saveStatusMessage = "セーブファイルを再読込しています...";
             m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
         }
         else
         {
-            m_debug.saveStatusMessage = "No save file found.";
+            m_debug.saveStatusMessage = "セーブファイルが見つかりません。";
         }
     }
     ImGui::SameLine();
-    if (ImGui::Button("Delete Save"))
+    if (ImGui::Button("セーブを削除"))
     {
         std::error_code ec;
         if (std::filesystem::remove(kGameProgressSavePath, ec) && !ec)
         {
-            m_debug.saveStatusMessage = "Deleted save file.";
+            m_debug.saveStatusMessage = "セーブファイルを削除しました。";
         }
         else
         {
-            m_debug.saveStatusMessage = "No save file to delete.";
+            m_debug.saveStatusMessage = "削除できるセーブファイルがありません。";
         }
     }
 
@@ -356,7 +358,7 @@ void GameScene::DrawProgressSavePanel()
         ImGui::TextWrapped("%s", m_debug.saveStatusMessage.c_str());
     }
 
-    ImGui::TextUnformatted("F5 save / F8 reload");
+    ImGui::TextUnformatted("F5 保存 / F8 再読込");
     ImGui::End();
 }
 

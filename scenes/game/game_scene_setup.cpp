@@ -305,8 +305,8 @@ namespace
         root["coyote_time"] = gCoyoteTimeSeconds;
         root["ground_snap_distance"] = gGroundSnapDistance;
         root["ground_step_up_height"] = gGroundStepUpHeight;
-        root["capture_width_tiles"] = gCaptureWidthTiles;
-        root["capture_height_tiles"] = gCaptureHeightTiles;
+        root["capture_frame_width_px"] = gCaptureFrameWidthPx;
+        root["capture_frame_height_px"] = gCaptureFrameHeightPx;
         root["capture_rapid_shot_limit"] = gCaptureRapidShotLimit;
         root["capture_rapid_window_seconds"] = gCaptureRapidWindowSeconds;
         root["capture_overheat_lock_seconds"] = gCaptureOverheatLockSeconds;
@@ -320,6 +320,132 @@ namespace
         root["jump_pad_max_tilt_degrees"] = gJumpPadMaxTiltDegrees;
         root["mid_boss_2"] = BuildMidBoss2TuningJson(GetActiveGameScene()->Tuning().midBoss2Params);
         return root;
+    }
+
+#define UI_JSON_FIELD(name) root[#name] = value.name
+#define UI_JSON_LOAD(name) value.name = root.value(#name, value.name)
+
+#define DEFINE_UI_JSON(Type, Fields) \
+    nlohmann::json ToJson(const Type& value) \
+    { \
+        nlohmann::json root; \
+        Fields(UI_JSON_FIELD); \
+        return root; \
+    } \
+    void FromJson(const nlohmann::json& root, Type& value) \
+    { \
+        if (!root.is_object()) return; \
+        Fields(UI_JSON_LOAD); \
+    }
+
+#define CAPTURE_FINDER_FIELDS(F) F(scaleMin); F(scaleMax); F(scaleStep); F(zoomBlendResponse)
+#define CAPTURE_OVERLAY_FIELDS(F) F(frameInset); F(cornerLength); F(cornerThickness); F(guideInset); F(frameBandThickness); F(vignetteEdge0); F(vignetteEdge1); F(vignetteEdge2); F(vignetteEdge3); F(vignetteBoost); F(warningPanelX); F(warningPanelY); F(warningPanelWidth); F(warningPanelHeight); F(warningTitleX); F(warningTitleY); F(warningCountX); F(warningCountY); F(warningTimerX); F(pulseInset)
+#define PHOTO_TRAY_FIELDS(F) F(slotStartX); F(slotStartY); F(slotWidth); F(slotHeight); F(slotGapX); F(previewPadding); F(previewScale); F(emptyTextX); F(emptyTextY); F(lockTextX); F(lockTextY); F(revealSpeed); F(revealThreshold)
+#define PHOTO_PREVIEW_FIELDS(F) F(lifetime); F(cardWidth); F(cardHeight); F(cardRightMargin); F(cardStartYOffset); F(cardCruiseY); F(cardShadowOffset); F(cardOutlineOffset); F(frameInset); F(imageHeight); F(imageTopStripHeight); F(imageMiddleStripY); F(cardRiseEase); F(cardPauseStart); F(cardPauseEnd); F(cardPauseAmplitude); F(cardOvershootY); F(popScale); F(orbLaunchXOffset); F(orbLaunchYOffset); F(orbControl1YOffset); F(orbControl2YOffset); F(orbControl2XOffset)
+#define HP_FIELDS(F) F(slotStartX); F(slotStartY); F(slotWidth); F(slotHeight); F(slotGapX); F(heartSize); F(heartYOffset); F(heartShadowOffsetX); F(heartShadowOffsetY); F(heartGlowExpand); F(heartLagGlowExpand); F(labelOffsetX); F(labelOffsetY); F(hpTextOffsetY); F(displayRiseSpeedDown); F(displayRiseSpeedUp); F(lagSpeed); F(flashDecaySpeed)
+#define PARTS_FIELDS(F) F(panelWidth); F(panelHeight); F(marginRight); F(marginBottom); F(iconX); F(iconY); F(iconSize); F(iconInnerInset); F(labelX); F(labelY); F(valueY)
+#define BOSS_FIELDS(F) F(panelWidth); F(barHeight); F(panelPadding); F(marginTop); F(panelExtraHeight); F(titleOffsetY); F(hpTextOffsetY)
+#define ATTACK_FIELDS(F) F(panelX); F(panelY); F(panelSize); F(iconRadius); F(titleX); F(titleY); F(countRightOffset); F(countBottomOffset)
+#define ESCAPE_FIELDS(F) F(panelWidth); F(panelHeight); F(rowStartOffset); F(rowHeight); F(rowPaddingX); F(rowBottomInset); F(titleX); F(titleY); F(helpY); F(rowTextX); F(rowTextY)
+#define MERCHANT_FIELDS(F) F(panelWidth); F(panelHeight); F(rowHeight); F(listLeftOffset); F(listTopOffset); F(listRightOffset); F(detailLeftOffset); F(detailTopOffset); F(detailBottomOffset); F(promptHalfWidth); F(promptHeight); F(promptTextX); F(promptTextY); F(promptRiseOffsetY); F(promptPulseSpeed)
+#define FILTER_FIELDS(F) F(panelWidth); F(panelHeight); F(marginRight); F(marginTop); F(swatchX); F(swatchY); F(swatchSize); F(titleX); F(titleY); F(effectY); F(hintX); F(hintY)
+#define BATTERY_FIELDS(F) F(panelWidth); F(panelHeight); F(offsetY); F(tileOffsetMultiplier); F(iconSize); F(iconInnerInset); F(labelX); F(labelY)
+#define GUIDE_FIELDS(F) F(x); F(yOffsetFromBottom)
+#define EDITOR_FIELDS(F) F(panelLeft); F(panelTop); F(panelRight); F(panelBottom)
+
+    DEFINE_UI_JSON(GameSceneUiCaptureFinderTuning, CAPTURE_FINDER_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiCaptureOverlayTuning, CAPTURE_OVERLAY_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiPhotoTrayTuning, PHOTO_TRAY_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiDevelopedPhotoPreviewTuning, PHOTO_PREVIEW_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiHpTuning, HP_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiPartsHudTuning, PARTS_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiBossHpTuning, BOSS_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiAttackCaptureTuning, ATTACK_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiEscapeMenuTuning, ESCAPE_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiMerchantTuning, MERCHANT_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiFilterPanelTuning, FILTER_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiBatteryCounterTuning, BATTERY_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiStageGuideTuning, GUIDE_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiMapEditorTuning, EDITOR_FIELDS)
+
+#undef EDITOR_FIELDS
+#undef GUIDE_FIELDS
+#undef BATTERY_FIELDS
+#undef FILTER_FIELDS
+#undef MERCHANT_FIELDS
+#undef ESCAPE_FIELDS
+#undef ATTACK_FIELDS
+#undef BOSS_FIELDS
+#undef PARTS_FIELDS
+#undef HP_FIELDS
+#undef PHOTO_PREVIEW_FIELDS
+#undef PHOTO_TRAY_FIELDS
+#undef CAPTURE_OVERLAY_FIELDS
+#undef CAPTURE_FINDER_FIELDS
+#undef DEFINE_UI_JSON
+#undef UI_JSON_LOAD
+#undef UI_JSON_FIELD
+
+    nlohmann::json BuildUiTuningJson(const GameSceneUiState& ui)
+    {
+        nlohmann::json root;
+        root["version"] = 1;
+        root["capture_frame_width_px"] = gCaptureFrameWidthPx;
+        root["capture_frame_height_px"] = gCaptureFrameHeightPx;
+        root["capture_finder_scale"] = ui.captureFinderScale;
+        root["camera_flash_enabled"] = ui.cameraFlash.enabled;
+        root["capture_finder"] = ToJson(ui.tuning.captureFinder);
+        root["capture_overlay"] = ToJson(ui.tuning.captureOverlay);
+        root["photo_tray"] = ToJson(ui.tuning.photoTray);
+        root["developed_photo_preview"] = ToJson(ui.tuning.developedPhotoPreview);
+        root["hp"] = ToJson(ui.tuning.hp);
+        root["parts_hud"] = ToJson(ui.tuning.partsHud);
+        root["boss_hp"] = ToJson(ui.tuning.bossHp);
+        root["attack_capture"] = ToJson(ui.tuning.attackCapture);
+        root["escape_menu"] = ToJson(ui.tuning.escapeMenu);
+        root["merchant"] = ToJson(ui.tuning.merchant);
+        root["filter_panel"] = ToJson(ui.tuning.filterPanel);
+        root["battery_counter"] = ToJson(ui.tuning.batteryCounter);
+        root["stage_guide"] = ToJson(ui.tuning.stageGuide);
+        root["map_editor"] = ToJson(ui.tuning.mapEditor);
+        return root;
+    }
+
+    template<typename T>
+    void LoadUiSection(const nlohmann::json& root, const char* key, T& value)
+    {
+        const auto it = root.find(key);
+        if (it != root.end())
+        {
+            FromJson(*it, value);
+        }
+    }
+
+    void ApplyUiTuningJson(const nlohmann::json& root, GameSceneUiState& ui)
+    {
+        if (!root.is_object())
+        {
+            return;
+        }
+
+        gCaptureFrameWidthPx = root.value("capture_frame_width_px", gCaptureFrameWidthPx);
+        gCaptureFrameHeightPx = root.value("capture_frame_height_px", gCaptureFrameHeightPx);
+        ui.captureFinderScale = root.value("capture_finder_scale", ui.captureFinderScale);
+        ui.cameraFlash.enabled = root.value("camera_flash_enabled", ui.cameraFlash.enabled);
+        LoadUiSection(root, "capture_finder", ui.tuning.captureFinder);
+        LoadUiSection(root, "capture_overlay", ui.tuning.captureOverlay);
+        LoadUiSection(root, "photo_tray", ui.tuning.photoTray);
+        LoadUiSection(root, "developed_photo_preview", ui.tuning.developedPhotoPreview);
+        LoadUiSection(root, "hp", ui.tuning.hp);
+        LoadUiSection(root, "parts_hud", ui.tuning.partsHud);
+        LoadUiSection(root, "boss_hp", ui.tuning.bossHp);
+        LoadUiSection(root, "attack_capture", ui.tuning.attackCapture);
+        LoadUiSection(root, "escape_menu", ui.tuning.escapeMenu);
+        LoadUiSection(root, "merchant", ui.tuning.merchant);
+        LoadUiSection(root, "filter_panel", ui.tuning.filterPanel);
+        LoadUiSection(root, "battery_counter", ui.tuning.batteryCounter);
+        LoadUiSection(root, "stage_guide", ui.tuning.stageGuide);
+        LoadUiSection(root, "map_editor", ui.tuning.mapEditor);
     }
 
 }
@@ -618,8 +744,8 @@ namespace game_scene_detail
         gCoyoteTimeSeconds = root.value("coyote_time", gCoyoteTimeSeconds);
         gGroundSnapDistance = root.value("ground_snap_distance", gGroundSnapDistance);
         gGroundStepUpHeight = root.value("ground_step_up_height", gGroundStepUpHeight);
-        gCaptureWidthTiles = root.value("capture_width_tiles", gCaptureWidthTiles);
-        gCaptureHeightTiles = root.value("capture_height_tiles", gCaptureHeightTiles);
+        gCaptureFrameWidthPx = root.value("capture_frame_width_px", gCaptureFrameWidthPx);
+        gCaptureFrameHeightPx = root.value("capture_frame_height_px", gCaptureFrameHeightPx);
         gCaptureRapidShotLimit = root.value("capture_rapid_shot_limit", gCaptureRapidShotLimit);
         gCaptureRapidWindowSeconds = root.value("capture_rapid_window_seconds", gCaptureRapidWindowSeconds);
         gCaptureOverheatLockSeconds = root.value("capture_overheat_lock_seconds", gCaptureOverheatLockSeconds);
@@ -1045,6 +1171,7 @@ void GameScene::LoadTuningState()
 {
     const ActiveGameSceneScope activeScene(*this);
     LoadTuningJsonFile();
+    LoadUiTuningState();
     std::error_code ec;
     const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
     if (!ec)
@@ -1052,6 +1179,73 @@ void GameScene::LoadTuningState()
         m_debug.tuningFileWriteTime = writeTime;
         m_debug.hasTuningFileWriteTime = true;
     }
+}
+
+bool GameScene::SaveUiTuningState()
+{
+    std::ofstream stream(kUiTuningFilePath, std::ios::binary | std::ios::trunc);
+    if (!stream.is_open())
+    {
+        m_debug.saveStatusMessage = "UI設定の保存に失敗しました。";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed to open UI tuning file for writing.");
+        return false;
+    }
+
+    try
+    {
+        stream << BuildUiTuningJson(m_ui).dump(2);
+    }
+    catch (...)
+    {
+        m_debug.saveStatusMessage = "UI設定の保存中にエラーが発生しました。";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed to serialize UI tuning settings.");
+        return false;
+    }
+
+    if (!stream.good())
+    {
+        m_debug.saveStatusMessage = "UI設定を最後まで書き込めませんでした。";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed while writing UI tuning settings.");
+        return false;
+    }
+
+    m_debug.saveStatusMessage = "UI設定を assets/ui_tuning.json に保存しました。";
+    m_debug.saveStatusTimer = 3.0f;
+    Logger::Info("Saved UI tuning settings to assets/ui_tuning.json");
+    return true;
+}
+
+bool GameScene::LoadUiTuningState()
+{
+    std::ifstream stream(kUiTuningFilePath, std::ios::binary);
+    if (!stream.is_open())
+    {
+        m_debug.saveStatusMessage = "UI設定ファイルはまだありません。";
+        m_debug.saveStatusTimer = 3.0f;
+        return false;
+    }
+
+    nlohmann::json root;
+    try
+    {
+        stream >> root;
+        ApplyUiTuningJson(root, m_ui);
+    }
+    catch (...)
+    {
+        m_debug.saveStatusMessage = "UI設定ファイルの読込に失敗しました。";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed to load UI tuning settings.");
+        return false;
+    }
+
+    m_debug.saveStatusMessage = "UI設定を assets/ui_tuning.json から読み込みました。";
+    m_debug.saveStatusTimer = 3.0f;
+    Logger::Info("Loaded UI tuning settings from assets/ui_tuning.json");
+    return true;
 }
 
 bool GameScene::LoadProgressStateFromDisk()

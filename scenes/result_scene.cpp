@@ -16,17 +16,17 @@ namespace
 {
     const char* ToReasonLabel(GameEndReason reason)
     {
-        switch (reason)
-        {
-        case GameEndReason::GoalReached:
-            return "Clear";
+    switch (reason)
+    {
+    case GameEndReason::GoalReached:
+            return "クリア";
         case GameEndReason::TimeUp:
-            return "Time Up";
+            return "時間切れ";
         case GameEndReason::HpZero:
-            return "HP Zero";
+            return "HP0";
         case GameEndReason::None:
         default:
-            return "No Result";
+            return "結果なし";
         }
     }
 }
@@ -83,14 +83,14 @@ void ResultScene::Draw()
 void ResultScene::DrawDebugUI()
 {
     const GameSessionState& session = GameSession_Get();
-    ImGui::Begin("Result Scene");
-    ImGui::Text("Prototype result screen");
+    ImGui::Begin("リザルト");
+    ImGui::Text("試作版のリザルト画面です");
     ImGui::Text("Result: %s", ToReasonLabel(session.endReason));
     ImGui::Text("HP: %d / %d", session.currentHp, session.maxHp);
-    ImGui::Text("Time Remaining: %.1f / %.1f", session.timeRemaining, session.timeLimit);
-    ImGui::Text("Press Enter / Space / Gamepad A to return to title");
-    ImGui::Text("Press R to retry the game scene");
-    ImGui::Text("Prompt Visible: %s", m_showPrompt ? "Yes" : "No");
+    ImGui::Text("残り時間: %.1f / %.1f", session.timeRemaining, session.timeLimit);
+    ImGui::Text("Enter / Space / ゲームパッドA でタイトルへ戻る");
+    ImGui::Text("R でゲームシーンをリトライ");
+    ImGui::Text("プロンプト表示: %s", m_showPrompt ? "あり" : "なし");
     ImGui::End();
 }
 

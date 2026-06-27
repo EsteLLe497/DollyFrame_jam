@@ -673,9 +673,19 @@ public:
                 float a = 1.0f;
                 const bool useSpecialTile2Texture = tileValue == 2 && tile2TextureId >= 0;
                 const bool useSpecialTile3Texture = tileValue == 3 && tile3TextureId >= 0;
+                const bool isConnectableTile = IsConnectableTileValue(tileValue);
                 if (!useSpecialTile2Texture && !useSpecialTile3Texture)
                 {
                     GetSquareTileTint(tileValue, r, g, b, a);
+                    // 地形タイル全体を暗くして、背景と足場のコントラストを作る。
+                    if (isConnectableTile)
+                    {
+                        //このパラメータを変更することで地面の彩度変わります（下げると黒くなる）
+                        constexpr float kTileBrightness = 0.5f;
+                        r *= kTileBrightness;
+                        g *= kTileBrightness;
+                        b *= kTileBrightness;
+                    }
                 }
                 Shader_SetTint(r, g, b, a);
                 if (useSpecialTile2Texture || useSpecialTile3Texture)

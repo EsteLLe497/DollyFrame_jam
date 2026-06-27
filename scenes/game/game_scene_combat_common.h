@@ -17,6 +17,10 @@ namespace game_scene_combat_system
 inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagEnemy = "Enemy";
 inline constexpr float kMidBoss2SpearSpeed = 800.0f;
+inline constexpr float kMidBoss2SpearFormationSpeedMultiplier = 1.6f;
+inline constexpr float kMidBoss2SpearPullbackRatio = 0.18f;
+inline constexpr float kMidBoss2SpearLaunchShakeSeconds = 0.08f;
+inline constexpr float kMidBoss2SpearLaunchShakeAmplitude = 6.0f;
 
 inline bool HasTag(const Entity& entity, const char* value)
 {
@@ -407,17 +411,17 @@ inline const char* ToMidBoss2StateLabel(MidBoss2State state)
 {
     switch (state)
     {
-    case MidBoss2State::Idle: return "Idle";
-    case MidBoss2State::SpearJump: return "SpearJump";
-    case MidBoss2State::SpearThrow: return "SpearThrow";
-    case MidBoss2State::SpearLanding: return "SpearLanding";
-    case MidBoss2State::SpearCooldown: return "SpearCooldown";
-    case MidBoss2State::BeamCharge: return "BeamCharge";
-    case MidBoss2State::BeamFire: return "BeamFire";
-    case MidBoss2State::BeamCooldown: return "BeamCooldown";
-    case MidBoss2State::Damaged: return "Damaged";
-    case MidBoss2State::Dead: return "Dead";
-    default: return "Unknown";
+    case MidBoss2State::Idle: return "待機";
+    case MidBoss2State::SpearJump: return "ワープ";
+    case MidBoss2State::SpearThrow: return "攻撃";
+    case MidBoss2State::SpearLanding: return "着地";
+    case MidBoss2State::SpearCooldown: return "再配置";
+    case MidBoss2State::BeamCharge: return "チャージ";
+    case MidBoss2State::BeamFire: return "ビーム発射";
+    case MidBoss2State::BeamCooldown: return "再配置";
+    case MidBoss2State::Damaged: return "被弾";
+    case MidBoss2State::Dead: return "撃破";
+    default: return "不明";
     }
 }
 

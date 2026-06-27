@@ -3853,6 +3853,8 @@ inline void UpdateEnemies(
                     spearComponent.launchDelay = boss->params.spearInterval;
                     spearComponent.launchTimer = 0.0f;
                     spearComponent.travelDistance = 0.0f;
+                    spearComponent.spawnX = spawnX;
+                    spearComponent.spawnY = spawnY;
                     boss->lastSpearDirX = dirX;
                     boss->lastSpearDirY = dirY;
                     if (auto* spearTransform = spear->GetComponent<TransformComponent>())

@@ -1022,6 +1022,9 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     }
 
     const GameSessionState session = GameSession_Get();
+    const GameSceneUiTuningState uiTuning = m_ui.tuning;
+    const float captureFinderScale = m_ui.captureFinderScale;
+    const bool cameraFlashEnabled = m_ui.cameraFlash.enabled;
     m_lifecycle.currentMapCsvPath = destinationMapCsv;
     m_lifecycle.lastStageTransitionMarker = marker;
     RefreshStageRenderProfile();
@@ -1031,6 +1034,9 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_player = GameScenePlayerState{};
     m_flow = GameSceneFlowState{};
     m_ui = GameSceneUiState{};
+    m_ui.tuning = uiTuning;
+    m_ui.captureFinderScale = captureFinderScale;
+    m_ui.cameraFlash.enabled = cameraFlashEnabled;
     m_effects = GameSceneEffectsState{};
     m_mapEditor.active = false;
     m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;

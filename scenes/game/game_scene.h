@@ -94,6 +94,8 @@ private:
     void UpdateShieldBossBgmCue();
     void DrawLoadingScreen() const;
     void LoadTuningState();
+    bool SaveUiTuningState();
+    bool LoadUiTuningState();
     void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
@@ -234,6 +236,7 @@ private:
     void SpawnRushSmokeEffect(float centerX, float groundY, float direction);
     void SpawnLightLandingEffect(float centerX, float groundY, float width);
     void SpawnBossRoarEffect(float centerX, float groundY, float width);
+    void SpawnMidBoss2SpearFadeEffect(float centerX, float centerY, float width, float height);
     void SpawnTeleportTrailEffect(
         float fromX,
         float fromY,
@@ -249,6 +252,7 @@ private:
     void UpdateEffects(float deltaTime);
     void UpdateTuningPanel();
     void DrawTuningPanel();
+    void DrawUiAdjustmentWindow();
     void DrawMidBoss2DebugWindow();
     void DrawProgressSavePanel();
     void DrawPitRestartOverlay() const;
