@@ -2005,7 +2005,7 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::fabs(dx);
             bool walkerMoved = false;
-            constexpr float kWalkerSpeed = 120.0f;
+            constexpr float kWalkerSpeed = 150.0f;
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
             constexpr float kWalkerStopDistance = 48.0f;
@@ -2013,8 +2013,8 @@ inline void UpdateEnemies(
             constexpr float kWalkerAttackFps = 18.0f;
             constexpr int kWalkerAttackFirstFrame = 24;
             constexpr int kWalkerAttackChargeFrame = 28;
-            constexpr float kWalkerAttackChargeSeconds = 1.0f;
-            constexpr int kWalkerAttackHitFrame = 34;
+            constexpr float kWalkerAttackChargeSeconds = 0.20f;
+            constexpr int kWalkerAttackHitFrame = 32;
             constexpr int kWalkerAttackLastFrame = 39;
             constexpr int kWalkerAttackCaptureStartFrame = kWalkerAttackFirstFrame;
             constexpr int kWalkerAttackCaptureEndFrame = kWalkerAttackLastFrame;
@@ -2217,7 +2217,7 @@ inline void UpdateEnemies(
             const float dist = std::sqrt(dx * dx + dy * dy);
 
             const bool inDetectRange = dx <= 0.0f && dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
-            if (!inDetectRange)
+            if (!inDetectRange && enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
                 enemy->attackTimer = enemy->attackCooldown;
                 enemy->attackFrameTriggered = false;
@@ -2256,7 +2256,7 @@ inline void UpdateEnemies(
             {
                 enemy->attackFrameTriggered = true;
 
-                constexpr float kBulletSpeed = 300.0f;
+                constexpr float kBulletSpeed = 450.0f;
                 const float velX = -kBulletSpeed;
                 const float velY = 0.0f;
 

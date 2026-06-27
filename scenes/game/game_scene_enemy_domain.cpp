@@ -29,11 +29,11 @@ namespace
     inline constexpr int kEnemy2IdleSheetColumns = 10;
     inline constexpr int kEnemy2IdleSheetRows = 11;
     inline constexpr int kEnemy2IdleFrameCount = 110;
-    inline constexpr float kEnemy2IdleFps = 12.0f;
+    inline constexpr float kEnemy2IdleFps = 48.0f;
     inline constexpr int kEnemy2AttackSheetColumns = 10;
     inline constexpr int kEnemy2AttackSheetRows = 11;
     inline constexpr int kEnemy2AttackFrameCount = 80;
-    inline constexpr float kEnemy2AttackFps = 18.0f;
+    inline constexpr float kEnemy2AttackFps = 30.0f;
     inline constexpr int kBoss1MoveSheetColumns = 5;
     inline constexpr int kBoss1MoveSheetRows = 6;
     inline constexpr int kBoss1MoveFrameCount = 30;
@@ -1883,26 +1883,14 @@ void GameScene::HandleEnemyPlayerCollisions(Entity& player)
     }
 }
 
-void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
+void GameScene::HandleWalkerMeleeAttackCollisions()
 {
-    const auto* playerTransform = player.GetComponent<TransformComponent>();
-
     for (Entity* entity : m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack))
     {
         if (!entity) continue;
 
         const auto* meleeTransform = entity->GetComponent<TransformComponent>();
         if (!meleeTransform) continue;
-
-        // プレイヤーへのダメージ
-        if (playerTransform && IntersectsRect(*playerTransform, *meleeTransform))
-        {
-            ApplyHazardDamageToPlayer(
-                player,
-                entity,
-                "GameScene player damaged by WalkerMeleeAttack",
-                1);
-        }
 
         // 敵へのダメージ
         for (Entity* target : m_world.EntitiesByTag(EntityTag::Enemy))

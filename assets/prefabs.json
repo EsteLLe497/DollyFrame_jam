@@ -636,7 +636,7 @@
         "enabled": true,
         "archetype": "walker",
         "contactDamage": 1,
-        "detectRange": 192.0,
+        "detectRange": 336.0,
         "attackRange": 48.0,
         "attackCooldown": 2.0,
         "detectHeight": 96.0
@@ -663,8 +663,8 @@
         "enabled": true,
         "archetype": "ranged",
         "contactDamage": 1,
-        "detectRange": 336.0,
-        "attackRange": 336.0,
+        "detectRange": 480.0,
+        "attackRange": 480.0,
         "attackCooldown": 3.0,
         "detectHeight": 96.0
       }
