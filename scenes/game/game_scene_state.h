@@ -51,6 +51,21 @@ struct LaserSparkParticle
     float b = 0.28f;
 };
 
+struct MidBoss2SpearMistParticle
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    float life = 0.0f;
+    float maxLife = 0.0f;
+    float sizeScale = 1.0f;
+    float pulsePhase = 0.0f;
+    float r = 0.70f;
+    float g = 0.95f;
+    float b = 1.0f;
+};
+
 struct SlamDustParticle
 {
     float x = 0.0f;
@@ -442,6 +457,7 @@ struct GameSceneEffectsState
 {
     std::vector<BarrelDebrisParticle> barrelDebris;
     std::vector<LaserSparkParticle> laserSparks;
+    std::vector<MidBoss2SpearMistParticle> midBoss2SpearMist;
     std::vector<SlamDustParticle> slamDust;
     std::vector<BeamShockwaveParticle> beamShockwaves;
 };

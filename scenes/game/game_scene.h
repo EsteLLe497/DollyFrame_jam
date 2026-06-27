@@ -236,6 +236,7 @@ private:
     void SpawnRushSmokeEffect(float centerX, float groundY, float direction);
     void SpawnLightLandingEffect(float centerX, float groundY, float width);
     void SpawnBossRoarEffect(float centerX, float groundY, float width);
+    void SpawnMidBoss2SpearFadeEffect(float centerX, float centerY, float width, float height);
     void SpawnTeleportTrailEffect(
         float fromX,
         float fromY,

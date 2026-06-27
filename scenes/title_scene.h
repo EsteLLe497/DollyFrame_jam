@@ -21,15 +21,18 @@ private:
     {
         Main,
         Options,
+        StageSelect,
     };
 
     void DrawBackdrop() const;
     void DrawMenu() const;
     void DrawMainMenu() const;
     void DrawOptionsMenu() const;
+    void DrawStageSelectMenu() const;
     void UpdateMenuInput();
     void ConfirmMainMenu();
     void ConfirmOptionsMenu();
+    void ConfirmStageSelectMenu();
     void PublishSceneChange(const char* sceneId);
     void ToggleBgm();
 
@@ -40,6 +43,7 @@ private:
     bool m_showPrompt;
     MenuMode m_menuMode;
     int m_menuSelection;
+    int m_stageSelection;
     int m_optionsSelection;
     bool m_bgmEnabled;
     float m_bgmRestoreVolume;

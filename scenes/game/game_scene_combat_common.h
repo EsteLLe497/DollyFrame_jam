@@ -17,6 +17,10 @@ namespace game_scene_combat_system
 inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagEnemy = "Enemy";
 inline constexpr float kMidBoss2SpearSpeed = 800.0f;
+inline constexpr float kMidBoss2SpearFormationSpeedMultiplier = 1.6f;
+inline constexpr float kMidBoss2SpearPullbackRatio = 0.18f;
+inline constexpr float kMidBoss2SpearLaunchShakeSeconds = 0.08f;
+inline constexpr float kMidBoss2SpearLaunchShakeAmplitude = 6.0f;
 
 inline bool HasTag(const Entity& entity, const char* value)
 {
