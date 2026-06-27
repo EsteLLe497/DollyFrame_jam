@@ -51,6 +51,18 @@ inline void UpdateWalkerSpriteAnimation(Entity& entity, const EnemyComponent& en
     const char* clipName = enemy.GetAIState() == EnemyComponent::AIState::Attack
         ? "attack"
         : (moving ? "move" : "idle");
+    if (enemy.GetAIState() != EnemyComponent::AIState::Attack)
+    {
+        animation->SetPlaybackSpeed(1.0f);
+        if (auto* transform = entity.GetComponent<TransformComponent>())
+        {
+            constexpr float kWalkerVisualScale = 1.55f;
+            constexpr float kWalkerVisualOffsetY = -22.0f;
+            sprite->SetRenderOffset(
+                transform->width * (1.0f - kWalkerVisualScale) * 0.5f,
+                kWalkerVisualOffsetY);
+        }
+    }
     animation->Play(clipName);
 }
 
