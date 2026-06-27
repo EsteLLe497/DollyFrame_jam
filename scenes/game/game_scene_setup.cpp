@@ -60,6 +60,13 @@ namespace
         return value;
     }
 
+    bool IsForestStageMapPath(const std::string& mapPath)
+    {
+        std::filesystem::path path(mapPath);
+        const std::string stem = ToLowerCopy(path.stem().string());
+        return stem.find("forest") != std::string::npos;
+    }
+
     std::string ResolveDefaultTileTextureKeyForMapPath(const std::string& mapCsvPath)
     {
         return "tile_forest_ground";
@@ -453,6 +460,20 @@ namespace
 void GameScene::RefreshStageRenderProfile()
 {
     m_lifecycle.darknessStageEnabled = IsDarknessStageMapPath(m_lifecycle.currentMapCsvPath);
+    m_lifecycle.forestStageEnabled = IsForestStageMapPath(m_lifecycle.currentMapCsvPath);
+    if (m_lifecycle.forestStageEnabled)
+    {
+        DirectXSetPostProcessVignette(0.34f, 0.43f, 0.34f, 0.58f);
+        return;
+    }
+
+    DirectXSetPostProcessVignette(0.08f, 0.72f, 0.72f, 0.70f);
+    DirectXSetPostProcessPlayerLight(
+        static_cast<float>(kVirtualScreenWidth) * 0.5f,
+        static_cast<float>(kVirtualScreenHeight) * 0.5f,
+        0.0f,
+        120.0f,
+        170.0f);
 }
 
 void GameScene::BuildCameraMarkers()

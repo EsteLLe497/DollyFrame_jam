@@ -681,7 +681,7 @@ public:
                     if (isConnectableTile)
                     {
                         //このパラメータを変更することで地面の彩度変わります（下げると黒くなる）
-                        constexpr float kTileBrightness = 0.5f;
+                        constexpr float kTileBrightness = 0.35f;
                         r *= kTileBrightness;
                         g *= kTileBrightness;
                         b *= kTileBrightness;

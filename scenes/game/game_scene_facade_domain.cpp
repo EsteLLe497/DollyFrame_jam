@@ -243,6 +243,14 @@ void GameScene::DrawWorldAndUiLayers()
 {
     const bool hideUiForIntroCinematic = IsMidBoss3IntroCinematicActive() || IsShieldBossIntroCinematicActive();
 
+    DrawGameWorldLayers();
+    // UIをビネット対象から外すため、ワールドだけを先にポストプロセス合成する。
+    DirectXCompositeSceneToBackBuffer(static_cast<float>(GetNowCount()) * 0.001f);
+    DrawGameUiLayers(hideUiForIntroCinematic);
+}
+
+void GameScene::DrawGameWorldLayers()
+{
     DrawBackdrop();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Shadow);
@@ -267,6 +275,10 @@ void GameScene::DrawWorldAndUiLayers()
     {
         DrawMarkerLightOutlines();
     }
+}
+
+void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
+{
     if (hideUiForIntroCinematic)
     {
         DrawShieldBossIntroCurtainOverlay();

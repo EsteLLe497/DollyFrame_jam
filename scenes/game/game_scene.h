@@ -80,7 +80,10 @@ private:
     void TickEntities(float effectiveGameplayDeltaTime);
     void FinalizeGameplayFrame(float effectiveGameplayDeltaTime);
     void PrepareFrameRendering();
+    void UpdatePostProcessPlayerLight() const;
     void DrawWorldAndUiLayers();
+    void DrawGameWorldLayers();
+    void DrawGameUiLayers(bool hideUiForIntroCinematic);
     void ResetFrameRendering();
     bool IsMidBoss3IntroCinematicActive() const;
     bool IsShieldBossIntroCinematicActive() const;

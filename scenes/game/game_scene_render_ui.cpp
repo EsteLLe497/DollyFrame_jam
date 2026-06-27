@@ -2643,7 +2643,7 @@ void GameScene::DrawBackdropBaseInView(
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
 
     // BG_Forest.png だけ少し光度を落とす黒膜
-    constexpr int kForestBaseDarkenAlpha = 150; // 0-255。32=薄め、64=やや暗め
+    constexpr int kForestBaseDarkenAlpha = 75; // 0-255。32=薄め、64=やや暗め
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, kForestBaseDarkenAlpha);
     DrawBox(
         static_cast<int>(std::round(viewOriginX)),
