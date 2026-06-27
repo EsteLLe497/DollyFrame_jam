@@ -1858,7 +1858,7 @@ void GameScene::InitializeStageEntities()
                 }
             }
         }
-        else if (marker == 'M')
+        else if (marker == ';')
         {
             constexpr float kMerchantSignAspect = 401.0f / 1172.0f;
             const float merchantX = static_cast<float>(column) * tileSize;

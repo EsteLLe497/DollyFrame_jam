@@ -1005,33 +1005,38 @@ void GameScene::HandleAttackHits()
     const float playerTop = playerTransform->y;
     const float playerBottom = playerTransform->y + playerTransform->height * playerTransform->scale;
 
-    for (Entity* entity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
+    auto handleEnemyAttackHits = [&](EntityTag tag)
     {
-        if (!entity)
+        for (Entity* entity : m_world.EntitiesByTag(tag))
         {
-            continue;
-        }
+            if (!entity)
+            {
+                continue;
+            }
 
-        const auto* enemy = entity->GetComponent<EnemyComponent>();
-        if (enemy && enemy->IsEnabled() && enemy->attackRectActive)
-        {
+            const auto* enemy = entity->GetComponent<EnemyComponent>();
+            if (!enemy || !enemy->IsEnabled() || !enemy->attackRectActive)
+            {
+                continue;
+            }
+
             const float attackLeft = enemy->attackRectX;
             const float attackRight = enemy->attackRectX + enemy->attackRectWidth;
             const float attackTop = enemy->attackRectY;
             const float attackBottom = enemy->attackRectY + enemy->attackRectHeight;
 
-            const bool intersects =
-                playerLeft < attackRight &&
+            if (playerLeft < attackRight &&
                 playerRight > attackLeft &&
                 playerTop < attackBottom &&
-                playerBottom > attackTop;
-
-            if (intersects)
+                playerBottom > attackTop)
             {
                 HandlePlayerDamage(*player, entity, "GameScene player damaged by melee attack");
             }
         }
-    }
+    };
+
+    handleEnemyAttackHits(EntityTag::Enemy);
+    handleEnemyAttackHits(EntityTag::SepiaRubble);
 }
 
 void GameScene::UpdateGoalVisual(float deltaTime)

@@ -36,6 +36,10 @@ void GameScene::ResolveGameplayOutcomes(float gameplayDeltaTime)
 {
     UpdateGoalVisual(gameplayDeltaTime);
     HandleWorldInteractions();
+    if (!m_flow.pitRestartActive && !m_flow.resultQueued)
+    {
+        HandleAttackHits();
+    }
     RemoveDefeatedEnemies();
     UpdateEffects(gameplayDeltaTime);
 }
