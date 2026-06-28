@@ -154,6 +154,39 @@ void FallingRockComponent::DrawDebugUI()
     ImGui::Text("Rubble Active: %s", rubbleActive ? "Yes" : "No");
 }
 
+HangingGravityObjectComponent::HangingGravityObjectComponent(
+    float gravityValue,
+    float maxFallSpeedValue,
+    int contactDamageValue)
+    : gravity(gravityValue)
+    , maxFallSpeed(maxFallSpeedValue)
+    , contactDamage(std::max(1, contactDamageValue))
+{
+}
+
+void HangingGravityObjectComponent::OnAttach(GameObject& owner)
+{
+    MonoBehaviour::OnAttach(owner);
+
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        spawnX = transform->x;
+        spawnY = transform->y;
+        wireX = transform->x + transform->width * transform->scale * 0.5f;
+        wireTopY = transform->y;
+    }
+}
+
+void HangingGravityObjectComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Hanging Gravity Object");
+    ImGui::Text("Velocity Y: %.1f", velocityY);
+    ImGui::Text("Active: %s", active ? "Yes" : "No");
+    ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
+    ImGui::Text("Wire Attached: %s", wireAttached ? "Yes" : "No");
+    ImGui::Text("Wire Length: %.1f", wireLength);
+}
+
 JumpPadComponent::JumpPadComponent(
     float maxTiltRadians,
     float tiltSpeed,

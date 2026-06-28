@@ -1956,6 +1956,7 @@ void GameScene::InitializeStageEntities()
     RefreshLogsFromMarkers();
     RefreshJumpPadsFromMarkers();
     ReflashFallingRockfromMarkers();
+    RefreshHangingGravityObjectsFromMarkers();
     RefreshMarkerLightsFromMarkers();
     RefreshStageLightsFromMarkers();
 

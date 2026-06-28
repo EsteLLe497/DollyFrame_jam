@@ -787,6 +787,7 @@ void GameScene::RefreshMarkerDrivenSystems()
     RefreshLogsFromMarkers();
     RefreshJumpPadsFromMarkers();
     ReflashFallingRockfromMarkers();
+    RefreshHangingGravityObjectsFromMarkers();
     RefreshMarkerLightsFromMarkers();
     RefreshStageLightsFromMarkers();
     RefreshLaserTurretsFromMarkers();
@@ -814,6 +815,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     const bool logChanged = markerChanged(IsLogMarker);
     const bool jumpPadChanged = markerChanged(IsJumpPadMarker);
     const bool fallingRockChanged = markerChanged(IsFallingRockMarker);
+    const bool hangingGravityObjectChanged = markerChanged(IsHangingGravityObjectMarker);
     const bool markerLightChanged = markerChanged(IsMarkerLightMarker);
     const bool stageLightChanged = markerChanged(IsStageLightMarker);
     const bool linkedGimmickMarkerChanged =
@@ -833,6 +835,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     if (logChanged) RefreshLogsFromMarkers();
     if (jumpPadChanged) RefreshJumpPadsFromMarkers();
     if (fallingRockChanged) ReflashFallingRockfromMarkers();
+    if (hangingGravityObjectChanged) RefreshHangingGravityObjectsFromMarkers();
     if (markerLightChanged) RefreshMarkerLightsFromMarkers();
     if (stageLightChanged) RefreshStageLightsFromMarkers();
     if (linkedGimmickMarkerChanged) RefreshLinkedGimmicksFromMarkers();
@@ -2016,6 +2019,82 @@ void GameScene::ReflashFallingRockfromMarkers()
                 barrel->rubbleActive = false;
             }
             m_world.Spawn(std::move(fallingRock));
+        }
+    }
+}
+
+void GameScene::RefreshHangingGravityObjectsFromMarkers()
+{
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
+            {
+                return true;
+            }
+            return HasTag(*entity, kTagHangingGravityObject);
+        });
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    const auto computeWireTopY = [&](int column, int row) -> float
+    {
+        for (int scanRow = row - 1; scanRow >= 0; --scanRow)
+        {
+            if (m_tileMap.GetTile(column, scanRow) == 1)
+            {
+                return static_cast<float>(scanRow + 1) * tileSize;
+            }
+        }
+
+        return 0.0f;
+    };
+
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = m_tileMap.GetMarker(column, row);
+            if (!IsHangingGravityObjectMarker(marker))
+            {
+                continue;
+            }
+
+            const float objectWidth = tileSize * 5.0f;
+            const float objectHeight = tileSize;
+            const float objectX = static_cast<float>(column - 2) * tileSize;
+            const float objectY = static_cast<float>(row) * tileSize;
+            const float wireX = static_cast<float>(column) * tileSize + tileSize * 0.5f;
+            const float wireTopY = computeWireTopY(column, row);
+            const float wireLength = std::max(0.0f, objectY - wireTopY);
+
+            auto hangingObject = std::make_unique<Entity>();
+            hangingObject->AddComponent<TagComponent>(kTagHangingGravityObject);
+            hangingObject->AddComponent<TransformComponent>(
+                objectX,
+                objectY,
+                objectWidth,
+                objectHeight);
+            hangingObject->AddComponent<TintComponent>(1.0f, 0.35f, 0.75f, 1.0f);
+            hangingObject->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            auto& hanging = hangingObject->AddComponent<HangingGravityObjectComponent>(
+                gBarrelGravity,
+                gBarrelMaxFallSpeed,
+                gBarrelContactDamage);
+            hanging.spawnX = objectX;
+            hanging.spawnY = objectY;
+            hanging.wireX = wireX;
+            hanging.wireTopY = wireTopY;
+            hanging.wireLength = wireLength;
+            hanging.wireWidth = tileSize * 0.2f;
+            hanging.wireAttached = true;
+            hanging.active = false;
+            hanging.destroyed = false;
+            m_world.Spawn(std::move(hangingObject));
         }
     }
 }

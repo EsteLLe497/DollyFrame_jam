@@ -730,7 +730,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if ((HasTag(*entity, EntityTag::LaserBeam) && !isCapturableBossBeam) ||
             (HasTag(*entity, EntityTag::LaserTurret) &&
                 (!bossBeamCapture || !bossBeamCapture->captureEnabled)) ||
-            HasTag(*entity, EntityTag::StageLight))
+            HasTag(*entity, EntityTag::StageLight) ||
+            HasTag(*entity, EntityTag::HangingGravityObject))
         {
             continue;
         }

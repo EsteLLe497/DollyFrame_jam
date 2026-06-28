@@ -404,6 +404,7 @@ inline constexpr const char* kTagBattery = "Battery";
 inline constexpr const char* kTagBatteryGenerator = "BatteryGenerator";
 inline constexpr const char* kTagLog = "Log";
 inline constexpr const char* kTagFallingRock = "FallingRock";
+inline constexpr const char* kTagHangingGravityObject = "HangingGravityObject";
 inline constexpr const char* kTagJumpPad = "JumpPad";
 inline constexpr const char* kTagBatterySwitch = "BatterySwitch";
 inline constexpr const char* kTagConveyorBelt = "ConveyorBelt";
@@ -421,8 +422,8 @@ inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
 inline constexpr const char* kTagSepiaElevator = "SepiaElevator";
 inline constexpr const char* kTagMidBoss3Fist = "MidBoss3Fist";
 
-inline constexpr std::array<char, 33> kMarkerPresets = {
-    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<', '_'
+inline constexpr std::array<char, 34> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<', '_', '^'
 };
 inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -517,6 +518,11 @@ inline bool IsLogMarker(char marker)
 inline bool IsFallingRockMarker(char marker)
 {
     return IsMarkerInSet(marker, "S");
+}
+
+inline bool IsHangingGravityObjectMarker(char marker)
+{
+    return marker == '^';
 }
 
 inline bool IsJumpPadMarker(char marker)
