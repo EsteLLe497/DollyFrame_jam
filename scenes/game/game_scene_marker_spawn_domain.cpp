@@ -218,6 +218,8 @@ namespace
         float x = 0.0f;
         float y = 0.0f;
         int requiredBatteryCount = 1;
+        int linkIdOverride = -1;
+        char linkTargetMarker = '\0';
         bool controlsLaserPower = false;
         SwitchPressMode pressMode = SwitchPressMode::Battery;
     };
@@ -282,7 +284,7 @@ namespace
         float elevatorWidthTiles = 5.0f;
         float elevatorHeightTiles = 1.0f;
         float elevatorSpeedTilesPerSec = 2.5f;
-        float elevatorTopPauseSeconds = 1.0f;
+        float elevatorEndpointPauseSeconds = 3.0f;
         float laserSwitchWidthTiles = 1.0f;
         float laserSwitchHeightTiles = 2.0f;
         float shutterWidthTiles = 1.0f;
@@ -338,13 +340,24 @@ namespace
                 const float markerY = static_cast<float>(row) * tileSize;
                 if (marker == 'K')
                 {
-                    const bool isPlayerSwitch = static_cast<char>(
+                    const char secondaryMarker = static_cast<char>(
                         std::toupper(static_cast<unsigned char>(
-                            tileMap.GetMarker2(column, row)))) == '*';
+                            tileMap.GetMarker2(column, row))));
+                    const bool isPlayerSwitch = secondaryMarker == '*';
+                    // K2(J3 のように指定すると、必要数2のスイッチをリンクID 3へ接続する。
+                    const int linkIdOverride = secondaryMarker == 'J'
+                        ? (std::max)(0, tileMap.GetMarkerParameter2(column, row))
+                        : -1;
+                    const char linkTargetMarker =
+                        secondaryMarker == 'L' || secondaryMarker == 'Q'
+                        ? secondaryMarker
+                        : '\0';
                     outSwitchMarkers.push_back(SwitchMarker{
                         markerX,
                         markerY + tileSize * 0.5f,
                         isPlayerSwitch ? 1 : (std::max)(1, tileMap.GetMarkerParameter(column, row)),
+                        linkIdOverride,
+                        linkTargetMarker,
                         false,
                         isPlayerSwitch ? SwitchPressMode::Player : SwitchPressMode::Battery });
                 }
@@ -381,6 +394,8 @@ namespace
                         markerX,
                         markerY + tileSize * 0.5f,
                         (std::max)(1, markerParameter),
+                        -1,
+                        '\0',
                         true,
                         SwitchPressMode::Battery });
                 }
@@ -484,6 +499,46 @@ namespace
             linkIds.push_back(marker.linkIdOverride >= 0 ? marker.linkIdOverride : index);
         }
         return linkIds;
+    }
+
+    int ResolveBatterySwitchLinkId(
+        const SwitchMarker& marker,
+        int switchIndex,
+        const std::vector<ElevatorMarker>& elevatorMarkers)
+    {
+        if (marker.linkIdOverride >= 0)
+        {
+            return marker.linkIdOverride;
+        }
+
+        if (marker.linkTargetMarker != 'L' && marker.linkTargetMarker != 'Q')
+        {
+            return switchIndex;
+        }
+
+        const float targetWidthTiles = marker.linkTargetMarker == 'Q' ? 4.0f : 5.0f;
+        int nearestIndex = -1;
+        float nearestDistanceSq = std::numeric_limits<float>::max();
+        for (int elevatorIndex = 0; elevatorIndex < static_cast<int>(elevatorMarkers.size()); ++elevatorIndex)
+        {
+            const ElevatorMarker& elevatorMarker = elevatorMarkers[static_cast<size_t>(elevatorIndex)];
+            if (std::fabs(elevatorMarker.widthTiles - targetWidthTiles) > 0.01f)
+            {
+                continue;
+            }
+
+            // K4(Q のような指定は、最寄りの同型エレベーターへ接続する。
+            const float dx = elevatorMarker.x - marker.x;
+            const float dy = elevatorMarker.y - marker.y;
+            const float distanceSq = dx * dx + dy * dy;
+            if (distanceSq < nearestDistanceSq)
+            {
+                nearestDistanceSq = distanceSq;
+                nearestIndex = elevatorIndex;
+            }
+        }
+
+        return nearestIndex >= 0 ? nearestIndex : switchIndex;
     }
 
     int ResolveShutterLinkId(
@@ -692,7 +747,7 @@ void GameScene::SpawnElevatorMarker(float x, float y, int moveRangeTiles, float 
         linkId,
         tileSize * static_cast<float>(moveRangeTiles),
         tileSize * cfg.elevatorSpeedTilesPerSec,
-        cfg.elevatorTopPauseSeconds);
+        cfg.elevatorEndpointPauseSeconds);
     m_world.Spawn(std::move(elevatorEntity));
 }
 
@@ -1516,6 +1571,17 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         shutterMarkers,
         protectiveWallMarkers,
         batteryGeneratorMarkers);
+
+    std::vector<int> switchLinkIds;
+    switchLinkIds.reserve(switchMarkers.size());
+    for (int index = 0; index < static_cast<int>(switchMarkers.size()); ++index)
+    {
+        switchLinkIds.push_back(ResolveBatterySwitchLinkId(
+            switchMarkers[static_cast<size_t>(index)],
+            index,
+            elevatorMarkers));
+    }
+
     for (int index = 0; index < static_cast<int>(switchMarkers.size()); ++index)
     {
         const SwitchMarker& marker = switchMarkers[static_cast<size_t>(index)];
@@ -1524,7 +1590,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             marker.y,
             marker.requiredBatteryCount,
             marker.controlsLaserPower,
-            index,
+            switchLinkIds[static_cast<size_t>(index)],
             tileSize,
             marker.pressMode);
     }
@@ -1548,7 +1614,8 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         const SwitchMarker& marker = switchMarkers[static_cast<size_t>(index)];
         if (!marker.controlsLaserPower)
         {
-            batteryGeneratorSwitchLinkIds.push_back(index);
+            // ジェネレーターもスイッチと同じ解決済みリンクを利用する。
+            batteryGeneratorSwitchLinkIds.push_back(switchLinkIds[static_cast<size_t>(index)]);
         }
     }
 

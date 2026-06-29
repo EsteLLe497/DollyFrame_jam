@@ -14,10 +14,10 @@
     "iconSize": 22.0,
     "labelX": 52.0,
     "labelY": 10.0,
-    "offsetY": 26.0,
+    "offsetY": 8.0,
     "panelHeight": 22.0,
     "panelWidth": 58.0,
-    "tileOffsetMultiplier": 2.0
+    "tileOffsetMultiplier": 0.45
   },
   "boss_hp": {
     "barHeight": 24.0,

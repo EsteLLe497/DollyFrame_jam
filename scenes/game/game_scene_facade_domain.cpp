@@ -270,6 +270,8 @@ void GameScene::DrawGameWorldLayers()
     DrawEffects();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
     DrawPastedEntitiesFront();
+    // バッテリー必要数はスイッチ固有情報のため、UI非表示中もワールド上へ表示する。
+    DrawBatterySwitchCounters();
     DrawStageDarknessOverlay();
     DrawSepiaFilmFilterOverlay();
     DrawShieldBossSlamVignetteOverlay();
@@ -303,7 +305,6 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
     DrawMerchantShopOverlay();
     DrawMapEditorOverlay();
     DrawTuningPanel();
-    DrawBatterySwitchCounters();
     DrawPlayerHpBar();
     DrawPartsHud();
     DrawMidBoss2HpBar();

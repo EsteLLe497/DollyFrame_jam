@@ -299,11 +299,11 @@ ElevatorComponent::ElevatorComponent(
     int linkIdValue,
     float moveRangeYValue,
     float moveSpeedValue,
-    float topPauseSecondsValue)
+    float endpointPauseSecondsValue)
     : linkId((std::max)(0, linkIdValue))
     , moveRangeY((std::max)(0.0f, moveRangeYValue))
     , moveSpeed((std::max)(1.0f, moveSpeedValue))
-    , topPauseSeconds((std::max)(0.0f, topPauseSecondsValue))
+    , endpointPauseSeconds((std::max)(0.0f, endpointPauseSecondsValue))
 {
 }
 
@@ -322,7 +322,7 @@ void ElevatorComponent::DrawDebugUI()
     ImGui::Text("LinkId: %d", linkId);
     ImGui::Text("MoveRangeY: %.1f", moveRangeY);
     ImGui::Text("MoveSpeed: %.1f", moveSpeed);
-    ImGui::Text("TopPause: %.2f", topPauseSeconds);
+    ImGui::Text("EndpointPause: %.2f", endpointPauseSeconds);
     ImGui::Text("CycleStarted: %s", cycleStarted ? "Yes" : "No");
     ImGui::Text("MovingUp: %s", movingUp ? "Yes" : "No");
 }

@@ -1312,8 +1312,10 @@ bool GameScene::LoadProgressStateFromDisk()
 
     m_save.hasData = true;
     m_save.mapCsvPath = root.value("mapCsvPath", m_lifecycle.currentMapCsvPath);
-    m_save.hasCheckpoint = root.value("hasCheckpoint", false);
-    m_save.activeCheckpointId = root.value("activeCheckpointId", -1);
+    const bool hadPersistedCheckpoint = root.value("hasCheckpoint", false);
+    // チェックポイントは起動中だけ有効とし、過去バージョンの保存値は復元しない。
+    m_save.hasCheckpoint = false;
+    m_save.activeCheckpointId = -1;
     m_save.stageStartX = root.value("stageStartX", 0.0f);
     m_save.stageStartY = root.value("stageStartY", 0.0f);
     m_save.respawnX = root.value("respawnX", 0.0f);
@@ -1334,6 +1336,14 @@ bool GameScene::LoadProgressStateFromDisk()
     {
         m_save.photo = DeserializePhotoState(*photoIt);
     }
+    if (hadPersistedCheckpoint)
+    {
+        // 古いチェックポイント地点から即座に再起動しないよう、開始地点へ移行する。
+        m_save.respawnX = m_save.stageStartX;
+        m_save.respawnY = m_save.stageStartY;
+        m_save.playerX = m_save.stageStartX;
+        m_save.playerY = m_save.stageStartY;
+    }
 
     m_lifecycle.currentMapCsvPath = m_save.mapCsvPath;
     m_debug.saveStatusMessage = "Loaded save file.";
@@ -1346,12 +1356,13 @@ bool GameScene::SaveProgressState()
 {
     m_save.hasData = true;
     m_save.mapCsvPath = m_lifecycle.currentMapCsvPath;
-    m_save.hasCheckpoint = m_flow.hasCheckpoint;
-    m_save.activeCheckpointId = m_flow.activeCheckpointId;
+    // チェックポイントはゲーム終了時に破棄し、次回はステージ開始地点を使う。
+    m_save.hasCheckpoint = false;
+    m_save.activeCheckpointId = -1;
     m_save.stageStartX = m_flow.stageStartX;
     m_save.stageStartY = m_flow.stageStartY;
-    m_save.respawnX = m_flow.respawnX;
-    m_save.respawnY = m_flow.respawnY;
+    m_save.respawnX = m_flow.stageStartX;
+    m_save.respawnY = m_flow.stageStartY;
     m_save.cameraX = m_flow.cameraX;
     m_save.cameraY = m_flow.cameraY;
     m_save.photo = m_photo;
@@ -1480,16 +1491,6 @@ void GameScene::ApplyLoadedProgressState()
 
         const bool shouldBeActive = m_save.hasCheckpoint && checkpoint->checkpointId == m_save.activeCheckpointId;
         checkpoint->activated = shouldBeActive;
-        if (shouldBeActive)
-        {
-            if (auto* tint = entity->GetComponent<TintComponent>())
-            {
-                tint->r = 0.80f;
-                tint->g = 0.92f;
-                tint->b = 1.0f;
-                tint->a = 1.0f;
-            }
-        }
     }
 
     m_ui.hpUiInitialized = false;
@@ -1989,7 +1990,10 @@ void GameScene::InitializeStageEntities()
         vanishObject.AddComponent<VanishOnCaptureComponent>(true);
     }
 
-    int checkpointId = 0;
+    // 同じ列に複数ある場合は、地面に近い一番下のマーカーを復帰地点として採用する。
+    std::vector<const TileMarker*> checkpointMarkersByColumn(
+        static_cast<size_t>((std::max)(0, m_tileMap.GetWidth())),
+        nullptr);
     for (const TileMarker& stageMarker : stageMarkers)
     {
         if (stageMarker.marker != 'C')
@@ -1997,13 +2001,47 @@ void GameScene::InitializeStageEntities()
             continue;
         }
 
-        const float checkpointX = AlignToGrid(static_cast<float>(stageMarker.column) * tileSize, tileSize);
-        const float checkpointY = AlignToGrid(static_cast<float>(stageMarker.row) * tileSize - tileSize, tileSize);
+        const size_t columnIndex = static_cast<size_t>(stageMarker.column);
+        const TileMarker* currentMarker = checkpointMarkersByColumn[columnIndex];
+        if (!currentMarker || stageMarker.row > currentMarker->row)
+        {
+            checkpointMarkersByColumn[columnIndex] = &stageMarker;
+        }
+    }
+
+    int checkpointId = 0;
+    const float checkpointTriggerHeight = (std::max)(tileSize, GetMapPixelHeight());
+    for (const TileMarker* stageMarker : checkpointMarkersByColumn)
+    {
+        if (!stageMarker)
+        {
+            continue;
+        }
+
+        // 判定は縦列全体、復帰地点は実際のCマーカー位置として分離する。
+        const float checkpointX = AlignToGrid(static_cast<float>(stageMarker->column) * tileSize, tileSize);
+        const float checkpointY = AlignToGrid(static_cast<float>(stageMarker->row) * tileSize - tileSize, tileSize);
         Entity& checkpoint = SpawnStagePrefab(
             prefabs,
             "sandbox_checkpoint",
             checkpointX,
-            checkpointY);
+            0.0f);
+        if (auto* transform = checkpoint.GetComponent<TransformComponent>())
+        {
+            transform->x = checkpointX;
+            transform->y = 0.0f;
+            transform->width = tileSize;
+            transform->height = checkpointTriggerHeight;
+            transform->rotation = 0.0f;
+            transform->scale = 1.0f;
+        }
+        SetEntityTint(checkpoint, 1.0f, 1.0f, 1.0f, 0.0f);
+        if (auto* light = checkpoint.GetComponent<FlickerLightComponent>())
+        {
+            light->intensity = 0.0f;
+            light->godRayEnabled = false;
+            light->godRayIntensity = 0.0f;
+        }
         checkpoint.AddComponent<CheckpointComponent>(checkpointId, checkpointX, checkpointY);
         ++checkpointId;
     }
