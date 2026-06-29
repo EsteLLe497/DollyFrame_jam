@@ -152,6 +152,8 @@ void GameScene::PrepareFrameRendering()
             baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
         }
     }
+    // 中ボス1との正規化距離に比例して、通常カメラを滑らかにズームアウトします。
+    baseCameraZoomMultiplier *= m_camera.shieldBossDistanceZoomScale;
     m_render.viewScaleMultiplier = m_mapEditor.active ? 1.0f : baseCameraZoomMultiplier;
 
     if (m_flow.screenShakeRemaining > 0.0f && m_flow.screenShakeDuration > 0.0f && m_flow.screenShakeAmplitude > 0.0f)

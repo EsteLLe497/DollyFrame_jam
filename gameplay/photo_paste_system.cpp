@@ -28,7 +28,6 @@ namespace
     constexpr float kValidPreviewOutlineMax = 2.2f;
     constexpr float kValidPreviewTintAlphaMin = 0.46f;
     constexpr float kValidPreviewTintAlphaMax = 0.62f;
-    constexpr float kZoomTargetTilesX = 23.0f;
 
     void BuildRotatedRect(
         float left,
@@ -222,44 +221,6 @@ namespace
 
         cursorWorldX += velocityX * dt;
         cursorWorldY += velocityY * dt;
-    }
-
-    void ComputePlacementViewTransform(
-        float tileSize,
-        float captureModeZoomBlend,
-        bool mapEditorActive,
-        float& outScale,
-        float& outOriginX,
-        float& outOriginY)
-    {
-        const float marginX = std::clamp(static_cast<float>(SCREEN_WIDTH) * 0.04f, 48.0f, 96.0f);
-        const float marginY = std::clamp(static_cast<float>(SCREEN_HEIGHT) * 0.04f, 36.0f, 72.0f);
-        const float maxWidth = static_cast<float>(SCREEN_WIDTH) - marginX * 2.0f;
-        const float maxHeight = static_cast<float>(SCREEN_HEIGHT) - marginY * 2.0f;
-        const float containScale = std::min(maxWidth / gCameraViewWidth, maxHeight / gCameraViewHeight);
-
-        float baseCameraZoomMultiplier = 1.0f;
-        if (tileSize > 0.0f)
-        {
-            const float targetWorldWidth = tileSize * kZoomTargetTilesX;
-            if (targetWorldWidth > 0.0f)
-            {
-                baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
-            }
-        }
-
-        const float zoomBlend = captureModeZoomBlend * captureModeZoomBlend * (3.0f - 2.0f * captureModeZoomBlend);
-        const float finalMultiplier = mapEditorActive ? 1.0f : (baseCameraZoomMultiplier + zoomBlend * 0.08f);
-        outScale = containScale * finalMultiplier;
-
-        const float finalWidth = gCameraViewWidth * outScale;
-        const float finalHeight = gCameraViewHeight * outScale;
-        outOriginX = finalWidth >= static_cast<float>(SCREEN_WIDTH)
-            ? 0.0f
-            : std::round((static_cast<float>(SCREEN_WIDTH) - finalWidth) * 0.5f);
-        outOriginY = finalHeight >= static_cast<float>(SCREEN_HEIGHT)
-            ? 0.0f
-            : std::round((static_cast<float>(SCREEN_HEIGHT) - finalHeight) * 0.5f);
     }
 
 }
@@ -818,16 +779,11 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
         placementHeight));
     spawnWidth = placementWidth;
     spawnHeight = placementHeight;
-    float viewScale = 1.0f;
-    float viewOriginX = 0.0f;
-    float viewOriginY = 0.0f;
-    ComputePlacementViewTransform(
-        scene.m_tileMap.GetTileSize(),
-        scene.m_flow.captureModeZoomBlend,
-        scene.m_mapEditor.active,
-        viewScale,
-        viewOriginX,
-        viewOriginY);
+    // 入力と描画で同じ確定済みカメラを使い、動的ズーム中の配置ずれを防ぐ。
+    scene.PrepareFrameRendering();
+    const float viewScale = scene.GetViewScale();
+    const float viewOriginX = scene.GetViewOriginX();
+    const float viewOriginY = scene.GetViewOriginY();
 
     const float mapWidth = scene.GetMapPixelWidth();
     const float mapHeight = scene.GetMapPixelHeight();

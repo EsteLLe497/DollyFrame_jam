@@ -1172,6 +1172,16 @@ void GameScene::ResetSceneState()
     m_camera.cameraFixedLockEndX = 0.0f;
     m_camera.cameraFixedLockX = 0.0f;
     m_camera.cameraFixedLockY = 0.0f;
+    // ボス戦カメラの左右反転状態を、通常の右側構図へ戻します。
+    m_camera.shieldBossCameraOffsetX = 0.0f;
+    m_camera.shieldBossCameraOffsetY = 0.0f;
+    m_camera.shieldBossCameraBaseY = 0.0f;
+    m_camera.shieldBossDistanceZoomScale = 1.0f;
+    m_camera.shieldBossSideChangeTimer = 0.0f;
+    m_camera.shieldBossCameraSide = 1;
+    m_camera.shieldBossPendingCameraSide = 1;
+    m_camera.shieldBossZoomTier = 0;
+    m_camera.shieldBossCameraBaseYInitialized = false;
     m_save = GameSceneSaveState{};
     m_lifecycle.hasPendingStageTransition = false;
     m_lifecycle.pendingStageTransitionMapCsv.clear();
