@@ -1479,6 +1479,11 @@ bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
         const float loweredY = wall->baseY + wall->moveRangeY;
         return transform->y < loweredY - 0.5f;
     }
+    if (HasTag(entity, kTagHangingGravityObject))
+    {
+        const auto* hanging = entity.GetComponent<HangingGravityObjectComponent>();
+        return hanging && hanging->wireAttached && !hanging->destroyed;
+    }
 
     return HasTag(entity, kTagPhotoSource) ||
         HasTag(entity, kTagBatterySwitch) ||
@@ -1523,6 +1528,7 @@ void GameScene::GetGroundPlatformBounds(std::vector<TransformComponent>& bounds)
     appendGroundEntities(EntityTag::SepiaElevator);
     appendGroundEntities(EntityTag::ProtectiveWall);
     appendGroundEntities(EntityTag::ConveyorBelt);
+    appendGroundEntities(EntityTag::HangingGravityObject);
 }
 
 void GameScene::GetPhotoBoxBounds(std::vector<TransformComponent>& bounds) const

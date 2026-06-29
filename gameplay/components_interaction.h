@@ -86,6 +86,32 @@ public:
     bool pendingJumpPadBreak = false;
 };
 
+class HangingGravityObjectComponent final : public MonoBehaviour
+{
+public:
+    HangingGravityObjectComponent(
+        float gravity,
+        float maxFallSpeed,
+        int contactDamage);
+
+    void OnAttach(GameObject& owner) override;
+    void DrawDebugUI() override;
+
+    float velocityY = 0.0f;
+    float gravity = 0.0f;
+    float maxFallSpeed = 0.0f;
+    int contactDamage = 1;
+    float spawnX = 0.0f;
+    float spawnY = 0.0f;
+    float wireX = 0.0f;
+    float wireTopY = 0.0f;
+    float wireLength = 0.0f;
+    float wireWidth = 0.0f;
+    bool wireAttached = true;
+    bool active = false;
+    bool destroyed = false;
+};
+
 class JumpPadComponent final : public MonoBehaviour
 {
 public:

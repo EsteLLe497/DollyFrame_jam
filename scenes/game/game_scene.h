@@ -123,6 +123,7 @@ private:
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
     void UpdateFallingRocks(float deltaTime);
+    void UpdateHangingGravityObjects(float deltaTime);
     void UpdateJumpPads(float deltaTime);
     void UpdateBatteries(float deltaTime);
     void UpdateLaserTurrets(float deltaTime);
@@ -181,6 +182,8 @@ private:
     void RefreshConveyorBeltsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
     void ReflashFallingRockfromMarkers();
+    void RefreshHangingGravityObjectsFromMarkers();
+    void ResetHangingGravityObjectsForRespawn();
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();

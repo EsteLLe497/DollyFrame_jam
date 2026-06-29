@@ -2615,6 +2615,36 @@ void GameScene::DrawEntity(const Entity& entity) const
         return;
     }
 
+    if (tag && HasTag(tag, kTagHangingGravityObject))
+    {
+        if (const auto* hanging = entity.GetComponent<HangingGravityObjectComponent>())
+        {
+            if (hanging->wireAttached && !hanging->destroyed && hanging->wireLength > 0.0f)
+            {
+                const float wireScreenX = viewOriginX + (hanging->wireX - m_flow.cameraX) * viewScale;
+                const float wireScreenTop = viewOriginY + (hanging->wireTopY - m_flow.cameraY) * viewScale;
+                const float wireScreenWidth = std::max(1.0f, hanging->wireWidth * viewScale);
+                const float wireScreenHeight = hanging->wireLength * viewScale;
+                int left = static_cast<int>(std::round(wireScreenX - wireScreenWidth * 0.5f));
+                int top = static_cast<int>(std::round(wireScreenTop));
+                int right = static_cast<int>(std::round(wireScreenX + wireScreenWidth * 0.5f));
+                int bottom = static_cast<int>(std::round(wireScreenTop + wireScreenHeight));
+                if (right <= left)
+                {
+                    right = left + 1;
+                }
+                if (bottom > top)
+                {
+                    Shader_ResetStyle();
+                    SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(255.0f * alphaMultiplier)));
+                    DrawBox(left, top, right, bottom, GetColor(0, 0, 0), TRUE);
+                    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+                    Shader_ResetStyle();
+                }
+            }
+        }
+    }
+
     if (tag && HasTag(tag, EntityTag::ConveyorBelt))
     {
         const auto* beltConveyor = entity.GetComponent<BeltConveyorComponent>();

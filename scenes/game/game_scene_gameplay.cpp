@@ -3017,6 +3017,202 @@ void GameScene::UpdateFallingRocks(float deltaTime)
     }
 }
 
+void GameScene::UpdateHangingGravityObjects(float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    const float mapHeight = GetMapPixelHeight();
+
+    auto setHangingObjectVisible = [](Entity& hangingEntity, bool visible)
+    {
+        if (auto* tint = hangingEntity.GetComponent<TintComponent>())
+        {
+            tint->a = visible ? 1.0f : 0.0f;
+        }
+    };
+
+    auto intersectsSolidTile = [&](const TransformComponent& bounds) -> bool
+    {
+        const float width = bounds.width * bounds.scale;
+        const float height = bounds.height * bounds.scale;
+        const int left = std::max(0, static_cast<int>((bounds.x + 2.0f) / tileSize));
+        const int right = std::min(m_tileMap.GetWidth() - 1, static_cast<int>((bounds.x + width - 2.0f) / tileSize));
+        const int top = std::max(0, static_cast<int>((bounds.y + 2.0f) / tileSize));
+        const int bottom = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bounds.y + height - 2.0f) / tileSize));
+        for (int row = top; row <= bottom; ++row)
+        {
+            for (int column = left; column <= right; ++column)
+            {
+                if (m_tileMap.GetTile(column, row) != 1)
+                {
+                    continue;
+                }
+
+                TransformComponent tileBounds(
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize,
+                    tileSize,
+                    tileSize);
+                if (IntersectsRect(bounds, tileBounds))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    auto breakHangingObject = [&](Entity& hangingEntity, HangingGravityObjectComponent& hanging, TransformComponent& transform)
+    {
+        SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
+        m_eventBus.Publish({ EventType::PlaySoundRequest, &hangingEntity, nullptr, "barrel", 0.0f, 0.0f });
+        hanging.active = false;
+        hanging.destroyed = true;
+        hanging.wireAttached = false;
+        hanging.velocityY = 0.0f;
+        setHangingObjectVisible(hangingEntity, false);
+    };
+
+    std::vector<Entity*> enemyEntities;
+    enemyEntities.reserve(m_world.EntitiesByTag(EntityTag::Enemy).size());
+    for (Entity* enemyEntity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!enemyEntity)
+        {
+            continue;
+        }
+
+        auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled())
+        {
+            continue;
+        }
+
+        enemyEntities.push_back(enemyEntity);
+    }
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::HangingGravityObject))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* hanging = entity->GetComponent<HangingGravityObjectComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!hanging || !transform)
+        {
+            continue;
+        }
+
+        if (hanging->destroyed)
+        {
+            setHangingObjectVisible(*entity, false);
+            continue;
+        }
+
+        if (hanging->wireAttached)
+        {
+            transform->x = hanging->spawnX;
+            transform->y = hanging->spawnY;
+            hanging->active = false;
+            hanging->velocityY = 0.0f;
+            setHangingObjectVisible(*entity, true);
+            continue;
+        }
+
+        if (!hanging->active)
+        {
+            continue;
+        }
+
+        hanging->velocityY = std::min(hanging->maxFallSpeed, hanging->velocityY + hanging->gravity * deltaTime);
+        transform->y += hanging->velocityY * deltaTime;
+
+        const float objectHeight = transform->height * transform->scale;
+        if (transform->y + objectHeight >= mapHeight)
+        {
+            breakHangingObject(*entity, *hanging, *transform);
+            continue;
+        }
+
+        if (intersectsSolidTile(*transform))
+        {
+            breakHangingObject(*entity, *hanging, *transform);
+            continue;
+        }
+
+        if (player && IntersectsEntity(*entity, *player))
+        {
+            HandlePlayerDamage(*player, entity, "GameScene player damaged by hanging gravity object", hanging->contactDamage);
+            breakHangingObject(*entity, *hanging, *transform);
+            continue;
+        }
+
+        bool consumed = false;
+        for (Entity* enemyEntity : enemyEntities)
+        {
+            if (!enemyEntity || enemyEntity == entity)
+            {
+                continue;
+            }
+
+            if (!IntersectsEntity(*entity, *enemyEntity))
+            {
+                continue;
+            }
+
+            HandleEnemyDamage(*enemyEntity, entity, hanging->contactDamage, "Hanging gravity object hit enemy");
+            breakHangingObject(*entity, *hanging, *transform);
+            consumed = true;
+            break;
+        }
+        if (consumed)
+        {
+            continue;
+        }
+    }
+}
+
+void GameScene::ResetHangingGravityObjectsForRespawn()
+{
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::HangingGravityObject))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* hanging = entity->GetComponent<HangingGravityObjectComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!hanging || !transform)
+        {
+            continue;
+        }
+
+        transform->x = hanging->spawnX;
+        transform->y = hanging->spawnY;
+        hanging->velocityY = 0.0f;
+        hanging->wireAttached = true;
+        hanging->active = false;
+        hanging->destroyed = false;
+        if (auto* tint = entity->GetComponent<TintComponent>())
+        {
+            tint->a = 1.0f;
+        }
+    }
+}
+
 void GameScene::UpdateJumpPads(float deltaTime)
 {
     if (deltaTime <= 0.0f)
@@ -3507,6 +3703,41 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
         bool blocked = false;
         bool playerHitByLaser = false;
         Entity* blockedProtectiveWall = nullptr;
+        auto cutHangingObjectWires = [&](const TransformComponent& beamBounds)
+        {
+            if (beamBounds.width <= 0.0f || beamBounds.height <= 0.0f)
+            {
+                return;
+            }
+
+            for (Entity* hangingEntity : m_world.EntitiesByTag(EntityTag::HangingGravityObject))
+            {
+                if (!hangingEntity)
+                {
+                    continue;
+                }
+
+                auto* hanging = hangingEntity->GetComponent<HangingGravityObjectComponent>();
+                if (!hanging || !hanging->wireAttached || hanging->destroyed || hanging->wireLength <= 0.0f)
+                {
+                    continue;
+                }
+
+                TransformComponent wireBounds(
+                    hanging->wireX - hanging->wireWidth * 0.5f,
+                    hanging->wireTopY,
+                    hanging->wireWidth,
+                    hanging->wireLength);
+                if (!IntersectsRect(beamBounds, wireBounds))
+                {
+                    continue;
+                }
+
+                hanging->wireAttached = false;
+                hanging->active = true;
+                hanging->velocityY = 0.0f;
+            }
+        };
 
         if (firesVertical)
         {
@@ -3797,6 +4028,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             sparkX = hitX;
             sparkY = beamY + beamThickness * 0.5f;
         }
+        cutHangingObjectWires(activeBeam);
         if (player)
         {
             if (auto* playerTransform = player->GetComponent<TransformComponent>())

@@ -18,6 +18,7 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     TryUseAttackCaptureSlot();
     UpdateBarrels(gameplayDeltaTime);
     UpdateFallingRocks(gameplayDeltaTime);
+    UpdateHangingGravityObjects(gameplayDeltaTime);
     UpdateJumpPads(gameplayDeltaTime);
     UpdateBatteries(gameplayDeltaTime);
     UpdateLaserTurrets(gameplayDeltaTime);
