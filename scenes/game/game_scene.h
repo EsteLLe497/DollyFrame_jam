@@ -109,6 +109,7 @@ private:
     void BuildCameraMarkers();
     void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY = true);
     void ApplyShieldBossSlamCameraWork(float deltaTime);
+    void ApplyShieldBossFramingCameraWork(float deltaTime);
     bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
     void StartFloorCameraTransition(int directionX, int directionY);
 
@@ -398,7 +399,17 @@ private:
         float easingStartY = 0.0f;
         float easingTargetX = 0.0f;
         float easingTargetY = 0.0f;
+        float shieldBossCameraOffsetX = 0.0f;
+        float shieldBossCameraOffsetY = 0.0f;
+        float shieldBossCameraBaseY = 0.0f;
+        float shieldBossDistanceZoomScale = 1.0f;
+        float shieldBossSideChangeTimer = 0.0f;
+        int shieldBossCameraSide = 1;
+        int shieldBossPendingCameraSide = 1;
+        int shieldBossZoomTier = 0;
+        bool shieldBossCameraBaseYInitialized = false;
     };
+
     CameraRuntimeState m_camera;
     GameSceneLifecycleState m_lifecycle;
     static constexpr float easingTime = 0.35f;

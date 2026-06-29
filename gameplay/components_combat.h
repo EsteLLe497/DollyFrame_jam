@@ -40,6 +40,15 @@ enum class ShieldBossFacing
     Left,
 };
 
+enum class ShieldBossAttackPhase
+{
+    FirstRush,
+    FirstBackJump,
+    SecondRush,
+    Slam,
+    FinalBackJump,
+};
+
 enum class MidBoss2State
 {
     Idle,
@@ -164,8 +173,8 @@ public:
     float rushSpeed = 520.0f;
     float rushDuration = 0.45f;
     float rushCooldown = 2.5f;
-    int rushCount = 0;
-    int rushCountMax = 2;
+    float rushBoostElapsed = 0.0f;
+    ShieldBossAttackPhase attackPhase = ShieldBossAttackPhase::FirstRush;
 
     float jumpHeight = 6.0f;
     float jumpAscendDuration = 0.35f;

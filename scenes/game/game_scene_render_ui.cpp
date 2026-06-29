@@ -3,6 +3,7 @@
 #include "game_scene_internal.h"
 #include "game_scene_photo_storage_layout.h"
 #include "game_scene_render_ui_helpers.h"
+#include "game_viewport.h"
 #include "photo_system.h"
 #include "photo_shared.h"
 #include "photo_filter_rules.h"
@@ -22,6 +23,20 @@ namespace
     constexpr float kPitRestartFadeDuration = 0.45f;
     constexpr float kStageTransitionFadeOutDuration = 0.45f;
     constexpr float kStageTransitionFadeInDuration = 1.10f;
+    constexpr float kCaptureFinderBaseTilesX = 23.0f;
+
+    float GetCaptureFinderScreenScale(float tileSize)
+    {
+        const float targetWorldWidth = std::max(1.0f, tileSize * kCaptureFinderBaseTilesX);
+        const float baseCameraZoomMultiplier =
+            std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
+        return game_viewport::ComputeViewScale(
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT,
+            gCameraViewWidth,
+            gCameraViewHeight,
+            baseCameraZoomMultiplier);
+    }
 
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
@@ -1088,12 +1103,15 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     GetCaptureFrameRect(*transform, frameX, frameY, frameWidth, frameHeight);
 
     const float viewScale = GetViewScale();
-    const float drawX = GetViewOriginX() + (frameX - m_flow.cameraX) * viewScale;
-    const float drawY = GetViewOriginY() + (frameY - m_flow.cameraY) * viewScale;
+    const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
+    const float drawWidth = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale;
+    const float drawHeight = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale;
+    const float drawX = static_cast<float>(Input_GetMouseX()) - drawWidth * 0.5f;
+    const float drawY = static_cast<float>(Input_GetMouseY()) - drawHeight * 0.5f;
     const int left = static_cast<int>(std::round(drawX));
     const int top = static_cast<int>(std::round(drawY));
-    const int right = static_cast<int>(std::round(drawX + frameWidth * viewScale));
-    const int bottom = static_cast<int>(std::round(drawY + frameHeight * viewScale));
+    const int right = static_cast<int>(std::round(drawX + drawWidth));
+    const int bottom = static_cast<int>(std::round(drawY + drawHeight));
     if (right <= left || bottom <= top)
     {
         return;
@@ -1452,10 +1470,12 @@ void GameScene::DrawCaptureOverlay() const
     const float overlayTop = 0.0f;
     const float overlayWidth = static_cast<float>(SCREEN_WIDTH);
     const float overlayHeight = static_cast<float>(SCREEN_HEIGHT);
-    const float drawX = viewOriginX + (frameX - m_flow.cameraX) * viewScale;
-    const float drawY = viewOriginY + (frameY - m_flow.cameraY) * viewScale;
-    const float drawWidth = frameWidth * viewScale;
-    const float drawHeight = frameHeight * viewScale;
+    // ファインダー本体はカメラから分離し、常にマウス中心のスクリーンUIとして描画する。
+    const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
+    const float drawWidth = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale;
+    const float drawHeight = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale;
+    const float drawX = static_cast<float>(Input_GetMouseX()) - drawWidth * 0.5f;
+    const float drawY = static_cast<float>(Input_GetMouseY()) - drawHeight * 0.5f;
     const int left = static_cast<int>(std::round(drawX));
     const int top = static_cast<int>(std::round(drawY));
     const int right = static_cast<int>(std::round(drawX + drawWidth));
@@ -1463,7 +1483,7 @@ void GameScene::DrawCaptureOverlay() const
 
     const auto& captureUi = m_ui.tuning.captureOverlay;
     const float shutterT = Clamp01(m_ui.shutterFlashRemaining / gShutterFlashSeconds);
-    const float frameInset = captureUi.frameInset * shutterT * viewScale;
+    const float frameInset = captureUi.frameInset * shutterT * finderUiScale;
     const float innerX = drawX + frameInset;
     const float innerY = drawY + frameInset;
     const float innerWidth = std::max(8.0f, drawWidth - frameInset * 2.0f);
@@ -1510,18 +1530,18 @@ void GameScene::DrawCaptureOverlay() const
         }
     };
 
-    const int cornerLength = std::max(18, static_cast<int>(std::round(captureUi.cornerLength * viewScale)));
+    const int cornerLength = std::max(18, static_cast<int>(std::round(captureUi.cornerLength * finderUiScale)));
     const int cornerThickness = std::max(2, static_cast<int>(std::round(captureUi.cornerThickness + shutterT * 2.0f)));
-    const int guideInset = std::max(12, static_cast<int>(std::round(captureUi.guideInset * viewScale)));
+    const int guideInset = std::max(12, static_cast<int>(std::round(captureUi.guideInset * finderUiScale)));
     const unsigned int gridColor = GetColor(242, 246, 252);
 
     if (m_flow.cameraMode)
     {
         const float vignetteAlpha = 0.15f + shutterT * 0.08f;
-        const float edge0 = captureUi.vignetteEdge0 * viewScale;
-        const float edge1 = captureUi.vignetteEdge1 * viewScale;
-        const float edge2 = captureUi.vignetteEdge2 * viewScale;
-        const float edge3 = captureUi.vignetteEdge3 * viewScale;
+        const float edge0 = captureUi.vignetteEdge0 * finderUiScale;
+        const float edge1 = captureUi.vignetteEdge1 * finderUiScale;
+        const float edge2 = captureUi.vignetteEdge2 * finderUiScale;
+        const float edge3 = captureUi.vignetteEdge3 * finderUiScale;
         const float topBottomBoost = captureUi.vignetteBoost;
         drawVignetteBand(overlayLeft, overlayTop, overlayWidth, edge3, vignetteAlpha * topBottomBoost, 0.01f, 0.015f, 0.025f);
         drawVignetteBand(overlayLeft, overlayTop + overlayHeight - edge3, overlayWidth, edge3, vignetteAlpha * topBottomBoost, 0.01f, 0.015f, 0.025f);
@@ -1545,10 +1565,11 @@ void GameScene::DrawCaptureOverlay() const
     }
 
     drawFrameBand(innerX, innerY, innerWidth, innerHeight, 0.10f + shutterT * 0.18f);
-    drawFrameBand(drawX, drawY, drawWidth, std::max(4.0f, captureUi.frameBandThickness * viewScale), 0.30f + shutterT * 0.16f);
-    drawFrameBand(drawX, drawY + drawHeight - std::max(4.0f, captureUi.frameBandThickness * viewScale), drawWidth, std::max(4.0f, captureUi.frameBandThickness * viewScale), 0.30f + shutterT * 0.16f);
-    drawFrameBand(drawX, drawY, std::max(4.0f, captureUi.frameBandThickness * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
-    drawFrameBand(drawX + drawWidth - std::max(4.0f, captureUi.frameBandThickness * viewScale), drawY, std::max(4.0f, captureUi.frameBandThickness * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
+    const float frameBandThickness = std::max(4.0f, captureUi.frameBandThickness * finderUiScale);
+    drawFrameBand(drawX, drawY, drawWidth, frameBandThickness, 0.30f + shutterT * 0.16f);
+    drawFrameBand(drawX, drawY + drawHeight - frameBandThickness, drawWidth, frameBandThickness, 0.30f + shutterT * 0.16f);
+    drawFrameBand(drawX, drawY, frameBandThickness, drawHeight, 0.30f + shutterT * 0.16f);
+    drawFrameBand(drawX + drawWidth - frameBandThickness, drawY, frameBandThickness, drawHeight, 0.30f + shutterT * 0.16f);
 
     const Entity* bestTarget = FindCaptureTarget(*transform);
 
@@ -1669,7 +1690,7 @@ void GameScene::DrawCaptureOverlay() const
         Shader_SetTint(overlayR, overlayG, overlayB, 0.10f + shutterT * 0.55f);
         SpriteDraw(m_whiteTexture, overlayLeft, overlayTop, overlayWidth, overlayHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
-        const int pulseInset = static_cast<int>(std::round(captureUi.pulseInset * shutterT * viewScale));
+        const int pulseInset = static_cast<int>(std::round(captureUi.pulseInset * shutterT * finderUiScale));
         drawCornerFrame(
             left + pulseInset,
             top + pulseInset,
@@ -3055,8 +3076,10 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
 
-    width = gCaptureFrameWidthPx * m_ui.captureFinderScale;
-    height = gCaptureFrameHeightPx * m_ui.captureFinderScale;
+    // ファインダーはスクリーンUIとして扱い、カメラ倍率に左右されない画面pxを維持する。
+    const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
+    width = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale / viewScale;
+    height = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale / viewScale;
 
     // Cursor-centered finder: the visible frame and actual capture bounds must match.
     const float cursorWorldX = m_flow.cameraX + (static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale;

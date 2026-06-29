@@ -2282,10 +2282,10 @@ inline void UpdateEnemies(
         }
         else if (enemy->GetArchetype() == EnemyArchetype::Charger)
         {
-            constexpr float kChargerSpeed = 240.0f;
-            constexpr float kGravity = 1900.0f;
-            constexpr float kMaxFallSpeed = 980.0f;
-            constexpr float kTileSize = 48.0f;
+		constexpr float kChargerSpeed = 240.0f;
+		constexpr float kGravity = 1900.0f;
+		constexpr float kMaxFallSpeed = 980.0f;
+		constexpr float kTileSize = 48.0f;
 
             enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
             transform->y += enemy->velocityY * flow.lastDeltaTime;
@@ -2413,9 +2413,13 @@ inline void UpdateEnemies(
             const bool inDetectRange = std::fabs(dx) < boss->detectRange
                 && std::fabs(dy) < boss->detectHeight;
 
-            constexpr float kGravity = 1900.0f;
-            constexpr float kMaxFallSpeed = 980.0f;
-            constexpr float kTileSize = 48.0f;
+		constexpr float kGravity = 1900.0f;
+		constexpr float kMaxFallSpeed = 980.0f;
+		// 後ろジャンプは高さを保ったまま重力を強め、素早く着地させる
+		constexpr float kBackJumpGravityScale = 1.6f;
+		constexpr float kBackJumpGravity = kGravity * kBackJumpGravityScale;
+		constexpr float kBackJumpMaxFallSpeed = kMaxFallSpeed * kBackJumpGravityScale;
+		constexpr float kTileSize = 48.0f;
             constexpr float kShieldBossWidth = kTileSize * 4.0f;
             constexpr float kShieldBossHeight = kTileSize * 4.0f;
             constexpr float kShieldWidth = kTileSize;
@@ -2426,6 +2430,9 @@ inline void UpdateEnemies(
             constexpr int kAttack01BoostStartFrame = 60;
             constexpr int kAttack01BoostEndFrame = 132;
             constexpr int kAttack01EndFrame = 179;
+            constexpr float kRushAccelerationSeconds = 1.4f;
+            constexpr float kRushStartSpeedMultiplier = 0.55f;
+            constexpr float kRushMaxSpeedMultiplier = 2.0f;
             constexpr int kAttack02AscendEndFrame = 40;
             constexpr int kAttack02HoverEndFrame = 75;
             constexpr int kAttack02ShieldDropStartFrame = 111;
@@ -2435,7 +2442,11 @@ inline void UpdateEnemies(
             constexpr int kAppearRoarSoundFrame = 90;
             constexpr float kAttack02RecoverySeconds =
                 static_cast<float>(kAttack02EndFrame - kAttack02ImpactFrame) / 30.0f;
-            constexpr float kAttack02BossReturnSeconds = 1.15f;
+            constexpr float kAttack02SlamDropSpeedScale = 1.45f;
+            // 叩きつけ後の本体も、盾と同じ正規化速度で地面へ戻します。
+            constexpr float kAttack02BossReturnSeconds =
+                static_cast<float>(kAttack02ImpactFrame - kAttack02ShieldDropStartFrame) /
+                (30.0f * kAttack02SlamDropSpeedScale);
             transform->width = kShieldBossWidth;
             transform->height = kShieldBossHeight;
             const float bossWidth = transform->width * transform->scale;
@@ -2487,6 +2498,51 @@ inline void UpdateEnemies(
                 {
                     shieldAnimation->SetPlaybackSpeed(1.0f);
                 }
+            };
+
+            auto startRushAttack = [&](ShieldBossAttackPhase attackPhase)
+            {
+                const float playerCenterX =
+                    playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+                const float bossCenterX = transform->x + bossWidth * 0.5f;
+                boss->attackPhase = attackPhase;
+                boss->facing =
+                    playerCenterX > bossCenterX ? ShieldBossFacing::Right : ShieldBossFacing::Left;
+                boss->state = ShieldBossState::Rush;
+                boss->stateTimer = 0.0f;
+                boss->rushBoostElapsed = 0.0f;
+                boss->rushBoostSoundPlayed = false;
+                resetShieldToGuard();
+            };
+
+            auto startBackJump = [&](ShieldBossAttackPhase attackPhase)
+            {
+                constexpr int kLeftTargetColumn = 10;
+                constexpr int kRightTargetColumn = 30;
+                const float playerCenterX =
+                    playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+                const float arenaCenterX =
+                    (static_cast<float>(kLeftTargetColumn + kRightTargetColumn) * 0.5f) * kTileSize;
+                const float leftTargetX = static_cast<float>(kLeftTargetColumn) * kTileSize;
+                const float rightTargetX = static_cast<float>(kRightTargetColumn) * kTileSize;
+                const float selectedTargetX =
+                    playerCenterX < arenaCenterX ? rightTargetX : leftTargetX;
+                const float jumpHeightPx = boss->jumpHeight * kTileSize;
+
+                boss->attackPhase = attackPhase;
+                boss->jumpStartX = transform->x;
+                boss->jumpStartY = transform->y;
+                boss->targetX = std::clamp(selectedTargetX, 0.0f, std::max(0.0f, mapWidth - bossWidth));
+                boss->targetY = enemy->spawnY;
+                boss->facing =
+                    boss->targetX < playerCenterX ? ShieldBossFacing::Right : ShieldBossFacing::Left;
+                // 叩きつけ時と同じ高さまで上がる初速を、重力から逆算します。
+                bossVelocityY = -std::sqrt(2.0f * kBackJumpGravity * jumpHeightPx);
+                bossVelocityX = 0.0f;
+                boss->returningHomeJump = false;
+                boss->state = ShieldBossState::Jump;
+                boss->stateTimer = 0.0f;
+                resetShieldToGuard();
             };
 
             auto getAttackFrame = [&](const char* clipName) -> int
@@ -2674,51 +2730,6 @@ inline void UpdateEnemies(
                 UpdateShieldBossSpriteAnimation(*entity, *boss);
                 continue;
             }
-
-            auto isBossNearWall = [&]() -> bool
-            {
-                const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
-                const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
-                const int probeTiles = 3;
-                const int leftColumn = static_cast<int>((transform->x - kTileSize * probeTiles) / kTileSize);
-                const int rightColumn = static_cast<int>((transform->x + bossWidth + kTileSize * probeTiles) / kTileSize);
-                for (int row = rowTop; row <= rowBottom; ++row)
-                {
-                    if (isSolidTile(leftColumn, row) || isSolidTile(rightColumn, row))
-                    {
-                        return true;
-                    }
-                }
-                return transform->x <= kTileSize * 4.0f || transform->x + bossWidth >= mapWidth - kTileSize * 4.0f;
-            };
-
-            auto wouldJumpAttackRiskWall = [&](float plannedTargetX) -> bool
-            {
-                const float shieldWidth = kShieldWidth;
-                const float minX = boss->facing == ShieldBossFacing::Right
-                    ? plannedTargetX
-                    : plannedTargetX - shieldWidth;
-                const float maxX = boss->facing == ShieldBossFacing::Right
-                    ? plannedTargetX + bossWidth + shieldWidth
-                    : plannedTargetX + bossWidth;
-                if (minX <= kTileSize * 2.0f || maxX >= mapWidth - kTileSize * 2.0f)
-                {
-                    return true;
-                }
-
-                const int rowTop = static_cast<int>((transform->y + 4.0f) / kTileSize);
-                const int rowBottom = static_cast<int>((transform->y + bossHeight - 4.0f) / kTileSize);
-                const int leftColumn = static_cast<int>((minX - kTileSize) / kTileSize);
-                const int rightColumn = static_cast<int>((maxX + kTileSize) / kTileSize);
-                for (int row = rowTop; row <= rowBottom; ++row)
-                {
-                    if (isSolidTile(leftColumn, row) || isSolidTile(rightColumn, row))
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            };
 
             auto findHitNonWallObject = [&]() -> Entity*
             {
@@ -2969,18 +2980,22 @@ inline void UpdateEnemies(
                     attackFrame <= kAttack01BoostEndFrame;
                 if (rushBoostActive)
                 {
+                    boss->rushBoostElapsed += flow.lastDeltaTime;
                     if (!boss->rushBoostSoundPlayed)
                     {
                         boss->rushBoostSoundPlayed = true;
                         playShieldBossCue(*entity, "boss_forest_boost");
                     }
+                    // アニメーションフレームではなく、実際の突進経過時間で滑らかに加速する。
                     const float rushAccelProgress = std::clamp(
-                        static_cast<float>(attackFrame - kAttack01BoostStartFrame) /
-                        static_cast<float>(kAttack01BoostEndFrame - kAttack01BoostStartFrame),
+                        boss->rushBoostElapsed / kRushAccelerationSeconds,
                         0.0f,
                         1.0f);
                     const float rushAccelEase = rushAccelProgress * rushAccelProgress * (3.0f - 2.0f * rushAccelProgress);
-                    const float rushSpeedMultiplier = std::lerp(1.0f, 2.0f, rushAccelEase);
+                    const float rushSpeedMultiplier = std::lerp(
+                        kRushStartSpeedMultiplier,
+                        kRushMaxSpeedMultiplier,
+                        rushAccelEase);
                     transform->x += dir * boss->rushSpeed * rushSpeedMultiplier * flow.lastDeltaTime;
                     constexpr float kRushSmokeInterval = 0.034f;
                     const int previousSmokeStep = static_cast<int>(boss->stateTimer / kRushSmokeInterval);
@@ -3040,7 +3055,6 @@ inline void UpdateEnemies(
                         {
                             entitiesToRemove.push_back(hitObject);
                         }
-                    boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
                     startBossKnockback(dir);
@@ -3049,7 +3063,6 @@ inline void UpdateEnemies(
                 }
                 else if (hitWall || (rushBoostActive && checkPhotoBoxCollision(*transform, *entity)))
                 {
-                    boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
                     startBossKnockback(dir);
@@ -3058,7 +3071,6 @@ inline void UpdateEnemies(
                 }
                 else if (rushClipFinished)
                 {
-                    boss->rushCount++;
                     boss->state = ShieldBossState::RushCooldown;
                     boss->stateTimer = 0.0f;
                     stopShieldBossCue(*entity, "boss_forest_boost");
@@ -3072,12 +3084,17 @@ inline void UpdateEnemies(
             if (boss->state == ShieldBossState::Jump)
             {
                 boss->stateTimer += flow.lastDeltaTime;
-                const float progress = std::min(1.0f, boss->stateTimer / boss->returnJumpDuration);
-                const float arcHeight = boss->returnJumpHeight * kTileSize;
+                const float jumpHeightPx = boss->jumpHeight * kTileSize;
+                const float riseSeconds = std::sqrt(2.0f * jumpHeightPx / kBackJumpGravity);
+                const float flightSeconds = std::max(0.01f, riseSeconds * 2.0f);
+                const float progress = std::min(1.0f, boss->stateTimer / flightSeconds);
                 transform->x = boss->jumpStartX + (boss->targetX - boss->jumpStartX) * progress;
-                transform->y = boss->jumpStartY + (boss->targetY - boss->jumpStartY) * progress
-                    - std::sin(progress * 3.1415926f) * arcHeight;
-                if (progress >= 1.0f)
+                // 頂点以降も補間せず、重力加速と最大落下速度で盾と同様に落下させます。
+                bossVelocityY = std::min(
+                    kBackJumpMaxFallSpeed,
+                    bossVelocityY + kBackJumpGravity * flow.lastDeltaTime);
+                transform->y += bossVelocityY * flow.lastDeltaTime;
+                if (bossVelocityY >= 0.0f && transform->y >= boss->targetY)
                 {
                     transform->x = boss->targetX;
                     transform->y = boss->targetY;
@@ -3087,9 +3104,20 @@ inline void UpdateEnemies(
                         transform->y + bossHeight,
                         bossWidth);
                     boss->returningHomeJump = false;
-                    boss->state = ShieldBossState::Cooldown;
-                    boss->stateTimer = 0.0f;
                     resetShieldToGuard();
+                    if (boss->attackPhase == ShieldBossAttackPhase::FirstBackJump)
+                    {
+                        startRushAttack(ShieldBossAttackPhase::SecondRush);
+                    }
+                    else if (boss->attackPhase == ShieldBossAttackPhase::FinalBackJump)
+                    {
+                        startRushAttack(ShieldBossAttackPhase::FirstRush);
+                    }
+                    else
+                    {
+                        boss->state = ShieldBossState::Cooldown;
+                        boss->stateTimer = 0.0f;
+                    }
                 }
                 continue;
             }
@@ -3182,8 +3210,7 @@ inline void UpdateEnemies(
                     static_cast<float>(kAttack02ImpactFrame - kAttack02ShieldDropStartFrame),
                     0.0f,
                     1.0f);
-                constexpr float kShieldSlamDropSpeedScale = 1.45f;
-                const float fastDescentProgress = std::clamp(descentProgress * kShieldSlamDropSpeedScale, 0.0f, 1.0f);
+                const float fastDescentProgress = std::clamp(descentProgress * kAttack02SlamDropSpeedScale, 0.0f, 1.0f);
                 const bool impactFrameReached = attackFrame >= kAttack02ImpactFrame || fastDescentProgress >= 1.0f;
                 const float preImpactProgress = impactFrameReached
                     ? 1.0f
@@ -3278,7 +3305,7 @@ inline void UpdateEnemies(
                     UpdateShieldBossSpriteAnimation(*entity, *boss);
                     boss->state = ShieldBossState::Detect;
                     boss->stateTimer = 0.0f;
-                    boss->rushCount = 0;
+                    boss->attackPhase = ShieldBossAttackPhase::FirstRush;
                 }
                 break;
 
@@ -3291,9 +3318,7 @@ inline void UpdateEnemies(
                 }
                 if (boss->stateTimer >= 0.5f)
                 {
-                    boss->state = ShieldBossState::Rush;
-                    boss->stateTimer = 0.0f;
-                    boss->rushBoostSoundPlayed = false;
+                    startRushAttack(boss->attackPhase);
                 }
                 break;
 
@@ -3303,56 +3328,23 @@ inline void UpdateEnemies(
             case ShieldBossState::RushCooldown:
                 if (boss->stateTimer >= boss->rushCooldown)
                 {
-                    if (boss->rushCount < boss->rushCountMax)
+                    if (boss->attackPhase == ShieldBossAttackPhase::FirstRush)
                     {
-                        boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
-                        boss->state = ShieldBossState::Rush;
-                        boss->stateTimer = 0.0f;
-                        boss->rushBoostSoundPlayed = false;
-                        if (shieldComp)
-                        {
-                            shieldComp->attached = true;
-                            shieldComp->attackType = ShieldAttackType::None;
-                            shieldComp->velocityX = 0.0f;
-                            shieldComp->velocityY = 0.0f;
-                            shieldComp->rotationSpeed = 0.0f;
-                            shieldComp->gravityEnabled = false;
-                            shieldComp->baseAttackElapsed = 0.0f;
-                            shieldComp->contactDamage = 1;
-                            if (shieldTransform)
-                            {
-                                shieldTransform->width = kShieldWidth;
-                                shieldTransform->height = kShieldHeight;
-                                shieldTransform->rotation = 0.0f;
-                            }
-                        }
+                        startBackJump(ShieldBossAttackPhase::FirstBackJump);
                     }
                     else
                     {
                         boss->facing = dx > 0.0f ? ShieldBossFacing::Right : ShieldBossFacing::Left;
-                        boss->rushCount = 0;
+                        boss->attackPhase = ShieldBossAttackPhase::Slam;
                         const float playerCenterX = playerTransform->x
                             + playerTransform->width * playerTransform->scale * 0.5f;
                         const float jumpShieldWidth = kShieldWidth;
-                        const float plannedTargetX = boss->facing == ShieldBossFacing::Right
+                        const float rawTargetX = boss->facing == ShieldBossFacing::Right
                             ? playerCenterX - bossWidth - jumpShieldWidth * 0.5f
                             : playerCenterX + jumpShieldWidth * 0.5f;
-                        if (isBossNearWall() || wouldJumpAttackRiskWall(plannedTargetX))
-                        {
-                            boss->jumpStartX = transform->x;
-                            boss->jumpStartY = transform->y;
-                            boss->targetX = enemy->spawnX;
-                            boss->targetY = enemy->spawnY;
-                            bossVelocityY = 0.0f;
-                            bossVelocityX = 0.0f;
-                            boss->returningHomeJump = true;
-                            boss->state = ShieldBossState::Jump;
-                            boss->stateTimer = 0.0f;
-                            resetShieldToGuard();
-                            break;
-                        }
-
-                        boss->targetX = plannedTargetX;
+                        constexpr float kSlamLeftLimitX = 6.0f * kTileSize;
+                        const float slamRightLimitX = 35.0f * kTileSize - bossWidth;
+                        boss->targetX = std::clamp(rawTargetX, kSlamLeftLimitX, slamRightLimitX);
                         boss->targetY = transform->y;
                         bossVelocityY = 0.0f;
                         bossVelocityX = 0.0f;
@@ -3463,8 +3455,15 @@ inline void UpdateEnemies(
             case ShieldBossState::Cooldown:
                 if (boss->stateTimer >= boss->slamCooldown)
                 {
-                    boss->state = ShieldBossState::Idle;
-                    boss->stateTimer = 0.0f;
+                    if (boss->attackPhase == ShieldBossAttackPhase::Slam)
+                    {
+                        startBackJump(ShieldBossAttackPhase::FinalBackJump);
+                    }
+                    else
+                    {
+                        boss->state = ShieldBossState::Idle;
+                        boss->stateTimer = 0.0f;
+                    }
                 }
                 break;
             }

@@ -288,6 +288,15 @@ namespace
         return std::max(1.0f, visibleWidth * aspect);
     }
 
+    float GetNormalizedHorizontalCameraDistance(float deltaX, float visibleWidth)
+    {
+        // ボスとプレイヤーの横距離だけを、カメラの表示幅に対して正規化する。
+        return std::clamp(
+            std::fabs(deltaX) / std::max(1.0f, visibleWidth),
+            0.0f,
+            1.0f);
+    }
+
     bool IsMidBoss3CameraStabilizeStage(const std::string& mapPath)
     {
         return GetMapDisplayName(mapPath) == "ruins_boss";
@@ -582,6 +591,19 @@ void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
         const float bossDrawHeight = bossTransform->height * bossTransform->scale * (bossSprite ? bossSprite->GetRenderScaleY() : 1.0f);
         const float bossCenterX = bossTransform->x + (bossSprite ? bossSprite->GetRenderOffsetX() : 0.0f) + bossDrawWidth * 0.5f;
         const float bossCenterY = bossTransform->y + (bossSprite ? bossSprite->GetRenderOffsetY() : 0.0f) + bossDrawHeight * 0.5f;
+        if (!introCameraWork)
+        {
+            const float normalizedDistance = GetNormalizedHorizontalCameraDistance(
+                bossCenterX - playerCenterX,
+                GetCameraFollowSpanX(m_tileMap));
+            const float distanceBlend =
+                normalizedDistance * normalizedDistance * (3.0f - 2.0f * normalizedDistance);
+            // 遠距離では両者の中点を優先し、叩きつけ演出で片方が画面外へ出るのを防ぎます。
+            targetBossBlendX = std::lerp(targetBossBlendX, 0.5f, distanceBlend);
+            targetBossBlendY = std::lerp(targetBossBlendY, 0.5f, distanceBlend);
+            verticalLookBias *= std::lerp(1.0f, 0.35f, distanceBlend);
+            zoomBoost *= 1.0f - distanceBlend;
+        }
         bestWeight = weight;
         bestTargetCenterX = std::lerp(playerCenterX, bossCenterX, targetBossBlendX);
         bestTargetCenterY = std::lerp(playerCenterY, bossCenterY, targetBossBlendY) + verticalLookBias;
@@ -663,6 +685,267 @@ void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
             m_render.slamCameraZoomBoost = bestZoomBoost;
         }
     }
+}
+
+void GameScene::ApplyShieldBossFramingCameraWork(float deltaTime)
+{
+    constexpr float kCameraEaseSpeed = 0.9f;
+    constexpr float kZoomOutEaseSpeed = 1.1f;
+    constexpr float kZoomInEaseSpeed = 0.45f;
+    constexpr float kMinimumDistanceZoomScale = 0.80f;
+    constexpr float kMirroredPlayerAnchorX = 0.56f;
+    constexpr float kSideChangeConfirmSeconds = 0.4f;
+    constexpr float kNearZoomScale = 1.0f;
+    constexpr float kMiddleZoomScale = 0.80f;
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+    const float sideChangeDeadZone = tileSize * 1.25f;
+    const float framingMargin = tileSize * 1.25f;
+    const float baseVisibleWidth = GetCameraFollowSpanX(m_tileMap);
+    const float baseVisibleHeight = GetCameraVisibleHeight(m_tileMap);
+    const float blend = 1.0f - std::pow(0.001f, deltaTime * kCameraEaseSpeed);
+    bool shieldBossFound = false;
+    float normalizedDistance = 0.0f;
+    float playerLeft = 0.0f;
+    float playerRight = 0.0f;
+    float bossLeft = 0.0f;
+    float bossRight = 0.0f;
+    bool slamVerticalTrackingActive = false;
+
+    if (playerTransform)
+    {
+        playerLeft = playerTransform->x;
+        playerRight = playerLeft + playerTransform->width * playerTransform->scale;
+        const float playerCenterX =
+            (playerLeft + playerRight) * 0.5f;
+
+        for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+        {
+            const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
+            const auto* boss = entity ? entity->GetComponent<ShieldBossComponent>() : nullptr;
+            const auto* bossTransform = entity ? entity->GetComponent<TransformComponent>() : nullptr;
+            const auto* bossSprite = entity ? entity->GetComponent<SpriteRenderComponent>() : nullptr;
+            if (!enemy ||
+                enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
+                !enemy->IsEnabled() ||
+                !boss ||
+                !bossTransform)
+            {
+                continue;
+            }
+
+            const bool introFinished =
+                boss->combatStarted &&
+                !boss->introDropActive &&
+                !boss->appearAnimationActive &&
+                !boss->roarAnimationActive;
+            // 登場演出後から破壊モーション終了までだけ、ボス戦用カメラを有効にします。
+            if (!introFinished || boss->deathAnimationFinished)
+            {
+                continue;
+            }
+
+            const float bossVisualWidth =
+                bossTransform->width * bossTransform->scale *
+                (bossSprite ? bossSprite->GetRenderScaleX() : 1.0f);
+            bossLeft = bossTransform->x + (bossSprite ? bossSprite->GetRenderOffsetX() : 0.0f);
+            bossRight = bossLeft + bossVisualWidth;
+            const float bossCenterX = (bossLeft + bossRight) * 0.5f;
+            const float bossOffsetX = bossCenterX - playerCenterX;
+            // 接近中は直前の側を維持し、交差地点でカメラが細かく往復するのを防ぎます。
+            int requestedCameraSide = m_camera.shieldBossCameraSide;
+            if (bossOffsetX > sideChangeDeadZone)
+            {
+                requestedCameraSide = 1;
+            }
+            else if (bossOffsetX < -sideChangeDeadZone)
+            {
+                requestedCameraSide = -1;
+            }
+
+            if (requestedCameraSide == m_camera.shieldBossCameraSide)
+            {
+                m_camera.shieldBossPendingCameraSide = requestedCameraSide;
+                m_camera.shieldBossSideChangeTimer = 0.0f;
+            }
+            else if (requestedCameraSide != m_camera.shieldBossPendingCameraSide)
+            {
+                m_camera.shieldBossPendingCameraSide = requestedCameraSide;
+                m_camera.shieldBossSideChangeTimer = 0.0f;
+            }
+            else
+            {
+                m_camera.shieldBossSideChangeTimer += deltaTime;
+                if (m_camera.shieldBossSideChangeTimer >= kSideChangeConfirmSeconds)
+                {
+                    m_camera.shieldBossCameraSide = requestedCameraSide;
+                    m_camera.shieldBossSideChangeTimer = 0.0f;
+                }
+            }
+
+            // 高低差は無視し、横方向の距離だけでズーム倍率を決める。
+            normalizedDistance = GetNormalizedHorizontalCameraDistance(
+                bossOffsetX,
+                baseVisibleWidth);
+            slamVerticalTrackingActive =
+                boss->state == ShieldBossState::JumpAscend ||
+                boss->state == ShieldBossState::AirHover ||
+                boss->state == ShieldBossState::JumpDescend ||
+                boss->state == ShieldBossState::SlamPhase1 ||
+                boss->state == ShieldBossState::SlamPhase2;
+            shieldBossFound = true;
+            break;
+        }
+
+        float targetZoomScale = 1.0f;
+        if (shieldBossFound)
+        {
+            // 境界に幅を持たせ、近・中の境目でズームが往復しないようにする。
+            switch (m_camera.shieldBossZoomTier)
+            {
+            case 0:
+                if (normalizedDistance > 0.34f) m_camera.shieldBossZoomTier = 1;
+                break;
+            default:
+                if (normalizedDistance < 0.24f) m_camera.shieldBossZoomTier = 0;
+                break;
+            }
+
+            const float requiredWidth =
+                std::max(playerRight, bossRight) - std::min(playerLeft, bossLeft) +
+                framingMargin * 2.0f;
+            const float fitZoomScale = std::clamp(
+                baseVisibleWidth / std::max(1.0f, requiredWidth),
+                kMinimumDistanceZoomScale,
+                1.0f);
+            const int fitZoomTier =
+                fitZoomScale >= kNearZoomScale ? 0 : 1;
+            m_camera.shieldBossZoomTier =
+                std::max(m_camera.shieldBossZoomTier, fitZoomTier);
+
+            constexpr float kZoomScales[] =
+            {
+                kNearZoomScale,
+                kMiddleZoomScale,
+            };
+            targetZoomScale = kZoomScales[
+                std::clamp(m_camera.shieldBossZoomTier, 0, 1)];
+        }
+        else
+        {
+            m_camera.shieldBossZoomTier = 0;
+            m_camera.shieldBossPendingCameraSide = m_camera.shieldBossCameraSide;
+            m_camera.shieldBossSideChangeTimer = 0.0f;
+        }
+
+        const float zoomBlend =
+            targetZoomScale < m_camera.shieldBossDistanceZoomScale
+            ? 1.0f - std::pow(0.001f, deltaTime * kZoomOutEaseSpeed)
+            : 1.0f - std::pow(0.001f, deltaTime * kZoomInEaseSpeed);
+        m_camera.shieldBossDistanceZoomScale = std::lerp(
+            m_camera.shieldBossDistanceZoomScale,
+            targetZoomScale,
+            zoomBlend);
+        const float visibleWidth =
+            baseVisibleWidth / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
+
+        float targetOffsetX = 0.0f;
+        if (shieldBossFound)
+        {
+            float targetCameraX = m_flow.cameraX;
+            if (m_camera.shieldBossCameraSide < 0)
+            {
+                targetCameraX = playerCenterX - visibleWidth * kMirroredPlayerAnchorX;
+            }
+
+            const float minimumCameraX =
+                std::max(playerRight, bossRight) + framingMargin - visibleWidth;
+            const float maximumCameraX =
+                std::min(playerLeft, bossLeft) - framingMargin;
+            targetCameraX = minimumCameraX <= maximumCameraX
+                ? std::clamp(targetCameraX, minimumCameraX, maximumCameraX)
+                : (std::min(playerLeft, bossLeft) + std::max(playerRight, bossRight)) * 0.5f -
+                    visibleWidth * 0.5f;
+
+            targetOffsetX = targetCameraX - m_flow.cameraX;
+        }
+
+        // 通常フレーミングは横方向だけを補正する。
+        m_camera.shieldBossCameraOffsetX = std::lerp(
+            m_camera.shieldBossCameraOffsetX,
+            targetOffsetX,
+            blend);
+
+        if (shieldBossFound && !m_camera.shieldBossCameraBaseYInitialized)
+        {
+            // 最も近い通常カメラの高さを、ボス戦中の最低表示位置として固定する。
+            m_camera.shieldBossCameraBaseY = m_flow.cameraY;
+            m_camera.shieldBossCameraOffsetY = 0.0f;
+            m_camera.shieldBossCameraBaseYInitialized = true;
+        }
+
+        if (m_camera.shieldBossCameraBaseYInitialized)
+        {
+            if (shieldBossFound && slamVerticalTrackingActive)
+            {
+                // 座標が小さくなる上方向だけを、たたきつけアクション中に許可する。
+                m_camera.shieldBossCameraOffsetY =
+                    std::min(0.0f, m_flow.cameraY - m_camera.shieldBossCameraBaseY);
+            }
+            else if (shieldBossFound)
+            {
+                m_camera.shieldBossCameraOffsetY = std::lerp(
+                    m_camera.shieldBossCameraOffsetY,
+                    0.0f,
+                    blend);
+            }
+            else
+            {
+                // 討伐後は通常カメラへ滑らかに戻してから、基準Yの固定を解除する。
+                const float lockedCameraY =
+                    m_camera.shieldBossCameraBaseY + m_camera.shieldBossCameraOffsetY;
+                m_camera.shieldBossCameraBaseY = std::lerp(
+                    lockedCameraY,
+                    m_flow.cameraY,
+                    blend);
+                m_camera.shieldBossCameraOffsetY = 0.0f;
+                if (std::fabs(m_camera.shieldBossCameraBaseY - m_flow.cameraY) <= 0.5f &&
+                    std::fabs(m_camera.shieldBossDistanceZoomScale - 1.0f) <= 0.005f)
+                {
+                    m_camera.shieldBossCameraBaseYInitialized = false;
+                }
+            }
+        }
+    }
+    else
+    {
+        m_camera.shieldBossCameraOffsetX = 0.0f;
+        m_camera.shieldBossCameraOffsetY = 0.0f;
+        m_camera.shieldBossCameraBaseY = 0.0f;
+        m_camera.shieldBossDistanceZoomScale = 1.0f;
+        m_camera.shieldBossSideChangeTimer = 0.0f;
+        m_camera.shieldBossCameraSide = 1;
+        m_camera.shieldBossPendingCameraSide = 1;
+        m_camera.shieldBossZoomTier = 0;
+        m_camera.shieldBossCameraBaseYInitialized = false;
+    }
+
+    // ズーム後の実表示範囲でマップ内へ収めます。
+    const float visibleWidth =
+        baseVisibleWidth / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
+    const float visibleHeight =
+        baseVisibleHeight / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
+    const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - visibleWidth);
+    const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - visibleHeight);
+    m_flow.cameraX = std::clamp(
+        m_flow.cameraX + m_camera.shieldBossCameraOffsetX,
+        0.0f,
+        maxCameraX);
+    const float targetCameraY = m_camera.shieldBossCameraBaseYInitialized
+        ? m_camera.shieldBossCameraBaseY + m_camera.shieldBossCameraOffsetY
+        : m_flow.cameraY;
+    m_flow.cameraY = std::clamp(targetCameraY, 0.0f, maxCameraY);
 }
 
 
