@@ -2857,10 +2857,19 @@ void GameScene::DrawBackdropFrameInView(float viewOriginX, float viewOriginY, fl
 
 void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, float viewScale) const
 {
+    const TileMapViewport viewport
+    {
+        viewOriginX,
+        viewOriginY,
+        GetViewWidth(),
+        GetViewHeight()
+    };
+    // 写真カメラを含む現在の表示範囲だけにタイル描画を制限する。
     m_tileMap.Draw(
         m_tileTexture,
         viewOriginX - m_flow.cameraX * viewScale,
         viewOriginY - m_flow.cameraY * viewScale,
+        viewport,
         viewScale,
         m_tileTexture2,
         m_tileTexture3);

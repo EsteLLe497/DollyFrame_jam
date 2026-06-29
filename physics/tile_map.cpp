@@ -607,17 +607,52 @@ public:
 class TileMapRenderer
 {
 public:
-    static void Draw(const TileMapData& data, int textureId, float originX, float originY, float scale, int tile2TextureId, int tile3TextureId)
+    static void Draw(
+        const TileMapData& data,
+        int textureId,
+        float originX,
+        float originY,
+        const TileMapViewport& viewport,
+        float scale,
+        int tile2TextureId,
+        int tile3TextureId)
     {
-        if (textureId < 0 || data.tiles.empty() || data.width <= 0 || data.height <= 0)
+        const float tileDrawSize = data.tileSize * scale;
+        if (textureId < 0 ||
+            data.tiles.empty() ||
+            data.width <= 0 ||
+            data.height <= 0 ||
+            tileDrawSize <= 0.0f ||
+            viewport.width <= 0.0f ||
+            viewport.height <= 0.0f)
         {
             return;
         }
 
+        // 大型の三角タイルは起点セルより右下へ広がるため、その最大幅分だけ検索範囲を戻す。
+        const float viewportRight = viewport.x + viewport.width;
+        const float viewportBottom = viewport.y + viewport.height;
+        const int columnStart = std::clamp(
+            static_cast<int>(std::floor((viewport.x - originX) / tileDrawSize)) - (TileMap::kMaxDrawWidthTiles - 1),
+            0,
+            data.width);
+        const int columnEnd = std::clamp(
+            static_cast<int>(std::ceil((viewportRight - originX) / tileDrawSize)),
+            0,
+            data.width);
+        const int rowStart = std::clamp(
+            static_cast<int>(std::floor((viewport.y - originY) / tileDrawSize)) - (TileMap::kMaxDrawHeightTiles - 1),
+            0,
+            data.height);
+        const int rowEnd = std::clamp(
+            static_cast<int>(std::ceil((viewportBottom - originY) / tileDrawSize)),
+            0,
+            data.height);
+
         Shader_ResetStyle();
-        for (int row = 0; row < data.height; ++row)
+        for (int row = rowStart; row < rowEnd; ++row)
         {
-            for (int column = 0; column < data.width; ++column)
+            for (int column = columnStart; column < columnEnd; ++column)
             {
                 const int tileValue = data.tiles[static_cast<size_t>(row * data.width + column)];
                 if (tileValue <= 0)
@@ -628,6 +663,16 @@ public:
                 const float drawX = originX + static_cast<float>(column) * data.tileSize * scale;
                 const float drawY = originY + static_cast<float>(row) * data.tileSize * scale;
                 const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue);
+                const float drawWidth = static_cast<float>(triangle.widthTiles) * tileDrawSize;
+                const float drawHeight = static_cast<float>(triangle.heightTiles) * tileDrawSize;
+                if (drawX + drawWidth <= viewport.x ||
+                    drawX >= viewportRight ||
+                    drawY + drawHeight <= viewport.y ||
+                    drawY >= viewportBottom)
+                {
+                    continue;
+                }
+
                 if (triangle.isTriangle)
                 {
                     float r = 1.0f;
@@ -635,8 +680,6 @@ public:
                     float b = 1.0f;
                     float a = 1.0f;
                     GetTileTint(tileValue, r, g, b, a);
-                    const float drawWidth = static_cast<float>(triangle.widthTiles) * data.tileSize * scale;
-                    const float drawHeight = static_cast<float>(triangle.heightTiles) * data.tileSize * scale;
                     const int color = GetColor(
                         static_cast<int>(std::round(r * 255.0f)),
                         static_cast<int>(std::round(g * 255.0f)),
@@ -804,9 +847,16 @@ void TileMap::Clear()
     m_data = TileMapData{};
 }
 
-void TileMap::Draw(int textureId, float originX, float originY, float scale, int tile2TextureId, int tile3TextureId) const
+void TileMap::Draw(
+    int textureId,
+    float originX,
+    float originY,
+    const TileMapViewport& viewport,
+    float scale,
+    int tile2TextureId,
+    int tile3TextureId) const
 {
-    TileMapRenderer::Draw(m_data, textureId, originX, originY, scale, tile2TextureId, tile3TextureId);
+    TileMapRenderer::Draw(m_data, textureId, originX, originY, viewport, scale, tile2TextureId, tile3TextureId);
 }
 
 int TileMap::GetWidth() const
