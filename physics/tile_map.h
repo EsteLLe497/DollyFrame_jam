@@ -11,6 +11,15 @@ struct TileTriangleShape
     bool risesRight = false;
 };
 
+// タイル描画を行う画面上の矩形範囲。
+struct TileMapViewport
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+};
+
 struct TileMapData
 {
     std::vector<int> tiles;
@@ -28,6 +37,9 @@ class TileMap
 {
 public:
     static constexpr int kPitTileValue = 10;
+    // 複数セルへ広がる特殊タイルの最大描画サイズ。
+    static constexpr int kMaxDrawWidthTiles = 10;
+    static constexpr int kMaxDrawHeightTiles = 6;
 
     TileMap();
 
@@ -35,7 +47,15 @@ public:
     bool SaveToCsv(const std::string& path) const;
     void Clear();
 
-    void Draw(int textureId, float originX, float originY, float scale = 1.0f, int tile2TextureId = -1, int tile3TextureId = -1) const;
+    // ビューポート内に見えるタイルだけを描画する。
+    void Draw(
+        int textureId,
+        float originX,
+        float originY,
+        const TileMapViewport& viewport,
+        float scale = 1.0f,
+        int tile2TextureId = -1,
+        int tile3TextureId = -1) const;
 
     int GetWidth() const;
     int GetHeight() const;
