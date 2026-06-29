@@ -459,7 +459,12 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
             if (elevator->cycleStarted)
             {
-                if (elevator->movingUp)
+                if (elevator->pauseTimer > 0.0f)
+                {
+                    // 上端・下端の到着後は、指定時間だけ停止してから反転移動する。
+                    elevator->pauseTimer = std::max(0.0f, elevator->pauseTimer - deltaTime);
+                }
+                else if (elevator->movingUp)
                 {
                     const float topY = elevator->baseY - elevator->moveRangeY;
                     transform->y = std::max(topY, transform->y - elevator->moveSpeed * deltaTime);
@@ -467,7 +472,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
                     {
                         transform->y = topY;
                         elevator->movingUp = false;
-                        elevator->cycleStarted = false;
+                        elevator->pauseTimer = elevator->endpointPauseSeconds;
                     }
                 }
                 else
@@ -477,7 +482,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
                     {
                         transform->y = elevator->baseY;
                         elevator->movingUp = true;
-                        elevator->cycleStarted = false;
+                        elevator->pauseTimer = elevator->endpointPauseSeconds;
                     }
                 }
             }
@@ -1329,17 +1334,9 @@ void GameScene::ActivateCheckpoint(Entity& player, Entity& checkpoint)
     m_flow.respawnX = checkpointData->respawnX;
     m_flow.respawnY = checkpointData->respawnY;
     checkpointData->activated = true;
-    if (auto* tint = checkpoint.GetComponent<TintComponent>())
-    {
-        tint->r = 0.80f;
-        tint->g = 0.92f;
-        tint->b = 1.0f;
-        tint->a = 1.0f;
-    }
 
     m_eventBus.Publish({ EventType::PlaySoundRequest, &player, &checkpoint, "scene_change", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &player, &checkpoint, "Checkpoint activated", 0.0f, 0.0f });
-    SaveProgressState();
 }
 
 void GameScene::QueueResult(GameEndReason reason)

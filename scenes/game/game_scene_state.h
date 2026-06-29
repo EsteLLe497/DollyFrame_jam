@@ -299,8 +299,8 @@ struct GameSceneUiBatteryCounterTuning
 {
     float panelWidth = 58.0f;
     float panelHeight = 22.0f;
-    float offsetY = 26.0f;
-    float tileOffsetMultiplier = 2.0f;
+    float offsetY = 8.0f;
+    float tileOffsetMultiplier = 0.45f;
     float iconSize = 22.0f;
     float iconInnerInset = 5.0f;
     float labelX = 52.0f;
@@ -522,7 +522,7 @@ struct GameSceneTuningState
     float barrelBreakMinFallDistance = 99999.0f;
     float barrelBreakMinImpactSpeed = 99999.0f;
     float barrelActivationPaddingX = 320.0f;
-    float pastedObjectLifetimeSeconds = 10.0f;
+    float pastedObjectLifetimeSeconds = 20.0f;
     float pastedObjectPasteAnimationSeconds = 0.24f;
     float jumpPadMaxTiltDegrees = 18.0f;
     MidBoss2Component::Params midBoss2Params;

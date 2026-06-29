@@ -211,7 +211,7 @@ public:
         int linkId,
         float moveRangeY,
         float moveSpeed,
-        float topPauseSeconds);
+        float endpointPauseSeconds);
 
     void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
@@ -219,7 +219,7 @@ public:
     int linkId = 0;
     float moveRangeY = 144.0f;
     float moveSpeed = 140.0f;
-    float topPauseSeconds = 1.0f;
+    float endpointPauseSeconds = 3.0f;
     float baseY = 0.0f;
     bool cycleStarted = false;
     bool movingUp = true;

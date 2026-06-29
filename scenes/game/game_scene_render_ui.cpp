@@ -2767,6 +2767,33 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
             const int right = static_cast<int>(std::round(viewOriginX + (worldX + tileSize - m_flow.cameraX) * viewScale));
             const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + tileSize - m_flow.cameraY) * viewScale));
 
+            if (marker == '=')
+            {
+                // 遷移オブジェクト本体は描かず、右半分へ向かって濃くなる影だけを表示する。
+                constexpr int kShadowBandCount = 8;
+                constexpr int kShadowMinAlpha = 24;
+                constexpr int kShadowMaxAlpha = 176;
+                const int shadowLeft = left + (right - left) / 2;
+                const int shadowWidth = (std::max)(1, right - shadowLeft);
+                for (int bandIndex = 0; bandIndex < kShadowBandCount; ++bandIndex)
+                {
+                    const float bandStartRate =
+                        static_cast<float>(bandIndex) / static_cast<float>(kShadowBandCount);
+                    const float bandEndRate =
+                        static_cast<float>(bandIndex + 1) / static_cast<float>(kShadowBandCount);
+                    const int bandLeft = shadowLeft + static_cast<int>(std::floor(shadowWidth * bandStartRate));
+                    const int bandRight = shadowLeft + static_cast<int>(std::ceil(shadowWidth * bandEndRate));
+                    const int alpha = static_cast<int>(std::round(std::lerp(
+                        static_cast<float>(kShadowMinAlpha),
+                        static_cast<float>(kShadowMaxAlpha),
+                        bandEndRate)));
+                    SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+                    DrawBox(bandLeft, top, bandRight, bottom, GetColor(0, 0, 0), TRUE);
+                }
+                SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+                continue;
+            }
+
             DrawBox(left, top, right, bottom, GetColor(255, 210, 90), FALSE);
 
             const std::string destName = GetMapDisplayName(transition->destinationMapCsv);

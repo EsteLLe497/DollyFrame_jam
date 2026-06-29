@@ -6,3 +6,4 @@ assets/maps/stage01_1.csv,Z,assets/maps/boss/boss_a.csv,*
 assets/maps/stages/stage_a.csv,X,assets/maps/stage01_1.csv,*
 assets/maps/boss/boss_a.csv,X,assets/maps/stage01_1.csv,*
 assets/maps/stages/forest.csv,=,assets/maps/stages/forest_boss.csv,*
+assets/maps/stages/forest_v2.csv,=,assets/maps/stages/forest_boss.csv,*
