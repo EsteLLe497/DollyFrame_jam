@@ -51,6 +51,7 @@ namespace
     bool g_prevKeyState[256]{};
     int g_mouseButtons = 0;
     int g_prevMouseButtons = 0;
+    int g_mouseWheelDelta = 0;
     bool g_connected = false;
 
     int ToDxKey(int virtualKey)
@@ -836,6 +837,7 @@ bool Input_Initialize()
     ZeroMemory(g_prevKeyState, sizeof(g_prevKeyState));
     g_mouseButtons = 0;
     g_prevMouseButtons = 0;
+    g_mouseWheelDelta = 0;
     g_connected = false;
     return true;
 }
@@ -852,6 +854,7 @@ void Input_Update()
 
     g_prevMouseButtons = g_mouseButtons;
     g_mouseButtons = GetMouseInput();
+    g_mouseWheelDelta = GetMouseWheelRotVol();
 
     ZeroMemory(&g_state, sizeof(g_state));
     g_connected = GetJoypadXInputState(DX_INPUT_PAD1, &g_state) == 0;
@@ -1080,6 +1083,11 @@ int Input_GetMouseY()
     int y = 0;
     GetMousePoint(&x, &y);
     return DirectXMapWindowToVirtualY(y);
+}
+
+int Input_GetMouseWheelDelta()
+{
+    return g_mouseWheelDelta;
 }
 
 bool Input_IsDpadUpPressed()
