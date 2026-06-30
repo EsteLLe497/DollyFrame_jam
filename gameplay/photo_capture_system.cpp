@@ -22,6 +22,39 @@ namespace
 
     using OutlinePoint = CapturedPhotoItem::OutlinePoint;
 
+    int GetCapturedTileTextureId(int tileValue, int baseTextureId, int tile2TextureId, int tile3TextureId)
+    {
+        if (tileValue == 2 && tile2TextureId >= 0)
+        {
+            return tile2TextureId;
+        }
+        if (tileValue == 3 && tile3TextureId >= 0)
+        {
+            return tile3TextureId;
+        }
+        return baseTextureId;
+    }
+
+    void ApplyCapturedTileTint(
+        int tileValue,
+        int baseTextureId,
+        int tile2TextureId,
+        int tile3TextureId,
+        CapturedPhotoItem& item)
+    {
+        item.textureId = GetCapturedTileTextureId(tileValue, baseTextureId, tile2TextureId, tile3TextureId);
+        if (tileValue == 2 || tileValue == 3)
+        {
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
+            item.tintA = 1.0f;
+            return;
+        }
+
+        GetTileCaptureTint(tileValue, item.tintR, item.tintG, item.tintB, item.tintA);
+    }
+
     bool IsShieldBossRushCaptureReady(const Entity& bossEntity)
     {
         const auto* boss = bossEntity.GetComponent<ShieldBossComponent>();
@@ -952,7 +985,6 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
 
                 item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
-                item.textureId = scene.m_tileTexture;
                 item.role = GetTileCopyRole(tileValue);
                 item.layer = PhotoCopyLayer::Foreground;
                 item.origin = GetTileCopyOrigin(tileValue);
@@ -967,7 +999,12 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 item.sourceY = 0.0f;
                 item.sourceWidth = 1.0f;
                 item.sourceHeight = 1.0f;
-                GetTileCaptureTint(tileValue, item.tintR, item.tintG, item.tintB, item.tintA);
+                ApplyCapturedTileTint(
+                    tileValue,
+                    scene.m_tileTexture,
+                    scene.m_tileTexture2,
+                    scene.m_tileTexture3,
+                    item);
                 item.sepiaRestoredTileValue = tileValue;
                 item.sourceTileValue = tileValue;
 
@@ -1502,7 +1539,6 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
             }
 
             CapturedPhotoItem item;
-            item.textureId = scene.m_tileTexture;
             item.role = GetTileCopyRole(tileValue);
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = GetTileCopyOrigin(tileValue);
@@ -1516,7 +1552,12 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
             item.sourceY = 0.0f;
             item.sourceWidth = 1.0f;
             item.sourceHeight = 1.0f;
-            GetTileCaptureTint(tileValue, item.tintR, item.tintG, item.tintB, item.tintA);
+            ApplyCapturedTileTint(
+                tileValue,
+                scene.m_tileTexture,
+                scene.m_tileTexture2,
+                scene.m_tileTexture3,
+                item);
             item.sourceTileValue = tileValue;
             scene.m_photo.capture.items.push_back(item);
             scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;

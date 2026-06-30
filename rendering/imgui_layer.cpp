@@ -6,6 +6,7 @@
 #include <array>
 
 #include "directX.h"
+#include "input.h"
 #include "third_party/imgui/backends/imgui_impl_dx11.h"
 #include "third_party/imgui/backends/imgui_impl_win32.h"
 
@@ -176,7 +177,7 @@ namespace
 
         g_prevMouseButtons = mouseButtons;
 
-        const int wheelDelta = GetMouseWheelRotVol();
+        const int wheelDelta = Input_GetMouseWheelDelta();
         if (wheelDelta != 0)
         {
             io.AddMouseWheelEvent(0.0f, static_cast<float>(wheelDelta) / static_cast<float>(WHEEL_DELTA));

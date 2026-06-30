@@ -397,4 +397,7 @@ void GameScene::RespawnPlayer(Entity& player)
         game_scene_player_state_logic::ComputeRespawnCamera(cameraContext);
     m_flow.cameraX = cameraResult.cameraX;
     m_flow.cameraY = cameraResult.cameraY;
+
+    RefreshDamageFootholdsFromMarkers();
+    RefreshVanishObjectsFromMarkers();
 }

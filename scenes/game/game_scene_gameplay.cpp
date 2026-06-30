@@ -1662,8 +1662,6 @@ void GameScene::UpdateTuningPanel()
 
 void GameScene::UpdatePlayer(float deltaTime)
 {
-    UpdateCaptureFinderZoomInput();
-
     Entity* player = FindEntityByTag(kTagPlayer);
     if (!player)
     {
