@@ -86,6 +86,32 @@ public:
     bool pendingJumpPadBreak = false;
 };
 
+class HangingGravityObjectComponent final : public MonoBehaviour
+{
+public:
+    HangingGravityObjectComponent(
+        float gravity,
+        float maxFallSpeed,
+        int contactDamage);
+
+    void OnAttach(GameObject& owner) override;
+    void DrawDebugUI() override;
+
+    float velocityY = 0.0f;
+    float gravity = 0.0f;
+    float maxFallSpeed = 0.0f;
+    int contactDamage = 1;
+    float spawnX = 0.0f;
+    float spawnY = 0.0f;
+    float wireX = 0.0f;
+    float wireTopY = 0.0f;
+    float wireLength = 0.0f;
+    float wireWidth = 0.0f;
+    bool wireAttached = true;
+    bool active = false;
+    bool destroyed = false;
+};
+
 class JumpPadComponent final : public MonoBehaviour
 {
 public:
@@ -142,6 +168,12 @@ public:
     float spawnY = 0.0f;
 };
 
+enum class SwitchPressMode
+{
+    Battery,
+    Player,
+};
+
 class BatterySwitchComponent final : public MonoBehaviour
 {
 public:
@@ -151,7 +183,8 @@ public:
         float pressDepth,
         float pressSpeed,
         float releaseSpeed,
-        bool controlsLaserPower = false);
+        bool controlsLaserPower = false,
+        SwitchPressMode pressMode = SwitchPressMode::Battery);
 
     void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
@@ -168,6 +201,7 @@ public:
     float currentPress = 0.0f;
     bool isPressed = false;
     bool controlsLaserPower = false;
+    SwitchPressMode pressMode = SwitchPressMode::Battery;
 };
 
 class ElevatorComponent final : public MonoBehaviour
@@ -177,7 +211,7 @@ public:
         int linkId,
         float moveRangeY,
         float moveSpeed,
-        float topPauseSeconds);
+        float endpointPauseSeconds);
 
     void OnAttach(GameObject& owner) override;
     void DrawDebugUI() override;
@@ -185,7 +219,7 @@ public:
     int linkId = 0;
     float moveRangeY = 144.0f;
     float moveSpeed = 140.0f;
-    float topPauseSeconds = 1.0f;
+    float endpointPauseSeconds = 3.0f;
     float baseY = 0.0f;
     bool cycleStarted = false;
     bool movingUp = true;
@@ -227,6 +261,23 @@ public:
     bool opensWhenUnpowered = false;
 };
 
+class BatteryGeneratorComponent final : public MonoBehaviour
+{
+public:
+    BatteryGeneratorComponent(
+        int linkId,
+        float cooldownSeconds,
+        int spawnDirectionX);
+
+    void DrawDebugUI() override;
+
+    int linkId = 0;
+    float cooldownSeconds = 3.0f;
+    float cooldownRemaining = 0.0f;
+    int spawnDirectionX = 1;
+    bool wasPowered = false;
+};
+
 class ProtectiveWallComponent final : public MonoBehaviour
 {
 public:
@@ -253,8 +304,8 @@ public:
     float damageAccumulator = 0.0f;
 
 private:
-    int m_maxDurability = 3;
-    int m_currentDurability = 3;
+    int m_maxDurability = 2;
+    int m_currentDurability = 2;
 };
 
 enum class LaserTurretFireDirection
@@ -293,6 +344,24 @@ public:
     GameObject* beamEntity = nullptr;
     float beamOriginOffsetX = 0.0f;
     float beamOriginOffsetY = 0.0f;
+};
+
+class CapturedBoss2BeamFollowComponent final : public MonoBehaviour
+{
+public:
+    CapturedBoss2BeamFollowComponent() = default;
+
+    GameObject* target = nullptr;
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
+};
+
+class CapturedBoss2BeamChargeComponent final : public MonoBehaviour
+{
+public:
+    CapturedBoss2BeamChargeComponent() = default;
+
+    float chargeDuration = 0.0f;
 };
 
 class LaserBeamComponent final : public MonoBehaviour

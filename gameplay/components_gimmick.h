@@ -157,3 +157,13 @@ public:
     float pauseTimer = 0.0f;
     bool wasPlayerTouching = false;
 };
+
+class BeltConveyorComponent final : public MonoBehaviour
+{
+public:
+    BeltConveyorComponent(int widthTilesValue, int directionXValue, float velocity);
+
+    int widthTiles = 1;
+    int directionX = 1;
+    float velocity = 0.0f;
+};

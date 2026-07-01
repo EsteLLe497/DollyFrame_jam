@@ -1,6 +1,7 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
+#include "game_scene_combat_common.h"
 #include "photo_filter_rules.h"
 #include "texture.h"
 
@@ -92,6 +93,133 @@ namespace
         }
     }
 
+    void DrawDropItemOctahedron(
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        float rotation,
+        float alphaMultiplier,
+        const TintComponent* tint,
+        float pulse)
+    {
+        const float centerX = drawX + drawWidth * 0.5f;
+        const float centerY = drawY + drawHeight * 0.5f;
+        const float halfW = drawWidth * 0.5f;
+        const float halfH = drawHeight * 0.5f;
+        const float innerW = halfW * 0.62f;
+        const float innerH = halfH * 0.38f;
+
+        float topX = centerX;
+        float topY = drawY;
+        float upperLeftX = centerX - innerW;
+        float upperLeftY = centerY - innerH;
+        float upperRightX = centerX + innerW;
+        float upperRightY = centerY - innerH;
+        float leftX = drawX;
+        float leftY = centerY;
+        float rightX = drawX + drawWidth;
+        float rightY = centerY;
+        float lowerLeftX = centerX - innerW;
+        float lowerLeftY = centerY + innerH;
+        float lowerRightX = centerX + innerW;
+        float lowerRightY = centerY + innerH;
+        float bottomX = centerX;
+        float bottomY = drawY + drawHeight;
+
+        RotatePoint(centerX, centerY, rotation, topX, topY);
+        RotatePoint(centerX, centerY, rotation, upperLeftX, upperLeftY);
+        RotatePoint(centerX, centerY, rotation, upperRightX, upperRightY);
+        RotatePoint(centerX, centerY, rotation, leftX, leftY);
+        RotatePoint(centerX, centerY, rotation, rightX, rightY);
+        RotatePoint(centerX, centerY, rotation, lowerLeftX, lowerLeftY);
+        RotatePoint(centerX, centerY, rotation, lowerRightX, lowerRightY);
+        RotatePoint(centerX, centerY, rotation, bottomX, bottomY);
+
+        const float tintR = tint ? tint->r : 0.96f;
+        const float tintG = tint ? tint->g : 0.76f;
+        const float tintB = tint ? tint->b : 0.18f;
+        const float tintA = tint ? tint->a : 1.0f;
+        const int alpha = std::clamp(static_cast<int>(std::round(255.0f * alphaMultiplier * tintA)), 0, 255);
+        if (alpha <= 0)
+        {
+            return;
+        }
+
+        const auto MakeColor = [](float r, float g, float b) -> unsigned int
+        {
+            return GetColor(
+                std::clamp(static_cast<int>(std::round(r * 255.0f)), 0, 255),
+                std::clamp(static_cast<int>(std::round(g * 255.0f)), 0, 255),
+                std::clamp(static_cast<int>(std::round(b * 255.0f)), 0, 255));
+        };
+
+        const unsigned int baseColor = MakeColor(tintR, tintG, tintB);
+        const unsigned int brightColor = MakeColor(
+            std::min(1.0f, tintR + 0.12f + pulse * 0.06f),
+            std::min(1.0f, tintG + 0.14f + pulse * 0.08f),
+            std::min(1.0f, tintB + 0.20f + pulse * 0.10f));
+        const unsigned int leftColor = MakeColor(
+            std::max(0.0f, tintR * 0.70f),
+            std::max(0.0f, tintG * 0.62f),
+            std::max(0.0f, tintB * 0.74f));
+        const unsigned int rightColor = MakeColor(
+            std::max(0.0f, tintR * 0.82f),
+            std::max(0.0f, tintG * 0.70f),
+            std::max(0.0f, tintB * 0.58f));
+        const unsigned int bottomColor = MakeColor(
+            std::max(0.0f, tintR * 0.58f),
+            std::max(0.0f, tintG * 0.46f),
+            std::max(0.0f, tintB * 0.40f));
+        const unsigned int outlineColor = MakeColor(
+            std::max(0.0f, tintR * 0.40f),
+            std::max(0.0f, tintG * 0.28f),
+            std::max(0.0f, tintB * 0.18f));
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+        DrawQuadrangleAA(topX, topY, rightX, rightY, bottomX, bottomY, leftX, leftY, baseColor, TRUE);
+        DrawTriangleAA(topX, topY, upperLeftX, upperLeftY, upperRightX, upperRightY, brightColor, TRUE);
+        DrawTriangleAA(leftX, leftY, upperLeftX, upperLeftY, lowerLeftX, lowerLeftY, leftColor, TRUE);
+        DrawTriangleAA(rightX, rightY, upperRightX, upperRightY, lowerRightX, lowerRightY, rightColor, TRUE);
+        DrawTriangleAA(bottomX, bottomY, lowerLeftX, lowerLeftY, lowerRightX, lowerRightY, bottomColor, TRUE);
+
+        const float innerScale = 0.56f + pulse * 0.05f;
+        float innerTopX = centerX;
+        float innerTopY = centerY - halfH * innerScale;
+        float innerLeftX = centerX - halfW * 0.42f;
+        float innerLeftY = centerY;
+        float innerRightX = centerX + halfW * 0.42f;
+        float innerRightY = centerY;
+        float innerBottomX = centerX;
+        float innerBottomY = centerY + halfH * innerScale;
+        RotatePoint(centerX, centerY, rotation, innerTopX, innerTopY);
+        RotatePoint(centerX, centerY, rotation, innerLeftX, innerLeftY);
+        RotatePoint(centerX, centerY, rotation, innerRightX, innerRightY);
+        RotatePoint(centerX, centerY, rotation, innerBottomX, innerBottomY);
+        DrawQuadrangleAA(innerTopX, innerTopY, innerRightX, innerRightY, innerBottomX, innerBottomY, innerLeftX, innerLeftY, brightColor, TRUE);
+
+        DrawLineAA(topX, topY, upperRightX, upperRightY, outlineColor, 1.5f);
+        DrawLineAA(upperRightX, upperRightY, rightX, rightY, outlineColor, 1.5f);
+        DrawLineAA(rightX, rightY, lowerRightX, lowerRightY, outlineColor, 1.5f);
+        DrawLineAA(lowerRightX, lowerRightY, bottomX, bottomY, outlineColor, 1.5f);
+        DrawLineAA(bottomX, bottomY, lowerLeftX, lowerLeftY, outlineColor, 1.5f);
+        DrawLineAA(lowerLeftX, lowerLeftY, leftX, leftY, outlineColor, 1.5f);
+        DrawLineAA(leftX, leftY, upperLeftX, upperLeftY, outlineColor, 1.5f);
+        DrawLineAA(upperLeftX, upperLeftY, topX, topY, outlineColor, 1.5f);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(84.0f * alphaMultiplier)), 0, 255));
+        DrawLineAA(topX, topY, centerX, centerY, GetColor(255, 255, 255), 1.1f);
+        DrawCircleAA(
+            centerX - halfW * 0.14f,
+            centerY - halfH * 0.22f,
+            std::max(1.2f, halfW * 0.12f),
+            24,
+            GetColor(255, 255, 255),
+            TRUE,
+            1.0f);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     const char* GetLayerEffectText(PhotoCopyLayer layer)
     {
         switch (layer)
@@ -178,6 +306,34 @@ namespace
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
+    void DrawAttackPredictionLine(
+        float startX,
+        float startY,
+        float directionX,
+        float directionY,
+        float length,
+        float viewScale,
+        float pulseSeed)
+    {
+        const float directionLength = std::max(0.001f, std::hypot(directionX, directionY));
+        const float dx = directionX / directionLength;
+        const float dy = directionY / directionLength;
+        const float endX = startX + dx * length;
+        const float endY = startY + dy * length;
+        const float pulse = 0.72f + 0.28f * std::sin(static_cast<float>(GetNowCount()) * 0.018f + pulseSeed);
+        const int wideAlpha = std::clamp(static_cast<int>(std::round(88.0f * pulse)), 0, 150);
+        const int coreAlpha = std::clamp(static_cast<int>(std::round(176.0f * pulse)), 0, 230);
+        const float wideThickness = std::max(5.0f, 7.0f * viewScale);
+        const float coreThickness = std::max(1.8f, 2.5f * viewScale);
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, wideAlpha);
+        DrawLineAA(startX, startY, endX, endY, GetColor(255, 24, 18), wideThickness);
+        SetDrawBlendMode(DX_BLENDMODE_ADD, coreAlpha);
+        DrawLineAA(startX, startY, endX, endY, GetColor(255, 90, 70), coreThickness);
+        DrawCircleAA(startX, startY, std::max(3.0f, 4.0f * viewScale), 24, GetColor(255, 30, 20), TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     void DrawFilledQuad(
         float ax,
         float ay,
@@ -191,6 +347,98 @@ namespace
     {
         DrawTriangleAA(ax, ay, bx, by, cx, cy, color, TRUE);
         DrawTriangleAA(ax, ay, cx, cy, dx, dy, color, TRUE);
+    }
+
+    void DrawPlayerSwitchDomeFace(
+        int left,
+        int right,
+        int height,
+        int bevel,
+        int faceTop,
+        int faceBottom,
+        int faceColor,
+        int highlightColor,
+        int rimColor,
+        float pressRate,
+        float alphaMultiplier)
+    {
+        constexpr int kDomeSegments = 120;
+        constexpr float kPi = 3.14159265f;
+        constexpr float kHighlightStartT = 0.18f;
+        constexpr float kHighlightEndT = 0.82f;
+
+        const int shadowColor = GetColor(58, 42, 36);
+        const float domeLeft = static_cast<float>(left + bevel);
+        const float domeRight = static_cast<float>(right - bevel);
+        const float domeBaseY = static_cast<float>(faceBottom);
+        const float centerX = (domeLeft + domeRight) * 0.5f;
+        const float radiusX = std::max(1.0f, (domeRight - domeLeft) * 0.5f);
+        const float normalRadiusY = std::max(1.0f, static_cast<float>(faceBottom - faceTop));
+        const float flatRadiusY = std::max(1.0f, static_cast<float>(height) * 0.08f);
+        const float radiusY = std::lerp(normalRadiusY, flatRadiusY, std::clamp(pressRate, 0.0f, 1.0f));
+
+        struct Point
+        {
+            float x;
+            float y;
+        };
+
+        const auto pointOnDome = [&](float t)
+        {
+            const float theta = kPi * (1.0f - t);
+            return Point{
+                centerX + std::cos(theta) * radiusX,
+                domeBaseY - std::sin(theta) * radiusY
+            };
+        };
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(245.0f * alphaMultiplier)), 0, 255));
+        for (int index = 0; index < kDomeSegments; ++index)
+        {
+            const float t0 = static_cast<float>(index) / static_cast<float>(kDomeSegments);
+            const float t1 = static_cast<float>(index + 1) / static_cast<float>(kDomeSegments);
+            const auto p0 = pointOnDome(t0);
+            const auto p1 = pointOnDome(t1);
+            DrawQuadrangleAA(
+                p0.x, p0.y,
+                p1.x, p1.y,
+                p1.x, domeBaseY,
+                p0.x, domeBaseY,
+                faceColor,
+                TRUE);
+        }
+
+        const float highlightBottomOffset = std::max(2.0f, static_cast<float>(height) * 0.12f);
+        for (int index = 0; index < kDomeSegments; ++index)
+        {
+            const float segmentStart = static_cast<float>(index) / static_cast<float>(kDomeSegments);
+            const float segmentEnd = static_cast<float>(index + 1) / static_cast<float>(kDomeSegments);
+            const float t0 = std::lerp(kHighlightStartT, kHighlightEndT, segmentStart);
+            const float t1 = std::lerp(kHighlightStartT, kHighlightEndT, segmentEnd);
+            const auto p0 = pointOnDome(t0);
+            const auto p1 = pointOnDome(t1);
+            const float y0 = std::min(domeBaseY, p0.y + highlightBottomOffset);
+            const float y1 = std::min(domeBaseY, p1.y + highlightBottomOffset);
+            DrawQuadrangleAA(
+                p0.x, p0.y,
+                p1.x, p1.y,
+                p1.x, y1,
+                p0.x, y0,
+                highlightColor,
+                TRUE);
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(230.0f * alphaMultiplier)), 0, 255));
+        auto previous = pointOnDome(0.0f);
+        for (int index = 1; index <= kDomeSegments; ++index)
+        {
+            const float t = static_cast<float>(index) / static_cast<float>(kDomeSegments);
+            const auto current = pointOnDome(t);
+            DrawLineAA(previous.x, previous.y, current.x, current.y, rimColor, std::max(1.2f, static_cast<float>(height) * 0.08f));
+            previous = current;
+        }
+        DrawLineAA(domeLeft, domeBaseY, domeRight, domeBaseY, shadowColor, std::max(1.0f, static_cast<float>(height) * 0.06f));
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
     void DrawMidBoss3DrillShape(
@@ -493,7 +741,9 @@ namespace
         float y,
         float width,
         float height,
+        int textureId,
         const DamagePlatformComponent* damagePlatform,
+        const SpikeStripComponent* spikeStrip,
         const TintComponent* tint,
         float sourceX,
         float sourceY,
@@ -502,7 +752,7 @@ namespace
         float rotation,
         float alpha)
     {
-        if (!damagePlatform || !tint)
+        if (!damagePlatform || !tint || spikeStrip != nullptr)
         {
             return false;
         }
@@ -521,34 +771,45 @@ namespace
 
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f)), 0, 255));
 
-        std::vector<DamagePlatformPoint> basePolygon =
+        if (textureId >= 0)
         {
-            { 0.0f, 0.5f },
-            { 1.0f, 0.5f },
-            { 1.0f, 1.0f },
-            { 0.0f, 1.0f }
-        };
-        if (ClipDamagePlatformPolygonToCrop(basePolygon, cropLeft, cropTop, cropRight, cropBottom))
-        {
-            DrawDamagePlatformPolygon(basePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, baseColor);
-        }
-
-        const int spikeCount = (std::max)(1, damagePlatform->tileSpan);
-        const float spikeWidth = 1.0f / static_cast<float>(spikeCount);
-        for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
-        {
-            std::vector<DamagePlatformPoint> spikePolygon =
+            const int blockCount = (std::max)(1, damagePlatform->tileSpan);
+            const float blockWidth = width / static_cast<float>(blockCount);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, alpha);
+            for (int blockIndex = 0; blockIndex < blockCount; ++blockIndex)
             {
-                { static_cast<float>(spikeIndex) * spikeWidth, 0.5f },
-                { static_cast<float>(spikeIndex + 1) * spikeWidth, 0.5f },
-                { (static_cast<float>(spikeIndex) + 0.5f) * spikeWidth, 0.0f }
-            };
-            if (!ClipDamagePlatformPolygonToCrop(spikePolygon, cropLeft, cropTop, cropRight, cropBottom))
-            {
-                continue;
+                const float drawX = x + blockWidth * static_cast<float>(blockIndex);
+                const float drawWidth = blockIndex == blockCount - 1
+                    ? width - blockWidth * static_cast<float>(blockIndex)
+                    : blockWidth;
+                SpriteDraw(
+                    textureId,
+                    drawX,
+                    y,
+                    drawWidth,
+                    height,
+                    cropLeft,
+                    cropTop,
+                    cropRight - cropLeft,
+                    cropBottom - cropTop,
+                    false,
+                    rotation);
             }
-
-            DrawDamagePlatformPolygon(spikePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, spikeColor);
+            Shader_ResetStyle();
+        }
+        else
+        {
+            std::vector<DamagePlatformPoint> basePolygon =
+            {
+                { 0.0f, 0.5f },
+                { 1.0f, 0.5f },
+                { 1.0f, 1.0f },
+                { 0.0f, 1.0f }
+            };
+            if (ClipDamagePlatformPolygonToCrop(basePolygon, cropLeft, cropTop, cropRight, cropBottom))
+            {
+                DrawDamagePlatformPolygon(basePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, baseColor);
+            }
         }
 
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
@@ -560,6 +821,7 @@ namespace
         float y,
         float width,
         float height,
+        const DamagePlatformComponent* damagePlatform,
         const SpikeStripComponent* spikeStrip,
         const TintComponent* tint,
         float sourceX,
@@ -569,44 +831,12 @@ namespace
         float rotation,
         float alpha)
     {
-        if (!spikeStrip || !tint)
+        if (!damagePlatform || !spikeStrip || !tint)
         {
             return false;
         }
 
-        const int spikeColor = GetColor(
-            static_cast<int>(std::round(tint->r * 255.0f)),
-            static_cast<int>(std::round(tint->g * 255.0f)),
-            static_cast<int>(std::round(tint->b * 255.0f)));
-        const float cropLeft = std::clamp(sourceX, 0.0f, 1.0f);
-        const float cropTop = std::clamp(sourceY, 0.0f, 1.0f);
-        const float cropWidth = std::clamp(sourceWidth, 0.0001f, 1.0f);
-        const float cropHeight = std::clamp(sourceHeight, 0.0001f, 1.0f);
-        const float cropRight = std::clamp(cropLeft + cropWidth, 0.0f, 1.0f);
-        const float cropBottom = std::clamp(cropTop + cropHeight, 0.0f, 1.0f);
-
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f)), 0, 255));
-
-        const int spikeCount = (std::max)(1, spikeStrip->tileSpan);
-        const float spikeWidth = 1.0f / static_cast<float>(spikeCount);
-        for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
-        {
-            std::vector<DamagePlatformPoint> spikePolygon =
-            {
-                { static_cast<float>(spikeIndex) * spikeWidth, 1.0f },
-                { static_cast<float>(spikeIndex + 1) * spikeWidth, 1.0f },
-                { (static_cast<float>(spikeIndex) + 0.5f) * spikeWidth, 0.0f }
-            };
-            if (!ClipDamagePlatformPolygonToCrop(spikePolygon, cropLeft, cropTop, cropRight, cropBottom))
-            {
-                continue;
-            }
-
-            DrawDamagePlatformPolygon(spikePolygon, x, y, width, height, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop, rotation, spikeColor);
-        }
-
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-        return true;
+        return false;
     }
         float ComputeLightFlicker(float timeSeconds, const TransformComponent& transform, const FlickerLightComponent& light)
     {
@@ -1301,12 +1531,87 @@ namespace
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
-    bool IsShieldBossAttackCaptureState(ShieldBossState state)
+    bool IsShieldBossAttackCaptureEffectActive(const Entity& entity, const ShieldBossComponent& boss)
     {
-        return state == ShieldBossState::Rush ||
-            state == ShieldBossState::JumpAscend ||
-            state == ShieldBossState::AirHover ||
-            state == ShieldBossState::JumpDescend;
+        constexpr int kAttack01BoostStartFrame = 60;
+        if (boss.state == ShieldBossState::Rush)
+        {
+            const auto* animation = entity.GetComponent<SpriteSheetAnimationComponent>();
+            return animation &&
+                animation->GetCurrentClipName() == "attack01" &&
+                animation->GetCurrentLocalFrameIndex() >= kAttack01BoostStartFrame;
+        }
+
+        return boss.state == ShieldBossState::JumpAscend ||
+            boss.state == ShieldBossState::AirHover ||
+            boss.state == ShieldBossState::JumpDescend;
+    }
+
+    void DrawFallingShieldTrail(
+        int textureId,
+        float drawX,
+        float drawY,
+        float drawWidth,
+        float drawHeight,
+        float sourceX,
+        float sourceY,
+        float sourceWidth,
+        float sourceHeight,
+        bool flipX,
+        float rotation,
+        float viewScale,
+        float alphaMultiplier)
+    {
+        const float alpha = std::clamp(alphaMultiplier, 0.0f, 1.0f);
+        const float centerX = drawX + drawWidth * 0.5f;
+
+        // Falling blur is made from delayed shield copies, so the silhouette stays readable.
+        constexpr int kBlurCopyCount = 5;
+        for (int index = kBlurCopyCount; index >= 1; --index)
+        {
+            const float step = static_cast<float>(index);
+            const float copyAlpha = (0.05f + 0.045f * step) * alpha;
+            const float offsetY = (6.0f + step * 10.0f) * viewScale;
+            const float scaleX = 1.0f - step * 0.018f;
+            const float scaleY = 1.0f + step * 0.012f;
+            const float copyX = centerX - drawWidth * scaleX * 0.5f;
+            const float copyY = drawY - offsetY;
+            const float copyWidth = drawWidth * scaleX;
+            const float copyHeight = drawHeight * scaleY;
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(255.0f * copyAlpha)), 0, 255));
+            Shader_SetTint(1.0f, 1.0f, 1.0f, copyAlpha);
+            SpriteDraw(
+                textureId,
+                copyX,
+                copyY,
+                copyWidth,
+                copyHeight,
+                sourceX,
+                sourceY,
+                sourceWidth,
+                sourceHeight,
+                flipX,
+                rotation);
+
+            Shader_ResetStyle();
+            const int lineAlpha = std::clamp(static_cast<int>(std::round((44.0f + step * 20.0f) * alpha)), 0, 170);
+            const float lineThickness = std::max(1.0f, (0.75f + step * 0.12f) * viewScale);
+            const int lineColor = GetColor(255, 250, 235);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, lineAlpha);
+            for (int lineIndex = 0; lineIndex < 3; ++lineIndex)
+            {
+                const float side = static_cast<float>(lineIndex - 1);
+                const float startX = copyX + copyWidth * (0.5f + side * 0.22f);
+                const float startY = copyY + copyHeight * 0.24f;
+                const float endX = startX + side * (3.0f + step * 1.5f) * viewScale;
+                const float endY = startY - (18.0f + step * 8.0f) * viewScale;
+                DrawLineAA(startX, startY, endX, endY, lineColor, lineThickness);
+            }
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        Shader_ResetStyle();
     }
 
     void DrawShieldBossAttackCaptureFrame(
@@ -1707,8 +2012,10 @@ void GameScene::DrawEffects() const
             enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
             !enemy->IsEnabled() ||
             !boss ||
+            boss->deathAnimationActive ||
+            boss->deathAnimationFinished ||
             !transform ||
-            !IsShieldBossAttackCaptureState(boss->state))
+            !IsShieldBossAttackCaptureEffectActive(*entity, *boss))
         {
             continue;
         }
@@ -1741,13 +2048,47 @@ void GameScene::DrawEffects() const
             particle.rotation);
     }
 
+    for (const auto& particle : m_effects.slamDust)
+    {
+        const float lifeT = Clamp01(particle.life / std::max(0.001f, particle.maxLife));
+        const float fade = lifeT * lifeT;
+        Shader_ResetStyle();
+        Shader_SetTint(particle.r, particle.g, particle.b, fade * particle.alphaScale);
+        SpriteDraw(
+            m_whiteTexture,
+            viewOriginX + (particle.x - m_flow.cameraX) * viewScale,
+            viewOriginY + (particle.y - m_flow.cameraY) * viewScale,
+            particle.width * viewScale,
+            particle.height * viewScale,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f,
+            false,
+            particle.rotation);
+    }
 
     for (const auto& spark : m_effects.laserSparks)
     {
         const float lifeT = Clamp01(spark.life / std::max(0.001f, spark.maxLife));
-        const float size = (2.0f + 3.0f * lifeT) * viewScale;
+        const float size = (2.0f + 3.0f * lifeT) * std::max(0.1f, spark.sizeScale) * viewScale;
         const float drawX = viewOriginX + (spark.x - m_flow.cameraX) * viewScale;
         const float drawY = viewOriginY + (spark.y - m_flow.cameraY) * viewScale;
+        if (spark.drawCircle)
+        {
+            const int alpha = std::clamp(static_cast<int>(std::round(255.0f * lifeT)), 0, 255);
+            const int color = GetColor(
+                std::clamp(static_cast<int>(std::round(255.0f * spark.r)), 0, 255),
+                std::clamp(static_cast<int>(std::round(255.0f * spark.g)), 0, 255),
+                std::clamp(static_cast<int>(std::round(255.0f * spark.b)), 0, 255));
+
+            Shader_ResetStyle();
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+            DrawCircleAA(drawX, drawY, std::max(0.75f, size * 0.5f), 24, color, TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            continue;
+        }
+
         Shader_ResetStyle();
         Shader_SetTint(spark.r, spark.g, spark.b, lifeT);
         SpriteDraw(
@@ -1762,6 +2103,122 @@ void GameScene::DrawEffects() const
             1.0f,
             false,
             0.0f);
+    }
+
+    for (const auto& particle : m_effects.midBoss2SpearMist)
+    {
+        const float lifeT = Clamp01(particle.life / std::max(0.001f, particle.maxLife));
+        const float riseT = 1.0f - lifeT;
+        const float bubbleAlpha = lifeT * lifeT;
+        const float pulse = 0.82f + 0.18f * std::sin((1.0f - riseT) * 18.0f + particle.pulsePhase);
+        const float size = (1.5f + 5.0f * lifeT) * std::max(0.2f, particle.sizeScale) * viewScale * pulse;
+        const float drawX = viewOriginX + (particle.x - m_flow.cameraX) * viewScale;
+        const float drawY = viewOriginY + (particle.y - m_flow.cameraY) * viewScale;
+        const int alpha = std::clamp(static_cast<int>(std::round(255.0f * bubbleAlpha)), 0, 255);
+        const int color = GetColor(
+            std::clamp(static_cast<int>(std::round(255.0f * particle.r)), 0, 255),
+            std::clamp(static_cast<int>(std::round(255.0f * particle.g)), 0, 255),
+            std::clamp(static_cast<int>(std::round(255.0f * particle.b)), 0, 255));
+
+        Shader_ResetStyle();
+        SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
+        DrawCircleAA(drawX, drawY, std::max(0.6f, size * 0.5f), 24, color, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
+    for (const auto& shockwave : m_effects.beamShockwaves)
+    {
+        const float lifeT = Clamp01(shockwave.life / std::max(0.001f, shockwave.maxLife));
+        const float progress = 1.0f - lifeT;
+        const float eased = EaseOutCubic(progress);
+        const float radius = std::lerp(shockwave.startRadius, shockwave.endRadius, eased) * viewScale;
+        const float thickness = std::max(1.5f, shockwave.thickness * std::lerp(1.0f, 0.45f, progress) * viewScale);
+        const float drawX = viewOriginX + (shockwave.x - m_flow.cameraX) * viewScale;
+        const float drawY = viewOriginY + (shockwave.y - m_flow.cameraY) * viewScale;
+        const int alpha = static_cast<int>(std::round(150.0f * lifeT));
+        const int shockwaveColor = GetColor(
+            static_cast<int>(std::round(255.0f * shockwave.r)),
+            static_cast<int>(std::round(255.0f * shockwave.g)),
+            static_cast<int>(std::round(255.0f * shockwave.b)));
+
+        SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
+        if (std::fabs(shockwave.directionX) > 0.001f)
+        {
+            const float directionX = shockwave.directionX >= 0.0f ? 1.0f : -1.0f;
+            const float frontX = drawX + directionX * radius;
+            const float flareHeight = radius * 0.34f;
+            DrawLineAA(
+                drawX,
+                drawY,
+                frontX,
+                drawY,
+                shockwaveColor,
+                std::max(1.0f, thickness * 1.35f));
+            DrawLineAA(
+                drawX,
+                drawY - flareHeight * 0.32f,
+                frontX,
+                drawY,
+                GetColor(188, 240, 255),
+                std::max(1.0f, thickness * 0.58f));
+            DrawLineAA(
+                drawX,
+                drawY + flareHeight * 0.32f,
+                frontX,
+                drawY,
+                GetColor(188, 240, 255),
+                std::max(1.0f, thickness * 0.58f));
+            DrawCircleAA(
+                drawX,
+                drawY,
+                std::max(2.0f, radius * 0.13f),
+                48,
+                shockwaveColor,
+                FALSE,
+                std::max(1.0f, thickness * 0.72f));
+            DrawCircleAA(
+                frontX,
+                drawY,
+                std::max(2.0f, radius * 0.08f),
+                32,
+                GetColor(255, 255, 255),
+                TRUE,
+                std::max(1.0f, thickness * 0.24f));
+        }
+        else
+        {
+            DrawCircleAA(
+                drawX,
+                drawY,
+                radius,
+                64,
+                shockwaveColor,
+                FALSE,
+                thickness);
+            DrawCircleAA(
+                drawX,
+                drawY,
+                radius * 0.78f,
+                64,
+                GetColor(255, 255, 255),
+                FALSE,
+                std::max(1.0f, thickness * 0.42f));
+            DrawLineAA(
+                drawX - radius * 0.9f,
+                drawY,
+                drawX + radius * 0.9f,
+                drawY,
+                GetColor(188, 240, 255),
+                std::max(1.0f, thickness * 0.28f));
+            DrawLineAA(
+                drawX,
+                drawY - radius * 0.62f,
+                drawX,
+                drawY + radius * 0.62f,
+                GetColor(188, 240, 255),
+                std::max(1.0f, thickness * 0.22f));
+        }
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
 
     Shader_ResetStyle();
@@ -1785,12 +2242,42 @@ void GameScene::DrawEntity(const Entity& entity) const
     float drawWidth = transform->width * transform->scale * sprite->GetRenderScaleX() * viewScale;
     float drawHeight = transform->height * transform->scale * sprite->GetRenderScaleY() * viewScale;
     const auto* tag = entity.GetComponent<TagComponent>();
+    bool fallingShieldTrailActive = false;
     if (tag && (HasTag(tag, EntityTag::BossShield) || HasTag(tag, EntityTag::CapturedShield)))
     {
         const auto* shield = entity.GetComponent<ShieldComponent>();
+        if (shield && sprite->GetTextureId() == m_whiteTexture)
+        {
+            // 攻撃・盾の判定用白テクスチャは見た目だけ隠し、当たり判定は残す。
+            return;
+        }
+        if (HasTag(tag, EntityTag::CapturedShield) &&
+            shield &&
+            shield->photoSpawned &&
+            shield->capturedMode != CapturedShieldMode::Normal &&
+            sprite->GetTextureId() == m_whiteTexture)
+        {
+            // Attack-captured shields sometimes keep a white hitbox texture for collision only.
+            // Hide that placeholder so pasted/captured attacks do not show debug boxes.
+            return;
+        }
         const auto* ownerBoss = shield && shield->ownerBoss
             ? shield->ownerBoss->GetComponent<ShieldBossComponent>()
             : nullptr;
+        const bool bossSlamFalling =
+            HasTag(tag, EntityTag::BossShield) &&
+            shield &&
+            ownerBoss &&
+            ownerBoss->state == ShieldBossState::JumpDescend &&
+            !shield->attached;
+        const bool capturedSlamFalling =
+            HasTag(tag, EntityTag::CapturedShield) &&
+            shield &&
+            shield->photoSpawned &&
+            shield->capturedMode == CapturedShieldMode::JumpBurst &&
+            !shield->grounded &&
+            shield->descendSpeed > 0.0f;
+        fallingShieldTrailActive = bossSlamFalling || capturedSlamFalling;
         const bool bossShieldVisual =
             shield && ownerBoss &&
             (shield->attached || ownerBoss->knockbackActive || ownerBoss->state == ShieldBossState::Rush || ownerBoss->state == ShieldBossState::RushCooldown);
@@ -1863,13 +2350,14 @@ void GameScene::DrawEntity(const Entity& entity) const
     const auto* midBoss2Spear = entity.GetComponent<MidBoss2SpearComponent>();
     const auto* midBoss2 = entity.GetComponent<MidBoss2Component>();
     const auto* bossBeamCapture = entity.GetComponent<BossBeamCaptureComponent>();
+    const auto* capturedBoss2BeamCharge = entity.GetComponent<CapturedBoss2BeamChargeComponent>();
     const bool midBoss2TeleportFlashActive =
         enemyComponent &&
         enemyComponent->GetArchetype() == EnemyArchetype::MidBoss2 &&
         midBoss2 &&
         midBoss2->teleportFlashRemaining > 0.0f;
     const float midBoss2TeleportFlashT = midBoss2TeleportFlashActive
-        ? Clamp01(midBoss2->teleportFlashRemaining / 0.12f)
+        ? Clamp01(midBoss2->teleportFlashRemaining / 0.24f)
         : 0.0f;
 
     if (midBoss2TeleportFlashActive)
@@ -1880,7 +2368,160 @@ void GameScene::DrawEntity(const Entity& entity) const
         drawHeight *= std::lerp(1.0f, 1.72f, midBoss2TeleportFlashT);
         drawX = centerX - drawWidth * 0.5f;
         drawY = centerY - drawHeight * 0.5f - drawHeight * 0.03f * midBoss2TeleportFlashT;
+
+        const float ghostOffsetX = std::max(4.0f, drawWidth * 0.11f) * std::lerp(0.55f, 1.0f, midBoss2TeleportFlashT);
+        const float ghostOffsetY = std::max(3.0f, drawHeight * 0.06f) * std::lerp(0.35f, 0.12f, midBoss2TeleportFlashT);
+        if (sprite)
+        {
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(72.0f + midBoss2TeleportFlashT * 108.0f)), 0, 255));
+            Shader_SetTint(0.70f, 0.94f, 1.0f, std::lerp(0.20f, 0.38f, midBoss2TeleportFlashT));
+            SpriteDraw(
+                sprite->GetTextureId(),
+                drawX - ghostOffsetX,
+                drawY + ghostOffsetY,
+                drawWidth,
+                drawHeight,
+                sprite->GetSourceX(),
+                sprite->GetSourceY(),
+                sprite->GetSourceWidth(),
+                sprite->GetSourceHeight(),
+                sprite->GetFlipX(),
+                transform->rotation);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(58.0f + midBoss2TeleportFlashT * 96.0f)), 0, 255));
+            Shader_SetTint(0.92f, 0.98f, 1.0f, std::lerp(0.12f, 0.26f, midBoss2TeleportFlashT));
+            SpriteDraw(
+                sprite->GetTextureId(),
+                drawX + ghostOffsetX * 0.65f,
+                drawY - ghostOffsetY * 0.75f,
+                drawWidth,
+                drawHeight,
+                sprite->GetSourceX(),
+                sprite->GetSourceY(),
+                sprite->GetSourceWidth(),
+                sprite->GetSourceHeight(),
+                sprite->GetFlipX(),
+                transform->rotation);
+            Shader_ResetStyle();
+        }
+
+        const float ringRadius = std::max(drawWidth, drawHeight) * std::lerp(0.72f, 1.18f, midBoss2TeleportFlashT);
+        const float ringThickness = std::max(2.5f, viewScale * std::lerp(2.8f, 5.0f, midBoss2TeleportFlashT));
+        const float ringPulse = 0.92f + 0.08f * std::sin(static_cast<float>(GetNowCount()) * 0.014f);
+        const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(124.0f * midBoss2TeleportFlashT * ringPulse)), 0, 255));
+        DrawCircleAA(centerX, centerY, ringRadius, 64, GetColor(124, 220, 255), FALSE, ringThickness);
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(208.0f * midBoss2TeleportFlashT)), 0, 255));
+        DrawCircleAA(centerX, centerY, ringRadius * 0.72f, 64, GetColor(255, 255, 255), FALSE, std::max(1.5f, ringThickness * 0.52f));
+        const float flashLine = ringRadius * std::lerp(0.42f, 1.1f, midBoss2TeleportFlashT);
+        DrawLineAA(centerX - flashLine, centerY, centerX + flashLine, centerY, GetColor(168, 232, 255), std::max(1.5f, ringThickness * 0.28f));
+        DrawLineAA(centerX, centerY - flashLine * 0.72f, centerX, centerY + flashLine * 0.72f, GetColor(168, 232, 255), std::max(1.5f, ringThickness * 0.24f));
+        const float burstRadius = ringRadius * std::lerp(0.82f, 1.08f, midBoss2TeleportFlashT);
+        const float burstThickness = std::max(1.2f, ringThickness * 0.18f);
+        const float burstSpin = timeSeconds * std::lerp(4.0f, 6.5f, midBoss2TeleportFlashT);
+        for (int burstIndex = 0; burstIndex < 4; ++burstIndex)
+        {
+            const float angle = burstSpin + static_cast<float>(burstIndex) * 1.5707963f;
+            const float rayX = centerX + std::cos(angle) * burstRadius;
+            const float rayY = centerY + std::sin(angle) * burstRadius * 0.62f;
+            DrawLineAA(centerX, centerY, rayX, rayY, GetColor(196, 240, 255), burstThickness);
+            DrawCircleAA(rayX, rayY, std::max(1.2f, ringThickness * 0.16f), 24, GetColor(255, 255, 255), TRUE, std::max(1.0f, burstThickness * 0.7f));
+        }
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        Shader_ResetStyle();
     }
+    const auto drawMidBoss3AttackPrediction = [&]()
+    {
+        if (const auto* capturedMidBoss3Attack = entity.GetComponent<CapturedMidBoss3AttackComponent>())
+        {
+            if (capturedMidBoss3Attack->kind == CapturedMidBoss3AttackKind::Drill &&
+                capturedMidBoss3Attack->waitRemaining > 0.0f &&
+                !capturedMidBoss3Attack->launched &&
+                !capturedMidBoss3Attack->attachedToBoss)
+            {
+                const float drillCenterX = drawX + drawWidth * 0.5f;
+                const float drillCenterY = drawY + drawHeight * 0.5f;
+                const float dirX = std::cos(transform->rotation);
+                const float dirY = std::sin(transform->rotation);
+                DrawAttackPredictionLine(
+                    drillCenterX + dirX * drawWidth * 0.5f,
+                    drillCenterY + dirY * drawWidth * 0.5f,
+                    dirX,
+                    dirY,
+                    std::max(560.0f, 1040.0f * viewScale),
+                    viewScale,
+                    6.2f);
+            }
+        }
+
+        if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
+        {
+            const auto* ownerBoss = midBoss3Fist->ownerBoss ? midBoss3Fist->ownerBoss->GetComponent<MidBoss3Component>() : nullptr;
+            const float fistWorldW = transform->width * transform->scale;
+            const float fistWorldH = transform->height * transform->scale;
+            const float fistCenterWorldX = transform->x + fistWorldW * 0.5f;
+            const float fistCenterWorldY = transform->y + fistWorldH * 0.5f;
+            bool drawPrediction = false;
+            float predictionStartWorldX = fistCenterWorldX;
+            float predictionStartWorldY = fistCenterWorldY;
+            float predictionDirX = 0.0f;
+            float predictionDirY = 0.0f;
+            if (midBoss3Fist->state == MidBoss3FistState::LauncherReady && midBoss3Fist->atAttackStart)
+            {
+                const float direction = ownerBoss && ownerBoss->launcherDirection < 0 ? -1.0f : 1.0f;
+                predictionDirX = direction;
+                predictionDirY = 0.0f;
+                predictionStartWorldX = direction >= 0.0f ? transform->x + fistWorldW : transform->x;
+                predictionStartWorldY = fistCenterWorldY;
+                drawPrediction = true;
+            }
+            else if (midBoss3Fist->state == MidBoss3FistState::MeteorReady && midBoss3Fist->atAttackStart)
+            {
+                predictionDirX = 0.0f;
+                predictionDirY = 1.0f;
+                predictionStartWorldX = fistCenterWorldX;
+                predictionStartWorldY = transform->y + fistWorldH;
+                drawPrediction = true;
+            }
+            if (drawPrediction)
+            {
+                DrawAttackPredictionLine(
+                    viewOriginX + (predictionStartWorldX - m_flow.cameraX) * viewScale,
+                    viewOriginY + (predictionStartWorldY - m_flow.cameraY) * viewScale,
+                    predictionDirX,
+                    predictionDirY,
+                    std::max(480.0f, 900.0f * viewScale),
+                    viewScale,
+                    static_cast<float>(midBoss3Fist->fistIndex) * 1.37f);
+            }
+        }
+
+        if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
+        {
+            if (midBoss3->state == MidBoss3State::DrillFist &&
+                midBoss3->drillActive &&
+                std::fabs(midBoss3->drillVelocityX) < 0.001f &&
+                std::fabs(midBoss3->drillVelocityY) < 0.001f)
+            {
+                const float screenX = viewOriginX + (midBoss3->drillX - m_flow.cameraX) * viewScale;
+                const float screenY = viewOriginY + (midBoss3->drillY - m_flow.cameraY) * viewScale;
+                const float screenW = midBoss3->drillWidth * viewScale;
+                const float screenH = midBoss3->drillHeight * viewScale;
+                const float drillAngle = midBoss3->drillGroundRush
+                    ? (midBoss3->drillDirection >= 0 ? 0.0f : 3.14159265f)
+                    : std::atan2(midBoss3->drillAimY, midBoss3->drillAimX);
+                const float drillCenterX = screenX + screenW * 0.5f;
+                const float drillCenterY = screenY + screenH * 0.5f;
+                DrawAttackPredictionLine(
+                    drillCenterX + std::cos(drillAngle) * screenW * 0.5f,
+                    drillCenterY + std::sin(drillAngle) * screenW * 0.5f,
+                    std::cos(drillAngle),
+                    std::sin(drillAngle),
+                    std::max(560.0f, 1040.0f * viewScale),
+                    viewScale,
+                    4.8f);
+            }
+        }
+    };
     bool hasVisibleMidBoss3Drill = false;
     if (const auto* midBoss3 = entity.GetComponent<MidBoss3Component>())
     {
@@ -1892,8 +2533,10 @@ void GameScene::DrawEntity(const Entity& entity) const
                 drillDrawX <= viewOriginX + viewWidth;
         }
     }
-    if (!hasVisibleMidBoss3Drill && (drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth))
+    const bool horizontallyOutside = drawX + drawWidth < viewOriginX || drawX > viewOriginX + viewWidth;
+    if (!hasVisibleMidBoss3Drill && horizontallyOutside)
     {
+        drawMidBoss3AttackPrediction();
         return;
     }
 
@@ -1972,6 +2615,136 @@ void GameScene::DrawEntity(const Entity& entity) const
         return;
     }
 
+    if (tag && HasTag(tag, kTagHangingGravityObject))
+    {
+        if (const auto* hanging = entity.GetComponent<HangingGravityObjectComponent>())
+        {
+            if (hanging->wireAttached && !hanging->destroyed && hanging->wireLength > 0.0f)
+            {
+                const float wireScreenX = viewOriginX + (hanging->wireX - m_flow.cameraX) * viewScale;
+                const float wireScreenTop = viewOriginY + (hanging->wireTopY - m_flow.cameraY) * viewScale;
+                const float wireScreenWidth = std::max(1.0f, hanging->wireWidth * viewScale);
+                const float wireScreenHeight = hanging->wireLength * viewScale;
+                int left = static_cast<int>(std::round(wireScreenX - wireScreenWidth * 0.5f));
+                int top = static_cast<int>(std::round(wireScreenTop));
+                int right = static_cast<int>(std::round(wireScreenX + wireScreenWidth * 0.5f));
+                int bottom = static_cast<int>(std::round(wireScreenTop + wireScreenHeight));
+                if (right <= left)
+                {
+                    right = left + 1;
+                }
+                if (bottom > top)
+                {
+                    Shader_ResetStyle();
+                    SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(255.0f * alphaMultiplier)));
+                    DrawBox(left, top, right, bottom, GetColor(0, 0, 0), TRUE);
+                    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+                    Shader_ResetStyle();
+                }
+            }
+        }
+    }
+
+    if (tag && HasTag(tag, EntityTag::ConveyorBelt))
+    {
+        const auto* beltConveyor = entity.GetComponent<BeltConveyorComponent>();
+        if (beltConveyor)
+        {
+            const float directionX = beltConveyor->directionX < 0 ? -1.0f : 1.0f;
+            const int widthTiles = std::max(1, beltConveyor->widthTiles);
+            const float tileWidth = drawWidth / static_cast<float>(widthTiles);
+            const float baseR = tint ? tint->r : 0.50f;
+            const float baseG = tint ? tint->g : 0.46f;
+            const float baseB = tint ? tint->b : 0.56f;
+            const float baseA = tint ? tint->a : 1.0f;
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(230.0f * alphaMultiplier)));
+            Shader_SetTint(baseR, baseG, baseB, baseA * alphaMultiplier);
+            SpriteDraw(
+                m_whiteTexture,
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f);
+            Shader_ResetStyle();
+            DrawBoxAA(
+                drawX,
+                drawY,
+                drawX + drawWidth,
+                drawY + drawHeight,
+                GetColor(58, 48, 68),
+                FALSE,
+                std::max(1.0f, 2.0f * viewScale));
+
+            const int arrowTexture = m_assets.GetTexture("arrow");
+            if (arrowTexture >= 0)
+            {
+                const float arrowPaddingX = tileWidth * 0.10f;
+                const float arrowPaddingY = drawHeight * 0.16f;
+                Shader_SetTint(1.0f, 0.90f, 1.0f, 0.82f * alphaMultiplier);
+                SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(210.0f * alphaMultiplier)));
+                for (int tileIndex = 0; tileIndex < widthTiles; ++tileIndex)
+                {
+                    SpriteDraw(
+                        arrowTexture,
+                        drawX + static_cast<float>(tileIndex) * tileWidth + arrowPaddingX,
+                        drawY + arrowPaddingY,
+                        std::max(1.0f, tileWidth - arrowPaddingX * 2.0f),
+                        std::max(1.0f, drawHeight - arrowPaddingY * 2.0f),
+                        0.0f,
+                        0.0f,
+                        1.0f,
+                        1.0f,
+                        directionX < 0.0f,
+                        0.0f);
+                }
+                Shader_ResetStyle();
+            }
+
+            const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+            const float lineSpacing = std::max(10.0f, tileWidth * 0.48f);
+            const float lineLength = std::max(6.0f, tileWidth * 0.30f);
+            const float lineOffset = std::fmod(timeSeconds * lineSpacing * 1.8f, lineSpacing);
+            const float animatedOffset = directionX >= 0.0f ? lineOffset : -lineOffset;
+            const float lineTopY = drawY + std::max(2.0f, drawHeight * 0.10f);
+            const float lineBottomY = drawY + drawHeight - std::max(2.0f, drawHeight * 0.10f);
+            const float wideThickness = std::max(2.0f, 3.2f * viewScale);
+            const float coreThickness = std::max(1.0f, 1.4f * viewScale);
+            const int dashCount = std::max(4, widthTiles * 3 + 4);
+            const auto drawFlowLine = [&](float y)
+            {
+                for (int lineIndex = 0; lineIndex < dashCount; ++lineIndex)
+                {
+                    const float rawStartX =
+                        drawX - lineSpacing +
+                        static_cast<float>(lineIndex) * lineSpacing +
+                        animatedOffset;
+                    const float startX = std::clamp(rawStartX, drawX, drawX + drawWidth);
+                    const float endX = std::clamp(rawStartX + lineLength, drawX, drawX + drawWidth);
+                    if (endX <= startX)
+                    {
+                        continue;
+                    }
+
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(84.0f * alphaMultiplier)));
+                    DrawLineAA(startX, y, endX, y, GetColor(255, 76, 214), wideThickness);
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(188.0f * alphaMultiplier)));
+                    DrawLineAA(startX, y, endX, y, GetColor(255, 210, 250), coreThickness);
+                }
+            };
+
+            drawFlowLine(lineTopY);
+            drawFlowLine(lineBottomY);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            Shader_ResetStyle();
+            return;
+        }
+    }
+
     if (tag && HasTag(tag, kTagBatterySwitch))
     {
         const auto* batterySwitch = entity.GetComponent<BatterySwitchComponent>();
@@ -2000,6 +2773,27 @@ void GameScene::DrawEntity(const Entity& entity) const
         DrawBox(left, top, right, bottom, rimColor, FALSE);
         DrawBox(left + bevel, faceBottom, right - bevel, bottom, sideColor, TRUE);
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(245.0f * alphaMultiplier)));
+        if (batterySwitch && batterySwitch->pressMode == SwitchPressMode::Player)
+        {
+            const float pressRate = batterySwitch->pressDepth > 0.0f
+                ? std::clamp(batterySwitch->currentPress / batterySwitch->pressDepth, 0.0f, 1.0f)
+                : (batterySwitch->isPressed ? 1.0f : 0.0f);
+            DrawPlayerSwitchDomeFace(
+                left,
+                right,
+                height,
+                bevel,
+                faceTop,
+                faceBottom,
+                faceColor,
+                highlightColor,
+                rimColor,
+                pressRate,
+                alphaMultiplier);
+            Shader_ResetStyle();
+            return;
+        }
+
         DrawBox(left + bevel, faceTop, right - bevel, faceBottom, faceColor, TRUE);
         DrawBox(left + bevel, faceTop, right - bevel, faceBottom, rimColor, FALSE);
         DrawBox(left + bevel * 2, faceTop + 2, right - bevel * 2, faceTop + std::max(3, height / 5), highlightColor, TRUE);
@@ -2199,18 +2993,45 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
     else if (tag && HasTag(tag, "BossShockwave"))
     {
-        const int outerColor = GetColor(72, 228, 255);
-        const int left = static_cast<int>(std::round(drawX));
-        const int top = static_cast<int>(std::round(drawY));
-        const int right = static_cast<int>(std::round(drawX + drawWidth));
-        const int bottom = static_cast<int>(std::round(drawY + drawHeight));
-
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(130.0f * alphaMultiplier)));
-        DrawBox(left, top, right, bottom, outerColor, TRUE);
-        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        // 叩きつけ後の衝撃波は判定だけ残し、たたき台の青い可視判定は描かない。
         Shader_ResetStyle();
         return;
     }
+    else if (tag && HasTag(tag, EntityTag::DropItem))
+    {
+        const auto* drop = entity.GetComponent<DropItemComponent>();
+        const float pulse = drop ? Clamp01(drop->GetAttractTimer() / 0.18f) : 0.0f;
+        DrawDropItemOctahedron(
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            transform->rotation + pulse * 0.35f,
+            alphaMultiplier,
+            tint,
+            pulse);
+        Shader_ResetStyle();
+        return;
+    }
+
+    if (fallingShieldTrailActive)
+    {
+        DrawFallingShieldTrail(
+            sprite->GetTextureId(),
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            sprite->GetSourceX(),
+            sprite->GetSourceY(),
+            sprite->GetSourceWidth(),
+            sprite->GetSourceHeight(),
+            sprite->GetFlipX(),
+            transform->rotation,
+            viewScale,
+            alphaMultiplier);
+    }
+
     else if (tag && HasTag(tag, kTagBullet))
     {
         const auto* projectile = entity.GetComponent<ProjectileComponent>();
@@ -2220,6 +3041,23 @@ void GameScene::DrawEntity(const Entity& entity) const
             {
                 if (capturedMidBoss3Attack->kind == CapturedMidBoss3AttackKind::Drill)
                 {
+                    if (capturedMidBoss3Attack->waitRemaining > 0.0f &&
+                        !capturedMidBoss3Attack->launched &&
+                        !capturedMidBoss3Attack->attachedToBoss)
+                    {
+                        const float drillCenterX = drawX + drawWidth * 0.5f;
+                        const float drillCenterY = drawY + drawHeight * 0.5f;
+                        const float dirX = std::cos(transform->rotation);
+                        const float dirY = std::sin(transform->rotation);
+                        DrawAttackPredictionLine(
+                            drillCenterX + dirX * drawWidth * 0.5f,
+                            drillCenterY + dirY * drawWidth * 0.5f,
+                            dirX,
+                            dirY,
+                            std::max(560.0f, 1040.0f * viewScale),
+                            viewScale,
+                            6.2f);
+                    }
                     DrawMidBoss3DrillShape(
                         drawX,
                         drawY,
@@ -2280,7 +3118,10 @@ void GameScene::DrawEntity(const Entity& entity) const
                 const float spearFade = spear
                     ? std::clamp(spear->fadeDuration > 0.0f ? spear->fadeRemaining / spear->fadeDuration : 1.0f, 0.0f, 1.0f)
                     : 1.0f;
-                const float formationStretch = isForming ? std::lerp(0.18f, 1.0f, progress) : 1.0f;
+                const float formationProgress = isForming
+                    ? std::clamp(progress * game_scene_combat_system::kMidBoss2SpearFormationSpeedMultiplier, 0.0f, 1.0f)
+                    : 1.0f;
+                const float formationStretch = isForming ? std::lerp(0.22f, 1.0f, formationProgress) : 1.0f;
                 const float shaftLength = drawWidth * std::lerp(0.24f, 0.88f, formationStretch);
                 const float shaftHalfThickness = std::max(1.5f, drawHeight * std::lerp(0.08f, 0.14f, formationStretch));
                 const float headLength = std::max(drawHeight * std::lerp(0.26f, 1.02f, formationStretch), drawWidth * 0.18f);
@@ -2320,8 +3161,8 @@ void GameScene::DrawEntity(const Entity& entity) const
                 RotatePoint(centerX, centerY, spearAngle, tailBackX, tailBackY);
 
                 const float spearAlphaScale = spear ? spearFade : 1.0f;
-                const int auraAlpha = std::clamp(static_cast<int>(std::round((isForming ? 128.0f + progress * 80.0f : 164.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
-                const int coreAlpha = std::clamp(static_cast<int>(std::round((isForming ? 180.0f + progress * 60.0f : 224.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
+                const int auraAlpha = std::clamp(static_cast<int>(std::round((isForming ? 128.0f + formationProgress * 92.0f : 164.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
+                const int coreAlpha = std::clamp(static_cast<int>(std::round((isForming ? 180.0f + formationProgress * 72.0f : 224.0f) * alphaMultiplier * spearAlphaScale)), 0, 255);
 
                 SetDrawBlendMode(DX_BLENDMODE_ADD, auraAlpha);
                 DrawLine(
@@ -2341,7 +3182,7 @@ void GameScene::DrawEntity(const Entity& entity) const
 
                 if (isForming)
                 {
-                    const float glowHeight = drawHeight * std::lerp(0.18f, 0.92f, progress);
+                    const float glowHeight = drawHeight * std::lerp(0.18f, 0.92f, formationProgress);
                     const float glowHalfWidth = std::max(2.0f, drawHeight * 0.16f);
                     float glowTopX = centerX;
                     float glowTopY = centerY - glowHeight * 0.5f;
@@ -2362,6 +3203,31 @@ void GameScene::DrawEntity(const Entity& entity) const
                         glowLeftX, glowLeftY,
                         GetColor(138, 232, 255),
                         TRUE);
+
+                    const float telegraphRadius = std::max(drawWidth, drawHeight) * std::lerp(0.34f, 0.82f, formationProgress);
+                    const float telegraphThickness = std::max(1.5f, drawHeight * std::lerp(0.06f, 0.12f, formationProgress));
+                    float telegraphLineStartX = centerX - telegraphRadius;
+                    float telegraphLineStartY = centerY;
+                    float telegraphLineEndX = centerX + telegraphRadius * 1.12f;
+                    float telegraphLineEndY = centerY;
+                    RotatePoint(centerX, centerY, spearAngle, telegraphLineStartX, telegraphLineStartY);
+                    RotatePoint(centerX, centerY, spearAngle, telegraphLineEndX, telegraphLineEndY);
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((90.0f + formationProgress * 110.0f) * alphaMultiplier * spearAlphaScale)), 0, 255));
+                    DrawCircleAA(
+                        centerX,
+                        centerY,
+                        telegraphRadius * 0.98f,
+                        48,
+                        GetColor(122, 224, 255),
+                        FALSE,
+                        telegraphThickness * 0.72f);
+                    DrawLineAA(
+                        telegraphLineStartX,
+                        telegraphLineStartY,
+                        telegraphLineEndX,
+                        telegraphLineEndY,
+                        GetColor(242, 255, 255),
+                        telegraphThickness);
                 }
 
                 SetDrawBlendMode(DX_BLENDMODE_ALPHA, coreAlpha);
@@ -2385,7 +3251,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                     GetColor(118, 220, 255),
                     TRUE);
 
-                const float runProgress = isForming ? progress : 1.0f;
+                const float runProgress = isForming ? formationProgress : 1.0f;
                 const float runX = std::lerp(tipX, tailBackX, runProgress);
                 const float runY = std::lerp(tipY, tailBackY, runProgress);
                 SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(168.0f * alphaMultiplier * spearAlphaScale)), 0, 255));
@@ -2396,7 +3262,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                     GetColor(255, 255, 255),
                     TRUE);
 
-                const float particleRadius = std::max(drawWidth, drawHeight) * std::lerp(0.85f, 0.42f, progress);
+                const float particleRadius = std::max(drawWidth, drawHeight) * std::lerp(0.85f, 0.42f, formationProgress);
                 const float spearTimeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
                 constexpr int kParticleCount = 8;
                 for (int index = 0; index < kParticleCount; ++index)
@@ -2410,7 +3276,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                     RotatePoint(centerX, centerY, spearAngle, orbitX, orbitY);
                     const float particleX = std::lerp(centerX, orbitX, travelT);
                     const float particleY = std::lerp(centerY, orbitY, travelT);
-                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((104.0f + progress * 92.0f) * alphaMultiplier * spearAlphaScale)), 0, 255));
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((104.0f + formationProgress * 92.0f) * alphaMultiplier * spearAlphaScale)), 0, 255));
                     DrawCircle(
                         static_cast<int>(std::round(particleX)),
                         static_cast<int>(std::round(particleY)),
@@ -2501,40 +3367,73 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
             const int outerColor = GetColor(124, 206, 255);
             const int coreColor = GetColor(236, 248, 255);
+            const bool isBossBeam = bossBeamCapture != nullptr;
             const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
             const float beamCenterY = renderDrawY + renderDrawHeight * 0.5f;
             const float beamHalfHeight = renderDrawHeight * 0.5f;
-            const float basePulse = 0.97f + 0.03f * std::sin(timeSeconds * 6.0f);
-            const float coreThickness = std::max(2.0f, renderDrawHeight * 0.18f);
-            const float innerGlowThickness = std::max(4.0f, renderDrawHeight * 0.34f);
-            const float outerGlowThickness = std::max(6.0f, renderDrawHeight * 0.58f);
-            const int outerGlowAlpha = std::clamp(static_cast<int>(std::round(52.0f * alphaMultiplier * basePulse)), 0, 255);
-            const int innerGlowAlpha = std::clamp(static_cast<int>(std::round(92.0f * alphaMultiplier * basePulse)), 0, 255);
-            const int coreAlpha = std::clamp(static_cast<int>(std::round(224.0f * alphaMultiplier * basePulse)), 0, 255);
+            const float basePulse = isBossBeam
+                ? 0.94f + 0.06f * std::sin(timeSeconds * 7.0f)
+                : 0.97f + 0.03f * std::sin(timeSeconds * 6.0f);
+            const float beamEnergy = isBossBeam ? 1.25f : 1.0f;
+            const float coreThickness = std::max(2.0f, renderDrawHeight * (isBossBeam ? 0.22f : 0.18f));
+            const float innerGlowThickness = std::max(4.0f, renderDrawHeight * (isBossBeam ? 0.40f : 0.34f));
+            const float outerGlowThickness = std::max(6.0f, renderDrawHeight * (isBossBeam ? 0.68f : 0.58f));
+            const int outerGlowAlpha = std::clamp(static_cast<int>(std::round(60.0f * alphaMultiplier * basePulse * beamEnergy)), 0, 255);
+            const int innerGlowAlpha = std::clamp(static_cast<int>(std::round(108.0f * alphaMultiplier * basePulse * beamEnergy)), 0, 255);
+            const int coreAlpha = std::clamp(static_cast<int>(std::round(240.0f * alphaMultiplier * basePulse)), 0, 255);
             constexpr int kWrapSegments = 96;
-            const float wrapAmplitude = beamHalfHeight * 0.34f;
-            const float wrapFrequency = 1.8f;
-            const float wrapSpeed = 3.8f;
-            const float wrapThickness = std::max(1.0f, renderDrawHeight * 0.08f);
-            const int wrapGlowAlpha = std::clamp(static_cast<int>(std::round(84.0f * alphaMultiplier)), 0, 255);
-            const int wrapCoreAlpha = std::clamp(static_cast<int>(std::round(136.0f * alphaMultiplier)), 0, 255);
+            const float wrapAmplitude = beamHalfHeight * (isBossBeam ? 0.42f : 0.34f);
+            const float wrapFrequency = isBossBeam ? 2.15f : 1.8f;
+            const float wrapSpeed = isBossBeam ? 4.8f : 3.8f;
+            const float wrapThickness = std::max(1.0f, renderDrawHeight * (isBossBeam ? 0.10f : 0.08f));
+            const int wrapGlowAlpha = std::clamp(static_cast<int>(std::round((isBossBeam ? 104.0f : 84.0f) * alphaMultiplier * beamEnergy)), 0, 255);
+            const int wrapCoreAlpha = std::clamp(static_cast<int>(std::round((isBossBeam ? 172.0f : 136.0f) * alphaMultiplier * beamEnergy)), 0, 255);
+            const bool beamSourceOnLeft = !bossBeamCapture || bossBeamCapture->sourceOnLeft;
+            const float sourceX = beamSourceOnLeft ? renderDrawX : renderDrawX + renderDrawWidth;
+            const float targetX = beamSourceOnLeft ? renderDrawX + renderDrawWidth : renderDrawX;
+            const float muzzlePulse = 0.88f + 0.12f * std::sin(timeSeconds * 18.0f);
+            const float impactPulse = 0.84f + 0.16f * std::sin(timeSeconds * 11.0f + 1.7f);
 
             SetDrawBlendMode(DX_BLENDMODE_ADD, outerGlowAlpha);
             DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, outerColor, outerGlowThickness);
             SetDrawBlendMode(DX_BLENDMODE_ADD, innerGlowAlpha);
             DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, GetColor(176, 226, 255), innerGlowThickness);
+            if (isBossBeam)
+            {
+                DrawLineAA(
+                    renderDrawX,
+                    beamCenterY - renderDrawHeight * 0.14f,
+                    renderDrawX + renderDrawWidth,
+                    beamCenterY - renderDrawHeight * 0.14f,
+                    GetColor(150, 224, 255),
+                    std::max(2.0f, outerGlowThickness * 0.42f));
+                DrawLineAA(
+                    renderDrawX,
+                    beamCenterY + renderDrawHeight * 0.14f,
+                    renderDrawX + renderDrawWidth,
+                    beamCenterY + renderDrawHeight * 0.14f,
+                    GetColor(150, 224, 255),
+                    std::max(2.0f, outerGlowThickness * 0.42f));
+            }
 
             auto drawWrappedLine = [&](int alpha, int color, float thickness, float pointRadius)
             {
                 SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
-                float previousX = renderDrawX;
-                float previousY = beamCenterY + std::sin(timeSeconds * wrapSpeed) * wrapAmplitude;
+                auto sampleX = [&](float t)
+                {
+                    return std::lerp(sourceX, targetX, t);
+                };
+                auto sampleY = [&](float t)
+                {
+                    return beamCenterY + std::sin(t * 6.28318530718f * wrapFrequency - timeSeconds * wrapSpeed) * wrapAmplitude;
+                };
+                float previousX = sampleX(0.0f);
+                float previousY = sampleY(0.0f);
                 for (int segment = 1; segment <= kWrapSegments; ++segment)
                 {
                     const float t = static_cast<float>(segment) / static_cast<float>(kWrapSegments);
-                    const float x = renderDrawX + renderDrawWidth * t;
-                    const float phase = timeSeconds * wrapSpeed + t * 6.28318530718f * wrapFrequency;
-                    const float y = beamCenterY + std::sin(phase) * wrapAmplitude;
+                    const float x = sampleX(t);
+                    const float y = sampleY(t);
                     DrawLineAA(previousX, previousY, x, y, color, thickness);
                     DrawCircle(
                         static_cast<int>(std::round(x)),
@@ -2554,6 +3453,45 @@ void GameScene::DrawEntity(const Entity& entity) const
             DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, coreColor, innerGlowThickness * 0.52f);
             SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(255.0f * alphaMultiplier)), 0, 255));
             DrawLineAA(renderDrawX, beamCenterY, renderDrawX + renderDrawWidth, beamCenterY, GetColor(255, 255, 255), coreThickness);
+            if (isBossBeam)
+            {
+                const int muzzleAlpha = std::clamp(static_cast<int>(std::round(132.0f * alphaMultiplier * muzzlePulse)), 0, 255);
+                const int impactAlpha = std::clamp(static_cast<int>(std::round(150.0f * alphaMultiplier * impactPulse)), 0, 255);
+                const float capRadius = std::max(3.0f, renderDrawHeight * 0.52f);
+                SetDrawBlendMode(DX_BLENDMODE_ADD, muzzleAlpha);
+                DrawCircleAA(
+                    sourceX,
+                    beamCenterY,
+                    capRadius * 0.98f,
+                    32,
+                    GetColor(150, 224, 255),
+                    TRUE,
+                    std::max(1.6f, capRadius * 0.16f));
+                DrawCircleAA(
+                    sourceX,
+                    beamCenterY,
+                    capRadius * 0.42f,
+                    32,
+                    GetColor(255, 255, 255),
+                    TRUE,
+                    std::max(1.0f, capRadius * 0.10f));
+                SetDrawBlendMode(DX_BLENDMODE_ADD, impactAlpha);
+                DrawCircleAA(
+                    targetX,
+                    beamCenterY,
+                    capRadius * 1.30f,
+                    32,
+                    GetColor(138, 214, 255),
+                    TRUE,
+                    std::max(1.8f, capRadius * 0.20f));
+                DrawLineAA(
+                    targetX - capRadius * 0.9f,
+                    beamCenterY,
+                    targetX + capRadius * 0.9f,
+                    beamCenterY,
+                    GetColor(255, 255, 255),
+                    std::max(1.6f, capRadius * 0.18f));
+            }
         }
         else
         {
@@ -2655,12 +3593,84 @@ void GameScene::DrawEntity(const Entity& entity) const
         Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
     }
 
+    if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
+    {
+        const bool meteorTrail = midBoss3Fist->state == MidBoss3FistState::MeteorFalling &&
+            std::fabs(midBoss3Fist->velocityY) > 0.001f;
+        if (meteorTrail)
+        {
+            const float directionY = meteorTrail ? (midBoss3Fist->velocityY >= 0.0f ? 1.0f : -1.0f) : 0.0f;
+            const int lineColor = GetColor(255, 238, 202);
+
+            if (meteorTrail)
+            {
+                for (int trailIndex = 3; trailIndex >= 1; --trailIndex)
+                {
+                    const float t = static_cast<float>(trailIndex);
+                    const float alpha = 0.18f * (4.0f - t) / 3.0f;
+                    const float offset = drawHeight * 0.42f * t;
+                    const float blurW = drawWidth;
+                    const float blurH = drawHeight * (1.0f + 0.16f * t);
+                    const float blurX = drawX - (blurW - drawWidth) * 0.5f;
+                    const float blurY = drawY - directionY * offset - (blurH - drawHeight) * 0.5f;
+
+                    SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f * alphaMultiplier)), 0, 255));
+                    Shader_SetTint(1.0f, 0.66f, 0.28f, alpha);
+                    SpriteDraw(
+                        sprite->GetTextureId(),
+                        blurX,
+                        blurY,
+                        blurW,
+                        blurH,
+                        sprite->GetSourceX(),
+                        sprite->GetSourceY(),
+                        sprite->GetSourceWidth(),
+                        sprite->GetSourceHeight(),
+                        sprite->GetFlipX(),
+                        transform->rotation);
+                }
+            }
+
+            if (meteorTrail)
+            {
+                SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(74.0f * alphaMultiplier)));
+                const float tailY = directionY >= 0.0f ? drawY : drawY + drawHeight;
+                const float lineLength = drawHeight * 1.2f;
+                for (int lineIndex = 0; lineIndex < 6; ++lineIndex)
+                {
+                    const float ratio = (static_cast<float>(lineIndex) + 0.5f) / 6.0f;
+                    const float x = drawX + drawWidth * std::lerp(0.10f, 0.90f, ratio);
+                    const float jitter = std::sin(static_cast<float>(GetNowCount()) * 0.024f + static_cast<float>(lineIndex) * 1.31f) * drawWidth * 0.025f;
+                    DrawLineAA(
+                        x + jitter,
+                        tailY - directionY * lineLength,
+                        x + jitter * 0.35f,
+                        tailY - directionY * drawHeight * 0.08f,
+                        lineColor,
+                        std::max(1.0f, 1.8f * viewScale));
+                }
+            }
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+            if (tint)
+            {
+                Shader_SetTint(tint->r, tint->g, tint->b, tint->a * alphaMultiplier);
+            }
+            else
+            {
+                Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
+            }
+        }
+    }
+
     if (!DrawDamagePlatformShape(
             drawX,
             drawY,
             drawWidth,
             drawHeight,
+            sprite->GetTextureId(),
             damagePlatform,
+            spikeStrip,
             tint,
             sprite->GetSourceX(),
             sprite->GetSourceY(),
@@ -2673,6 +3683,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             drawY,
             drawWidth,
             drawHeight,
+            damagePlatform,
             spikeStrip,
             tint,
             sprite->GetSourceX(),
@@ -2733,6 +3744,44 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
     {
+        const auto* ownerBoss = midBoss3Fist->ownerBoss ? midBoss3Fist->ownerBoss->GetComponent<MidBoss3Component>() : nullptr;
+        const float fistWorldW = transform->width * transform->scale;
+        const float fistWorldH = transform->height * transform->scale;
+        const float fistCenterWorldX = transform->x + fistWorldW * 0.5f;
+        const float fistCenterWorldY = transform->y + fistWorldH * 0.5f;
+        bool drawPrediction = false;
+        float predictionStartWorldX = fistCenterWorldX;
+        float predictionStartWorldY = fistCenterWorldY;
+        float predictionDirX = 0.0f;
+        float predictionDirY = 0.0f;
+        if (midBoss3Fist->state == MidBoss3FistState::LauncherReady && midBoss3Fist->atAttackStart)
+        {
+            const float direction = ownerBoss && ownerBoss->launcherDirection < 0 ? -1.0f : 1.0f;
+            predictionDirX = direction;
+            predictionDirY = 0.0f;
+            predictionStartWorldX = direction >= 0.0f ? transform->x + fistWorldW : transform->x;
+            predictionStartWorldY = fistCenterWorldY;
+            drawPrediction = true;
+        }
+        else if (midBoss3Fist->state == MidBoss3FistState::MeteorReady && midBoss3Fist->atAttackStart)
+        {
+            predictionDirX = 0.0f;
+            predictionDirY = 1.0f;
+            predictionStartWorldX = fistCenterWorldX;
+            predictionStartWorldY = transform->y + fistWorldH;
+            drawPrediction = true;
+        }
+        if (drawPrediction)
+        {
+            DrawAttackPredictionLine(
+                viewOriginX + (predictionStartWorldX - m_flow.cameraX) * viewScale,
+                viewOriginY + (predictionStartWorldY - m_flow.cameraY) * viewScale,
+                predictionDirX,
+                predictionDirY,
+                std::max(480.0f, 900.0f * viewScale),
+                viewScale,
+                static_cast<float>(midBoss3Fist->fistIndex) * 1.37f);
+        }
         if (midBoss3Fist->captureJammerActive)
         {
             constexpr float kTileSize = 48.0f;
@@ -2779,6 +3828,22 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float drillAngle = midBoss3->drillGroundRush
                 ? (midBoss3->drillDirection >= 0 ? 0.0f : 3.14159265f)
                 : std::atan2(midBoss3->drillAimY, midBoss3->drillAimX);
+            if (midBoss3->state == MidBoss3State::DrillFist &&
+                midBoss3->drillActive &&
+                std::fabs(midBoss3->drillVelocityX) < 0.001f &&
+                std::fabs(midBoss3->drillVelocityY) < 0.001f)
+            {
+                const float drillCenterX = screenX + screenW * 0.5f;
+                const float drillCenterY = screenY + screenH * 0.5f;
+                DrawAttackPredictionLine(
+                    drillCenterX + std::cos(drillAngle) * screenW * 0.5f,
+                    drillCenterY + std::sin(drillAngle) * screenW * 0.5f,
+                    std::cos(drillAngle),
+                    std::sin(drillAngle),
+                    std::max(560.0f, 1040.0f * viewScale),
+                    viewScale,
+                    4.8f);
+            }
             DrawMidBoss3DrillShape(
                 screenX,
                 screenY,
@@ -2816,6 +3881,7 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float innerRadius = std::max(3.0f, outerRadius * 0.40f);
             const float haloRadius = outerRadius * std::lerp(3.2f, 1.8f, chargeT);
             const float streamRadius = tileSize * viewScale * std::lerp(2.2f, 0.75f, chargeT);
+            const float beamDirectionX = boss->beamFacingRight ? 1.0f : -1.0f;
             const float flashT = Clamp01((chargeT - 0.84f) / 0.16f);
             const float flashBoost = 1.0f + flashT * flashT * 1.8f;
             const int haloAlpha = std::clamp(static_cast<int>(std::round(std::lerp(28.0f, 108.0f, chargeT) * flashBoost)), 0, 255);
@@ -2849,18 +3915,18 @@ void GameScene::DrawEntity(const Entity& entity) const
             {
                 const float seed = static_cast<float>(index) / static_cast<float>(kSparkCount);
                 const float cycle = std::fmod(timeSeconds * (1.3f + flashT * 0.7f) + seed * 1.7f, 1.0f);
-                const float travelT = 1.0f - std::pow(cycle, 1.85f);
+                const float travelT = std::pow(cycle, 1.35f);
                 const float randomA = seed * 6.28318530718f + std::sin(seed * 34.0f) * 0.7f;
                 const float randomR = streamRadius * (0.62f + 0.38f * std::fmod(seed * 13.0f, 1.0f));
-                const float startX = effectCenterX + std::cos(randomA) * randomR;
-                const float startY = effectCenterY + std::sin(randomA) * randomR;
-                const float sparkX = std::lerp(effectCenterX, startX, travelT);
-                const float sparkY = std::lerp(effectCenterY, startY, travelT);
-                const float tailT = std::min(1.0f, travelT + 0.16f + flashT * 0.08f);
-                const float tailX = std::lerp(effectCenterX, startX, tailT);
-                const float tailY = std::lerp(effectCenterY, startY, tailT);
-                const float sparkRadius = std::max(2.0f, tileSize * viewScale * std::lerp(0.10f, 0.028f, 1.0f - travelT) * (1.0f + flashT * 0.35f));
-                const int sparkAlpha = std::clamp(static_cast<int>(std::round(std::lerp(72.0f, 232.0f, travelT) * (0.75f + 0.55f * chargeT))), 0, 255);
+                const float streamEndX = effectCenterX + beamDirectionX * randomR * (1.06f + flashT * 0.34f);
+                const float streamEndY = effectCenterY + std::sin(randomA) * streamRadius * 0.44f;
+                const float sparkX = std::lerp(effectCenterX, streamEndX, travelT);
+                const float sparkY = std::lerp(effectCenterY, streamEndY, travelT);
+                const float tailT = std::max(0.0f, travelT - 0.16f - flashT * 0.08f);
+                const float tailX = std::lerp(effectCenterX, streamEndX, tailT);
+                const float tailY = std::lerp(effectCenterY, streamEndY, tailT);
+                const float sparkRadius = std::max(2.0f, tileSize * viewScale * std::lerp(0.10f, 0.028f, travelT) * (1.0f + flashT * 0.35f));
+                const int sparkAlpha = std::clamp(static_cast<int>(std::round(std::lerp(232.0f, 72.0f, travelT) * (0.75f + 0.55f * chargeT))), 0, 255);
                 const int tailAlpha = std::clamp(static_cast<int>(std::round(static_cast<float>(sparkAlpha) * (0.30f + flashT * 0.24f))), 0, 255);
                 SetDrawBlendMode(DX_BLENDMODE_ADD, tailAlpha);
                 DrawLine(
@@ -2885,9 +3951,9 @@ void GameScene::DrawEntity(const Entity& entity) const
             {
                 SetDrawBlendMode(DX_BLENDMODE_ADD, flashAlpha);
                 DrawLine(
-                    static_cast<int>(std::round(effectCenterX - flashCross)),
+                    static_cast<int>(std::round(effectCenterX)),
                     static_cast<int>(std::round(effectCenterY)),
-                    static_cast<int>(std::round(effectCenterX + flashCross)),
+                    static_cast<int>(std::round(effectCenterX + beamDirectionX * flashCross)),
                     static_cast<int>(std::round(effectCenterY)),
                     GetColor(255, 255, 255),
                     4);
@@ -2902,6 +3968,226 @@ void GameScene::DrawEntity(const Entity& entity) const
 
             SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
             Shader_ResetStyle();
+        }
+    }
+
+    if (enemyComponent &&
+        enemyComponent->GetArchetype() == EnemyArchetype::MidBoss2 &&
+        midBoss2)
+    {
+        if (midBoss2->state == MidBoss2State::BeamCharge)
+        {
+            const float bossWidth = transform->width * transform->scale;
+            const float bossHeight = transform->height * transform->scale;
+            const float bodyCenterX = viewOriginX + ((transform->x + bossWidth * 0.5f) - m_flow.cameraX) * viewScale;
+            const float bodyCenterY = viewOriginY + ((transform->y + bossHeight * 0.5f) - m_flow.cameraY) * viewScale;
+            const float beamCenterX = viewOriginX + ((transform->x + (midBoss2->beamFacingRight ? bossWidth : 0.0f)) - m_flow.cameraX) * viewScale;
+            const float beamCenterY = viewOriginY + ((transform->y + bossHeight * 0.5f) - m_flow.cameraY) * viewScale;
+            const float chargeT = Clamp01(midBoss2->stateTimer / midBoss2->params.beamChargeTime);
+            const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+            const float pulse = 0.92f + 0.08f * std::sin(static_cast<float>(GetNowCount()) * 0.01f + chargeT * 4.0f);
+            const float bodyRingRadius = std::max(12.0f, std::min(bossWidth, bossHeight) * viewScale * std::lerp(0.52f, 0.74f, chargeT));
+            const float beamRingRadius = std::max(10.0f, std::min(bossWidth, bossHeight) * viewScale * std::lerp(0.30f, 0.58f, chargeT));
+            const float bodyRingThickness = std::max(2.0f, viewScale * std::lerp(2.4f, 4.8f, chargeT));
+            const float beamRingThickness = std::max(1.5f, viewScale * std::lerp(1.8f, 3.5f, chargeT));
+            const float swirlSpin = timeSeconds * std::lerp(2.8f, 5.4f, chargeT);
+            const float beamDirectionX = midBoss2->beamFacingRight ? 1.0f : -1.0f;
+
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round((64.0f + chargeT * 92.0f) * alphaMultiplier * pulse)), 0, 255));
+            DrawLineAA(
+                bodyCenterX,
+                bodyCenterY,
+                beamCenterX,
+                beamCenterY,
+                GetColor(130, 208, 255),
+                std::max(1.8f, viewScale * std::lerp(2.0f, 3.6f, chargeT)));
+            DrawCircleAA(
+                bodyCenterX,
+                bodyCenterY,
+                bodyRingRadius,
+                64,
+                GetColor(150, 228, 255),
+                FALSE,
+                bodyRingThickness);
+            DrawCircleAA(
+                beamCenterX,
+                beamCenterY,
+                beamRingRadius,
+                64,
+                GetColor(255, 255, 255),
+                FALSE,
+                beamRingThickness);
+            DrawLineAA(
+                beamCenterX,
+                beamCenterY,
+                beamCenterX + beamDirectionX * beamRingRadius * 0.92f,
+                beamCenterY,
+                GetColor(176, 232, 255),
+                std::max(1.5f, beamRingThickness * 0.36f));
+            DrawLineAA(
+                beamCenterX,
+                beamCenterY - beamRingRadius * 0.7f,
+                beamCenterX,
+                beamCenterY + beamRingRadius * 0.7f,
+                GetColor(176, 232, 255),
+                std::max(1.5f, beamRingThickness * 0.32f));
+            DrawLineAA(
+                beamCenterX,
+                beamCenterY,
+                beamCenterX + beamDirectionX * beamRingRadius * 0.68f,
+                beamCenterY + beamRingRadius * 0.44f,
+                GetColor(140, 224, 255),
+                std::max(1.4f, beamRingThickness * 0.22f));
+            DrawLineAA(
+                beamCenterX,
+                beamCenterY,
+                beamCenterX + beamDirectionX * beamRingRadius * 0.68f,
+                beamCenterY - beamRingRadius * 0.44f,
+                GetColor(140, 224, 255),
+                std::max(1.4f, beamRingThickness * 0.22f));
+            const int shardCount = 6;
+            for (int shardIndex = 0; shardIndex < shardCount; ++shardIndex)
+            {
+                const float angle = swirlSpin + static_cast<float>(shardIndex) * 1.0471976f;
+                const float shardDistance = beamRingRadius * std::lerp(0.76f, 1.14f, 1.0f - chargeT);
+                const float shardX = beamCenterX + beamDirectionX * std::fabs(std::cos(angle)) * shardDistance;
+                const float shardY = beamCenterY + std::sin(angle) * shardDistance * 0.74f;
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY,
+                    shardX,
+                    shardY,
+                    GetColor(184, 236, 255),
+                    std::max(1.2f, beamRingThickness * 0.16f));
+                DrawCircleAA(
+                    shardX,
+                    shardY,
+                    std::max(1.0f, beamRingThickness * 0.18f),
+                    24,
+                    GetColor(255, 255, 255),
+                    TRUE,
+                    std::max(1.0f, beamRingThickness * 0.12f));
+            }
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            Shader_ResetStyle();
+        }
+    }
+
+    if (tag &&
+        HasTag(tag, kTagLaserTurret) &&
+        capturedBoss2BeamCharge &&
+        capturedBoss2BeamCharge->chargeDuration > 0.0f)
+    {
+        if (const auto* turret = entity.GetComponent<LaserTurretComponent>())
+        {
+            if (turret->warmupRemaining > 0.0f)
+            {
+                const float chargeT = Clamp01(1.0f - (turret->warmupRemaining / capturedBoss2BeamCharge->chargeDuration));
+                const float tileSize = 48.0f;
+                const float beamCenterX = viewOriginX + ((transform->x + turret->beamOriginOffsetX) - m_flow.cameraX) * viewScale;
+                const float beamCenterY = viewOriginY + ((transform->y + turret->beamOriginOffsetY) - m_flow.cameraY) * viewScale;
+                const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
+                const float pulse = 0.92f + 0.08f * std::sin(static_cast<float>(GetNowCount()) * 0.01f + chargeT * 4.0f);
+                const float ringRadius = std::max(10.0f, tileSize * viewScale * std::lerp(0.72f, 1.24f, chargeT));
+                const float ringThickness = std::max(1.5f, viewScale * std::lerp(1.8f, 3.5f, chargeT));
+                const float swirlSpin = timeSeconds * std::lerp(2.8f, 5.4f, chargeT);
+                const float beamDirectionX = turret->fireDirection == LaserTurretFireDirection::Left ? -1.0f : 1.0f;
+                const float flashT = Clamp01((chargeT - 0.84f) / 0.16f);
+                const float flashBoost = 1.0f + flashT * flashT * 1.8f;
+                const int ringAlpha = std::clamp(
+                    static_cast<int>(std::round((72.0f + chargeT * 104.0f) * alphaMultiplier * pulse * flashBoost)),
+                    0,
+                    255);
+
+                SetDrawBlendMode(DX_BLENDMODE_ADD, ringAlpha);
+                DrawCircleAA(
+                    beamCenterX,
+                    beamCenterY,
+                    ringRadius,
+                    64,
+                    GetColor(255, 255, 255),
+                    FALSE,
+                    ringThickness);
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY,
+                    beamCenterX + beamDirectionX * ringRadius * 0.92f,
+                    beamCenterY,
+                    GetColor(176, 232, 255),
+                    std::max(1.5f, ringThickness * 0.36f));
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY - ringRadius * 0.7f,
+                    beamCenterX,
+                    beamCenterY + ringRadius * 0.7f,
+                    GetColor(176, 232, 255),
+                    std::max(1.5f, ringThickness * 0.32f));
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY,
+                    beamCenterX + beamDirectionX * ringRadius * 0.68f,
+                    beamCenterY + ringRadius * 0.44f,
+                    GetColor(140, 224, 255),
+                    std::max(1.4f, ringThickness * 0.22f));
+                DrawLineAA(
+                    beamCenterX,
+                    beamCenterY,
+                    beamCenterX + beamDirectionX * ringRadius * 0.68f,
+                    beamCenterY - ringRadius * 0.44f,
+                    GetColor(140, 224, 255),
+                    std::max(1.4f, ringThickness * 0.22f));
+
+                constexpr int kShardCount = 6;
+                for (int shardIndex = 0; shardIndex < kShardCount; ++shardIndex)
+                {
+                    const float angle = swirlSpin + static_cast<float>(shardIndex) * 1.0471976f;
+                    const float shardDistance = ringRadius * std::lerp(0.76f, 1.14f, 1.0f - chargeT);
+                    const float shardX = beamCenterX + beamDirectionX * std::fabs(std::cos(angle)) * shardDistance;
+                    const float shardY = beamCenterY + std::sin(angle) * shardDistance * 0.74f;
+                    DrawLineAA(
+                        beamCenterX,
+                        beamCenterY,
+                        shardX,
+                        shardY,
+                        GetColor(184, 236, 255),
+                        std::max(1.2f, ringThickness * 0.16f));
+                    DrawCircleAA(
+                        shardX,
+                        shardY,
+                        std::max(1.0f, ringThickness * 0.18f),
+                        24,
+                        GetColor(255, 255, 255),
+                        TRUE,
+                        std::max(1.0f, ringThickness * 0.12f));
+                }
+
+                if (flashT > 0.0f)
+                {
+                    const float flashCross = tileSize * viewScale * std::lerp(0.28f, 1.05f, flashT);
+                    const int flashAlpha = std::clamp(
+                        static_cast<int>(std::round(255.0f * flashT * alphaMultiplier)),
+                        0,
+                        255);
+                    SetDrawBlendMode(DX_BLENDMODE_ADD, flashAlpha);
+                    DrawLineAA(
+                        beamCenterX,
+                        beamCenterY,
+                        beamCenterX + beamDirectionX * flashCross,
+                        beamCenterY,
+                        GetColor(255, 255, 255),
+                        std::max(2.0f, 4.0f * viewScale));
+                    DrawLineAA(
+                        beamCenterX,
+                        beamCenterY - flashCross,
+                        beamCenterX,
+                        beamCenterY + flashCross,
+                        GetColor(220, 242, 255),
+                        std::max(1.5f, 3.0f * viewScale));
+                }
+
+                SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+                Shader_ResetStyle();
+            }
         }
     }
 

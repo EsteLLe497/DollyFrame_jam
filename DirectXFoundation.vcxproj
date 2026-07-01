@@ -123,6 +123,7 @@
     <ClCompile Include="scenes\game\game_scene_render_ui_editor.cpp" />
     <ClCompile Include="scenes\game\game_scene_render_ui_status.cpp" />
     <ClCompile Include="scenes\game\game_scene_setup.cpp" />
+    <ClCompile Include="scenes\game\game_scene_test_photos.cpp" />
     <ClCompile Include="scenes\game\game_scene_facade_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_flow_domain.cpp" />
     <ClCompile Include="scenes\game\game_scene_gameplay_pipeline_domain.cpp" />
@@ -166,6 +167,12 @@
     <ClCompile Include="rendering\texture.cpp" />
     <ClCompile Include="scenes\title_scene.cpp" />
     <ClCompile Include="third_party\imgui\imgui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_dx11.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_win32.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui_demo.cpp">
@@ -366,6 +373,7 @@
     <ClInclude Include="physics\collision.h" />
     <ClInclude Include="core\component.h" />
     <ClInclude Include="gameplay\components.h" />
+    <ClInclude Include="gameplay\components_combat.h" />
     <ClInclude Include="gameplay\entity_tag.h" />
     <ClInclude Include="scenes\demo_scene.h" />
     <ClInclude Include="rendering\directX.h" />
@@ -379,6 +387,7 @@
     <ClInclude Include="scenes\game\game_scene_internal.h" />
     <ClInclude Include="scenes\game\game_scene_draw_helpers.h" />
     <ClInclude Include="scenes\game\game_scene_render_ui_helpers.h" />
+    <ClInclude Include="scenes\game\game_scene_test_photos.h" />
     <ClInclude Include="core\game_session.h" />
     <ClInclude Include="rendering\imgui_layer.h" />
     <ClInclude Include="core\input.h" />
@@ -404,6 +413,33 @@
     <ClInclude Include="scenes\title_scene.h" />
     <ClInclude Include="third_party\imgui\imgui.h" />
     <ClInclude Include="pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="assets\shaders\darkness_overlay_ps.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(ProjectDir)assets\shaders\%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\light_blur_horizontal_ps.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(ProjectDir)assets\shaders\%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\light_blur_vertical_ps.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(ProjectDir)assets\shaders\%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\light_extract_ps.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(ProjectDir)assets\shaders\%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\lighting_composite_ps.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(ProjectDir)assets\shaders\%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

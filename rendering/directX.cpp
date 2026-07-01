@@ -34,6 +34,16 @@ namespace
     int g_darknessOverlayConstantBuffer = -1;
     bool g_postProcessReady = false;
     bool g_postProcessEnabled = true;
+    bool g_sceneCompositedThisFrame = false;
+    float g_postProcessVignetteStrength = 0.08f;
+    float g_postProcessVignetteRadiusX = 0.72f;
+    float g_postProcessVignetteRadiusY = 0.72f;
+    float g_postProcessVignetteSoftness = 0.70f;
+    float g_postProcessPlayerLightCenterX = static_cast<float>(kVirtualScreenWidth) * 0.5f;
+    float g_postProcessPlayerLightCenterY = static_cast<float>(kVirtualScreenHeight) * 0.5f;
+    float g_postProcessPlayerLightStrength = 0.0f;
+    float g_postProcessPlayerLightRadius = 120.0f;
+    float g_postProcessPlayerLightSoftness = 170.0f;
     DarknessOverlayParams g_darknessOverlayParams = {};
 
     struct PostProcessParams
@@ -42,6 +52,14 @@ namespace
         float param1;
         float param2;
         float param3;
+        float param4;
+        float param5;
+        float param6;
+        float param7;
+        float param8;
+        float param9;
+        float param10;
+        float param11;
     };
 
     struct DarknessOverlayShaderParams
@@ -389,12 +407,12 @@ void DirectXResize(int width, int height)
 
 void* DirectXGetDevice(void)
 {
-    return nullptr;
+    return const_cast<void*>(GetUseDirect3D11Device());
 }
 
 void* DirectXGetDeviceContext(void)
 {
-    return nullptr;
+    return const_cast<void*>(GetUseDirect3D11DeviceContext());
 }
 
 void Clear(void)
@@ -405,15 +423,23 @@ void Clear(void)
 void DirectXBeginSceneRender(void)
 {
     DirectXResetDarknessOverlay();
+    g_sceneCompositedThisFrame = false;
     SetDrawScreen(g_sceneRenderTarget >= 0 ? g_sceneRenderTarget : DX_SCREEN_BACK);
     ClearDrawScreen();
 }
 
 void DirectXCompositeSceneToBackBuffer(float timeSeconds)
 {
+    if (g_sceneCompositedThisFrame)
+    {
+        SetDrawScreen(g_compositeRenderTarget >= 0 ? g_compositeRenderTarget : (g_sceneRenderTarget >= 0 ? g_sceneRenderTarget : DX_SCREEN_BACK));
+        return;
+    }
+
     if (g_sceneRenderTarget < 0)
     {
         SetDrawScreen(DX_SCREEN_BACK);
+        g_sceneCompositedThisFrame = true;
         return;
     }
 
@@ -435,6 +461,7 @@ void DirectXCompositeSceneToBackBuffer(float timeSeconds)
             DrawExtendGraph(0, 0, kVirtualScreenWidth, kVirtualScreenHeight, g_sceneRenderTarget, FALSE);
         }
         SetDrawScreen(g_compositeRenderTarget >= 0 ? g_compositeRenderTarget : g_sceneRenderTarget);
+        g_sceneCompositedThisFrame = true;
         return;
     }
 
@@ -495,9 +522,17 @@ void DirectXCompositeSceneToBackBuffer(float timeSeconds)
     if (buffer)
     {
         buffer->param0 = timeSeconds;
-        buffer->param1 = 0.08f; // vignette
+        buffer->param1 = g_postProcessVignetteStrength;
         buffer->param2 = 0.008f; // grain
         buffer->param3 = 0.52f; // light blend
+        buffer->param4 = g_postProcessVignetteRadiusX;
+        buffer->param5 = g_postProcessVignetteRadiusY;
+        buffer->param6 = g_postProcessVignetteSoftness;
+        buffer->param7 = g_postProcessPlayerLightCenterX;
+        buffer->param8 = g_postProcessPlayerLightCenterY;
+        buffer->param9 = g_postProcessPlayerLightStrength;
+        buffer->param10 = g_postProcessPlayerLightRadius;
+        buffer->param11 = g_postProcessPlayerLightSoftness;
         UpdateShaderConstantBuffer(g_postProcessConstantBuffer);
         SetShaderConstantBuffer(g_postProcessConstantBuffer, DX_SHADERTYPE_PIXEL, 0);
     }
@@ -511,6 +546,7 @@ void DirectXCompositeSceneToBackBuffer(float timeSeconds)
     SetUseTextureToShader(0, -1);
     SetUseTextureToShader(1, -1);
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+    g_sceneCompositedThisFrame = true;
 }
 
 bool DirectXHasPostProcess(void)
@@ -531,6 +567,23 @@ void DirectXTogglePostProcess(void)
 bool DirectXIsPostProcessEnabled(void)
 {
     return g_postProcessEnabled;
+}
+
+void DirectXSetPostProcessVignette(float strength, float radiusX, float radiusY, float softness)
+{
+    g_postProcessVignetteStrength = std::clamp(strength, 0.0f, 1.0f);
+    g_postProcessVignetteRadiusX = std::max(0.001f, radiusX);
+    g_postProcessVignetteRadiusY = std::max(0.001f, radiusY);
+    g_postProcessVignetteSoftness = std::max(0.001f, softness);
+}
+
+void DirectXSetPostProcessPlayerLight(float centerX, float centerY, float strength, float radius, float softness)
+{
+    g_postProcessPlayerLightCenterX = std::clamp(centerX, 0.0f, static_cast<float>(kVirtualScreenWidth));
+    g_postProcessPlayerLightCenterY = std::clamp(centerY, 0.0f, static_cast<float>(kVirtualScreenHeight));
+    g_postProcessPlayerLightStrength = std::clamp(strength, 0.0f, 1.0f);
+    g_postProcessPlayerLightRadius = std::max(0.001f, radius);
+    g_postProcessPlayerLightSoftness = std::max(0.001f, softness);
 }
 
 bool DirectXHasDarknessOverlay(void)

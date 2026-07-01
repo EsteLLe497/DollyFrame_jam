@@ -1,7 +1,9 @@
 ﻿#include "pch.h"
 
 #include "game_scene_internal.h"
+#include "game_scene_photo_storage_layout.h"
 #include "game_scene_render_ui_helpers.h"
+#include "game_viewport.h"
 #include "photo_system.h"
 #include "photo_shared.h"
 #include "photo_filter_rules.h"
@@ -21,13 +23,21 @@ namespace
     constexpr float kPitRestartFadeDuration = 0.45f;
     constexpr float kStageTransitionFadeOutDuration = 0.45f;
     constexpr float kStageTransitionFadeInDuration = 1.10f;
+    constexpr float kCaptureFinderBaseTilesX = 23.0f;
 
-    constexpr int kPhotoTraySlotCount = 4;
-    constexpr int kPhotoTrayOriginalSlotCount = 3;
-    constexpr float kPhotoTrayScale = 1.1f;
-    constexpr float kPhotoTraySlotWidth = 270.0f * kPhotoTrayScale;
-    constexpr float kPhotoTraySlotHeight = kPhotoTraySlotWidth * 89.0f / 127.0f;
-    constexpr float kPhotoTraySlotGap = 18.0f;
+    float GetCaptureFinderScreenScale(float tileSize)
+    {
+        const float targetWorldWidth = std::max(1.0f, tileSize * kCaptureFinderBaseTilesX);
+        const float baseCameraZoomMultiplier =
+            std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
+        return game_viewport::ComputeViewScale(
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT,
+            gCameraViewWidth,
+            gCameraViewHeight,
+            baseCameraZoomMultiplier);
+    }
+
     constexpr float kTuningPanelX = 24.0f;
     constexpr float kTuningPanelY = 24.0f;
     constexpr float kTuningPanelWidth = 460.0f;
@@ -114,6 +124,129 @@ namespace
         const float distancePenalty = std::sqrt(dx * dx + dy * dy) * 0.08f;
         light.priority = basePriority + light.outerRadius * light.intensity - distancePenalty;
         overlayLights.push_back(light);
+    }
+
+    template <typename Fn>
+    void ForEachCaptureTargetCandidate(
+        const GameScene& scene,
+        const TransformComponent& captureFrame,
+        Fn&& fn)
+    {
+        const auto& photoBoxEntities = scene.EntitiesByTag(EntityTag::PhotoBox);
+        const auto& goalEntities = scene.EntitiesByTag(EntityTag::Goal);
+        const auto& photoSourceEntities = scene.EntitiesByTag(EntityTag::PhotoSource);
+        const auto& hazardEntities = scene.EntitiesByTag(EntityTag::Hazard);
+        const auto& bulletEntities = scene.EntitiesByTag(EntityTag::Bullet);
+        const auto& dropItemEntities = scene.EntitiesByTag(EntityTag::DropItem);
+        const auto& batteryEntities = scene.EntitiesByTag(EntityTag::Battery);
+        const auto& logEntities = scene.EntitiesByTag(EntityTag::Log);
+        const auto& damagePlatformEntities = scene.EntitiesByTag(EntityTag::DamagePlatform);
+        const auto& damagePlatformSpikeEntities = scene.EntitiesByTag(EntityTag::DamagePlatformSpike);
+        const auto& laserTurretEntities = scene.EntitiesByTag(EntityTag::LaserTurret);
+        const auto& markerLightEntities = scene.EntitiesByTag(EntityTag::MarkerLight);
+        const auto& sepiaRubbleEntities = scene.EntitiesByTag(EntityTag::SepiaRubble);
+        const auto& sepiaElevatorEntities = scene.EntitiesByTag(EntityTag::SepiaElevator);
+        const auto& filterEntities = scene.EntitiesByTag(EntityTag::Filter);
+        const auto& barrelEntities = scene.EntitiesByTag(EntityTag::Barrel);
+        const auto& shieldEntities = scene.EntitiesByTag(EntityTag::Shield);
+        const auto& bossShieldEntities = scene.EntitiesByTag(EntityTag::BossShield);
+        const auto& boss1ShieldEntities = scene.EntitiesByTag(EntityTag::Boss1Shield);
+        const auto& midBoss1ShieldEntities = scene.EntitiesByTag(EntityTag::MidBoss1Shield);
+        const auto& capturedShieldEntities = scene.EntitiesByTag(EntityTag::CapturedShield);
+        const auto& walkerMeleeAttackEntities = scene.EntitiesByTag(EntityTag::WalkerMeleeAttack);
+        const auto& bossShockwaveEntities = scene.EntitiesByTag(EntityTag::BossShockwave);
+
+        auto considerCaptureTarget = [&](Entity* entity)
+        {
+            if (!entity)
+            {
+                return;
+            }
+
+            if (HasTag(*entity, EntityTag::Player) ||
+                HasTag(*entity, EntityTag::Enemy) ||
+                HasTag(*entity, EntityTag::BatterySwitch) ||
+                HasTag(*entity, EntityTag::Elevator) ||
+                HasTag(*entity, EntityTag::LaserSwitch) ||
+                HasTag(*entity, EntityTag::Shutter) ||
+                HasTag(*entity, EntityTag::LaserBeam) ||
+                HasTag(*entity, EntityTag::StageLight))
+            {
+                return;
+            }
+
+            if (HasTag(*entity, EntityTag::PhotoBox))
+            {
+                const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
+                if (!layer || layer->layer != PhotoCopyLayer::Foreground)
+                {
+                    return;
+                }
+
+                if (const auto* pasteAnimation = entity->GetComponent<PhotoPasteAnimationComponent>())
+                {
+                    if (!pasteAnimation->IsFinished())
+                    {
+                        return;
+                    }
+                }
+            }
+
+            if (const auto* shield = entity->GetComponent<ShieldComponent>())
+            {
+                if (shield->ownerBoss)
+                {
+                    if (const auto* boss = shield->ownerBoss->GetComponent<ShieldBossComponent>())
+                    {
+                        if (boss->deathAnimationActive || boss->deathAnimationFinished)
+                        {
+                            return;
+                        }
+                    }
+                }
+            }
+
+            const auto* transform = entity->GetComponent<TransformComponent>();
+            const auto* sprite = entity->GetComponent<SpriteRenderComponent>();
+            if (!transform || !sprite || !IntersectsRect(captureFrame, *transform))
+            {
+                return;
+            }
+
+            fn(entity, *transform);
+        };
+
+        auto scanCandidates = [&](const std::vector<Entity*>& entities)
+        {
+            for (Entity* entity : entities)
+            {
+                considerCaptureTarget(entity);
+            }
+        };
+
+        scanCandidates(photoBoxEntities);
+        scanCandidates(goalEntities);
+        scanCandidates(photoSourceEntities);
+        scanCandidates(hazardEntities);
+        scanCandidates(bulletEntities);
+        scanCandidates(dropItemEntities);
+        scanCandidates(batteryEntities);
+        scanCandidates(logEntities);
+        scanCandidates(damagePlatformEntities);
+        scanCandidates(damagePlatformSpikeEntities);
+        scanCandidates(laserTurretEntities);
+        scanCandidates(markerLightEntities);
+        scanCandidates(sepiaRubbleEntities);
+        scanCandidates(sepiaElevatorEntities);
+        scanCandidates(filterEntities);
+        scanCandidates(barrelEntities);
+        scanCandidates(shieldEntities);
+        scanCandidates(bossShieldEntities);
+        scanCandidates(boss1ShieldEntities);
+        scanCandidates(midBoss1ShieldEntities);
+        scanCandidates(capturedShieldEntities);
+        scanCandidates(walkerMeleeAttackEntities);
+        scanCandidates(bossShockwaveEntities);
     }
 
     void AddPlayerOverlayLight(std::vector<OverlayLightSource>& overlayLights, const DarknessOverlayContext& ctx, float innerRadius, float outerRadius)
@@ -970,12 +1103,15 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     GetCaptureFrameRect(*transform, frameX, frameY, frameWidth, frameHeight);
 
     const float viewScale = GetViewScale();
-    const float drawX = GetViewOriginX() + (frameX - m_flow.cameraX) * viewScale;
-    const float drawY = GetViewOriginY() + (frameY - m_flow.cameraY) * viewScale;
+    const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
+    const float drawWidth = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale;
+    const float drawHeight = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale;
+    const float drawX = static_cast<float>(Input_GetMouseX()) - drawWidth * 0.5f;
+    const float drawY = static_cast<float>(Input_GetMouseY()) - drawHeight * 0.5f;
     const int left = static_cast<int>(std::round(drawX));
     const int top = static_cast<int>(std::round(drawY));
-    const int right = static_cast<int>(std::round(drawX + frameWidth * viewScale));
-    const int bottom = static_cast<int>(std::round(drawY + frameHeight * viewScale));
+    const int right = static_cast<int>(std::round(drawX + drawWidth));
+    const int bottom = static_cast<int>(std::round(drawY + drawHeight));
     if (right <= left || bottom <= top)
     {
         return;
@@ -1073,6 +1209,126 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     }
     Shader_ResetStyle();
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+}
+
+void GameScene::DrawShieldBossSlamVignetteOverlay() const
+{
+    float strength = 0.0f;
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        if (!enemy ||
+            enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
+            !enemy->IsEnabled() ||
+            !boss ||
+            !boss->shieldEntity)
+        {
+            continue;
+        }
+
+        const auto* shieldTint = boss->shieldEntity->GetComponent<TintComponent>();
+        const float shieldAlpha = shieldTint ? shieldTint->a : 1.0f;
+        if (shieldAlpha <= 0.05f)
+        {
+            continue;
+        }
+
+        float stateStrength = 0.0f;
+        switch (boss->state)
+        {
+        case ShieldBossState::JumpAscend:
+            stateStrength = 0.50f + 0.25f * Clamp01(boss->stateTimer / 0.28f);
+            break;
+        case ShieldBossState::AirHover:
+            stateStrength = 0.80f + 0.08f * std::sin(boss->stateTimer * 18.0f);
+            break;
+        case ShieldBossState::JumpDescend:
+            stateStrength = 0.70f;
+            break;
+        default:
+            break;
+        }
+
+        strength = std::max(strength, stateStrength * Clamp01(shieldAlpha));
+    }
+
+    if (strength <= 0.01f)
+    {
+        return;
+    }
+
+    const float screenW = static_cast<float>(SCREEN_WIDTH);
+    const float screenH = static_cast<float>(SCREEN_HEIGHT);
+    const float shortSide = std::min(screenW, screenH);
+    const int outerColor = GetColor(8, 10, 14);
+    const int innerColor = GetColor(30, 24, 20);
+
+    const auto drawBand = [](float x, float y, float width, float height, int alpha, int color)
+    {
+        if (alpha <= 0 || width <= 0.0f || height <= 0.0f)
+        {
+            return;
+        }
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(alpha, 0, 255));
+        DrawBoxAA(x, y, x + width, y + height, color, TRUE);
+    };
+
+    const float edge0 = shortSide * 0.055f;
+    const float edge1 = shortSide * 0.115f;
+    const float edge2 = shortSide * 0.205f;
+    const int outerAlpha = static_cast<int>(std::round(118.0f * strength));
+    const int midAlpha = static_cast<int>(std::round(72.0f * strength));
+    const int innerAlpha = static_cast<int>(std::round(34.0f * strength));
+
+    drawBand(0.0f, 0.0f, screenW, edge2, innerAlpha, innerColor);
+    drawBand(0.0f, screenH - edge2, screenW, edge2, innerAlpha, innerColor);
+    drawBand(0.0f, 0.0f, edge2, screenH, innerAlpha, innerColor);
+    drawBand(screenW - edge2, 0.0f, edge2, screenH, innerAlpha, innerColor);
+
+    drawBand(0.0f, 0.0f, screenW, edge1, midAlpha, outerColor);
+    drawBand(0.0f, screenH - edge1, screenW, edge1, midAlpha, outerColor);
+    drawBand(0.0f, 0.0f, edge1, screenH, midAlpha, outerColor);
+    drawBand(screenW - edge1, 0.0f, edge1, screenH, midAlpha, outerColor);
+
+    drawBand(0.0f, 0.0f, screenW, edge0, outerAlpha, outerColor);
+    drawBand(0.0f, screenH - edge0, screenW, edge0, outerAlpha, outerColor);
+    drawBand(0.0f, 0.0f, edge0, screenH, outerAlpha, outerColor);
+    drawBand(screenW - edge0, 0.0f, edge0, screenH, outerAlpha, outerColor);
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+}
+
+void GameScene::DrawShieldBossIntroCurtainOverlay() const
+{
+    const float progress = Clamp01(m_render.shieldBossIntroCurtainProgress);
+    if (progress <= 0.001f)
+    {
+        return;
+    }
+
+    // 登場演出中だけ、上下から1グリッド程度の黒幕を滑らかに出し入れする。
+    const float easedProgress = progress * progress * (3.0f - 2.0f * progress);
+    const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+    const int maxCurtainHeight = std::clamp(
+        static_cast<int>(std::round(tileSize * GetViewScale())),
+        32,
+        120);
+    const int curtainHeight = static_cast<int>(std::round(static_cast<float>(maxCurtainHeight) * easedProgress));
+    if (curtainHeight <= 0)
+    {
+        return;
+    }
+    const int curtainColor = GetColor(0, 0, 0);
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawBox(0, 0, SCREEN_WIDTH, curtainHeight, curtainColor, TRUE);
+    DrawBox(0, SCREEN_HEIGHT - curtainHeight, SCREEN_WIDTH, SCREEN_HEIGHT, curtainColor, TRUE);
 }
 
 void GameScene::DrawMarkerLightOutlines() const
@@ -1214,17 +1470,20 @@ void GameScene::DrawCaptureOverlay() const
     const float overlayTop = 0.0f;
     const float overlayWidth = static_cast<float>(SCREEN_WIDTH);
     const float overlayHeight = static_cast<float>(SCREEN_HEIGHT);
-    const float drawX = viewOriginX + (frameX - m_flow.cameraX) * viewScale;
-    const float drawY = viewOriginY + (frameY - m_flow.cameraY) * viewScale;
-    const float drawWidth = frameWidth * viewScale;
-    const float drawHeight = frameHeight * viewScale;
+    // ファインダー本体はカメラから分離し、常にマウス中心のスクリーンUIとして描画する。
+    const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
+    const float drawWidth = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale;
+    const float drawHeight = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale;
+    const float drawX = static_cast<float>(Input_GetMouseX()) - drawWidth * 0.5f;
+    const float drawY = static_cast<float>(Input_GetMouseY()) - drawHeight * 0.5f;
     const int left = static_cast<int>(std::round(drawX));
     const int top = static_cast<int>(std::round(drawY));
     const int right = static_cast<int>(std::round(drawX + drawWidth));
     const int bottom = static_cast<int>(std::round(drawY + drawHeight));
 
+    const auto& captureUi = m_ui.tuning.captureOverlay;
     const float shutterT = Clamp01(m_ui.shutterFlashRemaining / gShutterFlashSeconds);
-    const float frameInset = 10.0f * shutterT * viewScale;
+    const float frameInset = captureUi.frameInset * shutterT * finderUiScale;
     const float innerX = drawX + frameInset;
     const float innerY = drawY + frameInset;
     const float innerWidth = std::max(8.0f, drawWidth - frameInset * 2.0f);
@@ -1271,18 +1530,19 @@ void GameScene::DrawCaptureOverlay() const
         }
     };
 
-    const int cornerLength = std::max(18, static_cast<int>(std::round(34.0f * viewScale)));
-    const int cornerThickness = std::max(2, static_cast<int>(std::round(3.0f + shutterT * 2.0f)));
-    const int guideInset = std::max(12, static_cast<int>(std::round(24.0f * viewScale)));
+    const int cornerLength = std::max(18, static_cast<int>(std::round(captureUi.cornerLength * finderUiScale)));
+    const int cornerThickness = std::max(2, static_cast<int>(std::round(captureUi.cornerThickness + shutterT * 2.0f)));
+    const int guideInset = std::max(12, static_cast<int>(std::round(captureUi.guideInset * finderUiScale)));
+    const unsigned int gridColor = GetColor(242, 246, 252);
 
     if (m_flow.cameraMode)
     {
         const float vignetteAlpha = 0.15f + shutterT * 0.08f;
-        const float edge0 = 34.0f * viewScale;
-        const float edge1 = 72.0f * viewScale;
-        const float edge2 = 118.0f * viewScale;
-        const float edge3 = 164.0f * viewScale;
-        const float topBottomBoost = 1.22f;
+        const float edge0 = captureUi.vignetteEdge0 * finderUiScale;
+        const float edge1 = captureUi.vignetteEdge1 * finderUiScale;
+        const float edge2 = captureUi.vignetteEdge2 * finderUiScale;
+        const float edge3 = captureUi.vignetteEdge3 * finderUiScale;
+        const float topBottomBoost = captureUi.vignetteBoost;
         drawVignetteBand(overlayLeft, overlayTop, overlayWidth, edge3, vignetteAlpha * topBottomBoost, 0.01f, 0.015f, 0.025f);
         drawVignetteBand(overlayLeft, overlayTop + overlayHeight - edge3, overlayWidth, edge3, vignetteAlpha * topBottomBoost, 0.01f, 0.015f, 0.025f);
         drawVignetteBand(overlayLeft, overlayTop, edge3, overlayHeight, vignetteAlpha, 0.01f, 0.015f, 0.025f);
@@ -1305,10 +1565,70 @@ void GameScene::DrawCaptureOverlay() const
     }
 
     drawFrameBand(innerX, innerY, innerWidth, innerHeight, 0.10f + shutterT * 0.18f);
-    drawFrameBand(drawX, drawY, drawWidth, std::max(4.0f, 8.0f * viewScale), 0.30f + shutterT * 0.16f);
-    drawFrameBand(drawX, drawY + drawHeight - std::max(4.0f, 8.0f * viewScale), drawWidth, std::max(4.0f, 8.0f * viewScale), 0.30f + shutterT * 0.16f);
-    drawFrameBand(drawX, drawY, std::max(4.0f, 8.0f * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
-    drawFrameBand(drawX + drawWidth - std::max(4.0f, 8.0f * viewScale), drawY, std::max(4.0f, 8.0f * viewScale), drawHeight, 0.30f + shutterT * 0.16f);
+    const float frameBandThickness = std::max(4.0f, captureUi.frameBandThickness * finderUiScale);
+    drawFrameBand(drawX, drawY, drawWidth, frameBandThickness, 0.30f + shutterT * 0.16f);
+    drawFrameBand(drawX, drawY + drawHeight - frameBandThickness, drawWidth, frameBandThickness, 0.30f + shutterT * 0.16f);
+    drawFrameBand(drawX, drawY, frameBandThickness, drawHeight, 0.30f + shutterT * 0.16f);
+    drawFrameBand(drawX + drawWidth - frameBandThickness, drawY, frameBandThickness, drawHeight, 0.30f + shutterT * 0.16f);
+
+    const Entity* bestTarget = FindCaptureTarget(*transform);
+
+    ForEachCaptureTargetCandidate(*this, *transform, [&](Entity* entity, const TransformComponent& targetTransform)
+    {
+        const auto* photoOrigin = entity ? entity->GetComponent<PhotoCopyOriginComponent>() : nullptr;
+        const bool movingEnemyAttackVisual =
+            entity &&
+            entity->GetComponent<PhotoMotionComponent>() &&
+            photoOrigin &&
+            photoOrigin->origin == PhotoCopyOrigin::Enemy;
+        const bool hidesCaptureHitboxVisual =
+            entity &&
+            (HasTag(*entity, EntityTag::BossShield) ||
+                HasTag(*entity, EntityTag::Boss1Shield) ||
+                HasTag(*entity, EntityTag::MidBoss1Shield) ||
+                HasTag(*entity, EntityTag::CapturedShield) ||
+                HasTag(*entity, EntityTag::WalkerMeleeAttack) ||
+                HasTag(*entity, EntityTag::BossShockwave) ||
+                movingEnemyAttackVisual);
+        if (hidesCaptureHitboxVisual)
+        {
+            // 攻撃や盾の当たり判定は残し、たたき台の白い判定表示だけ隠す。
+            return;
+        }
+
+        const float targetLeft = targetTransform.x;
+        const float targetTop = targetTransform.y;
+        const float targetRight = targetTransform.x + targetTransform.width * targetTransform.scale;
+        const float targetBottom = targetTransform.y + targetTransform.height * targetTransform.scale;
+        const float overlapLeft = std::max(frameX, targetLeft);
+        const float overlapTop = std::max(frameY, targetTop);
+        const float overlapRight = std::min(frameX + frameWidth, targetRight);
+        const float overlapBottom = std::min(frameY + frameHeight, targetBottom);
+        const float overlapWidth = overlapRight - overlapLeft;
+        const float overlapHeight = overlapBottom - overlapTop;
+        if (overlapWidth <= 0.0f || overlapHeight <= 0.0f)
+        {
+            return;
+        }
+
+        const float glowX = viewOriginX + (overlapLeft - m_flow.cameraX) * viewScale;
+        const float glowY = viewOriginY + (overlapTop - m_flow.cameraY) * viewScale;
+        const float glowWidth = overlapWidth * viewScale;
+        const float glowHeight = overlapHeight * viewScale;
+        const bool isBestTarget = entity == bestTarget;
+
+        Shader_ResetStyle();
+        Shader_SetBlendMode(ShaderBlendMode2D::Additive);
+        Shader_SetTint(1.0f, 1.0f, 1.0f, isBestTarget ? 0.42f : 0.24f);
+        SpriteDraw(m_whiteTexture, glowX, glowY, glowWidth, glowHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        if (isBestTarget)
+        {
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 0.16f);
+            SpriteDraw(m_whiteTexture, glowX - 2.0f, glowY - 2.0f, glowWidth + 4.0f, glowHeight + 4.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+        }
+        Shader_ResetStyle();
+    });
+
     drawCornerFrame(left, top, right, bottom, cornerThickness, cornerLength, frameColor);
 
     const int centerX = (left + right) / 2;
@@ -1317,17 +1637,50 @@ void GameScene::DrawCaptureOverlay() const
     DrawLine(centerX, centerY - guideInset, centerX, centerY + guideInset, guideColor);
     DrawBox(left + guideInset, top + guideInset, right - guideInset, bottom - guideInset, guideColor, FALSE);
 
-    if (Entity* target = FindCaptureTarget(*transform))
+    if (m_ui.captureLockoutRemaining > 0.0f || m_ui.captureRapidCount > 0)
     {
-        if (const auto* targetTransform = target->GetComponent<TransformComponent>())
+        const int limitCount = std::max(1, static_cast<int>(std::round(gCaptureRapidShotLimit)));
+        const int currentCount = std::clamp(m_ui.captureRapidCount, 0, limitCount);
+        const float warningWidth = captureUi.warningPanelWidth;
+        const float warningHeight = captureUi.warningPanelHeight;
+        const float warningX = captureUi.warningPanelX;
+        const float warningY = captureUi.warningPanelY;
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 210);
+        DrawBox(
+            static_cast<int>(std::round(warningX)),
+            static_cast<int>(std::round(warningY)),
+            static_cast<int>(std::round(warningX + warningWidth)),
+            static_cast<int>(std::round(warningY + warningHeight)),
+            GetColor(22, 12, 14),
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+        DrawBox(
+            static_cast<int>(std::round(warningX)),
+            static_cast<int>(std::round(warningY)),
+            static_cast<int>(std::round(warningX + warningWidth)),
+            static_cast<int>(std::round(warningY + warningHeight)),
+            m_ui.captureLockoutRemaining > 0.0f ? GetColor(255, 92, 72) : GetColor(255, 220, 116),
+            FALSE);
+        DrawString(
+            static_cast<int>(std::round(warningX + captureUi.warningTitleX)),
+            static_cast<int>(std::round(warningY + captureUi.warningTitleY)),
+            m_ui.captureLockoutRemaining > 0.0f ? "撮影ロック" : "撮影数",
+            m_ui.captureLockoutRemaining > 0.0f ? GetColor(255, 228, 220) : GetColor(255, 244, 214));
+        DrawFormatString(
+            static_cast<int>(std::round(warningX + captureUi.warningCountX)),
+            static_cast<int>(std::round(warningY + captureUi.warningCountY)),
+            GetColor(236, 246, 255),
+            "%d / %d",
+            currentCount,
+            limitCount);
+        if (m_ui.captureLockoutRemaining > 0.0f)
         {
-            const float targetDrawX = viewOriginX + (targetTransform->x - m_flow.cameraX) * viewScale;
-            const float targetDrawY = viewOriginY + (targetTransform->y - m_flow.cameraY) * viewScale;
-            const float targetDrawWidth = targetTransform->width * targetTransform->scale * viewScale;
-            const float targetDrawHeight = targetTransform->height * targetTransform->scale * viewScale;
-            Shader_SetOutline(0.34f, 1.0f, 0.48f, 1.0f, 1.8f);
-            Shader_SetTint(0.10f, 0.30f, 0.14f, 0.12f);
-            SpriteDraw(m_whiteTexture, targetDrawX, targetDrawY, targetDrawWidth, targetDrawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+            DrawFormatString(
+                static_cast<int>(std::round(warningX + captureUi.warningTimerX)),
+                static_cast<int>(std::round(warningY + captureUi.warningCountY)),
+                GetColor(255, 196, 196),
+                "%.1fs",
+                m_ui.captureLockoutRemaining);
         }
     }
 
@@ -1337,7 +1690,7 @@ void GameScene::DrawCaptureOverlay() const
         Shader_SetTint(overlayR, overlayG, overlayB, 0.10f + shutterT * 0.55f);
         SpriteDraw(m_whiteTexture, overlayLeft, overlayTop, overlayWidth, overlayHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
-        const int pulseInset = static_cast<int>(std::round(20.0f * shutterT * viewScale));
+        const int pulseInset = static_cast<int>(std::round(captureUi.pulseInset * shutterT * finderUiScale));
         drawCornerFrame(
             left + pulseInset,
             top + pulseInset,
@@ -1377,12 +1730,12 @@ void GameScene::DrawTuningPanel()
     DrawString(
         static_cast<int>(kTuningPanelX + 16.0f),
         static_cast<int>(kTuningPanelY + 14.0f),
-        "Game Tuning",
+        "ゲーム調整",
         GetColor(245, 248, 255));
     DrawString(
         static_cast<int>(kTuningPanelX + 16.0f),
         static_cast<int>(kTuningPanelY + 42.0f),
-        "F1 close  Arrow keys adjust  Click +/- writes assets/tuning.json",
+        "F1 で閉じる  矢印で調整  +/- クリックで assets/tuning.json に保存",
         GetColor(178, 198, 220));
 
     const auto drawSectionHeader = [](float y, const char* label)
@@ -1401,9 +1754,9 @@ void GameScene::DrawTuningPanel()
             GetColor(255, 228, 164));
     };
 
-    drawSectionHeader(kTuningPanelY + 76.0f, "Camera");
-    drawSectionHeader(kTuningPanelY + 76.0f + (2.0f * kTuningRowHeight) + kTuningSectionHeaderHeight + kTuningSectionGap, "Player");
-    drawSectionHeader(kTuningPanelY + 76.0f + (12.0f * kTuningRowHeight) + (kTuningSectionHeaderHeight + kTuningSectionGap) * 2.0f, "Photo");
+    drawSectionHeader(kTuningPanelY + 76.0f, "カメラ");
+    drawSectionHeader(kTuningPanelY + 76.0f + (2.0f * kTuningRowHeight) + kTuningSectionHeaderHeight + kTuningSectionGap, "プレイヤー");
+    drawSectionHeader(kTuningPanelY + 76.0f + (12.0f * kTuningRowHeight) + (kTuningSectionHeaderHeight + kTuningSectionGap) * 2.0f, "写真");
 
     for (int index = 0; index < static_cast<int>(entries.size()); ++index)
     {
@@ -1458,6 +1811,295 @@ void GameScene::DrawTuningPanel()
     DrawLine(mouseX, mouseY - 9, mouseX, mouseY + 9, cursorOuter);
 }
 
+void GameScene::DrawUiAdjustmentWindow()
+{
+    ImGui::SetNextWindowSize(ImVec2(540.0f, 720.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("UI調整"))
+    {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::TextUnformatted("ゲームUIの位置・大きさ・間隔・演出をリアルタイム調整できます。");
+    ImGui::TextUnformatted("各カテゴリを開いて値を変更してください。");
+
+    if (ImGui::Button("UI設定を保存"))
+    {
+        SaveUiTuningState();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("保存値を再読込"))
+    {
+        LoadUiTuningState();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("HPを現在値に同期"))
+    {
+        if (const Entity* player = FindEntityByTag(kTagPlayer))
+        {
+            if (const auto* health = player->GetComponent<HealthComponent>())
+            {
+                const int maxHp = std::max(1, health->GetMaxHealth());
+                const float ratio = std::clamp(static_cast<float>(health->GetCurrentHealth()) / static_cast<float>(maxHp), 0.0f, 1.0f);
+                m_ui.hpDisplayRatio = ratio;
+                m_ui.hpDamageLagRatio = ratio;
+                m_ui.hpDamageFlash = 0.0f;
+                m_ui.hpUiInitialized = true;
+            }
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("すべて初期値に戻す"))
+    {
+        m_ui.tuning = GameSceneUiTuningState{};
+        m_ui.captureFinderScale = 1.0f;
+        m_ui.photoTrayReveal = 1.0f;
+        m_ui.hpDisplayRatio = 1.0f;
+        m_ui.hpDamageLagRatio = 1.0f;
+        m_ui.hpDamageFlash = 0.0f;
+        m_ui.cameraFlash.enabled = true;
+        m_ui.cameraFlash.pulseRemaining = 0.0f;
+        m_ui.cameraFlash.pulseDuration = 0.0f;
+        m_ui.hpUiInitialized = false;
+    }
+
+    if (!m_debug.saveStatusMessage.empty() && m_debug.saveStatusTimer > 0.0f)
+    {
+        ImGui::TextWrapped("%s", m_debug.saveStatusMessage.c_str());
+    }
+
+    auto drag = [](const char* label, float& value, float speed, float minValue, float maxValue)
+    {
+        ImGui::DragFloat(label, &value, speed, minValue, maxValue, "%.2f");
+    };
+
+    auto& tuning = m_ui.tuning;
+
+    if (ImGui::CollapsingHeader("撮影ファインダー", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        drag("現在の倍率##finder", m_ui.captureFinderScale, 0.01f, 0.1f, 5.0f);
+        drag("基準幅(px)##finder", gCaptureFrameWidthPx, 1.0f, 16.0f, 2048.0f);
+        drag("基準高さ(px)##finder", gCaptureFrameHeightPx, 1.0f, 16.0f, 2048.0f);
+        drag("最小倍率##finder", tuning.captureFinder.scaleMin, 0.01f, 0.1f, 5.0f);
+        drag("最大倍率##finder", tuning.captureFinder.scaleMax, 0.01f, 0.1f, 5.0f);
+        drag("倍率変更量##finder", tuning.captureFinder.scaleStep, 0.01f, 0.01f, 1.0f);
+        drag("ズーム追従速度##finder", tuning.captureFinder.zoomBlendResponse, 0.1f, 0.1f, 30.0f);
+    }
+
+    if (ImGui::CollapsingHeader("撮影オーバーレイ"))
+    {
+        drag("枠の内側余白##overlay", tuning.captureOverlay.frameInset, 1.0f, 0.0f, 200.0f);
+        drag("コーナー線の長さ##overlay", tuning.captureOverlay.cornerLength, 1.0f, 0.0f, 300.0f);
+        drag("コーナー線の太さ##overlay", tuning.captureOverlay.cornerThickness, 0.1f, 0.5f, 20.0f);
+        drag("ガイド余白##overlay", tuning.captureOverlay.guideInset, 1.0f, 0.0f, 300.0f);
+        drag("外枠帯の太さ##overlay", tuning.captureOverlay.frameBandThickness, 1.0f, 0.0f, 100.0f);
+        drag("暗幕 境界1##overlay", tuning.captureOverlay.vignetteEdge0, 1.0f, 0.0f, 500.0f);
+        drag("暗幕 境界2##overlay", tuning.captureOverlay.vignetteEdge1, 1.0f, 0.0f, 500.0f);
+        drag("暗幕 境界3##overlay", tuning.captureOverlay.vignetteEdge2, 1.0f, 0.0f, 500.0f);
+        drag("暗幕 境界4##overlay", tuning.captureOverlay.vignetteEdge3, 1.0f, 0.0f, 500.0f);
+        drag("暗幕の強さ##overlay", tuning.captureOverlay.vignetteBoost, 0.01f, 0.0f, 3.0f);
+        drag("警告X##overlay", tuning.captureOverlay.warningPanelX, 1.0f, -500.0f, 2000.0f);
+        drag("警告Y##overlay", tuning.captureOverlay.warningPanelY, 1.0f, -500.0f, 2000.0f);
+        drag("警告幅##overlay", tuning.captureOverlay.warningPanelWidth, 1.0f, 10.0f, 1000.0f);
+        drag("警告高さ##overlay", tuning.captureOverlay.warningPanelHeight, 1.0f, 10.0f, 500.0f);
+        drag("警告タイトルX##overlay", tuning.captureOverlay.warningTitleX, 1.0f, -200.0f, 500.0f);
+        drag("警告タイトルY##overlay", tuning.captureOverlay.warningTitleY, 1.0f, -200.0f, 500.0f);
+        drag("警告カウントX##overlay", tuning.captureOverlay.warningCountX, 1.0f, -200.0f, 500.0f);
+        drag("警告カウントY##overlay", tuning.captureOverlay.warningCountY, 1.0f, -200.0f, 500.0f);
+        drag("警告タイマーX##overlay", tuning.captureOverlay.warningTimerX, 1.0f, -200.0f, 500.0f);
+        drag("パルス余白##overlay", tuning.captureOverlay.pulseInset, 1.0f, 0.0f, 300.0f);
+    }
+
+    if (ImGui::CollapsingHeader("保存写真トレイ", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::SliderFloat("表示率##tray", &m_ui.photoTrayReveal, 0.0f, 1.0f, "%.2f");
+        drag("先頭X##tray", tuning.photoTray.slotStartX, 1.0f, -1000.0f, 3000.0f);
+        drag("先頭Y##tray", tuning.photoTray.slotStartY, 1.0f, -1000.0f, 3000.0f);
+        drag("写真枠の幅##tray", tuning.photoTray.slotWidth, 1.0f, 10.0f, 1000.0f);
+        drag("写真枠の高さ##tray", tuning.photoTray.slotHeight, 1.0f, 10.0f, 1000.0f);
+        drag("写真同士の間隔##tray", tuning.photoTray.slotGapX, 1.0f, -500.0f, 1000.0f);
+        drag("写真内側余白##tray", tuning.photoTray.previewPadding, 1.0f, 0.0f, 200.0f);
+        drag("保存写真の表示倍率##tray", tuning.photoTray.previewScale, 0.01f, 0.05f, 5.0f);
+        drag("空欄文字X##tray", tuning.photoTray.emptyTextX, 1.0f, -200.0f, 500.0f);
+        drag("空欄文字Y##tray", tuning.photoTray.emptyTextY, 1.0f, -200.0f, 500.0f);
+        drag("ロック文字X##tray", tuning.photoTray.lockTextX, 1.0f, -200.0f, 500.0f);
+        drag("ロック文字Y##tray", tuning.photoTray.lockTextY, 1.0f, -200.0f, 500.0f);
+        drag("開閉速度##tray", tuning.photoTray.revealSpeed, 0.1f, 0.1f, 50.0f);
+        drag("クリック有効しきい値##tray", tuning.photoTray.revealThreshold, 0.01f, 0.0f, 1.0f);
+    }
+
+    if (ImGui::CollapsingHeader("現像写真プレビュー"))
+    {
+        auto& preview = tuning.developedPhotoPreview;
+        drag("表示時間##preview", preview.lifetime, 0.05f, 0.1f, 20.0f);
+        drag("カード幅##preview", preview.cardWidth, 1.0f, 20.0f, 1000.0f);
+        drag("カード高さ##preview", preview.cardHeight, 1.0f, 20.0f, 1000.0f);
+        drag("右余白##preview", preview.cardRightMargin, 1.0f, -500.0f, 1000.0f);
+        drag("開始Yオフセット##preview", preview.cardStartYOffset, 1.0f, -500.0f, 1000.0f);
+        drag("停止Y##preview", preview.cardCruiseY, 1.0f, -500.0f, 2000.0f);
+        drag("影オフセット##preview", preview.cardShadowOffset, 1.0f, 0.0f, 100.0f);
+        drag("輪郭オフセット##preview", preview.cardOutlineOffset, 1.0f, 0.0f, 100.0f);
+        drag("写真余白##preview", preview.frameInset, 1.0f, 0.0f, 300.0f);
+        drag("写真高さ##preview", preview.imageHeight, 1.0f, 10.0f, 1000.0f);
+        drag("上帯高さ##preview", preview.imageTopStripHeight, 1.0f, 0.0f, 300.0f);
+        drag("中帯Y##preview", preview.imageMiddleStripY, 1.0f, 0.0f, 500.0f);
+        drag("上昇時間比##preview", preview.cardRiseEase, 0.01f, 0.01f, 1.0f);
+        drag("停止開始##preview", preview.cardPauseStart, 0.01f, 0.0f, 1.0f);
+        drag("停止終了##preview", preview.cardPauseEnd, 0.01f, 0.0f, 1.0f);
+        drag("停止揺れ幅##preview", preview.cardPauseAmplitude, 0.5f, 0.0f, 200.0f);
+        drag("飛び出し量##preview", preview.cardOvershootY, 0.5f, 0.0f, 200.0f);
+        drag("写真ポップ倍率##preview", preview.popScale, 0.001f, 0.0f, 1.0f);
+        drag("光球開始X##preview", preview.orbLaunchXOffset, 1.0f, -500.0f, 500.0f);
+        drag("光球開始Y比率##preview", preview.orbLaunchYOffset, 0.01f, -2.0f, 2.0f);
+        drag("光球制御点1Y##preview", preview.orbControl1YOffset, 1.0f, -1000.0f, 1000.0f);
+        drag("光球制御点2X##preview", preview.orbControl2XOffset, 1.0f, -1000.0f, 1000.0f);
+        drag("光球制御点2Y##preview", preview.orbControl2YOffset, 1.0f, -1000.0f, 1000.0f);
+    }
+
+    if (ImGui::CollapsingHeader("プレイヤーHP", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        auto& hp = tuning.hp;
+        ImGui::SliderFloat("HP表示率##hp", &m_ui.hpDisplayRatio, 0.0f, 1.0f, "%.2f");
+        ImGui::SliderFloat("遅延ダメージ率##hp", &m_ui.hpDamageLagRatio, 0.0f, 1.0f, "%.2f");
+        ImGui::SliderFloat("被弾フラッシュ##hp", &m_ui.hpDamageFlash, 0.0f, 1.0f, "%.2f");
+        drag("先頭X##hp", hp.slotStartX, 1.0f, -1000.0f, 3000.0f);
+        drag("先頭Y##hp", hp.slotStartY, 1.0f, -1000.0f, 3000.0f);
+        drag("スロット幅##hp", hp.slotWidth, 1.0f, 10.0f, 500.0f);
+        drag("スロット高さ##hp", hp.slotHeight, 1.0f, 10.0f, 500.0f);
+        drag("ハート同士の間隔##hp", hp.slotGapX, 1.0f, -300.0f, 500.0f);
+        drag("ハートサイズ##hp", hp.heartSize, 1.0f, 4.0f, 500.0f);
+        drag("ハートYオフセット##hp", hp.heartYOffset, 1.0f, -300.0f, 500.0f);
+        drag("影X##hp", hp.heartShadowOffsetX, 0.5f, -100.0f, 100.0f);
+        drag("影Y##hp", hp.heartShadowOffsetY, 0.5f, -100.0f, 100.0f);
+        drag("発光拡張##hp", hp.heartGlowExpand, 0.5f, 0.0f, 100.0f);
+        drag("遅延発光拡張##hp", hp.heartLagGlowExpand, 0.5f, 0.0f, 100.0f);
+        drag("ラベルX##hp", hp.labelOffsetX, 1.0f, -1000.0f, 1000.0f);
+        drag("ラベルY##hp", hp.labelOffsetY, 1.0f, -500.0f, 500.0f);
+        drag("HP文字Y##hp", hp.hpTextOffsetY, 1.0f, -500.0f, 500.0f);
+    }
+
+    if (ImGui::CollapsingHeader("部品HUD"))
+    {
+        auto& parts = tuning.partsHud;
+        drag("幅##parts", parts.panelWidth, 1.0f, 10.0f, 1000.0f);
+        drag("高さ##parts", parts.panelHeight, 1.0f, 10.0f, 500.0f);
+        drag("右余白##parts", parts.marginRight, 1.0f, -500.0f, 1000.0f);
+        drag("下余白##parts", parts.marginBottom, 1.0f, -500.0f, 1000.0f);
+        drag("アイコンX##parts", parts.iconX, 1.0f, -300.0f, 500.0f);
+        drag("アイコンY##parts", parts.iconY, 1.0f, -300.0f, 500.0f);
+        drag("アイコンサイズ##parts", parts.iconSize, 1.0f, 1.0f, 300.0f);
+        drag("アイコン内側##parts", parts.iconInnerInset, 1.0f, 0.0f, 100.0f);
+        drag("ラベルX##parts", parts.labelX, 1.0f, -300.0f, 500.0f);
+        drag("ラベルY##parts", parts.labelY, 1.0f, -300.0f, 500.0f);
+        drag("数値Y##parts", parts.valueY, 1.0f, -300.0f, 500.0f);
+    }
+
+    if (ImGui::CollapsingHeader("ボスHP"))
+    {
+        auto& boss = tuning.bossHp;
+        drag("バー幅##boss", boss.panelWidth, 1.0f, 20.0f, 2000.0f);
+        drag("バー高さ##boss", boss.barHeight, 1.0f, 2.0f, 300.0f);
+        drag("パネル余白##boss", boss.panelPadding, 1.0f, 0.0f, 300.0f);
+        drag("上余白##boss", boss.marginTop, 1.0f, -500.0f, 2000.0f);
+        drag("追加高さ##boss", boss.panelExtraHeight, 1.0f, 0.0f, 500.0f);
+        drag("タイトルY##boss", boss.titleOffsetY, 1.0f, -300.0f, 500.0f);
+        drag("HP文字Y##boss", boss.hpTextOffsetY, 1.0f, -300.0f, 500.0f);
+    }
+
+    if (ImGui::CollapsingHeader("攻撃写真スロット"))
+    {
+        auto& attack = tuning.attackCapture;
+        drag("X##attack", attack.panelX, 1.0f, -1000.0f, 3000.0f);
+        drag("Y##attack", attack.panelY, 1.0f, -1000.0f, 3000.0f);
+        drag("パネルサイズ##attack", attack.panelSize, 1.0f, 10.0f, 1000.0f);
+        drag("アイコン半径##attack", attack.iconRadius, 1.0f, 1.0f, 500.0f);
+        drag("タイトルX##attack", attack.titleX, 1.0f, -500.0f, 500.0f);
+        drag("タイトルY##attack", attack.titleY, 1.0f, -500.0f, 500.0f);
+        drag("個数表示 右余白##attack", attack.countRightOffset, 1.0f, -500.0f, 500.0f);
+        drag("個数表示 下余白##attack", attack.countBottomOffset, 1.0f, -500.0f, 500.0f);
+    }
+
+    if (ImGui::CollapsingHeader("フィルターパネル"))
+    {
+        auto& filter = tuning.filterPanel;
+        drag("幅##filter", filter.panelWidth, 1.0f, 10.0f, 1000.0f);
+        drag("高さ##filter", filter.panelHeight, 1.0f, 10.0f, 500.0f);
+        drag("右余白##filter", filter.marginRight, 1.0f, -500.0f, 1000.0f);
+        drag("上余白##filter", filter.marginTop, 1.0f, -500.0f, 1000.0f);
+        drag("色見本X##filter", filter.swatchX, 1.0f, -300.0f, 500.0f);
+        drag("色見本Y##filter", filter.swatchY, 1.0f, -300.0f, 500.0f);
+        drag("色見本サイズ##filter", filter.swatchSize, 1.0f, 1.0f, 300.0f);
+        drag("タイトルX##filter", filter.titleX, 1.0f, -300.0f, 500.0f);
+        drag("タイトルY##filter", filter.titleY, 1.0f, -300.0f, 500.0f);
+        drag("効果文Y##filter", filter.effectY, 1.0f, -300.0f, 500.0f);
+        drag("ヒントX##filter", filter.hintX, 1.0f, -300.0f, 500.0f);
+        drag("ヒントY##filter", filter.hintY, 1.0f, -300.0f, 500.0f);
+    }
+
+    if (ImGui::CollapsingHeader("一時停止メニュー"))
+    {
+        auto& menu = tuning.escapeMenu;
+        drag("幅##menu", menu.panelWidth, 1.0f, 100.0f, 2000.0f);
+        drag("高さ##menu", menu.panelHeight, 1.0f, 100.0f, 2000.0f);
+        drag("項目開始Y##menu", menu.rowStartOffset, 1.0f, 0.0f, 1000.0f);
+        drag("項目高さ##menu", menu.rowHeight, 1.0f, 4.0f, 200.0f);
+        drag("項目左右余白##menu", menu.rowPaddingX, 1.0f, 0.0f, 500.0f);
+        drag("項目下余白##menu", menu.rowBottomInset, 1.0f, 0.0f, 100.0f);
+    }
+
+    if (ImGui::CollapsingHeader("商人UI"))
+    {
+        auto& merchant = tuning.merchant;
+        drag("パネル幅##merchant", merchant.panelWidth, 1.0f, 100.0f, 2500.0f);
+        drag("パネル高さ##merchant", merchant.panelHeight, 1.0f, 100.0f, 2000.0f);
+        drag("商品行高さ##merchant", merchant.rowHeight, 1.0f, 10.0f, 500.0f);
+        drag("リスト左##merchant", merchant.listLeftOffset, 1.0f, -500.0f, 2000.0f);
+        drag("リスト上##merchant", merchant.listTopOffset, 1.0f, -500.0f, 2000.0f);
+        drag("リスト右##merchant", merchant.listRightOffset, 1.0f, -500.0f, 2500.0f);
+        drag("詳細左##merchant", merchant.detailLeftOffset, 1.0f, -500.0f, 2500.0f);
+        drag("詳細上##merchant", merchant.detailTopOffset, 1.0f, -500.0f, 2000.0f);
+        drag("詳細下余白##merchant", merchant.detailBottomOffset, 1.0f, -500.0f, 2000.0f);
+        drag("接触表示 半幅##merchant", merchant.promptHalfWidth, 1.0f, 10.0f, 1000.0f);
+        drag("接触表示 高さ##merchant", merchant.promptHeight, 1.0f, 10.0f, 500.0f);
+        drag("接触表示 文字X##merchant", merchant.promptTextX, 1.0f, -300.0f, 500.0f);
+        drag("接触表示 文字Y##merchant", merchant.promptTextY, 1.0f, -300.0f, 500.0f);
+        drag("接触表示 浮遊量##merchant", merchant.promptRiseOffsetY, 0.5f, 0.0f, 100.0f);
+        drag("接触表示 点滅速度##merchant", merchant.promptPulseSpeed, 0.1f, 0.0f, 30.0f);
+    }
+
+    if (ImGui::CollapsingHeader("バッテリースイッチ表示"))
+    {
+        auto& counter = tuning.batteryCounter;
+        drag("幅##battery", counter.panelWidth, 1.0f, 10.0f, 500.0f);
+        drag("高さ##battery", counter.panelHeight, 1.0f, 10.0f, 300.0f);
+        drag("上方向オフセット##battery", counter.offsetY, 1.0f, -500.0f, 1000.0f);
+        drag("タイル距離倍率##battery", counter.tileOffsetMultiplier, 0.1f, -10.0f, 20.0f);
+    }
+
+    if (ImGui::CollapsingHeader("ステージガイド"))
+    {
+        drag("X##guide", tuning.stageGuide.x, 1.0f, -1000.0f, 3000.0f);
+        drag("下からの距離##guide", tuning.stageGuide.yOffsetFromBottom, 1.0f, -1000.0f, 3000.0f);
+    }
+
+    if (ImGui::CollapsingHeader("マップエディター"))
+    {
+        drag("左##editor", tuning.mapEditor.panelLeft, 1.0f, -1000.0f, 3000.0f);
+        drag("上##editor", tuning.mapEditor.panelTop, 1.0f, -1000.0f, 3000.0f);
+        drag("右##editor", tuning.mapEditor.panelRight, 1.0f, -1000.0f, 3000.0f);
+        drag("下##editor", tuning.mapEditor.panelBottom, 1.0f, -1000.0f, 3000.0f);
+    }
+
+    if (ImGui::CollapsingHeader("カメラフラッシュ"))
+    {
+        ImGui::Checkbox("有効##flash", &m_ui.cameraFlash.enabled);
+        drag("残り時間##flash", m_ui.cameraFlash.pulseRemaining, 0.01f, 0.0f, 10.0f);
+        drag("継続時間##flash", m_ui.cameraFlash.pulseDuration, 0.01f, 0.0f, 10.0f);
+    }
+
+    ImGui::End();
+}
+
 void GameScene::DrawDevelopedPhotoPreview() const
 {
     if (m_ui.developedPhotoPreviewRemaining <= 0.0f || !m_photo.pendingStore.active || m_photo.pendingStore.capture.items.empty())
@@ -1466,47 +2108,45 @@ void GameScene::DrawDevelopedPhotoPreview() const
     }
 
     const PhotoCaptureState& previewCapture = m_photo.pendingStore.capture;
-    constexpr float kPreviewLifetime = 4.2f;
-    const float progress = 1.0f - Clamp01(m_ui.developedPhotoPreviewRemaining / kPreviewLifetime);
-    const float cardPhaseT = Clamp01(progress / 0.34f);
+    const float previewLifetime = std::max(0.01f, m_ui.tuning.developedPhotoPreview.lifetime);
+    const float progress = 1.0f - Clamp01(m_ui.developedPhotoPreviewRemaining / previewLifetime);
+    const float cardPhaseT = Clamp01(progress / std::max(0.01f, m_ui.tuning.developedPhotoPreview.cardRiseEase));
     const float orbPhaseT = Clamp01((progress - 0.14f) / 0.30f);
     const float orbArriveT = Clamp01((progress - 0.34f) / 0.10f);
-    const float finalFade = Clamp01(m_ui.developedPhotoPreviewRemaining / 0.34f);
+    const float finalFade = Clamp01(m_ui.developedPhotoPreviewRemaining / std::max(0.01f, previewLifetime * 0.081f));
 
     float accentR = 0.32f;
     float accentG = 0.92f;
     float accentB = 1.0f;
     GetPhotoFilterThemeOverlayColor(previewCapture.capturedTheme, accentR, accentG, accentB);
 
-    const float originalTrayWidth = kPhotoTrayOriginalSlotCount * kPhotoTraySlotWidth + (kPhotoTrayOriginalSlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - originalTrayWidth) * 0.5f - (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-    const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
-    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
-    const float targetSlotX = trayX + m_photo.pendingStore.slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-    const float targetCenterX = targetSlotX + 98.0f * kPhotoTrayScale;
-    const float targetCenterY = trayY + 78.0f * kPhotoTrayScale;
+    const int targetSlotIndex = std::clamp(
+        m_photo.pendingStore.slotIndex,
+        0,
+        2);
+    const UiLayoutRect targetSlot = MakePhotoTraySlotRect(m_ui.tuning, targetSlotIndex);
+    const float targetCenterX = targetSlot.x + targetSlot.width * 0.5f;
+    const float targetCenterY = targetSlot.y + targetSlot.height * 0.5f;
 
-    const float photoWidth = 220.0f;
-    const float photoHeight = 248.0f;
-    const float frameInset = 16.0f;
+    const auto& previewUi = m_ui.tuning.developedPhotoPreview;
+    const float photoWidth = previewUi.cardWidth;
+    const float photoHeight = previewUi.cardHeight;
+    const float frameInset = previewUi.frameInset;
     const float imageWidth = photoWidth - frameInset * 2.0f;
-    const float imageHeight = 150.0f;
-    const float baseX = static_cast<float>(SCREEN_WIDTH) - photoWidth - 42.0f;
-    const float startY = static_cast<float>(SCREEN_HEIGHT) + 30.0f;
-    const float cardExitX = static_cast<float>(SCREEN_WIDTH) - 126.0f;
-    const float cardCruiseY = 34.0f;
+    const float imageHeight = previewUi.imageHeight;
+    const float baseX = static_cast<float>(SCREEN_WIDTH) - photoWidth - previewUi.cardRightMargin;
+    const float startY = static_cast<float>(SCREEN_HEIGHT) + previewUi.cardStartYOffset;
+    const float cardCruiseY = previewUi.cardCruiseY;
 
-    const float cardRiseT = Clamp01(cardPhaseT / 0.56f);
-    const float cardSlideT = Clamp01((cardPhaseT - 0.42f) / 0.58f);
+    const float cardRiseT = Clamp01(cardPhaseT / std::max(0.01f, previewUi.cardRiseEase));
     const float riseEase = cardRiseT * cardRiseT * (3.0f - 2.0f * cardRiseT);
-    const float slideEase = cardSlideT * cardSlideT * (3.0f - 2.0f * cardSlideT);
     const float overshootT = std::sin(cardRiseT * 3.14159265f);
     const float settleScale = 0.95f + std::sin(cardRiseT * 1.57079632f) * 0.05f;
-    const float pauseSlow = cardPhaseT >= 0.44f && cardPhaseT <= 0.68f
-        ? std::sin(((cardPhaseT - 0.44f) / 0.24f) * 3.14159265f)
+    const float pauseSlow = cardPhaseT >= previewUi.cardPauseStart && cardPhaseT <= previewUi.cardPauseEnd
+        ? std::sin(((cardPhaseT - previewUi.cardPauseStart) / std::max(0.01f, previewUi.cardPauseEnd - previewUi.cardPauseStart)) * 3.14159265f)
         : 0.0f;
-    const float cardX = baseX + (1.0f - riseEase) * 4.0f;
-    const float cardY = std::lerp(startY, cardCruiseY, riseEase) - overshootT * 14.0f + pauseSlow * 10.0f;
+    const float cardX = baseX + (1.0f - riseEase) * previewUi.cardShadowOffset * 0.5f;
+    const float cardY = std::lerp(startY, cardCruiseY, riseEase) - overshootT * previewUi.cardOvershootY + pauseSlow * previewUi.cardPauseAmplitude;
     const float cardAlpha = Clamp01(1.0f - Clamp01((progress - 0.22f) / 0.12f)) * finalFade;
 
     if (cardAlpha > 0.0f)
@@ -1516,22 +2156,40 @@ void GameScene::DrawDevelopedPhotoPreview() const
         const float imageScaleOut = settleScale;
 
         DrawBox(
-            static_cast<int>(std::round(cardX + 8.0f)),
-            static_cast<int>(std::round(cardY + 10.0f)),
-            static_cast<int>(std::round(cardX + photoWidth + 8.0f)),
-            static_cast<int>(std::round(cardY + visibleHeight + 10.0f)),
+            static_cast<int>(std::round(cardX + previewUi.cardShadowOffset)),
+            static_cast<int>(std::round(cardY + previewUi.cardOutlineOffset)),
+            static_cast<int>(std::round(cardX + photoWidth + previewUi.cardShadowOffset)),
+            static_cast<int>(std::round(cardY + visibleHeight + previewUi.cardOutlineOffset)),
             GetColor(16, 18, 24),
             TRUE);
 
         Shader_ResetStyle();
         Shader_SetTint(accentR, accentG, accentB, 0.14f * cardAlpha);
-        SpriteDraw(m_whiteTexture, cardX - 8.0f, cardY - 8.0f, photoWidth + 16.0f, visibleHeight + 16.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+        SpriteDraw(
+            m_whiteTexture,
+            cardX - previewUi.cardShadowOffset,
+            cardY - previewUi.cardShadowOffset,
+            photoWidth + previewUi.cardShadowOffset * 2.0f,
+            visibleHeight + previewUi.cardShadowOffset * 2.0f,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
         Shader_SetTint(0.98f, 0.96f, 0.90f, 0.96f * cardAlpha);
         SpriteDraw(m_whiteTexture, cardX, cardY, photoWidth, visibleHeight, 0.0f, 0.0f, 1.0f, 1.0f);
         Shader_SetTint(accentR, accentG, accentB, 0.20f * cardAlpha);
-        SpriteDraw(m_whiteTexture, cardX, cardY, photoWidth, 20.0f * imageScaleOut, 0.0f, 0.0f, 1.0f, 1.0f);
+        SpriteDraw(m_whiteTexture, cardX, cardY, photoWidth, previewUi.imageTopStripHeight * imageScaleOut, 0.0f, 0.0f, 1.0f, 1.0f);
         Shader_SetTint(0.92f, 0.88f, 0.74f, 0.12f * cardAlpha);
-        SpriteDraw(m_whiteTexture, cardX, cardY + 22.0f * imageScaleOut, photoWidth, 10.0f * imageScaleOut, 0.0f, 0.0f, 1.0f, 1.0f);
+        SpriteDraw(
+            m_whiteTexture,
+            cardX,
+            cardY + previewUi.imageMiddleStripY * imageScaleOut,
+            photoWidth,
+            10.0f * imageScaleOut,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
 
         const float photoX = cardX + frameInset * previewScaleOut;
         const float photoY = cardY + frameInset * imageScaleOut;
@@ -1541,7 +2199,7 @@ void GameScene::DrawDevelopedPhotoPreview() const
         const float previewScale = std::min(
             imageWidth / std::max(1.0f, previewCapture.width),
             imageHeight / std::max(1.0f, previewCapture.height));
-        const float previewPop = settleScale + overshootT * 0.015f;
+        const float previewPop = settleScale + overshootT * previewUi.popScale;
         const float scaledContentWidth = previewCapture.width * previewScale * previewPop;
         const float scaledContentHeight = previewCapture.height * previewScale * previewPop * settleScale;
         const float contentOffsetX = photoX + (imageWidth - scaledContentWidth) * 0.5f;
@@ -1585,12 +2243,12 @@ void GameScene::DrawDevelopedPhotoPreview() const
         Shader_ResetStyle();
     }
 
-    const float launchX = cardX + photoWidth * 0.5f - 18.0f;
-    const float launchY = cardCruiseY + photoHeight * 0.48f;
-    const float control1X = launchX + 6.0f;
-    const float control1Y = launchY - 172.0f;
-    const float control2X = targetCenterX + 4.0f;
-    const float control2Y = targetCenterY - 138.0f;
+    const float launchX = cardX + photoWidth * 0.5f - previewUi.orbLaunchXOffset;
+    const float launchY = cardCruiseY + photoHeight * previewUi.orbLaunchYOffset;
+    const float control1X = launchX + previewUi.orbLaunchXOffset * 0.333f;
+    const float control1Y = launchY - previewUi.orbControl1YOffset;
+    const float control2X = targetCenterX + previewUi.orbControl2XOffset;
+    const float control2Y = targetCenterY - previewUi.orbControl2YOffset;
     const float easedTravel = orbPhaseT * orbPhaseT * (3.0f - 2.0f * orbPhaseT);
     const float invT = 1.0f - easedTravel;
     const float orbX = invT * invT * invT * launchX
@@ -1711,21 +2369,21 @@ void GameScene::DrawDevelopedPhotoPreview() const
 
 bool GameScene::IsPhotoTrayHit(float screenX, float screenY) const
 {
-    if (m_ui.photoTrayReveal <= 0.05f)
+    if (m_ui.photoTrayReveal <= m_ui.tuning.photoTray.revealThreshold)
     {
         return false;
     }
 
-    const float originalTrayWidth = kPhotoTrayOriginalSlotCount * kPhotoTraySlotWidth + (kPhotoTrayOriginalSlotCount - 1) * kPhotoTraySlotGap;
-    const float trayWidth = kPhotoTraySlotCount * kPhotoTraySlotWidth + (kPhotoTraySlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - originalTrayWidth) * 0.5f - (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-    const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
-    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
-    return
-        screenX >= trayX &&
-        screenX <= trayX + trayWidth &&
-        screenY >= trayY &&
-        screenY <= trayY + kPhotoTraySlotHeight;
+    for (int slotIndex = 0; slotIndex < 3; ++slotIndex)
+    {
+        const UiLayoutRect slot = MakePhotoTraySlotRect(m_ui.tuning, slotIndex);
+        if (IsPointInRect(screenX, screenY, slot))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void GameScene::DrawPhotoStorageTray() const
@@ -1735,67 +2393,72 @@ void GameScene::DrawPhotoStorageTray() const
         return;
     }
 
-    constexpr float kInnerPadding = 10.0f;
-    const float originalTrayWidth = kPhotoTrayOriginalSlotCount * kPhotoTraySlotWidth + (kPhotoTrayOriginalSlotCount - 1) * kPhotoTraySlotGap;
-    const float trayX = (static_cast<float>(SCREEN_WIDTH) - originalTrayWidth) * 0.5f - (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-    const float hiddenOffset = (1.0f - m_ui.photoTrayReveal) * (kPhotoTraySlotHeight + 36.0f);
-    const float trayY = static_cast<float>(SCREEN_HEIGHT) - kPhotoTraySlotHeight - 28.0f + hiddenOffset;
-    const int trayBackdropTexture = m_assets.GetTexture("photo_tray_backdrop");
-    if (trayBackdropTexture >= 0)
-    {
-        const float textureWidth = static_cast<float>(TextureGetWidth(trayBackdropTexture));
-        const float textureHeight = static_cast<float>(TextureGetHeight(trayBackdropTexture));
-        if (textureWidth > 0.0f && textureHeight > 0.0f)
-        {
-            const float drawWidth = static_cast<float>(SCREEN_WIDTH);
-            const float drawHeight = drawWidth * (textureHeight / textureWidth);
-            const float drawY = static_cast<float>(SCREEN_HEIGHT) - drawHeight;
-            Shader_ResetStyle();
-            Shader_SetTint(1.0f, 1.0f, 1.0f, m_ui.photoTrayReveal);
-            //SpriteDraw(trayBackdropTexture, 0.0f, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
-            Shader_ResetStyle();
-        }
-    }
+    const GameSessionState& session = GameSession_Get();
+    const auto& photoTray = m_ui.tuning.photoTray;
+    const int unlockedSlotCount = std::clamp(session.photoStorageSlots, 0, 3);
+    const int trayAlpha = static_cast<int>(std::round(255.0f * std::clamp(m_ui.photoTrayReveal, 0.0f, 1.0f)));
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, trayAlpha);
 
-    for (int slotIndex = 0; slotIndex < kPhotoTraySlotCount; ++slotIndex)
+    for (int slotIndex = 0; slotIndex < 3; ++slotIndex)
     {
+        const UiLayoutRect slot = MakePhotoTraySlotRect(m_ui.tuning, slotIndex);
         const bool slotIsPending = m_photo.pendingStore.active && m_photo.pendingStore.slotIndex == slotIndex;
         const PhotoCaptureState& storedCapture = slotIsPending ? m_photo.pendingStore.capture : m_photo.savedCaptures[slotIndex];
-        const bool selected = slotIndex == m_photo.selectedCaptureSlot;
-        const float slotX = trayX + slotIndex * (kPhotoTraySlotWidth + kPhotoTraySlotGap);
-        const float slotY = trayY;
-        const unsigned int fillColor = selected ? GetColor(30, 42, 56) : GetColor(16, 22, 30);
-        const unsigned int outlineColor = selected ? GetColor(255, 234, 156) : GetColor(188, 204, 224);
+        const bool unlocked = slotIndex < unlockedSlotCount;
+        const bool selected = unlocked && slotIndex == m_photo.selectedCaptureSlot;
+        const unsigned int fillColor = !unlocked
+            ? GetColor(10, 14, 18)
+            : (selected ? GetColor(30, 42, 56) : GetColor(16, 22, 30));
+        const unsigned int outlineColor = !unlocked
+            ? GetColor(92, 100, 110)
+            : (selected ? GetColor(255, 234, 156) : GetColor(188, 204, 224));
 
         DrawBox(
-            static_cast<int>(std::round(slotX)),
-            static_cast<int>(std::round(slotY)),
-            static_cast<int>(std::round(slotX + kPhotoTraySlotWidth)),
-            static_cast<int>(std::round(slotY + kPhotoTraySlotHeight)),
+            static_cast<int>(std::round(slot.x)),
+            static_cast<int>(std::round(slot.y)),
+            static_cast<int>(std::round(slot.x + slot.width)),
+            static_cast<int>(std::round(slot.y + slot.height)),
             fillColor,
             TRUE);
         DrawBox(
-            static_cast<int>(std::round(slotX)),
-            static_cast<int>(std::round(slotY)),
-            static_cast<int>(std::round(slotX + kPhotoTraySlotWidth)),
-            static_cast<int>(std::round(slotY + kPhotoTraySlotHeight)),
+            static_cast<int>(std::round(slot.x)),
+            static_cast<int>(std::round(slot.y)),
+            static_cast<int>(std::round(slot.x + slot.width)),
+            static_cast<int>(std::round(slot.y + slot.height)),
             outlineColor,
             FALSE);
 
-        if (!storedCapture.hasPhoto || storedCapture.items.empty())
+        if (!unlocked)
         {
+            DrawString(
+                static_cast<int>(std::round(slot.x + photoTray.lockTextX)),
+                static_cast<int>(std::round(slot.y + photoTray.lockTextY)),
+                "LOCK",
+                GetColor(160, 166, 174));
             continue;
         }
 
-        const float previewWidth = (kPhotoTraySlotWidth - kInnerPadding * 2.0f);
-        const float previewHeight = (kPhotoTraySlotHeight - kInnerPadding * 2.0f);
-        const float previewX = slotX + (kPhotoTraySlotWidth - previewWidth) * 0.5f;
-        const float previewY = slotY + (kPhotoTraySlotHeight - previewHeight) * 0.5f;
+        if (!storedCapture.hasPhoto || storedCapture.items.empty())
+        {
+            DrawString(
+                static_cast<int>(std::round(slot.x + photoTray.emptyTextX)),
+                static_cast<int>(std::round(slot.y + photoTray.emptyTextY)),
+                "EMPTY",
+                GetColor(146, 156, 170));
+            continue;
+        }
+
+        const float previewWidth = (slot.width - photoTray.previewPadding * 2.0f);
+        const float previewHeight = (slot.height - photoTray.previewPadding * 2.0f);
+        const float previewX = slot.x + (slot.width - previewWidth) * 0.5f;
+        const float previewY = slot.y + (slot.height - previewHeight) * 0.5f;
         const float scale = std::min(
             previewWidth / std::max(1.0f, storedCapture.width),
             previewHeight / std::max(1.0f, storedCapture.height));
-        const float contentX = previewX + (previewWidth - storedCapture.width * scale) * 0.5f;
-        const float contentY = previewY + (previewHeight - storedCapture.height * scale) * 0.5f;
+        const float previewScale = std::max(0.01f, photoTray.previewScale);
+        const float finalScale = scale * previewScale;
+        const float contentX = previewX + (previewWidth - storedCapture.width * finalScale) * 0.5f;
+        const float contentY = previewY + (previewHeight - storedCapture.height * finalScale) * 0.5f;
 
         DrawBox(
             static_cast<int>(std::round(previewX)),
@@ -1810,10 +2473,10 @@ void GameScene::DrawPhotoStorageTray() const
             DrawCapturedPreviewItem(
                 m_tileTexture,
                 item,
-                contentX + item.relativeX * scale,
-                contentY + item.relativeY * scale,
-                item.width * scale,
-                item.height * scale,
+                contentX + item.relativeX * finalScale,
+                contentY + item.relativeY * finalScale,
+                item.width * finalScale,
+                item.height * finalScale,
                 1.0f);
         }
 
@@ -1824,8 +2487,9 @@ void GameScene::DrawPhotoStorageTray() const
             static_cast<int>(std::round(previewY + previewHeight)),
             GetColor(215, 205, 180),
             FALSE);
-
     }
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
 
 void GameScene::DrawPhotoPlacementPreview() const
@@ -1843,7 +2507,10 @@ void GameScene::DrawBackdrop() const
 
     DrawBackdropBaseInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
 
-    DrawBackdropGridInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
+    if (m_debug.showBackdropGrid)
+    {
+        DrawBackdropGridInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
+    }
 
     DrawBackdropFrameInView(viewOriginX, viewOriginY, viewWidth, viewHeight);
 
@@ -1862,13 +2529,12 @@ void GameScene::DrawBackdropBaseInView(
     float viewHeight,
     float viewScale) const
 {
-    // 繧ｭ繝｣繝・す繝･縺輔ｌ縺溯レ譎ｯ繝・け繧ｹ繝√ΕID繧貞━蜈医＠縺ｦ菴ｿ縺・ｼ医↑縺代ｌ縺ｰ manifest 縺ｮ譌｢螳壹く繝ｼ縺ｫ繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ・・
-    int bgTexture = m_camera.backdropTextureId >= 0 ? m_camera.backdropTextureId : m_assets.GetTexture("sinrin10");
-    int bg1Texture = m_camera.backdropTexture1Id >= 0 ? m_camera.backdropTexture1Id : m_assets.GetTexture("sinrin11");
-
-    // 縺輔ｉ縺ｫ蠢ｵ縺ｮ縺溘ａ manifest 縺ｫ逋ｻ骭ｲ縺輔ｌ縺ｦ縺・↑縺代ｌ縺ｰ譌｢螳壹↓謌ｻ縺・
-    if (bgTexture < 0) bgTexture = m_assets.GetTexture("sinrin10");
-    if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("sinrin11");
+    int bgTexture = m_camera.backdropTextureId >= 0 ? m_camera.backdropTextureId : m_assets.GetTexture("forest_bg");
+    int bg1Texture = m_camera.backdropTexture1Id >= 0 ? m_camera.backdropTexture1Id : m_assets.GetTexture("forest_fg");
+    int bg2Texture = m_assets.GetTexture("forest1_bg");
+    if (bgTexture < 0) bgTexture = m_assets.GetTexture("forest_bg");
+    if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("forest_fg");
+    if (bg2Texture < 0) bg2Texture = m_assets.GetTexture("forest1_bg");
 
     if (bgTexture < 0 || bg1Texture < 0)
     {
@@ -1907,7 +2573,7 @@ void GameScene::DrawBackdropBaseInView(
     const float scrollV = calcScroll(-m_flow.cameraY, parallaxY, static_cast<float>(texH));
 
     const float scrollU1 = calcScroll(m_flow.cameraX, parallaxX1, static_cast<float>(texW1));
-    const float scrollV1 = calcScroll(-m_flow.cameraY, parallaxY1, static_cast<float>(texH1));
+    const float scrollV1 = 0.0f;//calcScroll(-m_flow.cameraY, parallaxY1, static_cast<float>(texH1));
     // view に対する UV のスパン（= 画面幅 / テクスチャ幅）
     const float uSpan = drawW / static_cast<float>(texW);
     const float vSpan = drawH / static_cast<float>(texH);
@@ -1915,7 +2581,8 @@ void GameScene::DrawBackdropBaseInView(
     const float vSpan1 = drawH1 / static_cast<float>(texH1);
 
     // Y を下にずらすオフセット（必要なら）
-    const float bg1OffsetY = 24.0f * viewScale;
+    //const float bg1OffsetY = 24.0f * viewScale;
+    const float bg1OffsetY = 0.0f;
 
     // 内部：1回分のuv塊を四分割して描くヘルパー（tx,tyは [0..inf) を許容し、小数部で扱う）
     const auto drawTiledChunk = [&](int textureId, float destX, float destY, float destW, float destH, float tx, float ty, float tw, float th)
@@ -1988,11 +2655,71 @@ void GameScene::DrawBackdropBaseInView(
         }
     };
 
-    // 背景（奥）を描画
-    drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
-
+    //// 背景（奥）を描画
+    //drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
+    // 
+    // 背景前景（手前）を描画（Y を下にオフセット）
+    //drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
     // 背景前景（手前）を描画（Y を下にオフセット）
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
+
+    // BG_Forest.png だけ少し光度を落とす黒膜
+    constexpr int kForestBaseDarkenAlpha = 75; // 0-255。32=薄め、64=やや暗め
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, kForestBaseDarkenAlpha);
+    DrawBox(
+        static_cast<int>(std::round(viewOriginX)),
+        static_cast<int>(std::round(viewOriginY + bg1OffsetY)),
+        static_cast<int>(std::round(viewOriginX + drawW1)),
+        static_cast<int>(std::round(viewOriginY + bg1OffsetY + drawH1)),
+        GetColor(0, 0, 0),
+        TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    //int bg2Texture = m_assets.GetTexture("forest1_bg");
+    if (bg2Texture >= 0)
+    {
+        const int texW2 = TextureGetWidth(bg2Texture);
+        const int texH2 = TextureGetHeight(bg2Texture);
+        if (texW2 > 0 && texH2 > 0)
+        {
+            const float parallaxX2 = 0.65f; // 好みで調整
+            const float scrollU2 = calcScroll(m_flow.cameraX, parallaxX2, static_cast<float>(texW2));
+            const float scrollV2 = 0.0f;//calcScroll(-m_flow.cameraY, 0.45f, static_cast<float>(texH2));
+            const float uSpan2 = viewWidth / static_cast<float>(texW2);
+            const float vSpan2 = viewHeight / static_cast<float>(texH2);
+            drawTiledRepeating(bg2Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU2, scrollV2, uSpan2, vSpan2);
+        }
+    }
+
+    int bg3Texture = m_assets.GetTexture("forest2_bg");
+    if (bg3Texture >= 0)
+    {
+        const int texW3 = TextureGetWidth(bg3Texture);
+        const int texH3 = TextureGetHeight(bg3Texture);
+        if (texW3 > 0 && texH3 > 0)
+        {
+            const float parallaxX3 = 0.70f; // 好みで調整
+            const float scrollU3 = calcScroll(m_flow.cameraX, parallaxX3, static_cast<float>(texW3));
+            const float scrollV3 = 0.0f;//calcScroll(-m_flow.cameraY, 0.45f, static_cast<float>(texH3));
+            const float uSpan3 = viewWidth / static_cast<float>(texW3);
+            const float vSpan3 = viewHeight / static_cast<float>(texH3);
+            drawTiledRepeating(bg3Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU3, scrollV3, uSpan3, vSpan3);
+        }
+    }
+
+    int bg4Texture = m_assets.GetTexture("forest3_bg");
+    if (bg4Texture >= 0)
+    {
+        const int texW4 = TextureGetWidth(bg4Texture);
+        const int texH4 = TextureGetHeight(bg4Texture);
+        if (texW4 > 0 && texH4 > 0)
+        {
+            // scrollU1をそのまま使う（BG_Forest.pngと完全同期）
+            const float uSpan4 = viewWidth / static_cast<float>(texW4);
+            const float vSpan4 = viewHeight / static_cast<float>(texH4);
+            drawTiledRepeating(bg4Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU1, scrollV1, uSpan4, vSpan4);
+        }
+    }
 }
 
 void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const
@@ -2040,10 +2767,37 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
             const int right = static_cast<int>(std::round(viewOriginX + (worldX + tileSize - m_flow.cameraX) * viewScale));
             const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + tileSize - m_flow.cameraY) * viewScale));
 
+            if (marker == '=')
+            {
+                // 遷移オブジェクト本体は描かず、右半分へ向かって濃くなる影だけを表示する。
+                constexpr int kShadowBandCount = 8;
+                constexpr int kShadowMinAlpha = 24;
+                constexpr int kShadowMaxAlpha = 176;
+                const int shadowLeft = left + (right - left) / 2;
+                const int shadowWidth = (std::max)(1, right - shadowLeft);
+                for (int bandIndex = 0; bandIndex < kShadowBandCount; ++bandIndex)
+                {
+                    const float bandStartRate =
+                        static_cast<float>(bandIndex) / static_cast<float>(kShadowBandCount);
+                    const float bandEndRate =
+                        static_cast<float>(bandIndex + 1) / static_cast<float>(kShadowBandCount);
+                    const int bandLeft = shadowLeft + static_cast<int>(std::floor(shadowWidth * bandStartRate));
+                    const int bandRight = shadowLeft + static_cast<int>(std::ceil(shadowWidth * bandEndRate));
+                    const int alpha = static_cast<int>(std::round(std::lerp(
+                        static_cast<float>(kShadowMinAlpha),
+                        static_cast<float>(kShadowMaxAlpha),
+                        bandEndRate)));
+                    SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+                    DrawBox(bandLeft, top, bandRight, bottom, GetColor(0, 0, 0), TRUE);
+                }
+                SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+                continue;
+            }
+
             DrawBox(left, top, right, bottom, GetColor(255, 210, 90), FALSE);
 
             const std::string destName = GetMapDisplayName(transition->destinationMapCsv);
-            DrawFormatString(left, top - 16, GetColor(180, 240, 255), "-> %s", destName.c_str());
+            DrawFormatString(left, top - 16, GetColor(180, 240, 255), "→ %s", destName.c_str());
         }
     }
 }
@@ -2103,9 +2857,25 @@ void GameScene::DrawBackdropFrameInView(float viewOriginX, float viewOriginY, fl
 
 void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, float viewScale) const
 {
-    m_tileMap.Draw(m_tileTexture, viewOriginX - m_flow.cameraX * viewScale, viewOriginY - m_flow.cameraY * viewScale, viewScale);
+    const TileMapViewport viewport
+    {
+        viewOriginX,
+        viewOriginY,
+        GetViewWidth(),
+        GetViewHeight()
+    };
+    // 写真カメラを含む現在の表示範囲だけにタイル描画を制限する。
+    m_tileMap.Draw(
+        m_tileTexture,
+        viewOriginX - m_flow.cameraX * viewScale,
+        viewOriginY - m_flow.cameraY * viewScale,
+        viewport,
+        viewScale,
+        m_tileTexture2,
+        m_tileTexture3);
     DrawStageTransitionMarkersInView(viewOriginX, viewOriginY, viewScale);
     DrawMapEditorMarkersInView(viewOriginX, viewOriginY, viewScale);
+    DrawMidBoss2TeleportSlotsInView(viewOriginX, viewOriginY, viewScale);
     DrawStageGuideInView();
 }
 
@@ -2154,15 +2924,138 @@ void GameScene::DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY,
     }
 }
 
+void GameScene::DrawMidBoss2TeleportSlotsInView(float viewOriginX, float viewOriginY, float viewScale) const
+{
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    const float mapHeight = GetMapPixelHeight();
+    constexpr float kMidBoss2JumpCenterGridX = 36.0f;
+    constexpr float kMidBoss2ArenaHalfWidthGrid = 18.0f;
+
+    const auto getMidBoss2LeftX = [&](float centerGridX, float bossWidth)
+    {
+        return centerGridX * tileSize - bossWidth * 0.5f;
+    };
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<MidBoss2Component>();
+        const auto* transform = entity->GetComponent<TransformComponent>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss2 || !transform)
+        {
+            continue;
+        }
+
+        if (!enemy->IsEnabled() || enemy->IsDefeated() || boss->state == MidBoss2State::Dead)
+        {
+            continue;
+        }
+
+        const float bossWidth = transform->width * transform->scale;
+        const float bossHeight = transform->height * transform->scale;
+        if (bossWidth <= 0.0f || bossHeight <= 0.0f)
+        {
+            continue;
+        }
+
+        const float arenaMinX = getMidBoss2LeftX(kMidBoss2JumpCenterGridX - kMidBoss2ArenaHalfWidthGrid, bossWidth);
+        const float arenaMaxX = getMidBoss2LeftX(kMidBoss2JumpCenterGridX + kMidBoss2ArenaHalfWidthGrid, bossWidth);
+        const float maxBossY = std::max(0.0f, mapHeight - bossHeight);
+
+        const auto drawSlotSet = [&](const char* sideLabel, const std::array<MidBoss2Component::TeleportSlotConfig, 3>& slots)
+        {
+            int lowestSlotIndex = 0;
+            float lowestOffset = slots[0].hoverHeightOffsetGrid;
+            for (int index = 1; index < static_cast<int>(slots.size()); ++index)
+            {
+                if (slots[static_cast<size_t>(index)].hoverHeightOffsetGrid < lowestOffset)
+                {
+                    lowestOffset = slots[static_cast<size_t>(index)].hoverHeightOffsetGrid;
+                    lowestSlotIndex = index;
+                }
+            }
+
+            for (int index = 0; index < static_cast<int>(slots.size()); ++index)
+            {
+                const auto& slot = slots[static_cast<size_t>(index)];
+                const float rawX = getMidBoss2LeftX(slot.centerGridX, bossWidth);
+                const float rawY = mapHeight - bossHeight - (boss->params.teleportHoverBaseGrid + slot.hoverHeightOffsetGrid) * tileSize;
+                const float targetX = std::clamp(rawX, arenaMinX, arenaMaxX);
+                const float targetY = std::clamp(rawY, 0.0f, maxBossY);
+                const bool xClamped = std::fabs(targetX - rawX) > 0.1f;
+                const bool yClamped = std::fabs(targetY - rawY) > 0.1f;
+                const bool beamTarget = index == lowestSlotIndex;
+
+                const int left = static_cast<int>(std::round(viewOriginX + (targetX - m_flow.cameraX) * viewScale));
+                const int top = static_cast<int>(std::round(viewOriginY + (targetY - m_flow.cameraY) * viewScale));
+                const int right = static_cast<int>(std::round(viewOriginX + (targetX + bossWidth - m_flow.cameraX) * viewScale));
+                const int bottom = static_cast<int>(std::round(viewOriginY + (targetY + bossHeight - m_flow.cameraY) * viewScale));
+                if (right <= left || bottom <= top)
+                {
+                    continue;
+                }
+
+                const int centerX = (left + right) / 2;
+                const int centerY = (top + bottom) / 2;
+                const bool isLeftSide = sideLabel[0] == 'L';
+                const unsigned int sideFillColor = isLeftSide ? GetColor(78, 220, 255) : GetColor(255, 152, 84);
+                const unsigned int sideOutlineColor = isLeftSide ? GetColor(112, 242, 255) : GetColor(255, 202, 142);
+                const unsigned int fillColor = beamTarget ? GetColor(255, 214, 120) : sideFillColor;
+                const unsigned int outlineColor = beamTarget
+                    ? GetColor(255, 246, 200)
+                    : xClamped || yClamped
+                        ? GetColor(255, 120, 108)
+                        : sideOutlineColor;
+
+                SetDrawBlendMode(DX_BLENDMODE_ALPHA, beamTarget ? 68 : 36);
+                DrawBox(left, top, right, bottom, fillColor, TRUE);
+                SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+                DrawBox(left, top, right, bottom, outlineColor, FALSE);
+                DrawCircle(centerX, centerY, std::max(4, static_cast<int>(std::round(5.0f * viewScale))), outlineColor, FALSE);
+                DrawLine(centerX - 8, centerY, centerX + 8, centerY, outlineColor);
+                DrawLine(centerX, centerY - 8, centerX, centerY + 8, outlineColor);
+
+                const char* clampTag = (xClamped || yClamped) ? " CLAMP" : "";
+                const char* beamTag = beamTarget ? " BEAM" : "";
+                DrawFormatString(
+                    left,
+                    std::max(0, top - 18),
+                    outlineColor,
+                    "%s%d%s%s  H=%.2f",
+                    sideLabel,
+                    index + 1,
+                    beamTag,
+                    clampTag,
+                    boss->params.teleportHoverBaseGrid + slot.hoverHeightOffsetGrid);
+            }
+        };
+
+        drawSlotSet("L", boss->params.leftTeleportSlots);
+        drawSlotSet("R", boss->params.rightTeleportSlots);
+    }
+}
+
 void GameScene::DrawStageGuideInView() const
 {
     if (const Entity* player = FindEntityByTag(kTagPlayer))
     {
         if (const auto* transform = player->GetComponent<TransformComponent>())
         {
+            const auto& guideUi = m_ui.tuning.stageGuide;
             DrawString(
-                24,
-                SCREEN_HEIGHT - 42,
+                static_cast<int>(std::round(guideUi.x)),
+                static_cast<int>(std::round(SCREEN_HEIGHT - guideUi.yOffsetFromBottom)),
                 GetStageGuideText(transform->x),
                 GetColor(238, 244, 255));
         }
@@ -2176,128 +3069,59 @@ void GameScene::DrawPhotoFilterPanelInView() const
     float filterB = 1.0f;
     GetPhotoFilterThemeOverlayColor(m_photo.capture.selectedTheme, filterR, filterG, filterB);
 
-    const int panelWidth = 308;
-    const int panelX = SCREEN_WIDTH - panelWidth - 22;
-    const int panelY = 18;
-    const int panelHeight = 78;
+    const auto& filterUi = m_ui.tuning.filterPanel;
+    const int panelWidth = static_cast<int>(std::round(filterUi.panelWidth));
+    const int panelHeight = static_cast<int>(std::round(filterUi.panelHeight));
+    const int panelX = SCREEN_WIDTH - panelWidth - static_cast<int>(std::round(filterUi.marginRight));
+    const int panelY = static_cast<int>(std::round(filterUi.marginTop));
     DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(14, 18, 24), TRUE);
     DrawBox(panelX, panelY, panelX + panelWidth, panelY + panelHeight, GetColor(220, 228, 236), FALSE);
     DrawBox(
-        panelX + 10,
-        panelY + 10,
-        panelX + 44,
-        panelY + 44,
+        panelX + static_cast<int>(std::round(filterUi.swatchX)),
+        panelY + static_cast<int>(std::round(filterUi.swatchY)),
+        panelX + static_cast<int>(std::round(filterUi.swatchX + filterUi.swatchSize)),
+        panelY + static_cast<int>(std::round(filterUi.swatchY + filterUi.swatchSize)),
         GetColor(
             static_cast<int>(filterR * 255.0f),
             static_cast<int>(filterG * 255.0f),
             static_cast<int>(filterB * 255.0f)),
         TRUE);
     DrawFormatString(
-        panelX + 56,
-        panelY + 10,
+        panelX + static_cast<int>(std::round(filterUi.titleX)),
+        panelY + static_cast<int>(std::round(filterUi.titleY)),
         GetColor(245, 248, 255),
-        "Filter: %s",
+        "フィルター: %s",
         GetPhotoFilterThemeLabel(m_photo.capture.selectedTheme));
     DrawFormatString(
-        panelX + 56,
-        panelY + 32,
+        panelX + static_cast<int>(std::round(filterUi.titleX)),
+        panelY + static_cast<int>(std::round(filterUi.effectY)),
         GetColor(180, 210, 235),
         "%s",
         GetPhotoFilterThemeEffectText(m_photo.capture.selectedTheme));
     DrawFormatString(
-        panelX + 12,
-        panelY + 54,
+        panelX + static_cast<int>(std::round(filterUi.hintX)),
+        panelY + static_cast<int>(std::round(filterUi.hintY)),
         GetColor(205, 220, 235),
-        "C cycle  1 None  2 Hot  3 Cold  4 Invert  5 Sepia");
+        "C で切り替え  1 なし  2 暖色  3 寒色  4 反転  5 セピア");
 }
 
 void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const
 {
     static_cast<void>(playerTransform);
-    width = m_tileMap.GetTileSize() * gCaptureWidthTiles * m_ui.captureFinderScale;
-    height = m_tileMap.GetTileSize() * gCaptureHeightTiles * m_ui.captureFinderScale;
-
-    const float cursorStartWorldX = m_flow.cameraX + gCameraViewWidth * 0.5f;
-    const float cursorStartWorldY = m_flow.cameraY + gCameraViewHeight * 0.5f;
-
-    static float padCursorWorldX = cursorStartWorldX;
-    static float padCursorWorldY = cursorStartWorldY;
-    static float padCursorVelocityX = 0.0f;
-    static float padCursorVelocityY = 0.0f;
-    static unsigned int lastTimeMs = 0;
-    static bool initialized = false;
-    static int lastSessionId = -1;
-    static float lastPadInputSeconds = -1000.0f;
-    static int lastMouseX = Input_GetMouseX();
-    static int lastMouseY = Input_GetMouseY();
-
-    if (!initialized)
-    {
-        padCursorWorldX = cursorStartWorldX;
-        padCursorWorldY = cursorStartWorldY;
-        initialized = true;
-    }
-
-    if (lastSessionId != m_flow.cameraModeSessionId)
-    {
-        padCursorWorldX = cursorStartWorldX;
-        padCursorWorldY = cursorStartWorldY;
-        padCursorVelocityX = 0.0f;
-        padCursorVelocityY = 0.0f;
-        lastPadInputSeconds = -1000.0f;
-        lastSessionId = m_flow.cameraModeSessionId;
-    }
-
-    const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
-    const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
-    lastTimeMs = nowMs;
-
-    const int mouseX = Input_GetMouseX();
-    const int mouseY = Input_GetMouseY();
-    const bool mouseMoved = mouseX != lastMouseX || mouseY != lastMouseY;
-    lastMouseX = mouseX;
-    lastMouseY = mouseY;
-
-    // Mouse-to-world must use the same transform as rendering, especially when camera zoom markers pull back the view.
-    const float viewScale = GetViewScale();
+    const float viewScale = std::max(0.0001f, GetViewScale());
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
-    const float mouseWorldX = ((static_cast<float>(mouseX) - viewOriginX) / viewScale) + m_flow.cameraX;
-    const float mouseWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale) + m_flow.cameraY;
 
-    const float rightX = Input_GetRightStickX();
-    const float rightY = Input_GetRightStickY();
-    UpdatePadCursor(
-        mouseWorldX,
-        mouseWorldY,
-        mouseMoved,
-        rightX,
-        rightY,
-        dt,
-        padCursorWorldX,
-        padCursorWorldY,
-        padCursorVelocityX,
-        padCursorVelocityY,
-        lastPadInputSeconds,
-        static_cast<float>(nowMs) / 1000.0f);
+    // ファインダーはスクリーンUIとして扱い、カメラ倍率に左右されない画面pxを維持する。
+    const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
+    width = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale / viewScale;
+    height = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale / viewScale;
 
-    const float mapWidth = GetMapPixelWidth();
-    const float mapHeight = GetMapPixelHeight();
-    const float halfWidth = width * 0.5f;
-    const float halfHeight = height * 0.5f;
-    const float minCursorX = std::max(halfWidth, m_flow.cameraX + halfWidth);
-    const float maxCursorX = std::min(std::max(halfWidth, mapWidth - halfWidth), m_flow.cameraX + gCameraViewWidth - halfWidth);
-    const float minCursorY = std::max(halfHeight, m_flow.cameraY + halfHeight);
-    const float maxCursorY = std::min(std::max(halfHeight, mapHeight - halfHeight), m_flow.cameraY + gCameraViewHeight - halfHeight);
-    padCursorWorldX = minCursorX <= maxCursorX
-        ? std::clamp(padCursorWorldX, minCursorX, maxCursorX)
-        : m_flow.cameraX + gCameraViewWidth * 0.5f;
-    padCursorWorldY = minCursorY <= maxCursorY
-        ? std::clamp(padCursorWorldY, minCursorY, maxCursorY)
-        : m_flow.cameraY + gCameraViewHeight * 0.5f;
-
-    x = padCursorWorldX - width * 0.5f;
-    y = padCursorWorldY - height * 0.5f;
+    // Cursor-centered finder: the visible frame and actual capture bounds must match.
+    const float cursorWorldX = m_flow.cameraX + (static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale;
+    const float cursorWorldY = m_flow.cameraY + (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
+    x = cursorWorldX - width * 0.5f;
+    y = cursorWorldY - height * 0.5f;
 }
 
 Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) const
@@ -2312,74 +3136,9 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
     Entity* bestTarget = nullptr;
     float bestDistance = 1000000.0f;
 
-    const auto& photoBoxEntities = m_world.EntitiesByTag(EntityTag::PhotoBox);
-    const auto& goalEntities = m_world.EntitiesByTag(EntityTag::Goal);
-    const auto& photoSourceEntities = m_world.EntitiesByTag(EntityTag::PhotoSource);
-    const auto& hazardEntities = m_world.EntitiesByTag(EntityTag::Hazard);
-    const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
-    const auto& dropItemEntities = m_world.EntitiesByTag(EntityTag::DropItem);
-    const auto& batteryEntities = m_world.EntitiesByTag(EntityTag::Battery);
-    const auto& logEntities = m_world.EntitiesByTag(EntityTag::Log);
-    const auto& damagePlatformEntities = m_world.EntitiesByTag(EntityTag::DamagePlatform);
-    const auto& damagePlatformSpikeEntities = m_world.EntitiesByTag(EntityTag::DamagePlatformSpike);
-    const auto& laserTurretEntities = m_world.EntitiesByTag(EntityTag::LaserTurret);
-    const auto& markerLightEntities = m_world.EntitiesByTag(EntityTag::MarkerLight);
-    const auto& sepiaRubbleEntities = m_world.EntitiesByTag(EntityTag::SepiaRubble);
-    const auto& sepiaElevatorEntities = m_world.EntitiesByTag(EntityTag::SepiaElevator);
-    const auto& filterEntities = m_world.EntitiesByTag(EntityTag::Filter);
-    const auto& barrelEntities = m_world.EntitiesByTag(EntityTag::Barrel);
-    const auto& shieldEntities = m_world.EntitiesByTag(EntityTag::Shield);
-    const auto& bossShieldEntities = m_world.EntitiesByTag(EntityTag::BossShield);
-    const auto& boss1ShieldEntities = m_world.EntitiesByTag(EntityTag::Boss1Shield);
-    const auto& midBoss1ShieldEntities = m_world.EntitiesByTag(EntityTag::MidBoss1Shield);
-    const auto& capturedShieldEntities = m_world.EntitiesByTag(EntityTag::CapturedShield);
-    const auto& walkerMeleeAttackEntities = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
-    const auto& bossShockwaveEntities = m_world.EntitiesByTag(EntityTag::BossShockwave);
-
-    auto considerCaptureTarget = [&](Entity* entity)
+    ForEachCaptureTargetCandidate(*this, captureFrame, [&](Entity* entity, const TransformComponent& transform)
     {
-        if (!entity)
-        {
-            return;
-        }
-
-        if (HasTag(*entity, EntityTag::Player) ||
-            HasTag(*entity, EntityTag::Enemy) ||
-            HasTag(*entity, EntityTag::BatterySwitch) ||
-            HasTag(*entity, EntityTag::Elevator) ||
-            HasTag(*entity, EntityTag::LaserSwitch) ||
-            HasTag(*entity, EntityTag::Shutter) ||
-            HasTag(*entity, EntityTag::LaserBeam) ||
-            HasTag(*entity, EntityTag::StageLight))
-        {
-            return;
-        }
-
-        if (HasTag(*entity, EntityTag::PhotoBox))
-        {
-            const auto* layer = entity->GetComponent<PhotoCopyLayerComponent>();
-            if (!layer || layer->layer != PhotoCopyLayer::Foreground)
-            {
-                return;
-            }
-
-            if (const auto* pasteAnimation = entity->GetComponent<PhotoPasteAnimationComponent>())
-            {
-                if (!pasteAnimation->IsFinished())
-                {
-                    return;
-                }
-            }
-        }
-
-        const auto* transform = entity->GetComponent<TransformComponent>();
-        const auto* sprite = entity->GetComponent<SpriteRenderComponent>();
-        if (!transform || !sprite || !IntersectsRect(captureFrame, *transform))
-        {
-            return;
-        }
-
-        const float targetCenterX = transform->x + transform->width * transform->scale * 0.5f;
+        const float targetCenterX = transform.x + transform.width * transform.scale * 0.5f;
         const float playerCenterX = playerTransform.x + playerTransform.width * playerTransform.scale * 0.5f;
         const float distance = std::fabs(targetCenterX - playerCenterX);
         if (!bestTarget || distance < bestDistance)
@@ -2387,49 +3146,18 @@ Entity* GameScene::FindCaptureTarget(const TransformComponent& playerTransform) 
             bestTarget = entity;
             bestDistance = distance;
         }
-    };
-
-    auto scanCandidates = [&](const std::vector<Entity*>& entities)
-    {
-        for (Entity* entity : entities)
-        {
-            considerCaptureTarget(entity);
-        }
-    };
-
-    scanCandidates(photoBoxEntities);
-    scanCandidates(goalEntities);
-    scanCandidates(photoSourceEntities);
-    scanCandidates(hazardEntities);
-    scanCandidates(bulletEntities);
-    scanCandidates(dropItemEntities);
-    scanCandidates(batteryEntities);
-    scanCandidates(logEntities);
-    scanCandidates(damagePlatformEntities);
-    scanCandidates(damagePlatformSpikeEntities);
-    scanCandidates(laserTurretEntities);
-    scanCandidates(markerLightEntities);
-    scanCandidates(sepiaRubbleEntities);
-    scanCandidates(sepiaElevatorEntities);
-    scanCandidates(filterEntities);
-    scanCandidates(barrelEntities);
-    scanCandidates(shieldEntities);
-    scanCandidates(bossShieldEntities);
-    scanCandidates(boss1ShieldEntities);
-    scanCandidates(midBoss1ShieldEntities);
-    scanCandidates(capturedShieldEntities);
-    scanCandidates(walkerMeleeAttackEntities);
-    scanCandidates(bossShockwaveEntities);
+    });
 
     return bestTarget;
 }
 
 void GameScene::DrawBatterySwitchCounters() const
 {
+    const auto& counterUi = m_ui.tuning.batteryCounter;
     const float viewScale = GetViewScale();
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
-    const float tileOffsetY = m_tileMap.GetTileSize() * 2.0f * viewScale;
+    const float tileOffsetY = m_tileMap.GetTileSize() * counterUi.tileOffsetMultiplier * viewScale;
 
     for (Entity* entity : m_world.EntitiesByTag(EntityTag::BatterySwitch))
     {
@@ -2444,10 +3172,10 @@ void GameScene::DrawBatterySwitchCounters() const
         const float drawX = viewOriginX + (transform->x - m_flow.cameraX) * viewScale;
         const float drawY = viewOriginY + (transform->y - m_flow.cameraY) * viewScale;
         const float drawWidth = transform->width * transform->scale * viewScale;
-        const float panelWidth = 58.0f;
-        const float panelHeight = 22.0f;
+        const float panelWidth = counterUi.panelWidth;
+        const float panelHeight = counterUi.panelHeight;
         const float panelX = drawX + drawWidth * 0.5f - panelWidth * 0.5f;
-        const float panelY = drawY - tileOffsetY - 26.0f;
+        const float panelY = drawY - tileOffsetY - counterUi.offsetY;
 
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, 208);
         DrawBox(
@@ -2464,15 +3192,27 @@ void GameScene::DrawBatterySwitchCounters() const
             static_cast<int>(std::round(panelY)),
             static_cast<int>(std::round(panelX + panelWidth)),
             static_cast<int>(std::round(panelY + panelHeight)),
-            batterySwitch->isPressed ? GetColor(180, 255, 196) : GetColor(242, 226, 190),
+            batterySwitch->isPressed
+                ? GetColor(180, 255, 196) : GetColor(242, 226, 190),
             FALSE);
 
-        DrawFormatString(
-            static_cast<int>(std::round(panelX + 10.0f)),
-            static_cast<int>(std::round(panelY + 4.0f)),
-            batterySwitch->isPressed ? GetColor(220, 255, 228) : GetColor(255, 244, 220),
-            "%d/%d",
-            batterySwitch->insertedBatteryCount,
-            batterySwitch->requiredBatteryCount);
+        if (batterySwitch->pressMode == SwitchPressMode::Player)
+        {
+            DrawString(
+                static_cast<int>(std::round(panelX + 7.0f)),
+                static_cast<int>(std::round(panelY + 4.0f)),
+                "PLAYER",
+                GetColor(255, 244, 220));
+        }
+        else
+        {
+            DrawFormatString(
+                static_cast<int>(std::round(panelX + 10.0f)),
+                static_cast<int>(std::round(panelY + 4.0f)),
+                batterySwitch->isPressed ? GetColor(220, 255, 228) : GetColor(255, 244, 220),
+                "%d/%d",
+                batterySwitch->insertedBatteryCount,
+                batterySwitch->requiredBatteryCount);
+        }
     }
 }

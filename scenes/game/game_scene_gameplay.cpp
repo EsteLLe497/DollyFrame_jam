@@ -288,6 +288,15 @@ namespace
         return std::max(1.0f, visibleWidth * aspect);
     }
 
+    float GetNormalizedHorizontalCameraDistance(float deltaX, float visibleWidth)
+    {
+        // ボスとプレイヤーの横距離だけを、カメラの表示幅に対して正規化する。
+        return std::clamp(
+            std::fabs(deltaX) / std::max(1.0f, visibleWidth),
+            0.0f,
+            1.0f);
+    }
+
     bool IsMidBoss3CameraStabilizeStage(const std::string& mapPath)
     {
         return GetMapDisplayName(mapPath) == "ruins_boss";
@@ -466,6 +475,500 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
 
 }
 
+void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
+{
+    m_render.slamCameraZoomBoost = 0.0f;
+    if (m_mapEditor.active || deltaTime <= 0.0f)
+    {
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraInfluence = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
+        return;
+    }
+
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    if (!playerTransform)
+    {
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraInfluence = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
+        return;
+    }
+
+    const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+    const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
+    float bestWeight = 0.0f;
+    float bestTargetCenterX = playerCenterX;
+    float bestTargetCenterY = playerCenterY;
+    float bestZoomBoost = 0.0f;
+    float bestCameraSpeed = 4.0f;
+    bool bestIntroCameraWork = false;
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        const auto* bossTransform = entity->GetComponent<TransformComponent>();
+        const auto* bossSprite = entity->GetComponent<SpriteRenderComponent>();
+        if (!enemy ||
+            enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
+            !enemy->IsEnabled() ||
+            !boss ||
+            !bossTransform)
+        {
+            continue;
+        }
+
+        float weight = 0.0f;
+        float verticalLookBias = 0.0f;
+        float zoomBoost = 0.0f;
+        float targetBossBlendX = 0.44f;
+        float targetBossBlendY = 0.52f;
+        float cameraSpeed = 4.0f;
+        bool introCameraWork = false;
+        if (boss->introDropActive)
+        {
+            // Point 1: wide upper camera that shows the boss dropping in.
+            weight = 0.34f;
+            verticalLookBias = -132.0f;
+            zoomBoost = 0.0f;
+            targetBossBlendX = 0.38f;
+            targetBossBlendY = 0.34f;
+            cameraSpeed = 9.5f;
+            introCameraWork = true;
+        }
+        else if (boss->appearAnimationActive)
+        {
+            // Point 1 hold: keep the pullback until the roar actually starts.
+            weight = 0.34f;
+            verticalLookBias = -132.0f;
+            zoomBoost = 0.0f;
+            targetBossBlendX = 0.38f;
+            targetBossBlendY = 0.34f;
+            cameraSpeed = 9.5f;
+            introCameraWork = true;
+        }
+        else if (boss->roarAnimationActive)
+        {
+            // Point 1 hold: keep the pullback through the full entrance.
+            weight = 0.34f;
+            verticalLookBias = -132.0f;
+            zoomBoost = 0.0f;
+            targetBossBlendX = 0.38f;
+            targetBossBlendY = 0.34f;
+            cameraSpeed = 9.5f;
+            introCameraWork = true;
+        }
+        switch (boss->state)
+        {
+        case ShieldBossState::JumpAscend:
+            if (!introCameraWork)
+            {
+                weight = 0.46f;
+                verticalLookBias = -72.0f;
+                zoomBoost = 0.020f;
+            }
+            break;
+        case ShieldBossState::AirHover:
+            if (!introCameraWork)
+            {
+                weight = 0.58f;
+                verticalLookBias = -112.0f;
+                zoomBoost = 0.030f;
+            }
+            break;
+        case ShieldBossState::JumpDescend:
+            if (!introCameraWork)
+            {
+                weight = 0.66f;
+                verticalLookBias = -46.0f;
+                zoomBoost = 0.045f;
+            }
+            break;
+        case ShieldBossState::SlamPhase2:
+            if (!introCameraWork)
+            {
+                weight = std::max(0.0f, 0.32f * (1.0f - std::min(1.0f, boss->stateTimer / 0.34f)));
+                verticalLookBias = 38.0f;
+                zoomBoost = 0.018f * (weight / 0.32f);
+            }
+            break;
+        default:
+            break;
+        }
+
+        if (weight <= bestWeight)
+        {
+            continue;
+        }
+
+        const float bossDrawWidth = bossTransform->width * bossTransform->scale * (bossSprite ? bossSprite->GetRenderScaleX() : 1.0f);
+        const float bossDrawHeight = bossTransform->height * bossTransform->scale * (bossSprite ? bossSprite->GetRenderScaleY() : 1.0f);
+        const float bossCenterX = bossTransform->x + (bossSprite ? bossSprite->GetRenderOffsetX() : 0.0f) + bossDrawWidth * 0.5f;
+        const float bossCenterY = bossTransform->y + (bossSprite ? bossSprite->GetRenderOffsetY() : 0.0f) + bossDrawHeight * 0.5f;
+        if (!introCameraWork)
+        {
+            const float normalizedDistance = GetNormalizedHorizontalCameraDistance(
+                bossCenterX - playerCenterX,
+                GetCameraFollowSpanX(m_tileMap));
+            const float distanceBlend =
+                normalizedDistance * normalizedDistance * (3.0f - 2.0f * normalizedDistance);
+            // 遠距離では両者の中点を優先し、叩きつけ演出で片方が画面外へ出るのを防ぎます。
+            targetBossBlendX = std::lerp(targetBossBlendX, 0.5f, distanceBlend);
+            targetBossBlendY = std::lerp(targetBossBlendY, 0.5f, distanceBlend);
+            verticalLookBias *= std::lerp(1.0f, 0.35f, distanceBlend);
+            zoomBoost *= 1.0f - distanceBlend;
+        }
+        bestWeight = weight;
+        bestTargetCenterX = std::lerp(playerCenterX, bossCenterX, targetBossBlendX);
+        bestTargetCenterY = std::lerp(playerCenterY, bossCenterY, targetBossBlendY) + verticalLookBias;
+        bestZoomBoost = zoomBoost;
+        bestCameraSpeed = cameraSpeed;
+        bestIntroCameraWork = introCameraWork;
+    }
+
+    auto applyCameraTarget = [&](float targetCenterX, float targetCenterY, float weight, float speedScale, bool clampToMap, bool useIntroPullView)
+    {
+        float cameraViewWidth = gCameraViewWidth;
+        float cameraViewHeight = gCameraViewHeight;
+        if (useIntroPullView)
+        {
+            const float tileSize = m_tileMap.GetTileSize();
+            if (tileSize > 0.0f)
+            {
+                constexpr float kIntroPullTargetTilesX = 23.0f;
+                const float targetWorldWidth = tileSize * kIntroPullTargetTilesX;
+                if (targetWorldWidth > 0.0f)
+                {
+                    const float introViewScale = std::max(0.0001f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
+                    cameraViewWidth = static_cast<float>(SCREEN_WIDTH) / introViewScale;
+                    cameraViewHeight = static_cast<float>(SCREEN_HEIGHT) / introViewScale;
+                }
+            }
+        }
+
+        const float desiredCameraX = targetCenterX - cameraViewWidth * 0.5f;
+        const float desiredCameraY = targetCenterY - cameraViewHeight * 0.5f;
+        const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - cameraViewWidth);
+        const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - cameraViewHeight);
+        const float targetCameraX = clampToMap ? std::clamp(desiredCameraX, 0.0f, maxCameraX) : desiredCameraX;
+        const float targetCameraY = clampToMap ? std::clamp(desiredCameraY, 0.0f, maxCameraY) : desiredCameraY;
+        const float blend = 1.0f - std::pow(0.001f, deltaTime * speedScale);
+
+        m_flow.cameraX = std::lerp(m_flow.cameraX, targetCameraX, blend * weight);
+        m_flow.cameraY = std::lerp(m_flow.cameraY, targetCameraY, blend * weight);
+    };
+
+    const bool hasActiveCameraWork = bestWeight > 0.0f;
+    if (hasActiveCameraWork && bestIntroCameraWork)
+    {
+        const float influenceBlend = 1.0f - std::pow(0.001f, deltaTime * 5.8f);
+        m_render.bossIntroCameraInfluence = std::lerp(m_render.bossIntroCameraInfluence, 1.0f, influenceBlend);
+        m_render.bossIntroCameraTargetX = bestTargetCenterX;
+        m_render.bossIntroCameraTargetY = bestTargetCenterY;
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
+        applyCameraTarget(
+            bestTargetCenterX,
+            bestTargetCenterY,
+            bestWeight * m_render.bossIntroCameraInfluence,
+            bestCameraSpeed,
+            false,
+            true);
+    }
+    else
+    {
+        m_render.bossIntroCameraAnchorActive = false;
+        const float returnBlend = 1.0f - std::pow(0.001f, deltaTime * 0.58f);
+        m_render.bossIntroCameraInfluence = std::lerp(m_render.bossIntroCameraInfluence, 0.0f, returnBlend);
+        m_render.bossIntroCameraZoomBoost = std::lerp(m_render.bossIntroCameraZoomBoost, 0.0f, returnBlend);
+        if (m_render.bossIntroCameraInfluence <= 0.01f)
+        {
+            m_render.bossIntroCameraInfluence = 0.0f;
+            m_render.bossIntroCameraZoomBoost = 0.0f;
+        }
+
+        if (hasActiveCameraWork)
+        {
+            applyCameraTarget(
+                bestTargetCenterX,
+                bestTargetCenterY,
+                bestWeight,
+                5.5f + bestWeight * 5.0f,
+                true,
+                false);
+            m_render.slamCameraZoomBoost = bestZoomBoost;
+        }
+    }
+}
+
+void GameScene::ApplyShieldBossFramingCameraWork(float deltaTime)
+{
+    constexpr float kCameraEaseSpeed = 0.9f;
+    constexpr float kZoomOutEaseSpeed = 1.1f;
+    constexpr float kZoomInEaseSpeed = 0.45f;
+    constexpr float kMinimumDistanceZoomScale = 0.80f;
+    constexpr float kMirroredPlayerAnchorX = 0.56f;
+    constexpr float kSideChangeConfirmSeconds = 0.4f;
+    constexpr float kNearZoomScale = 1.0f;
+    constexpr float kMiddleZoomScale = 0.80f;
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+    const float sideChangeDeadZone = tileSize * 1.25f;
+    const float framingMargin = tileSize * 1.25f;
+    const float baseVisibleWidth = GetCameraFollowSpanX(m_tileMap);
+    const float baseVisibleHeight = GetCameraVisibleHeight(m_tileMap);
+    const float blend = 1.0f - std::pow(0.001f, deltaTime * kCameraEaseSpeed);
+    bool shieldBossFound = false;
+    float normalizedDistance = 0.0f;
+    float playerLeft = 0.0f;
+    float playerRight = 0.0f;
+    float bossLeft = 0.0f;
+    float bossRight = 0.0f;
+    bool slamVerticalTrackingActive = false;
+
+    if (playerTransform)
+    {
+        playerLeft = playerTransform->x;
+        playerRight = playerLeft + playerTransform->width * playerTransform->scale;
+        const float playerCenterX =
+            (playerLeft + playerRight) * 0.5f;
+
+        for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+        {
+            const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
+            const auto* boss = entity ? entity->GetComponent<ShieldBossComponent>() : nullptr;
+            const auto* bossTransform = entity ? entity->GetComponent<TransformComponent>() : nullptr;
+            const auto* bossSprite = entity ? entity->GetComponent<SpriteRenderComponent>() : nullptr;
+            if (!enemy ||
+                enemy->GetArchetype() != EnemyArchetype::ShieldBoss ||
+                !enemy->IsEnabled() ||
+                !boss ||
+                !bossTransform)
+            {
+                continue;
+            }
+
+            const bool introFinished =
+                boss->combatStarted &&
+                !boss->introDropActive &&
+                !boss->appearAnimationActive &&
+                !boss->roarAnimationActive;
+            // 登場演出後から破壊モーション終了までだけ、ボス戦用カメラを有効にします。
+            if (!introFinished || boss->deathAnimationFinished)
+            {
+                continue;
+            }
+
+            const float bossVisualWidth =
+                bossTransform->width * bossTransform->scale *
+                (bossSprite ? bossSprite->GetRenderScaleX() : 1.0f);
+            bossLeft = bossTransform->x + (bossSprite ? bossSprite->GetRenderOffsetX() : 0.0f);
+            bossRight = bossLeft + bossVisualWidth;
+            const float bossCenterX = (bossLeft + bossRight) * 0.5f;
+            const float bossOffsetX = bossCenterX - playerCenterX;
+            // 接近中は直前の側を維持し、交差地点でカメラが細かく往復するのを防ぎます。
+            int requestedCameraSide = m_camera.shieldBossCameraSide;
+            if (bossOffsetX > sideChangeDeadZone)
+            {
+                requestedCameraSide = 1;
+            }
+            else if (bossOffsetX < -sideChangeDeadZone)
+            {
+                requestedCameraSide = -1;
+            }
+
+            if (requestedCameraSide == m_camera.shieldBossCameraSide)
+            {
+                m_camera.shieldBossPendingCameraSide = requestedCameraSide;
+                m_camera.shieldBossSideChangeTimer = 0.0f;
+            }
+            else if (requestedCameraSide != m_camera.shieldBossPendingCameraSide)
+            {
+                m_camera.shieldBossPendingCameraSide = requestedCameraSide;
+                m_camera.shieldBossSideChangeTimer = 0.0f;
+            }
+            else
+            {
+                m_camera.shieldBossSideChangeTimer += deltaTime;
+                if (m_camera.shieldBossSideChangeTimer >= kSideChangeConfirmSeconds)
+                {
+                    m_camera.shieldBossCameraSide = requestedCameraSide;
+                    m_camera.shieldBossSideChangeTimer = 0.0f;
+                }
+            }
+
+            // 高低差は無視し、横方向の距離だけでズーム倍率を決める。
+            normalizedDistance = GetNormalizedHorizontalCameraDistance(
+                bossOffsetX,
+                baseVisibleWidth);
+            slamVerticalTrackingActive =
+                boss->state == ShieldBossState::JumpAscend ||
+                boss->state == ShieldBossState::AirHover ||
+                boss->state == ShieldBossState::JumpDescend ||
+                boss->state == ShieldBossState::SlamPhase1 ||
+                boss->state == ShieldBossState::SlamPhase2;
+            shieldBossFound = true;
+            break;
+        }
+
+        float targetZoomScale = 1.0f;
+        if (shieldBossFound)
+        {
+            // 境界に幅を持たせ、近・中の境目でズームが往復しないようにする。
+            switch (m_camera.shieldBossZoomTier)
+            {
+            case 0:
+                if (normalizedDistance > 0.34f) m_camera.shieldBossZoomTier = 1;
+                break;
+            default:
+                if (normalizedDistance < 0.24f) m_camera.shieldBossZoomTier = 0;
+                break;
+            }
+
+            const float requiredWidth =
+                std::max(playerRight, bossRight) - std::min(playerLeft, bossLeft) +
+                framingMargin * 2.0f;
+            const float fitZoomScale = std::clamp(
+                baseVisibleWidth / std::max(1.0f, requiredWidth),
+                kMinimumDistanceZoomScale,
+                1.0f);
+            const int fitZoomTier =
+                fitZoomScale >= kNearZoomScale ? 0 : 1;
+            m_camera.shieldBossZoomTier =
+                std::max(m_camera.shieldBossZoomTier, fitZoomTier);
+
+            constexpr float kZoomScales[] =
+            {
+                kNearZoomScale,
+                kMiddleZoomScale,
+            };
+            targetZoomScale = kZoomScales[
+                std::clamp(m_camera.shieldBossZoomTier, 0, 1)];
+        }
+        else
+        {
+            m_camera.shieldBossZoomTier = 0;
+            m_camera.shieldBossPendingCameraSide = m_camera.shieldBossCameraSide;
+            m_camera.shieldBossSideChangeTimer = 0.0f;
+        }
+
+        const float zoomBlend =
+            targetZoomScale < m_camera.shieldBossDistanceZoomScale
+            ? 1.0f - std::pow(0.001f, deltaTime * kZoomOutEaseSpeed)
+            : 1.0f - std::pow(0.001f, deltaTime * kZoomInEaseSpeed);
+        m_camera.shieldBossDistanceZoomScale = std::lerp(
+            m_camera.shieldBossDistanceZoomScale,
+            targetZoomScale,
+            zoomBlend);
+        const float visibleWidth =
+            baseVisibleWidth / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
+
+        float targetOffsetX = 0.0f;
+        if (shieldBossFound)
+        {
+            float targetCameraX = m_flow.cameraX;
+            if (m_camera.shieldBossCameraSide < 0)
+            {
+                targetCameraX = playerCenterX - visibleWidth * kMirroredPlayerAnchorX;
+            }
+
+            const float minimumCameraX =
+                std::max(playerRight, bossRight) + framingMargin - visibleWidth;
+            const float maximumCameraX =
+                std::min(playerLeft, bossLeft) - framingMargin;
+            targetCameraX = minimumCameraX <= maximumCameraX
+                ? std::clamp(targetCameraX, minimumCameraX, maximumCameraX)
+                : (std::min(playerLeft, bossLeft) + std::max(playerRight, bossRight)) * 0.5f -
+                    visibleWidth * 0.5f;
+
+            targetOffsetX = targetCameraX - m_flow.cameraX;
+        }
+
+        // 通常フレーミングは横方向だけを補正する。
+        m_camera.shieldBossCameraOffsetX = std::lerp(
+            m_camera.shieldBossCameraOffsetX,
+            targetOffsetX,
+            blend);
+
+        if (shieldBossFound && !m_camera.shieldBossCameraBaseYInitialized)
+        {
+            // 最も近い通常カメラの高さを、ボス戦中の最低表示位置として固定する。
+            m_camera.shieldBossCameraBaseY = m_flow.cameraY;
+            m_camera.shieldBossCameraOffsetY = 0.0f;
+            m_camera.shieldBossCameraBaseYInitialized = true;
+        }
+
+        if (m_camera.shieldBossCameraBaseYInitialized)
+        {
+            if (shieldBossFound && slamVerticalTrackingActive)
+            {
+                // 座標が小さくなる上方向だけを、たたきつけアクション中に許可する。
+                m_camera.shieldBossCameraOffsetY =
+                    std::min(0.0f, m_flow.cameraY - m_camera.shieldBossCameraBaseY);
+            }
+            else if (shieldBossFound)
+            {
+                m_camera.shieldBossCameraOffsetY = std::lerp(
+                    m_camera.shieldBossCameraOffsetY,
+                    0.0f,
+                    blend);
+            }
+            else
+            {
+                // 討伐後は通常カメラへ滑らかに戻してから、基準Yの固定を解除する。
+                const float lockedCameraY =
+                    m_camera.shieldBossCameraBaseY + m_camera.shieldBossCameraOffsetY;
+                m_camera.shieldBossCameraBaseY = std::lerp(
+                    lockedCameraY,
+                    m_flow.cameraY,
+                    blend);
+                m_camera.shieldBossCameraOffsetY = 0.0f;
+                if (std::fabs(m_camera.shieldBossCameraBaseY - m_flow.cameraY) <= 0.5f &&
+                    std::fabs(m_camera.shieldBossDistanceZoomScale - 1.0f) <= 0.005f)
+                {
+                    m_camera.shieldBossCameraBaseYInitialized = false;
+                }
+            }
+        }
+    }
+    else
+    {
+        m_camera.shieldBossCameraOffsetX = 0.0f;
+        m_camera.shieldBossCameraOffsetY = 0.0f;
+        m_camera.shieldBossCameraBaseY = 0.0f;
+        m_camera.shieldBossDistanceZoomScale = 1.0f;
+        m_camera.shieldBossSideChangeTimer = 0.0f;
+        m_camera.shieldBossCameraSide = 1;
+        m_camera.shieldBossPendingCameraSide = 1;
+        m_camera.shieldBossZoomTier = 0;
+        m_camera.shieldBossCameraBaseYInitialized = false;
+    }
+
+    // ズーム後の実表示範囲でマップ内へ収めます。
+    const float visibleWidth =
+        baseVisibleWidth / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
+    const float visibleHeight =
+        baseVisibleHeight / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
+    const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - visibleWidth);
+    const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - visibleHeight);
+    m_flow.cameraX = std::clamp(
+        m_flow.cameraX + m_camera.shieldBossCameraOffsetX,
+        0.0f,
+        maxCameraX);
+    const float targetCameraY = m_camera.shieldBossCameraBaseYInitialized
+        ? m_camera.shieldBossCameraBaseY + m_camera.shieldBossCameraOffsetY
+        : m_flow.cameraY;
+    m_flow.cameraY = std::clamp(targetCameraY, 0.0f, maxCameraY);
+}
+
 
 
 void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float height)
@@ -513,7 +1016,350 @@ void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float heig
     }
 }
 
-void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height)
+void GameScene::SpawnSlamImpactEffect(float centerX, float groundY, float width)
+{
+    constexpr float kDustLifetime = 0.58f;
+    constexpr int kFlashCount = 7;
+    constexpr int kGroundStreakCount = 14;
+    constexpr int kDustCount = 36;
+    constexpr int kChipCount = 26;
+    constexpr int kVerticalBurstCount = 18;
+    const float clampedWidth = std::max(128.0f, width * 1.18f);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    for (int index = 0; index < kFlashCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kFlashCount - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(clampedWidth * 0.34f, clampedWidth * 1.05f, t);
+        particle.height = std::lerp(16.0f, 46.0f, t);
+        particle.x = centerX - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.70f;
+        particle.velocityX = 0.0f;
+        particle.velocityY = -28.0f - t * 38.0f;
+        particle.rotation = (index % 2 == 0 ? -1.0f : 1.0f) * (0.03f + t * 0.05f);
+        particle.rotationSpeed = particle.rotation * -3.0f;
+        particle.life = std::lerp(0.13f, 0.25f, t);
+        particle.maxLife = particle.life;
+        particle.alphaScale = std::lerp(1.0f, 0.58f, t);
+        particle.r = std::lerp(1.0f, 0.78f, t);
+        particle.g = std::lerp(0.98f, 0.86f, t);
+        particle.b = std::lerp(0.86f, 0.68f, t);
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kGroundStreakCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kGroundStreakCount / 2) - 1);
+        const float distance = std::lerp(0.08f, 0.92f, spreadT) * halfWidth;
+        SlamDustParticle particle;
+        particle.width = std::lerp(84.0f, 154.0f, 1.0f - spreadT);
+        particle.height = std::lerp(8.0f, 17.0f, 1.0f - spreadT);
+        particle.x = centerX + side * distance - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.5f - static_cast<float>(GetRand(5));
+        particle.velocityX = side * (460.0f + static_cast<float>(GetRand(220)));
+        particle.velocityY = -20.0f - static_cast<float>(GetRand(34));
+        particle.rotation = side * std::lerp(0.04f, 0.13f, spreadT);
+        particle.rotationSpeed = side * 0.8f;
+        particle.life = 0.26f + spreadT * 0.12f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.92f;
+        particle.r = 0.92f;
+        particle.g = 0.78f;
+        particle.b = 0.48f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kVerticalBurstCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kVerticalBurstCount - 1);
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float offset = side * std::lerp(4.0f, halfWidth * 0.26f, t);
+        SlamDustParticle particle;
+        particle.width = 8.0f + static_cast<float>(GetRand(12));
+        particle.height = 70.0f + static_cast<float>(GetRand(78));
+        particle.x = centerX + offset - particle.width * 0.5f;
+        particle.y = groundY - particle.height;
+        particle.velocityX = side * (58.0f + t * 150.0f + static_cast<float>(GetRand(70)));
+        particle.velocityY = -300.0f - static_cast<float>(GetRand(260));
+        particle.rotation = side * std::lerp(0.02f, 0.30f, t);
+        particle.rotationSpeed = side * (1.5f + t * 2.0f);
+        particle.life = 0.28f + static_cast<float>(GetRand(14)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.84f;
+        particle.r = 0.82f;
+        particle.g = 0.90f;
+        particle.b = 1.0f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kDustCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kDustCount / 2) - 1);
+        const float outward = std::lerp(0.08f, 1.16f, spreadT);
+        const float jitter = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 38.0f;
+        const float sizeT = 1.52f - spreadT * 0.46f;
+
+        SlamDustParticle particle;
+        particle.width = (58.0f + static_cast<float>(GetRand(46))) * sizeT;
+        particle.height = (20.0f + static_cast<float>(GetRand(18))) * sizeT;
+        particle.x = centerX + side * outward * halfWidth * 0.50f + jitter - particle.width * 0.5f;
+        particle.y = groundY - 16.0f - static_cast<float>(GetRand(24)) - particle.height * 0.35f;
+        particle.velocityX = side * (320.0f + outward * 330.0f + static_cast<float>(GetRand(150)));
+        particle.velocityY = -72.0f - static_cast<float>(GetRand(120));
+        particle.rotation = side * (0.08f + spreadT * 0.18f);
+        particle.rotationSpeed = side * (0.7f + spreadT * 0.8f);
+        particle.life = kDustLifetime + static_cast<float>(GetRand(12)) * 0.01f;
+        particle.maxLife = kDustLifetime;
+        particle.alphaScale = 0.86f;
+        particle.r = 0.70f;
+        particle.g = 0.63f;
+        particle.b = 0.52f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kChipCount; ++index)
+    {
+        const float angle = -3.1415926f + (static_cast<float>(index) + 0.5f) / static_cast<float>(kChipCount) * 3.1415926f;
+        const float speed = 240.0f + static_cast<float>(GetRand(310));
+        SlamDustParticle particle;
+        particle.width = 10.0f + static_cast<float>(GetRand(16));
+        particle.height = 6.0f + static_cast<float>(GetRand(10));
+        particle.x = centerX + (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * clampedWidth * 0.30f - particle.width * 0.5f;
+        particle.y = groundY - 10.0f - particle.height * 0.5f;
+        particle.velocityX = std::cos(angle) * speed;
+        particle.velocityY = -126.0f - std::abs(std::sin(angle)) * (220.0f + static_cast<float>(GetRand(150)));
+        particle.rotation = static_cast<float>(GetRand(628)) * 0.01f;
+        particle.rotationSpeed = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 10.0f;
+        particle.life = 0.56f + static_cast<float>(GetRand(16)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.92f;
+        particle.r = 0.46f;
+        particle.g = 0.40f;
+        particle.b = 0.32f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnBossDefeatStartEffect(float centerX, float groundY, float width)
+{
+    constexpr int kCoreFlashCount = 6;
+    constexpr int kShockStreakCount = 18;
+    constexpr int kEmberCount = 28;
+    constexpr int kSmokeCount = 34;
+    const float clampedWidth = std::max(180.0f, width * 1.45f);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    // ボス撃破開始専用。通常スラムより暗く、赤い破片と重い黒煙で差別化する。
+    for (int index = 0; index < kCoreFlashCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kCoreFlashCount - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(clampedWidth * 0.24f, clampedWidth * 1.18f, t);
+        particle.height = std::lerp(28.0f, 82.0f, t);
+        particle.x = centerX - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.74f;
+        particle.velocityX = 0.0f;
+        particle.velocityY = -18.0f - t * 34.0f;
+        particle.rotation = (index % 2 == 0 ? -1.0f : 1.0f) * (0.04f + t * 0.08f);
+        particle.rotationSpeed = particle.rotation * -2.4f;
+        particle.life = std::lerp(0.16f, 0.30f, t);
+        particle.maxLife = particle.life;
+        particle.alphaScale = std::lerp(0.98f, 0.62f, t);
+        particle.r = std::lerp(1.0f, 0.58f, t);
+        particle.g = std::lerp(0.62f, 0.16f, t);
+        particle.b = std::lerp(0.28f, 0.16f, t);
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kShockStreakCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kShockStreakCount / 2) - 1);
+        const float distance = std::lerp(0.06f, 1.06f, spreadT) * halfWidth;
+        SlamDustParticle particle;
+        particle.width = std::lerp(126.0f, 58.0f, spreadT) + static_cast<float>(GetRand(28));
+        particle.height = std::lerp(18.0f, 7.0f, spreadT);
+        particle.x = centerX + side * distance - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.65f - static_cast<float>(GetRand(8));
+        particle.velocityX = side * (520.0f + spreadT * 260.0f + static_cast<float>(GetRand(180)));
+        particle.velocityY = -28.0f - static_cast<float>(GetRand(46));
+        particle.rotation = side * std::lerp(0.05f, 0.18f, spreadT);
+        particle.rotationSpeed = side * 1.25f;
+        particle.life = 0.34f + spreadT * 0.14f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.78f;
+        particle.r = 0.42f;
+        particle.g = 0.12f;
+        particle.b = 0.14f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kEmberCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kEmberCount - 1);
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float offset = side * std::lerp(8.0f, halfWidth * 0.38f, t);
+        SlamDustParticle particle;
+        particle.width = 6.0f + static_cast<float>(GetRand(12));
+        particle.height = 34.0f + static_cast<float>(GetRand(74));
+        particle.x = centerX + offset - particle.width * 0.5f;
+        particle.y = groundY - particle.height - static_cast<float>(GetRand(24));
+        particle.velocityX = side * (80.0f + t * 210.0f + static_cast<float>(GetRand(120)));
+        particle.velocityY = -260.0f - static_cast<float>(GetRand(320));
+        particle.rotation = side * std::lerp(0.08f, 0.42f, t);
+        particle.rotationSpeed = side * (2.2f + t * 3.4f);
+        particle.life = 0.36f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.86f;
+        particle.r = 1.0f;
+        particle.g = 0.28f;
+        particle.b = 0.12f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kSmokeCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kSmokeCount / 2) - 1);
+        const float jitter = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 52.0f;
+        SlamDustParticle particle;
+        particle.width = std::lerp(92.0f, 148.0f, 1.0f - spreadT) + static_cast<float>(GetRand(48));
+        particle.height = std::lerp(32.0f, 58.0f, 1.0f - spreadT) + static_cast<float>(GetRand(22));
+        particle.x = centerX + side * std::lerp(0.04f, 0.72f, spreadT) * halfWidth + jitter - particle.width * 0.5f;
+        particle.y = groundY - 28.0f - static_cast<float>(GetRand(36)) - particle.height * 0.42f;
+        particle.velocityX = side * (170.0f + spreadT * 260.0f + static_cast<float>(GetRand(130)));
+        particle.velocityY = -64.0f - static_cast<float>(GetRand(118));
+        particle.rotation = side * (0.08f + spreadT * 0.22f);
+        particle.rotationSpeed = side * (0.45f + spreadT * 0.9f);
+        particle.life = 0.66f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.72f;
+        particle.r = 0.22f;
+        particle.g = 0.16f;
+        particle.b = 0.18f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnRushSmokeEffect(float centerX, float groundY, float direction)
+{
+    const float dir = direction >= 0.0f ? 1.0f : -1.0f;
+    constexpr int kSmokeCount = 6;
+
+    for (int index = 0; index < kSmokeCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kSmokeCount - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(36.0f, 76.0f, t) + static_cast<float>(GetRand(18));
+        particle.height = std::lerp(22.0f, 48.0f, t) + static_cast<float>(GetRand(12));
+        particle.x = centerX - dir * (8.0f + static_cast<float>(GetRand(24)) + t * 22.0f) - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 1.18f - 16.0f - static_cast<float>(GetRand(18)) - t * 16.0f;
+        particle.velocityX = -dir * (170.0f + static_cast<float>(GetRand(170)) + t * 105.0f);
+        particle.velocityY = -132.0f - static_cast<float>(GetRand(110)) - t * 96.0f;
+        particle.rotation = -dir * (0.22f + t * 0.32f);
+        particle.rotationSpeed = -dir * (1.8f + t * 2.7f);
+        particle.life = 0.42f + static_cast<float>(GetRand(14)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = std::lerp(0.88f, 0.52f, t);
+        particle.r = 0.64f;
+        particle.g = 0.58f;
+        particle.b = 0.50f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnLightLandingEffect(float centerX, float groundY, float width)
+{
+    constexpr int kDustCount = 10;
+    const float clampedWidth = std::max(72.0f, width);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    for (int index = 0; index < kDustCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kDustCount / 2) - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(24.0f, 46.0f, 1.0f - spreadT) + static_cast<float>(GetRand(12));
+        particle.height = std::lerp(8.0f, 17.0f, 1.0f - spreadT) + static_cast<float>(GetRand(5));
+        particle.x = centerX + side * std::lerp(0.12f, 0.52f, spreadT) * halfWidth - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.55f - static_cast<float>(GetRand(7));
+        particle.velocityX = side * (120.0f + spreadT * 170.0f + static_cast<float>(GetRand(60)));
+        particle.velocityY = -34.0f - static_cast<float>(GetRand(54));
+        particle.rotation = side * (0.05f + spreadT * 0.14f);
+        particle.rotationSpeed = side * (0.6f + spreadT * 0.7f);
+        particle.life = 0.26f + static_cast<float>(GetRand(8)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.58f;
+        particle.r = 0.72f;
+        particle.g = 0.66f;
+        particle.b = 0.56f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnBossRoarEffect(float centerX, float groundY, float width)
+{
+    constexpr int kShockCount = 14;
+    constexpr int kBurstCount = 12;
+    const float clampedWidth = std::max(128.0f, width * 1.18f);
+    const float halfWidth = clampedWidth * 0.5f;
+
+    for (int index = 0; index < kShockCount; ++index)
+    {
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        const float spreadT = static_cast<float>(index / 2) / static_cast<float>((kShockCount / 2) - 1);
+        SlamDustParticle particle;
+        particle.width = std::lerp(48.0f, 98.0f, 1.0f - spreadT) + static_cast<float>(GetRand(20));
+        particle.height = std::lerp(8.0f, 18.0f, 1.0f - spreadT) + static_cast<float>(GetRand(6));
+        particle.x = centerX + side * std::lerp(0.08f, 0.86f, spreadT) * halfWidth - particle.width * 0.5f;
+        particle.y = groundY - particle.height * 0.75f - static_cast<float>(GetRand(12));
+        particle.velocityX = side * (220.0f + spreadT * 260.0f + static_cast<float>(GetRand(120)));
+        particle.velocityY = -42.0f - static_cast<float>(GetRand(76));
+        particle.rotation = side * (0.06f + spreadT * 0.18f);
+        particle.rotationSpeed = side * (0.9f + spreadT * 1.1f);
+        particle.life = 0.34f + static_cast<float>(GetRand(12)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.76f;
+        particle.r = 0.94f;
+        particle.g = 0.82f;
+        particle.b = 0.58f;
+        m_effects.slamDust.push_back(particle);
+    }
+
+    for (int index = 0; index < kBurstCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kBurstCount - 1);
+        const float side = (index % 2 == 0) ? -1.0f : 1.0f;
+        SlamDustParticle particle;
+        particle.width = 7.0f + static_cast<float>(GetRand(10));
+        particle.height = 42.0f + static_cast<float>(GetRand(58));
+        particle.x = centerX + side * std::lerp(8.0f, halfWidth * 0.34f, t) - particle.width * 0.5f;
+        particle.y = groundY - particle.height - 18.0f - static_cast<float>(GetRand(34));
+        particle.velocityX = side * (44.0f + t * 180.0f + static_cast<float>(GetRand(70)));
+        particle.velocityY = -170.0f - static_cast<float>(GetRand(190));
+        particle.rotation = side * std::lerp(0.08f, 0.36f, t);
+        particle.rotationSpeed = side * (1.4f + t * 2.2f);
+        particle.life = 0.30f + static_cast<float>(GetRand(12)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.alphaScale = 0.68f;
+        particle.r = 1.0f;
+        particle.g = 0.93f;
+        particle.b = 0.76f;
+        m_effects.slamDust.push_back(particle);
+    }
+}
+
+void GameScene::SpawnTeleportTrailEffect(
+    float fromX,
+    float fromY,
+    float toX,
+    float toY,
+    float width,
+    float height,
+    const MidBoss2Component::Params& params)
 {
     const float sourceCenterX = fromX + width * 0.5f;
     const float sourceCenterY = fromY + height * 0.5f;
@@ -527,9 +1373,27 @@ void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, fl
     const float directionY = deltaY / directionLength;
     const float perpendicularX = -directionY;
     const float perpendicularY = directionX;
-    const int trailCount = std::clamp(static_cast<int>(std::round(distance / 44.0f)) + 10, 10, 24);
+    const int totalSparkCount = std::clamp(params.teleportSparkCount, 0, 256);
+    const int arrivalSparkCount = totalSparkCount > 0
+        ? std::min(totalSparkCount, std::clamp((totalSparkCount + 2) / 4, 1, 24))
+        : 0;
+    const int trailCount = std::max(0, totalSparkCount - arrivalSparkCount);
+    const float minSize = std::clamp(
+        std::min(params.teleportSparkMinSize, params.teleportSparkMaxSize),
+        0.1f,
+        12.0f);
+    const float maxSize = std::clamp(
+        std::max(params.teleportSparkMinSize, params.teleportSparkMaxSize),
+        minSize,
+        12.0f);
+    const float spreadScale = std::clamp(params.teleportSparkSpreadScale, 0.0f, 8.0f);
+    const float sparkLifetime = std::clamp(params.teleportSparkLifetime, 0.01f, 5.0f);
     const float travelTime = std::max(0.26f, distance / 1120.0f);
     const float travelSpeed = distance / travelTime;
+    const auto randomSizeScale = [&]()
+    {
+        return std::lerp(minSize, maxSize, static_cast<float>(GetRand(1000)) / 1000.0f);
+    };
 
     for (int index = 0; index < trailCount; ++index)
     {
@@ -538,40 +1402,193 @@ void GameScene::SpawnTeleportTrailEffect(float fromX, float fromY, float toX, fl
         const float wave = std::sin(t * 6.28318530718f * 2.0f);
         const float lineX = std::lerp(sourceCenterX, targetCenterX, t);
         const float lineY = std::lerp(sourceCenterY, targetCenterY, t);
-        const float spread = std::lerp(6.0f, 18.0f, 1.0f - std::fabs(0.5f - t) * 2.0f);
+        const float spread = std::lerp(6.0f, 18.0f, 1.0f - std::fabs(0.5f - t) * 2.0f) * spreadScale;
 
         LaserSparkParticle spark;
         spark.x = lineX + perpendicularX * jitterSeed * spread + directionX * wave * 4.0f;
         spark.y = lineY + perpendicularY * jitterSeed * spread + directionY * wave * 4.0f;
-        spark.velocityX = directionX * (travelSpeed + jitterSeed * 120.0f) + perpendicularX * jitterSeed * 90.0f;
-        spark.velocityY = directionY * (travelSpeed + jitterSeed * 120.0f) + perpendicularY * jitterSeed * 90.0f;
-        spark.life = 0.30f;
-        spark.maxLife = 0.30f;
+        spark.velocityX = directionX * (travelSpeed + jitterSeed * 120.0f) + perpendicularX * jitterSeed * 90.0f * spreadScale;
+        spark.velocityY = directionY * (travelSpeed + jitterSeed * 120.0f) + perpendicularY * jitterSeed * 90.0f * spreadScale;
+        spark.life = sparkLifetime;
+        spark.maxLife = spark.life;
         spark.gravityScale = 0.0f;
+        spark.sizeScale = randomSizeScale();
+        spark.drawCircle = true;
         spark.r = 0.58f;
         spark.g = 0.92f;
         spark.b = 1.0f;
         m_effects.laserSparks.push_back(spark);
     }
 
-    constexpr int kArrivalSparkCount = 6;
-    for (int index = 0; index < kArrivalSparkCount; ++index)
+    for (int index = 0; index < arrivalSparkCount; ++index)
     {
-        const float angle = static_cast<float>(index) / static_cast<float>(kArrivalSparkCount) * 6.28318530718f;
-        const float radius = 10.0f + static_cast<float>(GetRand(8));
+        const float angle = static_cast<float>(index) / static_cast<float>(arrivalSparkCount) * 6.28318530718f;
+        const float radius = (10.0f + static_cast<float>(GetRand(8))) * spreadScale;
 
         LaserSparkParticle spark;
         spark.x = targetCenterX + std::cos(angle) * radius;
         spark.y = targetCenterY + std::sin(angle) * radius;
         spark.velocityX = std::cos(angle) * (40.0f + static_cast<float>(GetRand(40)));
         spark.velocityY = std::sin(angle) * (40.0f + static_cast<float>(GetRand(40)));
-        spark.life = 0.26f;
-        spark.maxLife = 0.26f;
+        spark.life = sparkLifetime;
+        spark.maxLife = spark.life;
         spark.gravityScale = 0.0f;
+        spark.sizeScale = randomSizeScale();
+        spark.drawCircle = true;
         spark.r = 0.88f;
         spark.g = 0.98f;
         spark.b = 1.0f;
         m_effects.laserSparks.push_back(spark);
+    }
+}
+
+void GameScene::SpawnMidBoss2SpearFadeEffect(float centerX, float centerY, float width, float height)
+{
+    constexpr float kPi = 3.1415926535f;
+    const float spreadX = std::max(10.0f, width * 0.22f);
+    const float spreadY = std::max(10.0f, height * 0.18f);
+
+    constexpr int kBubbleCount = 18;
+    for (int index = 0; index < kBubbleCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float radius = std::lerp(0.2f, 1.0f, static_cast<float>(GetRand(1000)) / 1000.0f);
+        const float sideJitter = static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f;
+
+        MidBoss2SpearMistParticle particle;
+        particle.x = centerX + std::cos(angle) * spreadX * radius;
+        particle.y = centerY + std::sin(angle) * spreadY * radius;
+        particle.velocityX = std::cos(angle) * (12.0f + static_cast<float>(GetRand(30))) + sideJitter * 18.0f;
+        particle.velocityY = -(70.0f + static_cast<float>(GetRand(110))) - radius * 46.0f;
+        particle.life = 0.42f + static_cast<float>(GetRand(28)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.sizeScale = 0.34f + static_cast<float>(GetRand(32)) * 0.01f;
+        particle.pulsePhase = static_cast<float>(GetRand(1000)) * 0.0062831853f;
+        particle.r = 0.76f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.g = 0.93f + static_cast<float>(GetRand(7)) * 0.01f;
+        particle.b = 1.0f;
+        m_effects.midBoss2SpearMist.push_back(particle);
+    }
+
+    constexpr int kTinyCount = 8;
+    for (int index = 0; index < kTinyCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float sideJitter = static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f;
+
+        MidBoss2SpearMistParticle particle;
+        particle.x = centerX + sideJitter * spreadX * 0.6f;
+        particle.y = centerY + sideJitter * spreadY * 0.35f;
+        particle.velocityX = std::cos(angle) * (8.0f + static_cast<float>(GetRand(22))) + sideJitter * 12.0f;
+        particle.velocityY = -(110.0f + static_cast<float>(GetRand(90)));
+        particle.life = 0.26f + static_cast<float>(GetRand(16)) * 0.01f;
+        particle.maxLife = particle.life;
+        particle.sizeScale = 0.18f + static_cast<float>(GetRand(18)) * 0.01f;
+        particle.pulsePhase = static_cast<float>(GetRand(1000)) * 0.0062831853f;
+        particle.r = 0.90f;
+        particle.g = 0.98f;
+        particle.b = 1.0f;
+        m_effects.midBoss2SpearMist.push_back(particle);
+    }
+}
+
+void GameScene::SpawnMidBoss3FistImpactEffect(float x, float y, float width, float height)
+{
+    const float centerX = x + width * 0.5f;
+    const float centerY = y + height * 0.5f;
+    constexpr float kPi = 3.1415926535f;
+
+    constexpr int kHotSparkCount = 34;
+    for (int index = 0; index < kHotSparkCount; ++index)
+    {
+        const float baseAngle = (static_cast<float>(index) / static_cast<float>(kHotSparkCount)) * kPi * 2.0f;
+        const float angle = baseAngle + (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 0.95f;
+        const float speed = 220.0f + static_cast<float>(GetRand(340));
+        const float spawnRadius = 10.0f + static_cast<float>(GetRand(28));
+
+        LaserSparkParticle spark;
+        spark.x = centerX + std::cos(angle) * spawnRadius;
+        spark.y = centerY + std::sin(angle) * spawnRadius;
+        spark.velocityX = std::cos(angle) * speed;
+        spark.velocityY = std::sin(angle) * speed - 90.0f;
+        spark.life = 0.26f + static_cast<float>(GetRand(18)) * 0.01f;
+        spark.maxLife = spark.life;
+        spark.gravityScale = 0.14f;
+        spark.r = 1.0f;
+        spark.g = 0.58f + static_cast<float>(GetRand(28)) * 0.01f;
+        spark.b = 0.16f;
+        m_effects.laserSparks.push_back(spark);
+    }
+
+    constexpr int kPlasmaCount = 18;
+    for (int index = 0; index < kPlasmaCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float speed = 130.0f + static_cast<float>(GetRand(230));
+
+        LaserSparkParticle spark;
+        spark.x = centerX + static_cast<float>(GetRand(25)) - 12.0f;
+        spark.y = centerY + static_cast<float>(GetRand(25)) - 12.0f;
+        spark.velocityX = std::cos(angle) * speed;
+        spark.velocityY = std::sin(angle) * speed;
+        spark.life = 0.18f + static_cast<float>(GetRand(12)) * 0.01f;
+        spark.maxLife = spark.life;
+        spark.gravityScale = 0.0f;
+        const bool blue = index % 2 == 0;
+        spark.r = blue ? 0.52f : 0.96f;
+        spark.g = blue ? 0.86f : 0.48f;
+        spark.b = 1.0f;
+        m_effects.laserSparks.push_back(spark);
+    }
+
+    constexpr int kPlasmaStreakCount = 10;
+    for (int index = 0; index < kPlasmaStreakCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float length = 48.0f + static_cast<float>(GetRand(54));
+        SlamDustParticle streak;
+        streak.width = length;
+        streak.height = 5.0f + static_cast<float>(GetRand(5));
+        streak.x = centerX - streak.width * 0.5f + static_cast<float>(GetRand(37)) - 18.0f;
+        streak.y = centerY - streak.height * 0.5f + static_cast<float>(GetRand(37)) - 18.0f;
+        streak.velocityX = std::cos(angle) * (80.0f + static_cast<float>(GetRand(120)));
+        streak.velocityY = std::sin(angle) * (80.0f + static_cast<float>(GetRand(120)));
+        streak.rotation = angle;
+        streak.rotationSpeed = (index % 2 == 0 ? -1.0f : 1.0f) * (1.4f + static_cast<float>(GetRand(100)) * 0.01f);
+        streak.life = 0.16f + static_cast<float>(GetRand(10)) * 0.01f;
+        streak.maxLife = streak.life;
+        streak.alphaScale = 0.88f;
+        const bool blue = index % 2 == 0;
+        streak.r = blue ? 0.42f : 0.88f;
+        streak.g = blue ? 0.82f : 0.34f;
+        streak.b = 1.0f;
+        m_effects.slamDust.push_back(streak);
+    }
+
+    constexpr int kSmokeCount = 20;
+    for (int index = 0; index < kSmokeCount; ++index)
+    {
+        const float angle = (static_cast<float>(GetRand(1000)) / 1000.0f) * kPi * 2.0f;
+        const float speed = 22.0f + static_cast<float>(GetRand(88));
+        const float size = 34.0f + static_cast<float>(GetRand(58));
+
+        SlamDustParticle smoke;
+        smoke.width = size * (0.85f + static_cast<float>(GetRand(30)) * 0.01f);
+        smoke.height = size * (0.55f + static_cast<float>(GetRand(30)) * 0.01f);
+        smoke.x = centerX - smoke.width * 0.5f + static_cast<float>(GetRand(57)) - 28.0f;
+        smoke.y = centerY - smoke.height * 0.5f + static_cast<float>(GetRand(43)) - 24.0f;
+        smoke.velocityX = std::cos(angle) * speed;
+        smoke.velocityY = -46.0f - static_cast<float>(GetRand(70)) + std::sin(angle) * speed * 0.35f;
+        smoke.rotation = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 0.5f;
+        smoke.rotationSpeed = (static_cast<float>(GetRand(1000)) / 1000.0f - 0.5f) * 1.4f;
+        smoke.life = 0.55f + static_cast<float>(GetRand(24)) * 0.01f;
+        smoke.maxLife = smoke.life;
+        smoke.alphaScale = 0.46f;
+        const float shade = 0.08f + static_cast<float>(GetRand(8)) * 0.01f;
+        smoke.r = shade;
+        smoke.g = shade;
+        smoke.b = shade + 0.02f;
+        m_effects.slamDust.push_back(smoke);
     }
 }
 
@@ -680,60 +1697,26 @@ void GameScene::UpdatePlayer(float deltaTime)
         return;
     }
 
-    // Camera mode should still allow movement so the player can shoot photos while repositioning.
-    const bool blockPlayerInput = m_photo.placement.active;
+    const bool shieldBossIntroActive = IsShieldBossIntroCinematicActive();
+    // Boss intro locks the player so the entrance reads like a short cutscene.
+    const bool blockPlayerInput = m_photo.placement.active || shieldBossIntroActive;
     const auto controls = game_scene_player_system::SampleControls(blockPlayerInput);
     const float moveAxis = controls.moveAxis;
     const float tileSize = m_tileMap.GetTileSize();
     const float playerWidth = transform->width * transform->scale;
     const float playerHeight = transform->height * transform->scale;
-    const auto trySnapToHorizontalFist = [&](float snapDistance) -> bool
+    const bool wasGrounded = m_player.grounded || IsStandingOnGround(*transform);
+
+    if (shieldBossIntroActive)
     {
-        const float playerLeft = transform->x;
-        const float playerRight = transform->x + playerWidth;
-        const float playerBottom = transform->y + playerHeight;
-        for (const auto& entity : m_world.Entities())
-        {
-            if (!entity)
-            {
-                continue;
-            }
+        m_player.velocityX = 0.0f;
+        m_player.velocityY = 0.0f;
+        m_player.dodgeRemaining = 0.0f;
+        UpdatePlayerAfterimages(deltaTime);
+        UpdatePlayerPresentation(*player, deltaTime, 0.0f, wasGrounded, false, false);
+        return;
+    }
 
-            const auto* fist = entity->GetComponent<MidBoss3FistComponent>();
-            const auto* fistTransform = entity->GetComponent<TransformComponent>();
-            if (!fist ||
-                !fistTransform ||
-                fist->state != MidBoss3FistState::Launching ||
-                std::fabs(fist->velocityY) > 0.01f)
-            {
-                continue;
-            }
-
-            const float fistWidth = fistTransform->width * fistTransform->scale;
-            const float fistLeft = fistTransform->x;
-            const float fistRight = fistTransform->x + fistWidth;
-            const float fistTop = fistTransform->y;
-            const bool horizontalOverlap =
-                playerRight > fistLeft - 10.0f &&
-                playerLeft < fistRight + 10.0f;
-            const bool closeToTop =
-                playerBottom >= fistTop - snapDistance &&
-                playerBottom <= fistTop + std::max(28.0f, snapDistance);
-            if (!horizontalOverlap || !closeToTop)
-            {
-                continue;
-            }
-
-            transform->y = fistTop - playerHeight;
-            m_player.velocityY = 0.0f;
-            m_player.grounded = true;
-            m_player.coyoteTimeRemaining = gCoyoteTimeSeconds;
-            return true;
-        }
-        return false;
-    };
-    const bool standingOnHorizontalFist = trySnapToHorizontalFist(36.0f);
-    const bool wasGrounded = m_player.grounded || IsStandingOnGround(*transform) || standingOnHorizontalFist;
     const float dodgeDuration = wasGrounded
         ? GetPlayerDodgeDuration()
         : (gPlayerDodgeSpeed > 0.0f ? tileSize / gPlayerDodgeSpeed : 0.0f);
@@ -756,10 +1739,9 @@ void GameScene::UpdatePlayer(float deltaTime)
     const bool isDodging = m_player.dodgeRemaining > 0.0f;
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
-    const bool canJumpFromHorizontalFist = standingOnHorizontalFist || trySnapToHorizontalFist(44.0f);
     const bool canJumpNow = !isDodging &&
         controls.jumpPressed &&
-        (wasGrounded || canJumpFromHorizontalFist || m_player.coyoteTimeRemaining > 0.0f);
+        (wasGrounded || m_player.coyoteTimeRemaining > 0.0f);
     if (canJumpNow)
     {
         m_player.velocityY = gPlayerJumpSpeed;
@@ -888,8 +1870,7 @@ void GameScene::UpdatePlayer(float deltaTime)
 
         if (m_player.velocityY >= 0.0f && groundedAtStepStart)
         {
-            if (TrySnapToGroundUsingPlatforms(*transform, verticalSnapDistance, groundPlatformsForSnap) ||
-                trySnapToHorizontalFist(verticalSnapDistance))
+            if (TrySnapToGroundUsingPlatforms(*transform, verticalSnapDistance, groundPlatformsForSnap))
             {
                 m_player.grounded = true;
             }
@@ -914,10 +1895,9 @@ void GameScene::UpdatePlayer(float deltaTime)
             {
                 return IsSolidTile(column, row) || IsSlopeTile(column, row);
             },
-            [this, &groundPlatformsForSnap, &trySnapToHorizontalFist](TransformComponent& targetTransform, float snapDistance)
+            [this, &groundPlatformsForSnap](TransformComponent& targetTransform, float snapDistance)
             {
-                return TrySnapToGroundUsingPlatforms(targetTransform, snapDistance, groundPlatformsForSnap) ||
-                    trySnapToHorizontalFist(snapDistance);
+                return TrySnapToGroundUsingPlatforms(targetTransform, snapDistance, groundPlatformsForSnap);
             },
             [this](const TransformComponent& candidate)
             {
@@ -979,6 +1959,10 @@ void GameScene::UpdatePlayer(float deltaTime)
         }
     }
 
+    const bool shieldBossIntroReturnActive = m_render.bossIntroCameraInfluence > 0.01f;
+    const float shieldBossIntroReturnStartX = m_flow.cameraX;
+    const float shieldBossIntroReturnStartY = m_flow.cameraY;
+
     const bool stabilizeMidBoss3CameraY = IsMidBoss3CameraStabilizeStage(m_lifecycle.currentMapCsvPath);
     const float cameraYBeforeFollow = m_flow.cameraY;
     if (stabilizeMidBoss3CameraY)
@@ -1018,6 +2002,15 @@ void GameScene::UpdatePlayer(float deltaTime)
     if (!stabilizeMidBoss3CameraY)
     {
         UpdateCameraByMarkers(*transform, deltaTime);
+    }
+    if (shieldBossIntroReturnActive && !stabilizeMidBoss3CameraY)
+    {
+        // Point 3: ease from the cinematic point back to the normal gameplay camera.
+        const float normalCameraX = m_flow.cameraX;
+        const float normalCameraY = m_flow.cameraY;
+        const float returnBlend = 1.0f - std::pow(0.001f, deltaTime * 0.95f);
+        m_flow.cameraX = std::lerp(shieldBossIntroReturnStartX, normalCameraX, returnBlend);
+        m_flow.cameraY = std::lerp(shieldBossIntroReturnStartY, normalCameraY, returnBlend);
     }
 
     if (stabilizeMidBoss3CameraY)
@@ -2045,6 +3038,202 @@ void GameScene::UpdateFallingRocks(float deltaTime)
     }
 }
 
+void GameScene::UpdateHangingGravityObjects(float deltaTime)
+{
+    if (deltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    Entity* player = FindEntityByTag(kTagPlayer);
+    const float mapHeight = GetMapPixelHeight();
+
+    auto setHangingObjectVisible = [](Entity& hangingEntity, bool visible)
+    {
+        if (auto* tint = hangingEntity.GetComponent<TintComponent>())
+        {
+            tint->a = visible ? 1.0f : 0.0f;
+        }
+    };
+
+    auto intersectsSolidTile = [&](const TransformComponent& bounds) -> bool
+    {
+        const float width = bounds.width * bounds.scale;
+        const float height = bounds.height * bounds.scale;
+        const int left = std::max(0, static_cast<int>((bounds.x + 2.0f) / tileSize));
+        const int right = std::min(m_tileMap.GetWidth() - 1, static_cast<int>((bounds.x + width - 2.0f) / tileSize));
+        const int top = std::max(0, static_cast<int>((bounds.y + 2.0f) / tileSize));
+        const int bottom = std::min(m_tileMap.GetHeight() - 1, static_cast<int>((bounds.y + height - 2.0f) / tileSize));
+        for (int row = top; row <= bottom; ++row)
+        {
+            for (int column = left; column <= right; ++column)
+            {
+                if (m_tileMap.GetTile(column, row) != 1)
+                {
+                    continue;
+                }
+
+                TransformComponent tileBounds(
+                    static_cast<float>(column) * tileSize,
+                    static_cast<float>(row) * tileSize,
+                    tileSize,
+                    tileSize);
+                if (IntersectsRect(bounds, tileBounds))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    auto breakHangingObject = [&](Entity& hangingEntity, HangingGravityObjectComponent& hanging, TransformComponent& transform)
+    {
+        SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
+        m_eventBus.Publish({ EventType::PlaySoundRequest, &hangingEntity, nullptr, "barrel", 0.0f, 0.0f });
+        hanging.active = false;
+        hanging.destroyed = true;
+        hanging.wireAttached = false;
+        hanging.velocityY = 0.0f;
+        setHangingObjectVisible(hangingEntity, false);
+    };
+
+    std::vector<Entity*> enemyEntities;
+    enemyEntities.reserve(m_world.EntitiesByTag(EntityTag::Enemy).size());
+    for (Entity* enemyEntity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        if (!enemyEntity)
+        {
+            continue;
+        }
+
+        auto* enemy = enemyEntity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled())
+        {
+            continue;
+        }
+
+        enemyEntities.push_back(enemyEntity);
+    }
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::HangingGravityObject))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* hanging = entity->GetComponent<HangingGravityObjectComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!hanging || !transform)
+        {
+            continue;
+        }
+
+        if (hanging->destroyed)
+        {
+            setHangingObjectVisible(*entity, false);
+            continue;
+        }
+
+        if (hanging->wireAttached)
+        {
+            transform->x = hanging->spawnX;
+            transform->y = hanging->spawnY;
+            hanging->active = false;
+            hanging->velocityY = 0.0f;
+            setHangingObjectVisible(*entity, true);
+            continue;
+        }
+
+        if (!hanging->active)
+        {
+            continue;
+        }
+
+        hanging->velocityY = std::min(hanging->maxFallSpeed, hanging->velocityY + hanging->gravity * deltaTime);
+        transform->y += hanging->velocityY * deltaTime;
+
+        const float objectHeight = transform->height * transform->scale;
+        if (transform->y + objectHeight >= mapHeight)
+        {
+            breakHangingObject(*entity, *hanging, *transform);
+            continue;
+        }
+
+        if (intersectsSolidTile(*transform))
+        {
+            breakHangingObject(*entity, *hanging, *transform);
+            continue;
+        }
+
+        if (player && IntersectsEntity(*entity, *player))
+        {
+            HandlePlayerDamage(*player, entity, "GameScene player damaged by hanging gravity object", hanging->contactDamage);
+            breakHangingObject(*entity, *hanging, *transform);
+            continue;
+        }
+
+        bool consumed = false;
+        for (Entity* enemyEntity : enemyEntities)
+        {
+            if (!enemyEntity || enemyEntity == entity)
+            {
+                continue;
+            }
+
+            if (!IntersectsEntity(*entity, *enemyEntity))
+            {
+                continue;
+            }
+
+            HandleEnemyDamage(*enemyEntity, entity, hanging->contactDamage, "Hanging gravity object hit enemy");
+            breakHangingObject(*entity, *hanging, *transform);
+            consumed = true;
+            break;
+        }
+        if (consumed)
+        {
+            continue;
+        }
+    }
+}
+
+void GameScene::ResetHangingGravityObjectsForRespawn()
+{
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::HangingGravityObject))
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* hanging = entity->GetComponent<HangingGravityObjectComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!hanging || !transform)
+        {
+            continue;
+        }
+
+        transform->x = hanging->spawnX;
+        transform->y = hanging->spawnY;
+        hanging->velocityY = 0.0f;
+        hanging->wireAttached = true;
+        hanging->active = false;
+        hanging->destroyed = false;
+        if (auto* tint = entity->GetComponent<TintComponent>())
+        {
+            tint->a = 1.0f;
+        }
+    }
+}
+
 void GameScene::UpdateJumpPads(float deltaTime)
 {
     if (deltaTime <= 0.0f)
@@ -2409,9 +3598,32 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             continue;
         }
 
+        if (auto* follow = turretCandidate->GetComponent<CapturedBoss2BeamFollowComponent>())
+        {
+            const auto* targetTransform = follow->target
+                ? follow->target->GetComponent<TransformComponent>()
+                : nullptr;
+            if (targetTransform)
+            {
+                turretTransform->x = targetTransform->x + follow->offsetX;
+                turretTransform->y = targetTransform->y + follow->offsetY;
+            }
+        }
+
         if (turret->warmupRemaining > 0.0f)
         {
+            const float previousWarmup = turret->warmupRemaining;
             turret->warmupRemaining = std::max(0.0f, turret->warmupRemaining - deltaTime);
+            if (turret->warmupRemaining <= 0.0f &&
+                previousWarmup > 0.0f &&
+                turretCandidate->GetComponent<CapturedBoss2BeamChargeComponent>())
+            {
+                constexpr float kCapturedBeamFireShakeSeconds = 0.16f;
+                constexpr float kCapturedBeamFireShakeAmplitude = 24.0f;
+                m_flow.screenShakeRemaining = std::max(m_flow.screenShakeRemaining, kCapturedBeamFireShakeSeconds);
+                m_flow.screenShakeDuration = std::max(m_flow.screenShakeDuration, kCapturedBeamFireShakeSeconds);
+                m_flow.screenShakeAmplitude = std::max(m_flow.screenShakeAmplitude, kCapturedBeamFireShakeAmplitude);
+            }
         }
 
         Entity* beamEntity = turret->beamEntity;
@@ -2512,6 +3724,41 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
         bool blocked = false;
         bool playerHitByLaser = false;
         Entity* blockedProtectiveWall = nullptr;
+        auto cutHangingObjectWires = [&](const TransformComponent& beamBounds)
+        {
+            if (beamBounds.width <= 0.0f || beamBounds.height <= 0.0f)
+            {
+                return;
+            }
+
+            for (Entity* hangingEntity : m_world.EntitiesByTag(EntityTag::HangingGravityObject))
+            {
+                if (!hangingEntity)
+                {
+                    continue;
+                }
+
+                auto* hanging = hangingEntity->GetComponent<HangingGravityObjectComponent>();
+                if (!hanging || !hanging->wireAttached || hanging->destroyed || hanging->wireLength <= 0.0f)
+                {
+                    continue;
+                }
+
+                TransformComponent wireBounds(
+                    hanging->wireX - hanging->wireWidth * 0.5f,
+                    hanging->wireTopY,
+                    hanging->wireWidth,
+                    hanging->wireLength);
+                if (!IntersectsRect(beamBounds, wireBounds))
+                {
+                    continue;
+                }
+
+                hanging->wireAttached = false;
+                hanging->active = true;
+                hanging->velocityY = 0.0f;
+            }
+        };
 
         if (firesVertical)
         {
@@ -2802,6 +4049,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             sparkX = hitX;
             sparkY = beamY + beamThickness * 0.5f;
         }
+        cutHangingObjectWires(activeBeam);
         if (player)
         {
             if (auto* playerTransform = player->GetComponent<TransformComponent>())
@@ -2942,7 +4190,10 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
                 continue;
             }
 
-            const bool isDynamicPlatform = HasTag(*entity, kTagBatterySwitch) || HasTag(*entity, kTagElevator);
+            const bool isDynamicPlatform =
+                HasTag(*entity, kTagBatterySwitch) ||
+                HasTag(*entity, kTagElevator) ||
+                HasTag(*entity, kTagConveyorBelt);
             if (isDynamicPlatform)
             {
                 const float boundsBottom = bounds.y + height;
@@ -2971,7 +4222,8 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
         testTagGroup(EntityTag::LaserSwitch) ||
         testTagGroup(EntityTag::Shutter) ||
         testTagGroup(EntityTag::LaserTurret) ||
-        testTagGroup(EntityTag::SepiaElevator))
+        testTagGroup(EntityTag::SepiaElevator) ||
+        testTagGroup(EntityTag::ConveyorBelt))
     {
         return true;
     }
@@ -2998,7 +4250,7 @@ bool GameScene::IsBatteryCollidingWithWorld(const TransformComponent& bounds, co
     return false;
 }
 
-bool GameScene::IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bounds, const Entity* self, float tileSize) const
+bool GameScene::IsBatteryOnTopOfSwitchOrDynamicEntity(const TransformComponent& bounds, const Entity* self, float tileSize) const
 {
     const float boundsWidth = bounds.width * bounds.scale;
     const float boundsHeight = bounds.height * bounds.scale;
@@ -3035,14 +4287,14 @@ bool GameScene::IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bound
         return false;
     };
 
-    if (testTopGroup(EntityTag::BatterySwitch) || testTopGroup(EntityTag::Elevator))
+    if (testTopGroup(EntityTag::BatterySwitch) || testTopGroup(EntityTag::Elevator)|| testTopGroup(EntityTag::ConveyorBelt))
     {
         return true;
     }
     return false;
 }
 
-bool GameScene::SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, const Entity* self, float tileSize) const
+bool GameScene::SnapBatteryToSwitchOrDynamicEntity(TransformComponent& bounds, const Entity* self, float tileSize) const
 {
     const float width = bounds.width * bounds.scale;
     const float height = bounds.height * bounds.scale;
@@ -3084,7 +4336,7 @@ bool GameScene::SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, con
         return false;
     };
 
-    if (snapToTopGroup(EntityTag::BatterySwitch) || snapToTopGroup(EntityTag::Elevator))
+    if (snapToTopGroup(EntityTag::BatterySwitch) || snapToTopGroup(EntityTag::Elevator) || snapToTopGroup(EntityTag::ConveyorBelt))
     {
         return true;
     }
@@ -3128,6 +4380,47 @@ float GameScene::GetBatteryPushDirectionFromPlayer(const TransformComponent& pla
     }
 
     return 0.0f;
+}
+
+bool GameScene::IsConveyorUnderBattery(const TransformComponent& batteryTransform, float tileSize, int& outDirectionX, float& velocityX) const
+{
+    for (Entity* conveyorEntity : m_world.EntitiesByTag(EntityTag::ConveyorBelt))
+    {
+        if (!conveyorEntity)
+            continue;
+
+        auto* conveyor = conveyorEntity->GetComponent<BeltConveyorComponent>();
+        auto* conveyorTransform = conveyorEntity->GetComponent<TransformComponent>();
+        if (!conveyor || !conveyorTransform)
+            continue;
+
+        const float conveyorWidth = conveyorTransform->width * conveyorTransform->scale;
+        const float batteryWidth = batteryTransform.width * batteryTransform.scale;
+        const float conveyorLeft = conveyorTransform->x;
+        const float conveyorRight = conveyorTransform->x + conveyorWidth;
+        const float batteryLeft = batteryTransform.x;
+        const float batteryRight = batteryTransform.x + batteryWidth;
+        const float batteryHeight =
+            batteryTransform.height * batteryTransform.scale;
+        const float batteryBottom =
+            batteryTransform.y + batteryHeight;
+        const float conveyorTop = conveyorTransform->y;
+        
+        const bool overlapX = batteryRight > conveyorLeft && batteryLeft < conveyorRight;
+        const float topTolerance = std::max(6.0f, tileSize * 0.22f);
+        const bool onTop = std::fabs(batteryBottom - conveyorTop) <= topTolerance;
+
+        if (!overlapX || !onTop)
+        {
+            continue;
+        }
+
+        outDirectionX = conveyor->directionX;
+        velocityX = conveyor->velocity;
+        return true;
+    }
+
+    return false;
 }
 
 void GameScene::UpdateSingleBattery(
@@ -3200,12 +4493,12 @@ void GameScene::UpdateSingleBattery(
 
     if (!fallingHitActive)
     {
-        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrElevator(*transform, &batteryEntity, tileSize);
+        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrDynamicEntity(*transform, &batteryEntity, tileSize);
         if (onTopOfSwitchOrElevator)
         {
             battery->grounded = true;
             battery->velocityY = 0.0f;
-            SnapBatteryToSwitchOrElevatorTop(*transform, &batteryEntity, tileSize);
+            SnapBatteryToSwitchOrDynamicEntity(*transform, &batteryEntity, tileSize);
         }
 
         float pushDirection = 0.0f;
@@ -3243,7 +4536,7 @@ void GameScene::UpdateSingleBattery(
     {
         bool steppedUp = false;
         const float maxStepHeight = tileSize * 0.5f;
-        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrElevator(*transform, &batteryEntity, tileSize);
+        const bool onTopOfSwitchOrElevator = IsBatteryOnTopOfSwitchOrDynamicEntity(*transform, &batteryEntity, tileSize);
         if (battery->grounded && maxStepHeight > 0.0f && !onTopOfSwitchOrElevator)
         {
             TransformComponent stepCandidate = *transform;
@@ -3268,10 +4561,17 @@ void GameScene::UpdateSingleBattery(
         transform->y = std::max(previousY, transform->y - tileSize * 0.08f);
     }
 
-    if (SnapBatteryToSwitchOrElevatorTop(*transform, &batteryEntity, tileSize))
+    if (SnapBatteryToSwitchOrDynamicEntity(*transform, &batteryEntity, tileSize))
     {
         battery->grounded = true;
         battery->velocityY = 0.0f;
+    }
+
+    int direction = 0;
+    float velocity = 0.0f;
+    if (IsConveyorUnderBattery(*transform, tileSize, direction,velocity))
+    {
+        battery->velocityX = velocity * direction;
     }
 }
 

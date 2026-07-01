@@ -142,6 +142,7 @@ struct CapturedPhotoItem
     float laserEnemyKnockbackSpeed = 0.0f;
     float lightRadius = 0.0f;
     float lightIntensity = 0.0f;
+    int bossMotionClip = 0;
     std::vector<OutlinePoint> collisionOutline;
 };
 
@@ -205,7 +206,7 @@ struct PhotoState
 {
     PhotoCaptureState capture;
     PhotoCaptureState attackCapture;
-    std::array<PhotoCaptureState, 4> savedCaptures;
+    std::array<PhotoCaptureState, 3> savedCaptures;
     int selectedCaptureSlot = 0;
     int nextCaptureSlot = 0;
     PendingPhotoStoreState pendingStore;

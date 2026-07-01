@@ -133,19 +133,19 @@ void DemoScene::Draw()
 
 void DemoScene::DrawDebugUI()
 {
-    ImGui::Begin("Demo Scene");
-    ImGui::Text("Polymorphic Scene + ECS Example");
-    ImGui::Text("Entity Count: %d", static_cast<int>(m_entities.size()));
-    ImGui::Text("Gamepad Connected: %s", Input_IsGamepadConnected() ? "Yes" : "No");
-    ImGui::Text("Press R to reload the scene");
-    ImGui::Text("Lua can request sound/scene/log events");
-    ImGui::Text("Physics Contact: %s", m_playerTouchingTarget ? "Hit" : "No Hit");
-    ImGui::Text("Lua Target: (%.1f, %.1f)",
+    ImGui::Begin("デモシーン");
+    ImGui::Text("ポリモーフィックシーン + ECS の例");
+    ImGui::Text("エンティティ数: %d", static_cast<int>(m_entities.size()));
+    ImGui::Text("ゲームパッド接続: %s", Input_IsGamepadConnected() ? "あり" : "なし");
+    ImGui::Text("R でシーンを再読み込み");
+    ImGui::Text("Lua からサウンド / シーン / ログを要求できます");
+    ImGui::Text("物理接触: %s", m_playerTouchingTarget ? "接触" : "未接触");
+    ImGui::Text("Lua ターゲット: (%.1f, %.1f)",
         static_cast<float>(m_scriptEngine.GetNumber("target_x")),
         static_cast<float>(m_scriptEngine.GetNumber("target_y")));
-    ImGui::Text("Events This Frame: %d", static_cast<int>(m_eventBus.GetEvents().size()));
-    ImGui::Text("Contact Begin: %d", m_eventBus.Count(EventType::ContactBegin));
-    ImGui::Text("Contact End: %d", m_eventBus.Count(EventType::ContactEnd));
+    ImGui::Text("このフレームのイベント: %d", static_cast<int>(m_eventBus.GetEvents().size()));
+    ImGui::Text("接触開始: %d", m_eventBus.Count(EventType::ContactBegin));
+    ImGui::Text("接触終了: %d", m_eventBus.Count(EventType::ContactEnd));
     for (const auto& entity : m_entities)
     {
         entity->DrawDebugUI();
@@ -202,11 +202,11 @@ void DemoScene::ProcessEvents()
         if (m_playerTouchingTarget)
         {
             m_eventBus.Publish({ EventType::PlaySoundRequest, eventData.entityA, eventData.entityB, "contact_tone", 0.0f, 0.0f });
-            m_eventBus.Publish({ EventType::LogMessage, eventData.entityA, eventData.entityB, "Physics contact started", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, eventData.entityA, eventData.entityB, "物理接触が開始しました", 0.0f, 0.0f });
         }
         else
         {
-            m_eventBus.Publish({ EventType::LogMessage, eventData.entityA, eventData.entityB, "Physics contact ended", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::LogMessage, eventData.entityA, eventData.entityB, "物理接触が終了しました", 0.0f, 0.0f });
         }
     }
 }

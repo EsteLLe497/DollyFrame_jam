@@ -17,6 +17,10 @@ namespace game_scene_combat_system
 inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagEnemy = "Enemy";
 inline constexpr float kMidBoss2SpearSpeed = 800.0f;
+inline constexpr float kMidBoss2SpearFormationSpeedMultiplier = 1.6f;
+inline constexpr float kMidBoss2SpearPullbackRatio = 0.18f;
+inline constexpr float kMidBoss2SpearLaunchShakeSeconds = 0.08f;
+inline constexpr float kMidBoss2SpearLaunchShakeAmplitude = 6.0f;
 
 inline bool HasTag(const Entity& entity, const char* value)
 {
@@ -47,6 +51,18 @@ inline void UpdateWalkerSpriteAnimation(Entity& entity, const EnemyComponent& en
     const char* clipName = enemy.GetAIState() == EnemyComponent::AIState::Attack
         ? "attack"
         : (moving ? "move" : "idle");
+    if (enemy.GetAIState() != EnemyComponent::AIState::Attack)
+    {
+        animation->SetPlaybackSpeed(1.0f);
+        if (auto* transform = entity.GetComponent<TransformComponent>())
+        {
+            constexpr float kWalkerVisualScale = 1.55f;
+            constexpr float kWalkerVisualOffsetY = -22.0f;
+            sprite->SetRenderOffset(
+                transform->width * (1.0f - kWalkerVisualScale) * 0.5f,
+                kWalkerVisualOffsetY);
+        }
+    }
     animation->Play(clipName);
 }
 
@@ -180,22 +196,24 @@ inline void ApplyShieldBossVisualLayout(Entity& entity, ShieldBossComponent& bos
     const float visualScaleX = metrics.cellWidth / std::max(1.0f, metrics.bodyWidth);
     const float visualScaleY = metrics.cellHeight / std::max(1.0f, metrics.bodyHeight);
     const bool introClip = std::strcmp(clipName, "appear") == 0 || std::strcmp(clipName, "roar") == 0;
-    const float introScale = introClip ? 1.2f : 1.0f;
-    const float visualWidth = hitboxWidth * visualScaleX * introScale;
-    const float visualHeight = hitboxHeight * visualScaleY * introScale;
+    const bool deathClip = std::strcmp(clipName, "death") == 0;
+    const float emphasisScale = (introClip || deathClip) ? 1.2f : 1.0f;
+    const float visualWidth = hitboxWidth * visualScaleX * emphasisScale;
+    const float visualHeight = hitboxHeight * visualScaleY * emphasisScale;
     const float drawScaleX = visualWidth / std::max(1.0f, hitboxWidth);
     const float drawScaleY = visualHeight / std::max(1.0f, hitboxHeight);
     const float bodyLeft = flipRight
         ? metrics.cellWidth - (metrics.bodyLeft + metrics.bodyWidth)
         : metrics.bodyLeft;
-    const float drawOffsetX = introClip
-        ? hitboxWidth * (1.0f - introScale) * 0.5f - bodyLeft / metrics.cellWidth * visualWidth
+    const float drawOffsetX = (introClip || deathClip)
+        ? hitboxWidth * (1.0f - emphasisScale) * 0.5f - bodyLeft / metrics.cellWidth * visualWidth
         : -bodyLeft / metrics.cellWidth * visualWidth;
-    const float drawOffsetY = introClip
+    const float groundSnapOffsetY = deathClip ? hitboxHeight * 0.12f : 0.0f;
+    const float drawOffsetY = (introClip || deathClip)
         ? hitboxHeight - ((metrics.bodyTop + metrics.bodyHeight) / metrics.cellHeight * visualHeight)
         : -metrics.bodyTop / metrics.cellHeight * visualHeight;
     sprite->SetRenderScale(drawScaleX, drawScaleY);
-    sprite->SetRenderOffset(drawOffsetX, drawOffsetY);
+    sprite->SetRenderOffset(drawOffsetX, drawOffsetY + groundSnapOffsetY);
     sprite->SetFlipX(flipRight);
 
     if (!boss.shieldEntity)
@@ -393,17 +411,17 @@ inline const char* ToMidBoss2StateLabel(MidBoss2State state)
 {
     switch (state)
     {
-    case MidBoss2State::Idle: return "Idle";
-    case MidBoss2State::SpearJump: return "SpearJump";
-    case MidBoss2State::SpearThrow: return "SpearThrow";
-    case MidBoss2State::SpearLanding: return "SpearLanding";
-    case MidBoss2State::SpearCooldown: return "SpearCooldown";
-    case MidBoss2State::BeamCharge: return "BeamCharge";
-    case MidBoss2State::BeamFire: return "BeamFire";
-    case MidBoss2State::BeamCooldown: return "BeamCooldown";
-    case MidBoss2State::Damaged: return "Damaged";
-    case MidBoss2State::Dead: return "Dead";
-    default: return "Unknown";
+    case MidBoss2State::Idle: return "待機";
+    case MidBoss2State::SpearJump: return "ワープ";
+    case MidBoss2State::SpearThrow: return "攻撃";
+    case MidBoss2State::SpearLanding: return "着地";
+    case MidBoss2State::SpearCooldown: return "再配置";
+    case MidBoss2State::BeamCharge: return "チャージ";
+    case MidBoss2State::BeamFire: return "ビーム発射";
+    case MidBoss2State::BeamCooldown: return "再配置";
+    case MidBoss2State::Damaged: return "被弾";
+    case MidBoss2State::Dead: return "撃破";
+    default: return "不明";
     }
 }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 enum class GameEndReason
 {
     None,
@@ -18,6 +20,8 @@ struct GameSessionState
     float timeLimit = 30.0f;
     float timeRemaining = 30.0f;
     GameEndReason endReason = GameEndReason::None;
+    std::string startMapCsvPath = "assets/maps/stages/forest_v2.csv";
+    bool loadSavedProgress = true;
 };
 
 void GameSession_Reset(int maxHp, float timeLimit);
@@ -28,4 +32,8 @@ void GameSession_SetPhotoStorageSlots(int slots);
 void GameSession_SetRecoveryFilterOwned(bool owned);
 void GameSession_SetTimeRemaining(float timeRemaining);
 void GameSession_SetEndReason(GameEndReason reason);
+void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath);
+void GameSession_SetLoadSavedProgress(bool loadSavedProgress);
 const GameSessionState& GameSession_Get();
+const std::string& GameSession_GetStartMapCsvPath();
+bool GameSession_ShouldLoadSavedProgress();

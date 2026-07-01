@@ -62,6 +62,42 @@
       "rgbaB": "FF1D143A",
       "cellSize": 18
     },
+    "tile_default": {
+      "type": "file",
+      "path": "assets/texture/block.png"
+    },
+    "tile_forest_ground": {
+      "type": "file",
+      "path": "assets/texture/maptip/forest_ground.png"
+    },
+    "tile_value_2_blue": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_2_blue.png"
+    },
+    "tile_value_3_purple": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_3_purple.png"
+    },
+    "tile_value_h_damage": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_h_damage.png"
+    },
+    "tile_value_m_log": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_m_log.png"
+    },
+    "tile_value_battery": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_battery.png"
+    },
+    "tile_value_elevator_off": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_elevator_off.png"
+    },
+    "tile_value_elevator_on": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_elevator_on.png"
+    },
     "enemy1_idle": {
       "type": "file",
       "path": "assets/texture/enemy1/enemy1_idle.png"
@@ -138,6 +174,10 @@
       "type": "file",
       "path": "assets/texture/Apple.png"
     },
+    "arrow": {
+      "type": "file",
+      "path": "assets/texture/arrow.png"
+    },
 
     "sinrin10": {
       "type": "file",
@@ -146,6 +186,41 @@
     "sinrin11": {
       "type": "file",
       "path": "assets/texture/BG/forest/sinrin11.png"
+    },
+    "forest_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest.png"
+    },
+    "forest_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest.png"
+    },
+    "forest1_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_03.png"
+    },
+    "forest1_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_03.png"
+    },
+
+    "forest2_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_04.png"
+    },
+
+    "forest2_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_04.png"
+    },
+
+    "forest3_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_05.png"
+    },
+    "forest3_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_05.png"
     },
 
     "ruins_bg": {
@@ -160,7 +235,13 @@
     "photo_tray_backdrop": {
       "type": "file",
       "path": "assets/texture/photo_tray_backdrop.png"
+    },
+
+    "ui_hp": {
+      "type": "file",
+      "path": "assets/texture/testUI/UI_HP.png"
     }
+
 
   }
 }

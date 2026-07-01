@@ -83,7 +83,7 @@ bool GameScene::TryHandleModalUpdates(float deltaTime)
         return true;
     }
 
-    HandleGlobalSceneShortcuts();
+    HandleGlobalSceneShortcuts(deltaTime);
     ProcessFilterInput();
 
     UpdateTuningPanel();
@@ -127,6 +127,7 @@ void GameScene::FinalizeGameplayFrame(float effectiveGameplayDeltaTime)
 {
     GameSession_SetTimeRemaining(m_flow.timeRemaining);
     RunGameplayFrame(effectiveGameplayDeltaTime);
+    UpdateShieldBossBgmCue();
     if (Entity* player = FindEntityByTag(kTagPlayer))
     {
         game_scene_player_visual_system::UpdateAnimation(m_player, m_flow, *player, m_player.dodgeRemaining > 0.0f);
@@ -151,6 +152,8 @@ void GameScene::PrepareFrameRendering()
             baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
         }
     }
+    // 中ボス1との正規化距離に比例して、通常カメラを滑らかにズームアウトします。
+    baseCameraZoomMultiplier *= m_camera.shieldBossDistanceZoomScale;
     m_render.viewScaleMultiplier = m_mapEditor.active ? 1.0f : baseCameraZoomMultiplier;
 
     if (m_flow.screenShakeRemaining > 0.0f && m_flow.screenShakeDuration > 0.0f && m_flow.screenShakeAmplitude > 0.0f)
@@ -170,8 +173,17 @@ void GameScene::PrepareFrameRendering()
 
     if (!m_mapEditor.active)
     {
-        m_render.viewScaleMultiplier = baseCameraZoomMultiplier + zoomBlend * 0.08f;
-        m_render.zoomAnchorScreenCenter = m_flow.cameraMode;
+        const bool bossIntroZoomActive =
+            m_render.bossIntroCameraAnchorActive ||
+            m_render.bossIntroCameraZoomBoost > 0.01f;
+        m_render.viewScaleMultiplier = baseCameraZoomMultiplier + zoomBlend * 0.08f + m_render.slamCameraZoomBoost + m_render.bossIntroCameraZoomBoost;
+        if (bossIntroZoomActive)
+        {
+            // Keep the active camera target at the screen center while the intro zoom blends.
+            m_render.zoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
+            m_render.zoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;
+        }
+        m_render.zoomAnchorScreenCenter = m_flow.cameraMode || bossIntroZoomActive;
     }
 }
 
@@ -202,10 +214,45 @@ bool GameScene::IsMidBoss3IntroCinematicActive() const
     return false;
 }
 
+bool GameScene::IsShieldBossIntroCinematicActive() const
+{
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::ShieldBoss)
+        {
+            continue;
+        }
+        if (!enemy->IsEnabled() || enemy->IsDefeated())
+        {
+            continue;
+        }
+        if (boss->introDropActive || boss->appearAnimationActive || boss->roarAnimationActive)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void GameScene::DrawWorldAndUiLayers()
 {
-    const bool hideUiForMidBoss3Intro = IsMidBoss3IntroCinematicActive();
+    const bool hideUiForIntroCinematic = IsMidBoss3IntroCinematicActive() || IsShieldBossIntroCinematicActive();
 
+    DrawGameWorldLayers();
+    // UIをビネット対象から外すため、ワールドだけを先にポストプロセス合成する。
+    DirectXCompositeSceneToBackBuffer(static_cast<float>(GetNowCount()) * 0.001f);
+    DrawGameUiLayers(hideUiForIntroCinematic);
+}
+
+void GameScene::DrawGameWorldLayers()
+{
     DrawBackdrop();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Background);
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Shadow);
@@ -223,13 +270,31 @@ void GameScene::DrawWorldAndUiLayers()
     DrawEffects();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
     DrawPastedEntitiesFront();
+    // バッテリー必要数はスイッチ固有情報のため、UI非表示中もワールド上へ表示する。
+    DrawBatterySwitchCounters();
     DrawStageDarknessOverlay();
     DrawSepiaFilmFilterOverlay();
-    DrawMarkerLightOutlines();
-    if (hideUiForMidBoss3Intro)
+    DrawShieldBossSlamVignetteOverlay();
+    if (!m_debug.hideNonPhotoUi)
     {
+        DrawMarkerLightOutlines();
+    }
+}
+
+void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
+{
+    if (hideUiForIntroCinematic)
+    {
+        DrawShieldBossIntroCurtainOverlay();
         return;
     }
+    if (m_debug.hideNonPhotoUi)
+    {
+        DrawTestPhotos();
+        DrawEscapeMenuOverlay();
+        return;
+    }
+    DrawTestPhotos();
     DrawPhotoPlacementPreview();
     DrawCaptureOverlay();
     DrawPhotoStorageTray();
@@ -240,13 +305,13 @@ void GameScene::DrawWorldAndUiLayers()
     DrawMerchantShopOverlay();
     DrawMapEditorOverlay();
     DrawTuningPanel();
-    DrawBatterySwitchCounters();
     DrawPlayerHpBar();
     DrawPartsHud();
     DrawMidBoss2HpBar();
     DrawMidBoss3HpBar();
     DrawAttackCaptureSlot();
     DrawEnemyAttackRects();
+    DrawShieldBossIntroCurtainOverlay();
 }
 
 void GameScene::ResetFrameRendering()
@@ -254,6 +319,7 @@ void GameScene::ResetFrameRendering()
     m_render.shakeOffsetX = 0.0f;
     m_render.shakeOffsetY = 0.0f;
     m_render.viewScaleMultiplier = 1.0f;
+    m_render.bossIntroCameraAnchorActive = false;
     m_render.zoomAnchorScreenCenter = false;
     m_render.zoomAnchorX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
     m_render.zoomAnchorY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;

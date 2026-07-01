@@ -11,6 +11,9 @@ namespace game_scene_player_movement_system
 {
 using namespace game_scene_detail;
 
+constexpr float kPlayerCollisionInsetX = 1.0f;
+constexpr float kPlayerCollisionInsetY = 1.0f;
+
 struct PlayerMovementContext
 {
     float deltaTime = 0.0f;
@@ -32,10 +35,10 @@ bool CanOccupyTileSpace(
     IsSolidTileFn&& isSolidTile,
     IntersectsSolidObjectFn&& intersectsSolidObject)
 {
-    const int columnStart = static_cast<int>((transform.x + 6.0f) / ctx.tileSize);
-    const int columnEnd = static_cast<int>((transform.x + ctx.playerWidth - 6.0f) / ctx.tileSize);
-    const int rowStart = static_cast<int>((transform.y + 4.0f) / ctx.tileSize);
-    const int rowEnd = static_cast<int>((transform.y + ctx.playerHeight - 4.0f) / ctx.tileSize);
+    const int columnStart = static_cast<int>((transform.x + kPlayerCollisionInsetX) / ctx.tileSize);
+    const int columnEnd = static_cast<int>((transform.x + ctx.playerWidth - kPlayerCollisionInsetX) / ctx.tileSize);
+    const int rowStart = static_cast<int>((transform.y + kPlayerCollisionInsetY) / ctx.tileSize);
+    const int rowEnd = static_cast<int>((transform.y + ctx.playerHeight - kPlayerCollisionInsetY) / ctx.tileSize);
     for (int row = rowStart; row <= rowEnd; ++row)
     {
         for (int column = columnStart; column <= columnEnd; ++column)
@@ -63,8 +66,8 @@ void ResolveHorizontalTileCollisions(
     if (player.velocityX > 0.0f)
     {
         const int column = static_cast<int>((transform.x + ctx.playerWidth - 1.0f) / ctx.tileSize);
-        const int rowStart = static_cast<int>((transform.y + 4.0f) / ctx.tileSize);
-        const int rowEnd = static_cast<int>((transform.y + ctx.playerHeight - 4.0f) / ctx.tileSize);
+        const int rowStart = static_cast<int>((transform.y + kPlayerCollisionInsetY) / ctx.tileSize);
+        const int rowEnd = static_cast<int>((transform.y + ctx.playerHeight - kPlayerCollisionInsetY) / ctx.tileSize);
         for (int row = rowStart; row <= rowEnd; ++row)
         {
             if (isSolidTile(column, row))
@@ -96,8 +99,8 @@ void ResolveHorizontalTileCollisions(
     else if (player.velocityX < 0.0f)
     {
         const int column = static_cast<int>(transform.x / ctx.tileSize);
-        const int rowStart = static_cast<int>((transform.y + 4.0f) / ctx.tileSize);
-        const int rowEnd = static_cast<int>((transform.y + ctx.playerHeight - 4.0f) / ctx.tileSize);
+        const int rowStart = static_cast<int>((transform.y + kPlayerCollisionInsetY) / ctx.tileSize);
+        const int rowEnd = static_cast<int>((transform.y + ctx.playerHeight - kPlayerCollisionInsetY) / ctx.tileSize);
         for (int row = rowStart; row <= rowEnd; ++row)
         {
             if (isSolidTile(column, row))
@@ -205,13 +208,13 @@ inline void ResolveHorizontalObjectCollisions(
 
             if (player.velocityX > 0.0f)
             {
-                transform.x = resolvedX - 0.5f;
+                transform.x = resolvedX;
                 player.velocityX = 0.0f;
                 break;
             }
             if (player.velocityX < 0.0f)
             {
-                transform.x = resolvedX + 0.5f;
+                transform.x = resolvedX;
                 player.velocityX = 0.0f;
                 break;
             }
@@ -280,8 +283,8 @@ void ResolveVerticalMotion(
         {
             const int rowStart = static_cast<int>(ctx.previousBottom / ctx.tileSize);
             const int rowEnd = static_cast<int>((transform.y + ctx.playerHeight - 1.0f) / ctx.tileSize);
-            const int columnStart = static_cast<int>((transform.x + 6.0f) / ctx.tileSize);
-            const int columnEnd = static_cast<int>((transform.x + ctx.playerWidth - 6.0f) / ctx.tileSize);
+            const int columnStart = static_cast<int>((transform.x + kPlayerCollisionInsetX) / ctx.tileSize);
+            const int columnEnd = static_cast<int>((transform.x + ctx.playerWidth - kPlayerCollisionInsetX) / ctx.tileSize);
             for (int row = rowStart; row <= rowEnd; ++row)
             {
                 bool collided = false;
@@ -335,7 +338,7 @@ void ResolveVerticalMotion(
                             }
                         }
 
-                        transform.y = resolvedY - 0.5f;
+                        transform.y = resolvedY;
                         player.velocityY = 0.0f;
                         player.grounded = true;
                         break;
@@ -364,8 +367,8 @@ void ResolveVerticalMotion(
         {
             const int rowStart = static_cast<int>(ctx.previousY / ctx.tileSize);
             const int rowEnd = static_cast<int>(transform.y / ctx.tileSize);
-            const int columnStart = static_cast<int>((transform.x + 6.0f) / ctx.tileSize);
-            const int columnEnd = static_cast<int>((transform.x + ctx.playerWidth - 6.0f) / ctx.tileSize);
+            const int columnStart = static_cast<int>((transform.x + kPlayerCollisionInsetX) / ctx.tileSize);
+            const int columnEnd = static_cast<int>((transform.x + ctx.playerWidth - kPlayerCollisionInsetX) / ctx.tileSize);
             for (int row = rowStart; row >= rowEnd; --row)
             {
                 bool collided = false;
@@ -411,7 +414,7 @@ void ResolveVerticalMotion(
                         }
                     }
 
-                    transform.y = resolvedY + 0.5f;
+                    transform.y = resolvedY;
                     player.velocityY = 0.0f;
                     break;
                 }

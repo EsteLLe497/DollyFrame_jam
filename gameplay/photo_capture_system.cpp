@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "photo_capture_system.h"
 
@@ -13,14 +13,28 @@ using namespace game_scene_detail;
 
 namespace
 {
-    constexpr float kDevelopedPhotoPreviewSeconds = 4.2f;
     constexpr float kUnlockedCameraFlashPulseSeconds = 0.28f;
     constexpr float kMidBoss3CapturedFistWidth = 144.0f;
     constexpr float kMidBoss3CapturedFistHeight = 96.0f;
     constexpr float kMidBoss3CapturedDrillWidth = 192.0f;
     constexpr float kMidBoss3CapturedDrillHeight = 96.0f;
+    constexpr int kShieldBossRushCaptureStartFrame = 60;
 
     using OutlinePoint = CapturedPhotoItem::OutlinePoint;
+
+    bool IsShieldBossRushCaptureReady(const Entity& bossEntity)
+    {
+        const auto* boss = bossEntity.GetComponent<ShieldBossComponent>();
+        if (!boss || boss->state != ShieldBossState::Rush)
+        {
+            return false;
+        }
+
+        const auto* animation = bossEntity.GetComponent<SpriteSheetAnimationComponent>();
+        return animation &&
+            animation->GetCurrentClipName() == "attack01" &&
+            animation->GetCurrentLocalFrameIndex() >= kShieldBossRushCaptureStartFrame;
+    }
 
     OutlinePoint LerpPoint(const OutlinePoint& a, const OutlinePoint& b, float t)
     {
@@ -251,6 +265,87 @@ namespace
         }
     }
 
+    bool AppendShieldBossMotionCaptureItem(
+        PhotoCaptureState& capture,
+        PhotoFilterTheme selectedTheme,
+        const ShieldComponent& shield,
+        float frameX,
+        float frameY,
+        std::vector<const Entity*>& capturedBossVisuals)
+    {
+        const Entity* bossEntity = shield.ownerBoss;
+        if (!bossEntity)
+        {
+            return false;
+        }
+
+        if (std::find(capturedBossVisuals.begin(), capturedBossVisuals.end(), bossEntity) != capturedBossVisuals.end())
+        {
+            return false;
+        }
+
+        const auto* boss = bossEntity->GetComponent<ShieldBossComponent>();
+        const auto* transform = bossEntity->GetComponent<TransformComponent>();
+        const auto* sprite = bossEntity->GetComponent<SpriteRenderComponent>();
+        if (!boss ||
+            boss->deathAnimationActive ||
+            boss->deathAnimationFinished ||
+            !transform ||
+            !sprite)
+        {
+            return false;
+        }
+        if (boss->state == ShieldBossState::Rush && !IsShieldBossRushCaptureReady(*bossEntity))
+        {
+            return false;
+        }
+
+        const float drawWidth = transform->width * transform->scale * sprite->GetRenderScaleX();
+        const float drawHeight = transform->height * transform->scale * sprite->GetRenderScaleY();
+        if (drawWidth <= 1.0f || drawHeight <= 1.0f)
+        {
+            return false;
+        }
+
+        // 攻撃キャプチャのシールドだけでなく、ボス本体の現在モーションも写真に同梱する。
+        CapturedPhotoItem bossItem;
+        bossItem.textureId = sprite->GetTextureId();
+        bossItem.role = PhotoCopyRole::Hazard;
+        bossItem.layer = PhotoCopyLayer::Background;
+        bossItem.origin = PhotoCopyOrigin::Enemy;
+        bossItem.appliedTheme = selectedTheme;
+        bossItem.relativeX = transform->x + sprite->GetRenderOffsetX() - frameX;
+        bossItem.relativeY = transform->y + sprite->GetRenderOffsetY() - frameY;
+        bossItem.width = drawWidth;
+        bossItem.height = drawHeight;
+        bossItem.sourceX = sprite->GetSourceX();
+        bossItem.sourceY = sprite->GetSourceY();
+        bossItem.sourceWidth = sprite->GetSourceWidth();
+        bossItem.sourceHeight = sprite->GetSourceHeight();
+        bossItem.rotation = transform->rotation + sprite->GetRenderRotationOffset();
+        bossItem.flipX = sprite->GetFlipX();
+        bossItem.tintA = 0.92f;
+        bossItem.spawnArchetype = CapturedSpawnArchetype::None;
+        bossItem.enemyAttackPaste = false;
+        bossItem.placementRuleGroup = PhotoPlacementRuleGroup::Group3;
+        bossItem.bossMotionClip =
+            boss->state == ShieldBossState::Rush
+            ? 1
+            : 2;
+
+        if (const auto* tint = bossEntity->GetComponent<TintComponent>())
+        {
+            bossItem.tintR = tint->r;
+            bossItem.tintG = tint->g;
+            bossItem.tintB = tint->b;
+            bossItem.tintA = std::min(tint->a, bossItem.tintA);
+        }
+
+        capture.items.push_back(bossItem);
+        capturedBossVisuals.push_back(bossEntity);
+        return true;
+    }
+
     void AppendEntitiesByTag(
         std::vector<Entity*>& outEntities,
         const GameScene& scene,
@@ -433,6 +528,8 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     float frameY = 0.0f;
     float frameWidth = 0.0f;
     float frameHeight = 0.0f;
+    // 撮影判定も描画時と同じビュー状態で計算し、ファインダーの見た目と一致させる。
+    scene.PrepareFrameRendering();
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
     bool restoredSepiaBackground = false;
     scene.m_flow.cameraMode = false;
@@ -545,6 +642,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     bool capturedMidBoss3FistRubbleAttack = false;
     bool capturedMidBoss3DrillRubbleAttack = false;
     bool capturedMidBoss2Spear = false;
+    std::vector<const Entity*> capturedBossVisuals;
     std::vector<Entity*> captureCandidates;
     captureCandidates.reserve(
         scene.EntitiesByTag(EntityTag::Enemy).size() +
@@ -632,7 +730,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if ((HasTag(*entity, EntityTag::LaserBeam) && !isCapturableBossBeam) ||
             (HasTag(*entity, EntityTag::LaserTurret) &&
                 (!bossBeamCapture || !bossBeamCapture->captureEnabled)) ||
-            HasTag(*entity, EntityTag::StageLight))
+            HasTag(*entity, EntityTag::StageLight) ||
+            HasTag(*entity, EntityTag::HangingGravityObject))
         {
             continue;
         }
@@ -674,6 +773,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
 
         if (HasTag(*entity, EntityTag::BatterySwitch) ||
+            HasTag(*entity, EntityTag::BatteryGenerator) ||
+            HasTag(*entity, EntityTag::ConveyorBelt) ||
             HasTag(*entity, EntityTag::Elevator) ||
             HasTag(*entity, EntityTag::LaserSwitch) ||
             HasTag(*entity, EntityTag::Shutter) ||
@@ -927,6 +1028,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             if (const auto* bossComp = shieldComp->ownerBoss->GetComponent<ShieldBossComponent>())
             {
+                if (bossComp->deathAnimationActive || bossComp->deathAnimationFinished)
+                {
+                    continue;
+                }
                 if (bossComp->state == ShieldBossState::SlamPhase1 ||
                     bossComp->state == ShieldBossState::SlamPhase2)
                 {
@@ -961,7 +1066,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     switch (bossComp->state)
                     {
                     case ShieldBossState::Rush:
-                        capturedShieldArchetype = CapturedSpawnArchetype::ShieldRushBurst;
+                        // 攻撃①のチャージ中も盾だけは通常盾として保存できるようにします。
+                        capturedShieldArchetype = IsShieldBossRushCaptureReady(*shieldComp->ownerBoss)
+                            ? CapturedSpawnArchetype::ShieldRushBurst
+                            : CapturedSpawnArchetype::ShieldNormal;
                         break;
                     case ShieldBossState::JumpAscend:
                     case ShieldBossState::AirHover:
@@ -1129,6 +1237,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.sourceY = sprite->GetSourceY();
             item.sourceWidth = sprite->GetSourceWidth();
             item.sourceHeight = sprite->GetSourceHeight();
+            // 盾単体の写真は、ボスの向きに合わせた左右反転も再現します。
+            item.flipX = sprite->GetFlipX();
             item.collisionOutline.clear();
             item.collisionOutline.push_back({ 0.0f, 0.0f });
             item.collisionOutline.push_back({ 1.0f, 0.0f });
@@ -1292,6 +1402,21 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         scene.m_photo.capture.items.push_back(item);
         scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
+        if (capturedShieldAttack && shieldComp)
+        {
+            if (AppendShieldBossMotionCaptureItem(
+                    scene.m_photo.capture,
+                    scene.m_photo.capture.selectedTheme,
+                    *shieldComp,
+                    frameX,
+                    frameY,
+                    capturedBossVisuals))
+            {
+                const CapturedPhotoItem& bossItem = scene.m_photo.capture.items.back();
+                capturedMaxRight = (std::max)(capturedMaxRight, bossItem.relativeX + bossItem.width);
+                capturedMaxBottom = (std::max)(capturedMaxBottom, bossItem.relativeY + bossItem.height);
+            }
+        }
         if (capturedMidBoss3FistRubble)
         {
             capturedMidBoss3FistRubbleAttack = true;
@@ -1436,6 +1561,6 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
         scene.StartCameraFlashPulse(kUnlockedCameraFlashPulseSeconds);
     }
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
-    scene.m_ui.developedPhotoPreviewRemaining = kDevelopedPhotoPreviewSeconds;
+    scene.m_ui.developedPhotoPreviewRemaining = scene.m_ui.tuning.developedPhotoPreview.lifetime;
 }
 

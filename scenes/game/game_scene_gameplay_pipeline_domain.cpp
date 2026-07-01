@@ -16,9 +16,9 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     UpdatePlayer(gameplayDeltaTime);
     HandlePhotoCapture();
     TryUseAttackCaptureSlot();
-    HandlePhotoSpawn();
     UpdateBarrels(gameplayDeltaTime);
     UpdateFallingRocks(gameplayDeltaTime);
+    UpdateHangingGravityObjects(gameplayDeltaTime);
     UpdateJumpPads(gameplayDeltaTime);
     UpdateBatteries(gameplayDeltaTime);
     UpdateLaserTurrets(gameplayDeltaTime);
@@ -26,6 +26,10 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     UpdateMerchants(gameplayDeltaTime);
     UpdateEnemies();
     UpdateShields(gameplayDeltaTime);
+    ApplyShieldBossSlamCameraWork(gameplayDeltaTime);
+    ApplyShieldBossFramingCameraWork(gameplayDeltaTime);
+    // 配置座標は、このフレームのボスカメラとズームが確定してから計算する。
+    HandlePhotoSpawn();
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step
     UpdateSepiaRestoredLifetimes(gameplayDeltaTime);
@@ -35,6 +39,10 @@ void GameScene::ResolveGameplayOutcomes(float gameplayDeltaTime)
 {
     UpdateGoalVisual(gameplayDeltaTime);
     HandleWorldInteractions();
+    if (!m_flow.pitRestartActive && !m_flow.resultQueued)
+    {
+        HandleAttackHits();
+    }
     RemoveDefeatedEnemies();
     UpdateEffects(gameplayDeltaTime);
 }

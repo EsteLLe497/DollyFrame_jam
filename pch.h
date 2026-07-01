@@ -21,6 +21,13 @@
 #include "DxLib.h"
 
 #include <imgui.h>
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 26495)
+#endif
 #include <nlohmann/json.hpp>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #include <sol/sol.hpp>
 #include <tracy/Tracy.hpp>

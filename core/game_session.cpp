@@ -19,6 +19,7 @@ void GameSession_Reset(int maxHp, float timeLimit)
     g_sessionState.timeLimit = timeLimit;
     g_sessionState.timeRemaining = timeLimit;
     g_sessionState.endReason = GameEndReason::None;
+    g_sessionState.loadSavedProgress = true;
 }
 
 void GameSession_SetCurrentHp(int currentHp)
@@ -63,7 +64,29 @@ void GameSession_SetEndReason(GameEndReason reason)
     g_sessionState.endReason = reason;
 }
 
+void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath)
+{
+    g_sessionState.startMapCsvPath = startMapCsvPath.empty()
+        ? std::string("assets/maps/stages/forest.csv")
+        : startMapCsvPath;
+}
+
+void GameSession_SetLoadSavedProgress(bool loadSavedProgress)
+{
+    g_sessionState.loadSavedProgress = loadSavedProgress;
+}
+
 const GameSessionState& GameSession_Get()
 {
     return g_sessionState;
+}
+
+const std::string& GameSession_GetStartMapCsvPath()
+{
+    return g_sessionState.startMapCsvPath;
+}
+
+bool GameSession_ShouldLoadSavedProgress()
+{
+    return g_sessionState.loadSavedProgress;
 }

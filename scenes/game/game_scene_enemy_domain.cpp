@@ -4,6 +4,7 @@
 #include "game_scene_combat_common.h"
 #include "game_scene_combat_enemy_system.h"
 #include "game_scene_combat_bullet_system.h"
+#include "audio.h"
 
 #include <algorithm>
 #include <array>
@@ -28,11 +29,11 @@ namespace
     inline constexpr int kEnemy2IdleSheetColumns = 10;
     inline constexpr int kEnemy2IdleSheetRows = 11;
     inline constexpr int kEnemy2IdleFrameCount = 110;
-    inline constexpr float kEnemy2IdleFps = 12.0f;
+    inline constexpr float kEnemy2IdleFps = 48.0f;
     inline constexpr int kEnemy2AttackSheetColumns = 10;
-    inline constexpr int kEnemy2AttackSheetRows = 8;
+    inline constexpr int kEnemy2AttackSheetRows = 11;
     inline constexpr int kEnemy2AttackFrameCount = 80;
-    inline constexpr float kEnemy2AttackFps = 18.0f;
+    inline constexpr float kEnemy2AttackFps = 30.0f;
     inline constexpr int kBoss1MoveSheetColumns = 5;
     inline constexpr int kBoss1MoveSheetRows = 6;
     inline constexpr int kBoss1MoveFrameCount = 30;
@@ -61,6 +62,23 @@ namespace
     constexpr float kEnemyDefeatHitStopSeconds = 0.08f;
     constexpr float kEnemyDefeatShakeSeconds = 0.18f;
     constexpr float kEnemyDefeatShakeAmplitude = 14.0f;
+    constexpr float kEnemyKnockbackHitStopSeconds = 0.055f;
+    constexpr float kEnemyKnockbackShakeSeconds = 0.16f;
+    constexpr float kEnemyKnockbackShakeAmplitude = 15.0f;
+    constexpr float kBossKnockbackHitStopSeconds = 0.085f;
+    constexpr float kBossKnockbackShakeSeconds = 0.26f;
+    constexpr float kBossKnockbackShakeAmplitude = 60.0f;
+    constexpr float kNormalShieldBossHitStopSeconds = 0.10f;
+    constexpr float kNormalShieldBossHitShakeSeconds = 0.34f;
+    constexpr float kNormalShieldBossHitShakeAmplitude = 92.0f;
+    constexpr float kBossDefeatStartHitStopSeconds = 0.14f;
+    constexpr float kBossDefeatStartShakeSeconds = 0.44f;
+    constexpr float kBossDefeatStartShakeAmplitude = 64.0f;
+    constexpr float kBossDefeatFinishHitStopSeconds = 0.08f;
+    constexpr float kBossDefeatFinishShakeSeconds = 0.34f;
+    constexpr float kBossDefeatFinishShakeAmplitude = 42.0f;
+    constexpr float kShieldBossStageBgmReturnDelaySeconds = 1.25f;
+    constexpr float kShieldBossStageBgmReturnCrossFadeSeconds = 1.6f;
 
     float ResolveMidBoss3DamageDirection(const Entity& enemy, const Entity* sourceEntity)
     {
@@ -196,6 +214,62 @@ namespace
         flow.screenShakeAmplitude = kEnemyDefeatShakeAmplitude;
     }
 
+    void TriggerEnemyKnockbackFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kEnemyKnockbackHitStopSeconds);
+        if (!screenShakeEnabled)
+        {
+            return;
+        }
+
+        flow.screenShakeRemaining = (std::max)(flow.screenShakeRemaining, kEnemyKnockbackShakeSeconds);
+        flow.screenShakeDuration = (std::max)(flow.screenShakeDuration, kEnemyKnockbackShakeSeconds);
+        flow.screenShakeAmplitude = (std::max)(flow.screenShakeAmplitude, kEnemyKnockbackShakeAmplitude);
+    }
+
+    void TriggerBossKnockbackFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossKnockbackHitStopSeconds);
+        if (!screenShakeEnabled)
+        {
+            return;
+        }
+
+        flow.screenShakeRemaining = (std::max)(flow.screenShakeRemaining, kBossKnockbackShakeSeconds);
+        flow.screenShakeDuration = (std::max)(flow.screenShakeDuration, kBossKnockbackShakeSeconds);
+        flow.screenShakeAmplitude = (std::max)(flow.screenShakeAmplitude, kBossKnockbackShakeAmplitude);
+    }
+
+    void TriggerNormalShieldBossHitFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kNormalShieldBossHitStopSeconds);
+        if (!screenShakeEnabled)
+        {
+            return;
+        }
+
+        // 通常盾はボスを動かさないため、画面側を強めに揺らして命中感を出す。
+        flow.screenShakeRemaining = kNormalShieldBossHitShakeSeconds;
+        flow.screenShakeDuration = kNormalShieldBossHitShakeSeconds;
+        flow.screenShakeAmplitude = kNormalShieldBossHitShakeAmplitude;
+    }
+
+    void TriggerBossDefeatStartFeedback(GameSceneFlowState& flow)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossDefeatStartHitStopSeconds);
+        flow.screenShakeRemaining = kBossDefeatStartShakeSeconds;
+        flow.screenShakeDuration = kBossDefeatStartShakeSeconds;
+        flow.screenShakeAmplitude = kBossDefeatStartShakeAmplitude;
+    }
+
+    void TriggerBossDefeatFinishFeedback(GameSceneFlowState& flow)
+    {
+        flow.hitStopRemaining = (std::max)(flow.hitStopRemaining, kBossDefeatFinishHitStopSeconds);
+        flow.screenShakeRemaining = kBossDefeatFinishShakeSeconds;
+        flow.screenShakeDuration = kBossDefeatFinishShakeSeconds;
+        flow.screenShakeAmplitude = kBossDefeatFinishShakeAmplitude;
+    }
+
     using BossTextureResolver = std::function<int(const std::string&)>;
 
     void DefineLazyRowsClip(
@@ -242,6 +316,29 @@ namespace
             frameCount,
             fps,
             loop);
+    }
+
+    void PlayShieldBossSoundCue(const char* cueName)
+    {
+        if (!cueName)
+        {
+            return;
+        }
+
+        // 中ボス1専用SEは発生フレームが重要なので、イベント待ちにせず即時再生する。
+        Audio_PlayCue(cueName);
+        Logger::Info(std::string("ShieldBoss SE requested: ") + cueName);
+    }
+
+    void StopShieldBossSoundCue(const char* cueName)
+    {
+        if (!cueName)
+        {
+            return;
+        }
+
+        Audio_StopCue(cueName);
+        Logger::Info(std::string("ShieldBoss SE stopped: ") + cueName);
     }
 
 }
@@ -309,6 +406,10 @@ void GameScene::ConfigureRangedSpriteAnimation(Entity& enemy)
     const int attackTexture = m_assets.GetTexture("enemy2_attack");
     const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : sprite->GetTextureId();
     const int resolvedAttackTexture = attackTexture >= 0 ? attackTexture : resolvedIdleTexture;
+    if (auto* enemyComponent = enemy.GetComponent<EnemyComponent>())
+    {
+        enemyComponent->attackTimer = enemyComponent->attackCooldown;
+    }
 
     // Enemy2 is left-facing; the shot is emitted on the attack clip's 39th frame.
     sprite->SetFlipX(false);
@@ -474,6 +575,18 @@ void GameScene::ConfigureBossShieldSpriteAnimation(Entity& shield)
 
 void GameScene::UpdateEnemies()
 {
+    if (m_flow.stageBgmCrossFadePending)
+    {
+        m_flow.stageBgmCrossFadeDelayRemaining = std::max(
+            0.0f,
+            m_flow.stageBgmCrossFadeDelayRemaining - m_flow.lastDeltaTime);
+        if (m_flow.stageBgmCrossFadeDelayRemaining <= 0.0f)
+        {
+            m_flow.stageBgmCrossFadePending = false;
+            CrossFadeStageBgmForCurrentMap(kShieldBossStageBgmReturnCrossFadeSeconds);
+        }
+    }
+
     Entity* player = FindEntityByTag(kTagPlayer);
     const TransformComponent* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
     const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
@@ -612,15 +725,23 @@ void GameScene::UpdateEnemies()
                         enemy->MarkDefeated();
                         enemy->respawnEnabled = false;
                         m_flow.shieldBossDefeatedThisScene = true;
+                        PlayShieldBossSoundCue("boss_forest_destroy");
+                        m_flow.stageBgmCrossFadePending = true;
+                        m_flow.stageBgmCrossFadeDelayRemaining = kShieldBossStageBgmReturnDelaySeconds;
 
                         if (const auto* transform = entity->GetComponent<TransformComponent>())
                         {
+                            const float centerX = transform->x + transform->width * transform->scale * 0.5f;
+                            const float centerY = transform->y + transform->height * transform->scale * 0.5f;
+                            const float groundY = transform->y + transform->height * transform->scale;
+                            const float width = transform->width * transform->scale;
                             SpawnDropItems(
-                                transform->x + transform->width * transform->scale * 0.5f,
-                                transform->y + transform->height * transform->scale * 0.5f,
+                                centerX,
+                                centerY,
                                 GetEnemyDropCount(enemy->GetArchetype()));
+                            SpawnBossDefeatStartEffect(centerX, groundY, width);
                         }
-                        TriggerEnemyDefeatFeedback(m_flow);
+                        TriggerBossDefeatFinishFeedback(m_flow);
                     }
                 }
                 if (boss->shieldEntity)
@@ -660,10 +781,61 @@ void GameScene::UpdateEnemies()
         [this](Entity& bossEntity)
         {
             static_cast<void>(bossEntity);
+            PlayShieldBossSoundCue("boss_forest_roar");
         },
-        [this](float fromX, float fromY, float toX, float toY, float width, float height)
+        [this](Entity& bossEntity, const char* cueName)
         {
-            SpawnTeleportTrailEffect(fromX, fromY, toX, toY, width, height);
+            static_cast<void>(bossEntity);
+            PlayShieldBossSoundCue(cueName);
+        },
+        [this](Entity& bossEntity, const char* cueName)
+        {
+            static_cast<void>(bossEntity);
+            StopShieldBossSoundCue(cueName);
+        },
+        [this](
+            float fromX,
+            float fromY,
+            float toX,
+            float toY,
+            float width,
+            float height,
+            const MidBoss2Component::Params& params)
+        {
+            SpawnTeleportTrailEffect(fromX, fromY, toX, toY, width, height, params);
+        },
+        [this](float centerX, float groundY, float width)
+        {
+            SpawnSlamImpactEffect(centerX, groundY, width);
+        },
+        [this](float centerX, float groundY, float direction)
+        {
+            SpawnRushSmokeEffect(centerX, groundY, direction);
+        },
+        [this](float centerX, float groundY, float width)
+        {
+            SpawnLightLandingEffect(centerX, groundY, width);
+        },
+        [this](float centerX, float groundY, float width)
+        {
+            SpawnBossRoarEffect(centerX, groundY, width);
+        },
+        [this](float x, float y, float radius, float intensity, float directionX)
+        {
+            BeamShockwaveParticle shockwave;
+            shockwave.x = x;
+            shockwave.y = y;
+            shockwave.startRadius = radius * 0.22f;
+            shockwave.endRadius = radius * std::max(0.1f, intensity);
+            shockwave.thickness = std::max(8.0f, radius * 0.08f);
+            shockwave.life = 0.36f;
+            shockwave.maxLife = shockwave.life;
+            shockwave.directionX = directionX;
+            m_effects.beamShockwaves.push_back(shockwave);
+        },
+        [this](float x, float y, float width, float height)
+        {
+            SpawnMidBoss3FistImpactEffect(x, y, width, height);
         },
         [this, player](Entity* sourceEntity, int amount, const char* logMessage)
         {
@@ -734,6 +906,7 @@ void GameScene::UpdateBullets()
     Entity* player = FindEntityByTag(kTagPlayer);
     const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
     const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
+    const auto& protectiveWallEntities = m_world.EntitiesByTag(EntityTag::ProtectiveWall);
     std::vector<TransformComponent> obstacleBounds;
     {
         std::vector<TransformComponent> tempBounds;
@@ -770,10 +943,13 @@ void GameScene::UpdateBullets()
     game_scene_combat_system::UpdateBullets(
         bulletEntities,
         enemyEntities,
+        protectiveWallEntities,
         obstacleBounds,
         GetMapPixelWidth(),
         GetMapPixelHeight(),
         m_flow.lastDeltaTime,
+        m_flow,
+        m_debug.screenShakeEnabled,
         player,
         [this](const Entity& a, const Entity& b)
         {
@@ -786,6 +962,10 @@ void GameScene::UpdateBullets()
         [this](Entity& enemyEntity, Entity* sourceEntity, int amount, const char* logMessage)
         {
             HandleEnemyDamage(enemyEntity, sourceEntity, amount, logMessage);
+        },
+        [this](float centerX, float centerY, float width, float height)
+        {
+            SpawnMidBoss2SpearFadeEffect(centerX, centerY, width, height);
         },
         [this](float x, float y) -> bool
         {
@@ -813,8 +993,7 @@ void GameScene::SpawnDropItems(float x, float y, int count)
         auto item = std::make_unique<Entity>();
         item->AddComponent<TagComponent>(kTagDropItem);
         item->AddComponent<TransformComponent>(x, y, 10.0f, 10.0f);
-        const float hue = static_cast<float>(rand() % 100) * 0.01f;
-        item->AddComponent<TintComponent>(0.96f, 0.76f + hue * 0.2f, 0.10f + hue * 0.3f, 1.0f);
+        item->AddComponent<TintComponent>(0.42f, 0.86f, 1.0f, 1.0f);
         item->AddComponent<SpriteRenderComponent>(m_whiteTexture);
         item->AddComponent<DropItemComponent>(1, velX, velY);
         m_world.QueueSpawn(std::move(item));
@@ -1042,20 +1221,21 @@ void GameScene::UpdateShields(float deltaTime)
                 shieldBoss->state == ShieldBossState::SlamPhase1 ||
                 shieldBoss->state == ShieldBossState::SlamPhase2)
             {
-                return;
+                return false;
             }
             shieldBoss->knockbackActive = true;
             shieldBoss->knockbackTimer = 0.0f;
             shieldBoss->knockbackStartX = transform.x;
             shieldBoss->knockbackStartY = transform.y;
             shieldBoss->knockbackTargetX = transform.x + direction * distance;
-            return;
+            return true;
         }
         enemy.knockbackActive = true;
         enemy.knockbackTimer = 0.0f;
         enemy.knockbackStartX = transform.x;
         enemy.knockbackStartY = transform.y;
         enemy.knockbackTargetX = transform.x + direction * distance;
+        return true;
     };
 
     std::vector<Entity*> shieldEntities;
@@ -1332,7 +1512,21 @@ void GameScene::UpdateShields(float deltaTime)
                             shockComp.lifetime = 0.4f;
                             shockComp.damagesPlayer = false;
                             spawnedShockwaves.push_back(std::move(shockwave));
+
+                            m_flow.screenShakeRemaining = std::max(m_flow.screenShakeRemaining, 0.18f);
+                            m_flow.screenShakeDuration = std::max(m_flow.screenShakeDuration, 0.18f);
+                            m_flow.screenShakeAmplitude = std::max(m_flow.screenShakeAmplitude, 16.0f);
+                            SpawnSlamImpactEffect(
+                                shieldTransform->x + shieldTransform->width * shieldTransform->scale * 0.5f,
+                                shockGroundY,
+                                shockW);
+                            if (!shield->shieldDropSoundPlayed)
+                            {
+                                shield->shieldDropSoundPlayed = true;
+                                PlayShieldBossSoundCue("boss_forest_shield_drop");
+                            }
                         }
+                        shieldsToRemove.push_back(entity);
                     }
                 }
                 break;
@@ -1483,6 +1677,21 @@ void GameScene::UpdateShields(float deltaTime)
                 shield->hitEntities.push_back(target);
             }
 
+            if (shield->photoSpawned &&
+                shield->capturedMode == CapturedShieldMode::RushBurst &&
+                !shield->knockbackSoundPlayed)
+            {
+                shield->knockbackSoundPlayed = true;
+                PlayShieldBossSoundCue("boss_forest_knockback");
+            }
+            if (shield->photoSpawned &&
+                shield->capturedMode == CapturedShieldMode::Normal &&
+                !shield->shieldDropSoundPlayed)
+            {
+                shield->shieldDropSoundPlayed = true;
+                PlayShieldBossSoundCue("boss_forest_shield_drop");
+            }
+
             HandleEnemyDamage(*target, entity, shield->contactDamage, "BossShield damaged enemy");
 
             const auto* shieldBoss = target->GetComponent<ShieldBossComponent>();
@@ -1497,7 +1706,26 @@ void GameScene::UpdateShields(float deltaTime)
                 const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
                 dir = enemyCenterX >= shieldCenterX ? 1.0f : -1.0f;
             }
-            startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize);
+            const bool skipNormalShieldBossKnockback =
+                normalCapturedShield &&
+                shieldBoss &&
+                enemy->GetArchetype() == EnemyArchetype::ShieldBoss;
+            if (skipNormalShieldBossKnockback)
+            {
+                // 通常盾はボスを動かさず、命中感だけヒットストップとシェイクで出す。
+                TriggerNormalShieldBossHitFeedback(m_flow, m_debug.screenShakeEnabled);
+            }
+            else if (startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize))
+            {
+                if (shieldBoss)
+                {
+                    TriggerBossKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+                else
+                {
+                    TriggerEnemyKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+            }
 
             if (canRemoveNormalCapturedShield)
             {
@@ -1596,7 +1824,17 @@ void GameScene::UpdateShields(float deltaTime)
                 const float enemyCenterX = enemyTransform->x + enemyTransform->width * enemyTransform->scale * 0.5f;
                 dir = enemyCenterX >= shockCenterX ? 1.0f : -1.0f;
             }
-            startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shockwave->knockbackGrids * kTileSize);
+            if (startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shockwave->knockbackGrids * kTileSize))
+            {
+                if (shieldBoss)
+                {
+                    TriggerBossKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+                else
+                {
+                    TriggerEnemyKnockbackFeedback(m_flow, m_debug.screenShakeEnabled);
+                }
+            }
         }
     }
 
@@ -1645,26 +1883,14 @@ void GameScene::HandleEnemyPlayerCollisions(Entity& player)
     }
 }
 
-void GameScene::HandleWalkerMeleeAttackCollisions(Entity& player)
+void GameScene::HandleWalkerMeleeAttackCollisions()
 {
-    const auto* playerTransform = player.GetComponent<TransformComponent>();
-
     for (Entity* entity : m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack))
     {
         if (!entity) continue;
 
         const auto* meleeTransform = entity->GetComponent<TransformComponent>();
         if (!meleeTransform) continue;
-
-        // プレイヤーへのダメージ
-        if (playerTransform && IntersectsRect(*playerTransform, *meleeTransform))
-        {
-            ApplyHazardDamageToPlayer(
-                player,
-                entity,
-                "GameScene player damaged by WalkerMeleeAttack",
-                1);
-        }
 
         // 敵へのダメージ
         for (Entity* target : m_world.EntitiesByTag(EntityTag::Enemy))
@@ -1762,6 +1988,24 @@ void GameScene::RemoveDefeatedEnemies()
                     return true;
                 }
             }
+            const auto* midBoss3Fist = entity ? entity->GetComponent<MidBoss3FistComponent>() : nullptr;
+            if (midBoss3Fist && midBoss3Fist->ownerBoss)
+            {
+                const auto* ownerEnemy = midBoss3Fist->ownerBoss->GetComponent<EnemyComponent>();
+                if (!ownerEnemy || ownerEnemy->IsDefeated())
+                {
+                    return true;
+                }
+            }
+            const auto* capturedMidBoss3Attack = entity ? entity->GetComponent<CapturedMidBoss3AttackComponent>() : nullptr;
+            if (capturedMidBoss3Attack && capturedMidBoss3Attack->carriedBoss)
+            {
+                const auto* carriedEnemy = capturedMidBoss3Attack->carriedBoss->GetComponent<EnemyComponent>();
+                if (!carriedEnemy || carriedEnemy->IsDefeated())
+                {
+                    return true;
+                }
+            }
             const auto* lifetime = entity ? entity->GetComponent<PhotoCopyLifetimeComponent>() : nullptr;
             if (!lifetime)
             {
@@ -1787,6 +2031,40 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
             return;
         }
     }
+    const auto cleanupMidBoss3Defeat = [](Entity& defeatedBoss)
+    {
+        auto* midBoss3 = defeatedBoss.GetComponent<MidBoss3Component>();
+        if (!midBoss3)
+        {
+            return;
+        }
+        midBoss3->drillActive = false;
+        midBoss3->drillFormed = false;
+        midBoss3->drillGroundRush = false;
+        midBoss3->reloadActive = false;
+        for (Entity* fistEntity : midBoss3->fistEntities)
+        {
+            auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+            if (fist)
+            {
+                fist->state = MidBoss3FistState::Broken;
+                fist->broken = true;
+                fist->captureJammerActive = false;
+                fist->impactAttackActive = false;
+                fist->impactDamageApplied = false;
+                fist->impactAttackRemaining = 0.0f;
+            }
+            if (auto* tint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr)
+            {
+                tint->a = 0.0f;
+            }
+            if (auto* transform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr)
+            {
+                transform->x = -10000.0f;
+                transform->y = -10000.0f;
+            }
+        }
+    };
 
     auto* damageFlash = enemy.GetComponent<DamageCooldownComponent>();
     if (!damageFlash)
@@ -1839,6 +2117,11 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                     shieldBoss->deathAnimationActive = true;
                     shieldBoss->stateTimer = 0.0f;
                     animation->Play("death", true);
+                    if (!shieldBoss->deadSoundPlayed)
+                    {
+                        shieldBoss->deadSoundPlayed = true;
+                        PlayShieldBossSoundCue("boss_forest_dead");
+                    }
                     if (shieldBoss->shieldEntity)
                     {
                         if (auto* shieldTint = shieldBoss->shieldEntity->GetComponent<TintComponent>())
@@ -1846,6 +2129,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                             shieldTint->a = 0.0f;
                         }
                     }
+                    TriggerBossDefeatStartFeedback(m_flow);
                     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
                     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
                     return;
@@ -1859,6 +2143,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                         shieldTint->a = 0.0f;
                     }
                 }
+                TriggerBossDefeatStartFeedback(m_flow);
             }
 
             enemyComponent->MarkDefeated();
@@ -1954,7 +2239,15 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     }
     if (defeatedThisHit)
     {
-        TriggerEnemyDefeatFeedback(m_flow);
+        cleanupMidBoss3Defeat(enemy);
+        if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)
+        {
+            TriggerBossDefeatStartFeedback(m_flow);
+        }
+        else
+        {
+            TriggerEnemyDefeatFeedback(m_flow);
+        }
     }
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });

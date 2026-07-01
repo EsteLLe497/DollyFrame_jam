@@ -537,7 +537,7 @@
     },
     "sandbox_vanish_object": {
       "tag": "PhotoBox",
-      "texture": "white",
+      "texture": "tile_value_3_purple",
       "transform": {
         "x": 0.0,
         "y": 0.0,
@@ -547,9 +547,9 @@
         "scale": 1.0
       },
       "tint": {
-        "r": 0.72,
-        "g": 0.26,
-        "b": 0.88,
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
         "a": 1.0
       }
     },
@@ -636,9 +636,9 @@
         "enabled": true,
         "archetype": "walker",
         "contactDamage": 1,
-        "detectRange": 192.0,
+        "detectRange": 336.0,
         "attackRange": 48.0,
-        "attackCooldown": 1.5,
+        "attackCooldown": 2.0,
         "detectHeight": 96.0
       }
     },
@@ -663,8 +663,8 @@
         "enabled": true,
         "archetype": "ranged",
         "contactDamage": 1,
-        "detectRange": 336.0,
-        "attackRange": 336.0,
+        "detectRange": 480.0,
+        "attackRange": 480.0,
         "attackCooldown": 3.0,
         "detectHeight": 96.0
       }
@@ -762,7 +762,7 @@
       },
       "health": {
         "enabled": true,
-        "maxHp": 20
+        "maxHp": 10
       }
     },
     "sandbox_mid_boss3_fist": {

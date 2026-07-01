@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -47,10 +47,11 @@ void GameScene::DrawMapEditorOverlay() const
         DrawBox(left + 1, top + 1, right - 1, bottom - 1, cursorInnerColor, FALSE);
     }
 
-    const int panelLeft = 22;
-    const int panelTop = 22;
-    const int panelRight = 560;
-    const int panelBottom = 286;
+    const auto& editorUi = m_ui.tuning.mapEditor;
+    const int panelLeft = static_cast<int>(std::round(editorUi.panelLeft));
+    const int panelTop = static_cast<int>(std::round(editorUi.panelTop));
+    const int panelRight = static_cast<int>(std::round(editorUi.panelRight));
+    const int panelBottom = static_cast<int>(std::round(editorUi.panelBottom));
     const char selectedMarker = m_mapEditor.selectedMarker;
     const char markerLabel = selectedMarker == '\0' ? '-' : selectedMarker;
     const char hoveredMarkerLabel = hoveredMarkerValue == '\0' ? '-' : static_cast<char>(std::toupper(static_cast<unsigned char>(hoveredMarkerValue)));
@@ -62,14 +63,14 @@ void GameScene::DrawMapEditorOverlay() const
     DrawString(panelLeft + 16, panelTop + 14, "マップエディター", GetColor(244, 250, 255));
     DrawBox(panelLeft + 330, panelTop + 10, panelRight - 14, panelTop + 34, markerMode ? GetColor(28, 78, 134) : GetColor(96, 72, 24), TRUE);
     DrawBox(panelLeft + 330, panelTop + 10, panelRight - 14, panelTop + 34, markerMode ? GetColor(116, 220, 255) : GetColor(255, 220, 120), FALSE);
-    DrawString(panelLeft + 342, panelTop + 15, markerMode ? "MARKER MODE" : "TILE MODE", GetColor(244, 250, 255));
+    DrawString(panelLeft + 342, panelTop + 15, markerMode ? "マーカーモード" : "タイルモード", GetColor(244, 250, 255));
     DrawString(panelLeft + 16, panelTop + 38, "F4: 閉じる  M: タイル/マーカー切替  WASD/十字: カメラ移動", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 58, "左ドラッグ: 塗る  右ドラッグ: 消す", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 78, "タイル: 0-9 / Q,E / F9(10)", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(None),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(M Log),F11(Y),N(? Boss1),F12(! Boss2),H,I,J,K,L,O,U,Q,E", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(なし),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(ログ),F11(Y),N(? ボス1),F12(! ボス2),H,I,J,K,L,O,U,Q,E", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 114, "@照明: C/V 光の長さ  Z/X 本体横幅", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 132, "P/F: 正数=半径  負数=番号  Z 符号反転  X 初期値", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 150, "&: 正数=耐久  負数=番号", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 150, "&: 正数=耐久  負数=番号  _: 符号=向き 絶対値=幅", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 168, "F5: 保存  F6: CSV再読込  F7: 新規作成  F8: 別名保存", GetColor(168, 192, 220));
     DrawFormatString(
         panelLeft + 16,
@@ -103,8 +104,14 @@ void GameScene::DrawMapEditorOverlay() const
         GetColor(220, 230, 244),
         "現在マップ: %s",
         GetMapDisplayName(m_lifecycle.currentMapCsvPath).c_str());
+    DrawFormatString(
+        panelLeft + 16,
+        panelTop + 250,
+        GetColor(220, 230, 244),
+        "タイルテクスチャ: %s  (PageUp/PageDown)",
+        m_lifecycle.currentTileTextureKey.c_str());
     if (!m_mapEditor.statusMessage.empty())
     {
-        DrawString(panelLeft + 16, panelTop + 258, m_mapEditor.statusMessage.c_str(), GetColor(142, 236, 166));
+        DrawString(panelLeft + 16, panelTop + 268, m_mapEditor.statusMessage.c_str(), GetColor(142, 236, 166));
     }
 }

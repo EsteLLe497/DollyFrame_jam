@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "game_scene.h"
 
@@ -37,6 +37,8 @@ struct StageTransitionLink
 inline std::vector<StageTransitionLink> gStageTransitionLinks;
 
 inline constexpr const char* kTuningFilePath = "assets/tuning.json";
+inline constexpr const char* kUiTuningFilePath = "assets/ui_tuning.json";
+inline constexpr const char* kGameProgressSavePath = "savegame.json";
 constexpr float kPixelsPerMeter = 100.0f;
 constexpr float kSurfaceContactEpsilon = 1.0f;
 constexpr float kHorizontalCollisionEpsilon = 1.0f;
@@ -88,8 +90,8 @@ struct ActiveGameSceneScope
 #define gGroundSnapDistance (game_scene_detail::GetActiveGameScene()->Tuning().groundSnapDistance)
 #define gGroundStepUpHeight (game_scene_detail::GetActiveGameScene()->Tuning().groundStepUpHeight)
 #define gShutterFlashSeconds (game_scene_detail::GetActiveGameScene()->Tuning().shutterFlashSeconds)
-#define gCaptureWidthTiles (game_scene_detail::GetActiveGameScene()->Tuning().captureWidthTiles)
-#define gCaptureHeightTiles (game_scene_detail::GetActiveGameScene()->Tuning().captureHeightTiles)
+#define gCaptureFrameWidthPx (game_scene_detail::GetActiveGameScene()->Tuning().captureFrameWidthPx)
+#define gCaptureFrameHeightPx (game_scene_detail::GetActiveGameScene()->Tuning().captureFrameHeightPx)
 #define gCaptureRapidShotLimit (game_scene_detail::GetActiveGameScene()->Tuning().captureRapidShotLimit)
 #define gCaptureRapidWindowSeconds (game_scene_detail::GetActiveGameScene()->Tuning().captureRapidWindowSeconds)
 #define gCaptureOverheatLockSeconds (game_scene_detail::GetActiveGameScene()->Tuning().captureOverheatLockSeconds)
@@ -156,6 +158,44 @@ inline float GetPlayerDodgeDuration()
         : 0.0f;
 }
 
+struct UiLayoutRect
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+};
+
+inline UiLayoutRect MakePhotoTraySlotRect(const GameSceneUiTuningState& uiTuning, int slotIndex)
+{
+    const float stepX = uiTuning.photoTray.slotWidth + uiTuning.photoTray.slotGapX;
+    return {
+        uiTuning.photoTray.slotStartX + static_cast<float>(slotIndex) * stepX,
+        uiTuning.photoTray.slotStartY,
+        uiTuning.photoTray.slotWidth,
+        uiTuning.photoTray.slotHeight,
+    };
+}
+
+inline UiLayoutRect MakeHpSlotRect(const GameSceneUiTuningState& uiTuning, int slotIndex)
+{
+    const float stepX = uiTuning.hp.slotWidth + uiTuning.hp.slotGapX;
+    return {
+        uiTuning.hp.slotStartX + static_cast<float>(slotIndex) * stepX,
+        uiTuning.hp.slotStartY,
+        uiTuning.hp.slotWidth,
+        uiTuning.hp.slotHeight,
+    };
+}
+
+inline bool IsPointInRect(float x, float y, const UiLayoutRect& rect)
+{
+    return x >= rect.x &&
+        x <= rect.x + rect.width &&
+        y >= rect.y &&
+        y <= rect.y + rect.height;
+}
+
 inline auto BuildGameSceneTuningEntries()
 {
     return std::array<GameSceneTuningEntry, 29>
@@ -176,8 +216,8 @@ inline auto BuildGameSceneTuningEntries()
         { "Coyote", &gCoyoteTimeSeconds, 0.01f, 0.0f, 0.4f },
         { "Ground Snap", &gGroundSnapDistance, 0.5f, 0.0f, 24.0f },
         { "Step Up", &gGroundStepUpHeight, 0.25f, 0.0f, 8.0f },
-        { "Capture W Tiles", &gCaptureWidthTiles, 0.25f, 1.0f, 16.0f },
-        { "Capture H Tiles", &gCaptureHeightTiles, 0.25f, 1.0f, 16.0f },
+        { "Capture Frame W", &gCaptureFrameWidthPx, 1.0f, 16.0f, 1024.0f },
+        { "Capture Frame H", &gCaptureFrameHeightPx, 1.0f, 16.0f, 1024.0f },
         { "Capture Limit", &gCaptureRapidShotLimit, 1.0f, 1.0f, 20.0f },
         { "Capture Window", &gCaptureRapidWindowSeconds, 0.1f, 0.1f, 10.0f },
         { "Capture Lock", &gCaptureOverheatLockSeconds, 0.1f, 0.0f, 10.0f },
@@ -361,10 +401,13 @@ inline constexpr const char* kTagHazard = "Hazard";
 inline constexpr const char* kTagBullet = "Bullet";
 inline constexpr const char* kTagDropItem = "DropItem";
 inline constexpr const char* kTagBattery = "Battery";
+inline constexpr const char* kTagBatteryGenerator = "BatteryGenerator";
 inline constexpr const char* kTagLog = "Log";
 inline constexpr const char* kTagFallingRock = "FallingRock";
+inline constexpr const char* kTagHangingGravityObject = "HangingGravityObject";
 inline constexpr const char* kTagJumpPad = "JumpPad";
 inline constexpr const char* kTagBatterySwitch = "BatterySwitch";
+inline constexpr const char* kTagConveyorBelt = "ConveyorBelt";
 inline constexpr const char* kTagElevator = "Elevator";
 inline constexpr const char* kTagDamagePlatform = "DamagePlatform";
 inline constexpr const char* kTagDamagePlatformSpike = "DamagePlatformSpike";
@@ -379,8 +422,8 @@ inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
 inline constexpr const char* kTagSepiaElevator = "SepiaElevator";
 inline constexpr const char* kTagMidBoss3Fist = "MidBoss3Fist";
 
-inline constexpr std::array<char, 32> kMarkerPresets = {
-    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<'
+inline constexpr std::array<char, 34> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<', '_', '^'
 };
 inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -462,6 +505,11 @@ inline bool IsBatteryMarker(char marker)
     return IsMarkerInSet(marker, "Y");
 }
 
+inline bool IsBatteryGeneratorMarker(char marker)
+{
+    return IsMarkerInSet(marker, "Y");
+}
+
 inline bool IsLogMarker(char marker)
 {
     return IsMarkerInSet(marker, "M");
@@ -472,9 +520,19 @@ inline bool IsFallingRockMarker(char marker)
     return IsMarkerInSet(marker, "S");
 }
 
+inline bool IsHangingGravityObjectMarker(char marker)
+{
+    return marker == '^';
+}
+
 inline bool IsJumpPadMarker(char marker)
 {
     return IsMarkerInSet(marker, "T");
+}
+
+inline bool IsConveyorBeltMarker(char marker)
+{
+    return marker == '_';
 }
 
 inline bool IsMarkerLightMarker(char marker)
@@ -540,6 +598,7 @@ inline bool IsParameterizedEditorMarker(char marker)
     case '>':
     case '<':
     case 'S':
+    case '_':
         return true;
     default:
         return false;
@@ -571,6 +630,11 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
         return std::clamp(parameter, 0, 99);
     case '<':
         return std::clamp(parameter, 0, 999);
+    case '_':
+    {
+        const int clamped = std::clamp(parameter, -9, 9);
+        return clamped == 0 ? 1 : clamped;
+    }
     default:
         return 0;
     }
@@ -633,11 +697,21 @@ inline int GetDamagePlatformTileSpanFromMarker(char marker)
     return upper == 'I' ? 2 : 3;
 }
 
-inline std::vector<b2Vec2> BuildDamagePlatformNormalizedOutline(int tileSpan)
+inline std::vector<b2Vec2> BuildDamagePlatformBaseOutline()
+{
+    return std::vector<b2Vec2>{
+        { 0.0f, 0.0f },
+        { 1.0f, 0.0f },
+        { 1.0f, 1.0f },
+        { 0.0f, 1.0f }
+    };
+}
+
+inline std::vector<b2Vec2> BuildDamagePlatformSpikeOutline(int tileSpan)
 {
     const int spikeCount = (std::max)(1, tileSpan);
     std::vector<b2Vec2> outline;
-    outline.reserve(static_cast<size_t>(spikeCount * 2 + 4));
+    outline.reserve(static_cast<size_t>(spikeCount * 2 + 1));
     outline.push_back({ 0.0f, 0.5f });
     for (int spikeIndex = 0; spikeIndex < spikeCount; ++spikeIndex)
     {
@@ -646,8 +720,6 @@ inline std::vector<b2Vec2> BuildDamagePlatformNormalizedOutline(int tileSpan)
         outline.push_back({ peakX, 0.0f });
         outline.push_back({ valleyX, 0.5f });
     }
-    outline.push_back({ 1.0f, 1.0f });
-    outline.push_back({ 0.0f, 1.0f });
     return outline;
 }
 

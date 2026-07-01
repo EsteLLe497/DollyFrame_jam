@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
@@ -7,6 +7,7 @@
 #include <cctype>
 #include <limits>
 #include <unordered_map>
+#include <vector>
 
 using namespace game_scene_detail;
 
@@ -84,6 +85,47 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
 
         return std::fabs(playerBottom - platform.y) <= topTolerance;
+    };
+
+    auto isEnemyOnTopOfPlatform = [&](const TransformComponent& platform, float topTolerance) -> bool
+    {
+        const float platformWidth = platform.width * platform.scale;
+        const float platformLeft = platform.x;
+        const float platformRight = platform.x + platformWidth;
+        for (const auto& entity : m_world.Entities())
+        {
+            if (!entity)
+            {
+                continue;
+            }
+
+            const auto* enemy = entity->GetComponent<EnemyComponent>();
+            const auto* enemyTransform = entity->GetComponent<TransformComponent>();
+            if (!enemy || !enemyTransform ||
+                !enemy->IsEnabled() ||
+                enemy->IsDefeated())
+            {
+                continue;
+            }
+
+            const float enemyWidth = enemyTransform->width * enemyTransform->scale;
+            const float enemyHeight = enemyTransform->height * enemyTransform->scale;
+            const float enemyLeft = enemyTransform->x + kPlatformPlayerInsetX;
+            const float enemyRight = enemyTransform->x + enemyWidth - kPlatformPlayerInsetX;
+            const float enemyBottom = enemyTransform->y + enemyHeight;
+            const bool overlapX = enemyRight > platformLeft && enemyLeft < platformRight;
+            if (!overlapX)
+            {
+                continue;
+            }
+
+            if (std::fabs(enemyBottom - platform.y) <= topTolerance)
+            {
+                return true;
+            }
+        }
+
+        return false;
     };
 
     auto isPlayerTouchingPlatform = [&](const TransformComponent& platform, float tolerance) -> bool
@@ -232,30 +274,38 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         };
 
         int batteriesOnTop = 0;
-        for (const auto& batteryEntity : m_world.Entities())
+        if (switchComponent->pressMode == SwitchPressMode::Battery)
         {
-            if (!batteryEntity)
+            for (const auto& batteryEntity : m_world.Entities())
             {
-                continue;
-            }
+                if (!batteryEntity)
+                {
+                    continue;
+                }
 
-            auto* battery = batteryEntity->GetComponent<BatteryComponent>();
-            auto* batteryTransform = batteryEntity->GetComponent<TransformComponent>();
-            if (!battery || !batteryTransform)
-            {
-                continue;
-            }
+                auto* battery = batteryEntity->GetComponent<BatteryComponent>();
+                auto* batteryTransform = batteryEntity->GetComponent<TransformComponent>();
+                if (!battery || !batteryTransform)
+                {
+                    continue;
+                }
 
-            if (isBatteryOnSwitchTop(*batteryTransform, transform->y))
-            {
-                ++batteriesOnTop;
+                if (isBatteryOnSwitchTop(*batteryTransform, transform->y))
+                {
+                    ++batteriesOnTop;
+                }
             }
         }
 
         // 個数判定が一瞬途切れてもチラつかないよう、短い保持時間を設ける。
         switchComponent->insertedBatteryCount = batteriesOnTop;
-        const bool hasRequiredBatteries = switchComponent->insertedBatteryCount >= switchComponent->requiredBatteryCount;
-        if (hasRequiredBatteries)
+        const float switchTopTolerance = std::max(kSwitchTopToleranceMin, switchHeight * 0.7f);
+        const bool pressCondition =
+            switchComponent->pressMode == SwitchPressMode::Player
+            ? (isPlayerOnTopOfPlatform(*transform, switchTopTolerance) ||
+                isEnemyOnTopOfPlatform(*transform, switchTopTolerance))
+            : switchComponent->insertedBatteryCount >= switchComponent->requiredBatteryCount;
+        if (pressCondition)
         {
             switchComponent->activationGraceRemaining = switchComponent->activationGraceSeconds;
         }
@@ -265,7 +315,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
                 0.0f,
                 switchComponent->activationGraceRemaining - deltaTime);
         }
-        switchComponent->isPressed = hasRequiredBatteries || switchComponent->activationGraceRemaining > 0.0f;
+        switchComponent->isPressed = pressCondition || switchComponent->activationGraceRemaining > 0.0f;
         const float targetPress = switchComponent->isPressed ? switchComponent->pressDepth : 0.0f;
         const float responseSpeed = switchComponent->isPressed ? switchComponent->pressSpeed : switchComponent->releaseSpeed;
         switchComponent->currentPress += (targetPress - switchComponent->currentPress) * std::min(1.0f, deltaTime * responseSpeed);
@@ -294,6 +344,10 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
 
         if (switchComponent->controlsLaserPower)
+        {
+            setEntityTint(*entity, powered ? 1.0f : 0.40f, powered ? 0.42f : 0.44f, powered ? 0.28f : 0.50f);
+        }
+        else if (switchComponent->pressMode == SwitchPressMode::Player)
         {
             setEntityTint(*entity, powered ? 1.0f : 0.40f, powered ? 0.42f : 0.44f, powered ? 0.28f : 0.50f);
         }
@@ -375,6 +429,13 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
         const float previousY = transform->y;
         const bool powered = linkPowered[elevator->linkId];
+        const int elevatorTexture = powered
+            ? m_assets.GetTexture("tile_value_elevator_on")
+            : m_assets.GetTexture("tile_value_elevator_off");
+        if (auto* sprite = entity->GetComponent<SpriteRenderComponent>())
+        {
+            sprite->SetTextureId(elevatorTexture >= 0 ? elevatorTexture : m_whiteTexture);
+        }
         if (!powered)
         {
             elevator->cycleStarted = false;
@@ -398,7 +459,12 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
             if (elevator->cycleStarted)
             {
-                if (elevator->movingUp)
+                if (elevator->pauseTimer > 0.0f)
+                {
+                    // 上端・下端の到着後は、指定時間だけ停止してから反転移動する。
+                    elevator->pauseTimer = std::max(0.0f, elevator->pauseTimer - deltaTime);
+                }
+                else if (elevator->movingUp)
                 {
                     const float topY = elevator->baseY - elevator->moveRangeY;
                     transform->y = std::max(topY, transform->y - elevator->moveSpeed * deltaTime);
@@ -406,7 +472,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
                     {
                         transform->y = topY;
                         elevator->movingUp = false;
-                        elevator->cycleStarted = false;
+                        elevator->pauseTimer = elevator->endpointPauseSeconds;
                     }
                 }
                 else
@@ -416,7 +482,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
                     {
                         transform->y = elevator->baseY;
                         elevator->movingUp = true;
-                        elevator->cycleStarted = false;
+                        elevator->pauseTimer = elevator->endpointPauseSeconds;
                     }
                 }
             }
@@ -434,7 +500,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             std::max(kPlatformTopToleranceMin, tileSize * 0.24f),
             kPlatformPlayerInsetX);
 
-        setEntityTint(*entity, powered ? 0.74f : 0.42f, powered ? 0.86f : 0.46f, powered ? 0.98f : 0.52f);
+        setEntityTint(*entity, 1.0f, 1.0f, 1.0f);
     }
 
     for (const auto& entity : m_world.Entities())
@@ -646,6 +712,61 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             std::max(kPlatformTopToleranceMin, tileSize * 0.24f),
             kPlatformPlayerInsetX);
     }
+
+    std::vector<std::unique_ptr<Entity>> generatedBatteries;
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* batteryGenerator = entity->GetComponent<BatteryGeneratorComponent>();
+        auto* transform = entity->GetComponent<TransformComponent>();
+        if (!batteryGenerator || !transform)
+        {
+            continue;
+        }
+
+        batteryGenerator->cooldownRemaining = std::max(
+            0.0f,
+            batteryGenerator->cooldownRemaining - deltaTime);
+
+		const bool powered = linkPowered[batteryGenerator->linkId];
+        if (powered && batteryGenerator->cooldownRemaining <= 0.0f && tileSize > 0.0f)
+		{
+            const float generatorWidth = transform->width * transform->scale;
+            const float spawnX = batteryGenerator->spawnDirectionX < 0
+                ? transform->x - tileSize - 10.0f
+                : transform->x + generatorWidth + 10.0f;
+            const float spawnY = transform->y + tileSize;
+
+            auto battery = std::make_unique<Entity>();
+            battery->AddComponent<TagComponent>(kTagBattery);
+            battery->AddComponent<TransformComponent>(
+                spawnX,
+                spawnY,
+                tileSize,
+                tileSize);
+            battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
+            battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            battery->AddComponent<BatteryComponent>(
+                1900.0f,
+                980.0f,
+                260.0f,
+                320.0f,
+                1);
+            generatedBatteries.push_back(std::move(battery));
+            batteryGenerator->cooldownRemaining = batteryGenerator->cooldownSeconds;
+        }
+
+        batteryGenerator->wasPowered = powered;
+    }
+
+    for (auto& battery : generatedBatteries)
+    {
+        m_world.Spawn(std::move(battery));
+    }
 }
 
 const Entity* GameScene::FindNearestMarkerLightEntity(
@@ -725,7 +846,7 @@ void GameScene::HandleWorldInteractions()
     }
 
     HandleEnemyPlayerCollisions(*player);
-    HandleWalkerMeleeAttackCollisions(*player);
+    HandleWalkerMeleeAttackCollisions();
     if (m_flow.pitRestartActive || m_flow.resultQueued)
     {
         return;
@@ -906,6 +1027,9 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     }
 
     const GameSessionState session = GameSession_Get();
+    const GameSceneUiTuningState uiTuning = m_ui.tuning;
+    const float captureFinderScale = m_ui.captureFinderScale;
+    const bool cameraFlashEnabled = m_ui.cameraFlash.enabled;
     m_lifecycle.currentMapCsvPath = destinationMapCsv;
     m_lifecycle.lastStageTransitionMarker = marker;
     RefreshStageRenderProfile();
@@ -915,6 +1039,9 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_player = GameScenePlayerState{};
     m_flow = GameSceneFlowState{};
     m_ui = GameSceneUiState{};
+    m_ui.tuning = uiTuning;
+    m_ui.captureFinderScale = captureFinderScale;
+    m_ui.cameraFlash.enabled = cameraFlashEnabled;
     m_effects = GameSceneEffectsState{};
     m_mapEditor.active = false;
     m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
@@ -947,6 +1074,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_lifecycle.pendingStageTransitionMapCsv.clear();
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
+    m_lifecycle.shieldBossBgmCrossFadeStarted = false;
     m_flow.timeLimit = session.timeLimit;
     m_flow.timeRemaining = session.timeRemaining;
 
@@ -957,6 +1085,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     {
         return false;
     }
+    RefreshTileTextureForCurrentMap();
 
     InitializeStageEntities();
     PlayStageBgmForCurrentMap();
@@ -1205,13 +1334,6 @@ void GameScene::ActivateCheckpoint(Entity& player, Entity& checkpoint)
     m_flow.respawnX = checkpointData->respawnX;
     m_flow.respawnY = checkpointData->respawnY;
     checkpointData->activated = true;
-    if (auto* tint = checkpoint.GetComponent<TintComponent>())
-    {
-        tint->r = 0.80f;
-        tint->g = 0.92f;
-        tint->b = 1.0f;
-        tint->a = 1.0f;
-    }
 
     m_eventBus.Publish({ EventType::PlaySoundRequest, &player, &checkpoint, "scene_change", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &player, &checkpoint, "Checkpoint activated", 0.0f, 0.0f });

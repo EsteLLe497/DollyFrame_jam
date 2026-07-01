@@ -14,6 +14,7 @@
 #include "script_engine.h"
 #include "game_scene_photo_state.h"
 #include "game_scene_state.h"
+#include "game_scene_test_photos.h"
 #include "tile_map.h"
 #include "game_scene_camerawork.h"
 
@@ -22,6 +23,7 @@ class PhotoSystem;
 class PhotoCaptureSystem;
 class PhotoPasteSystem;
 class PrefabFactory;
+enum class SwitchPressMode;
 
 class GameScene final : public Scene
 {
@@ -78,27 +80,42 @@ private:
     void TickEntities(float effectiveGameplayDeltaTime);
     void FinalizeGameplayFrame(float effectiveGameplayDeltaTime);
     void PrepareFrameRendering();
+    void UpdatePostProcessPlayerLight() const;
     void DrawWorldAndUiLayers();
+    void DrawGameWorldLayers();
+    void DrawGameUiLayers(bool hideUiForIntroCinematic);
     void ResetFrameRendering();
     bool IsMidBoss3IntroCinematicActive() const;
+    bool IsShieldBossIntroCinematicActive() const;
 
     // Lifecycle / setup
     void UpdateLoading(float deltaTime);
     void AdvanceLoadingStep();
     void FinishLoading();
     void PlayStageBgmForCurrentMap();
+    void CrossFadeStageBgmForCurrentMap(float durationSeconds);
+    void UpdateShieldBossBgmCue();
     void DrawLoadingScreen() const;
     void LoadTuningState();
+    bool SaveUiTuningState();
+    bool LoadUiTuningState();
     void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
+    void InitializeTestPhotoResources(ResourceManager& resources);
+    void RefreshTileTextureForCurrentMap();
+    void ApplyTileTextureKey(const std::string& tileTextureKey);
+    std::string ResolveDefaultTileTextureKeyForCurrentMap() const;
     void BuildCameraMarkers();
     void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY = true);
+    void ApplyShieldBossSlamCameraWork(float deltaTime);
+    void ApplyShieldBossFramingCameraWork(float deltaTime);
     bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
     void StartFloorCameraTransition(int directionX, int directionY);
 
     // Entity query / spawn
     Entity& SpawnStagePrefab(PrefabFactory& prefabs, const char* prefabId, float x, float y);
+    void ApplyMidBoss2TuningToActiveBosses();
     Entity* FindEntityByTag(const char* tag) const;
     Entity* FindEntityByTag(EntityTag tag) const;
 
@@ -106,6 +123,7 @@ private:
     void UpdatePlayer(float deltaTime);
     void UpdateBarrels(float deltaTime);
     void UpdateFallingRocks(float deltaTime);
+    void UpdateHangingGravityObjects(float deltaTime);
     void UpdateJumpPads(float deltaTime);
     void UpdateBatteries(float deltaTime);
     void UpdateLaserTurrets(float deltaTime);
@@ -117,9 +135,10 @@ private:
         float deltaTime,
         float tileSize);
     bool IsBatteryCollidingWithWorld(const TransformComponent& bounds, const Entity* self, float tileSize) const;
-    bool IsBatteryOnTopOfSwitchOrElevator(const TransformComponent& bounds, const Entity* self, float tileSize) const;
-    bool SnapBatteryToSwitchOrElevatorTop(TransformComponent& bounds, const Entity* self, float tileSize) const;
+    bool IsBatteryOnTopOfSwitchOrDynamicEntity(const TransformComponent& bounds, const Entity* self, float tileSize) const;
+    bool SnapBatteryToSwitchOrDynamicEntity(TransformComponent& bounds, const Entity* self, float tileSize) const;
     float GetBatteryPushDirectionFromPlayer(const TransformComponent& playerTransform, const TransformComponent& batteryTransform) const;
+    bool IsConveyorUnderBattery(const TransformComponent& batteryTransform, float tileSize, int& outDirectionX,float& velocityX) const;
     void BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bounds) const;
     void UpdateLinkedGimmicks(float deltaTime);
     void UpdateMerchants(float deltaTime);
@@ -142,7 +161,7 @@ private:
     void UpdateCaptureFinderZoomInput();
     void ProcessFilterInput();
     void UpdateTuningHotReload(float deltaTime);
-    void HandleGlobalSceneShortcuts();
+    void HandleGlobalSceneShortcuts(float deltaTime);
     void UpdateMapEditorInput(float deltaTime);
     void UpdateMapEditorStatusMessage(float deltaTime);
     bool HandleMapEditorModeShortcuts();
@@ -160,8 +179,11 @@ private:
     void RefreshLinkedGimmicksFromMarkers();
     void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
+    void RefreshConveyorBeltsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
     void ReflashFallingRockfromMarkers();
+    void RefreshHangingGravityObjectsFromMarkers();
+    void ResetHangingGravityObjectsForRespawn();
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
     void UpdateEscapeMenuInput();
@@ -175,7 +197,9 @@ private:
     void UpdateGameplayActors(float gameplayDeltaTime);
     void ResolveGameplayOutcomes(float gameplayDeltaTime);
     void FlushPendingEntities();
-    void SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize);
+    void SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize, SwitchPressMode pressMode);
+    void SpawnBatteryGeneratorMarker(float x, float y, int linkId, int spawnDirectionX, float tileSize);
+    void SpawnConveyorBeltMarker(float x, float y, int widthTiles, int directionX, float tileSize);
     void SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize);
     void SpawnLaserSwitchMarker(float x, float y, int linkId, float tileSize);
     void SpawnShutterMarker(float x, float y, int moveRangeTiles, int linkId, bool useBossDefeatSignal, bool opensWhenUnpowered, float tileSize);
@@ -183,7 +207,7 @@ private:
 
     // Photo control / photo runtime
     void HandleEnemyPlayerCollisions(Entity& player);
-    void HandleWalkerMeleeAttackCollisions(Entity& player);
+    void HandleWalkerMeleeAttackCollisions();
     void UpdateShields(float deltaTime);
     void HandleAttackHits();
     void HandlePhotoCapture();
@@ -214,19 +238,40 @@ private:
     void RespawnPlayer(Entity& player);
     void StartPitRestart(Entity* player, const char* logMessage);
     void SpawnBarrelBreakEffect(float x, float y, float width, float height);
-    void SpawnTeleportTrailEffect(float fromX, float fromY, float toX, float toY, float width, float height);
+    void SpawnSlamImpactEffect(float centerX, float groundY, float width);
+    void SpawnBossDefeatStartEffect(float centerX, float groundY, float width);
+    void SpawnRushSmokeEffect(float centerX, float groundY, float direction);
+    void SpawnLightLandingEffect(float centerX, float groundY, float width);
+    void SpawnBossRoarEffect(float centerX, float groundY, float width);
+    void SpawnMidBoss2SpearFadeEffect(float centerX, float centerY, float width, float height);
+    void SpawnTeleportTrailEffect(
+        float fromX,
+        float fromY,
+        float toX,
+        float toY,
+        float width,
+        float height,
+        const MidBoss2Component::Params& params);
+    void SpawnMidBoss3FistImpactEffect(float x, float y, float width, float height);
     void QueueResult(GameEndReason reason);
 
     // Effects / UI overlays
     void UpdateEffects(float deltaTime);
     void UpdateTuningPanel();
     void DrawTuningPanel();
+    void DrawUiAdjustmentWindow();
+    void DrawMidBoss2DebugWindow();
+    void DrawProgressSavePanel();
     void DrawPitRestartOverlay() const;
     void DrawStageDarknessOverlay() const;
     void DrawSepiaFilmFilterOverlay() const;
+    void DrawShieldBossSlamVignetteOverlay() const;
+    void DrawShieldBossIntroCurtainOverlay() const;
     void DrawMarkerLightOutlines() const;
     void DrawEffects() const;
     void DrawEnemyAttackRects() const;
+    void DrawTestPhotos() const;
+    void DrawTestPhotoPanel();
     void DrawCaptureOverlay() const;
     void DrawDevelopedPhotoPreview() const;
     void DrawPhotoStorageTray() const;
@@ -252,8 +297,12 @@ private:
     void DrawCameraWorldInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
+    void DrawMidBoss2TeleportSlotsInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawStageGuideInView() const;
     void DrawPhotoFilterPanelInView() const;
+    bool SaveProgressState();
+    bool LoadProgressStateFromDisk();
+    void ApplyLoadedProgressState();
 
     // Collision / map query helpers
     bool IsPhotoTrayHit(float screenX, float screenY) const;
@@ -303,6 +352,8 @@ private:
     AssetManifest m_assets;
     int m_whiteTexture;
     int m_tileTexture;
+    int m_tileTexture2;
+    int m_tileTexture3;
     EventBus m_eventBus;
     PhysicsWorld m_physicsWorld;
     ScriptEngine m_scriptEngine;
@@ -317,6 +368,8 @@ private:
     GameSceneUiState m_ui;
     GameSceneRenderState m_render;
     GameSceneTuningState m_tuning;
+    GameSceneSaveState m_save;
+    GameSceneTestPhotoState m_testPhotos;
     struct CameraRuntimeState
     {
         std::vector<fixedCameraRange> fixedRanges;
@@ -349,7 +402,17 @@ private:
         float easingStartY = 0.0f;
         float easingTargetX = 0.0f;
         float easingTargetY = 0.0f;
+        float shieldBossCameraOffsetX = 0.0f;
+        float shieldBossCameraOffsetY = 0.0f;
+        float shieldBossCameraBaseY = 0.0f;
+        float shieldBossDistanceZoomScale = 1.0f;
+        float shieldBossSideChangeTimer = 0.0f;
+        int shieldBossCameraSide = 1;
+        int shieldBossPendingCameraSide = 1;
+        int shieldBossZoomTier = 0;
+        bool shieldBossCameraBaseYInitialized = false;
     };
+
     CameraRuntimeState m_camera;
     GameSceneLifecycleState m_lifecycle;
     static constexpr float easingTime = 0.35f;

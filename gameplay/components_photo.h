@@ -2,6 +2,8 @@
 
 #include "game_object.h"
 
+class TransformComponent;
+
 enum class PhotoCopyRole
 {
     Solid,
@@ -84,6 +86,21 @@ public:
 private:
     float m_lifetimeSeconds;
     float m_remainingSeconds;
+};
+
+class PhotoMotionComponent final : public MonoBehaviour
+{
+public:
+    PhotoMotionComponent(float velocityXValue = 0.0f, float velocityYValue = 0.0f);
+
+    void BindTransform(TransformComponent* transform);
+    void Update(float deltaTime) override;
+
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+
+private:
+    TransformComponent* m_transform = nullptr;
 };
 
 class PhotoPasteAnimationComponent final : public MonoBehaviour

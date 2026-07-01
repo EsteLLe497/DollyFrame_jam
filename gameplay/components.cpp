@@ -154,6 +154,39 @@ void FallingRockComponent::DrawDebugUI()
     ImGui::Text("Rubble Active: %s", rubbleActive ? "Yes" : "No");
 }
 
+HangingGravityObjectComponent::HangingGravityObjectComponent(
+    float gravityValue,
+    float maxFallSpeedValue,
+    int contactDamageValue)
+    : gravity(gravityValue)
+    , maxFallSpeed(maxFallSpeedValue)
+    , contactDamage(std::max(1, contactDamageValue))
+{
+}
+
+void HangingGravityObjectComponent::OnAttach(GameObject& owner)
+{
+    MonoBehaviour::OnAttach(owner);
+
+    if (auto* transform = owner.GetComponent<TransformComponent>())
+    {
+        spawnX = transform->x;
+        spawnY = transform->y;
+        wireX = transform->x + transform->width * transform->scale * 0.5f;
+        wireTopY = transform->y;
+    }
+}
+
+void HangingGravityObjectComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Hanging Gravity Object");
+    ImGui::Text("Velocity Y: %.1f", velocityY);
+    ImGui::Text("Active: %s", active ? "Yes" : "No");
+    ImGui::Text("Destroyed: %s", destroyed ? "Yes" : "No");
+    ImGui::Text("Wire Attached: %s", wireAttached ? "Yes" : "No");
+    ImGui::Text("Wire Length: %.1f", wireLength);
+}
+
 JumpPadComponent::JumpPadComponent(
     float maxTiltRadians,
     float tiltSpeed,
@@ -222,13 +255,15 @@ BatterySwitchComponent::BatterySwitchComponent(
     float pressDepthValue,
     float pressSpeedValue,
     float releaseSpeedValue,
-    bool controlsLaserPowerValue)
+    bool controlsLaserPowerValue,
+    SwitchPressMode pressModeValue)
     : linkId((std::max)(0, linkIdValue))
     , requiredBatteryCount((std::max)(1, requiredBatteryCountValue))
     , pressDepth((std::max)(0.0f, pressDepthValue))
     , pressSpeed((std::max)(1.0f, pressSpeedValue))
     , releaseSpeed((std::max)(1.0f, releaseSpeedValue))
     , controlsLaserPower(controlsLaserPowerValue)
+    , pressMode(pressModeValue)
 {
 }
 
@@ -246,7 +281,15 @@ void BatterySwitchComponent::DrawDebugUI()
     ImGui::SeparatorText("Battery Switch");
     ImGui::Text("LinkId: %d", linkId);
     ImGui::Text("Target: %s", controlsLaserPower ? "Laser Power" : "Linked Gimmick");
-    ImGui::Text("Battery: %d / %d", insertedBatteryCount, requiredBatteryCount);
+    ImGui::Text("Press Mode: %s", pressMode == SwitchPressMode::Player ? "Player" : "Battery");
+    if (pressMode == SwitchPressMode::Player)
+    {
+        ImGui::Text("Player: %s", isPressed ? "On" : "Off");
+    }
+    else
+    {
+        ImGui::Text("Battery: %d / %d", insertedBatteryCount, requiredBatteryCount);
+    }
     ImGui::Text("Press: %.1f / %.1f", currentPress, pressDepth);
     ImGui::Text("Pressed: %s", isPressed ? "Yes" : "No");
     ImGui::Text("Grace: %.2f", activationGraceRemaining);
@@ -256,11 +299,11 @@ ElevatorComponent::ElevatorComponent(
     int linkIdValue,
     float moveRangeYValue,
     float moveSpeedValue,
-    float topPauseSecondsValue)
+    float endpointPauseSecondsValue)
     : linkId((std::max)(0, linkIdValue))
     , moveRangeY((std::max)(0.0f, moveRangeYValue))
     , moveSpeed((std::max)(1.0f, moveSpeedValue))
-    , topPauseSeconds((std::max)(0.0f, topPauseSecondsValue))
+    , endpointPauseSeconds((std::max)(0.0f, endpointPauseSecondsValue))
 {
 }
 
@@ -279,7 +322,7 @@ void ElevatorComponent::DrawDebugUI()
     ImGui::Text("LinkId: %d", linkId);
     ImGui::Text("MoveRangeY: %.1f", moveRangeY);
     ImGui::Text("MoveSpeed: %.1f", moveSpeed);
-    ImGui::Text("TopPause: %.2f", topPauseSeconds);
+    ImGui::Text("EndpointPause: %.2f", endpointPauseSeconds);
     ImGui::Text("CycleStarted: %s", cycleStarted ? "Yes" : "No");
     ImGui::Text("MovingUp: %s", movingUp ? "Yes" : "No");
 }
@@ -308,6 +351,25 @@ ShutterComponent::ShutterComponent(
     , useBossDefeatSignal(useBossDefeatSignalValue)
     , opensWhenUnpowered(opensWhenUnpoweredValue)
 {
+}
+
+BatteryGeneratorComponent::BatteryGeneratorComponent(
+    int linkIdValue,
+    float cooldownSecondsValue,
+    int spawnDirectionXValue)
+    : linkId((std::max)(0, linkIdValue))
+    , cooldownSeconds((std::max)(0.0f, cooldownSecondsValue))
+    , spawnDirectionX(spawnDirectionXValue < 0 ? -1 : 1)
+{
+}
+
+void BatteryGeneratorComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Battery Generator");
+    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("Cooldown: %.2f / %.2f", cooldownRemaining, cooldownSeconds);
+    ImGui::Text("Spawn Direction X: %d", spawnDirectionX);
+    ImGui::Text("Was Powered: %s", wasPowered ? "Yes" : "No");
 }
 
 void ShutterComponent::OnAttach(GameObject& owner)
@@ -661,6 +723,36 @@ bool PhotoCopyLifetimeComponent::IsExpired() const
     return m_remainingSeconds <= 0.0f;
 }
 
+PhotoMotionComponent::PhotoMotionComponent(float velocityXValue, float velocityYValue)
+    : velocityX(velocityXValue)
+    , velocityY(velocityYValue)
+{
+}
+
+void PhotoMotionComponent::BindTransform(TransformComponent* transform)
+{
+    m_transform = transform;
+}
+
+void PhotoMotionComponent::Update(float deltaTime)
+{
+    auto* transform = m_transform;
+    if (!transform && m_owner)
+    {
+        transform = m_owner->GetComponent<TransformComponent>();
+        m_transform = transform;
+    }
+
+    if (!transform)
+    {
+        return;
+    }
+
+    // 演出用の写真オブジェクトだけを軽く動かす。物理や当たり判定には関与しない。
+    transform->x += velocityX * deltaTime;
+    transform->y += velocityY * deltaTime;
+}
+
 PhotoPasteAnimationComponent::PhotoPasteAnimationComponent(float durationSeconds)
     : m_durationSeconds(std::max(0.001f, durationSeconds))
     , m_elapsedSeconds(0.0f)
@@ -699,6 +791,13 @@ DamagePlatformComponent::DamagePlatformComponent(int tileSpanValue)
 
 SpikeStripComponent::SpikeStripComponent(int tileSpanValue)
     : tileSpan(std::max(1, tileSpanValue))
+{
+}
+
+BeltConveyorComponent::BeltConveyorComponent(int widthTilesValue, int directionXValue, float velocity)
+    : widthTiles(std::max(1, widthTilesValue))
+    , directionX(directionXValue < 0 ? -1 : 1)
+    , velocity(std::max(0.5f, velocity))
 {
 }
 

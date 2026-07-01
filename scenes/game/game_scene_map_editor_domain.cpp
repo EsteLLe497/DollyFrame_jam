@@ -1,6 +1,7 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
+#include "imgui_layer.h"
 #include "DxLib.h"
 
 #include <algorithm>
@@ -25,6 +26,34 @@ namespace
     constexpr int kDefaultNewMapWidth = 64;
     constexpr int kDefaultNewMapHeight = 36;
     constexpr const char* kEditorMapOutputDir = "assets/maps/stages";
+    constexpr std::array<const char*, 2> kEditorTileTextureKeys = {
+        "tile_forest_ground",
+        "tile_default",
+    };
+
+    int FindTileTextureKeyIndex(const std::string& key)
+    {
+        for (int index = 0; index < static_cast<int>(kEditorTileTextureKeys.size()); ++index)
+        {
+            if (key == kEditorTileTextureKeys[static_cast<size_t>(index)])
+            {
+                return index;
+            }
+        }
+        return 0;
+    }
+
+    std::string GetTileTextureKeyByIndex(int index)
+    {
+        if (kEditorTileTextureKeys.empty())
+        {
+            return {};
+        }
+
+        const int count = static_cast<int>(kEditorTileTextureKeys.size());
+        const int normalized = (index % count + count) % count;
+        return kEditorTileTextureKeys[static_cast<size_t>(normalized)];
+    }
 
     std::string BuildEditorMapFilePath(const char* prefix)
     {
@@ -46,7 +75,7 @@ namespace
         return std::string(kEditorMapOutputDir) + "/" + nameBuilder.str();
     }
 
-    bool WriteEmptyMapCsv(const std::string& path, int width, int height, int fillTileValue)
+    bool WriteEmptyMapCsv(const std::string& path, int width, int height, int fillTileValue, const std::string& tileTextureKey)
     {
         if (width <= 0 || height <= 0)
         {
@@ -59,6 +88,11 @@ namespace
         if (!stream.is_open())
         {
             return false;
+        }
+
+        if (!tileTextureKey.empty())
+        {
+            stream << "# tileTexture=" << tileTextureKey << "\n";
         }
 
         for (int row = 0; row < height; ++row)
@@ -195,6 +229,15 @@ void GameScene::UpdateMapEditorBrushSelection()
         {
             m_mapEditor.selectedTileValue = std::min(kEditorTileMaxValue, m_mapEditor.selectedTileValue + 1);
         }
+        if (Input_IsKeyPressed(VK_PRIOR) || Input_IsKeyPressed(VK_NEXT))
+        {
+            const int currentIndex = FindTileTextureKeyIndex(m_lifecycle.currentTileTextureKey);
+            const int direction = Input_IsKeyPressed(VK_PRIOR) ? -1 : 1;
+            const std::string nextTextureKey = GetTileTextureKeyByIndex(currentIndex + direction);
+            ApplyTileTextureKey(nextTextureKey);
+            m_mapEditor.statusMessage = "タイルテクスチャ: " + nextTextureKey;
+            m_mapEditor.statusMessageTimer = 2.0f;
+        }
         return;
     }
 
@@ -207,7 +250,7 @@ void GameScene::UpdateMapEditorBrushSelection()
             m_mapEditor.selectedMarker = marker;
         }
     };
-    constexpr std::array<std::pair<int, char>, 12> kMarkerHotkeys = {{
+    constexpr std::array<std::pair<int, char>, 13> kMarkerHotkeys = {{
         { VK_F10, 'M' },
         { VK_F11, 'Y' },
         { VK_F12, '!' },
@@ -220,6 +263,7 @@ void GameScene::UpdateMapEditorBrushSelection()
         { 'O', 'O' },
         { 'P', '*' },
         { 'U', 'U' },
+        { VK_OEM_MINUS, '_' },
     }};
     for (const auto& [keyCode, marker] : kMarkerHotkeys)
     {
@@ -309,6 +353,7 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
     {
         if (m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, tileSize))
         {
+            RefreshTileTextureForCurrentMap();
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
             m_mapEditor.statusMessage = "CSVを再読込しました";
@@ -326,10 +371,11 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
         const int newWidth = m_tileMap.GetWidth() > 0 ? m_tileMap.GetWidth() : kDefaultNewMapWidth;
         const int newHeight = m_tileMap.GetHeight() > 0 ? m_tileMap.GetHeight() : kDefaultNewMapHeight;
         const std::string newMapPath = BuildEditorMapFilePath("new_map");
-        if (WriteEmptyMapCsv(newMapPath, newWidth, newHeight, 0) &&
+        if (WriteEmptyMapCsv(newMapPath, newWidth, newHeight, 0, m_lifecycle.currentTileTextureKey) &&
             m_tileMap.LoadFromCsv(newMapPath, tileSize))
         {
             m_lifecycle.currentMapCsvPath = newMapPath;
+            RefreshTileTextureForCurrentMap();
             BuildCameraMarkers();
             RefreshMarkerDrivenSystems();
             m_flow.cameraX = 0.0f;
@@ -364,6 +410,11 @@ void GameScene::HandleMapEditorFileShortcuts(float tileSize)
 
 void GameScene::ApplyMapEditorMousePaint(float tileSize)
 {
+    if (ImGuiLayer_WantsCaptureMouse())
+    {
+        return;
+    }
+
     const int mouseX = Input_GetMouseX();
     const int mouseY = Input_GetMouseY();
     const float viewScale = GetViewScale();
@@ -430,6 +481,9 @@ void GameScene::ApplyMapEditorMousePaint(float tileSize)
                 case 'O':
                 case 'X':
                     RefreshLinkedGimmicksFromMarkers();
+                    break;
+                case '_':
+                    RefreshConveyorBeltsFromMarkers();
                     break;
                 default:
                     break;

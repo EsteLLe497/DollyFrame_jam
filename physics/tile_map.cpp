@@ -31,6 +31,25 @@ std::string Trim(const std::string& value)
     return value.substr(start, end - start + 1);
 }
 
+bool ParseCsvHeader(const std::string& line, TileMapData& outData)
+{
+    const std::string trimmed = Trim(line);
+    if (trimmed.empty() || trimmed[0] != '#')
+    {
+        return false;
+    }
+
+    const std::string header = Trim(trimmed.substr(1));
+    constexpr const char* kTexturePrefix = "tileTexture=";
+    if (header.rfind(kTexturePrefix, 0) == 0)
+    {
+        outData.tileTextureKey = Trim(header.substr(std::char_traits<char>::length(kTexturePrefix)));
+        return true;
+    }
+
+    return false;
+}
+
 bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker, int& outMarkerParameter,char& outMarker2,int& outMarkerParameter2)
 {
     outTileValue = 0;
@@ -95,7 +114,10 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker, i
 			marker == '>' ||
             marker == '<' ||
             marker == '+' ||
-            marker == '$';
+            marker == '$' ||
+            marker == '*' ||
+            marker == '_' ||
+            marker == '^';
         if (!supportsParameter)
         {
             return false;
@@ -237,6 +259,86 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker, i
     return false;
 }
 
+bool IsConnectableTileValue(int tileValue)
+{
+    return tileValue == 1 ||
+        tileValue == 2 ||
+        tileValue == 3 ||
+        tileValue == 4 ||
+        tileValue == TileMap::kPitTileValue;
+}
+
+int SelectAutotileCell(const TileMapData& data, int column, int row)
+{
+    const auto isConnectable = [&](int testColumn, int testRow) -> bool
+    {
+        if (testColumn < 0 || testRow < 0 || testColumn >= data.width || testRow >= data.height)
+        {
+            return false;
+        }
+
+        const int tileValue = data.tiles[static_cast<size_t>(testRow * data.width + testColumn)];
+        return IsConnectableTileValue(tileValue);
+    };
+
+    const bool up = isConnectable(column, row - 1);
+    const bool down = isConnectable(column, row + 1);
+    const bool left = isConnectable(column - 1, row);
+    const bool right = isConnectable(column + 1, row);
+    const int connectedCount = static_cast<int>(up) + static_cast<int>(down) + static_cast<int>(left) + static_cast<int>(right);
+
+    if (connectedCount <= 0 || connectedCount == 4)
+    {
+        return 4;
+    }
+
+    if (connectedCount == 1)
+    {
+        if (up) return 7;
+        if (down) return 1;
+        if (left) return 5;
+        if (right) return 3;
+    }
+
+    if (connectedCount == 2)
+    {
+        if (up && down)
+        {
+            return 4;
+        }
+        if (left && right)
+        {
+            return 4;
+        }
+        if (up && left)
+        {
+            return 8;
+        }
+        if (up && right)
+        {
+            return 6;
+        }
+        if (down && left)
+        {
+            return 2;
+        }
+        if (down && right)
+        {
+            return 0;
+        }
+    }
+
+    if (connectedCount == 3)
+    {
+        if (!up) return 1;
+        if (!down) return 7;
+        if (!left) return 3;
+        if (!right) return 5;
+    }
+
+    return 4;
+}
+
 std::string FormatCsvCell(int tileValue, char marker, int markerParameter, char marker2, int markerParameter2)
 {
     constexpr int kCsvCellVisualWidth = 2;
@@ -348,6 +450,34 @@ void GetTileTint(int tileValue, float& r, float& g, float& b, float& a)
     }
 }
 
+void GetSquareTileTint(int tileValue, float& r, float& g, float& b, float& a)
+{
+    a = 1.0f;
+    switch (tileValue)
+    {
+    case 4:
+        r = 0.94f;
+        g = 0.30f;
+        b = 0.26f;
+        break;
+    case 5:
+        r = 0.96f;
+        g = 0.85f;
+        b = 0.32f;
+        break;
+    case TileMap::kPitTileValue:
+        r = 0.08f;
+        g = 0.09f;
+        b = 0.12f;
+        break;
+    default:
+        r = 1.0f;
+        g = 1.0f;
+        b = 1.0f;
+        break;
+    }
+}
+
 class TileMapCsvLoader
 {
 public:
@@ -373,6 +503,15 @@ public:
         {
             const std::string trimmedLine = Trim(line);
             if (trimmedLine.empty())
+            {
+                continue;
+            }
+
+            if (ParseCsvHeader(trimmedLine, outData))
+            {
+                continue;
+            }
+            if (!trimmedLine.empty() && trimmedLine[0] == '#')
             {
                 continue;
             }
@@ -468,40 +607,79 @@ public:
 class TileMapRenderer
 {
 public:
-    static void Draw(const TileMapData& data, int textureId, float originX, float originY, float scale)
+    static void Draw(
+        const TileMapData& data,
+        int textureId,
+        float originX,
+        float originY,
+        const TileMapViewport& viewport,
+        float scale,
+        int tile2TextureId,
+        int tile3TextureId)
     {
-        if (textureId < 0 || data.tiles.empty() || data.width <= 0 || data.height <= 0)
+        const float tileDrawSize = data.tileSize * scale;
+        if (textureId < 0 ||
+            data.tiles.empty() ||
+            data.width <= 0 ||
+            data.height <= 0 ||
+            tileDrawSize <= 0.0f ||
+            viewport.width <= 0.0f ||
+            viewport.height <= 0.0f)
         {
             return;
         }
 
+        // 大型の三角タイルは起点セルより右下へ広がるため、その最大幅分だけ検索範囲を戻す。
+        const float viewportRight = viewport.x + viewport.width;
+        const float viewportBottom = viewport.y + viewport.height;
+        const int columnStart = std::clamp(
+            static_cast<int>(std::floor((viewport.x - originX) / tileDrawSize)) - (TileMap::kMaxDrawWidthTiles - 1),
+            0,
+            data.width);
+        const int columnEnd = std::clamp(
+            static_cast<int>(std::ceil((viewportRight - originX) / tileDrawSize)),
+            0,
+            data.width);
+        const int rowStart = std::clamp(
+            static_cast<int>(std::floor((viewport.y - originY) / tileDrawSize)) - (TileMap::kMaxDrawHeightTiles - 1),
+            0,
+            data.height);
+        const int rowEnd = std::clamp(
+            static_cast<int>(std::ceil((viewportBottom - originY) / tileDrawSize)),
+            0,
+            data.height);
+
         Shader_ResetStyle();
-        for (int row = 0; row < data.height; ++row)
+        for (int row = rowStart; row < rowEnd; ++row)
         {
-            for (int column = 0; column < data.width; ++column)
+            for (int column = columnStart; column < columnEnd; ++column)
             {
                 const int tileValue = data.tiles[static_cast<size_t>(row * data.width + column)];
                 if (tileValue <= 0)
                 {
                     continue;
                 }
-                /*const size_t index = static_cast<size_t>(row * data.width + column);
-                if (!data.markers.empty() && data.markers[index] == '<')
-                {
-                    continue;
-                }*/
-                float r = 1.0f;
-                float g = 1.0f;
-                float b = 1.0f;
-                float a = 1.0f;
-                GetTileTint(tileValue, r, g, b, a);
+
                 const float drawX = originX + static_cast<float>(column) * data.tileSize * scale;
                 const float drawY = originY + static_cast<float>(row) * data.tileSize * scale;
                 const TileTriangleShape triangle = TileMap::GetTriangleShape(tileValue);
+                const float drawWidth = static_cast<float>(triangle.widthTiles) * tileDrawSize;
+                const float drawHeight = static_cast<float>(triangle.heightTiles) * tileDrawSize;
+                if (drawX + drawWidth <= viewport.x ||
+                    drawX >= viewportRight ||
+                    drawY + drawHeight <= viewport.y ||
+                    drawY >= viewportBottom)
+                {
+                    continue;
+                }
+
                 if (triangle.isTriangle)
                 {
-                    const float drawWidth = static_cast<float>(triangle.widthTiles) * data.tileSize * scale;
-                    const float drawHeight = static_cast<float>(triangle.heightTiles) * data.tileSize * scale;
+                    float r = 1.0f;
+                    float g = 1.0f;
+                    float b = 1.0f;
+                    float a = 1.0f;
+                    GetTileTint(tileValue, r, g, b, a);
                     const int color = GetColor(
                         static_cast<int>(std::round(r * 255.0f)),
                         static_cast<int>(std::round(g * 255.0f)),
@@ -532,18 +710,60 @@ public:
                     }
                     continue;
                 }
-                const float drawSize = data.tileSize * scale;
+
+                float r = 1.0f;
+                float g = 1.0f;
+                float b = 1.0f;
+                float a = 1.0f;
+                const bool useSpecialTile2Texture = tileValue == 2 && tile2TextureId >= 0;
+                const bool useSpecialTile3Texture = tileValue == 3 && tile3TextureId >= 0;
+                const bool isConnectableTile = IsConnectableTileValue(tileValue);
+                if (!useSpecialTile2Texture && !useSpecialTile3Texture)
+                {
+                    GetSquareTileTint(tileValue, r, g, b, a);
+                    // 地形タイル全体を暗くして、背景と足場のコントラストを作る。
+                    if (isConnectableTile)
+                    {
+                        //このパラメータを変更することで地面の彩度変わります（下げると黒くなる）
+                        constexpr float kTileBrightness = 0.35f;
+                        r *= kTileBrightness;
+                        g *= kTileBrightness;
+                        b *= kTileBrightness;
+                    }
+                }
                 Shader_SetTint(r, g, b, a);
-                SpriteDraw(
-                    textureId,
-                    drawX,
-                    drawY,
-                    drawSize,
-                    drawSize,
-                    0.0f,
-                    0.0f,
-                    1.0f,
-                    1.0f);
+                if (useSpecialTile2Texture || useSpecialTile3Texture)
+                {
+                    SpriteDraw(
+                        useSpecialTile2Texture ? tile2TextureId : tile3TextureId,
+                        drawX,
+                        drawY,
+                        data.tileSize * scale,
+                        data.tileSize * scale,
+                        0.0f,
+                        0.0f,
+                        1.0f,
+                        1.0f);
+                }
+                else
+                {
+                    const int atlasCell = IsConnectableTileValue(tileValue)
+                        ? SelectAutotileCell(data, column, row)
+                        : 4;
+                    const int atlasColumn = atlasCell % 3;
+                    const int atlasRow = atlasCell / 3;
+                    const float cellSize = 1.0f / 3.0f;
+                    SpriteDraw(
+                        textureId,
+                        drawX,
+                        drawY,
+                        data.tileSize * scale,
+                        data.tileSize * scale,
+                        static_cast<float>(atlasColumn) * cellSize,
+                        static_cast<float>(atlasRow) * cellSize,
+                        cellSize,
+                        cellSize);
+                }
             }
         }
         Shader_ResetStyle();
@@ -580,6 +800,11 @@ bool TileMap::SaveToCsv(const std::string& path) const
     {
         Logger::Error(std::string("TileMap failed to save CSV: ") + path);
         return false;
+    }
+
+    if (!m_data.tileTextureKey.empty())
+    {
+        stream << "# tileTexture=" << m_data.tileTextureKey << "\n";
     }
 
     for (int row = 0; row < m_data.height; ++row)
@@ -622,9 +847,16 @@ void TileMap::Clear()
     m_data = TileMapData{};
 }
 
-void TileMap::Draw(int textureId, float originX, float originY, float scale) const
+void TileMap::Draw(
+    int textureId,
+    float originX,
+    float originY,
+    const TileMapViewport& viewport,
+    float scale,
+    int tile2TextureId,
+    int tile3TextureId) const
 {
-    TileMapRenderer::Draw(m_data, textureId, originX, originY, scale);
+    TileMapRenderer::Draw(m_data, textureId, originX, originY, viewport, scale, tile2TextureId, tile3TextureId);
 }
 
 int TileMap::GetWidth() const
@@ -640,6 +872,16 @@ int TileMap::GetHeight() const
 float TileMap::GetTileSize() const
 {
     return m_data.tileSize;
+}
+
+const std::string& TileMap::GetTileTextureKey() const
+{
+    return m_data.tileTextureKey;
+}
+
+void TileMap::SetTileTextureKey(const std::string& tileTextureKey)
+{
+    m_data.tileTextureKey = tileTextureKey;
 }
 
 bool TileMap::IsLoaded() const
