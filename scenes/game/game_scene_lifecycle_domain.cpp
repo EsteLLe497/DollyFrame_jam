@@ -195,6 +195,12 @@ void GameScene::OnExit()
     m_lifecycle.loadingResources = nullptr;
     m_scriptEngine.Shutdown();
     ShutdownGameSceneTestPhotos(m_testPhotos);
+    if (m_tutorial.portraitTextureId >= 0)
+    {
+        DeleteGraph(m_tutorial.portraitTextureId);
+        m_tutorial.portraitTextureId = -1;
+        m_tutorial.loadedPortraitCharacter = -1;
+    }
     m_world.Clear();
     m_physicsWorld.Shutdown();
 }

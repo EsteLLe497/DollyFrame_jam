@@ -1885,6 +1885,8 @@ void GameScene::DrawUiAdjustmentWindow()
 
     auto& tuning = m_ui.tuning;
 
+    DrawTutorialAdjustmentPanel();
+
     if (ImGui::CollapsingHeader("撮影ファインダー", ImGuiTreeNodeFlags_DefaultOpen))
     {
         drag("現在の倍率##finder", m_ui.captureFinderScale, 0.01f, 0.1f, 5.0f);

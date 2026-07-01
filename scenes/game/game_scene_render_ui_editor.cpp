@@ -70,7 +70,7 @@ void GameScene::DrawMapEditorOverlay() const
     DrawString(panelLeft + 16, panelTop + 96, "マーカー: 0(なし),1(G),2(S),3(E),4(T),5(W),6(R),7(B),8(V),9(C),F10(ログ),F11(Y),N(? ボス1),F12(! ボス2),H,I,J,K,L,O,U,Q,E", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 114, "@照明: C/V 光の長さ  Z/X 本体横幅", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 132, "P/F: 正数=半径  負数=番号  Z 符号反転  X 初期値", GetColor(168, 192, 220));
-    DrawString(panelLeft + 16, panelTop + 150, "&: 正数=耐久  負数=番号  _: 符号=向き 絶対値=幅", GetColor(168, 192, 220));
+    DrawString(panelLeft + 16, panelTop + 150, "&: 正数=耐久  _: 符号=向き/幅  ~: チュートリアル範囲幅", GetColor(168, 192, 220));
     DrawString(panelLeft + 16, panelTop + 168, "F5: 保存  F6: CSV再読込  F7: 新規作成  F8: 別名保存", GetColor(168, 192, 220));
     DrawFormatString(
         panelLeft + 16,

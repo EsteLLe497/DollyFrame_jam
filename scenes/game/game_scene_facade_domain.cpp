@@ -61,6 +61,11 @@ void GameScene::BeginFrameUpdate(float deltaTime)
 
 bool GameScene::TryHandleModalUpdates(float deltaTime)
 {
+    if (UpdateTutorialModal(deltaTime))
+    {
+        return true;
+    }
+
     if (m_ui.merchantShopOpen)
     {
         UpdateMerchantShopInput();
@@ -127,6 +132,7 @@ void GameScene::FinalizeGameplayFrame(float effectiveGameplayDeltaTime)
 {
     GameSession_SetTimeRemaining(m_flow.timeRemaining);
     RunGameplayFrame(effectiveGameplayDeltaTime);
+    TryStartCameraTutorial();
     UpdateShieldBossBgmCue();
     if (Entity* player = FindEntityByTag(kTagPlayer))
     {
@@ -286,12 +292,14 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
     if (hideUiForIntroCinematic)
     {
         DrawShieldBossIntroCurtainOverlay();
+        DrawTutorialOverlay();
         return;
     }
     if (m_debug.hideNonPhotoUi)
     {
         DrawTestPhotos();
         DrawEscapeMenuOverlay();
+        DrawTutorialOverlay();
         return;
     }
     DrawTestPhotos();
@@ -312,6 +320,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
     DrawAttackCaptureSlot();
     DrawEnemyAttackRects();
     DrawShieldBossIntroCurtainOverlay();
+    DrawTutorialOverlay();
 }
 
 void GameScene::ResetFrameRendering()

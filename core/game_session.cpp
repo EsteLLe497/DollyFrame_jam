@@ -20,6 +20,7 @@ void GameSession_Reset(int maxHp, float timeLimit)
     g_sessionState.timeRemaining = timeLimit;
     g_sessionState.endReason = GameEndReason::None;
     g_sessionState.loadSavedProgress = true;
+    g_sessionState.cameraTutorialCompleted = false;
 }
 
 void GameSession_SetCurrentHp(int currentHp)
@@ -74,6 +75,11 @@ void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath)
 void GameSession_SetLoadSavedProgress(bool loadSavedProgress)
 {
     g_sessionState.loadSavedProgress = loadSavedProgress;
+}
+
+void GameSession_SetCameraTutorialCompleted(bool completed)
+{
+    g_sessionState.cameraTutorialCompleted = completed;
 }
 
 const GameSessionState& GameSession_Get()

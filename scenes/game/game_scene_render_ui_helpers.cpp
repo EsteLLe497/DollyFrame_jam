@@ -54,6 +54,7 @@ RgbColor game_scene_detail::GetEditorMarkerColor(char marker)
     case 'G': return { 255, 235, 128 };
     case 'T': return { 122, 230, 255 };
     case 'E': return { 180, 255, 196 };
+    case '~': return { 255, 188, 96 };
     default: break;
     }
 
