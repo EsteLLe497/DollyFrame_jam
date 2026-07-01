@@ -208,42 +208,6 @@ void DrawSpikeStripItem(
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
 
-void DrawTexturedPhotoItemPreview(
-    const CapturedPhotoItem& item,
-    float drawX,
-    float drawY,
-    float drawWidth,
-    float drawHeight,
-    int tileSpan,
-    float alpha)
-{
-    if (item.textureId < 0)
-    {
-        return;
-    }
-
-    Shader_ResetStyle();
-    Shader_SetTint(1.0f, 1.0f, 1.0f, std::clamp(item.tintA, 0.0f, 1.0f) * alpha);
-
-    const int blockCount = (std::max)(1, tileSpan);
-    const float blockWidth = drawWidth / static_cast<float>(blockCount);
-    for (int blockIndex = 0; blockIndex < blockCount; ++blockIndex)
-    {
-        SpriteDraw(
-            item.textureId,
-            drawX + blockWidth * static_cast<float>(blockIndex),
-            drawY,
-            blockWidth,
-            drawHeight,
-            item.sourceX,
-            item.sourceY,
-            item.sourceWidth,
-            item.sourceHeight,
-            item.flipX,
-            item.rotation);
-    }
-}
-
 std::vector<CapturedPhotoItem> BuildPrintedPhotoItems(
     const std::vector<CapturedPhotoItem>& sourceItems,
     int paperTextureId,
@@ -490,19 +454,6 @@ bool DrawDamagePlatformItemPreview(
         return false;
     }
 
-    if (item.textureId >= 0)
-    {
-        DrawTexturedPhotoItemPreview(
-            item,
-            drawX,
-            drawY,
-            drawWidth,
-            drawHeight,
-            item.damagePlatformTileSpan,
-            alpha);
-        return true;
-    }
-
     const int baseColor = GetColor(
         static_cast<int>(std::round(item.tintR * 255.0f)),
         static_cast<int>(std::round(item.tintG * 255.0f)),
@@ -536,19 +487,6 @@ bool DrawSpikeStripItemPreview(
     if (item.spikeStripTileSpan <= 0)
     {
         return false;
-    }
-
-    if (item.textureId >= 0)
-    {
-        DrawTexturedPhotoItemPreview(
-            item,
-            drawX,
-            drawY,
-            drawWidth,
-            drawHeight,
-            item.spikeStripTileSpan,
-            alpha);
-        return true;
     }
 
     const int spikeColor = GetColor(

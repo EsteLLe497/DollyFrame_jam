@@ -179,7 +179,6 @@ private:
     void RefreshLinkedGimmicksFromMarkers();
     void RefreshProtectiveWallsFromMarkers();
     void RefreshDamageFootholdsFromMarkers();
-    void RefreshVanishObjectsFromMarkers();
     void RefreshConveyorBeltsFromMarkers();
 	void RefleshSepiaRubblesFromMarkers();
     void ReflashFallingRockfromMarkers();

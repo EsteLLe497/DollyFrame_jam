@@ -463,7 +463,7 @@ void GameScene::RefreshStageRenderProfile()
     m_lifecycle.forestStageEnabled = IsForestStageMapPath(m_lifecycle.currentMapCsvPath);
     if (m_lifecycle.forestStageEnabled)
     {
-        DirectXSetPostProcessVignette(0.34f, 0.43f, 0.34f, 0.58f);
+        DirectXSetPostProcessVignette(0.54f, 0.43f, 0.34f, 0.58f);
         return;
     }
 
