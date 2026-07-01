@@ -363,6 +363,7 @@ namespace
     bool SpawnRestoredSepiaMarkerObject(
         std::vector<std::unique_ptr<Entity>>& pendingEntities,
         int whiteTexture,
+        int gearTexture,
         float tileSize,
         float& restoredLifetimeSeconds,
         char restoredMarkerType,
@@ -418,6 +419,31 @@ namespace
             }
 
             pendingEntities.push_back(std::move(log));
+            return true;
+        }
+        case '[':
+        {
+            const float spawnX = static_cast<float>(column) * tileSize;
+            const float spawnY = static_cast<float>(row) * tileSize;
+            const int gearNo = restoredMarkerParameter > 0 ? restoredMarkerParameter : 1;
+
+            auto gear = std::make_unique<Entity>();
+            gear->AddComponent<TagComponent>(kTagGear);
+            gear->AddComponent<TransformComponent>(
+                spawnX,
+                spawnY,
+                tileSize * 2.0f,
+                tileSize * 2.0f);
+            gear->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            gear->AddComponent<SpriteRenderComponent>(gearTexture >= 0 ? gearTexture : whiteTexture);
+            gear->AddComponent<GearComponent>(gearNo, false);
+            gear->AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+            gear->AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
+            gear->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
+            gear->AddComponent<PhotoCopyEffectComponent>(PhotoFilterTheme::None);
+            gear->AddComponent<VanishOnCaptureComponent>(true);
+            gear->AddComponent<PhotoCopyLifetimeComponent>(restoredLifetimeSeconds);
+            pendingEntities.push_back(std::move(gear));
             return true;
         }
         case '+':
@@ -673,6 +699,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         scene.EntitiesByTag(EntityTag::Barrel).size() +
         scene.EntitiesByTag(EntityTag::Log).size() +
         scene.EntitiesByTag(EntityTag::FallingRock).size() +
+        scene.EntitiesByTag(EntityTag::Gear).size() +
         scene.EntitiesByTag(EntityTag::DamagePlatform).size() +
         scene.EntitiesByTag(EntityTag::DamagePlatformSpike).size());
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Enemy);
@@ -703,6 +730,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Barrel);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::Log);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::FallingRock);
+    AppendEntitiesByTag(captureCandidates, scene, EntityTag::Gear);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::DamagePlatform);
     AppendEntitiesByTag(captureCandidates, scene, EntityTag::DamagePlatformSpike);
 
@@ -825,6 +853,14 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             }
         }
         const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr && !capturedLog;
+        const auto* gear = entity->GetComponent<GearComponent>();
+        const bool capturedGear = gear != nullptr;
+        const bool capturedWholeGear =
+            capturedGear &&
+            targetX >= frameX &&
+            targetY >= frameY &&
+            targetX + targetWidth <= frameX + frameWidth &&
+            targetY + targetHeight <= frameY + frameHeight;
         const auto* laserBeam = entity->GetComponent<LaserBeamComponent>();
         const bool capturedBossBeam = isCapturableBossBeam && laserBeam != nullptr;
         const bool capturedLaserTurret = (HasTag(*entity, kTagLaserTurret) ||
@@ -904,6 +940,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                                 if (SpawnRestoredSepiaMarkerObject(
                                     scene.m_world.PendingEntities(),
                                     scene.m_whiteTexture,
+                                    scene.m_assets.GetTexture("star"),
                                     tileSize,
                                     restoredLifetimeSeconds,
                                     restoredMarkerType,
@@ -1156,6 +1193,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         {
             item.spawnArchetype = CapturedSpawnArchetype::Battery;
         }
+        else if (capturedWholeGear)
+        {
+            item.spawnArchetype = CapturedSpawnArchetype::Gear;
+            item.gearNo = gear ? gear->gearNo : 1;
+        }
         else if (capturedProjectile)
         {
             item.spawnArchetype = CapturedSpawnArchetype::Projectile;
@@ -1375,7 +1417,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
         }
-        else if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedLaserTurret && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !capturedSepiaRubble && !midBoss3Fist)
+        else if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !capturedSepiaRubble && !midBoss3Fist)
         {
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
@@ -1396,7 +1438,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !midBoss3Fist)
+        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !midBoss3Fist)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }

@@ -46,7 +46,7 @@ namespace
     constexpr StageSelectItem kStageSelectItems[kStageSelectItemCount] = {
         { "forest.csv", "assets/maps/stages/forest.csv" },
         { "forest_boss.csv", "assets/maps/stages/forest_boss.csv" },
-        { "ruins.csv", "assets/maps/stages/ruins.csv" },
+        { "ruins1.csv", "assets/maps/stages/ruins1.csv" },
         { "ruins_boss.csv", "assets/maps/stages/ruins_boss.csv" },
         { "under.csv", "assets/maps/stages/under.csv" },
         { "under_boss.csv", "assets/maps/stages/under_boss.csv" },

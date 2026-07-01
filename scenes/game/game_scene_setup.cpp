@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 
@@ -837,6 +837,7 @@ namespace
         root["vanishOnCapture"] = item.vanishOnCapture;
         root["enemyAttackPaste"] = item.enemyAttackPaste;
         root["attackCaptureCount"] = item.attackCaptureCount;
+        root["gearNo"] = item.gearNo;
         root["spawnArchetype"] = ToSavedEnum(item.spawnArchetype);
         root["placementRuleGroup"] = ToSavedEnum(item.placementRuleGroup);
         root["projectileVelocityX"] = item.projectileVelocityX;
@@ -890,6 +891,7 @@ namespace
         item.vanishOnCapture = root.value("vanishOnCapture", item.vanishOnCapture);
         item.enemyAttackPaste = root.value("enemyAttackPaste", item.enemyAttackPaste);
         item.attackCaptureCount = root.value("attackCaptureCount", item.attackCaptureCount);
+        item.gearNo = root.value("gearNo", item.gearNo);
         item.spawnArchetype = FromSavedEnum(root.value("spawnArchetype", 0), item.spawnArchetype);
         item.placementRuleGroup = FromSavedEnum(root.value("placementRuleGroup", 0), item.placementRuleGroup);
         item.projectileVelocityX = root.value("projectileVelocityX", item.projectileVelocityX);

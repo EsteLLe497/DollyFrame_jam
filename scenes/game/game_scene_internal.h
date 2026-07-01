@@ -421,9 +421,11 @@ inline constexpr const char* kTagStageLight = "StageLight";
 inline constexpr const char* kTagSepiaRubble = "SepiaRubble";
 inline constexpr const char* kTagSepiaElevator = "SepiaElevator";
 inline constexpr const char* kTagMidBoss3Fist = "MidBoss3Fist";
+inline constexpr const char* kTagGear = "Gear";
+inline constexpr const char* kTagGearSocket = "GearSocket";
 
-inline constexpr std::array<char, 34> kMarkerPresets = {
-    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<', '_', '^'
+inline constexpr std::array<char, 36> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<', '_', '^', '[', ']'
 };
 inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -508,6 +510,16 @@ inline bool IsBatteryMarker(char marker)
 inline bool IsBatteryGeneratorMarker(char marker)
 {
     return IsMarkerInSet(marker, "Y");
+}
+
+inline bool IsGearMarker(char marker)
+{
+    return marker == '[';
+}
+
+inline bool IsGearSocketMarker(char marker)
+{
+    return marker == ']';
 }
 
 inline bool IsLogMarker(char marker)
@@ -599,6 +611,8 @@ inline bool IsParameterizedEditorMarker(char marker)
     case '<':
     case 'S':
     case '_':
+    case '[':
+    case ']':
         return true;
     default:
         return false;
@@ -635,6 +649,9 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
         const int clamped = std::clamp(parameter, -9, 9);
         return clamped == 0 ? 1 : clamped;
     }
+    case '[':
+    case ']':
+        return std::clamp(parameter, 0, 9);
     default:
         return 0;
     }
@@ -660,6 +677,8 @@ inline bool IsRestoreSepiaObjectMarker(char marker)
     case 'Q':
     case '+':
     case 'S':
+    case '[':
+    case ']':
         return true;
     default:
         break;

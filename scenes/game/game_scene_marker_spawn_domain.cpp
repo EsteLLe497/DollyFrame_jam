@@ -243,7 +243,10 @@ namespace
     {
         float x = 0.0f;
         float y = 0.0f;
-        int moveRangeTiles = 3;
+        float widthTiles = 1.0f;
+        float heightTiles = 3.0f;
+        float moveRangeXTiles = 0.0f;
+        float moveRangeYTiles = -3.0f;
         int linkIdOverride = -1;
         bool useBossDefeatSignal = false;
         bool opensWhenUnpowered = false;
@@ -265,6 +268,22 @@ namespace
         float x = 0.0f;
         float y = 0.0f;
         int spawnDirectionX = 1;
+    };
+
+    struct GearMarker
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        int gearNo = 1;
+    };
+
+    struct GearSocketMarker
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        int gearNo = 1;
+        int requiredGearCount = 1;
+        char linkTargetMarker = '\0';
     };
 
     struct LinkedGimmickColor
@@ -294,8 +313,13 @@ namespace
         float batteryGeneratorWidthTiles = 3.0f;
         float batteryGeneratorHeightTiles = 2.0f;
         float batteryGeneratorCooldownSeconds = 3.0f;
+        float gearWidthTiles = 2.0f;
+        float gearHeightTiles = 2.0f;
+        float gearSocketWidthTiles = 2.0f;
+        float gearSocketHeightTiles = 2.0f;
         LinkedGimmickColor batterySwitchColor{ 0.92f, 0.26f, 0.20f };
         LinkedGimmickColor batteryGeneratorColor{ 0.32f, 0.32f, 0.32f };
+        LinkedGimmickColor gearSocketColor{ 0.45f, 0.45f, 0.45f };
         LinkedGimmickColor elevatorColor{ 0.42f, 0.46f, 0.52f };
         LinkedGimmickColor laserSwitchColor{ 0.96f, 0.86f, 0.20f };
         LinkedGimmickColor shutterColor{ 0.46f, 0.50f, 0.56f };
@@ -312,7 +336,9 @@ namespace
         std::vector<LaserSwitchMarker>& outLaserSwitchMarkers,
         std::vector<ShutterMarker>& outShutterMarkers,
         std::vector<ProtectiveWallMarker>& outProtectiveWallMarkers,
-        std::vector<BatteryGeneratorMarker>& outBatteryGeneratorMarkers)
+        std::vector<BatteryGeneratorMarker>& outBatteryGeneratorMarkers,
+        std::vector<GearMarker>& outGearMarkers,
+        std::vector<GearSocketMarker>& outGearSocketMarkers)
     {
         outSwitchMarkers.clear();
         outElevatorMarkers.clear();
@@ -320,6 +346,8 @@ namespace
         outShutterMarkers.clear();
         outProtectiveWallMarkers.clear();
         outBatteryGeneratorMarkers.clear();
+        outGearMarkers.clear();
+        outGearSocketMarkers.clear();
 
         const size_t estimatedMarkerCount =
             static_cast<size_t>((std::max)(0, tileMap.GetWidth())) *
@@ -330,6 +358,8 @@ namespace
         outShutterMarkers.reserve(estimatedMarkerCount / 32 + 1);
         outProtectiveWallMarkers.reserve(estimatedMarkerCount / 32 + 1);
         outBatteryGeneratorMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outGearMarkers.reserve(estimatedMarkerCount / 32 + 1);
+        outGearSocketMarkers.reserve(estimatedMarkerCount / 32 + 1);
 
         for (int row = 0; row < tileMap.GetHeight(); ++row)
         {
@@ -402,14 +432,38 @@ namespace
                 else if (marker == 'J')
                 {
                     const int markerParameter = tileMap.GetMarkerParameter(column, row);
+                    const int markerParameter2 = tileMap.GetMarkerParameter2(column, row);
                     ShutterMarker shutterMarker{};
                     shutterMarker.x = markerX;
                     shutterMarker.y = markerY;
                     // J marker parameter:
-                    //   >0  : link id override. Pair with O using the same number (O1 -> J1).
-                    //   <0  : inverse shutter. Pair with O using the absolute value (O1 -> J-1).
-                    //   99  : boss defeat trigger enabled (link signal OR boss defeat)
-                    if (markerParameter == 99)
+                    //   param1: link id; sign controls direction only when param2 is present.
+                    //   param2: tens+ digit is length, ones digit is axis (0 = vertical, 1 = horizontal).
+                    //   legacy without param2 keeps J-1 as inverse shutter and J99 as boss trigger.
+                    if (markerParameter2 != 0)
+                    {
+                        const int linkId = std::abs(markerParameter);
+                        const int encodedParameter2 = std::abs(markerParameter2);
+                        const int lengthTiles = (std::max)(1, encodedParameter2 / 10);
+                        const int axis = encodedParameter2 % 10;
+                        const int directionSign = markerParameter < 0 ? -1 : 1;
+                        shutterMarker.linkIdOverride = linkId > 0 ? linkId : -1;
+                        if (axis == 1)
+                        {
+                            shutterMarker.widthTiles = static_cast<float>(lengthTiles);
+                            shutterMarker.heightTiles = 1.0f;
+                            shutterMarker.moveRangeXTiles = static_cast<float>(directionSign * lengthTiles);
+                            shutterMarker.moveRangeYTiles = 0.0f;
+                        }
+                        else
+                        {
+                            shutterMarker.widthTiles = 1.0f;
+                            shutterMarker.heightTiles = static_cast<float>(lengthTiles);
+                            shutterMarker.moveRangeXTiles = 0.0f;
+                            shutterMarker.moveRangeYTiles = static_cast<float>(directionSign > 0 ? -lengthTiles : lengthTiles);
+                        }
+                    }
+                    else if (markerParameter == 99)
                     {
                         shutterMarker.useBossDefeatSignal = true;
                     }
@@ -484,6 +538,27 @@ namespace
                         markerX,
                         markerY,
                         markerParameter2 < 0 ? -1 : 1 });
+                }
+                else if (marker == '[')
+                {
+                    const int markerParameter = tileMap.GetMarkerParameter(column, row);
+                    outGearMarkers.push_back(GearMarker{
+                        markerX,
+                        markerY,
+                        markerParameter > 0 ? markerParameter : 1 });
+                }
+                else if (marker == ']')
+                {
+                    const int markerParameter = tileMap.GetMarkerParameter(column, row);
+                    const char marker2 = static_cast<char>(std::toupper(static_cast<unsigned char>(
+                        tileMap.GetMarker2(column, row))));
+                    const int markerParameter2 = tileMap.GetMarkerParameter2(column, row);
+                    outGearSocketMarkers.push_back(GearSocketMarker{
+                        markerX,
+                        markerY,
+                        markerParameter > 0 ? markerParameter : 1,
+                        markerParameter2 > 0 ? markerParameter2 : 1,
+                        marker2 });
                 }
             }
         }
@@ -575,6 +650,39 @@ namespace
         return laserSwitchLinkIds[static_cast<size_t>(nearestIndex)];
     }
 
+    int ResolveGearSocketLinkId(
+        const GearSocketMarker& marker,
+        int socketIndex,
+        const std::vector<ShutterMarker>& shutterMarkers,
+        const std::vector<int>& shutterLinkIds)
+    {
+        if (marker.linkTargetMarker != 'J' ||
+            shutterMarkers.empty() ||
+            shutterLinkIds.empty())
+        {
+            return -1;
+        }
+
+        int nearestIndex = 0;
+        float nearestDistSq = std::numeric_limits<float>::max();
+        for (int shutterIndex = 0; shutterIndex < static_cast<int>(shutterMarkers.size()); ++shutterIndex)
+        {
+            const ShutterMarker& shutterMarker = shutterMarkers[static_cast<size_t>(shutterIndex)];
+            const float dx = shutterMarker.x - marker.x;
+            const float dy = shutterMarker.y - marker.y;
+            const float distSq = dx * dx + dy * dy;
+            if (distSq < nearestDistSq)
+            {
+                nearestDistSq = distSq;
+                nearestIndex = shutterIndex;
+            }
+        }
+
+        return nearestIndex < static_cast<int>(shutterLinkIds.size())
+            ? shutterLinkIds[static_cast<size_t>(nearestIndex)]
+            : -1;
+    }
+
     struct SepiaGroupSizing
     {
         float widthTiles = 1.0f;
@@ -611,10 +719,12 @@ namespace
             float heightTiles;
         };
 
-        const std::array<SepiaGroupSizingRule, 7> rules
+        const std::array<SepiaGroupSizingRule, 9> rules
         {
             SepiaGroupSizingRule{ 'M', 4.0f, 1.0f },
             SepiaGroupSizingRule{ 'S', 2.0f, 2.0f },
+            SepiaGroupSizingRule{ '[', cfg.gearWidthTiles, cfg.gearHeightTiles },
+            SepiaGroupSizingRule{ ']', cfg.gearSocketWidthTiles, cfg.gearSocketHeightTiles },
             SepiaGroupSizingRule{ 'K', cfg.batterySwitchWidthTiles, cfg.batterySwitchHeightTiles },
             SepiaGroupSizingRule{ 'X', cfg.batterySwitchWidthTiles, cfg.batterySwitchHeightTiles },
             SepiaGroupSizingRule{ 'L', cfg.elevatorWidthTiles, cfg.elevatorHeightTiles },
@@ -707,6 +817,55 @@ void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int sp
     m_world.Spawn(std::move(generatorEntity));
 }
 
+void GameScene::SpawnGearMarker(float x, float y, int gearNo, float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    const int gearTexture = m_assets.GetTexture("star");
+    auto gearEntity = std::make_unique<Entity>();
+    gearEntity->AddComponent<TagComponent>(kTagGear);
+    gearEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * cfg.gearWidthTiles,
+        tileSize * cfg.gearHeightTiles);
+    gearEntity->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+    gearEntity->AddComponent<SpriteRenderComponent>(gearTexture >= 0 ? gearTexture : m_whiteTexture);
+    gearEntity->AddComponent<GearComponent>(gearNo, false);
+    gearEntity->AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+    gearEntity->AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
+    gearEntity->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
+    gearEntity->AddComponent<PhotoCopyEffectComponent>(PhotoFilterTheme::None);
+    gearEntity->AddComponent<VanishOnCaptureComponent>(true);
+    m_world.Spawn(std::move(gearEntity));
+}
+
+void GameScene::SpawnGearSocketMarker(
+    float x,
+    float y,
+    int gearNo,
+    int requiredGearCount,
+    int linkId,
+    float tileSize)
+{
+    const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
+    const int gearTexture = m_assets.GetTexture("star");
+    auto socketEntity = std::make_unique<Entity>();
+    socketEntity->AddComponent<TagComponent>(kTagGearSocket);
+    socketEntity->AddComponent<TransformComponent>(
+        x,
+        y,
+        tileSize * cfg.gearSocketWidthTiles,
+        tileSize * cfg.gearSocketHeightTiles);
+    socketEntity->AddComponent<TintComponent>(
+        cfg.gearSocketColor.r,
+        cfg.gearSocketColor.g,
+        cfg.gearSocketColor.b,
+        1.0f);
+    socketEntity->AddComponent<SpriteRenderComponent>(gearTexture >= 0 ? gearTexture : m_whiteTexture);
+    socketEntity->AddComponent<GearSocketComponent>(gearNo, requiredGearCount, linkId);
+    m_world.Spawn(std::move(socketEntity));
+}
+
 void GameScene::SpawnConveyorBeltMarker(float x, float y, int widthTiles, int directionX, float tileSize)
 {
     const int safeWidthTiles = (std::max)(1, widthTiles);
@@ -774,21 +933,23 @@ void GameScene::SpawnLaserSwitchMarker(float x, float y, int linkId, float tileS
 void GameScene::SpawnShutterMarker(
     float x,
     float y,
-    int moveRangeTiles,
+    float widthTiles,
+    float heightTiles,
+    float moveRangeXTiles,
+    float moveRangeYTiles,
     int linkId,
     bool useBossDefeatSignal,
     bool opensWhenUnpowered,
     float tileSize)
 {
     const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
-    const int effectiveMoveRangeTiles = (std::max)(1, moveRangeTiles);
     auto shutterEntity = std::make_unique<Entity>();
     shutterEntity->AddComponent<TagComponent>(kTagShutter);
     shutterEntity->AddComponent<TransformComponent>(
         x,
         y,
-        tileSize * cfg.shutterWidthTiles,
-        tileSize * cfg.shutterHeightTiles);
+        tileSize * (std::max)(1.0f, widthTiles),
+        tileSize * (std::max)(1.0f, heightTiles));
     shutterEntity->AddComponent<TintComponent>(
         cfg.shutterColor.r,
         cfg.shutterColor.g,
@@ -797,7 +958,8 @@ void GameScene::SpawnShutterMarker(
     shutterEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
     shutterEntity->AddComponent<ShutterComponent>(
         linkId,
-        tileSize * static_cast<float>(effectiveMoveRangeTiles),
+        tileSize * moveRangeXTiles,
+        tileSize * moveRangeYTiles,
         tileSize * cfg.shutterSpeedTilesPerSec,
         useBossDefeatSignal,
         opensWhenUnpowered);
@@ -877,7 +1039,9 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
         markerChanged(IsShutterOrLaserSwitchMarker) ||
         markerChanged(IsElevatorMarker) ||
         markerChanged(IsProtectiveWallMarker) ||
-        markerChanged(IsBatteryGeneratorMarker);
+        markerChanged(IsBatteryGeneratorMarker) ||
+        markerChanged(IsGearMarker) ||
+        markerChanged(IsGearSocketMarker);
     const bool laserTurretChanged = markerChanged(IsLaserTurretMarker);
     const bool damageFootholdChanged = markerChanged(IsDamageFootholdMarker);
     const bool conveyorBeltChanged = markerChanged(IsConveyorBeltMarker);
@@ -1544,6 +1708,9 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
             }
             return entity->GetComponent<BatterySwitchComponent>() != nullptr ||
                 entity->GetComponent<BatteryGeneratorComponent>() != nullptr ||
+                (entity->GetComponent<GearComponent>() != nullptr &&
+                    entity->GetComponent<PhotoCopyGroupComponent>() == nullptr) ||
+                entity->GetComponent<GearSocketComponent>() != nullptr ||
                 entity->GetComponent<ElevatorComponent>() != nullptr ||
                 entity->GetComponent<LaserSwitchComponent>() != nullptr ||
                 entity->GetComponent<ShutterComponent>() != nullptr ||
@@ -1562,6 +1729,8 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
     std::vector<ShutterMarker> shutterMarkers;
     std::vector<ProtectiveWallMarker> protectiveWallMarkers;
     std::vector<BatteryGeneratorMarker> batteryGeneratorMarkers;
+    std::vector<GearMarker> gearMarkers;
+    std::vector<GearSocketMarker> gearSocketMarkers;
     CollectLinkedGimmickMarkers(
         m_tileMap,
         tileSize,
@@ -1570,7 +1739,9 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         laserSwitchMarkers,
         shutterMarkers,
         protectiveWallMarkers,
-        batteryGeneratorMarkers);
+        batteryGeneratorMarkers,
+        gearMarkers,
+        gearSocketMarkers);
 
     std::vector<int> switchLinkIds;
     switchLinkIds.reserve(switchMarkers.size());
@@ -1641,22 +1812,52 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
     }
 
     const std::vector<int> laserSwitchLinkIds = BuildLaserSwitchLinkIds(laserSwitchMarkers);
+    std::vector<int> shutterLinkIds;
+    shutterLinkIds.reserve(shutterMarkers.size());
+    for (int index = 0; index < static_cast<int>(shutterMarkers.size()); ++index)
+    {
+        shutterLinkIds.push_back(ResolveShutterLinkId(
+            shutterMarkers[static_cast<size_t>(index)],
+            index,
+            laserSwitchMarkers,
+            laserSwitchLinkIds));
+    }
 
     for (int index = 0; index < static_cast<int>(shutterMarkers.size()); ++index)
     {
         const ShutterMarker& marker = shutterMarkers[static_cast<size_t>(index)];
-        const int linkId = ResolveShutterLinkId(
-            marker,
-            index,
-            laserSwitchMarkers,
-            laserSwitchLinkIds);
         SpawnShutterMarker(
             marker.x,
             marker.y,
-            marker.moveRangeTiles,
-            linkId,
+            marker.widthTiles,
+            marker.heightTiles,
+            marker.moveRangeXTiles,
+            marker.moveRangeYTiles,
+            shutterLinkIds[static_cast<size_t>(index)],
             marker.useBossDefeatSignal,
             marker.opensWhenUnpowered,
+            tileSize);
+    }
+
+    for (const GearMarker& marker : gearMarkers)
+    {
+        SpawnGearMarker(marker.x, marker.y, marker.gearNo, tileSize);
+    }
+
+    for (int index = 0; index < static_cast<int>(gearSocketMarkers.size()); ++index)
+    {
+        const GearSocketMarker& marker = gearSocketMarkers[static_cast<size_t>(index)];
+        const int linkId = ResolveGearSocketLinkId(
+            marker,
+            index,
+            shutterMarkers,
+            shutterLinkIds);
+        SpawnGearSocketMarker(
+            marker.x,
+            marker.y,
+            marker.gearNo,
+            marker.requiredGearCount,
+            linkId,
             tileSize);
     }
 
@@ -1700,6 +1901,8 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
     std::vector<LaserSwitchMarker> laserSwitchMarkers;
     std::vector<ShutterMarker> shutterMarkers;
     std::vector<BatteryGeneratorMarker> batteryGeneratorMarkers;
+    std::vector<GearMarker> gearMarkers;
+    std::vector<GearSocketMarker> gearSocketMarkers;
     CollectLinkedGimmickMarkers(
         m_tileMap,
         tileSize,
@@ -1708,7 +1911,9 @@ void GameScene::RefreshProtectiveWallsFromMarkers()
         laserSwitchMarkers,
         shutterMarkers,
         protectiveWallMarkers,
-        batteryGeneratorMarkers);
+        batteryGeneratorMarkers,
+        gearMarkers,
+        gearSocketMarkers);
 
     for (int index = 0; index < static_cast<int>(protectiveWallMarkers.size()); ++index)
     {

@@ -244,6 +244,7 @@ class ShutterComponent final : public MonoBehaviour
 public:
     ShutterComponent(
         int linkId,
+        float moveRangeX,
         float moveRangeY,
         float moveSpeed,
         bool useBossDefeatSignal,
@@ -253,8 +254,10 @@ public:
     void DrawDebugUI() override;
 
     int linkId = 0;
+    float moveRangeX = 0.0f;
     float moveRangeY = 144.0f;
     float moveSpeed = 240.0f;
+    float baseX = 0.0f;
     float baseY = 0.0f;
     bool isOpen = false;
     bool useBossDefeatSignal = false;
@@ -276,6 +279,33 @@ public:
     float cooldownRemaining = 0.0f;
     int spawnDirectionX = 1;
     bool wasPowered = false;
+};
+
+class GearComponent final : public MonoBehaviour
+{
+public:
+    GearComponent(int gearNo, bool functional);
+
+    void DrawDebugUI() override;
+
+    int gearNo = 1;
+    bool functional = false;
+    bool inserted = false;
+};
+
+class GearSocketComponent final : public MonoBehaviour
+{
+public:
+    GearSocketComponent(int gearNo, int requiredGearCount, int linkId);
+
+    void DrawDebugUI() override;
+
+    int gearNo = 1;
+    int requiredGearCount = 1;
+    int insertedGearCount = 0;
+    int linkId = -1;
+    bool active = false;
+    float rotation = 0.0f;
 };
 
 class ProtectiveWallComponent final : public MonoBehaviour
