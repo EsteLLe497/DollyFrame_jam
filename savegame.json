@@ -1,8 +1,9 @@
 {
-  "activeCheckpointId": 1,
-  "cameraX": 10491.3134765625,
-  "cameraY": 1136.885009765625,
-  "hasCheckpoint": true,
+  "activeCheckpointId": -1,
+  "cameraTutorialCompleted": true,
+  "cameraX": 4427.333984375,
+  "cameraY": 1947.0,
+  "hasCheckpoint": false,
   "mapCsvPath": "assets/maps/stages/forest_v2.csv",
   "photo": {
     "attackCapture": {
@@ -44,7 +45,7 @@
       "width": 64.0
     },
     "groups": {
-      "activeGroupCount": 3,
+      "activeGroupCount": 0,
       "hasSpawnedCopy": true,
       "nextGroupId": 12,
       "nextPasteOrder": 12
@@ -152,10 +153,10 @@
     ],
     "selectedCaptureSlot": 0
   },
-  "playerX": 10947.3134765625,
-  "playerY": 1589.885009765625,
-  "respawnX": 10992.0,
-  "respawnY": 1584.0,
+  "playerX": 384.0,
+  "playerY": 2400.0,
+  "respawnX": 384.0,
+  "respawnY": 2400.0,
   "sessionCurrentHp": 3,
   "sessionHasRecoveryFilter": false,
   "sessionMaxHp": 3,

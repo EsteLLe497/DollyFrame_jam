@@ -132,6 +132,9 @@
     <ClCompile Include="scenes\game\game_scene_render_ui.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_tutorial_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
     <ClCompile Include="scenes\game\game_scene_render_ui_editor.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
@@ -244,6 +247,9 @@
       <Filter>Source Files\Third Party</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui_widgets.cpp">
+      <Filter>Source Files\Third Party</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\misc\cpp\imgui_stdlib.cpp">
       <Filter>Source Files\Third Party</Filter>
     </ClCompile>
     <ClCompile Include="third_party\lua54\onelua.c">

@@ -141,6 +141,76 @@ struct GameSceneUiCaptureOverlayTuning
     float pulseInset = 20.0f;
 };
 
+struct GameSceneUiTutorialTuning
+{
+    float dimAlpha = 0.68f;
+
+    float dialogueBoxX = 420.0f;
+    float dialogueBoxY = 700.0f;
+    float dialogueBoxWidth = 1400.0f;
+    float dialogueBoxHeight = 360.0f;
+    float dialogueNameX = 510.0f;
+    float dialogueNameY = 760.0f;
+    float dialogueTextX = 510.0f;
+    float dialogueTextY = 820.0f;
+    float dialoguePromptX = 1580.0f;
+    float dialoguePromptY = 990.0f;
+    float dialogueNameFontSize = 30.0f;
+    float dialogueTextFontSize = 38.0f;
+    float dialogueLineSpacing = 48.0f;
+    float dialoguePortraitX = 100.0f;
+    float dialoguePortraitY = 700.0f;
+    float dialoguePortraitSize = 360.0f;
+    float dialogueFadeDuration = 0.35f;
+    float dialogueCharactersPerSecond = 28.0f;
+    int dialogueCharacter = 0;
+    int dialogueBoxLayer = 10;
+    int dialoguePortraitLayer = 15;
+    int dialogueNameLayer = 20;
+    int dialogueTextLayer = 20;
+    int dialoguePromptLayer = 30;
+
+    float frameX = 260.0f;
+    float frameY = 40.0f;
+    float frameWidth = 1400.0f;
+    float frameHeight = 1000.0f;
+    float headingX = 530.0f;
+    float headingY = 70.0f;
+    float headingWidth = 860.0f;
+    float headingHeight = 150.0f;
+    float titleX = 760.0f;
+    float titleY = 118.0f;
+    float contentImageX = 610.0f;
+    float contentImageY = 250.0f;
+    float contentImageWidth = 700.0f;
+    float contentImageHeight = 388.0f;
+    float bodyX = 500.0f;
+    float bodyY = 680.0f;
+    float bodyWidth = 920.0f;
+    float bodyLineSpacing = 54.0f;
+    float promptX = 850.0f;
+    float promptY = 930.0f;
+    float titleFontSize = 42.0f;
+    float bodyFontSize = 32.0f;
+    float promptFontSize = 28.0f;
+    int frameLayer = 10;
+    int headingLayer = 20;
+    int contentImageLayer = 25;
+    int titleLayer = 30;
+    int bodyLayer = 30;
+    int promptLayer = 40;
+
+    std::string dialogueText =
+        "カメラの使い方、まだ分からないの？\n"
+        "しょうがないから教えてあげる。";
+    std::string title = "カメラの使い方";
+    std::string bodyText =
+        "右クリック長押しでカメラを構えます。\n"
+        "写したいものを枠の中に入れて、左クリックで撮影。\n"
+        "撮った写真は画面下のトレイから使用できます。";
+    std::string confirmText = "Enter / A で次へ";
+};
+
 struct GameSceneUiPhotoTrayTuning
 {
     float slotStartX = 68.0f;
@@ -325,6 +395,7 @@ struct GameSceneUiTuningState
 {
     GameSceneUiCaptureFinderTuning captureFinder;
     GameSceneUiCaptureOverlayTuning captureOverlay;
+    GameSceneUiTutorialTuning tutorial;
     GameSceneUiPhotoTrayTuning photoTray;
     GameSceneUiDevelopedPhotoPreviewTuning developedPhotoPreview;
     GameSceneUiHpTuning hp;
@@ -337,6 +408,24 @@ struct GameSceneUiTuningState
     GameSceneUiBatteryCounterTuning batteryCounter;
     GameSceneUiStageGuideTuning stageGuide;
     GameSceneUiMapEditorTuning mapEditor;
+};
+
+enum class TutorialPresentationPhase
+{
+    Inactive,
+    Conversation,
+    TutorialWindow,
+};
+
+struct GameSceneTutorialState
+{
+    TutorialPresentationPhase phase = TutorialPresentationPhase::Inactive;
+    bool previewConversation = false;
+    bool previewWindow = false;
+    float dialogueFadeElapsed = 0.0f;
+    float dialogueRevealElapsed = 0.0f;
+    int portraitTextureId = -1;
+    int loadedPortraitCharacter = -1;
 };
 
 struct GameSceneFlowState
@@ -585,6 +674,7 @@ struct GameSceneSaveState
     int sessionParts = 0;
     int sessionPhotoStorageSlots = 2;
     bool sessionHasRecoveryFilter = false;
+    bool cameraTutorialCompleted = false;
     float sessionTimeLimit = 60.0f;
     float sessionTimeRemaining = 60.0f;
     PhotoState photo;

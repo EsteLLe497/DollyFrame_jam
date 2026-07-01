@@ -22,6 +22,7 @@ struct GameSessionState
     GameEndReason endReason = GameEndReason::None;
     std::string startMapCsvPath = "assets/maps/stages/forest_v2.csv";
     bool loadSavedProgress = true;
+    bool cameraTutorialCompleted = false;
 };
 
 void GameSession_Reset(int maxHp, float timeLimit);
@@ -34,6 +35,7 @@ void GameSession_SetTimeRemaining(float timeRemaining);
 void GameSession_SetEndReason(GameEndReason reason);
 void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath);
 void GameSession_SetLoadSavedProgress(bool loadSavedProgress);
+void GameSession_SetCameraTutorialCompleted(bool completed);
 const GameSessionState& GameSession_Get();
 const std::string& GameSession_GetStartMapCsvPath();
 bool GameSession_ShouldLoadSavedProgress();

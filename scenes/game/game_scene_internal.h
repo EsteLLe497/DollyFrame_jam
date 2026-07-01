@@ -424,8 +424,8 @@ inline constexpr const char* kTagMidBoss3Fist = "MidBoss3Fist";
 inline constexpr const char* kTagGear = "Gear";
 inline constexpr const char* kTagGearSocket = "GearSocket";
 
-inline constexpr std::array<char, 36> kMarkerPresets = {
-    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<', '_', '^', '[', ']'
+inline constexpr std::array<char, 37> kMarkerPresets = {
+    '\0', 'G', 'S', 'E', 'T', 'W', 'R', 'A', 'D', 'B', 'V', 'C', 'M', 'Y', 'H', 'I', 'K', 'L', 'Q', '?', '!', 'U', 'Z', 'J', 'O', 'X', '*', 'F', '@', '&','>','<', '_', '^', '[', ']', '~'
 };
 inline constexpr int kMarkerPresetCount = static_cast<int>(kMarkerPresets.size());
 
@@ -542,6 +542,11 @@ inline bool IsJumpPadMarker(char marker)
     return IsMarkerInSet(marker, "T");
 }
 
+inline bool IsTutorialStartMarker(char marker)
+{
+    return marker == '~';
+}
+
 inline bool IsConveyorBeltMarker(char marker)
 {
     return marker == '_';
@@ -613,6 +618,7 @@ inline bool IsParameterizedEditorMarker(char marker)
     case '_':
     case '[':
     case ']':
+    case '~':
         return true;
     default:
         return false;
@@ -652,6 +658,8 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
     case '[':
     case ']':
         return std::clamp(parameter, 0, 9);
+    case '~':
+        return std::clamp(parameter, 1, 99);
     default:
         return 0;
     }
