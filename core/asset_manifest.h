@@ -10,6 +10,7 @@ class AssetManifest
 public:
     void LoadDefaults(ResourceManager& resources);
     int GetTexture(const std::string& key) const;
+    int getTextureByPath(const std::string& path) const;
 
 private:
     ResourceManager* m_resources = nullptr;

@@ -14,6 +14,7 @@
 #include "demo_scene.h"
 #include "directX.h"
 #include "event_bus.h"
+#include "game_font.h"
 #include "game_scene.h"
 #include "imgui_layer.h"
 #include "input.h"
@@ -197,6 +198,7 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     {
         return false;
     }
+    initializeGameFont();
     SetMouseDispFlag(TRUE);
     DrawStartupLoadingScreen("LOADING...");
 
@@ -261,6 +263,7 @@ void Application::Shutdown()
     m_resources->Shutdown();
     Shader_Finalize();
     DirectXFinalaize();
+    shutdownGameFont();
     DxLib_End();
     m_initialized = false;
     Logger::Shutdown();

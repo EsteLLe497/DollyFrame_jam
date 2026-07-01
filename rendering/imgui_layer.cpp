@@ -7,6 +7,7 @@
 #include <string>
 
 #include "directX.h"
+#include "game_font.h"
 #include "input.h"
 #include "third_party/imgui/backends/imgui_impl_dx11.h"
 #include "third_party/imgui/backends/imgui_impl_win32.h"
@@ -118,6 +119,12 @@ namespace
 
         const ImWchar* ranges = io.Fonts->GetGlyphRangesJapanese();
         constexpr float kFontSize = 18.0f;
+
+        if (ImFont* font = io.Fonts->AddFontFromFileTTF(getGameFontPath(), kFontSize, &config, ranges))
+        {
+            io.FontDefault = font;
+            return true;
+        }
 
         if (ImFont* font = io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/NotoSansJP-Regular.otf", kFontSize, &config, ranges))
         {

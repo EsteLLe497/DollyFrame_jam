@@ -6,6 +6,8 @@
 
 #include "components_combat.h"
 #include "game_scene_photo_state.h"
+#include "tutorial_csv_data.h"
+#include "tutorial_video_player.h"
 
 class ResourceManager;
 
@@ -161,9 +163,8 @@ struct GameSceneUiTutorialTuning
     float dialoguePortraitX = 100.0f;
     float dialoguePortraitY = 700.0f;
     float dialoguePortraitSize = 360.0f;
-    float dialogueFadeDuration = 0.35f;
+    float dialogueFadeDuration = 1.20f;
     float dialogueCharactersPerSecond = 28.0f;
-    int dialogueCharacter = 0;
     int dialogueBoxLayer = 10;
     int dialoguePortraitLayer = 15;
     int dialogueNameLayer = 20;
@@ -200,15 +201,6 @@ struct GameSceneUiTutorialTuning
     int bodyLayer = 30;
     int promptLayer = 40;
 
-    std::string dialogueText =
-        "カメラの使い方、まだ分からないの？\n"
-        "しょうがないから教えてあげる。";
-    std::string title = "カメラの使い方";
-    std::string bodyText =
-        "右クリック長押しでカメラを構えます。\n"
-        "写したいものを枠の中に入れて、左クリックで撮影。\n"
-        "撮った写真は画面下のトレイから使用できます。";
-    std::string confirmText = "Enter / A で次へ";
 };
 
 struct GameSceneUiPhotoTrayTuning
@@ -424,8 +416,13 @@ struct GameSceneTutorialState
     bool previewWindow = false;
     float dialogueFadeElapsed = 0.0f;
     float dialogueRevealElapsed = 0.0f;
+    std::vector<TutorialPageData> pages;
+    size_t currentPageIndex = 0;
     int portraitTextureId = -1;
-    int loadedPortraitCharacter = -1;
+    std::string loadedPortraitPath;
+    TutorialVideoPlayer videoPlayer;
+    int activeTutorialNumber = 0;
+    int loadedTutorialNumber = 0;
 };
 
 struct GameSceneFlowState
@@ -675,6 +672,7 @@ struct GameSceneSaveState
     int sessionPhotoStorageSlots = 2;
     bool sessionHasRecoveryFilter = false;
     bool cameraTutorialCompleted = false;
+    std::vector<int> completedTutorialNumbers;
     float sessionTimeLimit = 60.0f;
     float sessionTimeRemaining = 60.0f;
     PhotoState photo;
