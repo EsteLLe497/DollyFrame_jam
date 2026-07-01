@@ -1830,16 +1830,10 @@ void GameScene::UpdatePlayer(float deltaTime)
             verticalSnapDistance,
         };
         const float movementHorizontalVelocity = m_player.velocityX;
-        const auto intersectsPhotoBoxForHorizontalMove = [this, groundedAtStepStart, tileSize](const TransformComponent& candidate)
+        const auto intersectsPhotoBoxForHorizontalMove = [this](const TransformComponent& candidate)
         {
-            if (!groundedAtStepStart)
-            {
-                return IntersectsSolidPhotoBoxForMovement(candidate);
-            }
-
-            TransformComponent liftedCandidate = candidate;
-            liftedCandidate.y -= std::max(2.0f, tileSize * 0.09f);
-            return IntersectsSolidPhotoBoxForMovement(liftedCandidate);
+            // Keep horizontal PhotoBox checks at the real player position so side contacts stay solid.
+            return IntersectsSolidPhotoBoxForMovement(candidate);
         };
 
         game_scene_player_movement_system::ResolveHorizontalTileCollisions(

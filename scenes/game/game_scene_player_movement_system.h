@@ -182,6 +182,39 @@ inline void ResolveHorizontalObjectCollisions(
         {
             TransformComponent playerBounds(transform.x, transform.y, transform.width, transform.height);
             playerBounds.scale = transform.scale;
+            const float boxLeft = photoBoxBounds.x;
+            const float boxTop = photoBoxBounds.y;
+            const float boxWidth = photoBoxBounds.width * photoBoxBounds.scale;
+            const float boxHeight = photoBoxBounds.height * photoBoxBounds.scale;
+            const float boxRight = boxLeft + boxWidth;
+            const float boxBottom = boxTop + boxHeight;
+            const float currentRight = transform.x + ctx.playerWidth;
+            const float currentBottom = transform.y + ctx.playerHeight;
+            const bool verticallyOverlapping =
+                currentBottom > boxTop + kHorizontalCollisionEpsilon &&
+                transform.y < boxBottom - kHorizontalCollisionEpsilon;
+
+            if (verticallyOverlapping)
+            {
+                // Resolve side-to-side hits before polygon movement checks can treat them as top contact.
+                if (player.velocityX > 0.0f &&
+                    ctx.previousX + ctx.playerWidth <= boxLeft + kHorizontalCollisionEpsilon &&
+                    currentRight > boxLeft)
+                {
+                    transform.x = boxLeft - ctx.playerWidth;
+                    player.velocityX = 0.0f;
+                    break;
+                }
+                if (player.velocityX < 0.0f &&
+                    ctx.previousX >= boxRight - kHorizontalCollisionEpsilon &&
+                    transform.x < boxRight)
+                {
+                    transform.x = boxRight;
+                    player.velocityX = 0.0f;
+                    break;
+                }
+            }
+
             if (!IntersectsRect(playerBounds, photoBoxBounds) || !intersectsSolidObject(playerBounds))
             {
                 continue;
@@ -317,7 +350,8 @@ void ResolveVerticalMotion(
                     playerBounds.scale = transform.scale;
                     if (IntersectsRect(playerBounds, photoBoxBounds) &&
                         intersectsSolidObject(playerBounds) &&
-                        ctx.previousBottom <= photoBoxBounds.y + photoBoxBounds.height * photoBoxBounds.scale + kSurfaceContactEpsilon)
+                        // Land on pasted objects only when the player was above their top surface last step.
+                        ctx.previousBottom <= photoBoxBounds.y + kSurfaceContactEpsilon)
                     {
                         float resolvedY = transform.y;
                         float low = ctx.previousY;

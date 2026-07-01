@@ -167,6 +167,14 @@ namespace
         }
     }
 
+    bool ShouldPasteAsSolidEnvironment(const CapturedPhotoItem& item)
+    {
+        return item.sourceTileValue > 0 ||
+            item.damagePlatformTileSpan > 0 ||
+            item.spikeStripTileSpan > 0 ||
+            item.vanishOnCapture;
+    }
+
     void UpdatePlacementPadCursor(
         float mouseWorldX,
         float mouseWorldY,
@@ -1534,7 +1542,10 @@ void PhotoPasteSystem::SpawnPhotoGroup(
         lastSpawnedEntity->AddComponent<PhotoCopyGroupComponent>(groupId);
         lastSpawnedEntity->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
         lastSpawnedEntity->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
-        lastSpawnedEntity->AddComponent<PhotoCopyRoleComponent>(item.role);
+        const PhotoCopyRole pastedRole = ShouldPasteAsSolidEnvironment(item)
+            ? PhotoCopyRole::Solid
+            : item.role;
+        lastSpawnedEntity->AddComponent<PhotoCopyRoleComponent>(pastedRole);
         lastSpawnedEntity->AddComponent<PhotoCopyOriginComponent>(item.origin);
         if (item.vanishOnCapture)
         {
@@ -1594,17 +1605,15 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 0.0f,
                 0.0f);
         }
-        if (!item.collisionOutline.empty())
-        {
-            std::vector<b2Vec2> normalizedOutline;
-            normalizedOutline.reserve(item.collisionOutline.size());
-            for (const auto& point : item.collisionOutline)
-            {
-                normalizedOutline.push_back({ point.x, point.y });
-            }
-            lastSpawnedEntity->AddComponent<ImageOutlineColliderComponent>(std::move(normalizedOutline), 0.2f);
-        }
+        // Generic pasted PhotoBoxes use their visible transform bounds so pasted floors and walls do not feel too thin.
         ApplyPhotoFilterToPhotoBox(*lastSpawnedEntity, item.appliedTheme);
+        if (ShouldPasteAsSolidEnvironment(item))
+        {
+            if (auto* role = lastSpawnedEntity->GetComponent<PhotoCopyRoleComponent>())
+            {
+                role->role = PhotoCopyRole::Solid;
+            }
+        }
         scene.m_world.Spawn(std::move(entity));
     }
 
