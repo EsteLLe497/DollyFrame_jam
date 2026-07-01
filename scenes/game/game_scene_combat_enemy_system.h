@@ -117,6 +117,27 @@ inline void UpdateEnemies(
             const float playerCenterY = playerTransform
                 ? playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f
                 : bossCenterY();
+            const auto normalizeSide = [](int side) -> int
+            {
+                return side < 0 ? -1 : 1;
+            };
+            const auto resolvePlayerSideFromBoss = [&](int fallbackSide) -> int
+            {
+                const int fallback = (fallbackSide == -1 || fallbackSide == 1)
+                    ? fallbackSide
+                    : normalizeSide(boss->lastFlowMoveSide);
+                const float referenceX = boss->homeX + bossWidth * 0.5f;
+                const float deadZone = kTileSize;
+                if (playerCenterX < referenceX - deadZone)
+                {
+                    return -1;
+                }
+                if (playerCenterX > referenceX + deadZone)
+                {
+                    return 1;
+                }
+                return fallback;
+            };
 
             if (!boss->initializedHome)
             {
@@ -554,6 +575,9 @@ inline void UpdateEnemies(
                 fist.velocityY = 0.0f;
                 fist.launchTimer = 0.0f;
                 fist.attackReadyTimer = 0.0f;
+                fist.meteorAimX = 0.0f;
+                fist.meteorAimY = 1.0f;
+                fist.meteorHoldInitialized = false;
                 fist.damageApplied = false;
                 fist.atAttackStart = false;
                 fist.broken = false;
@@ -731,6 +755,9 @@ inline void UpdateEnemies(
                     fist->damageApplied = false;
                     fist->launchTimer = 0.0f;
                     fist->attackReadyTimer = 0.0f;
+                    fist->meteorAimX = 0.0f;
+                    fist->meteorAimY = 1.0f;
+                    fist->meteorHoldInitialized = false;
                     fist->captureJammerActive = false;
                     fist->impactAttackActive = false;
                     fist->impactDamageApplied = false;
@@ -785,7 +812,8 @@ inline void UpdateEnemies(
                 boss->launcherShotTimer = 0.0f;
                 boss->launcherShotsFired = 0;
                 boss->cooldownAttack = 1;
-                boss->launcherDirection = playerCenterX < stageCenterX ? -1 : 1;
+                boss->launcherDirection = resolvePlayerSideFromBoss(boss->lastFlowMoveSide);
+                boss->lastFlowMoveSide = boss->launcherDirection;
                 float fistHeight = kTileSize * 2.0f;
                 for (Entity* fistEntity : boss->fistEntities)
                 {
@@ -805,7 +833,8 @@ inline void UpdateEnemies(
                 boss->launcherShotTimer = 0.0f;
                 boss->meteorShotsFired = 0;
                 boss->cooldownAttack = 2;
-                boss->meteorDirection = playerCenterX < stageCenterX ? -1 : 1;
+                boss->meteorDirection = resolvePlayerSideFromBoss(boss->lastFlowMoveSide);
+                boss->lastFlowMoveSide = boss->meteorDirection;
                 setAllFistsState(MidBoss3FistState::MeteorReady, true);
             };
             const auto prepareComboAttack = [&]()
@@ -816,8 +845,9 @@ inline void UpdateEnemies(
                 boss->launcherShotsFired = 0;
                 boss->meteorShotsFired = 0;
                 boss->cooldownAttack = 3;
-                boss->launcherDirection = playerCenterX < stageCenterX ? -1 : 1;
+                boss->launcherDirection = resolvePlayerSideFromBoss(boss->lastFlowMoveSide);
                 boss->meteorDirection = boss->launcherDirection;
+                boss->lastFlowMoveSide = boss->launcherDirection;
                 float fistHeight = kTileSize * 2.0f;
                 for (Entity* fistEntity : boss->fistEntities)
                 {
@@ -845,7 +875,8 @@ inline void UpdateEnemies(
                 boss->drillVelocityY = 0.0f;
                 boss->drillWidth = kTileSize * 4.0f;
                 boss->drillHeight = kTileSize * 2.0f;
-                boss->drillDirection = playerCenterX >= bossCenterX() ? 1 : -1;
+                boss->drillDirection = resolvePlayerSideFromBoss(boss->lastFlowMoveSide);
+                boss->lastFlowMoveSide = boss->drillDirection;
                 const float drillX = boss->drillDirection > 0
                     ? transform->x + bossWidth + kTileSize * 0.5f
                     : transform->x - boss->drillWidth - kTileSize * 0.5f;
@@ -976,7 +1007,7 @@ inline void UpdateEnemies(
                             {
                                 if (boss->chooseMoveSideFromStageCenter)
                                 {
-                                    boss->moveSide = playerCenterX < stageCenterX ? -1 : 1;
+                                    boss->moveSide = resolvePlayerSideFromBoss(boss->lastFlowMoveSide);
                                     boss->lastFlowMoveSide = boss->moveSide;
                                 }
                                 else if (boss->lastFlowMoveSide == -1 || boss->lastFlowMoveSide == 1)
@@ -1055,64 +1086,54 @@ inline void UpdateEnemies(
             else if (boss->state == MidBoss3State::MeteorFist ||
                 boss->state == MidBoss3State::LauncherMeteorFist)
             {
-                const auto launchMeteorPair = [&](int a, int b) -> bool
+                const auto launchMeteorFist = [&](int targetIndex) -> bool
                 {
-                    int readyCount = 0;
-                    for (Entity* fistEntity : boss->fistEntities)
-                    {
-                        const auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
-                        if (fist &&
-                            fist->state == MidBoss3FistState::MeteorReady &&
-                            fist->atAttackStart &&
-                            fist->attackReadyTimer >= boss->params.fistPreLaunchShakeTime &&
-                            (fist->fistIndex == a || fist->fistIndex == b))
-                        {
-                            ++readyCount;
-                        }
-                    }
-                    if (readyCount < 2)
-                    {
-                        return false;
-                    }
                     for (Entity* fistEntity : boss->fistEntities)
                     {
                         auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
                         auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
-                        if (!fist || !fistTransform || fist->state != MidBoss3FistState::MeteorReady)
-                        {
-                            continue;
-                        }
-                        if (fist->fistIndex != a && fist->fistIndex != b)
+                        if (!fist ||
+                            !fistTransform ||
+                            fist->fistIndex != targetIndex ||
+                            fist->state != MidBoss3FistState::MeteorReady ||
+                            !fist->atAttackStart ||
+                            fist->attackReadyTimer < boss->params.fistPreLaunchShakeTime)
                         {
                             continue;
                         }
                         fist->state = MidBoss3FistState::MeteorFalling;
-                        fist->velocityX = 0.0f;
-                        fist->velocityY = boss->params.meteorFistSpeed;
+                        const float aimLength = std::max(0.001f, std::hypot(fist->meteorAimX, fist->meteorAimY));
+                        fist->velocityX = (fist->meteorAimX / aimLength) * boss->params.meteorFistSpeed;
+                        fist->velocityY = (fist->meteorAimY / aimLength) * boss->params.meteorFistSpeed;
                         fist->launchTimer = 0.0f;
-                        fistTransform->rotation = 1.5707963f;
+                        fistTransform->rotation = std::atan2(fist->velocityY, fist->velocityX);
+                        return true;
                     }
-                    return true;
+                    return false;
                 };
 
-                if (boss->stateTimer >= boss->params.meteorWindupTime && boss->meteorShotsFired == 0)
+                const int meteorLaunchOrder[4] = { 0, 1, 2, 3 };
+                const int meteorLaunchCount = boss->state == MidBoss3State::LauncherMeteorFist ? 2 : 4;
+                const float meteorLaunchInterval = boss->params.meteorPairInterval;
+                const float requiredWait = boss->meteorShotsFired == 0
+                    ? boss->params.meteorWindupTime
+                    : meteorLaunchInterval;
+                if (boss->meteorShotsFired < meteorLaunchCount &&
+                    boss->stateTimer >= requiredWait)
                 {
-                    if (launchMeteorPair(0, 1))
+                    const int fistIndex = meteorLaunchOrder[boss->meteorShotsFired];
+                    if (launchMeteorFist(fistIndex))
                     {
-                        boss->meteorShotsFired = 2;
+                        ++boss->meteorShotsFired;
                         boss->stateTimer = 0.0f;
                     }
                 }
-                if (boss->stateTimer >= boss->params.meteorPairInterval && boss->meteorShotsFired == 2)
+                if (boss->meteorShotsFired >= meteorLaunchCount)
                 {
                     if (boss->state == MidBoss3State::MeteorFist)
                     {
-                        if (launchMeteorPair(2, 3))
-                        {
-                            boss->meteorShotsFired = 4;
-                            boss->state = MidBoss3State::AttackCooldown;
-                            boss->stateTimer = 0.0f;
-                        }
+                        boss->state = MidBoss3State::AttackCooldown;
+                        boss->stateTimer = 0.0f;
                     }
                     else
                     {
@@ -1300,7 +1321,13 @@ inline void UpdateEnemies(
 
                         if (boss->drillActive)
                         {
-                            TransformComponent drillRect(boss->drillX, boss->drillY, boss->drillWidth, boss->drillHeight);
+                            const float drillHitInsetX = boss->drillWidth * 0.14f;
+                            const float drillHitInsetY = boss->drillHeight * 0.22f;
+                            TransformComponent drillRect(
+                                boss->drillX + drillHitInsetX,
+                                boss->drillY + drillHitInsetY,
+                                std::max(1.0f, boss->drillWidth - drillHitInsetX * 2.0f),
+                                std::max(1.0f, boss->drillHeight - drillHitInsetY * 2.0f));
                             for (const auto& target : entities)
                             {
                                 if (!target ||
@@ -1651,13 +1678,29 @@ inline void UpdateEnemies(
                     }
                     return mapHeight;
                 };
-                const float meteorCenterX = findMeteorTargetCenterX(meteorSlot);
+                const auto initialMeteorCenterX = [&]() -> float
+                {
+                    if (boss->state == MidBoss3State::LauncherMeteorFist)
+                    {
+                        const float offsets[2] = { -3.4f, 3.4f };
+                        const int index = std::clamp(fist->fistIndex, 0, 1);
+                        return playerCenterX + offsets[index] * kTileSize;
+                    }
+                    const float offsets[4] = { -7.6f, -2.8f, 2.8f, 7.6f };
+                    const int index = std::clamp(fist->fistIndex, 0, 3);
+                    return playerCenterX + offsets[index] * kTileSize;
+                };
+                const float meteorCenterX = (boss->state == MidBoss3State::MeteorFist ||
+                    boss->state == MidBoss3State::LauncherMeteorFist)
+                    ? initialMeteorCenterX()
+                    : findMeteorTargetCenterX(meteorSlot);
                 const float meteorStartX = std::clamp(
                     meteorCenterX - fistWidth * 0.5f,
                     0.0f,
                     std::max(0.0f, mapWidth - fistWidth));
                 const float meteorGroundY = findMeteorGroundY(meteorCenterX);
-                const float meteorStartOffsetGrid = (fist->fistIndex == 0 || fist->fistIndex == 1) ? 8.0f : 11.0f;
+                const bool outerMeteorFist = fist->fistIndex == 0 || fist->fistIndex == 3;
+                const float meteorStartOffsetGrid = outerMeteorFist ? 7.8f : 11.4f;
                 const float meteorStartY = std::clamp(
                     meteorGroundY - fistHeight - meteorStartOffsetGrid * kTileSize,
                     0.0f,
@@ -1737,34 +1780,35 @@ inline void UpdateEnemies(
                 }
                 else if (fist->state == MidBoss3FistState::MeteorReady)
                 {
+                    if (!fist->meteorHoldInitialized)
+                    {
+                        fist->meteorHoldX = meteorStartX;
+                        fist->meteorHoldY = meteorStartY;
+                        fist->meteorHoldInitialized = true;
+                    }
                     const float followStep = boss->params.fistReturnSpeed * deltaTime;
-                    fistTransform->x = moveToward(fistTransform->x, meteorStartX, followStep);
-                    fistTransform->y = moveToward(fistTransform->y, meteorStartY, followStep);
-                    fistTransform->rotation = 1.5707963f;
+                    fistTransform->x = moveToward(fistTransform->x, fist->meteorHoldX, followStep);
+                    fistTransform->y = moveToward(fistTransform->y, fist->meteorHoldY, followStep);
                     const bool reachedAttackStart =
-                        std::fabs(fistTransform->x - meteorStartX) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f &&
-                        std::fabs(fistTransform->y - meteorStartY) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f;
-                    const bool telegraphActive =
-                        boss->state != MidBoss3State::MeteorFist ||
-                        boss->meteorShotsFired >= 2 ||
-                        fist->fistIndex <= 1;
-                    fist->atAttackStart = reachedAttackStart && telegraphActive;
+                        std::fabs(fistTransform->x - fist->meteorHoldX) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f &&
+                        std::fabs(fistTransform->y - fist->meteorHoldY) <= boss->params.fistPreLaunchShakeAmplitude + 1.0f;
+                    fist->atAttackStart = reachedAttackStart;
                     if (fist->atAttackStart)
                     {
+                        const float fistCenterX = fistTransform->x + fistWidth * 0.5f;
+                        const float fistCenterY = fistTransform->y + fistHeight * 0.5f;
+                        const float aimDx = playerCenterX - fistCenterX;
+                        const float aimDy = playerCenterY - fistCenterY;
+                        const float aimLength = std::max(0.001f, std::hypot(aimDx, aimDy));
+                        fist->meteorAimX = aimDx / aimLength;
+                        fist->meteorAimY = aimDy / aimLength;
+                        fistTransform->rotation = std::atan2(fist->meteorAimY, fist->meteorAimX);
                         fist->attackReadyTimer += deltaTime;
-                        const float phase = boss->idleTimer * 104.0f + static_cast<float>(fist->fistIndex) * 2.17f;
-                        const float shakeX = std::sin(phase) * boss->params.fistPreLaunchShakeAmplitude;
-                        fistTransform->x = meteorStartX + shakeX;
-                        fistTransform->y = meteorStartY;
                     }
                     else
                     {
+                        fistTransform->rotation = 1.5707963f;
                         fist->attackReadyTimer = 0.0f;
-                        if (reachedAttackStart)
-                        {
-                            fistTransform->x = meteorStartX;
-                            fistTransform->y = meteorStartY;
-                        }
                     }
                 }
                 else if (fist->state == MidBoss3FistState::DrillForming)
@@ -1858,13 +1902,13 @@ inline void UpdateEnemies(
                     fist->launchTimer += deltaTime;
                     fistTransform->x += fist->velocityX * deltaTime;
                     fistTransform->y += fist->velocityY * deltaTime;
-                    fistTransform->rotation = 1.5707963f;
+                    fistTransform->rotation = std::atan2(fist->velocityY, fist->velocityX);
 
-                    const int leftColumn = static_cast<int>(fistTransform->x / kTileSize);
-                    const int rightColumn = static_cast<int>((fistTransform->x + fistWidth) / kTileSize);
-                    const int bottomRow = static_cast<int>((fistTransform->y + fistHeight) / kTileSize);
-                    const bool hitSolidTile = isSolidTile(leftColumn, bottomRow) || isSolidTile(rightColumn, bottomRow);
+                    const bool hitSolidTile = rectIntersectsSolid(fistTransform->x, fistTransform->y, fistWidth, fistHeight);
                     const bool outOfBounds =
+                        fistTransform->x < -fistWidth ||
+                        fistTransform->x > mapWidth + fistWidth ||
+                        fistTransform->y < -fistHeight ||
                         fistTransform->y > mapHeight + fistHeight;
 
                     if (!fist->damageApplied &&
@@ -1880,14 +1924,13 @@ inline void UpdateEnemies(
                     const bool canBreakOnSolid = fist->launchTimer >= 0.08f;
                     if (!hitObject && ((hitSolidTile && canBreakOnSolid) || outOfBounds))
                     {
-                        const float impactTopY = hitSolidTile
-                            ? static_cast<float>(bottomRow) * kTileSize - kTileSize * 2.0f
-                            : fistTransform->y + fistHeight - kTileSize * 2.0f;
+                        const float impactCenterX = fistTransform->x + fistWidth * 0.5f;
+                        const float impactCenterY = fistTransform->y + fistHeight * 0.5f;
                         fist->impactAttackX = std::clamp(
-                            fistTransform->x + fistWidth * 0.5f - kTileSize * 2.0f,
+                            impactCenterX - kTileSize * 2.0f,
                             0.0f,
                             std::max(0.0f, mapWidth - kTileSize * 4.0f));
-                        fist->impactAttackY = std::clamp(impactTopY, 0.0f, std::max(0.0f, mapHeight - kTileSize * 2.0f));
+                        fist->impactAttackY = std::clamp(impactCenterY - kTileSize, 0.0f, std::max(0.0f, mapHeight - kTileSize * 2.0f));
                         fist->impactAttackWidth = kTileSize * 4.0f;
                         fist->impactAttackHeight = kTileSize * 2.0f;
                         fist->impactAttackRemaining = 0.16f;
@@ -1960,11 +2003,7 @@ inline void UpdateEnemies(
                         tint->a = 0.0f;
                     }
                 }
-                const bool contactDamageState =
-                    fist->state == MidBoss3FistState::Docked ||
-                    fist->state == MidBoss3FistState::LauncherReady ||
-                    fist->state == MidBoss3FistState::MeteorReady ||
-                    (fist->state == MidBoss3FistState::DrillForming && !boss->drillFormed);
+                const bool contactDamageState = false;
                 if (contactDamageState &&
                     !fist->damageApplied &&
                     player &&

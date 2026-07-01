@@ -2431,6 +2431,42 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
     const auto drawMidBoss3AttackPrediction = [&]()
     {
+        const auto predictionLengthToTerrain = [&](float startWorldX, float startWorldY, float directionX, float directionY, float fallbackScreenLength) -> float
+        {
+            const float directionLength = std::max(0.001f, std::hypot(directionX, directionY));
+            const float dirX = directionX / directionLength;
+            const float dirY = directionY / directionLength;
+            const float safeViewScale = std::max(0.001f, viewScale);
+            const float tileSize = m_tileMap.GetTileSize();
+            const float maxWorldLength = fallbackScreenLength / safeViewScale;
+            if (tileSize <= 0.0f || maxWorldLength <= 0.0f || m_tileMap.GetWidth() <= 0 || m_tileMap.GetHeight() <= 0)
+            {
+                return fallbackScreenLength;
+            }
+
+            const float step = std::max(6.0f, tileSize * 0.125f);
+            for (float distance = step; distance <= maxWorldLength; distance += step)
+            {
+                const float worldX = startWorldX + dirX * distance;
+                const float worldY = startWorldY + dirY * distance;
+                const int column = static_cast<int>(std::floor(worldX / tileSize));
+                const int row = static_cast<int>(std::floor(worldY / tileSize));
+                if (row < 0)
+                {
+                    continue;
+                }
+                if (column < 0 || column >= m_tileMap.GetWidth() || row >= m_tileMap.GetHeight())
+                {
+                    return std::max(0.0f, distance - step) * safeViewScale;
+                }
+                if (IsSolidTile(column, row) || IsSlopeTile(column, row))
+                {
+                    return std::max(0.0f, distance - step) * safeViewScale;
+                }
+            }
+            return fallbackScreenLength;
+        };
+
         if (const auto* capturedMidBoss3Attack = entity.GetComponent<CapturedMidBoss3AttackComponent>())
         {
             if (capturedMidBoss3Attack->kind == CapturedMidBoss3AttackKind::Drill &&
@@ -2442,12 +2478,15 @@ void GameScene::DrawEntity(const Entity& entity) const
                 const float drillCenterY = drawY + drawHeight * 0.5f;
                 const float dirX = std::cos(transform->rotation);
                 const float dirY = std::sin(transform->rotation);
+                const float startWorldX = transform->x + transform->width * transform->scale * 0.5f + dirX * transform->width * transform->scale * 0.5f;
+                const float startWorldY = transform->y + transform->height * transform->scale * 0.5f + dirY * transform->width * transform->scale * 0.5f;
+                const float fallbackLength = std::max(560.0f, 1040.0f * viewScale);
                 DrawAttackPredictionLine(
                     drillCenterX + dirX * drawWidth * 0.5f,
                     drillCenterY + dirY * drawWidth * 0.5f,
                     dirX,
                     dirY,
-                    std::max(560.0f, 1040.0f * viewScale),
+                    predictionLengthToTerrain(startWorldX, startWorldY, dirX, dirY, fallbackLength),
                     viewScale,
                     6.2f);
             }
@@ -2476,20 +2515,26 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
             else if (midBoss3Fist->state == MidBoss3FistState::MeteorReady && midBoss3Fist->atAttackStart)
             {
-                predictionDirX = 0.0f;
-                predictionDirY = 1.0f;
-                predictionStartWorldX = fistCenterWorldX;
-                predictionStartWorldY = transform->y + fistWorldH;
+                predictionDirX = std::cos(transform->rotation);
+                predictionDirY = std::sin(transform->rotation);
+                predictionStartWorldX = fistCenterWorldX + predictionDirX * fistWorldW * 0.5f;
+                predictionStartWorldY = fistCenterWorldY + predictionDirY * fistWorldW * 0.5f;
                 drawPrediction = true;
             }
             if (drawPrediction)
             {
+                const float fallbackLength = std::max(480.0f, 900.0f * viewScale);
                 DrawAttackPredictionLine(
                     viewOriginX + (predictionStartWorldX - m_flow.cameraX) * viewScale,
                     viewOriginY + (predictionStartWorldY - m_flow.cameraY) * viewScale,
                     predictionDirX,
                     predictionDirY,
-                    std::max(480.0f, 900.0f * viewScale),
+                    predictionLengthToTerrain(
+                        predictionStartWorldX,
+                        predictionStartWorldY,
+                        predictionDirX,
+                        predictionDirY,
+                        fallbackLength),
                     viewScale,
                     static_cast<float>(midBoss3Fist->fistIndex) * 1.37f);
             }
@@ -2511,12 +2556,17 @@ void GameScene::DrawEntity(const Entity& entity) const
                     : std::atan2(midBoss3->drillAimY, midBoss3->drillAimX);
                 const float drillCenterX = screenX + screenW * 0.5f;
                 const float drillCenterY = screenY + screenH * 0.5f;
+                const float dirX = std::cos(drillAngle);
+                const float dirY = std::sin(drillAngle);
+                const float startWorldX = midBoss3->drillX + midBoss3->drillWidth * 0.5f + dirX * midBoss3->drillWidth * 0.5f;
+                const float startWorldY = midBoss3->drillY + midBoss3->drillHeight * 0.5f + dirY * midBoss3->drillWidth * 0.5f;
+                const float fallbackLength = std::max(560.0f, 1040.0f * viewScale);
                 DrawAttackPredictionLine(
-                    drillCenterX + std::cos(drillAngle) * screenW * 0.5f,
-                    drillCenterY + std::sin(drillAngle) * screenW * 0.5f,
-                    std::cos(drillAngle),
-                    std::sin(drillAngle),
-                    std::max(560.0f, 1040.0f * viewScale),
+                    drillCenterX + dirX * screenW * 0.5f,
+                    drillCenterY + dirY * screenW * 0.5f,
+                    dirX,
+                    dirY,
+                    predictionLengthToTerrain(startWorldX, startWorldY, dirX, dirY, fallbackLength),
                     viewScale,
                     4.8f);
             }
@@ -3596,10 +3646,16 @@ void GameScene::DrawEntity(const Entity& entity) const
     if (const auto* midBoss3Fist = entity.GetComponent<MidBoss3FistComponent>())
     {
         const bool meteorTrail = midBoss3Fist->state == MidBoss3FistState::MeteorFalling &&
-            std::fabs(midBoss3Fist->velocityY) > 0.001f;
+            std::hypot(midBoss3Fist->velocityX, midBoss3Fist->velocityY) > 0.001f;
         if (meteorTrail)
         {
-            const float directionY = meteorTrail ? (midBoss3Fist->velocityY >= 0.0f ? 1.0f : -1.0f) : 0.0f;
+            const float velocityLength = std::max(0.001f, std::hypot(midBoss3Fist->velocityX, midBoss3Fist->velocityY));
+            const float directionX = midBoss3Fist->velocityX / velocityLength;
+            const float directionY = midBoss3Fist->velocityY / velocityLength;
+            const float perpendicularX = -directionY;
+            const float perpendicularY = directionX;
+            const float centerX = drawX + drawWidth * 0.5f;
+            const float centerY = drawY + drawHeight * 0.5f;
             const int lineColor = GetColor(255, 238, 202);
 
             if (meteorTrail)
@@ -3608,11 +3664,13 @@ void GameScene::DrawEntity(const Entity& entity) const
                 {
                     const float t = static_cast<float>(trailIndex);
                     const float alpha = 0.18f * (4.0f - t) / 3.0f;
-                    const float offset = drawHeight * 0.42f * t;
-                    const float blurW = drawWidth;
-                    const float blurH = drawHeight * (1.0f + 0.16f * t);
-                    const float blurX = drawX - (blurW - drawWidth) * 0.5f;
-                    const float blurY = drawY - directionY * offset - (blurH - drawHeight) * 0.5f;
+                    const float offset = drawWidth * 0.34f * t;
+                    const float blurW = drawWidth * (1.0f + 0.16f * t);
+                    const float blurH = drawHeight;
+                    const float blurCenterX = centerX - directionX * offset;
+                    const float blurCenterY = centerY - directionY * offset;
+                    const float blurX = blurCenterX - blurW * 0.5f;
+                    const float blurY = blurCenterY - blurH * 0.5f;
 
                     SetDrawBlendMode(DX_BLENDMODE_ALPHA, std::clamp(static_cast<int>(std::round(alpha * 255.0f * alphaMultiplier)), 0, 255));
                     Shader_SetTint(1.0f, 0.66f, 0.28f, alpha);
@@ -3634,18 +3692,19 @@ void GameScene::DrawEntity(const Entity& entity) const
             if (meteorTrail)
             {
                 SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(74.0f * alphaMultiplier)));
-                const float tailY = directionY >= 0.0f ? drawY : drawY + drawHeight;
-                const float lineLength = drawHeight * 1.2f;
+                const float lineLength = drawWidth * 1.15f;
                 for (int lineIndex = 0; lineIndex < 6; ++lineIndex)
                 {
                     const float ratio = (static_cast<float>(lineIndex) + 0.5f) / 6.0f;
-                    const float x = drawX + drawWidth * std::lerp(0.10f, 0.90f, ratio);
-                    const float jitter = std::sin(static_cast<float>(GetNowCount()) * 0.024f + static_cast<float>(lineIndex) * 1.31f) * drawWidth * 0.025f;
+                    const float sideOffset = drawHeight * std::lerp(-0.38f, 0.38f, ratio);
+                    const float jitter = std::sin(static_cast<float>(GetNowCount()) * 0.024f + static_cast<float>(lineIndex) * 1.31f) * drawHeight * 0.025f;
+                    const float anchorX = centerX + perpendicularX * (sideOffset + jitter) - directionX * drawWidth * 0.38f;
+                    const float anchorY = centerY + perpendicularY * (sideOffset + jitter) - directionY * drawWidth * 0.38f;
                     DrawLineAA(
-                        x + jitter,
-                        tailY - directionY * lineLength,
-                        x + jitter * 0.35f,
-                        tailY - directionY * drawHeight * 0.08f,
+                        anchorX - directionX * lineLength,
+                        anchorY - directionY * lineLength,
+                        anchorX - directionX * drawWidth * 0.08f,
+                        anchorY - directionY * drawWidth * 0.08f,
                         lineColor,
                         std::max(1.0f, 1.8f * viewScale));
                 }
@@ -3765,20 +3824,61 @@ void GameScene::DrawEntity(const Entity& entity) const
         }
         else if (midBoss3Fist->state == MidBoss3FistState::MeteorReady && midBoss3Fist->atAttackStart)
         {
-            predictionDirX = 0.0f;
-            predictionDirY = 1.0f;
-            predictionStartWorldX = fistCenterWorldX;
-            predictionStartWorldY = transform->y + fistWorldH;
+            predictionDirX = std::cos(transform->rotation);
+            predictionDirY = std::sin(transform->rotation);
+            predictionStartWorldX = fistCenterWorldX + predictionDirX * fistWorldW * 0.5f;
+            predictionStartWorldY = fistCenterWorldY + predictionDirY * fistWorldW * 0.5f;
             drawPrediction = true;
         }
         if (drawPrediction)
         {
+            const auto predictionLengthToTerrain = [&](float startWorldX, float startWorldY, float directionX, float directionY, float fallbackScreenLength) -> float
+            {
+                const float directionLength = std::max(0.001f, std::hypot(directionX, directionY));
+                const float dirX = directionX / directionLength;
+                const float dirY = directionY / directionLength;
+                const float safeViewScale = std::max(0.001f, viewScale);
+                const float tileSize = m_tileMap.GetTileSize();
+                const float maxWorldLength = fallbackScreenLength / safeViewScale;
+                if (tileSize <= 0.0f || maxWorldLength <= 0.0f || m_tileMap.GetWidth() <= 0 || m_tileMap.GetHeight() <= 0)
+                {
+                    return fallbackScreenLength;
+                }
+
+                const float step = std::max(6.0f, tileSize * 0.125f);
+                for (float distance = step; distance <= maxWorldLength; distance += step)
+                {
+                    const float worldX = startWorldX + dirX * distance;
+                    const float worldY = startWorldY + dirY * distance;
+                    const int column = static_cast<int>(std::floor(worldX / tileSize));
+                    const int row = static_cast<int>(std::floor(worldY / tileSize));
+                    if (row < 0)
+                    {
+                        continue;
+                    }
+                    if (column < 0 || column >= m_tileMap.GetWidth() || row >= m_tileMap.GetHeight())
+                    {
+                        return std::max(0.0f, distance - step) * safeViewScale;
+                    }
+                    if (IsSolidTile(column, row) || IsSlopeTile(column, row))
+                    {
+                        return std::max(0.0f, distance - step) * safeViewScale;
+                    }
+                }
+                return fallbackScreenLength;
+            };
+            const float fallbackLength = std::max(480.0f, 900.0f * viewScale);
             DrawAttackPredictionLine(
                 viewOriginX + (predictionStartWorldX - m_flow.cameraX) * viewScale,
                 viewOriginY + (predictionStartWorldY - m_flow.cameraY) * viewScale,
                 predictionDirX,
                 predictionDirY,
-                std::max(480.0f, 900.0f * viewScale),
+                predictionLengthToTerrain(
+                    predictionStartWorldX,
+                    predictionStartWorldY,
+                    predictionDirX,
+                    predictionDirY,
+                    fallbackLength),
                 viewScale,
                 static_cast<float>(midBoss3Fist->fistIndex) * 1.37f);
         }
@@ -3788,21 +3888,46 @@ void GameScene::DrawEntity(const Entity& entity) const
             const float jammerSize = kTileSize * 3.0f;
             const float fistWidth = transform->width * transform->scale;
             const float fistHeight = transform->height * transform->scale;
-            const float jammerWorldX = transform->x + fistWidth * 0.5f - jammerSize * 0.5f;
-            const float jammerWorldY = transform->y + fistHeight * 0.5f - jammerSize * 0.5f;
-            const float screenX = GetViewOriginX() + (jammerWorldX - m_flow.cameraX) * viewScale;
-            const float screenY = GetViewOriginY() + (jammerWorldY - m_flow.cameraY) * viewScale;
+            const float jammerWorldCenterX = transform->x + fistWidth * 0.5f;
+            const float jammerWorldCenterY = transform->y + fistHeight * 0.5f;
+            const float screenCenterX = GetViewOriginX() + (jammerWorldCenterX - m_flow.cameraX) * viewScale;
+            const float screenCenterY = GetViewOriginY() + (jammerWorldCenterY - m_flow.cameraY) * viewScale;
             const float screenSize = jammerSize * viewScale;
             const float cellSize = kTileSize * viewScale;
+            const float halfSize = screenSize * 0.5f;
+            const auto rotatedPoint = [&](float localX, float localY) -> std::pair<float, float>
+            {
+                const float c = std::cos(transform->rotation);
+                const float s = std::sin(transform->rotation);
+                return {
+                    screenCenterX + localX * c - localY * s,
+                    screenCenterY + localX * s + localY * c
+                };
+            };
+            const auto drawRotatedLine = [&](float ax, float ay, float bx, float by, int color, float thickness)
+            {
+                const auto a = rotatedPoint(ax, ay);
+                const auto b = rotatedPoint(bx, by);
+                DrawLineAA(a.first, a.second, b.first, b.second, color, thickness);
+            };
 
             SetDrawBlendMode(DX_BLENDMODE_ALPHA, 96);
-            DrawBoxAA(screenX, screenY, screenX + screenSize, screenY + screenSize, GetColor(90, 225, 238), TRUE);
+            {
+                const auto a = rotatedPoint(-halfSize, -halfSize);
+                const auto b = rotatedPoint(halfSize, -halfSize);
+                const auto c = rotatedPoint(halfSize, halfSize);
+                const auto d = rotatedPoint(-halfSize, halfSize);
+                DrawFilledQuad(a.first, a.second, b.first, b.second, c.first, c.second, d.first, d.second, GetColor(90, 225, 238));
+            }
             SetDrawBlendMode(DX_BLENDMODE_ALPHA, 144);
-            DrawBoxAA(screenX, screenY, screenX + screenSize, screenY + screenSize, GetColor(42, 180, 212), FALSE);
-            DrawLineAA(screenX, screenY + cellSize, screenX + screenSize, screenY + cellSize, GetColor(60, 190, 210), 1.5f);
-            DrawLineAA(screenX, screenY + cellSize * 2.0f, screenX + screenSize, screenY + cellSize * 2.0f, GetColor(60, 190, 210), 1.5f);
-            DrawLineAA(screenX + cellSize, screenY, screenX + cellSize, screenY + screenSize, GetColor(60, 190, 210), 1.5f);
-            DrawLineAA(screenX + cellSize * 2.0f, screenY, screenX + cellSize * 2.0f, screenY + screenSize, GetColor(60, 190, 210), 1.5f);
+            drawRotatedLine(-halfSize, -halfSize, halfSize, -halfSize, GetColor(42, 180, 212), 1.5f);
+            drawRotatedLine(halfSize, -halfSize, halfSize, halfSize, GetColor(42, 180, 212), 1.5f);
+            drawRotatedLine(halfSize, halfSize, -halfSize, halfSize, GetColor(42, 180, 212), 1.5f);
+            drawRotatedLine(-halfSize, halfSize, -halfSize, -halfSize, GetColor(42, 180, 212), 1.5f);
+            drawRotatedLine(-halfSize, -halfSize + cellSize, halfSize, -halfSize + cellSize, GetColor(60, 190, 210), 1.5f);
+            drawRotatedLine(-halfSize, -halfSize + cellSize * 2.0f, halfSize, -halfSize + cellSize * 2.0f, GetColor(60, 190, 210), 1.5f);
+            drawRotatedLine(-halfSize + cellSize, -halfSize, -halfSize + cellSize, halfSize, GetColor(60, 190, 210), 1.5f);
+            drawRotatedLine(-halfSize + cellSize * 2.0f, -halfSize, -halfSize + cellSize * 2.0f, halfSize, GetColor(60, 190, 210), 1.5f);
             SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         }
         if (midBoss3Fist->impactAttackActive)

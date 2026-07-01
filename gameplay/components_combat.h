@@ -406,7 +406,7 @@ public:
         float launcherCooldownTime = 0.5f;
         float meteorWindupTime = 0.9f;
         float meteorPairInterval = 0.85f;
-        float meteorFistSpeed = 2050.0f;
+        float meteorFistSpeed = 1000.0f;
         float meteorCooldownTime = 0.5f;
         float fistReloadTime = 2.0f;
         float fistReturnSpeed = 720.0f;
@@ -515,9 +515,14 @@ public:
     float launchTimer = 0.0f;
     float reloadStartX = 0.0f;
     float reloadStartY = 0.0f;
+    float meteorHoldX = 0.0f;
+    float meteorHoldY = 0.0f;
+    float meteorAimX = 0.0f;
+    float meteorAimY = 1.0f;
     float attackReadyTimer = 0.0f;
     bool damageApplied = false;
     bool atAttackStart = false;
+    bool meteorHoldInitialized = false;
     bool captureJammerActive = false;
     bool broken = false;
     bool impactAttackActive = false;
