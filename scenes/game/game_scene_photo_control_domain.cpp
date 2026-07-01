@@ -11,24 +11,20 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr float kPhotoFocusTimeScale = 0.22f;
-    constexpr float kCaptureFocusDuration = 0.8f;
     constexpr float kPlacementFocusDuration = 1.2f;
 }
 
 void GameScene::UpdateCameraMode()
 {
-    if (m_flow.cameraMode)
-    {
-        ++m_flow.cameraModeSessionId;
-        m_flow.cameraMode = false;
-        m_player.captureAnimationActive = false;
-        m_player.captureAnimationReleased = false;
-    }
+    m_flow.cameraMode = false;
+    m_player.captureAnimationActive = false;
+    m_player.captureAnimationReleased = false;
 }
 
 float GameScene::UpdatePhotoModes(float deltaTime)
 {
     UpdateCameraMode();
+    UpdateCaptureFinderZoomInput();
     m_ui.captureRapidTimer = std::max(0.0f, m_ui.captureRapidTimer - deltaTime);
     m_ui.captureLockoutRemaining = std::max(0.0f, m_ui.captureLockoutRemaining - deltaTime);
     if (m_ui.captureRapidTimer <= 0.0f)
@@ -49,21 +45,19 @@ float GameScene::UpdatePhotoModes(float deltaTime)
     {
         UpdatePhotoTraySelection();
     }
-    const float captureZoomTarget = m_flow.cameraMode ? 1.0f : 0.0f;
-    m_flow.captureModeZoomBlend += (captureZoomTarget - m_flow.captureModeZoomBlend) * std::min(1.0f, deltaTime * m_ui.tuning.captureFinder.zoomBlendResponse);
-    m_flow.captureSlowRemaining = m_flow.cameraMode ? kCaptureFocusDuration : 0.0f;
+    m_flow.captureModeZoomBlend += (0.0f - m_flow.captureModeZoomBlend) * std::min(1.0f, deltaTime * m_ui.tuning.captureFinder.zoomBlendResponse);
+    m_flow.captureSlowRemaining = 0.0f;
     m_flow.placementSlowRemaining = placementActive ? kPlacementFocusDuration : 0.0f;
-    const bool slowForCapture = m_flow.cameraMode;
     const bool slowForPlacement = placementActive;
     // フォーカス中だけゲーム全体を減速させる。
-    return (slowForCapture || slowForPlacement)
+    return slowForPlacement
         ? deltaTime * kPhotoFocusTimeScale
         : deltaTime;
 }
 
 void GameScene::UpdateCaptureFinderZoomInput()
 {
-    if (!m_flow.cameraMode)
+    if (m_photo.placement.active || m_player.pasteAnimationActive)
     {
         return;
     }
@@ -74,25 +68,12 @@ void GameScene::UpdateCaptureFinderZoomInput()
     }
 
     int zoomDirection = 0;
-    const int wheelDelta = GetMouseWheelRotVol();
-    const bool dpadUpDown = Input_IsDpadUpDown();
-    const bool dpadDownDown = Input_IsDpadDownDown();
-    if (wheelDelta > 0 || dpadUpDown)
+    const int wheelDelta = Input_GetMouseWheelDelta();
+    if (wheelDelta > 0)
     {
         ++zoomDirection;
     }
-    if (wheelDelta < 0 || dpadDownDown)
-    {
-        --zoomDirection;
-    }
-
-    // Reverse gamepad zoom mapping:
-    // LB = zoom in, RB = zoom out.
-    if (Input_IsLeftShoulderPressed())
-    {
-        ++zoomDirection;
-    }
-    else if (Input_IsRightShoulderPressed())
+    if (wheelDelta < 0)
     {
         --zoomDirection;
     }
@@ -133,7 +114,7 @@ void GameScene::ProcessFilterInput()
         m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
     }
 
-    const bool blockFilterChange = m_photo.placement.active || m_flow.cameraMode;
+    const bool blockFilterChange = m_photo.placement.active;
     if (!blockFilterChange)
     {
         if (Input_IsRightShoulderPressed())

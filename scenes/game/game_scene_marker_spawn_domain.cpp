@@ -1010,6 +1010,7 @@ void GameScene::RefreshMarkerDrivenSystems()
     RefreshLaserTurretsFromMarkers();
     RefreshLinkedGimmicksFromMarkers();
     RefreshDamageFootholdsFromMarkers();
+    RefreshVanishObjectsFromMarkers();
     RefreshConveyorBeltsFromMarkers();
 	RefleshSepiaRubblesFromMarkers();
 }
@@ -1044,6 +1045,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
         markerChanged(IsGearSocketMarker);
     const bool laserTurretChanged = markerChanged(IsLaserTurretMarker);
     const bool damageFootholdChanged = markerChanged(IsDamageFootholdMarker);
+    const bool vanishObjectChanged = markerChanged([](char marker) { return marker == 'V'; });
     const bool conveyorBeltChanged = markerChanged(IsConveyorBeltMarker);
 	const bool sepiaRubbleChanged =
         markerChanged(IsSepiaRubbleMarker) ||
@@ -1060,6 +1062,7 @@ void GameScene::RefreshMarkerDrivenSystemsByMarkerChange(char before, char after
     if (linkedGimmickMarkerChanged) RefreshLinkedGimmicksFromMarkers();
     if (laserTurretChanged) RefreshLaserTurretsFromMarkers();
     if (damageFootholdChanged) RefreshDamageFootholdsFromMarkers();
+    if (vanishObjectChanged) RefreshVanishObjectsFromMarkers();
     if (conveyorBeltChanged) RefreshConveyorBeltsFromMarkers();
 	if (sepiaRubbleChanged) RefleshSepiaRubblesFromMarkers();
 }
@@ -2004,6 +2007,53 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
                 damagePlatformSpike->AddComponent<VanishOnCaptureComponent>(true);
                 m_world.Spawn(std::move(damagePlatformSpike));
             }
+        }
+    }
+}
+
+void GameScene::RefreshVanishObjectsFromMarkers()
+{
+    m_world.EraseIf(
+        [](const std::unique_ptr<Entity>& entity)
+        {
+            if (!entity)
+            {
+                return true;
+            }
+
+            // Only refresh stage-authored vanish objects, not active pasted photo copies.
+            return HasTag(*entity, kTagPhotoBox) &&
+                entity->GetComponent<VanishOnCaptureComponent>() != nullptr &&
+                entity->GetComponent<PhotoCopyGroupComponent>() == nullptr;
+        });
+
+    const float tileSize = m_tileMap.GetTileSize();
+    if (tileSize <= 0.0f)
+    {
+        return;
+    }
+
+    PrefabFactory prefabs(m_assets, m_physicsWorld, m_eventBus);
+    for (int row = 0; row < m_tileMap.GetHeight(); ++row)
+    {
+        for (int column = 0; column < m_tileMap.GetWidth(); ++column)
+        {
+            const char marker = static_cast<char>(std::toupper(static_cast<unsigned char>(m_tileMap.GetMarker(column, row))));
+            if (marker != 'V')
+            {
+                continue;
+            }
+
+            Entity& vanishObject = SpawnStagePrefab(
+                prefabs,
+                "sandbox_vanish_object",
+                static_cast<float>(column) * tileSize,
+                static_cast<float>(row) * tileSize);
+            vanishObject.AddComponent<PhotoCopyRoleComponent>(PhotoCopyRole::Solid);
+            vanishObject.AddComponent<PhotoCopyLayerComponent>(PhotoCopyLayer::Foreground);
+            vanishObject.AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
+            vanishObject.AddComponent<PhotoCopyEffectComponent>(PhotoFilterTheme::None);
+            vanishObject.AddComponent<VanishOnCaptureComponent>(true);
         }
     }
 }
