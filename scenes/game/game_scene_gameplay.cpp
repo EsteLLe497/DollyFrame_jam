@@ -336,12 +336,7 @@ void GameScene::StartFloorCameraTransition(int directionX, int directionY)
 
 void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY)
 {
-    const float playerWidth = playerTransform.width * playerTransform.scale;
-    const float playerHeight = playerTransform.height * playerTransform.scale;
-    const float playerCenterX = playerTransform.x + playerWidth * 0.5f;
-    const float playerCenterY = playerTransform.y + playerHeight * 0.5f;
-
-    int activeIndex = -1;
+   /* int activeIndex = -1;
     int bestPriority = -1;
 
     for (int i = 0; i < m_camera.fixedRanges.size(); i++)
@@ -451,7 +446,33 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     m_flow.cameraX = centerX - (gCameraViewWidth * 0.25f) + cameraRange.GetOffsetX();
     m_flow.cameraY = playerCenterY - (gCameraViewHeight * 0.5f) + cameraRange.GetOffsetY();
 
-    m_camera.prevCameraIndex = activeIndex;
+    m_camera.prevCameraIndex = activeIndex;*/
+
+    const float playerHeight = playerTransform.height * playerTransform.scale;
+    const float playerCenterY = playerTransform.y + playerHeight * 0.5f - m_flow.cameraY;
+
+    const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
+    const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - visibleHeight);
+
+    m_flow.cameraY = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
+
+    const float cameraCenterY = m_flow.cameraY + visibleHeight * 0.5f;
+    const float deadZoneY = 120.0f;
+
+    const float deadZoneTop = cameraCenterY - deadZoneY;
+    const float deadZoneBottom = cameraCenterY + deadZoneY;
+
+    if (playerCenterY < deadZoneTop)
+    {
+         m_flow.cameraY = playerCenterY + deadZoneY - visibleHeight * 0.5f;
+    }
+    else if (playerCenterY >= deadZoneBottom)
+    {
+        m_flow.cameraY = playerCenterY - deadZoneY - visibleHeight * 0.5f;
+    }
+
+    m_flow.cameraY = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
+
 }
 
 void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
