@@ -2708,7 +2708,7 @@ void GameScene::DrawBackdropBaseInView(
         const int texH3 = TextureGetHeight(bg3Texture);
         if (texW3 > 0 && texH3 > 0)
         {
-            const float parallaxX3 = 0.25f; // 好みで調整
+            const float parallaxX3 = 0.70f; // 好みで調整
             const float scrollU3 = calcScroll(m_flow.cameraX, parallaxX3, static_cast<float>(texW3));
             const float scrollV3 = 0.0f;//calcScroll(-m_flow.cameraY, 0.45f, static_cast<float>(texH3));
             const float uSpan3 = viewWidth / static_cast<float>(texW3);
