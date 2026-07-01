@@ -420,6 +420,142 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             continue;
         }
 
+        if (auto* gear = entity->GetComponent<GearComponent>())
+        {
+            gear->inserted = false;
+        }
+    }
+
+    constexpr float kGearSocketAssistDistance = 25.0f;
+    constexpr float kGearSocketRotationSpeed = 3.5f;
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* socket = entity->GetComponent<GearSocketComponent>();
+        auto* socketTransform = entity->GetComponent<TransformComponent>();
+        if (!socket || !socketTransform)
+        {
+            continue;
+        }
+
+        socket->insertedGearCount = 0;
+        const float socketWidth = socketTransform->width * socketTransform->scale;
+        const float socketHeight = socketTransform->height * socketTransform->scale;
+        const float socketCenterX = socketTransform->x + socketWidth * 0.5f;
+        const float socketCenterY = socketTransform->y + socketHeight * 0.5f;
+        for (const auto& gearEntity : m_world.Entities())
+        {
+            if (!gearEntity)
+            {
+                continue;
+            }
+
+            auto* gear = gearEntity->GetComponent<GearComponent>();
+            auto* gearTransform = gearEntity->GetComponent<TransformComponent>();
+            if (!gear ||
+                !gearTransform ||
+                !gear->functional ||
+                gear->inserted ||
+                gear->gearNo != socket->gearNo)
+            {
+                continue;
+            }
+
+            const float gearWidth = gearTransform->width * gearTransform->scale;
+            const float gearHeight = gearTransform->height * gearTransform->scale;
+            const float gearCenterX = gearTransform->x + gearWidth * 0.5f;
+            const float gearCenterY = gearTransform->y + gearHeight * 0.5f;
+            const float dx = gearCenterX - socketCenterX;
+            const float dy = gearCenterY - socketCenterY;
+            if (dx * dx + dy * dy > kGearSocketAssistDistance * kGearSocketAssistDistance)
+            {
+                continue;
+            }
+
+            gearTransform->x = socketCenterX - gearWidth * 0.5f;
+            gearTransform->y = socketCenterY - gearHeight * 0.5f;
+            gear->inserted = true;
+            ++socket->insertedGearCount;
+        }
+
+        socket->active = socket->insertedGearCount >= socket->requiredGearCount;
+        if (socket->active)
+        {
+            socket->rotation += deltaTime * kGearSocketRotationSpeed;
+            socketTransform->rotation = socket->rotation;
+            if (socket->linkId >= 0)
+            {
+                setLinkPowered(socket->linkId, true);
+            }
+            setEntityTint(*entity, 0.72f, 0.72f, 0.72f);
+        }
+        else
+        {
+            socketTransform->rotation = socket->rotation;
+            setEntityTint(*entity, 0.45f, 0.45f, 0.45f);
+        }
+    }
+
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        auto* gear = entity->GetComponent<GearComponent>();
+        auto* gearTransform = entity->GetComponent<TransformComponent>();
+        if (!gear || !gearTransform || !gear->inserted)
+        {
+            continue;
+        }
+
+        for (const auto& socketEntity : m_world.Entities())
+        {
+            if (!socketEntity)
+            {
+                continue;
+            }
+
+            const auto* socket = socketEntity->GetComponent<GearSocketComponent>();
+            const auto* socketTransform = socketEntity->GetComponent<TransformComponent>();
+            if (!socket ||
+                !socketTransform ||
+                !socket->active ||
+                socket->gearNo != gear->gearNo)
+            {
+                continue;
+            }
+
+            const float gearWidth = gearTransform->width * gearTransform->scale;
+            const float gearHeight = gearTransform->height * gearTransform->scale;
+            const float gearCenterX = gearTransform->x + gearWidth * 0.5f;
+            const float gearCenterY = gearTransform->y + gearHeight * 0.5f;
+            const float socketWidth = socketTransform->width * socketTransform->scale;
+            const float socketHeight = socketTransform->height * socketTransform->scale;
+            const float socketCenterX = socketTransform->x + socketWidth * 0.5f;
+            const float socketCenterY = socketTransform->y + socketHeight * 0.5f;
+            const float dx = gearCenterX - socketCenterX;
+            const float dy = gearCenterY - socketCenterY;
+            if (dx * dx + dy * dy <= kGearSocketAssistDistance * kGearSocketAssistDistance)
+            {
+                gearTransform->rotation = socketTransform->rotation;
+                break;
+            }
+        }
+    }
+
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
         auto* elevator = entity->GetComponent<ElevatorComponent>();
         auto* transform = entity->GetComponent<TransformComponent>();
         if (!elevator || !transform)
@@ -523,10 +659,22 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             ? !linkActive
             : linkActive;
         const float previousY = transform->y;
+        const float targetX = open
+            ? shutter->baseX + shutter->moveRangeX
+            : shutter->baseX;
         const float targetY = open
-            ? shutter->baseY - shutter->moveRangeY
+            ? shutter->baseY + shutter->moveRangeY
             : shutter->baseY;
         const float maxStep = shutter->moveSpeed * deltaTime;
+        const float deltaToTargetX = targetX - transform->x;
+        if (std::fabs(deltaToTargetX) <= maxStep)
+        {
+            transform->x = targetX;
+        }
+        else
+        {
+            transform->x += (deltaToTargetX > 0.0f ? maxStep : -maxStep);
+        }
         const float deltaToTarget = targetY - transform->y;
         if (std::fabs(deltaToTarget) <= maxStep)
         {

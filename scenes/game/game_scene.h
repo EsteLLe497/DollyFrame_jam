@@ -199,10 +199,12 @@ private:
     void FlushPendingEntities();
     void SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize, SwitchPressMode pressMode);
     void SpawnBatteryGeneratorMarker(float x, float y, int linkId, int spawnDirectionX, float tileSize);
+    void SpawnGearMarker(float x, float y, int gearNo, float tileSize);
+    void SpawnGearSocketMarker(float x, float y, int gearNo, int requiredGearCount, int linkId, float tileSize);
     void SpawnConveyorBeltMarker(float x, float y, int widthTiles, int directionX, float tileSize);
     void SpawnElevatorMarker(float x, float y, int moveRangeTiles, float widthTiles, int linkId, float tileSize);
     void SpawnLaserSwitchMarker(float x, float y, int linkId, float tileSize);
-    void SpawnShutterMarker(float x, float y, int moveRangeTiles, int linkId, bool useBossDefeatSignal, bool opensWhenUnpowered, float tileSize);
+    void SpawnShutterMarker(float x, float y, float widthTiles, float heightTiles, float moveRangeXTiles, float moveRangeYTiles, int linkId, bool useBossDefeatSignal, bool opensWhenUnpowered, float tileSize);
     void SpawnProtectiveWallMarker(float x, float y, int durability, int linkId, int widthTiles, int markerHeightTiles, int heightTiles, float tileSize);
 
     // Photo control / photo runtime

@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "photo_paste_system.h"
 
@@ -1122,6 +1122,34 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 transform->rotation = item.rotation;
             }
             scene.m_world.Spawn(std::move(batteryEntity));
+            continue;
+        }
+
+        if (item.spawnArchetype == CapturedSpawnArchetype::Gear)
+        {
+            auto gearEntity = std::make_unique<Entity>();
+            Entity* spawnedGear = gearEntity.get();
+            lastSpawnedEntity = spawnedGear;
+            spawnedGear->AddComponent<TagComponent>(kTagGear);
+            spawnedGear->AddComponent<PhotoCopyGroupComponent>(groupId);
+            spawnedGear->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+            spawnedGear->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
+            spawnedGear->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
+            const int gearTexture = scene.m_assets.GetTexture("star");
+            spawnedGear->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : (gearTexture >= 0 ? gearTexture : scene.m_whiteTexture));
+            spawnedGear->AddComponent<GearComponent>(item.gearNo > 0 ? item.gearNo : 1, true);
+            spawnedGear->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
+            spawnedGear->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
+            if (auto* sprite = spawnedGear->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                sprite->SetFlipX(item.flipX);
+            }
+            if (auto* transform = spawnedGear->GetComponent<TransformComponent>())
+            {
+                transform->rotation = item.rotation;
+            }
+            scene.m_world.Spawn(std::move(gearEntity));
             continue;
         }
 

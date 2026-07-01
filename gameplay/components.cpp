@@ -341,12 +341,14 @@ void LaserSwitchComponent::DrawDebugUI()
 
 ShutterComponent::ShutterComponent(
     int linkIdValue,
+    float moveRangeXValue,
     float moveRangeYValue,
     float moveSpeedValue,
     bool useBossDefeatSignalValue,
     bool opensWhenUnpoweredValue)
     : linkId((std::max)(0, linkIdValue))
-    , moveRangeY((std::max)(0.0f, moveRangeYValue))
+    , moveRangeX(moveRangeXValue)
+    , moveRangeY(moveRangeYValue)
     , moveSpeed((std::max)(1.0f, moveSpeedValue))
     , useBossDefeatSignal(useBossDefeatSignalValue)
     , opensWhenUnpowered(opensWhenUnpoweredValue)
@@ -372,11 +374,45 @@ void BatteryGeneratorComponent::DrawDebugUI()
     ImGui::Text("Was Powered: %s", wasPowered ? "Yes" : "No");
 }
 
+GearComponent::GearComponent(int gearNoValue, bool functionalValue)
+    : gearNo((std::max)(1, gearNoValue))
+    , functional(functionalValue)
+{
+}
+
+void GearComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Gear");
+    ImGui::Text("Gear No: %d", gearNo);
+    ImGui::Text("Functional: %s", functional ? "Yes" : "No");
+    ImGui::Text("Inserted: %s", inserted ? "Yes" : "No");
+}
+
+GearSocketComponent::GearSocketComponent(
+    int gearNoValue,
+    int requiredGearCountValue,
+    int linkIdValue)
+    : gearNo((std::max)(1, gearNoValue))
+    , requiredGearCount((std::max)(1, requiredGearCountValue))
+    , linkId(linkIdValue)
+{
+}
+
+void GearSocketComponent::DrawDebugUI()
+{
+    ImGui::SeparatorText("Gear Socket");
+    ImGui::Text("Gear No: %d", gearNo);
+    ImGui::Text("Inserted: %d / %d", insertedGearCount, requiredGearCount);
+    ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("Active: %s", active ? "Yes" : "No");
+}
+
 void ShutterComponent::OnAttach(GameObject& owner)
 {
     MonoBehaviour::OnAttach(owner);
     if (auto* transform = owner.GetComponent<TransformComponent>())
     {
+        baseX = transform->x;
         baseY = transform->y;
     }
 }
@@ -385,6 +421,7 @@ void ShutterComponent::DrawDebugUI()
 {
     ImGui::SeparatorText("Shutter");
     ImGui::Text("LinkId: %d", linkId);
+    ImGui::Text("MoveRangeX: %.1f", moveRangeX);
     ImGui::Text("MoveRangeY: %.1f", moveRangeY);
     ImGui::Text("MoveSpeed: %.1f", moveSpeed);
     ImGui::Text("Open: %s", isOpen ? "Yes" : "No");

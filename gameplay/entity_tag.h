@@ -36,6 +36,7 @@ enum class EntityTag
     JumpPad,
     BatteryGenerator,
     ConveyorBelt,
+    Gear,
     Shield,
     BossShield,
     Boss1Shield,
@@ -81,6 +82,7 @@ inline const char* EntityTagToString(EntityTag tag)
     case EntityTag::HangingGravityObject: return "HangingGravityObject";
     case EntityTag::BatteryGenerator: return "BatteryGenerator";
     case EntityTag::ConveyorBelt: return "ConveyorBelt";
+    case EntityTag::Gear: return "Gear";
     case EntityTag::JumpPad: return "JumpPad";
     case EntityTag::Shield: return "Shield";
     case EntityTag::BossShield: return "BossShield";
@@ -127,6 +129,7 @@ inline EntityTag EntityTagFromString(std::string_view tag)
     if (tag == "HangingGravityObject") return EntityTag::HangingGravityObject;
     if (tag == "BatteryGenerator") return EntityTag::BatteryGenerator;
     if (tag == "ConveyorBelt") return EntityTag::ConveyorBelt;
+    if (tag == "Gear") return EntityTag::Gear;
     if (tag == "JumpPad") return EntityTag::JumpPad;
     if (tag == "Shield") return EntityTag::Shield;
     if (tag == "BossShield") return EntityTag::BossShield;

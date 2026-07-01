@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "tile_map.h"
 
@@ -117,7 +117,9 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker, i
             marker == '$' ||
             marker == '*' ||
             marker == '_' ||
-            marker == '^';
+            marker == '^' ||
+            marker == '[' ||
+            marker == ']';
         if (!supportsParameter)
         {
             return false;
@@ -185,12 +187,11 @@ bool ParseCsvCell(const std::string& cell, int& outTileValue, char& outMarker, i
         }
         if (tryParseMarker(left, markerValue, markerParameter) && tryParseTileValue(right, tileValue))
         {
-            outTileValue = tileValue;
             outMarker = markerValue;
             outMarkerParameter = markerParameter;
+            outMarkerParameter2 = tileValue;
             return true;
         }
-       
         return false;
     };
 
@@ -371,6 +372,11 @@ std::string FormatCsvCell(int tileValue, char marker, int markerParameter, char 
         {
             markerText += std::to_string(markerParameter2);
         }
+    }
+    else if (markerParameter2 != 0)
+    {
+        markerText += "(";
+        markerText += std::to_string(markerParameter2);
     }
 
     if (tileValue == 0)

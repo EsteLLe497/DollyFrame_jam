@@ -22,6 +22,7 @@ enum class CapturedSpawnArchetype
     SepiaGround,
     MidBoss3FistAttack,
     MidBoss3DrillAttack,
+    Gear,
 };
 
 enum class PhotoPlacementRuleGroup
@@ -127,6 +128,7 @@ struct CapturedPhotoItem
     bool vanishOnCapture = false;
     bool enemyAttackPaste = false;
     int attackCaptureCount = 0;
+    int gearNo = 0;
     CapturedSpawnArchetype spawnArchetype = CapturedSpawnArchetype::None;
     PhotoPlacementRuleGroup placementRuleGroup = PhotoPlacementRuleGroup::Group1;
     float projectileVelocityX = 0.0f;
