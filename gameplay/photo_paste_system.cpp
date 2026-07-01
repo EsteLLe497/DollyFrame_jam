@@ -167,12 +167,58 @@ namespace
         }
     }
 
+    int GetTileTextureForPaste(int tileValue, int defaultTexture, int tileTexture2, int tileTexture3)
+    {
+        // Keep pasted tile visuals in sync with the TileMap renderer's special tile textures.
+        if (tileValue == 2 && tileTexture2 >= 0)
+        {
+            return tileTexture2;
+        }
+        if (tileValue == 3 && tileTexture3 >= 0)
+        {
+            return tileTexture3;
+        }
+        return defaultTexture;
+    }
+
+    int GetPhotoItemTextureForPaste(
+        const CapturedPhotoItem& item,
+        int defaultTexture,
+        int tileTexture2,
+        int tileTexture3)
+    {
+        if (item.sourceTileValue > 0)
+        {
+            return GetTileTextureForPaste(item.sourceTileValue, defaultTexture, tileTexture2, tileTexture3);
+        }
+        if (item.sepiaRestoredTileValue > 0)
+        {
+            return GetTileTextureForPaste(item.sepiaRestoredTileValue, defaultTexture, tileTexture2, tileTexture3);
+        }
+        return item.textureId >= 0 ? item.textureId : defaultTexture;
+    }
+
+    bool IsHazardTileValue(int tileValue)
+    {
+        return tileValue == 4 || tileValue == TileMap::kPitTileValue;
+    }
+
     bool ShouldPasteAsSolidEnvironment(const CapturedPhotoItem& item)
     {
-        return item.sourceTileValue > 0 ||
-            item.damagePlatformTileSpan > 0 ||
-            item.spikeStripTileSpan > 0 ||
-            item.vanishOnCapture;
+        // H marker spikes and hazard tiles must keep their damage role after paste.
+        if (item.spikeStripTileSpan > 0)
+        {
+            return false;
+        }
+        if (item.sourceTileValue > 0)
+        {
+            return !IsHazardTileValue(item.sourceTileValue);
+        }
+        if (item.sepiaRestoredTileValue > 0)
+        {
+            return !IsHazardTileValue(item.sepiaRestoredTileValue);
+        }
+        return item.damagePlatformTileSpan > 0 || item.vanishOnCapture;
     }
 
     void UpdatePlacementPadCursor(
@@ -1497,8 +1543,11 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 spawnX + item.relativeX, spawnY + item.relativeY,
                 item.width, item.height);
             spawnedGround->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
-            spawnedGround->AddComponent<SpriteRenderComponent>(
-                item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+            spawnedGround->AddComponent<SpriteRenderComponent>(GetPhotoItemTextureForPaste(
+                item,
+                scene.m_tileTexture,
+                scene.m_tileTexture2,
+                scene.m_tileTexture3));
             if (item.sepiaRestoredTileValue > 0)
             {
                 spawnedGround->AddComponent<PhotoCopyTileValueComponent>(item.sepiaRestoredTileValue);
@@ -1576,7 +1625,11 @@ void PhotoPasteSystem::SpawnPhotoGroup(
         lastSpawnedEntity->AddComponent<PhotoCopyLifetimeComponent>(lifetimeSeconds);
         lastSpawnedEntity->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
         lastSpawnedEntity->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
-        lastSpawnedEntity->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
+        lastSpawnedEntity->AddComponent<SpriteRenderComponent>(GetPhotoItemTextureForPaste(
+            item,
+            scene.m_tileTexture,
+            scene.m_tileTexture2,
+            scene.m_tileTexture3));
         if (auto* sprite = lastSpawnedEntity->GetComponent<SpriteRenderComponent>())
         {
             sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);

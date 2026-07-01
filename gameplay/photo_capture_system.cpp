@@ -36,6 +36,20 @@ namespace
             animation->GetCurrentLocalFrameIndex() >= kShieldBossRushCaptureStartFrame;
     }
 
+    int GetTileTextureForCapture(int tileValue, int defaultTexture, int tileTexture2, int tileTexture3)
+    {
+        // Match captured tile visuals to the special tile textures used by the map renderer.
+        if (tileValue == 2 && tileTexture2 >= 0)
+        {
+            return tileTexture2;
+        }
+        if (tileValue == 3 && tileTexture3 >= 0)
+        {
+            return tileTexture3;
+        }
+        return defaultTexture;
+    }
+
     OutlinePoint LerpPoint(const OutlinePoint& a, const OutlinePoint& b, float t)
     {
         return {
@@ -989,7 +1003,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
 
                 item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
-                item.textureId = scene.m_tileTexture;
+                item.textureId = GetTileTextureForCapture(
+                    tileValue,
+                    scene.m_tileTexture,
+                    scene.m_tileTexture2,
+                    scene.m_tileTexture3);
                 item.role = GetTileCopyRole(tileValue);
                 item.layer = PhotoCopyLayer::Foreground;
                 item.origin = GetTileCopyOrigin(tileValue);
@@ -1544,7 +1562,11 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
             }
 
             CapturedPhotoItem item;
-            item.textureId = scene.m_tileTexture;
+            item.textureId = GetTileTextureForCapture(
+                tileValue,
+                scene.m_tileTexture,
+                scene.m_tileTexture2,
+                scene.m_tileTexture3);
             item.role = GetTileCopyRole(tileValue);
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = GetTileCopyOrigin(tileValue);
