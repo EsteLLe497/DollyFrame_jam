@@ -142,3 +142,18 @@ int AssetManifest::GetTexture(const std::string& key) const
     }
     return textureId;
 }
+
+int AssetManifest::getTextureByPath(const std::string& path) const
+{
+    if (path.empty() || m_resources == nullptr)
+    {
+        return -1;
+    }
+
+    const int textureId = m_resources->LoadTexture(ToWideString(path));
+    if (textureId < 0)
+    {
+        Logger::Warn("Failed to load texture from path: " + path);
+    }
+    return textureId;
+}

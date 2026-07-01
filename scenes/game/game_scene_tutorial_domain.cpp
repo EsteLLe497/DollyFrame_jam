@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <array>
-#include <filesystem>
 #include <sstream>
 
 #include "DxLib.h"
@@ -12,11 +11,15 @@
 #include "misc/cpp/imgui_stdlib.h"
 #include "shader.h"
 #include "sprite.h"
+#include "tutorial_ui_controls.h"
 
 using namespace game_scene_detail;
 
 namespace
 {
+    constexpr const char* kTutorialCsvPath = "assets/tutorials/tutorials.csv";
+    constexpr int kTutorialTriggerWidthTiles = 3;
+
     enum class TutorialDrawKind
     {
         Dim,
@@ -40,23 +43,97 @@ namespace
         TutorialDrawKind kind = TutorialDrawKind::Dim;
     };
 
-    struct TutorialCharacterProfile
+    const TutorialPageData* findTutorialPage(
+        const GameSceneTutorialState& tutorial,
+        TutorialPageType pageType)
     {
-        const char* name = "";
-        const char* portraitPath = "";
-    };
+        const auto page = std::find_if(
+            tutorial.pages.begin(),
+            tutorial.pages.end(),
+            [pageType](const TutorialPageData& value)
+            {
+                return value.type == pageType;
+            });
+        return page != tutorial.pages.end() ? &(*page) : nullptr;
+    }
 
-    constexpr std::array<TutorialCharacterProfile, 1> kTutorialCharacters = {{
-        { "あまりりす", "assets/texture/tutorialUI/Amaryllis.png" },
-    }};
-
-    const TutorialCharacterProfile& GetTutorialCharacterProfile(int characterIndex)
+    const TutorialPageData* getCurrentTutorialPage(const GameSceneTutorialState& tutorial)
     {
-        const int clampedIndex = std::clamp(
-            characterIndex,
-            0,
-            static_cast<int>(kTutorialCharacters.size()) - 1);
-        return kTutorialCharacters[static_cast<size_t>(clampedIndex)];
+        if (tutorial.currentPageIndex >= tutorial.pages.size())
+        {
+            return nullptr;
+        }
+        return &tutorial.pages[tutorial.currentPageIndex];
+    }
+
+    size_t getTutorialPageIndex(
+        const GameSceneTutorialState& tutorial,
+        const TutorialPageData* page)
+    {
+        if (!page || tutorial.pages.empty())
+        {
+            return tutorial.pages.size();
+        }
+        return static_cast<size_t>(page - tutorial.pages.data());
+    }
+
+    size_t countTutorialWindowPages(const GameSceneTutorialState& tutorial)
+    {
+        return static_cast<size_t>(std::count_if(
+            tutorial.pages.begin(),
+            tutorial.pages.end(),
+            [](const TutorialPageData& page)
+            {
+                return page.type == TutorialPageType::Window;
+            }));
+    }
+
+    bool findPreviousTutorialWindowIndex(
+        const GameSceneTutorialState& tutorial,
+        size_t currentIndex,
+        size_t& outIndex)
+    {
+        for (size_t index = currentIndex; index > 0; --index)
+        {
+            if (tutorial.pages[index - 1].type == TutorialPageType::Window)
+            {
+                outIndex = index - 1;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool findNextTutorialWindowIndex(
+        const GameSceneTutorialState& tutorial,
+        size_t currentIndex,
+        size_t& outIndex)
+    {
+        for (size_t index = currentIndex + 1; index < tutorial.pages.size(); ++index)
+        {
+            if (tutorial.pages[index].type == TutorialPageType::Window)
+            {
+                outIndex = index;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void applyCurrentTutorialPage(GameSceneTutorialState& tutorial)
+    {
+        const TutorialPageData* page = getCurrentTutorialPage(tutorial);
+        if (!page)
+        {
+            tutorial.phase = TutorialPresentationPhase::Inactive;
+            return;
+        }
+
+        tutorial.dialogueFadeElapsed = 0.0f;
+        tutorial.dialogueRevealElapsed = 0.0f;
+        tutorial.phase = page->type == TutorialPageType::Conversation
+            ? TutorialPresentationPhase::Conversation
+            : TutorialPresentationPhase::TutorialWindow;
     }
 
     size_t CountUtf8Characters(const std::string& text)
@@ -238,6 +315,12 @@ bool GameScene::UpdateTutorialModal(float deltaTime)
 
     if (m_tutorial.phase == TutorialPresentationPhase::Conversation)
     {
+        const TutorialPageData* page = getCurrentTutorialPage(m_tutorial);
+        if (!page)
+        {
+            CompleteCameraTutorial();
+            return true;
+        }
         const auto& ui = m_ui.tuning.tutorial;
         const float fadeDuration = std::max(0.01f, ui.dialogueFadeDuration);
         m_tutorial.dialogueFadeElapsed += std::max(0.0f, deltaTime);
@@ -246,65 +329,144 @@ bool GameScene::UpdateTutorialModal(float deltaTime)
             m_tutorial.dialogueRevealElapsed += std::max(0.0f, deltaTime);
         }
 
-        const size_t totalCharacters = CountUtf8Characters(ui.dialogueText);
+        const size_t totalCharacters = CountUtf8Characters(page->text);
         const size_t revealedCharacters = static_cast<size_t>(std::floor(
             m_tutorial.dialogueRevealElapsed *
             std::max(1.0f, ui.dialogueCharactersPerSecond)));
         const bool textFinished = revealedCharacters >= totalCharacters;
         if (textFinished &&
-            (Input_IsActionPressed(InputAction::Confirm) || Input_IsSouthButtonPressed()))
+            (Input_IsActionPressed(InputAction::Confirm) ||
+                Input_IsSouthButtonPressed() ||
+                Input_IsMouseLeftPressed()))
         {
-            m_tutorial.phase = TutorialPresentationPhase::TutorialWindow;
+            ++m_tutorial.currentPageIndex;
+            if (m_tutorial.currentPageIndex >= m_tutorial.pages.size())
+            {
+                CompleteCameraTutorial();
+            }
+            else
+            {
+                applyCurrentTutorialPage(m_tutorial);
+            }
         }
         return true;
     }
 
-    if (Input_IsActionPressed(InputAction::Confirm) || Input_IsSouthButtonPressed())
+    const auto& ui = m_ui.tuning.tutorial;
+    size_t previousWindowIndex = 0;
+    size_t nextWindowIndex = 0;
+    const bool hasPreviousWindow = findPreviousTutorialWindowIndex(
+        m_tutorial,
+        m_tutorial.currentPageIndex,
+        previousWindowIndex);
+    const bool hasNextWindow = findNextTutorialWindowIndex(
+        m_tutorial,
+        m_tutorial.currentPageIndex,
+        nextWindowIndex);
+    const bool hasMultipleWindows = countTutorialWindowPages(m_tutorial) > 1;
+    const bool mousePressed = Input_IsMouseLeftPressed();
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
+    const bool previousClicked =
+        mousePressed &&
+        hasMultipleWindows &&
+        hasPreviousWindow &&
+        tutorialButtonContainsPoint(getTutorialNavigationButtonRect(ui, true), mouseX, mouseY);
+    const bool nextClicked =
+        mousePressed &&
+        hasMultipleWindows &&
+        hasNextWindow &&
+        tutorialButtonContainsPoint(getTutorialNavigationButtonRect(ui, false), mouseX, mouseY);
+
+    if ((Input_IsActionPressed(InputAction::MoveLeft) || previousClicked) && hasPreviousWindow)
+    {
+        m_tutorial.currentPageIndex = previousWindowIndex;
+        applyCurrentTutorialPage(m_tutorial);
+        return true;
+    }
+    if ((Input_IsActionPressed(InputAction::MoveRight) || nextClicked) && hasNextWindow)
+    {
+        m_tutorial.currentPageIndex = nextWindowIndex;
+        applyCurrentTutorialPage(m_tutorial);
+        return true;
+    }
+
+    const bool closeClicked =
+        mousePressed &&
+        !hasNextWindow &&
+        tutorialButtonContainsPoint(getTutorialCloseButtonRect(ui), mouseX, mouseY);
+    if (!hasNextWindow &&
+        (Input_IsActionPressed(InputAction::Confirm) ||
+            Input_IsSouthButtonPressed() ||
+            closeClicked))
     {
         CompleteCameraTutorial();
     }
     return true;
 }
 
-void GameScene::BeginCameraTutorialConversation()
+bool GameScene::loadTutorialData(int tutorialNumber)
 {
+    const int normalizedNumber = std::clamp(tutorialNumber, 1, 99);
+    const std::string tutorialId = "tutorial_" + std::to_string(normalizedNumber);
+    std::vector<TutorialPageData> pages;
+    if (!loadTutorialPagesFromCsv(kTutorialCsvPath, tutorialId, pages))
+    {
+        return false;
+    }
+
+    releaseTutorialVideo(m_tutorial.videoPlayer);
+    m_tutorial.pages = std::move(pages);
+    m_tutorial.loadedTutorialNumber = normalizedNumber;
+    m_tutorial.currentPageIndex = 0;
+    if (m_tutorial.phase != TutorialPresentationPhase::Inactive)
+    {
+        applyCurrentTutorialPage(m_tutorial);
+    }
+    return true;
+}
+
+bool GameScene::beginTutorialConversation(int tutorialNumber)
+{
+    const int normalizedNumber = std::clamp(tutorialNumber, 1, 99);
+    if ((m_tutorial.pages.empty() ||
+            m_tutorial.loadedTutorialNumber != normalizedNumber) &&
+        !loadTutorialData(normalizedNumber))
+    {
+        return false;
+    }
+    releaseTutorialVideo(m_tutorial.videoPlayer);
+    m_tutorial.activeTutorialNumber = normalizedNumber;
     m_tutorial.previewConversation = false;
     m_tutorial.previewWindow = false;
-    m_tutorial.dialogueFadeElapsed = 0.0f;
-    m_tutorial.dialogueRevealElapsed = 0.0f;
-    m_tutorial.phase = TutorialPresentationPhase::Conversation;
+    m_tutorial.currentPageIndex = 0;
+    applyCurrentTutorialPage(m_tutorial);
+    return true;
 }
 
 void GameScene::EnsureTutorialPortraitTexture()
 {
-    const int characterIndex = std::clamp(
-        m_ui.tuning.tutorial.dialogueCharacter,
-        0,
-        static_cast<int>(kTutorialCharacters.size()) - 1);
-    if (m_tutorial.loadedPortraitCharacter != characterIndex)
+    const TutorialPageData* page =
+        m_tutorial.phase == TutorialPresentationPhase::Conversation
+        ? getCurrentTutorialPage(m_tutorial)
+        : findTutorialPage(m_tutorial, TutorialPageType::Conversation);
+    const std::string portraitPath = page ? page->portraitPath : std::string{};
+    if (m_tutorial.loadedPortraitPath != portraitPath)
     {
-        if (m_tutorial.portraitTextureId >= 0)
-        {
-            DeleteGraph(m_tutorial.portraitTextureId);
-        }
         m_tutorial.portraitTextureId = -1;
-        m_tutorial.loadedPortraitCharacter = characterIndex;
+        m_tutorial.loadedPortraitPath = portraitPath;
     }
 
-    if (m_tutorial.portraitTextureId < 0)
+    if (m_tutorial.portraitTextureId < 0 && !portraitPath.empty())
     {
-        const auto& character = GetTutorialCharacterProfile(characterIndex);
-        if (std::filesystem::exists(character.portraitPath))
-        {
-            m_tutorial.portraitTextureId = LoadGraph(character.portraitPath);
-        }
+        // SpriteDrawが扱う独自テクスチャIDへ変換し、リソースキャッシュで再利用します。
+        m_tutorial.portraitTextureId = m_assets.getTextureByPath(portraitPath);
     }
 }
 
 void GameScene::TryStartCameraTutorial()
 {
-    if (m_tutorial.phase != TutorialPresentationPhase::Inactive ||
-        GameSession_Get().cameraTutorialCompleted)
+    if (m_tutorial.phase != TutorialPresentationPhase::Inactive)
     {
         return;
     }
@@ -326,11 +488,26 @@ void GameScene::TryStartCameraTutorial()
                 continue;
             }
 
-            const int widthTiles = std::max(1, m_tileMap.GetMarkerParameter(column, row));
-            if (IntersectsTutorialTrigger(*transform, column, row, widthTiles, tileSize))
+            const int tutorialNumber = std::clamp(
+                std::max(1, m_tileMap.GetMarkerParameter(column, row)),
+                1,
+                99);
+            if (gameSessionIsTutorialCompleted(tutorialNumber))
             {
-                BeginCameraTutorialConversation();
-                return;
+                continue;
+            }
+
+            if (IntersectsTutorialTrigger(
+                    *transform,
+                    column,
+                    row,
+                    kTutorialTriggerWidthTiles,
+                    tileSize))
+            {
+                if (beginTutorialConversation(tutorialNumber))
+                {
+                    return;
+                }
             }
         }
     }
@@ -338,21 +515,35 @@ void GameScene::TryStartCameraTutorial()
 
 void GameScene::CompleteCameraTutorial()
 {
+    const int completedTutorialNumber = m_tutorial.activeTutorialNumber;
+    releaseTutorialVideo(m_tutorial.videoPlayer);
     m_tutorial.previewConversation = false;
     m_tutorial.previewWindow = false;
+    m_tutorial.currentPageIndex = 0;
     m_tutorial.phase = TutorialPresentationPhase::Inactive;
-    GameSession_SetCameraTutorialCompleted(true);
+    m_tutorial.activeTutorialNumber = 0;
+    gameSessionSetTutorialCompleted(completedTutorialNumber, true);
     SaveProgressState();
 }
 
 void GameScene::DrawTutorialOverlay()
 {
+    const TutorialPageData* conversationPage =
+        m_tutorial.phase == TutorialPresentationPhase::Conversation
+        ? getCurrentTutorialPage(m_tutorial)
+        : findTutorialPage(m_tutorial, TutorialPageType::Conversation);
+    const TutorialPageData* windowPage =
+        m_tutorial.phase == TutorialPresentationPhase::TutorialWindow
+        ? getCurrentTutorialPage(m_tutorial)
+        : findTutorialPage(m_tutorial, TutorialPageType::Window);
     const bool drawConversation =
-        m_tutorial.phase == TutorialPresentationPhase::Conversation ||
-        m_tutorial.previewConversation;
+        conversationPage &&
+        (m_tutorial.phase == TutorialPresentationPhase::Conversation ||
+            m_tutorial.previewConversation);
     const bool drawWindow =
-        m_tutorial.phase == TutorialPresentationPhase::TutorialWindow ||
-        m_tutorial.previewWindow;
+        windowPage &&
+        (m_tutorial.phase == TutorialPresentationPhase::TutorialWindow ||
+            m_tutorial.previewWindow);
     if (!drawConversation && !drawWindow)
     {
         return;
@@ -361,29 +552,35 @@ void GameScene::DrawTutorialOverlay()
     const auto& ui = m_ui.tuning.tutorial;
     const int frameTexture = m_assets.GetTexture("tutorial_frame_window");
     const int headingTexture = m_assets.GetTexture("tutorial_heading");
-    const int contentImageTexture = m_assets.GetTexture("tutorial_content_image");
+    const std::string contentTextureKey =
+        windowPage && !windowPage->contentTextureKey.empty()
+        ? windowPage->contentTextureKey
+        : "tutorial_content_image";
+    const int contentImageTexture = m_assets.GetTexture(contentTextureKey);
     const int textBoxTexture = m_assets.GetTexture("tutorial_text_box");
 
     if (drawConversation)
     {
         EnsureTutorialPortraitTexture();
-        const auto& character = GetTutorialCharacterProfile(ui.dialogueCharacter);
         const bool preview = m_tutorial.previewConversation &&
             m_tutorial.phase != TutorialPresentationPhase::Conversation;
-        const float fadeAlpha = preview
+        const float fadeProgress = preview
             ? 1.0f
             : std::clamp(
                 m_tutorial.dialogueFadeElapsed / std::max(0.01f, ui.dialogueFadeDuration),
                 0.0f,
                 1.0f);
-        const size_t totalCharacters = CountUtf8Characters(ui.dialogueText);
+        // 線形補間より開始と終了が柔らかいスムーズステップで表示します。
+        const float fadeAlpha =
+            fadeProgress * fadeProgress * (3.0f - 2.0f * fadeProgress);
+        const size_t totalCharacters = CountUtf8Characters(conversationPage->text);
         const size_t revealedCharacters = preview
             ? totalCharacters
             : static_cast<size_t>(std::floor(
                 m_tutorial.dialogueRevealElapsed *
                 std::max(1.0f, ui.dialogueCharactersPerSecond)));
         const bool textFinished = revealedCharacters >= totalCharacters;
-        const std::string visibleDialogue = Utf8Prefix(ui.dialogueText, revealedCharacters);
+        const std::string visibleDialogue = Utf8Prefix(conversationPage->text, revealedCharacters);
 
         std::array<TutorialDrawElement, 6> elements = {{
             { 0, 0, TutorialDrawKind::Dim },
@@ -406,7 +603,10 @@ void GameScene::DrawTutorialOverlay()
             switch (element.kind)
             {
             case TutorialDrawKind::Dim:
-                SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(std::clamp(ui.dimAlpha, 0.0f, 1.0f) * 255.0f)));
+                SetDrawBlendMode(
+                    DX_BLENDMODE_ALPHA,
+                    static_cast<int>(std::round(
+                        std::clamp(ui.dimAlpha * fadeAlpha, 0.0f, 1.0f) * 255.0f)));
                 DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(8, 10, 15), TRUE);
                 SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
                 break;
@@ -441,7 +641,7 @@ void GameScene::DrawTutorialOverlay()
                 break;
             case TutorialDrawKind::DialogueName:
                 DrawTutorialText(
-                    character.name,
+                    conversationPage->speaker,
                     ui.dialogueNameX,
                     ui.dialogueNameY,
                     ui.dialogueNameFontSize,
@@ -464,16 +664,10 @@ void GameScene::DrawTutorialOverlay()
             case TutorialDrawKind::DialoguePrompt:
                 if (textFinished)
                 {
-                    const float pulse = 0.72f + 0.28f * std::sin(static_cast<float>(GetNowCount()) * 0.006f);
-                    DrawTutorialText(
-                        ui.confirmText,
+                    drawTutorialWaitIcon(
                         ui.dialoguePromptX,
                         ui.dialoguePromptY,
-                        ui.promptFontSize,
-                        ui.promptFontSize,
-                        GetColor(255, 220, 142),
-                        0.0f,
-                        fadeAlpha * pulse);
+                        fadeAlpha);
                 }
                 break;
             default:
@@ -517,16 +711,28 @@ void GameScene::DrawTutorialOverlay()
                 DrawTutorialImage(headingTexture, ui.headingX, ui.headingY, ui.headingWidth, ui.headingHeight);
                 break;
             case TutorialDrawKind::ContentImage:
-                DrawTutorialImage(
-                    contentImageTexture,
-                    ui.contentImageX,
-                    ui.contentImageY,
-                    ui.contentImageWidth,
-                    ui.contentImageHeight);
+                if (prepareTutorialVideo(m_tutorial.videoPlayer, windowPage->contentVideoPath))
+                {
+                    drawTutorialVideo(
+                        m_tutorial.videoPlayer,
+                        ui.contentImageX,
+                        ui.contentImageY,
+                        ui.contentImageWidth,
+                        ui.contentImageHeight);
+                }
+                else
+                {
+                    DrawTutorialImage(
+                        contentImageTexture,
+                        ui.contentImageX,
+                        ui.contentImageY,
+                        ui.contentImageWidth,
+                        ui.contentImageHeight);
+                }
                 break;
             case TutorialDrawKind::Title:
                 DrawTutorialText(
-                    ui.title,
+                    windowPage->title,
                     ui.titleX,
                     ui.titleY,
                     ui.titleFontSize,
@@ -535,7 +741,7 @@ void GameScene::DrawTutorialOverlay()
                 break;
             case TutorialDrawKind::Body:
                 DrawTutorialText(
-                    ui.bodyText,
+                    windowPage->text,
                     ui.bodyX,
                     ui.bodyY,
                     ui.bodyFontSize,
@@ -544,14 +750,40 @@ void GameScene::DrawTutorialOverlay()
                     ui.bodyWidth);
                 break;
             case TutorialDrawKind::Prompt:
-                DrawTutorialText(
-                    ui.confirmText,
-                    ui.promptX,
-                    ui.promptY,
-                    ui.promptFontSize,
-                    ui.promptFontSize,
-                    GetColor(88, 56, 26));
+            {
+                const size_t windowPageIndex = getTutorialPageIndex(m_tutorial, windowPage);
+                size_t previousWindowIndex = 0;
+                size_t nextWindowIndex = 0;
+                const bool hasPreviousWindow = findPreviousTutorialWindowIndex(
+                    m_tutorial,
+                    windowPageIndex,
+                    previousWindowIndex);
+                const bool hasNextWindow = findNextTutorialWindowIndex(
+                    m_tutorial,
+                    windowPageIndex,
+                    nextWindowIndex);
+                const bool hasMultipleWindows = countTutorialWindowPages(m_tutorial) > 1;
+
+                if (hasMultipleWindows)
+                {
+                    drawTutorialNavigationButton(
+                        getTutorialNavigationButtonRect(ui, true),
+                        true,
+                        hasPreviousWindow);
+                    drawTutorialNavigationButton(
+                        getTutorialNavigationButtonRect(ui, false),
+                        false,
+                        hasNextWindow);
+                }
+                if (!hasNextWindow)
+                {
+                    drawTutorialCloseButton(
+                        getTutorialCloseButtonRect(ui),
+                        windowPage->confirmText.empty() ? "閉じる" : windowPage->confirmText,
+                        ui.promptFontSize);
+                }
                 break;
+            }
             default:
                 break;
             }
@@ -574,32 +806,27 @@ void GameScene::DrawTutorialAdjustmentPanel()
     {
         m_tutorial.previewWindow = false;
     }
-    if (ImGui::Button("今すぐ会話から再生##tutorial"))
+    if (ImGui::Button("チュートリアル1を再生##tutorial"))
     {
-        BeginCameraTutorialConversation();
+        beginTutorialConversation(1);
     }
     ImGui::SameLine();
-    if (ImGui::Button("一度だけフラグを解除##tutorial"))
+    if (ImGui::Button("1番の完了フラグを解除##tutorial"))
     {
         GameSession_SetCameraTutorialCompleted(false);
         SaveProgressState();
     }
-    ImGui::Text("完了フラグ: %s", GameSession_Get().cameraTutorialCompleted ? "完了" : "未完了");
+    ImGui::Text(
+        "チュートリアル1: %s",
+        gameSessionIsTutorialCompleted(1) ? "完了" : "未完了");
 
     ImGui::SliderFloat("背景暗転##tutorial", &ui.dimAlpha, 0.0f, 1.0f, "%.2f");
-    const char* characterNames[] = { "あまりりす" };
-    ImGui::Combo(
-        "会話キャラクター##tutorial",
-        &ui.dialogueCharacter,
-        characterNames,
-        static_cast<int>(std::size(characterNames)));
-    const auto& character = GetTutorialCharacterProfile(ui.dialogueCharacter);
-    ImGui::Text("表示名: %s", character.name);
-    ImGui::Text("立ち絵: %s", character.portraitPath);
-    ImGui::InputTextMultiline("会話文##tutorial", &ui.dialogueText, ImVec2(-FLT_MIN, 90.0f));
-    ImGui::InputText("見出し##tutorial", &ui.title);
-    ImGui::InputTextMultiline("説明文##tutorial", &ui.bodyText, ImVec2(-FLT_MIN, 130.0f));
-    ImGui::InputText("確認文##tutorial", &ui.confirmText);
+    ImGui::Text("表示内容: %s", kTutorialCsvPath);
+    ImGui::Text("読込ページ数: %zu", m_tutorial.pages.size());
+    if (ImGui::Button("CSVを再読込##tutorial"))
+    {
+        loadTutorialData(std::max(1, m_tutorial.loadedTutorialNumber));
+    }
 
     const auto drag = [](const char* label, float& value, float speed, float minValue, float maxValue)
     {
@@ -623,8 +850,8 @@ void GameScene::DrawTutorialAdjustmentPanel()
         drag("話者Y##tutorial_dialogue", ui.dialogueNameY, 1.0f, -2000.0f, 3000.0f);
         drag("本文X##tutorial_dialogue", ui.dialogueTextX, 1.0f, -2000.0f, 4000.0f);
         drag("本文Y##tutorial_dialogue", ui.dialogueTextY, 1.0f, -2000.0f, 3000.0f);
-        drag("確認X##tutorial_dialogue", ui.dialoguePromptX, 1.0f, -2000.0f, 4000.0f);
-        drag("確認Y##tutorial_dialogue", ui.dialoguePromptY, 1.0f, -2000.0f, 3000.0f);
+        drag("待機アイコンX##tutorial_dialogue", ui.dialoguePromptX, 1.0f, -2000.0f, 4000.0f);
+        drag("待機アイコンY##tutorial_dialogue", ui.dialoguePromptY, 1.0f, -2000.0f, 3000.0f);
         drag("話者文字サイズ##tutorial_dialogue", ui.dialogueNameFontSize, 1.0f, 8.0f, 160.0f);
         drag("本文文字サイズ##tutorial_dialogue", ui.dialogueTextFontSize, 1.0f, 8.0f, 160.0f);
         drag("本文行間##tutorial_dialogue", ui.dialogueLineSpacing, 1.0f, 8.0f, 240.0f);
@@ -634,7 +861,7 @@ void GameScene::DrawTutorialAdjustmentPanel()
         dragLayer("立ち絵レイヤー##tutorial_dialogue", ui.dialoguePortraitLayer);
         dragLayer("話者レイヤー##tutorial_dialogue", ui.dialogueNameLayer);
         dragLayer("本文レイヤー##tutorial_dialogue", ui.dialogueTextLayer);
-        dragLayer("確認レイヤー##tutorial_dialogue", ui.dialoguePromptLayer);
+        dragLayer("待機アイコンレイヤー##tutorial_dialogue", ui.dialoguePromptLayer);
         ImGui::TreePop();
     }
 
@@ -658,17 +885,16 @@ void GameScene::DrawTutorialAdjustmentPanel()
         drag("本文Y##tutorial_window", ui.bodyY, 1.0f, -2000.0f, 3000.0f);
         drag("本文幅##tutorial_window", ui.bodyWidth, 1.0f, 10.0f, 4000.0f);
         drag("本文行間##tutorial_window", ui.bodyLineSpacing, 1.0f, 8.0f, 240.0f);
-        drag("確認X##tutorial_window", ui.promptX, 1.0f, -2000.0f, 4000.0f);
-        drag("確認Y##tutorial_window", ui.promptY, 1.0f, -2000.0f, 3000.0f);
+        drag("下部ボタンY##tutorial_window", ui.promptY, 1.0f, -2000.0f, 3000.0f);
         drag("タイトル文字サイズ##tutorial_window", ui.titleFontSize, 1.0f, 8.0f, 160.0f);
         drag("本文文字サイズ##tutorial_window", ui.bodyFontSize, 1.0f, 8.0f, 160.0f);
-        drag("確認文字サイズ##tutorial_window", ui.promptFontSize, 1.0f, 8.0f, 160.0f);
+        drag("閉じる文字サイズ##tutorial_window", ui.promptFontSize, 1.0f, 8.0f, 160.0f);
         dragLayer("外枠レイヤー##tutorial_window", ui.frameLayer);
         dragLayer("見出し画像レイヤー##tutorial_window", ui.headingLayer);
         dragLayer("説明画像レイヤー##tutorial_window", ui.contentImageLayer);
         dragLayer("タイトルレイヤー##tutorial_window", ui.titleLayer);
         dragLayer("本文レイヤー##tutorial_window", ui.bodyLayer);
-        dragLayer("確認レイヤー##tutorial_window", ui.promptLayer);
+        dragLayer("下部ボタンレイヤー##tutorial_window", ui.promptLayer);
         ImGui::TreePop();
     }
 }

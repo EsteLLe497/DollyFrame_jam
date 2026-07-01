@@ -82,7 +82,8 @@ private:
     void FinalizeGameplayFrame(float effectiveGameplayDeltaTime);
     void TryStartCameraTutorial();
     void CompleteCameraTutorial();
-    void BeginCameraTutorialConversation();
+    bool beginTutorialConversation(int tutorialNumber);
+    bool loadTutorialData(int tutorialNumber);
     void EnsureTutorialPortraitTexture();
     void PrepareFrameRendering();
     void UpdatePostProcessPlayerLight() const;

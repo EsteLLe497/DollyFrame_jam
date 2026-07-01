@@ -75,6 +75,9 @@
     <ClCompile Include="core\application.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="core\game_font.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="core\asset_manifest.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -133,6 +136,15 @@
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
     <ClCompile Include="scenes\game\game_scene_tutorial_domain.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\tutorial_csv_data.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\tutorial_ui_controls.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\tutorial_video_player.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
     <ClCompile Include="scenes\game\game_scene_render_ui_editor.cpp">
@@ -416,6 +428,9 @@
     <ClInclude Include="core\application.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="core\game_font.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="core\asset_manifest.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -459,6 +474,15 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="scenes\game\game_scene.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\game\tutorial_csv_data.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\game\tutorial_ui_controls.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\game\tutorial_video_player.h">
       <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>
     <ClInclude Include="scenes\game\game_scene_internal.h">
