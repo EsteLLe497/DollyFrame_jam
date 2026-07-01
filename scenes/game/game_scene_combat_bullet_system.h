@@ -494,6 +494,13 @@ inline void UpdateBullets(
                 const float nextY = transform->y + projectile->GetVelocityY() * deltaTime;
                 const float attackWidth = transform->width * transform->scale;
                 const float attackHeight = transform->height * transform->scale;
+                const float hitInsetX = attackWidth * 0.14f;
+                const float hitInsetY = attackHeight * 0.22f;
+                TransformComponent attackHitRect(
+                    nextX + hitInsetX,
+                    nextY + hitInsetY,
+                    std::max(1.0f, attackWidth - hitInsetX * 2.0f),
+                    std::max(1.0f, attackHeight - hitInsetY * 2.0f));
                 if (rectIntersectsSolid(nextX, nextY, attackWidth, attackHeight))
                 {
                     bulletsToRemove.push_back(entity);
@@ -506,10 +513,12 @@ inline void UpdateBullets(
                 bool attachedThisFrame = false;
                 for (Entity* target : enemyEntities)
                 {
+                    const auto* targetTransform = target ? target->GetComponent<TransformComponent>() : nullptr;
                     if (!target ||
                         target == entity ||
                         !target->GetComponent<MidBoss3Component>() ||
-                        !intersectsEntity(*target, *entity))
+                        !targetTransform ||
+                        !IntersectsBounds(attackHitRect, *targetTransform))
                     {
                         continue;
                     }
