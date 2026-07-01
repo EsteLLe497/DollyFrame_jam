@@ -288,6 +288,27 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
     const bool rightPressed = rightDown && !previousRightDown;
     const bool rightReleased = !rightDown && previousRightDown;
     previousRightDown = rightDown;
+    const auto selectNextStoredPhoto = [&scene](int direction)
+    {
+        constexpr int kSlotCount = 3;
+        if (direction == 0)
+        {
+            return;
+        }
+
+        const int step = direction > 0 ? 1 : -1;
+        const int start = scene.m_photo.selectedCaptureSlot;
+        for (int offset = 1; offset <= kSlotCount; ++offset)
+        {
+            const int slotIndex = (start + step * offset + kSlotCount * 2) % kSlotCount;
+            if (scene.m_photo.savedCaptures[slotIndex].hasPhoto)
+            {
+                scene.SetSelectedPhotoSlot(slotIndex);
+                return;
+            }
+        }
+    };
+
     const bool pasteReleasePlaying = scene.m_player.pasteAnimationActive && scene.m_player.pasteAnimationReleased;
     if (pasteReleasePlaying)
     {
@@ -295,6 +316,15 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
         scene.m_photo.placement.blockedByUi = false;
         scene.m_photo.placement.draggingFromTray = false;
         return;
+    }
+
+    if (rightDown)
+    {
+        const int wheelDelta = GetMouseWheelRotVol();
+        if (wheelDelta != 0)
+        {
+            selectNextStoredPhoto(wheelDelta > 0 ? 1 : -1);
+        }
     }
 
     if (!scene.m_photo.placement.active && rightPressed)
@@ -411,8 +441,8 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
     const float contentHeight = basePreviewHeight * viewScale;
     const float outerX = viewOriginX + (scene.m_photo.placement.x - scene.m_flow.cameraX) * viewScale;
     const float outerY = viewOriginY + (scene.m_photo.placement.y - scene.m_flow.cameraY) * viewScale;
-    const float frameCenterX = outerX + previewWidth * viewScale * 0.5f;
-    const float frameCenterY = outerY + previewHeight * viewScale * 0.5f;
+    const float frameCenterX = outerX + contentWidth * 0.5f;
+    const float frameCenterY = outerY + contentHeight * 0.5f;
     const float framePad = std::max(8.0f, 10.0f * viewScale);
     const float filmPad = std::max(6.0f, 7.0f * viewScale);
     const float polaroidBottomPad = std::max(14.0f, 18.0f * viewScale);
@@ -425,134 +455,138 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
     const float filmLeft = frameCenterX - filmWidth * 0.5f;
     const float filmTop = frameCenterY - filmHeight * 0.5f;
     const bool usePolaroidComposite = IsPrintedPolaroidPreview(basePreviewItems);
-    RECT previousDrawArea{};
-    GetDrawArea(&previousDrawArea);
 
-    const int canvasWidth = std::max(1, static_cast<int>(std::ceil(paperWidth)));
-    const int canvasHeight = std::max(1, static_cast<int>(std::ceil(paperHeight)));
-    const int renderTarget = GetPlacementPreviewRenderTarget(canvasWidth, canvasHeight);
-    const int previousDrawScreen = GetDrawScreen();
-
-    if (renderTarget >= 0)
+    if (usePolaroidComposite)
     {
-        const float contentOffsetX = (paperWidth - contentWidth) * 0.5f;
-        const float contentOffsetY = (paperHeight - contentHeight) * 0.5f;
-        const float filmOffsetX = (paperWidth - filmWidth) * 0.5f;
-        const float filmOffsetY = (paperHeight - filmHeight) * 0.5f;
-        const float filmRight = filmOffsetX + filmWidth;
-        const float filmBottom = filmOffsetY + filmHeight;
-        const size_t firstItemIndex = usePolaroidComposite ? 2u : 0u;
+        const int canvasWidth = std::max(1, static_cast<int>(std::ceil(paperWidth)));
+        const int canvasHeight = std::max(1, static_cast<int>(std::ceil(paperHeight)));
+        const int renderTarget = GetPlacementPreviewRenderTarget(canvasWidth, canvasHeight);
+        const int previousDrawScreen = GetDrawScreen();
+        RECT previousDrawArea{};
+        GetDrawArea(&previousDrawArea);
 
-        SetDrawScreen(renderTarget);
-        SetDrawArea(0, 0, canvasWidth, canvasHeight);
-        ClearDrawScreen();
-
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, scene.m_photo.placement.valid ? 188 : 170);
-        DrawBoxAA(
-            0.0f,
-            0.0f,
-            static_cast<float>(canvasWidth),
-            static_cast<float>(canvasHeight),
-            scene.m_photo.placement.valid ? GetColor(244, 242, 234) : GetColor(236, 220, 220),
-            TRUE);
-
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
-        DrawBoxAA(
-            filmOffsetX,
-            filmOffsetY,
-            filmOffsetX + filmWidth,
-            filmOffsetY + filmHeight,
-            scene.m_photo.placement.valid ? GetColor(48, 58, 70) : GetColor(84, 50, 52),
-            TRUE);
-
-        SetDrawArea(
-            static_cast<int>(std::floor(filmOffsetX)),
-            static_cast<int>(std::floor(filmOffsetY)),
-            static_cast<int>(std::ceil(filmRight)),
-            static_cast<int>(std::ceil(filmBottom)));
-
-        for (size_t index = firstItemIndex; index < basePreviewItems.size(); ++index)
+        if (renderTarget >= 0)
         {
-            const auto& item = basePreviewItems[index];
-            CapturedPhotoItem previewItem = item;
-            photo_shared::ApplyPreviewFilterTheme(previewItem);
+            const float contentOffsetX = (paperWidth - contentWidth) * 0.5f;
+            const float contentOffsetY = (paperHeight - contentHeight) * 0.5f;
+            const float filmOffsetX = (paperWidth - filmWidth) * 0.5f;
+            const float filmOffsetY = (paperHeight - filmHeight) * 0.5f;
+            const float filmRight = filmOffsetX + filmWidth;
+            const float filmBottom = filmOffsetY + filmHeight;
 
-            const float drawX = contentOffsetX + item.relativeX * viewScale;
-            const float drawY = contentOffsetY + item.relativeY * viewScale;
-            const float drawWidth = item.width * viewScale;
-            const float drawHeight = item.height * viewScale;
+            SetDrawScreen(renderTarget);
+            SetDrawArea(0, 0, canvasWidth, canvasHeight);
+            ClearDrawScreen();
 
-            Shader_ResetStyle();
-            if (scene.m_photo.placement.valid)
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, scene.m_photo.placement.valid ? 188 : 170);
+            DrawBoxAA(
+                0.0f,
+                0.0f,
+                static_cast<float>(canvasWidth),
+                static_cast<float>(canvasHeight),
+                scene.m_photo.placement.valid ? GetColor(244, 242, 234) : GetColor(236, 220, 220),
+                TRUE);
+
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+            DrawBoxAA(
+                filmOffsetX,
+                filmOffsetY,
+                filmOffsetX + filmWidth,
+                filmOffsetY + filmHeight,
+                scene.m_photo.placement.valid ? GetColor(48, 58, 70) : GetColor(84, 50, 52),
+                TRUE);
+
+            SetDrawArea(
+                static_cast<int>(std::floor(filmOffsetX)),
+                static_cast<int>(std::floor(filmOffsetY)),
+                static_cast<int>(std::ceil(filmRight)),
+                static_cast<int>(std::ceil(filmBottom)));
+
+            for (size_t index = 2; index < basePreviewItems.size(); ++index)
             {
-                float outlineR = 0.32f;
-                float outlineG = 0.92f;
-                float outlineB = 1.0f;
-                GetPhotoFilterThemePreviewOutlineColor(previewItem.appliedTheme, outlineR, outlineG, outlineB);
-                const float themeBoost = previewItem.appliedTheme == PhotoFilterTheme::None ? 0.0f : 0.2f;
-                Shader_SetOutline(outlineR, outlineG, outlineB, 1.0f, validOutlineThickness + themeBoost);
-                Shader_SetTint(previewItem.tintR, previewItem.tintG, previewItem.tintB, validTintAlpha);
-            }
-            else
-            {
-                Shader_SetOutline(1.0f, 0.24f, 0.24f, 1.0f, 1.6f);
-                Shader_SetTint(1.0f, 0.24f, 0.24f, 0.42f);
-            }
+                const auto& item = basePreviewItems[index];
+                CapturedPhotoItem previewItem = item;
+                photo_shared::ApplyPreviewFilterTheme(previewItem);
 
-            photo_shared::DrawCapturedPhotoItem(
-                scene.m_tileTexture,
-                previewItem,
-                drawX,
-                drawY,
-                drawWidth,
-                drawHeight,
-                scene.m_photo.placement.valid ? 0.55f : 0.42f);
+                const float drawX = contentOffsetX + item.relativeX * viewScale;
+                const float drawY = contentOffsetY + item.relativeY * viewScale;
+                const float drawWidth = item.width * viewScale;
+                const float drawHeight = item.height * viewScale;
 
-            if (item.spawnArchetype == CapturedSpawnArchetype::Barrel)
-            {
                 Shader_ResetStyle();
                 if (scene.m_photo.placement.valid)
                 {
-                    Shader_SetOutline(0.34f, 1.0f, 0.48f, 1.0f, 1.8f);
-                    Shader_SetTint(0.10f, 0.30f, 0.14f, 0.12f);
+                    float outlineR = 0.32f;
+                    float outlineG = 0.92f;
+                    float outlineB = 1.0f;
+                    GetPhotoFilterThemePreviewOutlineColor(previewItem.appliedTheme, outlineR, outlineG, outlineB);
+                    const float themeBoost = previewItem.appliedTheme == PhotoFilterTheme::None ? 0.0f : 0.2f;
+                    Shader_SetOutline(outlineR, outlineG, outlineB, 1.0f, validOutlineThickness + themeBoost);
+                    Shader_SetTint(previewItem.tintR, previewItem.tintG, previewItem.tintB, validTintAlpha);
                 }
                 else
                 {
-                    Shader_SetOutline(1.0f, 0.24f, 0.24f, 1.0f, 1.8f);
-                    Shader_SetTint(0.30f, 0.10f, 0.10f, 0.12f);
+                    Shader_SetOutline(1.0f, 0.24f, 0.24f, 1.0f, 1.6f);
+                    Shader_SetTint(1.0f, 0.24f, 0.24f, 0.42f);
                 }
-                SpriteDraw(scene.m_whiteTexture, drawX, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+
+                photo_shared::DrawCapturedPhotoItem(
+                    scene.m_tileTexture,
+                    item,
+                    drawX,
+                    drawY,
+                    drawWidth,
+                    drawHeight,
+                    scene.m_photo.placement.valid ? 0.55f : 0.42f);
+
+                if (item.spawnArchetype == CapturedSpawnArchetype::Barrel)
+                {
+                    Shader_ResetStyle();
+                    if (scene.m_photo.placement.valid)
+                    {
+                        Shader_SetOutline(0.34f, 1.0f, 0.48f, 1.0f, 1.8f);
+                        Shader_SetTint(0.10f, 0.30f, 0.14f, 0.12f);
+                    }
+                    else
+                    {
+                        Shader_SetOutline(1.0f, 0.24f, 0.24f, 1.0f, 1.8f);
+                        Shader_SetTint(0.30f, 0.10f, 0.10f, 0.12f);
+                    }
+                    SpriteDraw(scene.m_whiteTexture, drawX, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+                }
             }
+
+            SetDrawArea(
+                previousDrawArea.left,
+                previousDrawArea.top,
+                previousDrawArea.right,
+                previousDrawArea.bottom);
+            SetDrawScreen(previousDrawScreen);
+
+            DrawRotaGraph3F(
+                frameCenterX,
+                frameCenterY,
+                canvasWidth * 0.5f,
+                canvasHeight * 0.5f,
+                1.0,
+                1.0,
+                static_cast<double>(scene.m_photo.placement.rotation),
+                renderTarget,
+                TRUE);
         }
-
-        SetDrawScreen(previousDrawScreen);
-        SetDrawArea(
-            previousDrawArea.left,
-            previousDrawArea.top,
-            previousDrawArea.right,
-            previousDrawArea.bottom);
-
-        DrawRotaGraph3F(
-            frameCenterX,
-            frameCenterY,
-            canvasWidth * 0.5f,
-            canvasHeight * 0.5f,
-            1.0,
-            1.0,
-            static_cast<double>(scene.m_photo.placement.rotation),
-            renderTarget,
-            TRUE);
+        else
+        {
+            SetDrawScreen(previousDrawScreen);
+            SetDrawArea(
+                previousDrawArea.left,
+                previousDrawArea.top,
+                previousDrawArea.right,
+                previousDrawArea.bottom);
+        }
     }
     else
     {
-        SetDrawScreen(previousDrawScreen);
-        SetDrawArea(
-            previousDrawArea.left,
-            previousDrawArea.top,
-            previousDrawArea.right,
-            previousDrawArea.bottom);
-
-        // Fallback path if the offscreen preview target cannot be created.
+        // Fallback path for non-polaroid previews.
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, scene.m_photo.placement.valid ? 188 : 170);
         DrawRotatedPlacementRect(
             paperLeft,
@@ -573,12 +607,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
             scene.m_photo.placement.valid ? GetColor(48, 58, 70) : GetColor(84, 50, 52),
             scene.m_photo.placement.valid ? GetColor(48, 58, 70) : GetColor(84, 50, 52),
             true);
-
-        SetDrawArea(
-            static_cast<int>(std::floor(filmLeft)),
-            static_cast<int>(std::floor(filmTop)),
-            static_cast<int>(std::ceil(filmLeft + filmWidth)),
-            static_cast<int>(std::ceil(filmTop + filmHeight)));
 
         for (const auto& item : previewItems)
         {
@@ -631,12 +659,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 SpriteDraw(scene.m_whiteTexture, drawX, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
             }
         }
-
-        SetDrawArea(
-            previousDrawArea.left,
-            previousDrawArea.top,
-            previousDrawArea.right,
-            previousDrawArea.bottom);
     }
 
     if (scene.m_photo.placement.valid && pulseEnabled)
@@ -1512,14 +1534,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             (spawnedLayer == PhotoCopyLayer::Background)
             ? kArchetypePhotoFrameLifetimeSeconds
             : gPastedObjectLifetimeSeconds;
-        const bool persistPastedVanishObject =
-            item.vanishOnCapture ||
-            item.damagePlatformTileSpan > 0 ||
-            item.spikeStripTileSpan > 0;
-        if (!persistPastedVanishObject)
-        {
-            lastSpawnedEntity->AddComponent<PhotoCopyLifetimeComponent>(lifetimeSeconds);
-        }
+        lastSpawnedEntity->AddComponent<PhotoCopyLifetimeComponent>(lifetimeSeconds);
         lastSpawnedEntity->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
         lastSpawnedEntity->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
         lastSpawnedEntity->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);

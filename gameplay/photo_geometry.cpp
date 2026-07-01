@@ -129,7 +129,7 @@ namespace photo_geometry
 
     void RotatePrintedPhotoItems(std::vector<CapturedPhotoItem>& items, float& width, float& height, float rotation)
     {
-        if (items.empty() || std::fabs(rotation) <= 0.0001f)
+        if (std::fabs(rotation) <= 0.0001f)
         {
             return;
         }
@@ -177,8 +177,5 @@ namespace photo_geometry
             item.relativeX -= minX;
             item.relativeY -= minY;
         }
-
-        width = (std::max)(1.0f, maxX - minX);
-        height = (std::max)(1.0f, maxY - minY);
     }
 }

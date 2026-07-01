@@ -1081,11 +1081,6 @@ void GameScene::DrawStageDarknessOverlay() const
 
 void GameScene::DrawSepiaFilmFilterOverlay() const
 {
-    if (m_photo.placement.active)
-    {
-        return;
-    }
-
     const bool enabled =
         m_debug.sepiaFilmFilterDryRunEnabled ||
         m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia;
@@ -1448,11 +1443,6 @@ void GameScene::DrawPitRestartOverlay() const
 
 void GameScene::DrawCaptureOverlay() const
 {
-    if (m_photo.placement.active)
-    {
-        return;
-    }
-
     const Entity* player = FindEntityByTag(kTagPlayer);
     if (!player)
     {

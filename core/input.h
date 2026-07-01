@@ -66,7 +66,6 @@ bool Input_IsEastButtonPressed();
 bool Input_IsNorthButtonPressed();
 int Input_GetMouseX();
 int Input_GetMouseY();
-int Input_GetMouseWheelDelta();
 bool Input_IsLeftTriggerDown();
 bool Input_IsRightTriggerDown();
 bool Input_IsRightTriggerPressed();
