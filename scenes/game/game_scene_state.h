@@ -101,10 +101,8 @@ struct BeamShockwaveParticle
 
 struct CameraFlashState
 {
-    bool unlocked = true;
+    bool unlocked = false;
     bool enabled = true;
-    //bool unlocked = false;
-    //bool enabled = false;
     float pulseRemaining = 0.0f;
     float pulseDuration = 0.0f;
 };
@@ -391,6 +389,12 @@ struct GameSceneUiState
     float captureLockoutRemaining = 0.0f;
     int captureRapidCount = 0;
     CameraFlashState cameraFlash;
+    float cameraFilterAnimationElapsed = 1.0f;
+    PhotoFilterTheme cameraFilterAnimationFrom = PhotoFilterTheme::None;
+    PhotoFilterTheme cameraFilterAnimationTo = PhotoFilterTheme::None;
+    PhotoFilterTheme cameraFilterHudTheme = PhotoFilterTheme::None;
+    PhotoFilterTheme cameraFilterLastSelectedTheme = PhotoFilterTheme::None;
+    bool cameraFilterHudInitialized = false;
     float hpDisplayRatio = 1.0f;
     float hpDamageLagRatio = 1.0f;
     float hpDamageFlash = 0.0f;
@@ -585,6 +589,7 @@ struct GameSceneSaveState
     int sessionParts = 0;
     int sessionPhotoStorageSlots = 2;
     bool sessionHasRecoveryFilter = false;
+    bool sessionHasCameraFlash = false;
     float sessionTimeLimit = 60.0f;
     float sessionTimeRemaining = 60.0f;
     PhotoState photo;

@@ -675,6 +675,7 @@ inline bool IsRestoreSepiaObjectMarker(char marker)
     case '%':
     case 'L':
     case 'Q':
+    case 'J':
     case '+':
     case 'S':
     case '[':

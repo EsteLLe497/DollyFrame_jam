@@ -10,6 +10,23 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr float kStageTransitionFadeInDuration = 1.10f;
+    constexpr float kCameraFilterHudAnimationDuration = 0.86f;
+
+    PhotoFilterTheme ResolveCameraFilterHudTheme(PhotoFilterTheme theme)
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Cold:
+            return GameSession_Get().hasRecoveryFilter ? PhotoFilterTheme::Cold : PhotoFilterTheme::None;
+        case PhotoFilterTheme::Sepia:
+            return PhotoFilterTheme::Sepia;
+        case PhotoFilterTheme::None:
+        case PhotoFilterTheme::Hot:
+        case PhotoFilterTheme::Invert:
+        default:
+            return PhotoFilterTheme::None;
+        }
+    }
 }
 
 bool GameScene::UpdatePitRestartFlow(float deltaTime)
@@ -71,6 +88,20 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
     m_ui.shutterFlashRemaining = std::max(0.0f, m_ui.shutterFlashRemaining - deltaTime);
     m_ui.cameraFlash.pulseRemaining = std::max(0.0f, m_ui.cameraFlash.pulseRemaining - deltaTime);
+    if (m_ui.cameraFilterAnimationElapsed < kCameraFilterHudAnimationDuration)
+    {
+        m_ui.cameraFilterAnimationElapsed = std::min(
+            kCameraFilterHudAnimationDuration,
+            m_ui.cameraFilterAnimationElapsed + deltaTime);
+        if (m_ui.cameraFilterAnimationElapsed >= kCameraFilterHudAnimationDuration)
+        {
+            m_ui.cameraFilterHudTheme = ResolveCameraFilterHudTheme(m_ui.cameraFilterAnimationTo);
+        }
+    }
+    else
+    {
+        m_ui.cameraFilterHudTheme = ResolveCameraFilterHudTheme(m_photo.capture.selectedTheme);
+    }
     m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
     m_flow.stageTransitionFadeInTimer = std::max(0.0f, m_flow.stageTransitionFadeInTimer - deltaTime);
     const float shieldBossCurtainTarget = IsShieldBossIntroCinematicActive() ? 1.0f : 0.0f;
@@ -137,4 +168,5 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
 
     m_ui.hpDamageFlash = std::max(0.0f, m_ui.hpDamageFlash - deltaTime * 4.5f);
 }
+
 

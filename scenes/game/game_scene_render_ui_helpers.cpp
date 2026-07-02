@@ -133,6 +133,20 @@ void game_scene_detail::DrawCapturedPreviewItem(
 {
     Shader_ResetStyle();
     Shader_SetTint(item.tintR, item.tintG, item.tintB, std::min(1.0f, item.tintA) * alpha);
+    if (item.sepiaShutterObject)
+    {
+        photo_shared::DrawSepiaShutterItem(
+            item.textureId >= 0 ? item.textureId : fallbackTextureId,
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            item.flipX,
+            item.rotation);
+        Shader_ResetStyle();
+        return;
+    }
+
     if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
     {
         const float projectileAngle = std::atan2(item.projectileVelocityY, item.projectileVelocityX);

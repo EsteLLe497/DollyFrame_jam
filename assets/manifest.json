@@ -162,9 +162,21 @@
       "type": "file",
       "path": "assets/texture/SepiaSample1.png"
     },
+    "sepia_rubble_stage": {
+      "type": "file",
+      "path": "assets/texture/sepia_rubble_stage.png"
+    },
     "sepia_ground": {
       "type": "file",
       "path": "assets/texture/SepiaSample2.png"
+    },
+    "sepia_shutter_gate": {
+      "type": "file",
+      "path": "assets/texture/sepia_shutter_gate.png"
+    },
+    "sepia_shutter_gate_horizontal": {
+      "type": "file",
+      "path": "assets/texture/sepia_shutter_gate_horizontal.png"
     },
     "star": {
       "type": "file",
@@ -237,11 +249,35 @@
       "path": "assets/texture/photo_tray_backdrop.png"
     },
 
+    "ui_camera_body": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_body.png"
+    },
+    "ui_camera_nofilter": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_nofilter.png"
+    },
+    "ui_camera_flash_off": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_flash_off.png"
+    },
+    "ui_camera_flash_on": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_flash_on.png"
+    },
+    "ui_camera_heal": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_heal.png"
+    },
+
     "ui_hp": {
       "type": "file",
       "path": "assets/texture/testUI/UI_HP.png"
+    },
+    "ui_hp_damage": {
+      "type": "file",
+      "path": "assets/texture/testUI/UI_HP_Damage.png"
     }
-
 
   }
 }

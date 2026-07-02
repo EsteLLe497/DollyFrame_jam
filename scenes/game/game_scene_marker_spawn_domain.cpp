@@ -2249,7 +2249,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             rubble->AddComponent<TransformComponent>(groupX, groupY, groupWidth, groupHeight);
 
             rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
-            rubble->AddComponent<SpriteRenderComponent>(m_assets.GetTexture("sepia_rubble"));
+            rubble->AddComponent<SpriteRenderComponent>(sepiaRubbleTextureId);
             rubble->AddComponent<SepiaRubbleComponent>();
 
 

@@ -16,6 +16,7 @@ void GameSession_Reset(int maxHp, float timeLimit)
     g_sessionState.parts = 0;
     g_sessionState.photoStorageSlots = 2;
     g_sessionState.hasRecoveryFilter = false;
+    g_sessionState.hasCameraFlash = false;
     g_sessionState.timeLimit = timeLimit;
     g_sessionState.timeRemaining = timeLimit;
     g_sessionState.endReason = GameEndReason::None;
@@ -52,6 +53,11 @@ void GameSession_SetPhotoStorageSlots(int slots)
 void GameSession_SetRecoveryFilterOwned(bool owned)
 {
     g_sessionState.hasRecoveryFilter = owned;
+}
+
+void GameSession_SetCameraFlashOwned(bool owned)
+{
+    g_sessionState.hasCameraFlash = owned;
 }
 
 void GameSession_SetTimeRemaining(float timeRemaining)

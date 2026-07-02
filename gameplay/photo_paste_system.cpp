@@ -1583,6 +1583,10 @@ void PhotoPasteSystem::SpawnPhotoGroup(
         {
             lastSpawnedEntity->AddComponent<PhotoCopyTileValueComponent>(item.sourceTileValue);
         }
+        if (item.sepiaShutterObject)
+        {
+            lastSpawnedEntity->AddComponent<SepiaShutterVisualComponent>();
+        }
         if (item.damagePlatformTileSpan > 0)
         {
             lastSpawnedEntity->AddComponent<DamagePlatformComponent>(item.damagePlatformTileSpan);

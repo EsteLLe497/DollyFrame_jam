@@ -832,6 +832,7 @@ namespace
         root["spikeStripTileSpan"] = item.spikeStripTileSpan;
         root["sepiaRestoredTileValue"] = item.sepiaRestoredTileValue;
         root["sepiaRestoredMarkerObject"] = item.sepiaRestoredMarkerObject;
+        root["sepiaShutterObject"] = item.sepiaShutterObject;
         root["rotation"] = item.rotation;
         root["flipX"] = item.flipX;
         root["vanishOnCapture"] = item.vanishOnCapture;
@@ -886,6 +887,7 @@ namespace
         item.spikeStripTileSpan = root.value("spikeStripTileSpan", item.spikeStripTileSpan);
         item.sepiaRestoredTileValue = root.value("sepiaRestoredTileValue", item.sepiaRestoredTileValue);
         item.sepiaRestoredMarkerObject = root.value("sepiaRestoredMarkerObject", item.sepiaRestoredMarkerObject);
+        item.sepiaShutterObject = root.value("sepiaShutterObject", item.sepiaShutterObject);
         item.rotation = root.value("rotation", item.rotation);
         item.flipX = root.value("flipX", item.flipX);
         item.vanishOnCapture = root.value("vanishOnCapture", item.vanishOnCapture);
@@ -1143,6 +1145,7 @@ void GameScene::ResetSceneState()
     m_photo = PhotoState{};
     m_flow = GameSceneFlowState{};
     m_ui = GameSceneUiState{};
+    m_ui.cameraFlash.unlocked = GameSession_Get().hasCameraFlash;
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
     m_testPhotos = GameSceneTestPhotoState{};
@@ -1331,6 +1334,7 @@ bool GameScene::LoadProgressStateFromDisk()
     m_save.sessionParts = root.value("sessionParts", 0);
     m_save.sessionPhotoStorageSlots = root.value("sessionPhotoStorageSlots", 2);
     m_save.sessionHasRecoveryFilter = root.value("sessionHasRecoveryFilter", false);
+    m_save.sessionHasCameraFlash = root.value("sessionHasCameraFlash", false);
     m_save.sessionTimeLimit = root.value("sessionTimeLimit", 60.0f);
     m_save.sessionTimeRemaining = root.value("sessionTimeRemaining", m_save.sessionTimeLimit);
     const auto photoIt = root.find("photo");
@@ -1390,6 +1394,7 @@ bool GameScene::SaveProgressState()
     m_save.sessionParts = session.parts;
     m_save.sessionPhotoStorageSlots = session.photoStorageSlots;
     m_save.sessionHasRecoveryFilter = session.hasRecoveryFilter;
+    m_save.sessionHasCameraFlash = session.hasCameraFlash;
     m_save.sessionTimeLimit = session.timeLimit;
     m_save.sessionTimeRemaining = session.timeRemaining;
 
@@ -1411,6 +1416,7 @@ bool GameScene::SaveProgressState()
     root["sessionParts"] = m_save.sessionParts;
     root["sessionPhotoStorageSlots"] = m_save.sessionPhotoStorageSlots;
     root["sessionHasRecoveryFilter"] = m_save.sessionHasRecoveryFilter;
+    root["sessionHasCameraFlash"] = m_save.sessionHasCameraFlash;
     root["sessionTimeLimit"] = m_save.sessionTimeLimit;
     root["sessionTimeRemaining"] = m_save.sessionTimeRemaining;
     root["photo"] = SerializePhotoState(m_save.photo);
@@ -1459,6 +1465,8 @@ void GameScene::ApplyLoadedProgressState()
     GameSession_AddParts(m_save.sessionParts);
     GameSession_SetPhotoStorageSlots(m_save.sessionPhotoStorageSlots);
     GameSession_SetRecoveryFilterOwned(m_save.sessionHasRecoveryFilter);
+    GameSession_SetCameraFlashOwned(m_save.sessionHasCameraFlash);
+    m_ui.cameraFlash.unlocked = m_save.sessionHasCameraFlash;
     GameSession_SetTimeRemaining(m_save.sessionTimeRemaining);
 
     Entity* player = FindEntityByTag(kTagPlayer);
