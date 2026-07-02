@@ -9,6 +9,7 @@ enum class GameEndReason
     GoalReached,
     TimeUp,
     HpZero,
+    BossDefeated,   //forest_boss(boss1) Œ‚”j
 };
 
 struct GameSessionState
