@@ -250,7 +250,7 @@ void GameScene::UpdateMapEditorBrushSelection()
             m_mapEditor.selectedMarker = marker;
         }
     };
-    constexpr std::array<std::pair<int, char>, 13> kMarkerHotkeys = {{
+    constexpr std::array<std::pair<int, char>, 14> kMarkerHotkeys = {{
         { VK_F10, 'M' },
         { VK_F11, 'Y' },
         { VK_F12, '!' },
@@ -264,6 +264,7 @@ void GameScene::UpdateMapEditorBrushSelection()
         { 'P', '*' },
         { 'U', 'U' },
         { VK_OEM_MINUS, '_' },
+        { VK_OEM_3, '~' },
     }};
     for (const auto& [keyCode, marker] : kMarkerHotkeys)
     {

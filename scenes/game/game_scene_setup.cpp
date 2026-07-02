@@ -347,6 +347,7 @@ namespace
 
 #define CAPTURE_FINDER_FIELDS(F) F(scaleMin); F(scaleMax); F(scaleStep); F(zoomBlendResponse)
 #define CAPTURE_OVERLAY_FIELDS(F) F(frameInset); F(cornerLength); F(cornerThickness); F(guideInset); F(frameBandThickness); F(vignetteEdge0); F(vignetteEdge1); F(vignetteEdge2); F(vignetteEdge3); F(vignetteBoost); F(warningPanelX); F(warningPanelY); F(warningPanelWidth); F(warningPanelHeight); F(warningTitleX); F(warningTitleY); F(warningCountX); F(warningCountY); F(warningTimerX); F(pulseInset)
+#define TUTORIAL_FIELDS(F) F(dimAlpha); F(dialogueBoxX); F(dialogueBoxY); F(dialogueBoxWidth); F(dialogueBoxHeight); F(dialogueNameX); F(dialogueNameY); F(dialogueTextX); F(dialogueTextY); F(dialoguePromptX); F(dialoguePromptY); F(dialogueNameFontSize); F(dialogueTextFontSize); F(dialogueLineSpacing); F(dialoguePortraitX); F(dialoguePortraitY); F(dialoguePortraitSize); F(dialogueFadeDuration); F(dialogueCharactersPerSecond); F(dialogueBoxLayer); F(dialoguePortraitLayer); F(dialogueNameLayer); F(dialogueTextLayer); F(dialoguePromptLayer); F(frameX); F(frameY); F(frameWidth); F(frameHeight); F(headingX); F(headingY); F(headingWidth); F(headingHeight); F(titleX); F(titleY); F(contentImageX); F(contentImageY); F(contentImageWidth); F(contentImageHeight); F(bodyX); F(bodyY); F(bodyWidth); F(bodyLineSpacing); F(promptX); F(promptY); F(titleFontSize); F(bodyFontSize); F(promptFontSize); F(frameLayer); F(headingLayer); F(contentImageLayer); F(titleLayer); F(bodyLayer); F(promptLayer)
 #define PHOTO_TRAY_FIELDS(F) F(slotStartX); F(slotStartY); F(slotWidth); F(slotHeight); F(slotGapX); F(previewPadding); F(previewScale); F(emptyTextX); F(emptyTextY); F(lockTextX); F(lockTextY); F(revealSpeed); F(revealThreshold)
 #define PHOTO_PREVIEW_FIELDS(F) F(lifetime); F(cardWidth); F(cardHeight); F(cardRightMargin); F(cardStartYOffset); F(cardCruiseY); F(cardShadowOffset); F(cardOutlineOffset); F(frameInset); F(imageHeight); F(imageTopStripHeight); F(imageMiddleStripY); F(cardRiseEase); F(cardPauseStart); F(cardPauseEnd); F(cardPauseAmplitude); F(cardOvershootY); F(popScale); F(orbLaunchXOffset); F(orbLaunchYOffset); F(orbControl1YOffset); F(orbControl2YOffset); F(orbControl2XOffset)
 #define HP_FIELDS(F) F(slotStartX); F(slotStartY); F(slotWidth); F(slotHeight); F(slotGapX); F(heartSize); F(heartYOffset); F(heartShadowOffsetX); F(heartShadowOffsetY); F(heartGlowExpand); F(heartLagGlowExpand); F(labelOffsetX); F(labelOffsetY); F(hpTextOffsetY); F(displayRiseSpeedDown); F(displayRiseSpeedUp); F(lagSpeed); F(flashDecaySpeed)
@@ -362,6 +363,7 @@ namespace
 
     DEFINE_UI_JSON(GameSceneUiCaptureFinderTuning, CAPTURE_FINDER_FIELDS)
     DEFINE_UI_JSON(GameSceneUiCaptureOverlayTuning, CAPTURE_OVERLAY_FIELDS)
+    DEFINE_UI_JSON(GameSceneUiTutorialTuning, TUTORIAL_FIELDS)
     DEFINE_UI_JSON(GameSceneUiPhotoTrayTuning, PHOTO_TRAY_FIELDS)
     DEFINE_UI_JSON(GameSceneUiDevelopedPhotoPreviewTuning, PHOTO_PREVIEW_FIELDS)
     DEFINE_UI_JSON(GameSceneUiHpTuning, HP_FIELDS)
@@ -389,6 +391,7 @@ namespace
 #undef PHOTO_TRAY_FIELDS
 #undef CAPTURE_OVERLAY_FIELDS
 #undef CAPTURE_FINDER_FIELDS
+#undef TUTORIAL_FIELDS
 #undef DEFINE_UI_JSON
 #undef UI_JSON_LOAD
 #undef UI_JSON_FIELD
@@ -403,6 +406,7 @@ namespace
         root["camera_flash_enabled"] = ui.cameraFlash.enabled;
         root["capture_finder"] = ToJson(ui.tuning.captureFinder);
         root["capture_overlay"] = ToJson(ui.tuning.captureOverlay);
+        root["tutorial"] = ToJson(ui.tuning.tutorial);
         root["photo_tray"] = ToJson(ui.tuning.photoTray);
         root["developed_photo_preview"] = ToJson(ui.tuning.developedPhotoPreview);
         root["hp"] = ToJson(ui.tuning.hp);
@@ -441,6 +445,7 @@ namespace
         ui.cameraFlash.enabled = root.value("camera_flash_enabled", ui.cameraFlash.enabled);
         LoadUiSection(root, "capture_finder", ui.tuning.captureFinder);
         LoadUiSection(root, "capture_overlay", ui.tuning.captureOverlay);
+        LoadUiSection(root, "tutorial", ui.tuning.tutorial);
         LoadUiSection(root, "photo_tray", ui.tuning.photoTray);
         LoadUiSection(root, "developed_photo_preview", ui.tuning.developedPhotoPreview);
         LoadUiSection(root, "hp", ui.tuning.hp);
@@ -473,6 +478,7 @@ namespace
     };
 
 }
+
 
 void GameScene::RefreshStageRenderProfile()
 {
@@ -1163,6 +1169,7 @@ void GameScene::ResetSceneState()
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
     m_testPhotos = GameSceneTestPhotoState{};
+    m_tutorial = GameSceneTutorialState{};
     m_mapEditor.active = false;
     m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
     m_mapEditor.selectedTileValue = 1;
@@ -1222,6 +1229,7 @@ void GameScene::LoadTuningState()
     const ActiveGameSceneScope activeScene(*this);
     LoadTuningJsonFile();
     LoadUiTuningState();
+    loadTutorialData(1);
     std::error_code ec;
     const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
     if (!ec)
@@ -1348,6 +1356,19 @@ bool GameScene::LoadProgressStateFromDisk()
     m_save.sessionParts = root.value("sessionParts", 0);
     m_save.sessionPhotoStorageSlots = root.value("sessionPhotoStorageSlots", 2);
     m_save.sessionHasRecoveryFilter = root.value("sessionHasRecoveryFilter", false);
+    m_save.cameraTutorialCompleted = root.value("cameraTutorialCompleted", false);
+    m_save.completedTutorialNumbers = root.value(
+        "completedTutorialNumbers",
+        std::vector<int>{});
+    if (m_save.cameraTutorialCompleted &&
+        std::find(
+            m_save.completedTutorialNumbers.begin(),
+            m_save.completedTutorialNumbers.end(),
+            1) == m_save.completedTutorialNumbers.end())
+    {
+        // 旧形式の完了フラグをチュートリアル1番へ移行します。
+        m_save.completedTutorialNumbers.push_back(1);
+    }
     m_save.sessionTimeLimit = root.value("sessionTimeLimit", 60.0f);
     m_save.sessionTimeRemaining = root.value("sessionTimeRemaining", m_save.sessionTimeLimit);
     const auto photoIt = root.find("photo");
@@ -1407,6 +1428,8 @@ bool GameScene::SaveProgressState()
     m_save.sessionParts = session.parts;
     m_save.sessionPhotoStorageSlots = session.photoStorageSlots;
     m_save.sessionHasRecoveryFilter = session.hasRecoveryFilter;
+    m_save.cameraTutorialCompleted = session.cameraTutorialCompleted;
+    m_save.completedTutorialNumbers = session.completedTutorialNumbers;
     m_save.sessionTimeLimit = session.timeLimit;
     m_save.sessionTimeRemaining = session.timeRemaining;
 
@@ -1428,6 +1451,8 @@ bool GameScene::SaveProgressState()
     root["sessionParts"] = m_save.sessionParts;
     root["sessionPhotoStorageSlots"] = m_save.sessionPhotoStorageSlots;
     root["sessionHasRecoveryFilter"] = m_save.sessionHasRecoveryFilter;
+    root["cameraTutorialCompleted"] = m_save.cameraTutorialCompleted;
+    root["completedTutorialNumbers"] = m_save.completedTutorialNumbers;
     root["sessionTimeLimit"] = m_save.sessionTimeLimit;
     root["sessionTimeRemaining"] = m_save.sessionTimeRemaining;
     root["photo"] = SerializePhotoState(m_save.photo);
@@ -1476,6 +1501,7 @@ void GameScene::ApplyLoadedProgressState()
     GameSession_AddParts(m_save.sessionParts);
     GameSession_SetPhotoStorageSlots(m_save.sessionPhotoStorageSlots);
     GameSession_SetRecoveryFilterOwned(m_save.sessionHasRecoveryFilter);
+    gameSessionSetCompletedTutorialNumbers(m_save.completedTutorialNumbers);
     GameSession_SetTimeRemaining(m_save.sessionTimeRemaining);
 
     Entity* player = FindEntityByTag(kTagPlayer);

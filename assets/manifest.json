@@ -236,6 +236,22 @@
       "type": "file",
       "path": "assets/texture/photo_tray_backdrop.png"
     },
+    "tutorial_frame_window": {
+      "type": "file",
+      "path": "assets/texture/tutorialUI/FrameWindow.png"
+    },
+    "tutorial_heading": {
+      "type": "file",
+      "path": "assets/texture/tutorialUI/Midashi.png"
+    },
+    "tutorial_content_image": {
+      "type": "file",
+      "path": "assets/texture/tutorialUI/CameraTutorial.png"
+    },
+    "tutorial_text_box": {
+      "type": "file",
+      "path": "assets/texture/tutorialUI/TextBox.png"
+    },
 
     "ui_hp": {
       "type": "file",

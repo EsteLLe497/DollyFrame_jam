@@ -4,8 +4,10 @@
 
 #include <algorithm>
 #include <array>
+#include <string>
 
 #include "directX.h"
+#include "game_font.h"
 #include "input.h"
 #include "third_party/imgui/backends/imgui_impl_dx11.h"
 #include "third_party/imgui/backends/imgui_impl_win32.h"
@@ -19,7 +21,6 @@ namespace
     bool g_imguiDx11Initialized = false;
     bool g_foundationOverlayVisible = true;
     int g_prevMouseButtons = 0;
-    std::array<DX_CHAR, 256> g_prevKeyState{};
 
     struct DxImGuiKeyMapping
     {
@@ -119,6 +120,12 @@ namespace
         const ImWchar* ranges = io.Fonts->GetGlyphRangesJapanese();
         constexpr float kFontSize = 18.0f;
 
+        if (ImFont* font = io.Fonts->AddFontFromFileTTF(getGameFontPath(), kFontSize, &config, ranges))
+        {
+            io.FontDefault = font;
+            return true;
+        }
+
         if (ImFont* font = io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/NotoSansJP-Regular.otf", kFontSize, &config, ranges))
         {
             io.FontDefault = font;
@@ -137,11 +144,6 @@ namespace
     bool IsDxKeyDown(const std::array<DX_CHAR, 256>& keyState, int dxKey)
     {
         return dxKey >= 0 && dxKey < static_cast<int>(keyState.size()) && keyState[static_cast<size_t>(dxKey)] != 0;
-    }
-
-    bool WasDxKeyPressed(const std::array<DX_CHAR, 256>& keyState, int dxKey)
-    {
-        return IsDxKeyDown(keyState, dxKey) && !IsDxKeyDown(g_prevKeyState, dxKey);
     }
 
     void SubmitDxLibMouseStateToImGui()
@@ -205,49 +207,22 @@ namespace
         io.AddKeyEvent(ImGuiMod_Alt, altDown);
         io.AddKeyEvent(ImGuiMod_Super, superDown);
 
-        if (!ctrlDown && !altDown && !superDown)
+        std::string inputCharacters;
+        inputCharacters.reserve(32);
+        for (int characterIndex = 0; characterIndex < 256; ++characterIndex)
         {
-            for (int digit = 0; digit <= 9; ++digit)
+            const TCHAR character = GetInputChar(TRUE);
+            if (character == 0)
             {
-                const int rowKey = digit == 0 ? KEY_INPUT_0 : KEY_INPUT_1 + digit - 1;
-                if (WasDxKeyPressed(keyState, rowKey))
-                {
-                    io.AddInputCharacter(static_cast<unsigned int>('0' + digit));
-                }
+                break;
             }
-
-            constexpr std::array<int, 10> kNumpadDigitKeys =
-            {{
-                KEY_INPUT_NUMPAD0,
-                KEY_INPUT_NUMPAD1,
-                KEY_INPUT_NUMPAD2,
-                KEY_INPUT_NUMPAD3,
-                KEY_INPUT_NUMPAD4,
-                KEY_INPUT_NUMPAD5,
-                KEY_INPUT_NUMPAD6,
-                KEY_INPUT_NUMPAD7,
-                KEY_INPUT_NUMPAD8,
-                KEY_INPUT_NUMPAD9,
-            }};
-            for (int digit = 0; digit <= 9; ++digit)
-            {
-                if (WasDxKeyPressed(keyState, kNumpadDigitKeys[static_cast<size_t>(digit)]))
-                {
-                    io.AddInputCharacter(static_cast<unsigned int>('0' + digit));
-                }
-            }
-
-            if (WasDxKeyPressed(keyState, KEY_INPUT_MINUS) || WasDxKeyPressed(keyState, KEY_INPUT_SUBTRACT))
-            {
-                io.AddInputCharacter('-');
-            }
-            if (WasDxKeyPressed(keyState, KEY_INPUT_PERIOD) || WasDxKeyPressed(keyState, KEY_INPUT_DECIMAL))
-            {
-                io.AddInputCharacter('.');
-            }
+            inputCharacters.push_back(static_cast<char>(character));
+        }
+        if (!inputCharacters.empty())
+        {
+            io.AddInputCharactersUTF8(inputCharacters.c_str());
         }
 
-        g_prevKeyState = keyState;
     }
 
     void DrawFpsOverlay(float fps)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 enum class GameEndReason
 {
@@ -22,6 +23,8 @@ struct GameSessionState
     GameEndReason endReason = GameEndReason::None;
     std::string startMapCsvPath = "assets/maps/stages/forest_v2.csv";
     bool loadSavedProgress = true;
+    bool cameraTutorialCompleted = false;
+    std::vector<int> completedTutorialNumbers;
 };
 
 void GameSession_Reset(int maxHp, float timeLimit);
@@ -34,6 +37,11 @@ void GameSession_SetTimeRemaining(float timeRemaining);
 void GameSession_SetEndReason(GameEndReason reason);
 void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath);
 void GameSession_SetLoadSavedProgress(bool loadSavedProgress);
+void GameSession_SetCameraTutorialCompleted(bool completed);
+bool gameSessionIsTutorialCompleted(int tutorialNumber);
+void gameSessionSetTutorialCompleted(int tutorialNumber, bool completed);
+const std::vector<int>& gameSessionGetCompletedTutorialNumbers();
+void gameSessionSetCompletedTutorialNumbers(const std::vector<int>& tutorialNumbers);
 const GameSessionState& GameSession_Get();
 const std::string& GameSession_GetStartMapCsvPath();
 bool GameSession_ShouldLoadSavedProgress();

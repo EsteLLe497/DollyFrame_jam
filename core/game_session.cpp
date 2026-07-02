@@ -20,6 +20,8 @@ void GameSession_Reset(int maxHp, float timeLimit)
     g_sessionState.timeRemaining = timeLimit;
     g_sessionState.endReason = GameEndReason::None;
     g_sessionState.loadSavedProgress = true;
+    g_sessionState.cameraTutorialCompleted = false;
+    g_sessionState.completedTutorialNumbers.clear();
 }
 
 void GameSession_SetCurrentHp(int currentHp)
@@ -74,6 +76,60 @@ void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath)
 void GameSession_SetLoadSavedProgress(bool loadSavedProgress)
 {
     g_sessionState.loadSavedProgress = loadSavedProgress;
+}
+
+void GameSession_SetCameraTutorialCompleted(bool completed)
+{
+    gameSessionSetTutorialCompleted(1, completed);
+}
+
+bool gameSessionIsTutorialCompleted(int tutorialNumber)
+{
+    return std::find(
+        g_sessionState.completedTutorialNumbers.begin(),
+        g_sessionState.completedTutorialNumbers.end(),
+        tutorialNumber) != g_sessionState.completedTutorialNumbers.end();
+}
+
+void gameSessionSetTutorialCompleted(int tutorialNumber, bool completed)
+{
+    if (tutorialNumber <= 0)
+    {
+        return;
+    }
+
+    auto& completedNumbers = g_sessionState.completedTutorialNumbers;
+    const auto found = std::find(
+        completedNumbers.begin(),
+        completedNumbers.end(),
+        tutorialNumber);
+    if (completed && found == completedNumbers.end())
+    {
+        completedNumbers.push_back(tutorialNumber);
+        std::sort(completedNumbers.begin(), completedNumbers.end());
+    }
+    else if (!completed && found != completedNumbers.end())
+    {
+        completedNumbers.erase(found);
+    }
+
+    // 旧セーブデータとデバッグUI向けの互換フラグです。
+    g_sessionState.cameraTutorialCompleted = gameSessionIsTutorialCompleted(1);
+}
+
+const std::vector<int>& gameSessionGetCompletedTutorialNumbers()
+{
+    return g_sessionState.completedTutorialNumbers;
+}
+
+void gameSessionSetCompletedTutorialNumbers(const std::vector<int>& tutorialNumbers)
+{
+    g_sessionState.completedTutorialNumbers.clear();
+    for (int tutorialNumber : tutorialNumbers)
+    {
+        gameSessionSetTutorialCompleted(tutorialNumber, true);
+    }
+    g_sessionState.cameraTutorialCompleted = gameSessionIsTutorialCompleted(1);
 }
 
 const GameSessionState& GameSession_Get()
