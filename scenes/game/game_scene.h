@@ -48,6 +48,8 @@ public:
     float GetViewOriginY() const;
     const std::vector<Entity*>& EntitiesByTag(EntityTag tag) const;
 
+    void DrawBackgroundPartsInView(float viewOriginX, float viewOriginY, float viewScale) const;
+
 private:
     // Camera marker data
     struct CameraTransitionMarker

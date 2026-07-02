@@ -240,8 +240,19 @@
     "ui_hp": {
       "type": "file",
       "path": "assets/texture/testUI/UI_HP.png"
+    },
+
+    "bg_parts_tree_01": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts_01.png"
+    },
+    "bg_parts_rock_01": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts_01.png"
+    },
+    "bg_parts_grass_01": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts_01.png"
     }
-
-
   }
 }

@@ -454,6 +454,23 @@ namespace
         LoadUiSection(root, "stage_guide", ui.tuning.stageGuide);
         LoadUiSection(root, "map_editor", ui.tuning.mapEditor);
     }
+    struct BackgroundPartPlacement
+    {
+        const char* textureKey;
+        float worldX;
+        float worldY;
+        float width;
+        float height;
+        float parallax; // 1.0 = カメラと完全に連動(通常の地形と同じ)
+    };
+
+    // 仮配置。あとでCSVマーカー化する前提で、ここに直接座標を書く。
+    const BackgroundPartPlacement kBackgroundParts[] =
+    {
+        { "bg_parts_tree_01",  320.0f, 480.0f, 192.0f, 256.0f, 1.0f },
+        { "bg_parts_rock_01",  860.0f, 620.0f, 128.0f,  96.0f, 1.0f },
+        { "bg_parts_grass_01", 540.0f, 700.0f, 160.0f,  64.0f, 1.0f },
+    };
 
 }
 
