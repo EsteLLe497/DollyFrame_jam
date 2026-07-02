@@ -1,882 +1,981 @@
 {
-  "prefabs": {
-    "player": {
-      "tag": "Player",
-      "texture": "player",
-      "transform": {
-        "x": 400.0,
-        "y": 220.0,
-        "width": 256.0,
-        "height": 256.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "rigidBody": {
-        "enabled": true,
-        "type": "dynamic",
-        "fixedRotation": true,
-        "gravityScale": 0.0
-      },
-      "collider": {
-        "enabled": true,
-        "density": 1.0,
-        "friction": 0.2,
-        "isSensor": false
-      },
-      "controller": {
-        "player": true
-      },
-      "health": {
-        "enabled": true,
-        "maxHp": 3
-      },
-      "damageCooldown": {
-        "enabled": true,
-        "seconds": 1.0
-      }
-    },
-    "goal": {
-      "tag": "Goal",
-      "texture": "target",
-      "transform": {
-        "x": 980.0,
-        "y": 360.0,
-        "width": 192.0,
-        "height": 192.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "rigidBody": {
-        "enabled": true,
-        "type": "kinematic",
-        "fixedRotation": true,
-        "gravityScale": 0.0
-      },
-      "collider": {
-        "enabled": true,
-        "density": 1.0,
-        "friction": 0.2,
-        "isSensor": false
-      },
-      "controller": {
-        "player": false
-      }
-    },
-    "hazard": {
-      "tag": "Hazard",
-      "texture": "hazard",
-      "transform": {
-        "x": 620.0,
-        "y": 500.0,
-        "width": 240.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "rigidBody": {
-        "enabled": true,
-        "type": "static",
-        "fixedRotation": true,
-        "gravityScale": 0.0
-      },
-      "collider": {
-        "enabled": true,
-        "density": 1.0,
-        "friction": 0.2,
-        "isSensor": true
-      },
-      "controller": {
-        "player": false
-      }
-    },
-    "enemy": {
-      "tag": "Enemy",
-      "texture": "enemy",
-      "transform": {
-        "x": 760.0,
-        "y": 180.0,
-        "width": 144.0,
-        "height": 144.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "rigidBody": {
-        "enabled": true,
-        "type": "kinematic",
-        "fixedRotation": true,
-        "gravityScale": 0.0
-      },
-      "collider": {
-        "enabled": true,
-        "density": 1.0,
-        "friction": 0.2,
-        "isSensor": true
-      },
-      "controller": {
-        "player": false
-      },
-      "enemyMover": {
-        "enabled": true,
-        "originX": 760.0,
-        "originY": 180.0,
-        "amplitudeX": 180.0,
-        "amplitudeY": 70.0,
-        "frequency": 1.6
-      }
-    },
-    "star_outline": {
-      "tag": "Star",
-      "texture": "star",
-      "transform": {
-        "x": 700.0,
-        "y": 220.0,
-        "width": 196.0,
-        "height": 196.0,
-        "rotation": 90.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "rigidBody": {
-        "enabled": true,
-        "type": "static",
-        "fixedRotation": true,
-        "gravityScale": 0.0
-      },
-      "collider": {
-        "enabled": false,
-        "friction": 0.4,
-        "isSensor": false,
-        "imageEnabled": true,
-        "imagePath": "assets/texture/Star.png",
-        "alphaThreshold": 12,
-        "vertexStride": 6
-      }
-    },
-    "apple_outline": {
-      "tag": "Apple",
-      "texture": "apple",
-      "transform": {
-        "x": 920.0,
-        "y": 220.0,
-        "width": 196.0,
-        "height": 196.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "rigidBody": {
-        "enabled": true,
-        "type": "static",
-        "fixedRotation": true,
-        "gravityScale": 0.0
-      },
-      "collider": {
-        "enabled": false,
-        "friction": 0.4,
-        "isSensor": false,
-        "imageEnabled": true,
-        "imagePath": "assets/texture/Apple.png",
-        "alphaThreshold": 12,
-        "vertexStride": 6
-      }
-    },
-    "hot_gimmick": {
-      "tag": "HotGimmick",
-      "texture": "white",
-      "transform": {
-        "x": 1040.0,
-        "y": 284.0,
-        "width": 96.0,
-        "height": 96.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.94,
-        "g": 0.34,
-        "b": 0.16,
-        "a": 0.96
-      },
-      "gimmick": {
-        "enabled": true,
-        "type": "hazard",
-        "startsEnabled": true,
-        "oneShot": false
-      },
-      "photoFilter": {
-        "enabled": true,
-        "theme": "hot",
-        "outputRole": "hazard",
-        "outputLayer": "foreground",
-        "tint": {
-          "r": 1.0,
-          "g": 0.36,
-          "b": 0.18,
-          "a": 1.0
-        }
-      }
-    },
-    "cold_gimmick": {
-      "tag": "ColdGimmick",
-      "texture": "white",
-      "transform": {
-        "x": 1188.0,
-        "y": 316.0,
-        "width": 96.0,
-        "height": 96.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.18,
-        "g": 0.72,
-        "b": 0.96,
-        "a": 0.96
-      },
-      "gimmick": {
-        "enabled": true,
-        "type": "filter",
-        "startsEnabled": true,
-        "oneShot": false
-      },
-      "photoFilter": {
-        "enabled": true,
-        "theme": "cold",
-        "outputRole": "pickup",
-        "outputLayer": "foreground",
-        "tint": {
-          "r": 0.20,
-          "g": 0.88,
-          "b": 0.92,
-          "a": 1.0
-        }
-      }
-    },
-    "invert_gimmick": {
-      "tag": "InvertGimmick",
-      "texture": "white",
-      "transform": {
-        "x": 1336.0,
-        "y": 300.0,
-        "width": 108.0,
-        "height": 108.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.82,
-        "g": 0.84,
-        "b": 0.88,
-        "a": 0.96
-      },
-      "gimmick": {
-        "enabled": true,
-        "type": "filter",
-        "startsEnabled": true,
-        "oneShot": false
-      },
-      "photoFilter": {
-        "enabled": true,
-        "theme": "invert",
-        "outputRole": "ally",
-        "outputLayer": "foreground",
-        "tint": {
-          "r": 0.62,
-          "g": 0.62,
-          "b": 0.64,
-          "a": 1.0
-        }
-      }
-    },
-    "sandbox_player": {
-      "tag": "Player",
-      "texture": "player",
-      "transform": {
-        "x": 96.0,
-        "y": 336.0,
-        "width": 48.0,
-        "height": 96.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "health": {
-        "enabled": true,
-        "maxHp": 3
-      },
-      "damageCooldown": {
-        "enabled": true,
-        "seconds": 0.75
-      }
-    },
-    "sandbox_goal": {
-      "tag": "Goal",
-      "texture": "target",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 48.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.62,
-        "g": 0.30,
-        "b": 0.24,
-        "a": 1.0
-      },
-      "gimmick": {
-        "enabled": true,
-        "type": "goal",
-        "startsEnabled": true,
-        "oneShot": false
-      },
-      "light": {
-        "enabled": true,
-        "radius": 68.0,
-        "intensity": 0.34,
-        "flickerAmplitude": 0.12,
-        "flickerSpeed": 2.1,
-        "offsetY": -8.0,
-        "color": {
-          "r": 1.0,
-          "g": 0.72,
-          "b": 0.30
+    "prefabs": {
+        "player": {
+            "tag": "Player",
+            "texture": "player",
+            "transform": {
+                "x": 400.0,
+                "y": 220.0,
+                "width": 256.0,
+                "height": 256.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "dynamic",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": true,
+                "density": 1.0,
+                "friction": 0.2,
+                "isSensor": false
+            },
+            "controller": {
+                "player": true
+            },
+            "health": {
+                "enabled": true,
+                "maxHp": 3
+            },
+            "damageCooldown": {
+                "enabled": true,
+                "seconds": 1.0
+            }
         },
-        "godRay": {
-          "enabled": true,
-          "length": 230.0,
-          "width": 54.0,
-          "intensity": 0.32,
-          "driftSpeed": 0.62,
-          "softness": 0.74
-        }
-      }
-    },
-    "sandbox_checkpoint": {
-      "tag": "Checkpoint",
-      "texture": "white",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 48.0,
-        "height": 96.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.30,
-        "g": 0.72,
-        "b": 0.96,
-        "a": 0.95
-      },
-      "gimmick": {
-        "enabled": true,
-        "type": "checkpoint",
-        "startsEnabled": true,
-        "oneShot": false
-      },
-      "light": {
-        "enabled": true,
-        "radius": 62.0,
-        "intensity": 0.38,
-        "flickerAmplitude": 0.20,
-        "flickerSpeed": 2.9,
-        "offsetY": -18.0,
-        "color": {
-          "r": 1.0,
-          "g": 0.76,
-          "b": 0.34
+        "goal": {
+            "tag": "Goal",
+            "texture": "target",
+            "transform": {
+                "x": 980.0,
+                "y": 360.0,
+                "width": 192.0,
+                "height": 192.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "kinematic",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": true,
+                "density": 1.0,
+                "friction": 0.2,
+                "isSensor": false
+            },
+            "controller": {
+                "player": false
+            }
         },
-        "godRay": {
-          "enabled": true,
-          "length": 260.0,
-          "width": 62.0,
-          "intensity": 0.38,
-          "driftSpeed": 0.88,
-          "softness": 0.70
-        }
-      }
-    },
-    "sandbox_photo_source": {
-      "tag": "PhotoSource",
-      "texture": "white",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 48.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.20,
-        "g": 0.52,
-        "b": 0.96,
-        "a": 1.0
-      },
-      "gimmick": {
-        "enabled": true,
-        "type": "photo_source",
-        "startsEnabled": true,
-        "oneShot": false
-      },
-      "light": {
-        "enabled": true,
-        "radius": 56.0,
-        "intensity": 0.33,
-        "flickerAmplitude": 0.18,
-        "flickerSpeed": 2.7,
-        "offsetY": -6.0,
-        "color": {
-          "r": 1.0,
-          "g": 0.72,
-          "b": 0.30
+        "hazard": {
+            "tag": "Hazard",
+            "texture": "hazard",
+            "transform": {
+                "x": 620.0,
+                "y": 500.0,
+                "width": 240.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "static",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": true,
+                "density": 1.0,
+                "friction": 0.2,
+                "isSensor": true
+            },
+            "controller": {
+                "player": false
+            }
         },
-        "godRay": {
-          "enabled": true,
-          "length": 208.0,
-          "width": 46.0,
-          "intensity": 0.26,
-          "driftSpeed": 0.76,
-          "softness": 0.68
+        "enemy": {
+            "tag": "Enemy",
+            "texture": "enemy",
+            "transform": {
+                "x": 760.0,
+                "y": 180.0,
+                "width": 144.0,
+                "height": 144.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "kinematic",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": true,
+                "density": 1.0,
+                "friction": 0.2,
+                "isSensor": true
+            },
+            "controller": {
+                "player": false
+            },
+            "enemyMover": {
+                "enabled": true,
+                "originX": 760.0,
+                "originY": 180.0,
+                "amplitudeX": 180.0,
+                "amplitudeY": 70.0,
+                "frequency": 1.6
+            }
+        },
+        "star_outline": {
+            "tag": "Star",
+            "texture": "star",
+            "transform": {
+                "x": 700.0,
+                "y": 220.0,
+                "width": 196.0,
+                "height": 196.0,
+                "rotation": 90.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "static",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": false,
+                "friction": 0.4,
+                "isSensor": false,
+                "imageEnabled": true,
+                "imagePath": "assets/texture/gear/Star.png",
+                "alphaThreshold": 12,
+                "vertexStride": 6
+            }
+        },
+        "apple_outline": {
+            "tag": "Apple",
+            "texture": "apple",
+            "transform": {
+                "x": 920.0,
+                "y": 220.0,
+                "width": 196.0,
+                "height": 196.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "static",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": false,
+                "friction": 0.4,
+                "isSensor": false,
+                "imageEnabled": true,
+                "imagePath": "assets/texture/gear/Apple.png",
+                "alphaThreshold": 12,
+                "vertexStride": 6
+            }
+        },
+        "circle_outline": {
+            "tag": "Circle",
+            "texture": "circle",
+            "transform": {
+                "x": 920.0,
+                "y": 220.0,
+                "width": 196.0,
+                "height": 196.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "static",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": false,
+                "friction": 0.4,
+                "isSensor": false,
+                "imageEnabled": true,
+                "imagePath": "assets/texture/gear/circle.png",
+                "alphaThreshold": 12,
+                "vertexStride": 6
+            }
+        },
+        "daikei_outline": {
+            "tag": "Daikei",
+            "texture": "daikei",
+            "transform": {
+                "x": 920.0,
+                "y": 220.0,
+                "width": 196.0,
+                "height": 196.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "static",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": false,
+                "friction": 0.4,
+                "isSensor": false,
+                "imageEnabled": true,
+                "imagePath": "assets/texture/gear/daikei.png",
+                "alphaThreshold": 12,
+                "vertexStride": 6
+            }
+        },
+        "haguruma_outline": {
+            "tag": "Haguruma",
+            "texture": "haguruma",
+            "transform": {
+                "x": 920.0,
+                "y": 220.0,
+                "width": 196.0,
+                "height": 196.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "static",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": false,
+                "friction": 0.4,
+                "isSensor": false,
+                "imageEnabled": true,
+                "imagePath": "assets/texture/gear/haguruma.png",
+                "alphaThreshold": 12,
+                "vertexStride": 6
+            }
+        },
+        "hot_gimmick": {
+            "tag": "HotGimmick",
+            "texture": "white",
+            "transform": {
+                "x": 1040.0,
+                "y": 284.0,
+                "width": 96.0,
+                "height": 96.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.94,
+                "g": 0.34,
+                "b": 0.16,
+                "a": 0.96
+            },
+            "gimmick": {
+                "enabled": true,
+                "type": "hazard",
+                "startsEnabled": true,
+                "oneShot": false
+            },
+            "photoFilter": {
+                "enabled": true,
+                "theme": "hot",
+                "outputRole": "hazard",
+                "outputLayer": "foreground",
+                "tint": {
+                    "r": 1.0,
+                    "g": 0.36,
+                    "b": 0.18,
+                    "a": 1.0
+                }
+            }
+        },
+        "cold_gimmick": {
+            "tag": "ColdGimmick",
+            "texture": "white",
+            "transform": {
+                "x": 1188.0,
+                "y": 316.0,
+                "width": 96.0,
+                "height": 96.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.18,
+                "g": 0.72,
+                "b": 0.96,
+                "a": 0.96
+            },
+            "gimmick": {
+                "enabled": true,
+                "type": "filter",
+                "startsEnabled": true,
+                "oneShot": false
+            },
+            "photoFilter": {
+                "enabled": true,
+                "theme": "cold",
+                "outputRole": "pickup",
+                "outputLayer": "foreground",
+                "tint": {
+                    "r": 0.20,
+                    "g": 0.88,
+                    "b": 0.92,
+                    "a": 1.0
+                }
+            }
+        },
+        "invert_gimmick": {
+            "tag": "InvertGimmick",
+            "texture": "white",
+            "transform": {
+                "x": 1336.0,
+                "y": 300.0,
+                "width": 108.0,
+                "height": 108.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.82,
+                "g": 0.84,
+                "b": 0.88,
+                "a": 0.96
+            },
+            "gimmick": {
+                "enabled": true,
+                "type": "filter",
+                "startsEnabled": true,
+                "oneShot": false
+            },
+            "photoFilter": {
+                "enabled": true,
+                "theme": "invert",
+                "outputRole": "ally",
+                "outputLayer": "foreground",
+                "tint": {
+                    "r": 0.62,
+                    "g": 0.62,
+                    "b": 0.64,
+                    "a": 1.0
+                }
+            }
+        },
+        "sandbox_player": {
+            "tag": "Player",
+            "texture": "player",
+            "transform": {
+                "x": 96.0,
+                "y": 336.0,
+                "width": 48.0,
+                "height": 96.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "health": {
+                "enabled": true,
+                "maxHp": 3
+            },
+            "damageCooldown": {
+                "enabled": true,
+                "seconds": 0.75
+            }
+        },
+        "sandbox_goal": {
+            "tag": "Goal",
+            "texture": "target",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 48.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.62,
+                "g": 0.30,
+                "b": 0.24,
+                "a": 1.0
+            },
+            "gimmick": {
+                "enabled": true,
+                "type": "goal",
+                "startsEnabled": true,
+                "oneShot": false
+            },
+            "light": {
+                "enabled": true,
+                "radius": 68.0,
+                "intensity": 0.34,
+                "flickerAmplitude": 0.12,
+                "flickerSpeed": 2.1,
+                "offsetY": -8.0,
+                "color": {
+                    "r": 1.0,
+                    "g": 0.72,
+                    "b": 0.30
+                },
+                "godRay": {
+                    "enabled": true,
+                    "length": 230.0,
+                    "width": 54.0,
+                    "intensity": 0.32,
+                    "driftSpeed": 0.62,
+                    "softness": 0.74
+                }
+            }
+        },
+        "sandbox_checkpoint": {
+            "tag": "Checkpoint",
+            "texture": "white",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 48.0,
+                "height": 96.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.30,
+                "g": 0.72,
+                "b": 0.96,
+                "a": 0.95
+            },
+            "gimmick": {
+                "enabled": true,
+                "type": "checkpoint",
+                "startsEnabled": true,
+                "oneShot": false
+            },
+            "light": {
+                "enabled": true,
+                "radius": 62.0,
+                "intensity": 0.38,
+                "flickerAmplitude": 0.20,
+                "flickerSpeed": 2.9,
+                "offsetY": -18.0,
+                "color": {
+                    "r": 1.0,
+                    "g": 0.76,
+                    "b": 0.34
+                },
+                "godRay": {
+                    "enabled": true,
+                    "length": 260.0,
+                    "width": 62.0,
+                    "intensity": 0.38,
+                    "driftSpeed": 0.88,
+                    "softness": 0.70
+                }
+            }
+        },
+        "sandbox_photo_source": {
+            "tag": "PhotoSource",
+            "texture": "white",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 48.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.20,
+                "g": 0.52,
+                "b": 0.96,
+                "a": 1.0
+            },
+            "gimmick": {
+                "enabled": true,
+                "type": "photo_source",
+                "startsEnabled": true,
+                "oneShot": false
+            },
+            "light": {
+                "enabled": true,
+                "radius": 56.0,
+                "intensity": 0.33,
+                "flickerAmplitude": 0.18,
+                "flickerSpeed": 2.7,
+                "offsetY": -6.0,
+                "color": {
+                    "r": 1.0,
+                    "g": 0.72,
+                    "b": 0.30
+                },
+                "godRay": {
+                    "enabled": true,
+                    "length": 208.0,
+                    "width": 46.0,
+                    "intensity": 0.26,
+                    "driftSpeed": 0.76,
+                    "softness": 0.68
+                }
+            }
+        },
+        "sandbox_hazard": {
+            "tag": "Hazard",
+            "texture": "hazard",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 48.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 0.28,
+                "b": 0.24,
+                "a": 1.0
+            },
+            "gimmick": {
+                "enabled": true,
+                "type": "hazard",
+                "startsEnabled": true,
+                "oneShot": false
+            }
+        },
+        "sandbox_barrel": {
+            "tag": "Barrel",
+            "texture": "white",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 48.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.58,
+                "g": 0.36,
+                "b": 0.18,
+                "a": 1.0
+            },
+            "barrel": {
+                "enabled": true,
+                "gravity": 1900.0,
+                "maxFallSpeed": 980.0,
+                "rollSpeed": 220.0,
+                "groundFriction": 720.0,
+                "contactDamage": 1,
+                "breakMinFallDistance": 99999.0,
+                "breakMinImpactSpeed": 99999.0
+            }
+        },
+        "sandbox_vanish_object": {
+            "tag": "PhotoBox",
+            "texture": "tile_value_3_purple",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 48.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            }
+        },
+        "sandbox_enemy_wide": {
+            "tag": "Enemy",
+            "texture": "enemy",
+            "transform": {
+                "x": 760.0,
+                "y": 248.0,
+                "width": 48.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.78,
+                "g": 0.38,
+                "b": 0.92,
+                "a": 1.0
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "floater",
+                "contactDamage": 1
+            },
+            "enemyMover": {
+                "enabled": true,
+                "originX": 760.0,
+                "originY": 248.0,
+                "amplitudeX": 96.0,
+                "amplitudeY": 48.0,
+                "frequency": 1.4
+            }
+        },
+        "sandbox_enemy_tall": {
+            "tag": "Enemy",
+            "texture": "enemy",
+            "transform": {
+                "x": 1470.0,
+                "y": 230.0,
+                "width": 48.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.78,
+                "g": 0.38,
+                "b": 0.92,
+                "a": 1.0
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "floater",
+                "contactDamage": 1
+            },
+            "enemyMover": {
+                "enabled": true,
+                "originX": 1470.0,
+                "originY": 230.0,
+                "amplitudeX": 48.0,
+                "amplitudeY": 96.0,
+                "frequency": 1.1
+            }
+        },
+        "sandbox_enemy_walker": {
+            "tag": "Enemy",
+            "texture": "enemy1_idle",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 85.0,
+                "height": 96.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "walker",
+                "contactDamage": 1,
+                "detectRange": 336.0,
+                "attackRange": 48.0,
+                "attackCooldown": 2.0,
+                "detectHeight": 96.0
+            }
+        },
+        "sandbox_enemy_ranged": {
+            "tag": "Enemy",
+            "texture": "enemy2_idle",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 85.0,
+                "height": 96.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "ranged",
+                "contactDamage": 1,
+                "detectRange": 480.0,
+                "attackRange": 480.0,
+                "attackCooldown": 3.0,
+                "detectHeight": 96.0
+            }
+        },
+        "sandbox_shield_boss": {
+            "tag": "Enemy",
+            "texture": "enemy",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 192.0,
+                "height": 192.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "shield_boss",
+                "contactDamage": 1,
+                "detectRange": 1200.0,
+                "attackRange": 600.0,
+                "attackCooldown": 2.0,
+                "detectHeight": 192.0,
+                "shieldBoss": true
+            },
+            "health": {
+                "enabled": true,
+                "maxHp": 3
+            }
+        },
+        "sandbox_mid_boss2": {
+            "tag": "Enemy",
+            "texture": "enemy",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 192.0,
+                "height": 192.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.94,
+                "g": 0.58,
+                "b": 0.20,
+                "a": 1.0
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "mid_boss_2",
+                "contactDamage": 1,
+                "detectRange": 720.0,
+                "attackRange": 720.0,
+                "attackCooldown": 3.0,
+                "detectHeight": 240.0,
+                "midBoss2": true
+            },
+            "health": {
+                "enabled": true,
+                "maxHp": 15
+            }
+        },
+        "sandbox_mid_boss3": {
+            "tag": "Enemy",
+            "texture": "enemy",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 192.0,
+                "height": 192.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.82,
+                "g": 0.30,
+                "b": 0.94,
+                "a": 1.0
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "mid_boss_3",
+                "contactDamage": 1,
+                "detectRange": 960.0,
+                "attackRange": 960.0,
+                "attackCooldown": 3.0,
+                "detectHeight": 360.0,
+                "midBoss3": true
+            },
+            "health": {
+                "enabled": true,
+                "maxHp": 10
+            }
+        },
+        "sandbox_mid_boss3_fist": {
+            "tag": "MidBoss3Fist",
+            "texture": "white",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 144.0,
+                "height": 96.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.96,
+                "g": 0.52,
+                "b": 0.18,
+                "a": 1.0
+            },
+            "rigidBody": {
+                "enabled": true,
+                "type": "kinematic",
+                "fixedRotation": true,
+                "gravityScale": 0.0
+            },
+            "collider": {
+                "enabled": true,
+                "density": 1.0,
+                "friction": 0.2,
+                "isSensor": true
+            }
+        },
+        "sandbox_enemy_ghost": {
+            "tag": "Enemy",
+            "texture": "enemy",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 48.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.7,
+                "g": 0.7,
+                "b": 1.0,
+                "a": 0.3
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "ghost",
+                "contactDamage": 1,
+                "ghost": true
+            }
+        },
+        "sandbox_enemy_blaster_robot": {
+            "tag": "Enemy",
+            "texture": "enemy",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 48.0,
+                "height": 48.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 0.2,
+                "g": 0.8,
+                "b": 0.4,
+                "a": 1.0
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "blaster_robot",
+                "contactDamage": 0,
+                "blasterRobot": true
+            },
+            "health": {
+                "enabled": true,
+                "maxHp": 1
+            }
+        },
+        "sandbox_enemy_charger": {
+            "tag": "Enemy",
+            "texture": "white",
+            "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 48.0,
+                "height": 96.0,
+                "rotation": 0.0,
+                "scale": 1.0
+            },
+            "tint": {
+                "r": 1.0,
+                "g": 0.16,
+                "b": 0.12,
+                "a": 1.0
+            },
+            "enemy": {
+                "enabled": true,
+                "archetype": "charger",
+                "contactDamage": 1,
+                "detectRange": 240.0,
+                "attackRange": 0.0,
+                "attackCooldown": 0.0,
+                "detectHeight": 240.0
+            },
+            "health": {
+                "enabled": true,
+                "maxHp": 1
+            }
         }
-      }
-    },
-    "sandbox_hazard": {
-      "tag": "Hazard",
-      "texture": "hazard",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 48.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 0.28,
-        "b": 0.24,
-        "a": 1.0
-      },
-      "gimmick": {
-        "enabled": true,
-        "type": "hazard",
-        "startsEnabled": true,
-        "oneShot": false
-      }
-    },
-    "sandbox_barrel": {
-      "tag": "Barrel",
-      "texture": "white",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 48.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.58,
-        "g": 0.36,
-        "b": 0.18,
-        "a": 1.0
-      },
-      "barrel": {
-        "enabled": true,
-        "gravity": 1900.0,
-        "maxFallSpeed": 980.0,
-        "rollSpeed": 220.0,
-        "groundFriction": 720.0,
-        "contactDamage": 1,
-        "breakMinFallDistance": 99999.0,
-        "breakMinImpactSpeed": 99999.0
-      }
-    },
-    "sandbox_vanish_object": {
-      "tag": "PhotoBox",
-      "texture": "tile_value_3_purple",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 48.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      }
-    },
-    "sandbox_enemy_wide": {
-      "tag": "Enemy",
-      "texture": "enemy",
-      "transform": {
-        "x": 760.0,
-        "y": 248.0,
-        "width": 48.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.78,
-        "g": 0.38,
-        "b": 0.92,
-        "a": 1.0
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "floater",
-        "contactDamage": 1
-      },
-      "enemyMover": {
-        "enabled": true,
-        "originX": 760.0,
-        "originY": 248.0,
-        "amplitudeX": 96.0,
-        "amplitudeY": 48.0,
-        "frequency": 1.4
-      }
-    },
-    "sandbox_enemy_tall": {
-      "tag": "Enemy",
-      "texture": "enemy",
-      "transform": {
-        "x": 1470.0,
-        "y": 230.0,
-        "width": 48.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.78,
-        "g": 0.38,
-        "b": 0.92,
-        "a": 1.0
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "floater",
-        "contactDamage": 1
-      },
-      "enemyMover": {
-        "enabled": true,
-        "originX": 1470.0,
-        "originY": 230.0,
-        "amplitudeX": 48.0,
-        "amplitudeY": 96.0,
-        "frequency": 1.1
-      }
-    },
-    "sandbox_enemy_walker": {
-      "tag": "Enemy",
-      "texture": "enemy1_idle",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 85.0,
-        "height": 96.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "walker",
-        "contactDamage": 1,
-        "detectRange": 336.0,
-        "attackRange": 48.0,
-        "attackCooldown": 2.0,
-        "detectHeight": 96.0
-      }
-    },
-    "sandbox_enemy_ranged": {
-      "tag": "Enemy",
-      "texture": "enemy2_idle",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 85.0,
-        "height": 96.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "ranged",
-        "contactDamage": 1,
-        "detectRange": 480.0,
-        "attackRange": 480.0,
-        "attackCooldown": 3.0,
-        "detectHeight": 96.0
-      }
-    },
-    "sandbox_shield_boss": {
-      "tag": "Enemy",
-      "texture": "enemy",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 192.0,
-        "height": 192.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 1.0,
-        "b": 1.0,
-        "a": 1.0
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "shield_boss",
-        "contactDamage": 1,
-        "detectRange": 1200.0,
-        "attackRange": 600.0,
-        "attackCooldown": 2.0,
-        "detectHeight": 192.0,
-        "shieldBoss": true
-      },
-      "health": {
-        "enabled": true,
-        "maxHp": 3
-      }
-    },
-    "sandbox_mid_boss2": {
-      "tag": "Enemy",
-      "texture": "enemy",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 192.0,
-        "height": 192.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.94,
-        "g": 0.58,
-        "b": 0.20,
-        "a": 1.0
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "mid_boss_2",
-        "contactDamage": 1,
-        "detectRange": 720.0,
-        "attackRange": 720.0,
-        "attackCooldown": 3.0,
-        "detectHeight": 240.0,
-        "midBoss2": true
-      },
-      "health": {
-        "enabled": true,
-        "maxHp": 15
-      }
-    },
-    "sandbox_mid_boss3": {
-      "tag": "Enemy",
-      "texture": "enemy",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 192.0,
-        "height": 192.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.82,
-        "g": 0.30,
-        "b": 0.94,
-        "a": 1.0
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "mid_boss_3",
-        "contactDamage": 1,
-        "detectRange": 960.0,
-        "attackRange": 960.0,
-        "attackCooldown": 3.0,
-        "detectHeight": 360.0,
-        "midBoss3": true
-      },
-      "health": {
-        "enabled": true,
-        "maxHp": 10
-      }
-    },
-    "sandbox_mid_boss3_fist": {
-      "tag": "MidBoss3Fist",
-      "texture": "white",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 144.0,
-        "height": 96.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.96,
-        "g": 0.52,
-        "b": 0.18,
-        "a": 1.0
-      },
-      "rigidBody": {
-        "enabled": true,
-        "type": "kinematic",
-        "fixedRotation": true,
-        "gravityScale": 0.0
-      },
-      "collider": {
-        "enabled": true,
-        "density": 1.0,
-        "friction": 0.2,
-        "isSensor": true
-      }
-    },
-    "sandbox_enemy_ghost": {
-      "tag": "Enemy",
-      "texture": "enemy",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 48.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.7,
-        "g": 0.7,
-        "b": 1.0,
-        "a": 0.3
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "ghost",
-        "contactDamage": 1,
-        "ghost": true
-      }
-    },
-    "sandbox_enemy_blaster_robot": {
-      "tag": "Enemy",
-      "texture": "enemy",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 48.0,
-        "height": 48.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 0.2,
-        "g": 0.8,
-        "b": 0.4,
-        "a": 1.0
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "blaster_robot",
-        "contactDamage": 0,
-        "blasterRobot": true
-      },
-      "health": {
-        "enabled": true,
-        "maxHp": 1
-      }
-    },
-    "sandbox_enemy_charger": {
-      "tag": "Enemy",
-      "texture": "white",
-      "transform": {
-        "x": 0.0,
-        "y": 0.0,
-        "width": 48.0,
-        "height": 96.0,
-        "rotation": 0.0,
-        "scale": 1.0
-      },
-      "tint": {
-        "r": 1.0,
-        "g": 0.16,
-        "b": 0.12,
-        "a": 1.0
-      },
-      "enemy": {
-        "enabled": true,
-        "archetype": "charger",
-        "contactDamage": 1,
-        "detectRange": 240.0,
-        "attackRange": 0.0,
-        "attackCooldown": 0.0,
-        "detectHeight": 240.0
-      },
-      "health": {
-        "enabled": true,
-        "maxHp": 1
-      }
     }
-  }
 }

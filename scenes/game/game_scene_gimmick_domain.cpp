@@ -428,6 +428,8 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
     constexpr float kGearSocketAssistDistance = 25.0f;
     constexpr float kGearSocketRotationSpeed = 3.5f;
+    std::unordered_map<int, int> gearSocketActiveCounts;
+    std::unordered_map<int, int> gearSocketRequiredCounts;
     for (const auto& entity : m_world.Entities())
     {
         if (!entity)
@@ -482,15 +484,21 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             ++socket->insertedGearCount;
         }
 
-        socket->active = socket->insertedGearCount >= socket->requiredGearCount;
+        socket->active = socket->insertedGearCount > 0;
+        if (socket->linkId >= 0)
+        {
+            int& requiredCount = gearSocketRequiredCounts[socket->linkId];
+            requiredCount = (std::max)(requiredCount, socket->requiredGearCount);
+            if (socket->active)
+            {
+                ++gearSocketActiveCounts[socket->linkId];
+            }
+        }
+
         if (socket->active)
         {
             socket->rotation += deltaTime * kGearSocketRotationSpeed;
             socketTransform->rotation = socket->rotation;
-            if (socket->linkId >= 0)
-            {
-                setLinkPowered(socket->linkId, true);
-            }
             setEntityTint(*entity, 0.72f, 0.72f, 0.72f);
         }
         else
@@ -498,6 +506,15 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             socketTransform->rotation = socket->rotation;
             setEntityTint(*entity, 0.45f, 0.45f, 0.45f);
         }
+    }
+
+    for (const auto& [linkId, requiredCount] : gearSocketRequiredCounts)
+    {
+        const auto activeIt = gearSocketActiveCounts.find(linkId);
+        const int activeCount = activeIt != gearSocketActiveCounts.end()
+            ? activeIt->second
+            : 0;
+        setLinkPowered(linkId, activeCount >= requiredCount);
     }
 
     for (const auto& entity : m_world.Entities())
