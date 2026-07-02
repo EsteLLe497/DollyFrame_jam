@@ -1186,6 +1186,7 @@ void GameScene::ResetSceneState()
     m_camera.previousPlayerCameraProbeY = 0.0f;
     m_camera.hasCameraSmoothedPlayerY = false;
     m_camera.cameraSmoothedPlayerCenterY = 0.0f;
+    m_camera.cameraYRecenteringStrength = 0.0f;
     m_camera.floorCameraTransitionActive = false;
     m_camera.floorCameraTransitionElapsed = 0.0f;
     m_camera.floorCameraTransitionDuration = 1.10f;
