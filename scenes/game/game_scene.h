@@ -367,6 +367,7 @@ private:
     int m_tileTexture;
     int m_tileTexture2;
     int m_tileTexture3;
+    int m_tileTexture4;
     EventBus m_eventBus;
     PhysicsWorld m_physicsWorld;
     ScriptEngine m_scriptEngine;

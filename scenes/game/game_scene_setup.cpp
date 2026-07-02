@@ -720,6 +720,11 @@ void GameScene::ApplyTileTextureKey(const std::string& tileTextureKey)
     {
         m_tileTexture3 = m_tileTexture;
     }
+    m_tileTexture4 = m_assets.GetTexture("tile_value_h_damage");
+    if (m_tileTexture4 < 0)
+    {
+        m_tileTexture4 = m_tileTexture;
+    }
     m_lifecycle.currentTileTextureKey = finalKey;
     m_tileMap.SetTileTextureKey(finalKey);
 }

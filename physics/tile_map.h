@@ -55,7 +55,8 @@ public:
         const TileMapViewport& viewport,
         float scale = 1.0f,
         int tile2TextureId = -1,
-        int tile3TextureId = -1) const;
+        int tile3TextureId = -1,
+        int tile4TextureId = -1) const;
 
     int GetWidth() const;
     int GetHeight() const;

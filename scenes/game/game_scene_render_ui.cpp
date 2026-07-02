@@ -2926,7 +2926,8 @@ void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, floa
         viewport,
         viewScale,
         m_tileTexture2,
-        m_tileTexture3);
+        m_tileTexture3,
+        m_tileTexture4);
     DrawStageTransitionMarkersInView(viewOriginX, viewOriginY, viewScale);
     DrawMapEditorMarkersInView(viewOriginX, viewOriginY, viewScale);
     DrawMidBoss2TeleportSlotsInView(viewOriginX, viewOriginY, viewScale);

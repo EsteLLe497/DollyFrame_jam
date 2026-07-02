@@ -1,8 +1,12 @@
 {
-  "activeCheckpointId": 1,
-  "cameraX": 10491.3134765625,
-  "cameraY": 1136.885009765625,
-  "hasCheckpoint": true,
+  "activeCheckpointId": -1,
+  "cameraTutorialCompleted": true,
+  "cameraX": 4784.03857421875,
+  "cameraY": 1947.0,
+  "completedTutorialNumbers": [
+    1
+  ],
+  "hasCheckpoint": false,
   "mapCsvPath": "assets/maps/stages/forest_v2.csv",
   "photo": {
     "attackCapture": {

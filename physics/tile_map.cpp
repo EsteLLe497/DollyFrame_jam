@@ -622,7 +622,8 @@ public:
         const TileMapViewport& viewport,
         float scale,
         int tile2TextureId,
-        int tile3TextureId)
+        int tile3TextureId,
+        int tile4TextureId)
     {
         const float tileDrawSize = data.tileSize * scale;
         if (textureId < 0 ||
@@ -724,8 +725,9 @@ public:
                 float a = 1.0f;
                 const bool useSpecialTile2Texture = tileValue == 2 && tile2TextureId >= 0;
                 const bool useSpecialTile3Texture = tileValue == 3 && tile3TextureId >= 0;
+                const bool useSpecialTile4Texture = tileValue == 4 && tile4TextureId >= 0;
                 const bool isConnectableTile = IsConnectableTileValue(tileValue);
-                if (!useSpecialTile2Texture && !useSpecialTile3Texture)
+                if (!useSpecialTile2Texture && !useSpecialTile3Texture && !useSpecialTile4Texture)
                 {
                     GetSquareTileTint(tileValue, r, g, b, a);
                     // 地形タイル全体を暗くして、背景と足場のコントラストを作る。
@@ -739,10 +741,14 @@ public:
                     }
                 }
                 Shader_SetTint(r, g, b, a);
-                if (useSpecialTile2Texture || useSpecialTile3Texture)
+                if (useSpecialTile2Texture || useSpecialTile3Texture || useSpecialTile4Texture)
                 {
+                    const int specialTextureId =
+                        useSpecialTile2Texture ? tile2TextureId :
+                        useSpecialTile3Texture ? tile3TextureId :
+                        tile4TextureId;
                     SpriteDraw(
-                        useSpecialTile2Texture ? tile2TextureId : tile3TextureId,
+                        specialTextureId,
                         drawX,
                         drawY,
                         data.tileSize * scale,
@@ -861,9 +867,10 @@ void TileMap::Draw(
     const TileMapViewport& viewport,
     float scale,
     int tile2TextureId,
-    int tile3TextureId) const
+    int tile3TextureId,
+    int tile4TextureId) const
 {
-    TileMapRenderer::Draw(m_data, textureId, originX, originY, viewport, scale, tile2TextureId, tile3TextureId);
+    TileMapRenderer::Draw(m_data, textureId, originX, originY, viewport, scale, tile2TextureId, tile3TextureId, tile4TextureId);
 }
 
 int TileMap::GetWidth() const
