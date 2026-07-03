@@ -104,6 +104,12 @@ public:
     SepiaRubbleSource source = SepiaRubbleSource::Generic;
 };
 
+class SepiaShutterVisualComponent final : public MonoBehaviour
+{
+public:
+    SepiaShutterVisualComponent() = default;
+};
+
 class SepiaRubbleGroupComponent final : public MonoBehaviour
 {
 public:

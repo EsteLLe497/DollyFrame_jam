@@ -313,6 +313,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
     DrawMerchantShopOverlay();
     DrawMapEditorOverlay();
     DrawTuningPanel();
+    DrawCameraStatusHud();
     DrawPlayerHpBar();
     DrawPartsHud();
     DrawMidBoss2HpBar();

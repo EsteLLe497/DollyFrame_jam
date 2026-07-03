@@ -2,6 +2,7 @@
 
 #include "game_scene_internal.h"
 #include "game_scene_combat_common.h"
+#include "photo_shared.h"
 #include "photo_filter_rules.h"
 #include "texture.h"
 
@@ -2942,6 +2943,24 @@ void GameScene::DrawEntity(const Entity& entity) const
             Shader_ResetStyle();
             return;
         }
+    }
+
+    if ((tag && HasTag(tag, EntityTag::Shutter)) || entity.GetComponent<SepiaShutterVisualComponent>())
+    {
+        const int shutterTexture = entity.GetComponent<SepiaShutterVisualComponent>()
+            ? sprite->GetTextureId()
+            : m_assets.GetTexture(drawWidth > drawHeight ? "sepia_shutter_gate_horizontal" : "sepia_shutter_gate");
+        Shader_SetTint(1.0f, 1.0f, 1.0f, (tint ? tint->a : 1.0f) * alphaMultiplier);
+        photo_shared::DrawSepiaShutterItem(
+            shutterTexture >= 0 ? shutterTexture : sprite->GetTextureId(),
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            sprite->GetFlipX(),
+            transform->rotation);
+        Shader_ResetStyle();
+        return;
     }
 
     if (tag && HasTag(tag, EntityTag::SepiaRubble))

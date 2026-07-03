@@ -292,6 +292,7 @@ private:
     void DrawPhotoBoxesByLayer(PhotoCopyLayer layer) const;
     void DrawBossShockwavesUnderlay() const;
     void DrawPastedEntitiesFront() const;
+    void DrawCameraStatusHud() const;
     void DrawPlayerHpBar() const;
     void DrawPartsHud() const;
     void DrawMidBoss2HpBar() const;

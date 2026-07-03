@@ -12,6 +12,73 @@ namespace
 {
     constexpr float kPhotoFocusTimeScale = 0.22f;
     constexpr float kPlacementFocusDuration = 1.2f;
+
+    PhotoFilterTheme ResolveCameraFilterHudTheme(PhotoFilterTheme theme)
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Cold:
+            return GameSession_Get().hasRecoveryFilter ? PhotoFilterTheme::Cold : PhotoFilterTheme::None;
+        case PhotoFilterTheme::Sepia:
+            return PhotoFilterTheme::Sepia;
+        case PhotoFilterTheme::None:
+        case PhotoFilterTheme::Hot:
+        case PhotoFilterTheme::Invert:
+        default:
+            return PhotoFilterTheme::None;
+        }
+    }
+
+    bool IsSelectableFilterTheme(PhotoFilterTheme theme)
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::None:
+        case PhotoFilterTheme::Sepia:
+            return true;
+        case PhotoFilterTheme::Cold:
+            return GameSession_Get().hasRecoveryFilter;
+        case PhotoFilterTheme::Hot:
+        case PhotoFilterTheme::Invert:
+        default:
+            return false;
+        }
+    }
+
+    PhotoFilterTheme NormalizeSelectableFilterTheme(PhotoFilterTheme theme)
+    {
+        return IsSelectableFilterTheme(theme) ? theme : PhotoFilterTheme::None;
+    }
+
+    PhotoFilterTheme GetNextSelectableFilterTheme(PhotoFilterTheme current)
+    {
+        const bool hasRecoveryFilter = GameSession_Get().hasRecoveryFilter;
+        switch (NormalizeSelectableFilterTheme(current))
+        {
+        case PhotoFilterTheme::None:
+            return hasRecoveryFilter ? PhotoFilterTheme::Cold : PhotoFilterTheme::Sepia;
+        case PhotoFilterTheme::Cold:
+            return PhotoFilterTheme::Sepia;
+        case PhotoFilterTheme::Sepia:
+        default:
+            return PhotoFilterTheme::None;
+        }
+    }
+
+    PhotoFilterTheme GetPreviousSelectableFilterTheme(PhotoFilterTheme current)
+    {
+        const bool hasRecoveryFilter = GameSession_Get().hasRecoveryFilter;
+        switch (NormalizeSelectableFilterTheme(current))
+        {
+        case PhotoFilterTheme::None:
+            return PhotoFilterTheme::Sepia;
+        case PhotoFilterTheme::Sepia:
+            return hasRecoveryFilter ? PhotoFilterTheme::Cold : PhotoFilterTheme::None;
+        case PhotoFilterTheme::Cold:
+        default:
+            return PhotoFilterTheme::None;
+        }
+    }
 }
 
 void GameScene::UpdateCameraMode()
@@ -89,21 +156,45 @@ void GameScene::UpdateCaptureFinderZoomInput()
 
 void GameScene::ProcessFilterInput()
 {
+    m_photo.capture.selectedTheme = NormalizeSelectableFilterTheme(m_photo.capture.selectedTheme);
+
+    if (!m_ui.cameraFilterHudInitialized)
+    {
+        const PhotoFilterTheme initialHudTheme = ResolveCameraFilterHudTheme(m_photo.capture.selectedTheme);
+        m_ui.cameraFilterHudTheme = initialHudTheme;
+        m_ui.cameraFilterLastSelectedTheme = initialHudTheme;
+        m_ui.cameraFilterAnimationFrom = initialHudTheme;
+        m_ui.cameraFilterAnimationTo = initialHudTheme;
+        m_ui.cameraFilterAnimationElapsed = 1.0f;
+        m_ui.cameraFilterHudInitialized = true;
+    }
+
+    const PhotoFilterTheme previousTheme = m_photo.capture.selectedTheme;
+
     if (Input_IsActionPressed(InputAction::SelectFilterNone))
     {
         m_photo.capture.selectedTheme = PhotoFilterTheme::None;
     }
     if (Input_IsActionPressed(InputAction::SelectFilterHot))
     {
-        m_photo.capture.selectedTheme = PhotoFilterTheme::Hot;
+        if (IsSelectableFilterTheme(PhotoFilterTheme::Hot))
+        {
+            m_photo.capture.selectedTheme = PhotoFilterTheme::Hot;
+        }
     }
     if (Input_IsActionPressed(InputAction::SelectFilterCold))
     {
-        m_photo.capture.selectedTheme = PhotoFilterTheme::Cold;
+        if (IsSelectableFilterTheme(PhotoFilterTheme::Cold))
+        {
+            m_photo.capture.selectedTheme = PhotoFilterTheme::Cold;
+        }
     }
     if (Input_IsActionPressed(InputAction::SelectFilterInvert))
     {
-        m_photo.capture.selectedTheme = PhotoFilterTheme::Invert;
+        if (IsSelectableFilterTheme(PhotoFilterTheme::Invert))
+        {
+            m_photo.capture.selectedTheme = PhotoFilterTheme::Invert;
+        }
     }
     if (Input_IsActionPressed(InputAction::SelectFilterSepia))
     {
@@ -111,7 +202,7 @@ void GameScene::ProcessFilterInput()
     }
     if (Input_IsActionPressed(InputAction::CycleFilter))
     {
-        m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
+        m_photo.capture.selectedTheme = GetNextSelectableFilterTheme(m_photo.capture.selectedTheme);
     }
 
     const bool blockFilterChange = m_photo.placement.active;
@@ -119,29 +210,29 @@ void GameScene::ProcessFilterInput()
     {
         if (Input_IsRightShoulderPressed())
         {
-            m_photo.capture.selectedTheme = GetNextPhotoFilterTheme(m_photo.capture.selectedTheme);
+            m_photo.capture.selectedTheme = GetNextSelectableFilterTheme(m_photo.capture.selectedTheme);
         }
         else if (Input_IsLeftShoulderPressed())
         {
-            switch (m_photo.capture.selectedTheme)
-            {
-            case PhotoFilterTheme::None:
-                m_photo.capture.selectedTheme = PhotoFilterTheme::Sepia;
-                break;
-            case PhotoFilterTheme::Hot:
-                m_photo.capture.selectedTheme = PhotoFilterTheme::None;
-                break;
-            case PhotoFilterTheme::Cold:
-                m_photo.capture.selectedTheme = PhotoFilterTheme::Hot;
-                break;
-            case PhotoFilterTheme::Invert:
-                m_photo.capture.selectedTheme = PhotoFilterTheme::Cold;
-                break;
-            case PhotoFilterTheme::Sepia:
-                m_photo.capture.selectedTheme = PhotoFilterTheme::Invert;
-                break;
-            }
+            m_photo.capture.selectedTheme = GetPreviousSelectableFilterTheme(m_photo.capture.selectedTheme);
         }
+    }
+
+    if (m_photo.capture.selectedTheme != previousTheme)
+    {
+        const PhotoFilterTheme targetHudTheme = ResolveCameraFilterHudTheme(m_photo.capture.selectedTheme);
+        if (targetHudTheme != m_ui.cameraFilterHudTheme)
+        {
+            m_ui.cameraFilterAnimationFrom = m_ui.cameraFilterHudTheme;
+            m_ui.cameraFilterAnimationTo = targetHudTheme;
+            m_ui.cameraFilterAnimationElapsed = 0.0f;
+        }
+        else
+        {
+            m_ui.cameraFilterAnimationElapsed = 1.0f;
+            m_ui.cameraFilterHudTheme = targetHudTheme;
+        }
+        m_ui.cameraFilterLastSelectedTheme = targetHudTheme;
     }
 }
 
