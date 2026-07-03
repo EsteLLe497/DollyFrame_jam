@@ -290,7 +290,6 @@ namespace
         const AssetManifest& assets,
         int restoredTextureId,
         int fallbackTexture,
-        int textureId,
         int shutterTextureId,
         CapturedPhotoItem& item)
     {
@@ -337,9 +336,6 @@ namespace
             return true;
         case '[':
             item.spawnArchetype = CapturedSpawnArchetype::Gear;
-        case 'J':
-            item.spawnArchetype = CapturedSpawnArchetype::None;
-            item.textureId = shutterTextureId;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
@@ -352,6 +348,18 @@ namespace
                 ? sepiaGroup.restoredMarkerParameter : 1;
             item.textureId = ResolveGearTextureId(assets, item.gearNo, fallbackTexture);
             item.sepiaRestoredMarkerObject = true;
+            return true;
+        case 'J':
+            item.spawnArchetype = CapturedSpawnArchetype::None;
+            item.textureId = shutterTextureId;
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Generic;
+            item.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
+            item.tintA = 1.0f;
             item.sepiaRestoredMarkerObject = true;
             item.sepiaShutterObject = true;
             return true;
