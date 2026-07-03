@@ -52,7 +52,23 @@ void AssetManifest::LoadDefaults(ResourceManager& resources)
     }
 
     nlohmann::json root;
-    ifs >> root;
+    try
+    {
+        ifs >> root;
+    }
+    catch (const nlohmann::json::parse_error& error)
+    {
+        Logger::Error(std::string("Failed to parse assets/manifest.json: ") + error.what());
+        Logger::Warn("Falling back to built-in asset defaults.");
+        m_textureIds.reserve(5);
+        resources.ReserveTextureCache(5);
+        m_textureIds.emplace("white", resources.CreateSolidTexture(1, 1, 0xFFFFFFFF));
+        m_textureIds.emplace("player", resources.CreateCheckerboardTexture(256, 256, 0xFF4EC9B0, 0xFF1B3340, 32));
+        m_textureIds.emplace("target", resources.CreateCheckerboardTexture(192, 192, 0xFFE08A2E, 0xFF5A2615, 24));
+        m_textureIds.emplace("hazard", resources.CreateCheckerboardTexture(128, 128, 0xFFE33F33, 0xFF4E0A07, 16));
+        m_textureIds.emplace("enemy", resources.CreateCheckerboardTexture(144, 144, 0xFF7E63E6, 0xFF1D143A, 18));
+        return;
+    }
 
     const auto& textures = root["textures"];
     if (textures.is_object())
