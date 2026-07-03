@@ -238,6 +238,7 @@ void GameScene::RespawnPlayer(Entity& player)
     m_flow.pitRestartTimer = 0.0f;
     m_flow.pitRestartFadeInTimer = kPitRestartFadeDuration;
     m_camera.hasPreviousPlayerCameraProbe = false;
+    m_camera.cameraYRecenteringStrength = 0.0f;
     m_camera.floorCameraTransitionActive = false;
     m_camera.floorCameraTransitionElapsed = 0.0f;
     m_camera.cameraFixedLockActive = false;

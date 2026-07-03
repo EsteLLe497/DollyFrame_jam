@@ -95,6 +95,7 @@ private:
     void ResetFrameRendering();
     bool IsMidBoss3IntroCinematicActive() const;
     bool IsShieldBossIntroCinematicActive() const;
+    bool IsShieldBossBattleCameraActive() const;
 
     // Lifecycle / setup
     void UpdateLoading(float deltaTime);
@@ -396,6 +397,7 @@ private:
         float previousPlayerCameraProbeY = 0.0f;
         bool hasCameraSmoothedPlayerY = false;
         float cameraSmoothedPlayerCenterY = 0.0f;
+        float cameraYRecenteringStrength = 0.0f;
         bool floorCameraTransitionActive = false;
         float floorCameraTransitionElapsed = 0.0f;
         float floorCameraTransitionDuration = 0.45f;
