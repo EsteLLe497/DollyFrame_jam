@@ -52,6 +52,24 @@ namespace
     constexpr float kTuningButtonHeight = 18.0f;
     constexpr int kDarknessOverlayActiveLightLimit = 6;
 
+    struct BackgroundPartPlacement
+    {
+        const char* textureKey;
+        float worldX;
+        float worldY;
+        float width;
+        float height;
+        float parallax; // 1.0 = 通常の足場と同じ動き
+    };
+
+    //// 仮配置。座標は後で調整
+    //constexpr BackgroundPartPlacement kBackgroundParts[] =
+    //{
+    //    { "bg_parts_tree_01",  320.0f, 480.0f, 192.0f, 256.0f, 1.0f },
+    //    { "bg_parts_rock_01",  860.0f, 620.0f, 128.0f,  96.0f, 1.0f },
+    //    { "bg_parts_grass_01", 540.0f, 700.0f, 160.0f,  64.0f, 1.0f },
+    //};
+
     float SmoothStep01(float t);
 
     struct OverlayLightSource
@@ -1885,6 +1903,8 @@ void GameScene::DrawUiAdjustmentWindow()
 
     auto& tuning = m_ui.tuning;
 
+    DrawTutorialAdjustmentPanel();
+
     if (ImGui::CollapsingHeader("撮影ファインダー", ImGuiTreeNodeFlags_DefaultOpen))
     {
         drag("現在の倍率##finder", m_ui.captureFinderScale, 0.01f, 0.1f, 5.0f);
@@ -2865,6 +2885,27 @@ void GameScene::DrawBackdropFrameInView(float viewOriginX, float viewOriginY, fl
     SpriteDraw(m_whiteTexture, panelRight, viewOriginY, 10.0f, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 }
 
+//void GameScene::DrawBackgroundPartsInView(float viewOriginX, float viewOriginY, float viewScale) const//パーツ
+//{
+//    for (const auto& part : kBackgroundParts)
+//    {
+//        const int textureId = m_assets.GetTexture(part.textureKey);
+//        if (textureId < 0)
+//        {
+//            continue;
+//        }
+//
+//        const float screenX = viewOriginX + (part.worldX - m_flow.cameraX * part.parallax) * viewScale;
+//        const float screenY = viewOriginY + (part.worldY - m_flow.cameraY * part.parallax) * viewScale;
+//        const float drawW = part.width * viewScale;
+//        const float drawH = part.height * viewScale;
+//
+//        Shader_ResetStyle();
+//        SpriteDraw(textureId, screenX, screenY, drawW, drawH, 0.0f, 0.0f, 1.0f, 1.0f);
+//    }
+//    Shader_ResetStyle();
+//}
+
 void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, float viewScale) const
 {
     const TileMapViewport viewport
@@ -2874,6 +2915,9 @@ void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, floa
         GetViewWidth(),
         GetViewHeight()
     };
+
+    //DrawBackgroundPartsInView(viewOriginX, viewOriginY, viewScale); // ★これを追加し直す
+
     // 写真カメラを含む現在の表示範囲だけにタイル描画を制限する。
     m_tileMap.Draw(
         m_tileTexture,
@@ -3226,3 +3270,4 @@ void GameScene::DrawBatterySwitchCounters() const
         }
     }
 }
+

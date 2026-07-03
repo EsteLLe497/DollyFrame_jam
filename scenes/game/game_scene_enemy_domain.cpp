@@ -742,6 +742,10 @@ void GameScene::UpdateEnemies()
                             SpawnBossDefeatStartEffect(centerX, groundY, width);
                         }
                         TriggerBossDefeatFinishFeedback(m_flow);
+
+                        //リザルト画面へ遷移
+                        GameSession_SetEndReason(GameEndReason::BossDefeated);
+                        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "result", 0.0f, 0.0f });
                     }
                 }
                 if (boss->shieldEntity)

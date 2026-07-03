@@ -195,6 +195,10 @@ void GameScene::OnExit()
     m_lifecycle.loadingResources = nullptr;
     m_scriptEngine.Shutdown();
     ShutdownGameSceneTestPhotos(m_testPhotos);
+    // 立ち絵はResourceManagerが所有し、他テクスチャとまとめて解放します。
+    m_tutorial.portraitTextureId = -1;
+    m_tutorial.loadedPortraitPath.clear();
+    releaseTutorialVideo(m_tutorial.videoPlayer);
     m_world.Clear();
     m_physicsWorld.Shutdown();
 }

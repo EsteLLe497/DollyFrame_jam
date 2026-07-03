@@ -48,6 +48,8 @@ public:
     float GetViewOriginY() const;
     const std::vector<Entity*>& EntitiesByTag(EntityTag tag) const;
 
+    void DrawBackgroundPartsInView(float viewOriginX, float viewOriginY, float viewScale) const;
+
 private:
     // Camera marker data
     struct CameraTransitionMarker
@@ -76,9 +78,15 @@ private:
     void ResetSceneState();
     void BeginFrameUpdate(float deltaTime);
     bool TryHandleModalUpdates(float deltaTime);
+    bool UpdateTutorialModal(float deltaTime);
     float PrepareGameplayDeltaTime(float deltaTime);
     void TickEntities(float effectiveGameplayDeltaTime);
     void FinalizeGameplayFrame(float effectiveGameplayDeltaTime);
+    void TryStartCameraTutorial();
+    void CompleteCameraTutorial();
+    bool beginTutorialConversation(int tutorialNumber);
+    bool loadTutorialData(int tutorialNumber);
+    void EnsureTutorialPortraitTexture();
     void PrepareFrameRendering();
     void UpdatePostProcessPlayerLight() const;
     void DrawWorldAndUiLayers();
@@ -263,6 +271,8 @@ private:
     void UpdateTuningPanel();
     void DrawTuningPanel();
     void DrawUiAdjustmentWindow();
+    void DrawTutorialAdjustmentPanel();
+    void DrawTutorialOverlay();
     void DrawMidBoss2DebugWindow();
     void DrawProgressSavePanel();
     void DrawPitRestartOverlay() const;
@@ -374,6 +384,7 @@ private:
     GameSceneTuningState m_tuning;
     GameSceneSaveState m_save;
     GameSceneTestPhotoState m_testPhotos;
+    GameSceneTutorialState m_tutorial;
     struct CameraRuntimeState
     {
         std::vector<fixedCameraRange> fixedRanges;
