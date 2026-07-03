@@ -448,29 +448,71 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
 
     m_camera.prevCameraIndex = activeIndex;*/
 
-    const float playerHeight = playerTransform.height * playerTransform.scale;
-    const float playerCenterY = playerTransform.y + playerHeight * 0.5f - m_flow.cameraY;
+    if (!followY)
+    {
+        m_camera.cameraYRecenteringStrength = 0.0f;
+        return;
+    }
 
+    const float playerHeight = playerTransform.height * playerTransform.scale;
+    const float playerCenterY = playerTransform.y + playerHeight * 0.5f;
     const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
     const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - visibleHeight);
 
     m_flow.cameraY = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
 
     const float cameraCenterY = m_flow.cameraY + visibleHeight * 0.5f;
-    const float deadZoneY = 120.0f;
+    const float deadZoneY = 100.0f;
 
-    const float deadZoneTop = cameraCenterY - deadZoneY;
-    const float deadZoneBottom = cameraCenterY + deadZoneY;
+    const float centerDeltaY = playerCenterY - cameraCenterY;
+    float targetCameraY = playerCenterY - visibleHeight * 0.5f;
+    targetCameraY = std::clamp(targetCameraY, 0.0f, maxCameraY);
+    const bool movingCameraDown = targetCameraY > m_flow.cameraY;
 
-    if (playerCenterY < deadZoneTop)
+    const float normalizedDeadZoneDistance = std::clamp(
+        std::fabs(centerDeltaY) / std::max(1.0f, deadZoneY),
+        0.0f,
+        1.0f);
+    const float smoothedRecenteringStrength =
+        normalizedDeadZoneDistance * normalizedDeadZoneDistance *
+        (3.0f - 2.0f * normalizedDeadZoneDistance);
+    const float targetRecenteringStrength =
+        movingCameraDown ? normalizedDeadZoneDistance : smoothedRecenteringStrength;
+    if (movingCameraDown)
     {
-         m_flow.cameraY = playerCenterY + deadZoneY - visibleHeight * 0.5f;
+        m_camera.cameraYRecenteringStrength = targetRecenteringStrength;
     }
-    else if (playerCenterY >= deadZoneBottom)
+    else
     {
-        m_flow.cameraY = playerCenterY - deadZoneY - visibleHeight * 0.5f;
+        const float strengthResponseSpeed =
+            targetRecenteringStrength > m_camera.cameraYRecenteringStrength ? 12.0f : 4.0f;
+        const float strengthBlend = 1.0f - std::pow(0.001f, deltaTime * strengthResponseSpeed);
+        m_camera.cameraYRecenteringStrength +=
+            (targetRecenteringStrength - m_camera.cameraYRecenteringStrength) * strengthBlend;
     }
 
+    if (m_camera.cameraYRecenteringStrength <= 0.001f)
+    {
+        m_camera.cameraYRecenteringStrength = 0.0f;
+        return;
+    }
+
+    const float cameraDeltaY = targetCameraY - m_flow.cameraY;
+    if (movingCameraDown)
+    {
+        const float maxStepY = std::max(
+            0.0f,
+            kFixedCameraYFollowSpeed * deadZoneY * m_camera.cameraYRecenteringStrength * deltaTime);
+        m_flow.cameraY += std::min(cameraDeltaY, maxStepY);
+    }
+    else
+    {
+        const float followRate = std::clamp(
+            kFixedCameraYFollowSpeed * m_camera.cameraYRecenteringStrength * deltaTime,
+            0.0f,
+            1.0f);
+        m_flow.cameraY += cameraDeltaY * followRate;
+    }
     m_flow.cameraY = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
 
 }
@@ -733,6 +775,7 @@ void GameScene::ApplyShieldBossFramingCameraWork(float deltaTime)
     float bossLeft = 0.0f;
     float bossRight = 0.0f;
     bool slamVerticalTrackingActive = false;
+    float shieldBossTargetCameraX = m_flow.cameraX;
 
     if (playerTransform)
     {
@@ -871,7 +914,6 @@ void GameScene::ApplyShieldBossFramingCameraWork(float deltaTime)
         const float visibleWidth =
             baseVisibleWidth / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
 
-        float targetOffsetX = 0.0f;
         if (shieldBossFound)
         {
             float targetCameraX = m_flow.cameraX;
@@ -889,14 +931,11 @@ void GameScene::ApplyShieldBossFramingCameraWork(float deltaTime)
                 : (std::min(playerLeft, bossLeft) + std::max(playerRight, bossRight)) * 0.5f -
                     visibleWidth * 0.5f;
 
-            targetOffsetX = targetCameraX - m_flow.cameraX;
+            shieldBossTargetCameraX = targetCameraX;
         }
 
-        // 通常フレーミングは横方向だけを補正する。
-        m_camera.shieldBossCameraOffsetX = std::lerp(
-            m_camera.shieldBossCameraOffsetX,
-            targetOffsetX,
-            blend);
+        // Horizontal framing follows an absolute target below instead of accumulating an offset.
+        m_camera.shieldBossCameraOffsetX = 0.0f;
 
         if (shieldBossFound && !m_camera.shieldBossCameraBaseYInitialized)
         {
@@ -959,8 +998,11 @@ void GameScene::ApplyShieldBossFramingCameraWork(float deltaTime)
         baseVisibleHeight / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
     const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - visibleWidth);
     const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - visibleHeight);
+    const float cameraXBeforeClamp = shieldBossFound
+        ? std::lerp(m_flow.cameraX, shieldBossTargetCameraX, blend)
+        : m_flow.cameraX;
     m_flow.cameraX = std::clamp(
-        m_flow.cameraX + m_camera.shieldBossCameraOffsetX,
+        cameraXBeforeClamp,
         0.0f,
         maxCameraX);
     const float targetCameraY = m_camera.shieldBossCameraBaseYInitialized
@@ -1956,6 +1998,13 @@ void GameScene::UpdatePlayer(float deltaTime)
     const float shieldBossIntroReturnStartY = m_flow.cameraY;
 
     const bool stabilizeMidBoss3CameraY = IsMidBoss3CameraStabilizeStage(m_lifecycle.currentMapCsvPath);
+    const bool shieldBossCameraActive =
+        IsShieldBossIntroCinematicActive() ||
+        IsShieldBossBattleCameraActive();
+    const bool useDeadZoneVerticalCamera =
+        gCameraFollowY >= 0.5f &&
+        !stabilizeMidBoss3CameraY &&
+        !shieldBossCameraActive;
     const float cameraYBeforeFollow = m_flow.cameraY;
     if (stabilizeMidBoss3CameraY)
     {
@@ -1986,14 +2035,19 @@ void GameScene::UpdatePlayer(float deltaTime)
         mapHeight,
         GetCameraFollowOffsetY(m_tileMap),
         deltaTime,
-        gCameraFollowY >= 0.5f && !stabilizeMidBoss3CameraY);
+        gCameraFollowY >= 0.5f && !stabilizeMidBoss3CameraY,
+        !useDeadZoneVerticalCamera);
     if (stabilizeMidBoss3CameraY)
     {
         m_flow.cameraY = cameraYBeforeFollow;
     }
-    if (!stabilizeMidBoss3CameraY)
+    if (useDeadZoneVerticalCamera)
     {
         UpdateCameraByMarkers(*transform, deltaTime);
+    }
+    else
+    {
+        m_camera.cameraYRecenteringStrength = 0.0f;
     }
     if (shieldBossIntroReturnActive && !stabilizeMidBoss3CameraY)
     {

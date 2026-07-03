@@ -439,7 +439,7 @@ bool ContainsShapePreservingItem(const std::vector<CapturedPhotoItem>& items)
 {
     for (const auto& item : items)
     {
-        if (item.sourceTileValue > 0 || !item.collisionOutline.empty() || item.lightRadius > 0.0f)
+        if (item.sourceTileValue > 0 || !item.collisionOutline.empty() || item.lightRadius > 0.0f || item.sepiaShutterObject)
         {
             return true;
         }
@@ -477,6 +477,123 @@ std::vector<CapturedPhotoItem> BuildRawPlacementItems(
 
 namespace photo_shared
 {
+void DrawSepiaShutterItem(
+    int textureId,
+    float drawX,
+    float drawY,
+    float drawWidth,
+    float drawHeight,
+    bool flipX,
+    float rotation)
+{
+    if (textureId < 0 || drawWidth <= 0.0f || drawHeight <= 0.0f)
+    {
+        return;
+    }
+
+    constexpr float kSourceCapRatio = 0.15f;
+    constexpr float kTextureAspectHeightOverWidth = 1536.0f / 480.0f;
+    if (drawWidth > drawHeight)
+    {
+        const float capWidth = std::min(
+            drawWidth * 0.34f,
+            drawHeight * kSourceCapRatio * kTextureAspectHeightOverWidth);
+        const float clampedCapWidth = std::max(0.0f, std::min(capWidth, drawWidth * 0.5f));
+        const float middleWidth = std::max(0.0f, drawWidth - clampedCapWidth * 2.0f);
+
+        SpriteDraw(
+            textureId,
+            drawX,
+            drawY,
+            clampedCapWidth,
+            drawHeight,
+            0.0f,
+            0.0f,
+            kSourceCapRatio,
+            1.0f,
+            flipX,
+            rotation);
+
+        if (middleWidth > 0.0f)
+        {
+            SpriteDraw(
+                textureId,
+                drawX + clampedCapWidth,
+                drawY,
+                middleWidth,
+                drawHeight,
+                kSourceCapRatio,
+                0.0f,
+                1.0f - kSourceCapRatio * 2.0f,
+                1.0f,
+                flipX,
+                rotation);
+        }
+
+        SpriteDraw(
+            textureId,
+            drawX + clampedCapWidth + middleWidth,
+            drawY,
+            clampedCapWidth,
+            drawHeight,
+            1.0f - kSourceCapRatio,
+            0.0f,
+            kSourceCapRatio,
+            1.0f,
+            flipX,
+            rotation);
+        return;
+    }
+
+    const float capHeight = std::min(
+        drawHeight * 0.34f,
+        drawWidth * kSourceCapRatio * kTextureAspectHeightOverWidth);
+    const float clampedCapHeight = std::max(0.0f, std::min(capHeight, drawHeight * 0.5f));
+    const float middleHeight = std::max(0.0f, drawHeight - clampedCapHeight * 2.0f);
+
+    SpriteDraw(
+        textureId,
+        drawX,
+        drawY,
+        drawWidth,
+        clampedCapHeight,
+        0.0f,
+        0.0f,
+        1.0f,
+        kSourceCapRatio,
+        flipX,
+        rotation);
+
+    if (middleHeight > 0.0f)
+    {
+        SpriteDraw(
+            textureId,
+            drawX,
+            drawY + clampedCapHeight,
+            drawWidth,
+            middleHeight,
+            0.0f,
+            kSourceCapRatio,
+            1.0f,
+            1.0f - kSourceCapRatio * 2.0f,
+            flipX,
+            rotation);
+    }
+
+    SpriteDraw(
+        textureId,
+        drawX,
+        drawY + clampedCapHeight + middleHeight,
+        drawWidth,
+        clampedCapHeight,
+        0.0f,
+        1.0f - kSourceCapRatio,
+        1.0f,
+        kSourceCapRatio,
+        flipX,
+        rotation);
+}
+
 bool DrawDamagePlatformItemPreview(
     const CapturedPhotoItem& item,
     float drawX,
@@ -688,6 +805,19 @@ void DrawCapturedPhotoItem(
 {
     Shader_ResetStyle();
     Shader_SetTint(item.tintR, item.tintG, item.tintB, alpha);
+    if (item.sepiaShutterObject)
+    {
+        DrawSepiaShutterItem(
+            item.textureId >= 0 ? item.textureId : fallbackTextureId,
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight,
+            item.flipX,
+            item.rotation);
+        return;
+    }
+
     if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
     {
         const int color = GetColor(

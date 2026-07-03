@@ -9,6 +9,7 @@ enum class GameEndReason
     GoalReached,
     TimeUp,
     HpZero,
+    BossDefeated,   //forest_boss(boss1) Œ‚”j
 };
 
 struct GameSessionState
@@ -18,6 +19,7 @@ struct GameSessionState
     int parts = 0;
     int photoStorageSlots = 2;
     bool hasRecoveryFilter = false;
+    bool hasCameraFlash = false;
     float timeLimit = 30.0f;
     float timeRemaining = 30.0f;
     GameEndReason endReason = GameEndReason::None;
@@ -33,6 +35,7 @@ void GameSession_AddParts(int amount);
 bool GameSession_SpendParts(int amount);
 void GameSession_SetPhotoStorageSlots(int slots);
 void GameSession_SetRecoveryFilterOwned(bool owned);
+void GameSession_SetCameraFlashOwned(bool owned);
 void GameSession_SetTimeRemaining(float timeRemaining);
 void GameSession_SetEndReason(GameEndReason reason);
 void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath);

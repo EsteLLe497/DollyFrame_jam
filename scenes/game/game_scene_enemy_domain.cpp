@@ -742,6 +742,10 @@ void GameScene::UpdateEnemies()
                             SpawnBossDefeatStartEffect(centerX, groundY, width);
                         }
                         TriggerBossDefeatFinishFeedback(m_flow);
+
+                        //リザルト画面へ遷移
+                        GameSession_SetEndReason(GameEndReason::BossDefeated);
+                        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "result", 0.0f, 0.0f });
                     }
                 }
                 if (boss->shieldEntity)
@@ -1925,6 +1929,11 @@ void GameScene::RemoveDefeatedEnemies()
         {
             enemy->respawnEnabled = false;
             m_flow.shieldBossDefeatedThisScene = true;
+        }
+        if (enemy->GetArchetype() == EnemyArchetype::MidBoss3)
+        {
+            GameSession_SetCameraFlashOwned(true);
+            m_ui.cameraFlash.unlocked = true;
         }
         if (!enemy->respawnEnabled) continue;
 

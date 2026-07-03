@@ -653,9 +653,41 @@ namespace
     int ResolveGearSocketLinkId(
         const GearSocketMarker& marker,
         int socketIndex,
+        const std::vector<ElevatorMarker>& elevatorMarkers,
         const std::vector<ShutterMarker>& shutterMarkers,
         const std::vector<int>& shutterLinkIds)
     {
+        if (marker.linkTargetMarker == 'L' || marker.linkTargetMarker == 'Q')
+        {
+            if (elevatorMarkers.empty())
+            {
+                return -1;
+            }
+
+            const float targetWidthTiles = marker.linkTargetMarker == 'Q' ? 4.0f : 5.0f;
+            int nearestIndex = -1;
+            float nearestDistSq = std::numeric_limits<float>::max();
+            for (int elevatorIndex = 0; elevatorIndex < static_cast<int>(elevatorMarkers.size()); ++elevatorIndex)
+            {
+                const ElevatorMarker& elevatorMarker = elevatorMarkers[static_cast<size_t>(elevatorIndex)];
+                if (std::fabs(elevatorMarker.widthTiles - targetWidthTiles) > 0.01f)
+                {
+                    continue;
+                }
+
+                const float dx = elevatorMarker.x - marker.x;
+                const float dy = elevatorMarker.y - marker.y;
+                const float distSq = dx * dx + dy * dy;
+                if (distSq < nearestDistSq)
+                {
+                    nearestDistSq = distSq;
+                    nearestIndex = elevatorIndex;
+                }
+            }
+
+            return nearestIndex;
+        }
+
         if (marker.linkTargetMarker != 'J' ||
             shutterMarkers.empty() ||
             shutterLinkIds.empty())
@@ -820,7 +852,28 @@ void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int sp
 void GameScene::SpawnGearMarker(float x, float y, int gearNo, float tileSize)
 {
     const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
-    const int gearTexture = m_assets.GetTexture("star");
+    int gearTexture = 0;
+    switch (gearNo)
+    {
+    case 1:
+        gearTexture = m_assets.GetTexture("star");
+        break;
+    case 2:
+        gearTexture = m_assets.GetTexture("apple");
+        break;
+    case 3:
+        gearTexture = m_assets.GetTexture("circle");
+        break;
+    case 4:
+        gearTexture = m_assets.GetTexture("daikei");
+        break;
+    case 5:
+        gearTexture = m_assets.GetTexture("haguruma");
+        break;
+    default:
+        break;
+    }
+
     auto gearEntity = std::make_unique<Entity>();
     gearEntity->AddComponent<TagComponent>(kTagGear);
     gearEntity->AddComponent<TransformComponent>(
@@ -848,7 +901,27 @@ void GameScene::SpawnGearSocketMarker(
     float tileSize)
 {
     const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
-    const int gearTexture = m_assets.GetTexture("star");
+    int gearTexture = 0;
+    switch (gearNo)
+    {
+    case 1:
+        gearTexture = m_assets.GetTexture("star");
+        break;
+    case 2:
+        gearTexture = m_assets.GetTexture("apple");
+        break;
+    case 3:
+        gearTexture = m_assets.GetTexture("circle");
+        break;
+    case 4:
+        gearTexture = m_assets.GetTexture("daikei");
+        break;
+    case 5:
+        gearTexture = m_assets.GetTexture("haguruma");
+        break;
+    default:
+        break;
+    }
     auto socketEntity = std::make_unique<Entity>();
     socketEntity->AddComponent<TagComponent>(kTagGearSocket);
     socketEntity->AddComponent<TransformComponent>(
@@ -1853,6 +1926,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         const int linkId = ResolveGearSocketLinkId(
             marker,
             index,
+            elevatorMarkers,
             shutterMarkers,
             shutterLinkIds);
         SpawnGearSocketMarker(
@@ -2249,7 +2323,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             rubble->AddComponent<TransformComponent>(groupX, groupY, groupWidth, groupHeight);
 
             rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
-            rubble->AddComponent<SpriteRenderComponent>(m_assets.GetTexture("sepia_rubble"));
+            rubble->AddComponent<SpriteRenderComponent>(sepiaRubbleTextureId);
             rubble->AddComponent<SepiaRubbleComponent>();
 
 

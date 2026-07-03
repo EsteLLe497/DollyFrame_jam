@@ -860,6 +860,7 @@ namespace
         root["spikeStripTileSpan"] = item.spikeStripTileSpan;
         root["sepiaRestoredTileValue"] = item.sepiaRestoredTileValue;
         root["sepiaRestoredMarkerObject"] = item.sepiaRestoredMarkerObject;
+        root["sepiaShutterObject"] = item.sepiaShutterObject;
         root["rotation"] = item.rotation;
         root["flipX"] = item.flipX;
         root["vanishOnCapture"] = item.vanishOnCapture;
@@ -914,6 +915,7 @@ namespace
         item.spikeStripTileSpan = root.value("spikeStripTileSpan", item.spikeStripTileSpan);
         item.sepiaRestoredTileValue = root.value("sepiaRestoredTileValue", item.sepiaRestoredTileValue);
         item.sepiaRestoredMarkerObject = root.value("sepiaRestoredMarkerObject", item.sepiaRestoredMarkerObject);
+        item.sepiaShutterObject = root.value("sepiaShutterObject", item.sepiaShutterObject);
         item.rotation = root.value("rotation", item.rotation);
         item.flipX = root.value("flipX", item.flipX);
         item.vanishOnCapture = root.value("vanishOnCapture", item.vanishOnCapture);
@@ -1171,6 +1173,7 @@ void GameScene::ResetSceneState()
     m_photo = PhotoState{};
     m_flow = GameSceneFlowState{};
     m_ui = GameSceneUiState{};
+    m_ui.cameraFlash.unlocked = GameSession_Get().hasCameraFlash;
     m_player = GameScenePlayerState{};
     m_debug = GameSceneDebugState{};
     m_testPhotos = GameSceneTestPhotoState{};
@@ -1191,6 +1194,7 @@ void GameScene::ResetSceneState()
     m_camera.previousPlayerCameraProbeY = 0.0f;
     m_camera.hasCameraSmoothedPlayerY = false;
     m_camera.cameraSmoothedPlayerCenterY = 0.0f;
+    m_camera.cameraYRecenteringStrength = 0.0f;
     m_camera.floorCameraTransitionActive = false;
     m_camera.floorCameraTransitionElapsed = 0.0f;
     m_camera.floorCameraTransitionDuration = 1.10f;
@@ -1361,6 +1365,7 @@ bool GameScene::LoadProgressStateFromDisk()
     m_save.sessionParts = root.value("sessionParts", 0);
     m_save.sessionPhotoStorageSlots = root.value("sessionPhotoStorageSlots", 2);
     m_save.sessionHasRecoveryFilter = root.value("sessionHasRecoveryFilter", false);
+    m_save.sessionHasCameraFlash = root.value("sessionHasCameraFlash", false);
     m_save.cameraTutorialCompleted = root.value("cameraTutorialCompleted", false);
     m_save.completedTutorialNumbers = root.value(
         "completedTutorialNumbers",
@@ -1433,6 +1438,7 @@ bool GameScene::SaveProgressState()
     m_save.sessionParts = session.parts;
     m_save.sessionPhotoStorageSlots = session.photoStorageSlots;
     m_save.sessionHasRecoveryFilter = session.hasRecoveryFilter;
+    m_save.sessionHasCameraFlash = session.hasCameraFlash;
     m_save.cameraTutorialCompleted = session.cameraTutorialCompleted;
     m_save.completedTutorialNumbers = session.completedTutorialNumbers;
     m_save.sessionTimeLimit = session.timeLimit;
@@ -1456,6 +1462,7 @@ bool GameScene::SaveProgressState()
     root["sessionParts"] = m_save.sessionParts;
     root["sessionPhotoStorageSlots"] = m_save.sessionPhotoStorageSlots;
     root["sessionHasRecoveryFilter"] = m_save.sessionHasRecoveryFilter;
+    root["sessionHasCameraFlash"] = m_save.sessionHasCameraFlash;
     root["cameraTutorialCompleted"] = m_save.cameraTutorialCompleted;
     root["completedTutorialNumbers"] = m_save.completedTutorialNumbers;
     root["sessionTimeLimit"] = m_save.sessionTimeLimit;
@@ -1506,6 +1513,8 @@ void GameScene::ApplyLoadedProgressState()
     GameSession_AddParts(m_save.sessionParts);
     GameSession_SetPhotoStorageSlots(m_save.sessionPhotoStorageSlots);
     GameSession_SetRecoveryFilterOwned(m_save.sessionHasRecoveryFilter);
+    GameSession_SetCameraFlashOwned(m_save.sessionHasCameraFlash);
+    m_ui.cameraFlash.unlocked = m_save.sessionHasCameraFlash;
     gameSessionSetCompletedTutorialNumbers(m_save.completedTutorialNumbers);
     GameSession_SetTimeRemaining(m_save.sessionTimeRemaining);
 
@@ -2158,9 +2167,8 @@ void GameScene::InitializeStageEntities()
         try { stem = std::filesystem::path(mapPath).stem().string(); } catch (...) { stem = mapPath; }
         std::transform(stem.begin(), stem.end(), stem.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
 
-        // CSV 蜷阪↓ "forest" 縺ｾ縺溘・ "ruins" 繧貞性繧√※隴伜挨縺励※縺・ｋ縺ｨ縺ｮ縺薙→縺ｪ縺ｮ縺ｧ縺昴ｌ縺ｫ蜷医ｏ縺帙ｋ
-		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };//繝槭ャ繝励・CSV繝輔ぃ繧､繝ｫ蜷阪↓ "ruins" 繧貞性繧蝣ｴ蜷医・蟒・｢溘・閭梧勹縺ｨ蜑肴勹繧剃ｽｿ逕ｨ
-        if (stem.find("forest") != std::string::npos) return { "forest_bg", "forest_fg" };        // 繝・ヵ繧ｩ繝ｫ繝・
+		if (stem.find("ruins") != std::string::npos) return { "ruins_bg", "ruins_fg" };
+        if (stem.find("forest") != std::string::npos) return { "forest_bg", "forest_fg" };
         return { "forest_bg", "forest_fg" };
     };
 

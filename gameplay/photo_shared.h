@@ -15,6 +15,15 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
 
 void ApplyPreviewFilterTheme(CapturedPhotoItem& item);
 
+void DrawSepiaShutterItem(
+    int textureId,
+    float drawX,
+    float drawY,
+    float drawWidth,
+    float drawHeight,
+    bool flipX,
+    float rotation);
+
 bool DrawDamagePlatformItemPreview(
     const CapturedPhotoItem& item,
     float drawX,

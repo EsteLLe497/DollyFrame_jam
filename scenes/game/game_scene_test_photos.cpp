@@ -39,7 +39,7 @@ namespace
     constexpr std::array<TestPhotoInitialSetting, kGameSceneTestPhotoCount> kInitialTestPhotos =
     {{
             //                                                 X      Y      Size    アスペクト比維持のため変更すんな
-        { true, L"assets\\texture\\testUI\\UIprov_Camera.png", 23.0f, 23.0f, 200.0f, 96.0f },
+        { false, L"assets\\texture\\testUI\\UIprov_Camera.png", 23.0f, 23.0f, 200.0f, 96.0f },
         { false, L"", 0.0f, 0.0f, 0.0f, 0.0f },
         { false, L"", 0.0f, 0.0f, 0.0f, 0.0f },
         { false, L"", 0.0f, 0.0f, 0.0f, 0.0f },
