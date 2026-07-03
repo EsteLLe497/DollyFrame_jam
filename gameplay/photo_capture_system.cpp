@@ -248,9 +248,43 @@ namespace
         return assets.GetTexture(baseKey);
     }
 
+    int ResolveGearTextureId(const AssetManifest& assets, int gearNo, int fallbackTexture)
+    {
+        const char* textureKey = "star";
+        switch (gearNo)
+        {
+        case 2:
+            textureKey = "apple";
+            break;
+        case 3:
+            textureKey = "circle";
+            break;
+        case 4:
+            textureKey = "daikei";
+            break;
+        case 5:
+            textureKey = "haguruma";
+            break;
+        case 1:
+        default:
+            break;
+        }
+
+        const int textureId = assets.GetTexture(textureKey);
+        if (textureId >= 0)
+        {
+            return textureId;
+        }
+
+        const int defaultTextureId = assets.GetTexture("star");
+        return defaultTextureId >= 0 ? defaultTextureId : fallbackTexture;
+    }
+
     bool ApplySepiaRestoredMarkerCaptureSpec(
         const SepiaRubbleGroupComponent& sepiaGroup,
+        const AssetManifest& assets,
         int restoredTextureId,
+        int fallbackTexture,
         int textureId,
         int shutterTextureId,
         CapturedPhotoItem& item)
@@ -259,7 +293,7 @@ namespace
         {
         case 'M':
             item.spawnArchetype = CapturedSpawnArchetype::Log;
-            item.textureId = textureId;
+            item.textureId = fallbackTexture;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
@@ -272,7 +306,7 @@ namespace
             return true;
         case 'S':
             item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
-            item.textureId = textureId;
+            item.textureId = fallbackTexture;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
@@ -296,6 +330,8 @@ namespace
             item.tintA = 1.0f;
             item.sepiaRestoredMarkerObject = true;
             return true;
+        case '[':
+            item.spawnArchetype = CapturedSpawnArchetype::Gear;
         case 'J':
             item.spawnArchetype = CapturedSpawnArchetype::None;
             item.textureId = shutterTextureId;
@@ -307,6 +343,10 @@ namespace
             item.tintG = 1.0f;
             item.tintB = 1.0f;
             item.tintA = 1.0f;
+            item.gearNo = sepiaGroup.restoredMarkerParameter > 0
+                ? sepiaGroup.restoredMarkerParameter : 1;
+            item.textureId = ResolveGearTextureId(assets, item.gearNo, fallbackTexture);
+            item.sepiaRestoredMarkerObject = true;
             item.sepiaRestoredMarkerObject = true;
             item.sepiaShutterObject = true;
             return true;
@@ -903,6 +943,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         const bool capturedBattery = entity->GetComponent<BatteryComponent>() != nullptr && !capturedLog;
         const auto* gear = entity->GetComponent<GearComponent>();
+        if (gear && gear->functional && !gear->inserted)
+        {
+            continue;
+        }
         const bool capturedGear = gear != nullptr;
         const bool capturedWholeGear =
             capturedGear &&
@@ -1073,6 +1117,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             {
                 if (ApplySepiaRestoredMarkerCaptureSpec(
                     *sepiaGroup,
+                    scene.m_assets,
                     ResolveSepiaTextureId(scene.m_assets, true, sepiaGroup->imageNo),
                     scene.m_whiteTexture,
                     scene.m_assets.GetTexture("sepia_shutter_gate"),
