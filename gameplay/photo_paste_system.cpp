@@ -167,7 +167,7 @@ namespace
         }
     }
 
-    int GetTileTextureForPaste(int tileValue, int defaultTexture, int tileTexture2, int tileTexture3)
+    int GetTileTextureForPaste(int tileValue, int defaultTexture, int tileTexture2, int tileTexture3, int tileTexture4)
     {
         // Keep pasted tile visuals in sync with the TileMap renderer's special tile textures.
         if (tileValue == 2 && tileTexture2 >= 0)
@@ -178,6 +178,10 @@ namespace
         {
             return tileTexture3;
         }
+        if (tileValue == 4 && tileTexture4 >= 0)
+        {
+            return tileTexture4;
+        }
         return defaultTexture;
     }
 
@@ -185,15 +189,16 @@ namespace
         const CapturedPhotoItem& item,
         int defaultTexture,
         int tileTexture2,
-        int tileTexture3)
+        int tileTexture3,
+        int tileTexture4)
     {
         if (item.sourceTileValue > 0)
         {
-            return GetTileTextureForPaste(item.sourceTileValue, defaultTexture, tileTexture2, tileTexture3);
+            return GetTileTextureForPaste(item.sourceTileValue, defaultTexture, tileTexture2, tileTexture3, tileTexture4);
         }
         if (item.sepiaRestoredTileValue > 0)
         {
-            return GetTileTextureForPaste(item.sepiaRestoredTileValue, defaultTexture, tileTexture2, tileTexture3);
+            return GetTileTextureForPaste(item.sepiaRestoredTileValue, defaultTexture, tileTexture2, tileTexture3, tileTexture4);
         }
         return item.textureId >= 0 ? item.textureId : defaultTexture;
     }
@@ -554,6 +559,9 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                     Shader_SetTint(1.0f, 0.24f, 0.24f, 0.42f);
                 }
 
+                const float previewAlpha = item.spawnArchetype == CapturedSpawnArchetype::Log
+                    ? 1.0f
+                    : (scene.m_photo.placement.valid ? 0.55f : 0.42f);
                 photo_shared::DrawCapturedPhotoItem(
                     scene.m_tileTexture,
                     previewItem,
@@ -561,7 +569,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                     drawY,
                     drawWidth,
                     drawHeight,
-                    scene.m_photo.placement.valid ? 0.55f : 0.42f);
+                    previewAlpha);
 
                 if (item.spawnArchetype == CapturedSpawnArchetype::Barrel)
                 {
@@ -629,11 +637,11 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
             scene.m_photo.placement.valid ? GetColor(48, 58, 70) : GetColor(84, 50, 52),
             true);
 
-        SetDrawArea(
-            static_cast<int>(std::floor(filmLeft)),
-            static_cast<int>(std::floor(filmTop)),
-            static_cast<int>(std::ceil(filmLeft + filmWidth)),
-            static_cast<int>(std::ceil(filmTop + filmHeight)));
+            SetDrawArea(
+                static_cast<int>(std::floor(filmLeft)),
+                static_cast<int>(std::floor(filmTop)),
+                static_cast<int>(std::ceil(filmLeft + filmWidth)),
+                static_cast<int>(std::ceil(filmTop + filmHeight)));
 
         for (const auto& item : previewItems)
         {
@@ -661,6 +669,9 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 Shader_SetTint(1.0f, 0.24f, 0.24f, 0.42f);
             }
 
+            const float previewAlpha = item.spawnArchetype == CapturedSpawnArchetype::Log
+                ? 1.0f
+                : (scene.m_photo.placement.valid ? 0.55f : 0.42f);
             photo_shared::DrawCapturedPhotoItem(
                 scene.m_tileTexture,
                 previewItem,
@@ -668,7 +679,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 drawY,
                 drawWidth,
                 drawHeight,
-                scene.m_photo.placement.valid ? 0.55f : 0.42f);
+                previewAlpha);
 
             if (item.spawnArchetype == CapturedSpawnArchetype::Barrel)
             {
@@ -999,6 +1010,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 1,
                 99999.0f,
                 99999.0f);
+            spawnedLog->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
             spawnedLog->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
             if (auto* sprite = spawnedLog->GetComponent<SpriteRenderComponent>())
             {
@@ -1529,7 +1541,8 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 item,
                 scene.m_tileTexture,
                 scene.m_tileTexture2,
-                scene.m_tileTexture3));
+                scene.m_tileTexture3,
+                scene.m_tileTexture4));
             if (item.sepiaRestoredTileValue > 0)
             {
                 spawnedGround->AddComponent<PhotoCopyTileValueComponent>(item.sepiaRestoredTileValue);
@@ -1603,7 +1616,8 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             item,
             scene.m_tileTexture,
             scene.m_tileTexture2,
-            scene.m_tileTexture3));
+            scene.m_tileTexture3,
+            scene.m_tileTexture4));
         if (auto* sprite = lastSpawnedEntity->GetComponent<SpriteRenderComponent>())
         {
             sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);

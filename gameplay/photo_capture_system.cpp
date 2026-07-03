@@ -36,7 +36,7 @@ namespace
             animation->GetCurrentLocalFrameIndex() >= kShieldBossRushCaptureStartFrame;
     }
 
-    int GetTileTextureForCapture(int tileValue, int defaultTexture, int tileTexture2, int tileTexture3)
+    int GetTileTextureForCapture(int tileValue, int defaultTexture, int tileTexture2, int tileTexture3, int tileTexture4)
     {
         // Match captured tile visuals to the special tile textures used by the map renderer.
         if (tileValue == 2 && tileTexture2 >= 0)
@@ -47,6 +47,10 @@ namespace
         {
             return tileTexture3;
         }
+        if (tileValue == 4 && tileTexture4 >= 0)
+        {
+            return tileTexture4;
+        }
         return defaultTexture;
     }
 
@@ -55,11 +59,12 @@ namespace
         int defaultTexture,
         int tileTexture2,
         int tileTexture3,
+        int tileTexture4,
         CapturedPhotoItem& item)
     {
-        item.textureId = GetTileTextureForCapture(tileValue, defaultTexture, tileTexture2, tileTexture3);
+        item.textureId = GetTileTextureForCapture(tileValue, defaultTexture, tileTexture2, tileTexture3, tileTexture4);
         // Special tile textures already carry their own color, so keep their tint neutral.
-        if (tileValue == 2 || tileValue == 3)
+        if (tileValue == 2 || tileValue == 3 || tileValue == 4)
         {
             item.tintR = 1.0f;
             item.tintG = 1.0f;
@@ -1102,6 +1107,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     scene.m_tileTexture,
                     scene.m_tileTexture2,
                     scene.m_tileTexture3,
+                    scene.m_tileTexture4,
                     item);
                 item.sepiaRestoredTileValue = tileValue;
                 item.sourceTileValue = tileValue;
@@ -1696,6 +1702,7 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
                 scene.m_tileTexture,
                 scene.m_tileTexture2,
                 scene.m_tileTexture3,
+                scene.m_tileTexture4,
                 item);
             item.sourceTileValue = tileValue;
             scene.m_photo.capture.items.push_back(item);
