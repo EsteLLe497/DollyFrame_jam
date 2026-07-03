@@ -247,6 +247,33 @@ bool GameScene::IsShieldBossIntroCinematicActive() const
     return false;
 }
 
+bool GameScene::IsShieldBossBattleCameraActive() const
+{
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::ShieldBoss)
+        {
+            continue;
+        }
+        if (!enemy->IsEnabled() || enemy->IsDefeated())
+        {
+            continue;
+        }
+        if (boss->combatStarted && !boss->deathAnimationFinished)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void GameScene::DrawWorldAndUiLayers()
 {
     const bool hideUiForIntroCinematic = IsMidBoss3IntroCinematicActive() || IsShieldBossIntroCinematicActive();
@@ -313,6 +340,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
     DrawMerchantShopOverlay();
     DrawMapEditorOverlay();
     DrawTuningPanel();
+    DrawCameraStatusHud();
     DrawPlayerHpBar();
     DrawPartsHud();
     DrawMidBoss2HpBar();

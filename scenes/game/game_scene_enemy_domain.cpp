@@ -1930,6 +1930,11 @@ void GameScene::RemoveDefeatedEnemies()
             enemy->respawnEnabled = false;
             m_flow.shieldBossDefeatedThisScene = true;
         }
+        if (enemy->GetArchetype() == EnemyArchetype::MidBoss3)
+        {
+            GameSession_SetCameraFlashOwned(true);
+            m_ui.cameraFlash.unlocked = true;
+        }
         if (!enemy->respawnEnabled) continue;
 
         auto* transform = entity->GetComponent<TransformComponent>();

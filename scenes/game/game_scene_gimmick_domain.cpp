@@ -1222,6 +1222,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_camera.hasPreviousPlayerCameraProbe = false;
     m_camera.previousPlayerCameraProbeX = 0.0f;
     m_camera.previousPlayerCameraProbeY = 0.0f;
+    m_camera.cameraYRecenteringStrength = 0.0f;
     m_camera.floorCameraTransitionActive = false;
     m_camera.floorCameraTransitionElapsed = 0.0f;
     m_camera.floorCameraTransitionStartX = 0.0f;

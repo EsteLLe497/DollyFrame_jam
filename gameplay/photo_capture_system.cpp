@@ -285,6 +285,8 @@ namespace
         const AssetManifest& assets,
         int restoredTextureId,
         int fallbackTexture,
+        int textureId,
+        int shutterTextureId,
         CapturedPhotoItem& item)
     {
         switch (sepiaGroup.restoredMarkerType)
@@ -330,6 +332,9 @@ namespace
             return true;
         case '[':
             item.spawnArchetype = CapturedSpawnArchetype::Gear;
+        case 'J':
+            item.spawnArchetype = CapturedSpawnArchetype::None;
+            item.textureId = shutterTextureId;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
@@ -342,6 +347,8 @@ namespace
                 ? sepiaGroup.restoredMarkerParameter : 1;
             item.textureId = ResolveGearTextureId(assets, item.gearNo, fallbackTexture);
             item.sepiaRestoredMarkerObject = true;
+            item.sepiaRestoredMarkerObject = true;
+            item.sepiaShutterObject = true;
             return true;
         default:
             return false;
@@ -888,7 +895,6 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             HasTag(*entity, EntityTag::ConveyorBelt) ||
             HasTag(*entity, EntityTag::Elevator) ||
             HasTag(*entity, EntityTag::LaserSwitch) ||
-            HasTag(*entity, EntityTag::Shutter) ||
             HasTag(*entity, EntityTag::ProtectiveWall))
         {
             continue;
@@ -961,6 +967,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedVanishObject = vanishOnCapture && vanishOnCapture->enabled;
         const auto* sepiaRubble = entity->GetComponent<SepiaRubbleComponent>();
         const bool capturedSepiaRubble = sepiaRubble != nullptr;
+        const bool capturedShutter = HasTag(*entity, EntityTag::Shutter);
         const bool capturedMidBoss3FistRubble =
             sepiaRubble && sepiaRubble->source == SepiaRubbleSource::MidBoss3Fist;
         const bool capturedMidBoss3DrillRubble =
@@ -1112,7 +1119,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     *sepiaGroup,
                     scene.m_assets,
                     ResolveSepiaTextureId(scene.m_assets, true, sepiaGroup->imageNo),
-                    scene.m_whiteTexture, item))
+                    scene.m_whiteTexture,
+                    scene.m_assets.GetTexture("sepia_shutter_gate"),
+                    item))
                 {
                     item.relativeX = overlapLeft - frameX;
                     item.relativeY = overlapTop - frameY;
@@ -1123,6 +1132,15 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     item.sourceY = sprite->GetSourceY() + sprite->GetSourceHeight() * localTop;
                     item.sourceWidth = sprite->GetSourceWidth() * localWidth;
                     item.sourceHeight = sprite->GetSourceHeight() * localHeight;
+                    if (item.sepiaShutterObject)
+                    {
+                        item.textureId = scene.m_assets.GetTexture(
+                            item.width > item.height ? "sepia_shutter_gate_horizontal" : "sepia_shutter_gate");
+                        item.sourceX = 0.0f;
+                        item.sourceY = 0.0f;
+                        item.sourceWidth = 1.0f;
+                        item.sourceHeight = 1.0f;
+                    }
                     
                     scene.m_photo.capture.items.push_back(item);
                     scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
@@ -1136,6 +1154,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             }
         }
         if (capturedSepiaRubble && scene.m_photo.capture.selectedTheme != PhotoFilterTheme::Sepia)
+        {
+            continue;
+        }
+        if (capturedShutter && scene.m_photo.capture.selectedTheme != PhotoFilterTheme::Sepia)
         {
             continue;
         }
@@ -1260,10 +1282,19 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
             item.textureId = capturedNumericSepiaRubble
                 ? ResolveSepiaTextureId(scene.m_assets, true, sepiaGroup->imageNo)
-                : scene.m_assets.GetTexture("sepia_ground");
+                : scene.m_assets.GetTexture("sepia_rubble_stage");
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
+        }
+        else if (capturedShutter)
+        {
+            item.textureId = scene.m_assets.GetTexture(
+                targetWidth > targetHeight ? "sepia_shutter_gate_horizontal" : "sepia_shutter_gate");
+            item.role = PhotoCopyRole::Solid;
+            item.layer = PhotoCopyLayer::Foreground;
+            item.origin = PhotoCopyOrigin::Generic;
+            item.sepiaShutterObject = true;
         }
         else if (capturedShield)
         {
@@ -1355,6 +1386,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.tintG = tint->g;
             item.tintB = tint->b;
             item.tintA = tint->a;
+        }
+        if (capturedShutter)
+        {
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
+            item.tintA = 1.0f;
+            item.sourceX = 0.0f;
+            item.sourceY = 0.0f;
+            item.sourceWidth = 1.0f;
+            item.sourceHeight = 1.0f;
         }
         if (capturedShield)
         {
@@ -1509,7 +1551,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
         }
-        else if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !capturedSepiaRubble && !midBoss3Fist)
+        else if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !capturedSepiaRubble && !capturedShutter && !midBoss3Fist)
         {
             item.role = GetRoleFromTint(item.tintR, item.tintG, item.tintB);
             item.layer = GetLayerFromTint(item.tintR, item.tintG, item.tintB);
@@ -1530,7 +1572,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !midBoss3Fist)
+        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !capturedShutter && !midBoss3Fist)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }

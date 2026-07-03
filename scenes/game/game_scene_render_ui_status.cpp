@@ -10,7 +10,113 @@ using namespace game_scene_detail;
 
 namespace
 {
+    constexpr const char* kCameraBodyTextureKey = "ui_camera_body";
+    constexpr const char* kCameraNoFilterTextureKey = "ui_camera_nofilter";
+    constexpr const char* kCameraFlashOffTextureKey = "ui_camera_flash_off";
+    constexpr const char* kCameraFlashOnTextureKey = "ui_camera_flash_on";
+    constexpr const char* kCameraHealTextureKey = "ui_camera_heal";
     constexpr const char* kHpTextureKey = "ui_hp";
+    constexpr const char* kHpDamageTextureKey = "ui_hp_damage";
+
+    constexpr float kCameraHudX = 20.0f;
+    constexpr float kCameraHudY = 20.0f;
+    constexpr float kCameraHudWidth = 200.0f;
+    constexpr float kCameraHudHeight = 140.0f;
+    constexpr float kCameraSourceBodyWidth = 1980.0f;
+    constexpr float kCameraSourceBodyHeight = 1350.0f;
+    constexpr float kCameraSourceFlashX = 500.0f;
+    constexpr float kCameraSourceFlashOffY = 0.0f;
+    constexpr float kCameraSourceFlashOnY = -20.0f;
+    constexpr float kCameraSourceFlashWidth = 980.0f;
+    constexpr float kCameraSourceFlashOffHeight = 200.0f;
+    constexpr float kCameraSourceFlashOnHeight = 280.0f;
+    constexpr float kCameraFilterHudAnimationDuration = 0.86f;
+
+    float EaseOutCubic(float t)
+    {
+        t = std::clamp(t, 0.0f, 1.0f);
+        const float inv = 1.0f - t;
+        return 1.0f - inv * inv * inv;
+    }
+
+    float EaseInOut(float t)
+    {
+        t = std::clamp(t, 0.0f, 1.0f);
+        return t * t * (3.0f - 2.0f * t);
+    }
+
+    PhotoFilterTheme NormalizeCameraHudTheme(PhotoFilterTheme theme)
+    {
+        switch (theme)
+        {
+        case PhotoFilterTheme::Cold:
+        case PhotoFilterTheme::Sepia:
+            return theme;
+        case PhotoFilterTheme::None:
+        case PhotoFilterTheme::Hot:
+        case PhotoFilterTheme::Invert:
+        default:
+            return PhotoFilterTheme::None;
+        }
+    }
+
+    void DrawSepiaHudFilmEffect(float x, float y, float width, float height)
+    {
+        const int left = static_cast<int>(std::round(x));
+        const int top = static_cast<int>(std::round(y));
+        const int right = static_cast<int>(std::round(x + width));
+        const int bottom = static_cast<int>(std::round(y + height));
+        if (right <= left || bottom <= top)
+        {
+            return;
+        }
+
+        const int frame = GetNowCount() / 33;
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 96);
+        DrawBox(left, top, right, bottom, GetColor(176, 135, 42), TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 72);
+        DrawBox(left, top, right, bottom, GetColor(238, 202, 142), TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 86);
+        for (int i = 0; i < 7; ++i)
+        {
+            const int lineX = left + ((frame * 5 + i * 31) % std::max(1, right - left));
+            DrawLine(lineX, top + 6, lineX - 8, bottom - 8, GetColor(98, 72, 38));
+        }
+        for (int i = 0; i < 18; ++i)
+        {
+            const int dotX = left + ((frame * 11 + i * 23) % std::max(1, right - left));
+            const int dotY = top + ((frame * 7 + i * 19) % std::max(1, bottom - top));
+            DrawCircle(dotX, dotY, 1 + (i % 2), GetColor(255, 250, 222), TRUE);
+        }
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
+    void DrawCameraFilterSheet(PhotoFilterTheme theme, float x, float y, float width, float height, float alpha)
+    {
+        const PhotoFilterTheme normalizedTheme = NormalizeCameraHudTheme(theme);
+        if (normalizedTheme == PhotoFilterTheme::None || alpha <= 0.0f)
+        {
+            return;
+        }
+
+        const int blendAlpha = static_cast<int>(std::round(std::clamp(alpha, 0.0f, 1.0f) * 180.0f));
+        const int color = normalizedTheme == PhotoFilterTheme::Sepia
+            ? GetColor(205, 178, 68)
+            : GetColor(108, 255, 162);
+        const int lineColor = normalizedTheme == PhotoFilterTheme::Sepia
+            ? GetColor(98, 72, 38)
+            : GetColor(28, 142, 82);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, blendAlpha);
+        DrawBoxAA(x, y, x + width, y + height, color, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(alpha * 120.0f)));
+        for (int i = 0; i < 7; ++i)
+        {
+            const float lineY = y + 12.0f + i * (height - 24.0f) / 6.0f;
+            DrawLineAA(x + 14.0f, lineY, x + width - 14.0f, lineY + (i % 2 == 0 ? 4.0f : -3.0f), lineColor, 1.5f);
+        }
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
 
     unsigned int GetAttackCaptureIconColor(CapturedSpawnArchetype archetype)
     {
@@ -71,6 +177,139 @@ namespace
     }
 }
 
+void GameScene::DrawCameraStatusHud() const
+{
+    const int bodyTexture = m_assets.GetTexture(kCameraBodyTextureKey);
+    const int noFilterTexture = m_assets.GetTexture(kCameraNoFilterTextureKey);
+    const int flashOffTexture = m_assets.GetTexture(kCameraFlashOffTextureKey);
+    const int flashOnTexture = m_assets.GetTexture(kCameraFlashOnTextureKey);
+    const int healCameraTexture = m_assets.GetTexture(kCameraHealTextureKey);
+    const bool recoveryFilterOwned = GameSession_Get().hasRecoveryFilter;
+    if (bodyTexture < 0)
+    {
+        return;
+    }
+
+    const auto drawCamera = [&](PhotoFilterTheme theme, float x, float y, float alpha, bool drawFlashPart)
+    {
+        if (alpha <= 0.0f)
+        {
+            return;
+        }
+
+        const PhotoFilterTheme normalizedTheme = NormalizeCameraHudTheme(theme);
+        const bool drawHealCamera = normalizedTheme == PhotoFilterTheme::Cold && recoveryFilterOwned && healCameraTexture >= 0;
+        const bool drawSepiaCamera = normalizedTheme == PhotoFilterTheme::Sepia && noFilterTexture >= 0;
+        const int baseTexture = drawHealCamera
+            ? healCameraTexture
+            : drawSepiaCamera
+                ? noFilterTexture
+                : bodyTexture;
+
+        if (drawSepiaCamera)
+        {
+            DrawSepiaHudFilmEffect(x + 14.0f, y + 18.0f, kCameraHudWidth - 28.0f, kCameraHudHeight - 34.0f);
+        }
+
+        Shader_SetBlendMode(ShaderBlendMode2D::Alpha);
+        Shader_SetTint(1.0f, 1.0f, 1.0f, std::clamp(alpha, 0.0f, 1.0f));
+        SpriteDraw(
+            baseTexture,
+            x,
+            y,
+            kCameraHudWidth,
+            kCameraHudHeight,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
+
+        if (!drawHealCamera && !drawSepiaCamera && drawFlashPart && m_ui.cameraFlash.unlocked)
+        {
+            const bool flashActive =
+                m_ui.cameraFlash.enabled &&
+                m_ui.cameraFlash.pulseRemaining > 0.0f &&
+                flashOnTexture >= 0;
+            const int flashTexture = flashActive ? flashOnTexture : flashOffTexture;
+            if (flashTexture >= 0)
+            {
+                const float flashSourceY = flashActive ? kCameraSourceFlashOnY : kCameraSourceFlashOffY;
+                const float flashSourceHeight = flashActive ? kCameraSourceFlashOnHeight : kCameraSourceFlashOffHeight;
+                const float flashX = x + kCameraHudWidth * (kCameraSourceFlashX / kCameraSourceBodyWidth);
+                const float flashY = y + kCameraHudHeight * (flashSourceY / kCameraSourceBodyHeight);
+                const float flashWidth = kCameraHudWidth * (kCameraSourceFlashWidth / kCameraSourceBodyWidth);
+                const float flashHeight = kCameraHudHeight * (flashSourceHeight / kCameraSourceBodyHeight);
+                SpriteDraw(
+                    flashTexture,
+                    flashX,
+                    flashY,
+                    flashWidth,
+                    flashHeight,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    1.0f);
+            }
+        }
+    };
+
+    const float animationT = std::clamp(
+        m_ui.cameraFilterAnimationElapsed / kCameraFilterHudAnimationDuration,
+        0.0f,
+        1.0f);
+    const bool animating = animationT < 1.0f;
+    if (!animating)
+    {
+        drawCamera(m_photo.capture.selectedTheme, kCameraHudX, kCameraHudY, 1.0f, true);
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+        return;
+    }
+
+    const PhotoFilterTheme fromTheme = NormalizeCameraHudTheme(m_ui.cameraFilterAnimationFrom);
+    const PhotoFilterTheme toTheme = NormalizeCameraHudTheme(m_ui.cameraFilterAnimationTo);
+    const bool clearingFilter = fromTheme != PhotoFilterTheme::None && toTheme == PhotoFilterTheme::None;
+    const float cameraDownT = EaseInOut(std::min(animationT / 0.34f, 1.0f));
+    const float cameraReturnT = EaseInOut(std::clamp((animationT - 0.34f) / 0.28f, 0.0f, 1.0f));
+    const float cameraYOffset = 96.0f * (1.0f - cameraReturnT) * cameraDownT;
+
+    const float sheetWidth = kCameraHudWidth * 0.82f;
+    const float sheetHeight = kCameraHudHeight * 0.60f;
+    const float sheetTargetX = kCameraHudX + kCameraHudWidth * 0.08f;
+    const float sheetTargetY = kCameraHudY + 8.0f;
+
+    if (clearingFilter)
+    {
+        const bool switched = animationT >= 0.52f;
+        const PhotoFilterTheme visibleTheme = switched ? PhotoFilterTheme::None : fromTheme;
+        const float sheetRiseT = EaseInOut(std::min(animationT / 0.42f, 1.0f));
+        const float sheetExitT = EaseOutCubic(std::clamp((animationT - 0.42f) / 0.42f, 0.0f, 1.0f));
+        const float sheetBaseY = sheetTargetY + 36.0f;
+        const float sheetTopY = sheetTargetY - 8.0f;
+        const float sheetX = sheetTargetX;
+        const float sheetY = std::lerp(
+            std::lerp(sheetBaseY, sheetTopY, sheetRiseT),
+            -sheetHeight - 12.0f,
+            sheetExitT);
+        const float sheetAlpha = animationT < 0.84f ? 1.0f : 1.0f - std::clamp((animationT - 0.84f) / 0.16f, 0.0f, 1.0f);
+        DrawCameraFilterSheet(fromTheme, sheetX, sheetY, sheetWidth, sheetHeight, sheetAlpha);
+        drawCamera(visibleTheme, kCameraHudX, kCameraHudY + cameraYOffset, 1.0f, true);
+    }
+    else
+    {
+        const bool switched = animationT >= 0.62f;
+        const PhotoFilterTheme visibleTheme = switched ? toTheme : fromTheme;
+        const float sheetInT = EaseOutCubic(std::min(animationT / 0.34f, 1.0f));
+        const float sheetDropT = EaseInOut(std::clamp((animationT - 0.45f) / 0.30f, 0.0f, 1.0f));
+        const float sheetX = std::lerp(-sheetWidth - 12.0f, sheetTargetX, sheetInT);
+        const float sheetY = sheetTargetY + sheetDropT * 36.0f;
+        const float sheetAlpha = animationT < 0.80f ? 1.0f : 1.0f - std::clamp((animationT - 0.80f) / 0.20f, 0.0f, 1.0f);
+        DrawCameraFilterSheet(toTheme, sheetX, sheetY, sheetWidth, sheetHeight, sheetAlpha);
+        drawCamera(visibleTheme, kCameraHudX, kCameraHudY + cameraYOffset, 1.0f, true);
+    }
+
+    Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
 void GameScene::DrawPlayerHpBar() const
 {
     const Entity* player = FindEntityByTag(kTagPlayer);
@@ -86,6 +325,7 @@ void GameScene::DrawPlayerHpBar() const
     const float lagRatio = m_ui.hpUiInitialized ? m_ui.hpDamageLagRatio : targetRatio;
     const float flash = m_ui.hpDamageFlash;
     const int hpTexture = m_assets.GetTexture(kHpTextureKey);
+    const int hpDamageTexture = m_assets.GetTexture(kHpDamageTextureKey);
     if (hpTexture < 0)
     {
         return;
@@ -103,12 +343,13 @@ void GameScene::DrawPlayerHpBar() const
         const float slotFill = std::clamp(displayHp - static_cast<float>(slotIndex), 0.0f, 1.0f);
         const float slotLag = std::clamp(lagHp - static_cast<float>(slotIndex), 0.0f, 1.0f);
         const bool filled = currentHp > slotIndex;
+        const int heartTexture = filled || hpDamageTexture < 0 ? hpTexture : hpDamageTexture;
         const float heartX = slot.x + (slot.width - hpUi.heartSize) * 0.5f;
         const float heartY = slot.y + (slot.height - hpUi.heartSize) * 0.5f + hpUi.heartYOffset;
 
         Shader_SetTint(0.0f, 0.0f, 0.0f, filled ? 0.24f : 0.18f);
         SpriteDraw(
-            hpTexture,
+            heartTexture,
             heartX + hpUi.heartShadowOffsetX,
             heartY + hpUi.heartShadowOffsetY,
             hpUi.heartSize,
@@ -118,13 +359,20 @@ void GameScene::DrawPlayerHpBar() const
             1.0f,
             1.0f);
 
-        Shader_SetTint(
-            filled ? (1.0f - 0.03f * (1.0f - slotFill)) : 0.40f,
-            filled ? (0.42f + 0.14f * slotFill) : 0.14f,
-            filled ? (0.45f + 0.12f * slotFill) : 0.18f,
-            filled ? (0.96f + 0.04f * slotFill) : 0.32f);
+        if (filled)
+        {
+            Shader_SetTint(
+                1.0f - 0.03f * (1.0f - slotFill),
+                0.42f + 0.14f * slotFill,
+                0.45f + 0.12f * slotFill,
+                0.96f + 0.04f * slotFill);
+        }
+        else
+        {
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+        }
         SpriteDraw(
-            hpTexture,
+            heartTexture,
             heartX,
             heartY,
             hpUi.heartSize,
@@ -151,7 +399,7 @@ void GameScene::DrawPlayerHpBar() const
             Shader_SetBlendMode(ShaderBlendMode2D::Alpha);
         }
 
-        if (slotLag > slotFill)
+        if (filled && slotLag > slotFill)
         {
             Shader_SetBlendMode(ShaderBlendMode2D::Additive);
             Shader_SetTint(1.0f, 0.42f, 0.48f, 0.12f + 0.30f * (slotLag - slotFill));
@@ -168,23 +416,7 @@ void GameScene::DrawPlayerHpBar() const
             Shader_SetBlendMode(ShaderBlendMode2D::Alpha);
         }
 
-        if (slotIndex == 0)
-        {
-            DrawString(
-                static_cast<int>(std::round(slot.x + hpUi.labelOffsetX)),
-                static_cast<int>(std::round(slot.y + hpUi.labelOffsetY)),
-                "ライフ",
-                GetColor(196, 214, 236));
-        }
     }
-
-    DrawFormatString(
-        static_cast<int>(std::round(MakeHpSlotRect(m_ui.tuning, 0).x + hpUi.labelOffsetX)),
-        static_cast<int>(std::round(MakeHpSlotRect(m_ui.tuning, 0).y + hpUi.hpTextOffsetY)),
-        GetColor(255, 255, 255),
-        "HP %d / %d",
-        currentHp,
-        maxHp);
 
     if (flash > 0.0f)
     {

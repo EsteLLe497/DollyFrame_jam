@@ -123,6 +123,7 @@ struct CapturedPhotoItem
     int spikeStripTileSpan = 0;
     int sepiaRestoredTileValue = 0;
     bool sepiaRestoredMarkerObject = false;
+    bool sepiaShutterObject = false;
     float rotation = 0.0f;
     bool flipX = false;
     bool vanishOnCapture = false;
