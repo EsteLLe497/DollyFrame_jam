@@ -95,6 +95,79 @@ namespace
             items[1].origin == PhotoCopyOrigin::Tile;
     }
 
+    void DrawPlacementPhotoFrameTexture(
+        int frameTexture,
+        float left,
+        float top,
+        float width,
+        float height,
+        bool valid,
+        float alpha,
+        float rotation)
+    {
+        if (frameTexture < 0)
+        {
+            DrawRotatedPlacementRect(
+                left,
+                top,
+                width,
+                height,
+                rotation,
+                valid ? GetColor(244, 242, 234) : GetColor(236, 120, 120),
+                valid ? GetColor(222, 214, 196) : GetColor(255, 72, 72),
+                true);
+            return;
+        }
+
+        Shader_ResetStyle();
+        Shader_SetTint(1.0f, valid ? 1.0f : 0.28f, valid ? 1.0f : 0.28f, alpha);
+        SpriteDraw(
+            frameTexture,
+            left,
+            top,
+            width,
+            height,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f,
+            false,
+            rotation);
+        Shader_ResetStyle();
+    }
+
+    void DrawPlacementPhotoFilmTexture(
+        int filmTexture,
+        float left,
+        float top,
+        float width,
+        float height,
+        bool valid,
+        float alpha,
+        float rotation)
+    {
+        if (filmTexture < 0)
+        {
+            return;
+        }
+
+        Shader_ResetStyle();
+        Shader_SetTint(1.0f, valid ? 1.0f : 0.16f, valid ? 1.0f : 0.16f, alpha);
+        SpriteDraw(
+            filmTexture,
+            left,
+            top,
+            width,
+            height,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f,
+            false,
+            rotation);
+        Shader_ResetStyle();
+    }
+
     int GetPlacementPreviewRenderTarget(int width, int height)
     {
         struct RenderTargetState
@@ -480,15 +553,16 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
     const float frameCenterY = outerY + previewHeight * viewScale * 0.5f;
     const float framePad = std::max(8.0f, 10.0f * viewScale);
     const float filmPad = std::max(6.0f, 7.0f * viewScale);
-    const float polaroidBottomPad = std::max(14.0f, 18.0f * viewScale);
     const float paperWidth = contentWidth + framePad * 2.0f;
-    const float paperHeight = contentHeight + framePad * 2.0f + polaroidBottomPad;
+    const float paperHeight = contentHeight + framePad * 2.0f;
     const float paperLeft = frameCenterX - paperWidth * 0.5f;
     const float paperTop = frameCenterY - paperHeight * 0.5f;
     const float filmWidth = contentWidth + filmPad * 2.0f;
     const float filmHeight = contentHeight + filmPad * 2.0f;
     const float filmLeft = frameCenterX - filmWidth * 0.5f;
     const float filmTop = frameCenterY - filmHeight * 0.5f;
+    const int placementFrameTexture = scene.m_assets.GetTexture("ui_photo_frame");
+    const int placementFilmTexture = scene.m_assets.GetTexture("ui_photo_frame_film_brown");
     const bool usePolaroidComposite = IsPrintedPolaroidPreview(basePreviewItems);
     RECT previousDrawArea{};
     GetDrawArea(&previousDrawArea);
@@ -513,22 +587,15 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
             ClearDrawScreen();
 
             SetDrawBlendMode(DX_BLENDMODE_ALPHA, scene.m_photo.placement.valid ? 188 : 170);
-            DrawBoxAA(
+            DrawPlacementPhotoFrameTexture(
+                placementFrameTexture,
                 0.0f,
                 0.0f,
                 static_cast<float>(canvasWidth),
                 static_cast<float>(canvasHeight),
-                scene.m_photo.placement.valid ? GetColor(244, 242, 234) : GetColor(236, 220, 220),
-                TRUE);
-
-            SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
-            DrawBoxAA(
-                filmOffsetX,
-                filmOffsetY,
-                filmOffsetX + filmWidth,
-                filmOffsetY + filmHeight,
-                scene.m_photo.placement.valid ? GetColor(48, 58, 70) : GetColor(84, 50, 52),
-                TRUE);
+                scene.m_photo.placement.valid,
+                scene.m_photo.placement.valid ? 0.88f : 0.94f,
+                0.0f);
 
             SetDrawArea(
                 static_cast<int>(std::floor(filmOffsetX)),
@@ -609,6 +676,18 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 }
             }
 
+            SetDrawArea(0, 0, canvasWidth, canvasHeight);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, scene.m_photo.placement.valid ? 255 : 235);
+            DrawPlacementPhotoFilmTexture(
+                placementFilmTexture,
+                0.0f,
+                0.0f,
+                static_cast<float>(canvasWidth),
+                static_cast<float>(canvasHeight),
+                scene.m_photo.placement.valid,
+                1.0f,
+                0.0f);
+
             SetDrawArea(
                 previousDrawArea.left,
                 previousDrawArea.top,
@@ -626,6 +705,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 static_cast<double>(scene.m_photo.placement.rotation),
                 renderTarget,
                 TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
     }
     else
     {
@@ -638,25 +718,16 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
 
         // Fallback path if the offscreen preview target cannot be created.
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, scene.m_photo.placement.valid ? 188 : 170);
-        DrawRotatedPlacementRect(
+        DrawPlacementPhotoFrameTexture(
+            placementFrameTexture,
             paperLeft,
             paperTop,
             paperWidth,
             paperHeight,
-            scene.m_photo.placement.rotation,
-            scene.m_photo.placement.valid ? GetColor(244, 242, 234) : GetColor(236, 220, 220),
-            scene.m_photo.placement.valid ? GetColor(222, 214, 196) : GetColor(215, 170, 170),
-            true);
+            scene.m_photo.placement.valid,
+            scene.m_photo.placement.valid ? 0.88f : 0.94f,
+            scene.m_photo.placement.rotation);
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-        DrawRotatedPlacementRect(
-            filmLeft,
-            filmTop,
-            filmWidth,
-            filmHeight,
-            scene.m_photo.placement.rotation,
-            scene.m_photo.placement.valid ? GetColor(48, 58, 70) : GetColor(84, 50, 52),
-            scene.m_photo.placement.valid ? GetColor(48, 58, 70) : GetColor(84, 50, 52),
-            true);
 
             SetDrawArea(
                 static_cast<int>(std::floor(filmLeft)),
@@ -734,6 +805,23 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 SpriteDraw(scene.m_whiteTexture, drawX, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
             }
         }
+
+        SetDrawArea(
+            previousDrawArea.left,
+            previousDrawArea.top,
+            previousDrawArea.right,
+            previousDrawArea.bottom);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, scene.m_photo.placement.valid ? 255 : 235);
+        DrawPlacementPhotoFilmTexture(
+            placementFilmTexture,
+            paperLeft,
+            paperTop,
+            paperWidth,
+            paperHeight,
+            scene.m_photo.placement.valid,
+            1.0f,
+            scene.m_photo.placement.rotation);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
         SetDrawArea(
             previousDrawArea.left,
