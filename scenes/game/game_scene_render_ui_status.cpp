@@ -17,6 +17,8 @@ namespace
     constexpr const char* kCameraHealTextureKey = "ui_camera_heal";
     constexpr const char* kHpTextureKey = "ui_hp";
     constexpr const char* kHpDamageTextureKey = "ui_hp_damage";
+    constexpr const char* kPartsCounterPanelTextureKey = "ui_parts_counter_panel";
+    constexpr const char* kPartsCounterDigitsTextureKey = "ui_parts_counter_digits";
 
     constexpr float kCameraHudX = 20.0f;
     constexpr float kCameraHudY = 20.0f;
@@ -174,6 +176,75 @@ namespace
         }
 
         return CapturedSpawnArchetype::None;
+    }
+
+    void DrawParallelogramBarSegment(
+        float left,
+        float right,
+        float y,
+        float height,
+        float slant,
+        unsigned int color)
+    {
+        DrawQuadrangleAA(
+            left + slant,
+            y,
+            right + slant,
+            y,
+            right,
+            y + height,
+            left,
+            y + height,
+            color,
+            TRUE);
+    }
+
+    void DrawBossHpParallelogramGauge(
+        const GameSceneUiBossHpTuning& bossUi,
+        int currentHp,
+        int maxHp)
+    {
+        const float width = bossUi.panelWidth;
+        const float height = bossUi.barHeight;
+        const float slant = std::max(1.0f, bossUi.panelPadding);
+        const float marginRight = std::max(0.0f, bossUi.panelExtraHeight);
+        const float marginBottom = std::max(0.0f, bossUi.marginTop);
+        const float x = static_cast<float>(SCREEN_WIDTH) - width - slant - marginRight;
+        const float y = static_cast<float>(SCREEN_HEIGHT) - height - marginBottom;
+        const int segments = std::clamp(maxHp, 1, 12);
+        const float segmentWidth = width / static_cast<float>(segments);
+        const float fillRatio = std::clamp(static_cast<float>(currentHp) / static_cast<float>(std::max(1, maxHp)), 0.0f, 1.0f);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 188);
+        DrawParallelogramBarSegment(x - 5.0f, x + width + 5.0f, y - 6.0f, height + 12.0f, slant, GetColor(1, 6, 34));
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+        for (int i = 0; i < segments; ++i)
+        {
+            const float left = x + static_cast<float>(i) * segmentWidth + 1.0f;
+            const float right = x + static_cast<float>(i + 1) * segmentWidth - 1.0f;
+            const float segmentStart = static_cast<float>(i) / static_cast<float>(segments);
+            const float segmentEnd = static_cast<float>(i + 1) / static_cast<float>(segments);
+            const float segmentFill = std::clamp((fillRatio - segmentStart) / (segmentEnd - segmentStart), 0.0f, 1.0f);
+
+            DrawParallelogramBarSegment(left, right, y, height, slant, GetColor(31, 36, 58));
+            if (segmentFill > 0.0f)
+            {
+                const float fillRight = std::lerp(left, right, segmentFill);
+                DrawParallelogramBarSegment(left, fillRight, y, height, slant, GetColor(248, 250, 255));
+            }
+        }
+
+        for (int i = 1; i < segments; ++i)
+        {
+            const float lineX = x + static_cast<float>(i) * segmentWidth;
+            DrawLineAA(lineX + slant, y + 1.0f, lineX, y + height - 1.0f, GetColor(118, 126, 150), 1.3f);
+        }
+
+        DrawLineAA(x + slant, y, x + width + slant, y, GetColor(210, 220, 242), 1.2f);
+        DrawLineAA(x + width + slant, y, x + width, y + height, GetColor(210, 220, 242), 1.2f);
+        DrawLineAA(x + width, y + height, x, y + height, GetColor(210, 220, 242), 1.2f);
+        DrawLineAA(x, y + height, x + slant, y, GetColor(210, 220, 242), 1.2f);
     }
 }
 
@@ -448,62 +519,68 @@ void GameScene::DrawPlayerHpBar() const
 void GameScene::DrawPartsHud() const
 {
     const GameSessionState& session = GameSession_Get();
+    const float alpha = std::clamp(m_ui.partsHudAlpha, 0.0f, 1.0f);
+    if (alpha <= 0.0f)
+    {
+        return;
+    }
+
     const auto& partsUi = m_ui.tuning.partsHud;
     const float panelX = static_cast<float>(SCREEN_WIDTH) - partsUi.panelWidth - partsUi.marginRight;
-    const float panelY = static_cast<float>(SCREEN_HEIGHT) - partsUi.panelHeight - partsUi.marginBottom;
+    const float panelY = partsUi.marginTop;
+    const int panelTexture = m_assets.GetTexture(kPartsCounterPanelTextureKey);
+    const int digitsTexture = m_assets.GetTexture(kPartsCounterDigitsTextureKey);
 
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 204);
-    DrawBox(
-        static_cast<int>(std::round(panelX)),
-        static_cast<int>(std::round(panelY)),
-        static_cast<int>(std::round(panelX + partsUi.panelWidth)),
-        static_cast<int>(std::round(panelY + partsUi.panelHeight)),
-        GetColor(14, 20, 28),
-        TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    DrawBox(
-        static_cast<int>(std::round(panelX)),
-        static_cast<int>(std::round(panelY)),
-        static_cast<int>(std::round(panelX + partsUi.panelWidth)),
-        static_cast<int>(std::round(panelY + partsUi.panelHeight)),
-        GetColor(232, 214, 126),
-        FALSE);
+    Shader_ResetStyle();
+    Shader_SetTint(1.0f, 1.0f, 1.0f, alpha);
+    if (panelTexture >= 0)
+    {
+        SpriteDraw(
+            panelTexture,
+            panelX,
+            panelY,
+            partsUi.panelWidth,
+            partsUi.panelHeight,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
+    }
 
-    const float iconX = panelX + partsUi.iconX;
-    const float iconY = panelY + partsUi.iconY;
-    DrawBox(
-        static_cast<int>(std::round(iconX)),
-        static_cast<int>(std::round(iconY)),
-        static_cast<int>(std::round(iconX + partsUi.iconSize)),
-        static_cast<int>(std::round(iconY + partsUi.iconSize)),
-        GetColor(255, 214, 62),
-        TRUE);
-    DrawBox(
-        static_cast<int>(std::round(iconX + partsUi.iconInnerInset)),
-        static_cast<int>(std::round(iconY + partsUi.iconInnerInset)),
-        static_cast<int>(std::round(iconX + partsUi.iconSize - partsUi.iconInnerInset * 2.0f)),
-        static_cast<int>(std::round(iconY + partsUi.iconSize - partsUi.iconInnerInset * 2.0f)),
-        GetColor(255, 242, 148),
-        TRUE);
-    DrawBox(
-        static_cast<int>(std::round(iconX)),
-        static_cast<int>(std::round(iconY)),
-        static_cast<int>(std::round(iconX + partsUi.iconSize)),
-        static_cast<int>(std::round(iconY + partsUi.iconSize)),
-        GetColor(136, 92, 20),
-        FALSE);
+    if (digitsTexture >= 0)
+    {
+        constexpr int kDigitCount = 4;
+        constexpr float kDigitSourceWidth = 0.1f;
+        constexpr float kDigitStartXRatio = 0.344f;
+        constexpr float kDigitStartYRatio = 0.106f;
+        constexpr float kDigitStepXRatio = 0.139f;
+        constexpr float kDigitWidthRatio = 0.118f;
+        constexpr float kDigitHeightRatio = 0.780f;
 
-    DrawString(
-        static_cast<int>(std::round(panelX + partsUi.labelX)),
-        static_cast<int>(std::round(panelY + partsUi.labelY)),
-        "部品",
-        GetColor(220, 230, 236));
-    DrawFormatString(
-        static_cast<int>(std::round(panelX + partsUi.labelX)),
-        static_cast<int>(std::round(panelY + partsUi.valueY)),
-        GetColor(255, 246, 184),
-        "x %d",
-        session.parts);
+        const int clampedParts = std::clamp(session.parts, 0, 9999);
+        int divisor = 1000;
+        for (int index = 0; index < kDigitCount; ++index)
+        {
+            const int digit = (clampedParts / divisor) % 10;
+            divisor /= 10;
+            const float digitX = panelX + partsUi.panelWidth * (kDigitStartXRatio + kDigitStepXRatio * static_cast<float>(index));
+            const float digitY = panelY + partsUi.panelHeight * kDigitStartYRatio;
+            const float digitW = partsUi.panelWidth * kDigitWidthRatio;
+            const float digitH = partsUi.panelHeight * kDigitHeightRatio;
+            SpriteDraw(
+                digitsTexture,
+                digitX,
+                digitY,
+                digitW,
+                digitH,
+                static_cast<float>(digit) * kDigitSourceWidth,
+                0.0f,
+                kDigitSourceWidth,
+                1.0f);
+        }
+    }
+
+    Shader_ResetStyle();
 }
 
 void GameScene::DrawMidBoss2HpBar() const
@@ -547,6 +624,9 @@ void GameScene::DrawMidBoss2HpBar() const
     {
         return;
     }
+
+    DrawBossHpParallelogramGauge(m_ui.tuning.bossHp, currentHp, maxHp);
+    return;
 
     const auto& bossUi = m_ui.tuning.bossHp;
     const float panelWidth = bossUi.panelWidth + bossUi.panelPadding * 2.0f;
@@ -743,6 +823,9 @@ void GameScene::DrawMidBoss3HpBar() const
     {
         return;
     }
+
+    DrawBossHpParallelogramGauge(m_ui.tuning.bossHp, currentHp, maxHp);
+    return;
 
     const auto& bossUi = m_ui.tuning.bossHp;
     const float panelWidth = bossUi.panelWidth + bossUi.panelPadding * 2.0f;

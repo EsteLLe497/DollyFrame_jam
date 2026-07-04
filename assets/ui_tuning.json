@@ -20,12 +20,12 @@
     "tileOffsetMultiplier": 0.44999998807907104
   },
   "boss_hp": {
-    "barHeight": 24.0,
+    "barHeight": 26.0,
     "hpTextOffsetY": 4.0,
-    "marginTop": 30.0,
-    "panelExtraHeight": 38.0,
-    "panelPadding": 12.0,
-    "panelWidth": 360.0,
+    "marginTop": 42.0,
+    "panelExtraHeight": 34.0,
+    "panelPadding": 22.0,
+    "panelWidth": 420.0,
     "titleOffsetY": -18.0
   },
   "camera_flash_enabled": true,
@@ -163,9 +163,10 @@
     "labelX": 52.0,
     "labelY": 10.0,
     "marginBottom": 28.0,
-    "marginRight": 30.0,
-    "panelHeight": 58.0,
-    "panelWidth": 176.0,
+    "marginRight": 22.0,
+    "marginTop": 17.0,
+    "panelHeight": 90.0,
+    "panelWidth": 300.0,
     "valueY": 30.0
   },
   "photo_tray": {
@@ -173,15 +174,15 @@
     "emptyTextY": 35.0,
     "lockTextX": 14.0,
     "lockTextY": 36.0,
-    "previewPadding": 0.0,
-    "previewScale": 1.0800000429153442,
+    "previewPadding": 5.0,
+    "previewScale": 1.0,
     "revealSpeed": 12.0,
     "revealThreshold": 0.05000000074505806,
-    "slotGapX": 38.0,
-    "slotHeight": 105.0,
-    "slotStartX": 64.0,
-    "slotStartY": 906.0,
-    "slotWidth": 151.0
+    "slotGapX": 7.0,
+    "slotHeight": 115.0,
+    "slotStartX": 48.0,
+    "slotStartY": 920.0,
+    "slotWidth": 159.0
   },
   "stage_guide": {
     "x": 24.0,

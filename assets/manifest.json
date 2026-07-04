@@ -290,6 +290,38 @@
             "type": "file",
             "path": "assets/texture/ui/camera_heal.png"
         },
+        "ui_parts_counter_panel": {
+            "type": "file",
+            "path": "assets/texture/ui/parts_counter_panel.png"
+        },
+        "ui_parts_counter_digits": {
+            "type": "file",
+            "path": "assets/texture/ui/parts_counter_digits.png"
+        },
+        "ui_photo_frame": {
+            "type": "file",
+            "path": "assets/texture/ui/photo_frame.png"
+        },
+        "ui_photo_frame_film_brown": {
+            "type": "file",
+            "path": "assets/texture/ui/photo_frame_film_brown.png"
+        },
+        "ui_photo_frame_film_black": {
+            "type": "file",
+            "path": "assets/texture/ui/photo_frame_film_black.png"
+        },
+        "ui_photo_empty": {
+            "type": "file",
+            "path": "assets/texture/ui/photo_empty.png"
+        },
+        "ui_photo_album_outer": {
+            "type": "file",
+            "path": "assets/texture/ui/photo_album_outer.png"
+        },
+        "ui_photo_album_inner": {
+            "type": "file",
+            "path": "assets/texture/ui/photo_album_inner.png"
+        },
         "ui_hp": {
             "type": "file",
             "path": "assets/texture/testUI/UI_HP.png"

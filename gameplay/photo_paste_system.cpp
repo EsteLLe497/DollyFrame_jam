@@ -190,11 +190,16 @@ namespace
         int defaultTexture,
         int tileTexture2,
         int tileTexture3,
-        int tileTexture4)
+        int tileTexture4,
+        int sepiaGroundTexture)
     {
         if (item.sourceTileValue > 0)
         {
             return GetTileTextureForPaste(item.sourceTileValue, defaultTexture, tileTexture2, tileTexture3, tileTexture4);
+        }
+        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround && sepiaGroundTexture >= 0)
+        {
+            return sepiaGroundTexture;
         }
         if (item.sepiaRestoredTileValue > 0)
         {
@@ -536,6 +541,22 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 const auto& item = basePreviewItems[index];
                 CapturedPhotoItem previewItem = item;
                 photo_shared::ApplyPreviewFilterTheme(previewItem);
+                if (previewItem.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+                {
+                    const int sepiaGroundTexture = scene.m_assets.GetTexture("sepia_rubble_stage");
+                    if (sepiaGroundTexture >= 0)
+                    {
+                        previewItem.textureId = sepiaGroundTexture;
+                        previewItem.sourceX = 0.0f;
+                        previewItem.sourceY = 0.0f;
+                        previewItem.sourceWidth = 1.0f;
+                        previewItem.sourceHeight = 1.0f;
+                        previewItem.tintR = 1.0f;
+                        previewItem.tintG = 1.0f;
+                        previewItem.tintB = 1.0f;
+                        previewItem.tintA = 1.0f;
+                    }
+                }
 
                 const float drawX = contentOffsetX + item.relativeX * viewScale;
                 const float drawY = contentOffsetY + item.relativeY * viewScale;
@@ -647,6 +668,22 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         {
             CapturedPhotoItem previewItem = item;
             photo_shared::ApplyPreviewFilterTheme(previewItem);
+            if (previewItem.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+            {
+                const int sepiaGroundTexture = scene.m_assets.GetTexture("sepia_rubble_stage");
+                if (sepiaGroundTexture >= 0)
+                {
+                    previewItem.textureId = sepiaGroundTexture;
+                    previewItem.sourceX = 0.0f;
+                    previewItem.sourceY = 0.0f;
+                    previewItem.sourceWidth = 1.0f;
+                    previewItem.sourceHeight = 1.0f;
+                    previewItem.tintR = 1.0f;
+                    previewItem.tintG = 1.0f;
+                    previewItem.tintB = 1.0f;
+                    previewItem.tintA = 1.0f;
+                }
+            }
             const float drawX = viewOriginX + ((scene.m_photo.placement.x + item.relativeX) - scene.m_flow.cameraX) * viewScale;
             const float drawY = viewOriginY + ((scene.m_photo.placement.y + item.relativeY) - scene.m_flow.cameraY) * viewScale;
             const float drawWidth = item.width * viewScale;
@@ -1542,7 +1579,8 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 scene.m_tileTexture,
                 scene.m_tileTexture2,
                 scene.m_tileTexture3,
-                scene.m_tileTexture4));
+                scene.m_tileTexture4,
+                scene.m_assets.GetTexture("sepia_rubble_stage")));
             if (item.sepiaRestoredTileValue > 0)
             {
                 spawnedGround->AddComponent<PhotoCopyTileValueComponent>(item.sepiaRestoredTileValue);
@@ -1617,7 +1655,8 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             scene.m_tileTexture,
             scene.m_tileTexture2,
             scene.m_tileTexture3,
-            scene.m_tileTexture4));
+            scene.m_tileTexture4,
+            scene.m_assets.GetTexture("sepia_rubble_stage")));
         if (auto* sprite = lastSpawnedEntity->GetComponent<SpriteRenderComponent>())
         {
             sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
