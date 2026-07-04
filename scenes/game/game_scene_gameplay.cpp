@@ -4489,11 +4489,30 @@ void GameScene::UpdateSingleBattery(
     const float previousX = transform->x;
     const float previousY = transform->y;
 
-    const float fallVelocity = std::min(battery->maxFallSpeed, battery->velocityY + battery->gravity * deltaTime);
-    battery->velocityY = fallVelocity;
-    transform->y += battery->velocityY * deltaTime;
+    // 接地中は支持面を先に確認し、開始フレームの大きなdeltaTimeによる床抜けを防ぐ。
+    const bool keptGrounded =
+        battery->grounded &&
+        battery->velocityY <= 0.0f &&
+        TrySnapToGroundUsingPlatforms(*transform, gGroundSnapDistance, groundPlatforms);
+    float fallVelocity = 0.0f;
+    bool snapped = keptGrounded;
+    if (keptGrounded)
+    {
+        battery->velocityY = 0.0f;
+    }
+    else
+    {
+        fallVelocity = std::min(
+            battery->maxFallSpeed,
+            battery->velocityY + battery->gravity * deltaTime);
+        battery->velocityY = fallVelocity;
+        transform->y += battery->velocityY * deltaTime;
+        snapped = TrySnapToGroundUsingPlatforms(
+            *transform,
+            gGroundSnapDistance,
+            groundPlatforms);
+    }
 
-    const bool snapped = TrySnapToGroundUsingPlatforms(*transform, gGroundSnapDistance, groundPlatforms);
     battery->grounded = snapped;
     if (snapped && battery->velocityY > 0.0f)
     {

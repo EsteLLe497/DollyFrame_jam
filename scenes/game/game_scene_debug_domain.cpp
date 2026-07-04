@@ -114,6 +114,13 @@ void GameScene::DrawDebugUI()
         ImGui::DragFloat("濃淡のばらつき##volumetricFog", &fog.variation, 0.01f, 0.0f, 1.0f, "%.2f");
         ImGui::DragFloat("模様スケール##volumetricFog", &fog.noiseScale, 0.01f, 0.1f, 6.0f, "%.2f");
         ImGui::DragFloat("流れる速さ##volumetricFog", &fog.driftSpeed, 0.001f, 0.001f, 0.20f, "%.3f");
+        float fogColor[3] = { fog.fogColorR, fog.fogColorG, fog.fogColorB };
+        if (ImGui::ColorEdit3("霧の色##volumetricFog", fogColor))
+        {
+            fog.fogColorR = fogColor[0];
+            fog.fogColorG = fogColor[1];
+            fog.fogColorB = fogColor[2];
+        }
         ImGui::SeparatorText("光源位置");
         ImGui::TextUnformatted("0～1が霧矩形内、負数や1以上で画面外の光源になります。");
         ImGui::DragFloat(
@@ -131,6 +138,13 @@ void GameScene::DrawDebugUI()
             2.0f,
             "%.2f");
         ImGui::SeparatorText("ゴッドレイ");
+        float lightColor[3] = { fog.lightColorR, fog.lightColorG, fog.lightColorB };
+        if (ImGui::ColorEdit3("光条の色##volumetricFog", lightColor))
+        {
+            fog.lightColorR = lightColor[0];
+            fog.lightColorG = lightColor[1];
+            fog.lightColorB = lightColor[2];
+        }
         ImGui::DragFloat(
             "光条の強さ##volumetricFog",
             &fog.godRayIntensity,
@@ -172,6 +186,12 @@ void GameScene::DrawDebugUI()
             fog.variation = 0.72f;
             fog.noiseScale = 1.30f;
             fog.driftSpeed = 0.035f;
+            fog.fogColorR = 1.0f;
+            fog.fogColorG = 1.0f;
+            fog.fogColorB = 1.0f;
+            fog.lightColorR = 1.0f;
+            fog.lightColorG = 1.0f;
+            fog.lightColorB = 1.0f;
         }
         ImGui::SameLine();
         if (ImGui::Button("保存##volumetricFog"))

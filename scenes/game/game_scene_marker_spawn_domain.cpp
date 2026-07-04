@@ -1352,6 +1352,18 @@ void GameScene::RefreshBatteriesFromMarkers()
                 260.0f,
                 320.0f,
                 1);
+            // 開始直後の大きなdeltaTimeで床を抜けないよう、配置時点で接地を確定する。
+            auto* batteryTransform = battery->GetComponent<TransformComponent>();
+            auto* batteryComponent = battery->GetComponent<BatteryComponent>();
+            if (batteryTransform && batteryComponent)
+            {
+                batteryComponent->grounded = TrySnapToGround(
+                    *batteryTransform,
+                    tileSize * 0.25f);
+                batteryComponent->velocityY = 0.0f;
+                batteryComponent->spawnX = batteryTransform->x;
+                batteryComponent->spawnY = batteryTransform->y;
+            }
             if (m_lifecycle.darknessStageEnabled)
             {
                 AddUnderBatteryGlow(*battery);

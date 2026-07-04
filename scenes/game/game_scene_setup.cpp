@@ -229,6 +229,7 @@ namespace
     {
         return {
             { "enabled", tuning.enabled },
+            { "show_bounds", tuning.showBounds },
             { "position_x", tuning.positionX },
             { "position_y", tuning.positionY },
             { "width", tuning.width },
@@ -239,8 +240,14 @@ namespace
             { "variation", tuning.variation },
             { "noise_scale", tuning.noiseScale },
             { "drift_speed", tuning.driftSpeed },
+            { "fog_color_r", tuning.fogColorR },
+            { "fog_color_g", tuning.fogColorG },
+            { "fog_color_b", tuning.fogColorB },
             { "light_position_x", tuning.lightPositionX },
             { "light_position_y", tuning.lightPositionY },
+            { "light_color_r", tuning.lightColorR },
+            { "light_color_g", tuning.lightColorG },
+            { "light_color_b", tuning.lightColorB },
             { "god_ray_intensity", tuning.godRayIntensity },
             { "god_ray_length", tuning.godRayLength },
             { "god_ray_decay", tuning.godRayDecay },
@@ -258,6 +265,7 @@ namespace
         }
 
         tuning.enabled = root.value("enabled", tuning.enabled);
+        tuning.showBounds = root.value("show_bounds", tuning.showBounds);
         tuning.positionX = root.value("position_x", tuning.positionX);
         tuning.positionY = root.value("position_y", tuning.positionY);
         tuning.width = std::max(1.0f, root.value("width", tuning.width));
@@ -268,8 +276,14 @@ namespace
         tuning.variation = std::clamp(root.value("variation", tuning.variation), 0.0f, 1.0f);
         tuning.noiseScale = std::max(0.01f, root.value("noise_scale", tuning.noiseScale));
         tuning.driftSpeed = std::max(0.001f, root.value("drift_speed", tuning.driftSpeed));
+        tuning.fogColorR = std::clamp(root.value("fog_color_r", tuning.fogColorR), 0.0f, 1.0f);
+        tuning.fogColorG = std::clamp(root.value("fog_color_g", tuning.fogColorG), 0.0f, 1.0f);
+        tuning.fogColorB = std::clamp(root.value("fog_color_b", tuning.fogColorB), 0.0f, 1.0f);
         tuning.lightPositionX = root.value("light_position_x", tuning.lightPositionX);
         tuning.lightPositionY = root.value("light_position_y", tuning.lightPositionY);
+        tuning.lightColorR = std::clamp(root.value("light_color_r", tuning.lightColorR), 0.0f, 1.0f);
+        tuning.lightColorG = std::clamp(root.value("light_color_g", tuning.lightColorG), 0.0f, 1.0f);
+        tuning.lightColorB = std::clamp(root.value("light_color_b", tuning.lightColorB), 0.0f, 1.0f);
         tuning.godRayIntensity = std::max(
             0.0f,
             root.value("god_ray_intensity", tuning.godRayIntensity));

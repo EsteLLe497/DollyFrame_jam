@@ -588,8 +588,14 @@ struct GameSceneVolumetricFogTuning
     float variation = 0.72f;
     float noiseScale = 1.30f;
     float driftSpeed = 0.035f;
+    float fogColorR = 1.0f;
+    float fogColorG = 1.0f;
+    float fogColorB = 1.0f;
     float lightPositionX = 0.35f;
     float lightPositionY = -0.10f;
+    float lightColorR = 1.0f;
+    float lightColorG = 1.0f;
+    float lightColorB = 1.0f;
     float godRayIntensity = 2.20f;
     float godRayLength = 0.95f;
     float godRayDecay = 0.94f;

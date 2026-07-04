@@ -2564,10 +2564,12 @@ void GameScene::DrawBackdropBaseInView(
 {
     int bgTexture = m_camera.backdropTextureId >= 0 ? m_camera.backdropTextureId : m_assets.GetTexture("forest_bg");
     int bg1Texture = m_camera.backdropTexture1Id >= 0 ? m_camera.backdropTexture1Id : m_assets.GetTexture("forest_fg");
-    int bg2Texture = m_assets.GetTexture("forest1_bg");
+    // 森林専用の多重背景は、他ステージへ持ち込まない。
+    const bool drawForestLayers = m_lifecycle.forestStageEnabled;
+    int bg2Texture = drawForestLayers ? m_assets.GetTexture("forest1_bg") : -1;
     if (bgTexture < 0) bgTexture = m_assets.GetTexture("forest_bg");
     if (bg1Texture < 0) bg1Texture = m_assets.GetTexture("forest_fg");
-    if (bg2Texture < 0) bg2Texture = m_assets.GetTexture("forest1_bg");
+    if (drawForestLayers && bg2Texture < 0) bg2Texture = m_assets.GetTexture("forest1_bg");
 
     if (bgTexture < 0 || bg1Texture < 0)
     {
@@ -2696,35 +2698,45 @@ void GameScene::DrawBackdropBaseInView(
     // 背景前景（手前）を描画（Y を下にオフセット）
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
 
-    // BG_Forest.png だけ少し光度を落とす黒膜
-    constexpr int kForestBaseDarkenAlpha = 75; // 0-255。32=薄め、64=やや暗め
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, kForestBaseDarkenAlpha);
-    DrawBox(
-        static_cast<int>(std::round(viewOriginX)),
-        static_cast<int>(std::round(viewOriginY + bg1OffsetY)),
-        static_cast<int>(std::round(viewOriginX + drawW1)),
-        static_cast<int>(std::round(viewOriginY + bg1OffsetY + drawH1)),
-        GetColor(0, 0, 0),
-        TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    if (drawForestLayers)
+    {
+        // 森林背景だけ光度を落とし、白い霧と木のシルエットを見やすくする。
+        constexpr int kForestBaseDarkenAlpha = 75;
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, kForestBaseDarkenAlpha);
+        DrawBox(
+            static_cast<int>(std::round(viewOriginX)),
+            static_cast<int>(std::round(viewOriginY + bg1OffsetY)),
+            static_cast<int>(std::round(viewOriginX + drawW1)),
+            static_cast<int>(std::round(viewOriginY + bg1OffsetY + drawH1)),
+            GetColor(0, 0, 0),
+            TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
 
-    //int bg2Texture = m_assets.GetTexture("forest1_bg");
     if (bg2Texture >= 0)
     {
         const int texW2 = TextureGetWidth(bg2Texture);
         const int texH2 = TextureGetHeight(bg2Texture);
         if (texW2 > 0 && texH2 > 0)
         {
-            const float parallaxX2 = 0.65f; // 好みで調整
+            const float parallaxX2 = 0.65f;
             const float scrollU2 = calcScroll(m_flow.cameraX, parallaxX2, static_cast<float>(texW2));
-            const float scrollV2 = 0.0f;//calcScroll(-m_flow.cameraY, 0.45f, static_cast<float>(texH2));
             const float uSpan2 = viewWidth / static_cast<float>(texW2);
             const float vSpan2 = viewHeight / static_cast<float>(texH2);
-            drawTiledRepeating(bg2Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU2, scrollV2, uSpan2, vSpan2);
+            drawTiledRepeating(
+                bg2Texture,
+                viewOriginX,
+                viewOriginY,
+                viewWidth,
+                viewHeight,
+                scrollU2,
+                0.0f,
+                uSpan2,
+                vSpan2);
         }
     }
 
-    int bg3Texture = m_assets.GetTexture("forest2_bg");
+    int bg3Texture = drawForestLayers ? m_assets.GetTexture("forest2_bg") : -1;
     if (bg3Texture >= 0)
     {
         const int texW3 = TextureGetWidth(bg3Texture);
@@ -2740,7 +2752,7 @@ void GameScene::DrawBackdropBaseInView(
         }
     }
 
-    int bg4Texture = m_assets.GetTexture("forest3_bg");
+    int bg4Texture = drawForestLayers ? m_assets.GetTexture("forest3_bg") : -1;
     if (bg4Texture >= 0)
     {
         const int texW4 = TextureGetWidth(bg4Texture);

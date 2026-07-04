@@ -136,7 +136,7 @@ void GameScene::UpdatePostProcessPlayerLight() const
     const float screenX = GetViewOriginX() + (playerCenterX - m_flow.cameraX) * viewScale;
     const float screenY = GetViewOriginY() + (playerCenterY - m_flow.cameraY) * viewScale;
 
-    DirectXSetPostProcessPlayerLight(screenX, screenY, 0.42f, 22.0f, 156.0f);
+    DirectXSetPostProcessPlayerLight(screenX, screenY, 1.0f, 22.0f, 156.0f);
 }
 
 void GameScene::DrawLoadingScreen() const

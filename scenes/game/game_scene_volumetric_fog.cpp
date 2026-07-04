@@ -39,8 +39,14 @@ void GameScene::drawForestVolumetricFog() const
     params.variation = tuning.variation;
     params.noiseScale = tuning.noiseScale;
     params.driftSpeed = tuning.driftSpeed;
+    params.fogColorR = tuning.fogColorR;
+    params.fogColorG = tuning.fogColorG;
+    params.fogColorB = tuning.fogColorB;
     params.lightPositionX = tuning.lightPositionX;
     params.lightPositionY = tuning.lightPositionY;
+    params.lightColorR = tuning.lightColorR;
+    params.lightColorG = tuning.lightColorG;
+    params.lightColorB = tuning.lightColorB;
     params.lightIntensity = tuning.godRayIntensity;
     params.rayLength = tuning.godRayLength;
     params.rayDecay = tuning.godRayDecay;
