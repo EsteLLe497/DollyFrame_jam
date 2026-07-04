@@ -11,6 +11,8 @@ namespace
 {
     constexpr float kStageTransitionFadeInDuration = 1.10f;
     constexpr float kCameraFilterHudAnimationDuration = 0.86f;
+    constexpr float kPartsHudHoldSeconds = 2.0f;
+    constexpr float kPartsHudFadeSeconds = 0.45f;
 
     PhotoFilterTheme ResolveCameraFilterHudTheme(PhotoFilterTheme theme)
     {
@@ -88,7 +90,20 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
     m_ui.shutterFlashRemaining = std::max(0.0f, m_ui.shutterFlashRemaining - deltaTime);
     m_ui.cameraFlash.pulseRemaining = std::max(0.0f, m_ui.cameraFlash.pulseRemaining - deltaTime);
-    if (m_ui.cameraFilterAnimationElapsed < kCameraFilterHudAnimationDuration)
+    const int currentParts = GameSession_Get().parts;
+    if (m_ui.partsHudLastValue != currentParts)
+    {
+        m_ui.partsHudLastValue = currentParts;
+        m_ui.partsHudVisibleRemaining = kPartsHudHoldSeconds + kPartsHudFadeSeconds;
+        m_ui.partsHudAlpha = 1.0f;
+    }
+    else
+    {
+        m_ui.partsHudVisibleRemaining = std::max(0.0f, m_ui.partsHudVisibleRemaining - deltaTime);
+        m_ui.partsHudAlpha = m_ui.partsHudVisibleRemaining > kPartsHudFadeSeconds
+            ? 1.0f
+            : std::clamp(m_ui.partsHudVisibleRemaining / kPartsHudFadeSeconds, 0.0f, 1.0f);
+    }    if (m_ui.cameraFilterAnimationElapsed < kCameraFilterHudAnimationDuration)
     {
         m_ui.cameraFilterAnimationElapsed = std::min(
             kCameraFilterHudAnimationDuration,
@@ -168,5 +183,7 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
 
     m_ui.hpDamageFlash = std::max(0.0f, m_ui.hpDamageFlash - deltaTime * 4.5f);
 }
+
+
 
 

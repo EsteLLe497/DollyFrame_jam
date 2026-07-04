@@ -16,9 +16,9 @@ namespace game_scene_photo_storage_layout
 
     inline constexpr std::array<SlotRect, 3> kSlotRects =
     {{
-        { 68.0f, 906.0f, 149.0f, 96.0f },
-        { 253.0f, 906.0f, 149.0f, 96.0f },
-        { 441.5f, 906.0f, 149.0f, 96.0f },
+        { 48.0f, 920.0f, 159.0f, 115.0f },
+        { 214.0f, 920.0f, 159.0f, 115.0f },
+        { 380.0f, 920.0f, 159.0f, 115.0f },
     }};
 
     inline constexpr float kRevealThreshold = 0.05f;

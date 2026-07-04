@@ -430,7 +430,7 @@ namespace
 #define PHOTO_TRAY_FIELDS(F) F(slotStartX); F(slotStartY); F(slotWidth); F(slotHeight); F(slotGapX); F(previewPadding); F(previewScale); F(emptyTextX); F(emptyTextY); F(lockTextX); F(lockTextY); F(revealSpeed); F(revealThreshold)
 #define PHOTO_PREVIEW_FIELDS(F) F(lifetime); F(cardWidth); F(cardHeight); F(cardRightMargin); F(cardStartYOffset); F(cardCruiseY); F(cardShadowOffset); F(cardOutlineOffset); F(frameInset); F(imageHeight); F(imageTopStripHeight); F(imageMiddleStripY); F(cardRiseEase); F(cardPauseStart); F(cardPauseEnd); F(cardPauseAmplitude); F(cardOvershootY); F(popScale); F(orbLaunchXOffset); F(orbLaunchYOffset); F(orbControl1YOffset); F(orbControl2YOffset); F(orbControl2XOffset)
 #define HP_FIELDS(F) F(slotStartX); F(slotStartY); F(slotWidth); F(slotHeight); F(slotGapX); F(heartSize); F(heartYOffset); F(heartShadowOffsetX); F(heartShadowOffsetY); F(heartGlowExpand); F(heartLagGlowExpand); F(labelOffsetX); F(labelOffsetY); F(hpTextOffsetY); F(displayRiseSpeedDown); F(displayRiseSpeedUp); F(lagSpeed); F(flashDecaySpeed)
-#define PARTS_FIELDS(F) F(panelWidth); F(panelHeight); F(marginRight); F(marginBottom); F(iconX); F(iconY); F(iconSize); F(iconInnerInset); F(labelX); F(labelY); F(valueY)
+#define PARTS_FIELDS(F) F(panelWidth); F(panelHeight); F(marginRight); F(marginBottom); F(marginTop); F(iconX); F(iconY); F(iconSize); F(iconInnerInset); F(labelX); F(labelY); F(valueY)
 #define BOSS_FIELDS(F) F(panelWidth); F(barHeight); F(panelPadding); F(marginTop); F(panelExtraHeight); F(titleOffsetY); F(hpTextOffsetY)
 #define ATTACK_FIELDS(F) F(panelX); F(panelY); F(panelSize); F(iconRadius); F(titleX); F(titleY); F(countRightOffset); F(countBottomOffset)
 #define ESCAPE_FIELDS(F) F(panelWidth); F(panelHeight); F(rowStartOffset); F(rowHeight); F(rowPaddingX); F(rowBottomInset); F(titleX); F(titleY); F(helpY); F(rowTextX); F(rowTextY)
@@ -944,6 +944,7 @@ namespace
         root["sepiaRestoredTileValue"] = item.sepiaRestoredTileValue;
         root["sepiaRestoredMarkerObject"] = item.sepiaRestoredMarkerObject;
         root["sepiaShutterObject"] = item.sepiaShutterObject;
+        root["sepiaPlainRubbleObject"] = item.sepiaPlainRubbleObject;
         root["rotation"] = item.rotation;
         root["flipX"] = item.flipX;
         root["vanishOnCapture"] = item.vanishOnCapture;
@@ -999,6 +1000,7 @@ namespace
         item.sepiaRestoredTileValue = root.value("sepiaRestoredTileValue", item.sepiaRestoredTileValue);
         item.sepiaRestoredMarkerObject = root.value("sepiaRestoredMarkerObject", item.sepiaRestoredMarkerObject);
         item.sepiaShutterObject = root.value("sepiaShutterObject", item.sepiaShutterObject);
+        item.sepiaPlainRubbleObject = root.value("sepiaPlainRubbleObject", item.sepiaPlainRubbleObject);
         item.rotation = root.value("rotation", item.rotation);
         item.flipX = root.value("flipX", item.flipX);
         item.vanishOnCapture = root.value("vanishOnCapture", item.vanishOnCapture);

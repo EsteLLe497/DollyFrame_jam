@@ -439,7 +439,11 @@ bool ContainsShapePreservingItem(const std::vector<CapturedPhotoItem>& items)
 {
     for (const auto& item : items)
     {
-        if (item.sourceTileValue > 0 || !item.collisionOutline.empty() || item.lightRadius > 0.0f || item.sepiaShutterObject)
+        if (item.sourceTileValue > 0 ||
+            !item.collisionOutline.empty() ||
+            item.lightRadius > 0.0f ||
+            item.sepiaShutterObject ||
+            item.sepiaPlainRubbleObject)
         {
             return true;
         }
@@ -783,6 +787,14 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
 
 void ApplyPreviewFilterTheme(CapturedPhotoItem& item)
 {
+    if (item.sepiaRestoredMarkerObject ||
+        item.sepiaShutterObject ||
+        item.sepiaPlainRubbleObject ||
+        item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+    {
+        return;
+    }
+
     ApplyPhotoFilterThemeToPreviewItem(
         item.appliedTheme,
         item.origin,

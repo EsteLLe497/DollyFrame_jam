@@ -24,6 +24,22 @@ namespace
     constexpr float kStageTransitionFadeOutDuration = 0.45f;
     constexpr float kStageTransitionFadeInDuration = 1.10f;
     constexpr float kCaptureFinderBaseTilesX = 23.0f;
+    constexpr const char* kPhotoTrayFrameTextureKey = "ui_photo_frame";
+    constexpr const char* kPhotoTrayEmptyTextureKey = "ui_photo_empty";
+    constexpr const char* kPhotoTrayPhotoFilmTextureKey = "ui_photo_frame_film_black";
+    constexpr const char* kPhotoTrayEmptyFilmTextureKey = "ui_photo_frame_film_brown";
+    constexpr const char* kPhotoTrayOuterTextureKey = "ui_photo_album_outer";
+    constexpr const char* kPhotoTrayInnerTextureKey = "ui_photo_album_inner";
+    constexpr float kPhotoTrayOuterX = 20.0f;
+    constexpr float kPhotoTrayOuterY = 890.0f;
+    constexpr float kPhotoTrayOuterWidth = 549.0f;
+    constexpr float kPhotoTrayInnerX = 31.0f;
+    constexpr float kPhotoTrayInnerY = 906.0f;
+    constexpr float kPhotoTrayInnerWidth = 527.0f;
+    constexpr float kPhotoTrayPhotoInsetX = 5.0f;
+    constexpr float kPhotoTrayPhotoInsetY = 5.0f;
+    constexpr float kPhotoTrayPhotoWidth = 149.0f;
+    constexpr float kPhotoTrayPhotoHeight = 104.0f;
 
     float GetCaptureFinderScreenScale(float tileSize)
     {
@@ -36,6 +52,74 @@ namespace
             gCameraViewWidth,
             gCameraViewHeight,
             baseCameraZoomMultiplier);
+    }
+
+    void DrawAspectTexture(int textureId, float x, float y, float width)
+    {
+        if (textureId < 0)
+        {
+            return;
+        }
+
+        const int textureWidth = TextureGetWidth(textureId);
+        const int textureHeight = TextureGetHeight(textureId);
+        if (textureWidth <= 0 || textureHeight <= 0)
+        {
+            return;
+        }
+
+        const float height = width * static_cast<float>(textureHeight) / static_cast<float>(textureWidth);
+        SpriteDraw(textureId, x, y, width, height, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
+
+    void DrawPhotoTrayFilmStrips(int textureId, float x, float y, float width)
+    {
+        if (textureId < 0)
+        {
+            return;
+        }
+
+        const int textureWidth = TextureGetWidth(textureId);
+        const int textureHeight = TextureGetHeight(textureId);
+        if (textureWidth <= 0 || textureHeight <= 0)
+        {
+            return;
+        }
+
+        const float height = width * static_cast<float>(textureHeight) / static_cast<float>(textureWidth);
+        SpriteDraw(textureId, x, y, width, height, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
+
+    int ResolveSepiaFinderGearTextureId(const AssetManifest& assets, int gearNo, int fallbackTexture)
+    {
+        const char* textureKey = "star";
+        switch (gearNo)
+        {
+        case 2:
+            textureKey = "apple";
+            break;
+        case 3:
+            textureKey = "circle";
+            break;
+        case 4:
+            textureKey = "daikei";
+            break;
+        case 5:
+            textureKey = "haguruma";
+            break;
+        case 1:
+        default:
+            break;
+        }
+
+        const int textureId = assets.GetTexture(textureKey);
+        if (textureId >= 0)
+        {
+            return textureId;
+        }
+
+        const int defaultTextureId = assets.GetTexture("star");
+        return defaultTextureId >= 0 ? defaultTextureId : fallbackTexture;
     }
 
     constexpr float kTuningPanelX = 24.0f;
@@ -1162,14 +1246,16 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     DrawSepiaFilmDust(effectLeft, effectTop, effectRight, effectBottom, frame);
     DrawSepiaFilmScratches(effectLeft, effectTop, effectRight, effectBottom, frame);
     // フレーム内の瓦礫を足場テクスチャでプレビュー描画
+    SetDrawArea(effectLeft, effectTop, effectRight, effectBottom);
     for (Entity* entity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
     {
         if (!entity)
         {
             continue;
         }
-        
-        if (const auto* group = entity->GetComponent<SepiaRubbleGroupComponent>())
+
+        const auto* group = entity->GetComponent<SepiaRubbleGroupComponent>();
+        if (group)
         {
             if (group->isRestored)
             {
@@ -1181,17 +1267,48 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         {
             continue;
         }
-        const float overlapLeft = std::max(frameX, t->x);
-        const float overlapTop = std::max(frameY, t->y);
-        const float overlapRight = std::min(frameX + frameWidth, t->x + t->width * t->scale);
-        const float overlapBot = std::min(frameY + frameHeight, t->y + t->height * t->scale);
+
+        float objectWorldX0 = t->x;
+        float objectWorldY0 = t->y;
+        float objectWorldX = t->width * t->scale;
+        float objectWorldY = t->height * t->scale;
+        const bool restoredMarkerPreview = group && group->restoredMarkerType != '\0';
+        if (restoredMarkerPreview && group->markerType == '<')
+        {
+            const float tileSize = m_tileMap.GetTileSize();
+            if (tileSize > 0.0f)
+            {
+                const float groupWorldX = static_cast<float>(group->minColumn) * tileSize;
+                const float groupWorldY = static_cast<float>(group->minRow) * tileSize;
+                const float groupWorldW =
+                    static_cast<float>(group->maxColumn - group->minColumn + 1) * tileSize;
+                const float groupWorldH =
+                    static_cast<float>(group->maxRow - group->minRow + 1) * tileSize;
+
+                const bool isRepresentative =
+                    std::fabs(t->x - groupWorldX) <= 0.01f &&
+                    std::fabs(t->y - groupWorldY) <= 0.01f;
+                if (!isRepresentative)
+                {
+                    continue;
+                }
+
+                objectWorldX0 = groupWorldX;
+                objectWorldY0 = groupWorldY;
+                objectWorldX = groupWorldW;
+                objectWorldY = groupWorldH;
+            }
+        }
+
+        const float overlapLeft = std::max(frameX, objectWorldX0);
+        const float overlapTop = std::max(frameY, objectWorldY0);
+        const float overlapRight = std::min(frameX + frameWidth, objectWorldX0 + objectWorldX);
+        const float overlapBot = std::min(frameY + frameHeight, objectWorldY0 + objectWorldY);
         if (overlapRight - overlapLeft <= 1.0f || overlapBot - overlapTop <= 1.0f)
         {
             continue;
         }
         // フレームと重なった瓦礫部分のみを描画
-		const float objectWorldX = t->width * t->scale;
-		const float objectWorldY = t->height * t->scale;
         if (objectWorldX <= 0.0f || objectWorldY <= 0.0f)
         {
             continue;
@@ -1202,8 +1319,8 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         const float drawEntityY = GetViewOriginY() + (overlapTop - m_flow.cameraY) * viewScale;
         const float drawEntityW = overlapWidth * viewScale;
         const float drawEntityH = overlapHeight * viewScale;
-        const float sourceX = std::clamp((overlapLeft - t->x) / objectWorldX, 0.0f, 1.0f);
-        const float sourceY = std::clamp((overlapTop - t->y) / objectWorldY, 0.0f, 1.0f);
+        const float sourceX = std::clamp((overlapLeft - objectWorldX0) / objectWorldX, 0.0f, 1.0f);
+        const float sourceY = std::clamp((overlapTop - objectWorldY0) / objectWorldY, 0.0f, 1.0f);
         const float sourceW = std::clamp(overlapWidth / objectWorldX, 0.0f, 1.0f - sourceX);
         const float sourceH = std::clamp(overlapHeight / objectWorldY, 0.0f, 1.0f - sourceY);
         const auto* rubble = entity->GetComponent<SepiaRubbleComponent>();
@@ -1211,6 +1328,75 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
             rubble &&
             (rubble->source == SepiaRubbleSource::MidBoss3Fist ||
                 rubble->source == SepiaRubbleSource::MidBoss3Drill);
+        const bool plainRubble =
+            rubble &&
+            rubble->source == SepiaRubbleSource::Generic &&
+            (!group || group->restoredMarkerType == '\0');
+
+        if (restoredMarkerPreview && !attackRubble)
+        {
+            const float fullDrawX = GetViewOriginX() + (objectWorldX0 - m_flow.cameraX) * viewScale;
+            const float fullDrawY = GetViewOriginY() + (objectWorldY0 - m_flow.cameraY) * viewScale;
+            const float fullDrawW = objectWorldX * viewScale;
+            const float fullDrawH = objectWorldY * viewScale;
+            const char marker = static_cast<char>(
+                std::toupper(static_cast<unsigned char>(group->restoredMarkerType)));
+
+            Shader_ResetStyle();
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 0.92f);
+            if (marker == 'J')
+            {
+                const int shutterTexture = m_assets.GetTexture(
+                    objectWorldX > objectWorldY ? "sepia_shutter_gate_horizontal" : "sepia_shutter_gate");
+                photo_shared::DrawSepiaShutterItem(
+                    shutterTexture,
+                    fullDrawX,
+                    fullDrawY,
+                    fullDrawW,
+                    fullDrawH,
+                    false,
+                    0.0f);
+                Shader_ResetStyle();
+                continue;
+            }
+
+            int restoredTexture = m_assets.GetTexture("sepia_rubble_stage");
+            switch (marker)
+            {
+            case 'M':
+                restoredTexture = m_whiteTexture;
+                Shader_SetTint(0.54f, 0.34f, 0.16f, 0.92f);
+                break;
+            case 'S':
+                restoredTexture = m_whiteTexture;
+                Shader_SetTint(0.60f, 0.60f, 0.60f, 0.92f);
+                break;
+            case '[':
+                restoredTexture = ResolveSepiaFinderGearTextureId(
+                    m_assets,
+                    group->restoredMarkerParameter > 0 ? group->restoredMarkerParameter : 1,
+                    restoredTexture >= 0 ? restoredTexture : m_whiteTexture);
+                break;
+            case '+':
+                break;
+            default:
+                break;
+            }
+
+            SpriteDraw(
+                restoredTexture >= 0 ? restoredTexture : m_whiteTexture,
+                fullDrawX,
+                fullDrawY,
+                fullDrawW,
+                fullDrawH,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f);
+            Shader_ResetStyle();
+            continue;
+        }
+
         Shader_ResetStyle();
         if (attackRubble)
         {
@@ -1220,16 +1406,21 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         {
             Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
         }
+        const int plainRubbleTexture = m_assets.GetTexture("sepia_rubble_stage");
+        const int rubbleTexture = plainRubble && plainRubbleTexture >= 0
+            ? plainRubbleTexture
+            : m_assets.GetTexture("sepia_ground");
         SpriteDraw(
-            attackRubble ? m_whiteTexture : m_assets.GetTexture("sepia_ground"),
+            attackRubble ? m_whiteTexture : rubbleTexture,
             drawEntityX, drawEntityY,
             drawEntityW, drawEntityH,
-            attackRubble ? 0.0f : sourceX,
-            attackRubble ? 0.0f : sourceY,
-            attackRubble ? 1.0f : sourceW,
-            attackRubble ? 1.0f : sourceH);
+            attackRubble || plainRubble ? 0.0f : sourceX,
+            attackRubble || plainRubble ? 0.0f : sourceY,
+            attackRubble || plainRubble ? 1.0f : sourceW,
+            attackRubble || plainRubble ? 1.0f : sourceH);
 
     }
+    SetDrawAreaFull();
     Shader_ResetStyle();
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
@@ -2015,6 +2206,7 @@ void GameScene::DrawUiAdjustmentWindow()
         drag("高さ##parts", parts.panelHeight, 1.0f, 10.0f, 500.0f);
         drag("右余白##parts", parts.marginRight, 1.0f, -500.0f, 1000.0f);
         drag("下余白##parts", parts.marginBottom, 1.0f, -500.0f, 1000.0f);
+        drag("上余白##parts", parts.marginTop, 1.0f, -500.0f, 1000.0f);
         drag("アイコンX##parts", parts.iconX, 1.0f, -300.0f, 500.0f);
         drag("アイコンY##parts", parts.iconY, 1.0f, -300.0f, 500.0f);
         drag("アイコンサイズ##parts", parts.iconSize, 1.0f, 1.0f, 300.0f);
@@ -2029,11 +2221,9 @@ void GameScene::DrawUiAdjustmentWindow()
         auto& boss = tuning.bossHp;
         drag("バー幅##boss", boss.panelWidth, 1.0f, 20.0f, 2000.0f);
         drag("バー高さ##boss", boss.barHeight, 1.0f, 2.0f, 300.0f);
-        drag("パネル余白##boss", boss.panelPadding, 1.0f, 0.0f, 300.0f);
-        drag("上余白##boss", boss.marginTop, 1.0f, -500.0f, 2000.0f);
-        drag("追加高さ##boss", boss.panelExtraHeight, 1.0f, 0.0f, 500.0f);
-        drag("タイトルY##boss", boss.titleOffsetY, 1.0f, -300.0f, 500.0f);
-        drag("HP文字Y##boss", boss.hpTextOffsetY, 1.0f, -300.0f, 500.0f);
+        drag("斜め量##boss", boss.panelPadding, 1.0f, 0.0f, 300.0f);
+        drag("下余白##boss", boss.marginTop, 1.0f, -500.0f, 2000.0f);
+        drag("右余白##boss", boss.panelExtraHeight, 1.0f, 0.0f, 500.0f);
     }
 
     if (ImGui::CollapsingHeader("攻撃写真スロット"))
@@ -2424,10 +2614,13 @@ void GameScene::DrawPhotoStorageTray() const
     }
 
     const GameSessionState& session = GameSession_Get();
-    const auto& photoTray = m_ui.tuning.photoTray;
     const int unlockedSlotCount = std::clamp(session.photoStorageSlots, 0, 3);
     const int trayAlpha = static_cast<int>(std::round(255.0f * std::clamp(m_ui.photoTrayReveal, 0.0f, 1.0f)));
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, trayAlpha);
+    Shader_ResetStyle();
+
+    DrawAspectTexture(m_assets.GetTexture(kPhotoTrayOuterTextureKey), kPhotoTrayOuterX, kPhotoTrayOuterY, kPhotoTrayOuterWidth);
+    DrawAspectTexture(m_assets.GetTexture(kPhotoTrayInnerTextureKey), kPhotoTrayInnerX, kPhotoTrayInnerY, kPhotoTrayInnerWidth);
 
     for (int slotIndex = 0; slotIndex < 3; ++slotIndex)
     {
@@ -2435,74 +2628,57 @@ void GameScene::DrawPhotoStorageTray() const
         const bool slotIsPending = m_photo.pendingStore.active && m_photo.pendingStore.slotIndex == slotIndex;
         const PhotoCaptureState& storedCapture = slotIsPending ? m_photo.pendingStore.capture : m_photo.savedCaptures[slotIndex];
         const bool unlocked = slotIndex < unlockedSlotCount;
-        const bool selected = unlocked && slotIndex == m_photo.selectedCaptureSlot;
-        const unsigned int fillColor = !unlocked
-            ? GetColor(10, 14, 18)
-            : (selected ? GetColor(30, 42, 56) : GetColor(16, 22, 30));
-        const unsigned int outlineColor = !unlocked
-            ? GetColor(92, 100, 110)
-            : (selected ? GetColor(255, 234, 156) : GetColor(188, 204, 224));
-
-        DrawBox(
-            static_cast<int>(std::round(slot.x)),
-            static_cast<int>(std::round(slot.y)),
-            static_cast<int>(std::round(slot.x + slot.width)),
-            static_cast<int>(std::round(slot.y + slot.height)),
-            fillColor,
-            TRUE);
-        DrawBox(
-            static_cast<int>(std::round(slot.x)),
-            static_cast<int>(std::round(slot.y)),
-            static_cast<int>(std::round(slot.x + slot.width)),
-            static_cast<int>(std::round(slot.y + slot.height)),
-            outlineColor,
-            FALSE);
 
         if (!unlocked)
         {
-            DrawString(
-                static_cast<int>(std::round(slot.x + photoTray.lockTextX)),
-                static_cast<int>(std::round(slot.y + photoTray.lockTextY)),
-                "LOCK",
-                GetColor(160, 166, 174));
+            DrawAspectTexture(m_assets.GetTexture(kPhotoTrayEmptyTextureKey), slot.x, slot.y, slot.width);
+            DrawPhotoTrayFilmStrips(m_assets.GetTexture(kPhotoTrayEmptyFilmTextureKey), slot.x, slot.y, slot.width);
             continue;
         }
 
         if (!storedCapture.hasPhoto || storedCapture.items.empty())
         {
-            DrawString(
-                static_cast<int>(std::round(slot.x + photoTray.emptyTextX)),
-                static_cast<int>(std::round(slot.y + photoTray.emptyTextY)),
-                "EMPTY",
-                GetColor(146, 156, 170));
+            DrawAspectTexture(m_assets.GetTexture(kPhotoTrayEmptyTextureKey), slot.x, slot.y, slot.width);
+            DrawPhotoTrayFilmStrips(m_assets.GetTexture(kPhotoTrayEmptyFilmTextureKey), slot.x, slot.y, slot.width);
             continue;
         }
 
-        const float previewWidth = (slot.width - photoTray.previewPadding * 2.0f);
-        const float previewHeight = (slot.height - photoTray.previewPadding * 2.0f);
-        const float previewX = slot.x + (slot.width - previewWidth) * 0.5f;
-        const float previewY = slot.y + (slot.height - previewHeight) * 0.5f;
+        DrawAspectTexture(m_assets.GetTexture(kPhotoTrayFrameTextureKey), slot.x, slot.y, slot.width);
+
+        const float previewWidth = kPhotoTrayPhotoWidth;
+        const float previewHeight = kPhotoTrayPhotoHeight;
+        const float previewX = slot.x + kPhotoTrayPhotoInsetX;
+        const float previewY = slot.y + kPhotoTrayPhotoInsetY;
         const float scale = std::min(
             previewWidth / std::max(1.0f, storedCapture.width),
             previewHeight / std::max(1.0f, storedCapture.height));
-        const float previewScale = std::max(0.01f, photoTray.previewScale);
-        const float finalScale = scale * previewScale;
+        const float finalScale = scale;
         const float contentX = previewX + (previewWidth - storedCapture.width * finalScale) * 0.5f;
         const float contentY = previewY + (previewHeight - storedCapture.height * finalScale) * 0.5f;
 
-        DrawBox(
-            static_cast<int>(std::round(previewX)),
-            static_cast<int>(std::round(previewY)),
-            static_cast<int>(std::round(previewX + previewWidth)),
-            static_cast<int>(std::round(previewY + previewHeight)),
-            GetColor(10, 14, 18),
-            TRUE);
-
         for (const auto& item : storedCapture.items)
         {
+            CapturedPhotoItem previewItem = item;
+            if (previewItem.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+            {
+                const int sepiaGroundTexture = m_assets.GetTexture("sepia_rubble_stage");
+                if (sepiaGroundTexture >= 0)
+                {
+                    previewItem.textureId = sepiaGroundTexture;
+                    previewItem.sourceX = 0.0f;
+                    previewItem.sourceY = 0.0f;
+                    previewItem.sourceWidth = 1.0f;
+                    previewItem.sourceHeight = 1.0f;
+                    previewItem.tintR = 1.0f;
+                    previewItem.tintG = 1.0f;
+                    previewItem.tintB = 1.0f;
+                    previewItem.tintA = 1.0f;
+                }
+            }
+
             DrawCapturedPreviewItem(
                 m_tileTexture,
-                item,
+                previewItem,
                 contentX + item.relativeX * finalScale,
                 contentY + item.relativeY * finalScale,
                 item.width * finalScale,
@@ -2510,13 +2686,7 @@ void GameScene::DrawPhotoStorageTray() const
                 1.0f);
         }
 
-        DrawBox(
-            static_cast<int>(std::round(previewX)),
-            static_cast<int>(std::round(previewY)),
-            static_cast<int>(std::round(previewX + previewWidth)),
-            static_cast<int>(std::round(previewY + previewHeight)),
-            GetColor(215, 205, 180),
-            FALSE);
+        DrawPhotoTrayFilmStrips(m_assets.GetTexture(kPhotoTrayPhotoFilmTextureKey), slot.x, slot.y, slot.width);
     }
 
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
@@ -2548,8 +2718,6 @@ void GameScene::DrawBackdrop() const
     drawForestVolumetricFog();
 
     DrawCameraWorldInView(viewOriginX, viewOriginY, viewScale);
-
-    DrawPhotoFilterPanelInView();
 
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }

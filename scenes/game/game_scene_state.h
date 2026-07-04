@@ -203,12 +203,12 @@ struct GameSceneUiTutorialTuning
 
 struct GameSceneUiPhotoTrayTuning
 {
-    float slotStartX = 68.0f;
-    float slotStartY = 906.0f;
-    float slotWidth = 149.0f;
-    float slotHeight = 96.0f;
-    float slotGapX = 36.0f;
-    float previewPadding = 8.0f;
+    float slotStartX = 48.0f;
+    float slotStartY = 920.0f;
+    float slotWidth = 159.0f;
+    float slotHeight = 115.0f;
+    float slotGapX = 7.0f;
+    float previewPadding = 5.0f;
     float previewScale = 1.0f;
     float emptyTextX = 12.0f;
     float emptyTextY = 35.0f;
@@ -269,10 +269,11 @@ struct GameSceneUiHpTuning
 
 struct GameSceneUiPartsHudTuning
 {
-    float panelWidth = 176.0f;
-    float panelHeight = 58.0f;
-    float marginRight = 30.0f;
+    float panelWidth = 300.0f;
+    float panelHeight = 90.0f;
+    float marginRight = 22.0f;
     float marginBottom = 28.0f;
+    float marginTop = 17.0f;
     float iconX = 18.0f;
     float iconY = 17.0f;
     float iconSize = 22.0f;
@@ -284,11 +285,11 @@ struct GameSceneUiPartsHudTuning
 
 struct GameSceneUiBossHpTuning
 {
-    float panelWidth = 360.0f;
-    float barHeight = 24.0f;
-    float panelPadding = 12.0f;
-    float marginTop = 30.0f;
-    float panelExtraHeight = 38.0f;
+    float panelWidth = 420.0f;
+    float barHeight = 26.0f;
+    float panelPadding = 22.0f;
+    float marginTop = 42.0f;
+    float panelExtraHeight = 34.0f;
     float titleOffsetY = -18.0f;
     float hpTextOffsetY = 4.0f;
 };
@@ -486,6 +487,9 @@ struct GameSceneUiState
     float hpDamageFlash = 0.0f;
     int hpLastRaw = -1;
     bool hpUiInitialized = false;
+    int partsHudLastValue = -1;
+    float partsHudVisibleRemaining = 2.0f;
+    float partsHudAlpha = 1.0f;
     bool merchantShopOpen = false;
     int merchantSelection = 0;
     float merchantMessageTimer = 0.0f;

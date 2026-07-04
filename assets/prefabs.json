@@ -861,7 +861,7 @@
             },
             "health": {
                 "enabled": true,
-                "maxHp": 10
+                "maxHp": 20
             }
         },
         "sandbox_mid_boss3_fist": {

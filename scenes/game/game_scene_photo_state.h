@@ -124,6 +124,7 @@ struct CapturedPhotoItem
     int sepiaRestoredTileValue = 0;
     bool sepiaRestoredMarkerObject = false;
     bool sepiaShutterObject = false;
+    bool sepiaPlainRubbleObject = false;
     float rotation = 0.0f;
     bool flipX = false;
     bool vanishOnCapture = false;

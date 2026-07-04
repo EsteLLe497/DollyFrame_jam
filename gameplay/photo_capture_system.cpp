@@ -998,6 +998,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             continue;
         }
         auto* sepiaGroup = entity->GetComponent<SepiaRubbleGroupComponent>();
+        const bool capturedPlainSepiaRubble =
+            capturedSepiaRubble &&
+            sepiaRubble->source == SepiaRubbleSource::Generic &&
+            (!sepiaGroup || sepiaGroup->restoredMarkerType == '\0');
         const bool capturedNumericSepiaRubble = capturedSepiaRubble && sepiaGroup &&
                    sepiaGroup->markerType == '>' && sepiaGroup->restoredMarkerType == '\0';
         if (sepiaGroup && sepiaGroup->markerType == '<')
@@ -1096,9 +1100,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
 
 
                 item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
-                item.role = GetTileCopyRole(tileValue);
+                item.textureId = scene.m_assets.GetTexture("sepia_rubble_stage");
+                item.role = PhotoCopyRole::Solid;
                 item.layer = PhotoCopyLayer::Foreground;
-                item.origin = GetTileCopyOrigin(tileValue);
+                item.origin = PhotoCopyOrigin::Generic;
                 item.appliedTheme = scene.m_photo.capture.selectedTheme;
                 item.placementRuleGroup = PhotoPlacementRuleGroup::Group1;
                 item.relativeX = overlapLeft - frameX;
@@ -1110,15 +1115,11 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 item.sourceY = 0.0f;
                 item.sourceWidth = 1.0f;
                 item.sourceHeight = 1.0f;
-                ApplyCapturedTileTint(
-                    tileValue,
-                    scene.m_tileTexture,
-                    scene.m_tileTexture2,
-                    scene.m_tileTexture3,
-                    scene.m_tileTexture4,
-                    item);
-                item.sepiaRestoredTileValue = tileValue;
-                item.sourceTileValue = tileValue;
+                item.tintR = 1.0f;
+                item.tintG = 1.0f;
+                item.tintB = 1.0f;
+                item.tintA = 1.0f;
+                item.sepiaPlainRubbleObject = true;
 
                 scene.m_photo.capture.items.push_back(item);
                 scene.m_photo.capture.attackCaptureCount += item.enemyAttackPaste ? 1 : 0;
@@ -1132,7 +1133,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 if (ApplySepiaRestoredMarkerCaptureSpec(
                     *sepiaGroup,
                     scene.m_assets,
-                    ResolveSepiaTextureId(scene.m_assets, true, sepiaGroup->imageNo),
+                    scene.m_assets.GetTexture("sepia_rubble_stage"),
                     scene.m_whiteTexture,
                     scene.m_assets.GetTexture("sepia_shutter_gate"),
                     item))
@@ -1146,14 +1147,18 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     item.sourceY = sprite->GetSourceY() + sprite->GetSourceHeight() * localTop;
                     item.sourceWidth = sprite->GetSourceWidth() * localWidth;
                     item.sourceHeight = sprite->GetSourceHeight() * localHeight;
-                    if (item.sepiaShutterObject)
+                    if (item.sepiaRestoredMarkerObject)
                     {
-                        item.textureId = scene.m_assets.GetTexture(
-                            item.width > item.height ? "sepia_shutter_gate_horizontal" : "sepia_shutter_gate");
                         item.sourceX = 0.0f;
                         item.sourceY = 0.0f;
                         item.sourceWidth = 1.0f;
                         item.sourceHeight = 1.0f;
+
+                        if (item.sepiaShutterObject)
+                        {
+                            item.textureId = scene.m_assets.GetTexture(
+                                item.width > item.height ? "sepia_shutter_gate_horizontal" : "sepia_shutter_gate");
+                        }
                     }
                     
                     scene.m_photo.capture.items.push_back(item);
@@ -1294,9 +1299,12 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         else if (capturedSepiaRubble)
         {
             item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
-            item.textureId = capturedNumericSepiaRubble
-                ? ResolveSepiaTextureId(scene.m_assets, true, sepiaGroup->imageNo)
-                : scene.m_assets.GetTexture("sepia_rubble_stage");
+            item.textureId = scene.m_assets.GetTexture("sepia_rubble_stage");
+            if (capturedPlainSepiaRubble)
+            {
+                item.textureId = scene.m_assets.GetTexture("sepia_rubble_stage");
+                item.sepiaPlainRubbleObject = true;
+            }
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
@@ -1382,6 +1390,28 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if (capturedNumericSepiaRubble)
         {
             item.sepiaRestoredTileValue = sepiaGroup->restoredTileValue;
+            item.sourceTileValue = 0;
+            item.sourceX = 0.0f;
+            item.sourceY = 0.0f;
+            item.sourceWidth = 1.0f;
+            item.sourceHeight = 1.0f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
+            item.tintA = 1.0f;
+        }
+        if (item.sepiaPlainRubbleObject)
+        {
+            item.sepiaRestoredTileValue = 0;
+            item.sourceTileValue = 0;
+            item.sourceX = 0.0f;
+            item.sourceY = 0.0f;
+            item.sourceWidth = 1.0f;
+            item.sourceHeight = 1.0f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
+            item.tintA = 1.0f;
         }
         BuildCapturedOutlineFromEntity(*entity, localLeft, localTop, localWidth, localHeight, item.collisionOutline);
         if (damagePlatform)
