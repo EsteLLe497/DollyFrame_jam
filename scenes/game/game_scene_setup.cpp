@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "game_scene_internal.h"
+#include "forest_fog.h"
 
 #include "components_combat.h"
 
@@ -224,6 +225,68 @@ namespace
         return root;
     }
 
+    nlohmann::json buildVolumetricFogTuningJson(const GameSceneVolumetricFogTuning& tuning)
+    {
+        return {
+            { "enabled", tuning.enabled },
+            { "position_x", tuning.positionX },
+            { "position_y", tuning.positionY },
+            { "width", tuning.width },
+            { "height", tuning.height },
+            { "density", tuning.density },
+            { "opacity", tuning.opacity },
+            { "coverage", tuning.coverage },
+            { "variation", tuning.variation },
+            { "noise_scale", tuning.noiseScale },
+            { "drift_speed", tuning.driftSpeed },
+            { "light_position_x", tuning.lightPositionX },
+            { "light_position_y", tuning.lightPositionY },
+            { "god_ray_intensity", tuning.godRayIntensity },
+            { "god_ray_length", tuning.godRayLength },
+            { "god_ray_decay", tuning.godRayDecay },
+            { "god_ray_contrast", tuning.godRayContrast },
+        };
+    }
+
+    void loadVolumetricFogTuningJson(
+        const nlohmann::json& root,
+        GameSceneVolumetricFogTuning& tuning)
+    {
+        if (!root.is_object())
+        {
+            return;
+        }
+
+        tuning.enabled = root.value("enabled", tuning.enabled);
+        tuning.positionX = root.value("position_x", tuning.positionX);
+        tuning.positionY = root.value("position_y", tuning.positionY);
+        tuning.width = std::max(1.0f, root.value("width", tuning.width));
+        tuning.height = std::max(1.0f, root.value("height", tuning.height));
+        tuning.density = std::clamp(root.value("density", tuning.density), 0.0f, 1.0f);
+        tuning.opacity = std::clamp(root.value("opacity", tuning.opacity), 0.0f, 1.0f);
+        tuning.coverage = std::clamp(root.value("coverage", tuning.coverage), 0.0f, 1.0f);
+        tuning.variation = std::clamp(root.value("variation", tuning.variation), 0.0f, 1.0f);
+        tuning.noiseScale = std::max(0.01f, root.value("noise_scale", tuning.noiseScale));
+        tuning.driftSpeed = std::max(0.001f, root.value("drift_speed", tuning.driftSpeed));
+        tuning.lightPositionX = root.value("light_position_x", tuning.lightPositionX);
+        tuning.lightPositionY = root.value("light_position_y", tuning.lightPositionY);
+        tuning.godRayIntensity = std::max(
+            0.0f,
+            root.value("god_ray_intensity", tuning.godRayIntensity));
+        tuning.godRayLength = std::clamp(
+            root.value("god_ray_length", tuning.godRayLength),
+            0.0f,
+            1.5f);
+        tuning.godRayDecay = std::clamp(
+            root.value("god_ray_decay", tuning.godRayDecay),
+            0.0f,
+            1.0f);
+        tuning.godRayContrast = std::clamp(
+            root.value("god_ray_contrast", tuning.godRayContrast),
+            0.25f,
+            4.0f);
+    }
+
     void LoadMidBoss2TeleportSlotsJson(
         const nlohmann::json& slotsJson,
         std::array<MidBoss2Component::TeleportSlotConfig, 3>& slots)
@@ -325,6 +388,8 @@ namespace
         root["printed_photo_matte_inset"] = gPrintedPhotoMatteInset;
         root["pickup_time_bonus"] = gPickupTimeBonus;
         root["jump_pad_max_tilt_degrees"] = gJumpPadMaxTiltDegrees;
+        root["volumetric_fog"] =
+            buildVolumetricFogTuningJson(GetActiveGameScene()->Tuning().volumetricFog);
         root["mid_boss_2"] = BuildMidBoss2TuningJson(GetActiveGameScene()->Tuning().midBoss2Params);
         return root;
     }
@@ -807,6 +872,10 @@ namespace game_scene_detail
         gPickupTimeBonus = root.value("pickup_time_bonus", gPickupTimeBonus);
         gJumpPadMaxTiltDegrees = root.value("jump_pad_max_tilt_degrees", gJumpPadMaxTiltDegrees);
 
+        if (const auto it = root.find("volumetric_fog"); it != root.end())
+        {
+            loadVolumetricFogTuningJson(*it, GetActiveGameScene()->Tuning().volumetricFog);
+        }
         if (const auto it = root.find("mid_boss_2"); it != root.end())
         {
             LoadMidBoss2TuningJson(*it, GetActiveGameScene()->Tuning().midBoss2Params);
@@ -1574,6 +1643,10 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_eventBus.Reserve(128);
     m_eventBus.Clear();
     m_physicsWorld.Initialize(0.0f, 0.0f, m_eventBus);
+    if (!forestFog::initialize())
+    {
+        Logger::Warn("Failed to initialize forest volumetric fog.");
+    }
 }
 
 void GameScene::InitializeStageEntities()

@@ -3,6 +3,7 @@
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
 #include "audio.h"
+#include "forest_fog.h"
 
 using namespace game_scene_detail;
 
@@ -201,4 +202,5 @@ void GameScene::OnExit()
     releaseTutorialVideo(m_tutorial.videoPlayer);
     m_world.Clear();
     m_physicsWorld.Shutdown();
+    forestFog::finalize();
 }
