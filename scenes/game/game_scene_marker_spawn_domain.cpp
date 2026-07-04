@@ -2491,7 +2491,7 @@ void GameScene::RefreshHangingGravityObjectsFromMarkers()
             hangingObject->AddComponent<SpriteRenderComponent>(m_whiteTexture);
             auto& hanging = hangingObject->AddComponent<HangingGravityObjectComponent>(
                 gBarrelGravity,
-                gBarrelMaxFallSpeed,
+                500.0f,
                 gBarrelContactDamage);
             hanging.spawnX = objectX;
             hanging.spawnY = objectY;

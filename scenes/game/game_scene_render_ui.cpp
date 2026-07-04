@@ -1335,10 +1335,6 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
 
         if (restoredMarkerPreview && !attackRubble)
         {
-            const float fullDrawX = GetViewOriginX() + (objectWorldX0 - m_flow.cameraX) * viewScale;
-            const float fullDrawY = GetViewOriginY() + (objectWorldY0 - m_flow.cameraY) * viewScale;
-            const float fullDrawW = objectWorldX * viewScale;
-            const float fullDrawH = objectWorldY * viewScale;
             const char marker = static_cast<char>(
                 std::toupper(static_cast<unsigned char>(group->restoredMarkerType)));
 
@@ -1346,6 +1342,10 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
             Shader_SetTint(1.0f, 1.0f, 1.0f, 0.92f);
             if (marker == 'J')
             {
+                const float fullDrawX = GetViewOriginX() + (objectWorldX0 - m_flow.cameraX) * viewScale;
+                const float fullDrawY = GetViewOriginY() + (objectWorldY0 - m_flow.cameraY) * viewScale;
+                const float fullDrawW = objectWorldX * viewScale;
+                const float fullDrawH = objectWorldY * viewScale;
                 const int shutterTexture = m_assets.GetTexture(
                     objectWorldX > objectWorldY ? "sepia_shutter_gate_horizontal" : "sepia_shutter_gate");
                 photo_shared::DrawSepiaShutterItem(
@@ -1385,14 +1385,14 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
 
             SpriteDraw(
                 restoredTexture >= 0 ? restoredTexture : m_whiteTexture,
-                fullDrawX,
-                fullDrawY,
-                fullDrawW,
-                fullDrawH,
-                0.0f,
-                0.0f,
-                1.0f,
-                1.0f);
+                drawEntityX,
+                drawEntityY,
+                drawEntityW,
+                drawEntityH,
+                sourceX,
+                sourceY,
+                sourceW,
+                sourceH);
             Shader_ResetStyle();
             continue;
         }
@@ -1414,10 +1414,10 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
             attackRubble ? m_whiteTexture : rubbleTexture,
             drawEntityX, drawEntityY,
             drawEntityW, drawEntityH,
-            attackRubble || plainRubble ? 0.0f : sourceX,
-            attackRubble || plainRubble ? 0.0f : sourceY,
-            attackRubble || plainRubble ? 1.0f : sourceW,
-            attackRubble || plainRubble ? 1.0f : sourceH);
+            attackRubble ? 0.0f : sourceX,
+            attackRubble ? 0.0f : sourceY,
+            attackRubble ? 1.0f : sourceW,
+            attackRubble ? 1.0f : sourceH);
 
     }
     SetDrawAreaFull();
@@ -2665,10 +2665,6 @@ void GameScene::DrawPhotoStorageTray() const
                 if (sepiaGroundTexture >= 0)
                 {
                     previewItem.textureId = sepiaGroundTexture;
-                    previewItem.sourceX = 0.0f;
-                    previewItem.sourceY = 0.0f;
-                    previewItem.sourceWidth = 1.0f;
-                    previewItem.sourceHeight = 1.0f;
                     previewItem.tintR = 1.0f;
                     previewItem.tintG = 1.0f;
                     previewItem.tintB = 1.0f;

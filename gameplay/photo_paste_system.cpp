@@ -547,10 +547,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                     if (sepiaGroundTexture >= 0)
                     {
                         previewItem.textureId = sepiaGroundTexture;
-                        previewItem.sourceX = 0.0f;
-                        previewItem.sourceY = 0.0f;
-                        previewItem.sourceWidth = 1.0f;
-                        previewItem.sourceHeight = 1.0f;
                         previewItem.tintR = 1.0f;
                         previewItem.tintG = 1.0f;
                         previewItem.tintB = 1.0f;
@@ -674,10 +670,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 if (sepiaGroundTexture >= 0)
                 {
                     previewItem.textureId = sepiaGroundTexture;
-                    previewItem.sourceX = 0.0f;
-                    previewItem.sourceY = 0.0f;
-                    previewItem.sourceWidth = 1.0f;
-                    previewItem.sourceHeight = 1.0f;
                     previewItem.tintR = 1.0f;
                     previewItem.tintG = 1.0f;
                     previewItem.tintB = 1.0f;
@@ -1581,6 +1573,11 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 scene.m_tileTexture3,
                 scene.m_tileTexture4,
                 scene.m_assets.GetTexture("sepia_rubble_stage")));
+            if (auto* sprite = spawnedGround->GetComponent<SpriteRenderComponent>())
+            {
+                sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
+                sprite->SetFlipX(item.flipX);
+            }
             if (item.sepiaRestoredTileValue > 0)
             {
                 spawnedGround->AddComponent<PhotoCopyTileValueComponent>(item.sepiaRestoredTileValue);

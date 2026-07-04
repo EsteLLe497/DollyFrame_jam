@@ -1482,7 +1482,7 @@ bool GameScene::IsGroundPlatformEntity(const Entity& entity) const
     if (HasTag(entity, kTagHangingGravityObject))
     {
         const auto* hanging = entity.GetComponent<HangingGravityObjectComponent>();
-        return hanging && hanging->wireAttached && !hanging->destroyed;
+        return hanging && !hanging->destroyed;
     }
 
     return HasTag(entity, kTagPhotoSource) ||
