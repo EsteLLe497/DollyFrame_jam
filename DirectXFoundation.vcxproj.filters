@@ -96,6 +96,9 @@
     <ClCompile Include="rendering\directX.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="rendering\forest_fog.cpp">
+      <Filter>Source Files\Rendering</Filter>
+    </ClCompile>
     <ClCompile Include="core\entity.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -127,6 +130,9 @@
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
     <ClCompile Include="scenes\game\game_scene_render.cpp">
+      <Filter>Source Files\Scenes\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="scenes\game\game_scene_volumetric_fog.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
     <ClCompile Include="scenes\game\game_scene_render_ui_helpers.cpp">
@@ -453,6 +459,9 @@
       <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>
     <ClInclude Include="rendering\directX.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="rendering\forest_fog.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="DirectXTex.h">

@@ -96,6 +96,99 @@ void GameScene::DrawDebugUI()
     ImGui::Checkbox("衝突デバッグを表示", &m_debug.showCollisionDebug);
     ImGui::Checkbox("HPダメージを有効にする", &m_debug.playerHealthDamageEnabled);
 
+    if (ImGui::CollapsingHeader("ボリューム霧", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        auto& fog = m_tuning.volumetricFog;
+        ImGui::Checkbox("有効##volumetricFog", &fog.enabled);
+        ImGui::SameLine();
+        ImGui::Checkbox("範囲を表示##volumetricFog", &fog.showBounds);
+        ImGui::TextUnformatted("位置と大きさは、現在のゲーム画面左上からのピクセル値です。");
+        ImGui::DragFloat("X##volumetricFog", &fog.positionX, 1.0f, -1920.0f, 3840.0f, "%.1f px");
+        ImGui::DragFloat("Y##volumetricFog", &fog.positionY, 1.0f, -1080.0f, 2160.0f, "%.1f px");
+        ImGui::DragFloat("幅##volumetricFog", &fog.width, 1.0f, 1.0f, 3840.0f, "%.1f px");
+        ImGui::DragFloat("高さ##volumetricFog", &fog.height, 1.0f, 1.0f, 2160.0f, "%.1f px");
+        ImGui::SeparatorText("霧");
+        ImGui::DragFloat("密度##volumetricFog", &fog.density, 0.01f, 0.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("不透明度##volumetricFog", &fog.opacity, 0.01f, 0.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("画面を覆う割合##volumetricFog", &fog.coverage, 0.01f, 0.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("濃淡のばらつき##volumetricFog", &fog.variation, 0.01f, 0.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("模様スケール##volumetricFog", &fog.noiseScale, 0.01f, 0.1f, 6.0f, "%.2f");
+        ImGui::DragFloat("流れる速さ##volumetricFog", &fog.driftSpeed, 0.001f, 0.001f, 0.20f, "%.3f");
+        ImGui::SeparatorText("光源位置");
+        ImGui::TextUnformatted("0～1が霧矩形内、負数や1以上で画面外の光源になります。");
+        ImGui::DragFloat(
+            "光源X##volumetricFog",
+            &fog.lightPositionX,
+            0.01f,
+            -1.0f,
+            2.0f,
+            "%.2f");
+        ImGui::DragFloat(
+            "光源Y##volumetricFog",
+            &fog.lightPositionY,
+            0.01f,
+            -1.0f,
+            2.0f,
+            "%.2f");
+        ImGui::SeparatorText("ゴッドレイ");
+        ImGui::DragFloat(
+            "光条の強さ##volumetricFog",
+            &fog.godRayIntensity,
+            0.05f,
+            0.0f,
+            8.0f,
+            "%.2f");
+        ImGui::DragFloat(
+            "光条の長さ##volumetricFog",
+            &fog.godRayLength,
+            0.01f,
+            0.0f,
+            1.5f,
+            "%.2f");
+        ImGui::DragFloat(
+            "光条の減衰##volumetricFog",
+            &fog.godRayDecay,
+            0.005f,
+            0.0f,
+            1.0f,
+            "%.3f");
+        ImGui::DragFloat(
+            "光条のくっきり度##volumetricFog",
+            &fog.godRayContrast,
+            0.02f,
+            0.25f,
+            4.0f,
+            "%.2f");
+
+        if (ImGui::Button("全面まばら霧プリセット##volumetricFog"))
+        {
+            fog.positionX = 0.0f;
+            fog.positionY = 0.0f;
+            fog.width = static_cast<float>(kVirtualScreenWidth);
+            fog.height = static_cast<float>(kVirtualScreenHeight);
+            fog.density = 0.48f;
+            fog.opacity = 0.62f;
+            fog.coverage = 0.88f;
+            fog.variation = 0.72f;
+            fog.noiseScale = 1.30f;
+            fog.driftSpeed = 0.035f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("保存##volumetricFog"))
+        {
+            WriteTuningJsonFile();
+            m_debug.saveStatusMessage = "ボリューム霧設定を assets/tuning.json に保存しました。";
+            m_debug.saveStatusTimer = 3.0f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("再読込##volumetricFog"))
+        {
+            LoadTuningJsonFile();
+            m_debug.saveStatusMessage = "ボリューム霧設定を再読込しました。";
+            m_debug.saveStatusTimer = 3.0f;
+        }
+    }
+
     if (auto* player = FindEntityByTag(kTagPlayer))
     {
         if (auto* transform = player->GetComponent<TransformComponent>())

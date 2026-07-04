@@ -161,6 +161,7 @@
   "respawnX": 384.0,
   "respawnY": 2400.0,
   "sessionCurrentHp": 3,
+  "sessionHasCameraFlash": false,
   "sessionHasRecoveryFilter": false,
   "sessionMaxHp": 3,
   "sessionParts": 0,

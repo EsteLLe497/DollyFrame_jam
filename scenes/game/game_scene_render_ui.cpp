@@ -2544,6 +2544,9 @@ void GameScene::DrawBackdrop() const
 
     DrawBackdropFrameInView(viewOriginX, viewOriginY, viewWidth, viewHeight);
 
+    // 背景より手前、マップタイルより奥へボリューム霧を合成する。
+    drawForestVolumetricFog();
+
     DrawCameraWorldInView(viewOriginX, viewOriginY, viewScale);
 
     DrawPhotoFilterPanelInView();

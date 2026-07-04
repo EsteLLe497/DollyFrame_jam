@@ -92,6 +92,7 @@ private:
     void DrawWorldAndUiLayers();
     void DrawGameWorldLayers();
     void DrawGameUiLayers(bool hideUiForIntroCinematic);
+    void drawForestVolumetricFog() const;
     void ResetFrameRendering();
     bool IsMidBoss3IntroCinematicActive() const;
     bool IsShieldBossIntroCinematicActive() const;

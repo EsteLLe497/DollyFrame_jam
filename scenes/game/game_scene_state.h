@@ -571,6 +571,31 @@ struct GameSceneMapEditorState
     float statusMessageTimer = 0.0f;
 };
 
+// =========================================================
+// ボリューム霧のリアルタイム調整値
+// =========================================================
+struct GameSceneVolumetricFogTuning
+{
+    bool enabled = true;
+    bool showBounds = false;
+    float positionX = 0.0f;
+    float positionY = 0.0f;
+    float width = 1920.0f;
+    float height = 1080.0f;
+    float density = 0.48f;
+    float opacity = 0.62f;
+    float coverage = 0.88f;
+    float variation = 0.72f;
+    float noiseScale = 1.30f;
+    float driftSpeed = 0.035f;
+    float lightPositionX = 0.35f;
+    float lightPositionY = -0.10f;
+    float godRayIntensity = 2.20f;
+    float godRayLength = 0.95f;
+    float godRayDecay = 0.94f;
+    float godRayContrast = 1.70f;
+};
+
 struct GameSceneTuningState
 {
     float cameraViewWidth = 1120.0f;
@@ -615,6 +640,7 @@ struct GameSceneTuningState
     float pastedObjectLifetimeSeconds = 20.0f;
     float pastedObjectPasteAnimationSeconds = 0.24f;
     float jumpPadMaxTiltDegrees = 18.0f;
+    GameSceneVolumetricFogTuning volumetricFog;
     MidBoss2Component::Params midBoss2Params;
 };
 
