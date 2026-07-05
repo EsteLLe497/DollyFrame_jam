@@ -1240,7 +1240,7 @@ bool GameScene::ExecuteStageTransition(const std::string& destinationMapCsv, cha
     m_lifecycle.pendingStageTransitionMapCsv.clear();
     m_lifecycle.pendingStageTransitionSpawnMarker = '\0';
     m_lifecycle.pendingStageTransitionMarker = '\0';
-    m_lifecycle.shieldBossBgmCrossFadeStarted = false;
+    m_lifecycle.bossBgmCrossFadeStarted = false;
     m_flow.timeLimit = session.timeLimit;
     m_flow.timeRemaining = session.timeRemaining;
 

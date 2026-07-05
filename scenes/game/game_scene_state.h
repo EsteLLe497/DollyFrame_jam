@@ -672,7 +672,7 @@ struct GameSceneLifecycleState
     float loadingElapsed = 0.0f;
     float loadingProgress = 0.0f;
     std::string currentTileTextureKey = "tile_forest_ground";
-    bool shieldBossBgmCrossFadeStarted = false;
+    bool bossBgmCrossFadeStarted = false;
 };
 
 struct GameSceneRenderState

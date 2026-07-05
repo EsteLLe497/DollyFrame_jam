@@ -1311,7 +1311,7 @@ void GameScene::ResetSceneState()
     m_lifecycle.currentMapCsvPath = GameSession_GetStartMapCsvPath();
     m_lifecycle.lastStageTransitionMarker = '\0';
     m_lifecycle.currentTileTextureKey = "tile_forest_ground";
-    m_lifecycle.shieldBossBgmCrossFadeStarted = false;
+    m_lifecycle.bossBgmCrossFadeStarted = false;
     m_flow.timeLimit = 60.0f;
     m_flow.timeRemaining = m_flow.timeLimit;
     m_debug.saveStatusMessage.clear();
