@@ -117,6 +117,7 @@ private:
     std::string ResolveDefaultTileTextureKeyForCurrentMap() const;
     void BuildCameraMarkers();
     void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY = true);
+    void OffsetCameraX(bool facingRight, float deltaTime);
     void ApplyShieldBossSlamCameraWork(float deltaTime);
     void ApplyShieldBossFramingCameraWork(float deltaTime);
     bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
@@ -429,9 +430,11 @@ private:
         int shieldBossPendingCameraSide = 1;
         int shieldBossZoomTier = 0;
         bool shieldBossCameraBaseYInitialized = false;
+		float cameraOffsetX = 0.0f;
     };
 
     CameraRuntimeState m_camera;
     GameSceneLifecycleState m_lifecycle;
     static constexpr float easingTime = 0.35f;
+    float m_prevOffsetX = 0.0f;
 };
