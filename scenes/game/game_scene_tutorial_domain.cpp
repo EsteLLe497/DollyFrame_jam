@@ -11,6 +11,7 @@
 #include "misc/cpp/imgui_stdlib.h"
 #include "shader.h"
 #include "sprite.h"
+#include "texture.h"
 #include "tutorial_ui_controls.h"
 
 using namespace game_scene_detail;
@@ -184,41 +185,45 @@ namespace
         Shader_ResetStyle();
     }
 
-    void DrawTutorialFrame(int textureId, float x, float y, float width, float height)
+    // =========================================================
+    // 元画像の縦横比を維持して指定範囲の中央へ描画
+    // =========================================================
+    void drawTutorialImageAspectFit(
+        int textureId,
+        float x,
+        float y,
+        float maxWidth,
+        float maxHeight,
+        float alpha = 1.0f)
     {
-        if (textureId < 0 || width <= 0.0f || height <= 0.0f)
+        if (textureId < 0 || maxWidth <= 0.0f || maxHeight <= 0.0f)
         {
             return;
         }
 
-        constexpr float sourceBorderU = 0.10f;
-        constexpr float sourceBorderV = 0.22f;
-        const float borderX = std::min(width * 0.24f, 100.0f);
-        const float borderY = std::min(height * 0.24f, 100.0f);
-        const float destinationXs[4] = { x, x + borderX, x + width - borderX, x + width };
-        const float destinationYs[4] = { y, y + borderY, y + height - borderY, y + height };
-        const float sourceUs[4] = { 0.0f, sourceBorderU, 1.0f - sourceBorderU, 1.0f };
-        const float sourceVs[4] = { 0.0f, sourceBorderV, 1.0f - sourceBorderV, 1.0f };
-
-        Shader_ResetStyle();
-        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
-        for (int row = 0; row < 3; ++row)
+        const int textureWidth = TextureGetWidth(textureId);
+        const int textureHeight = TextureGetHeight(textureId);
+        if (textureWidth <= 0 || textureHeight <= 0)
         {
-            for (int column = 0; column < 3; ++column)
-            {
-                SpriteDraw(
-                    textureId,
-                    destinationXs[column],
-                    destinationYs[row],
-                    destinationXs[column + 1] - destinationXs[column],
-                    destinationYs[row + 1] - destinationYs[row],
-                    sourceUs[column],
-                    sourceVs[row],
-                    sourceUs[column + 1] - sourceUs[column],
-                    sourceVs[row + 1] - sourceVs[row]);
-            }
+            return;
         }
-        Shader_ResetStyle();
+
+        const float scale = std::min(
+            maxWidth / static_cast<float>(textureWidth),
+            maxHeight / static_cast<float>(textureHeight));
+        const float drawWidth = static_cast<float>(textureWidth) * scale;
+        const float drawHeight = static_cast<float>(textureHeight) * scale;
+        const float drawX = x + (maxWidth - drawWidth) * 0.5f;
+        const float drawY = y + (maxHeight - drawHeight) * 0.5f;
+        DrawTutorialImage(textureId, drawX, drawY, drawWidth, drawHeight, alpha);
+    }
+
+    // =========================================================
+    // チュートリアル背景を元画像の比率を維持して描画
+    // =========================================================
+    void DrawTutorialFrame(int textureId, float x, float y, float width, float height)
+    {
+        drawTutorialImageAspectFit(textureId, x, y, width, height);
     }
 
     void DrawTutorialText(
@@ -550,7 +555,7 @@ void GameScene::DrawTutorialOverlay()
     }
 
     const auto& ui = m_ui.tuning.tutorial;
-    const int frameTexture = m_assets.GetTexture("tutorial_frame_window");
+    const int frameTexture = m_assets.GetTexture("ui_photo_frame");
     const int headingTexture = m_assets.GetTexture("tutorial_heading");
     const std::string contentTextureKey =
         windowPage && !windowPage->contentTextureKey.empty()
@@ -708,7 +713,12 @@ void GameScene::DrawTutorialOverlay()
                 DrawTutorialFrame(frameTexture, ui.frameX, ui.frameY, ui.frameWidth, ui.frameHeight);
                 break;
             case TutorialDrawKind::Heading:
-                DrawTutorialImage(headingTexture, ui.headingX, ui.headingY, ui.headingWidth, ui.headingHeight);
+                drawTutorialImageAspectFit(
+                    headingTexture,
+                    ui.headingX,
+                    ui.headingY,
+                    ui.headingWidth,
+                    ui.headingHeight);
                 break;
             case TutorialDrawKind::ContentImage:
                 if (prepareTutorialVideo(m_tutorial.videoPlayer, windowPage->contentVideoPath))

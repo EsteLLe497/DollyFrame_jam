@@ -77,8 +77,8 @@ namespace
     constexpr float kBossDefeatFinishHitStopSeconds = 0.08f;
     constexpr float kBossDefeatFinishShakeSeconds = 0.34f;
     constexpr float kBossDefeatFinishShakeAmplitude = 42.0f;
-    constexpr float kShieldBossStageBgmReturnDelaySeconds = 1.25f;
-    constexpr float kShieldBossStageBgmReturnCrossFadeSeconds = 1.6f;
+    constexpr float kBossStageBgmReturnDelaySeconds = 1.25f;
+    constexpr float kBossStageBgmReturnCrossFadeSeconds = 1.6f;
 
     float ResolveMidBoss3DamageDirection(const Entity& enemy, const Entity* sourceEntity)
     {
@@ -583,7 +583,7 @@ void GameScene::UpdateEnemies()
         if (m_flow.stageBgmCrossFadeDelayRemaining <= 0.0f)
         {
             m_flow.stageBgmCrossFadePending = false;
-            CrossFadeStageBgmForCurrentMap(kShieldBossStageBgmReturnCrossFadeSeconds);
+            CrossFadeStageBgmForCurrentMap(kBossStageBgmReturnCrossFadeSeconds);
         }
     }
 
@@ -727,7 +727,7 @@ void GameScene::UpdateEnemies()
                         m_flow.shieldBossDefeatedThisScene = true;
                         PlayShieldBossSoundCue("boss_forest_destroy");
                         m_flow.stageBgmCrossFadePending = true;
-                        m_flow.stageBgmCrossFadeDelayRemaining = kShieldBossStageBgmReturnDelaySeconds;
+                        m_flow.stageBgmCrossFadeDelayRemaining = kBossStageBgmReturnDelaySeconds;
 
                         if (const auto* transform = entity->GetComponent<TransformComponent>())
                         {
@@ -2249,6 +2249,12 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     if (defeatedThisHit)
     {
         cleanupMidBoss3Defeat(enemy);
+        if (enemyComponent->GetArchetype() == EnemyArchetype::MidBoss3)
+        {
+            // 森林ボスと同じ余韻を残してから、廃墟ステージBGMへ戻す。
+            m_flow.stageBgmCrossFadePending = true;
+            m_flow.stageBgmCrossFadeDelayRemaining = kBossStageBgmReturnDelaySeconds;
+        }
         if (enemyComponent->GetArchetype() == EnemyArchetype::ShieldBoss)
         {
             TriggerBossDefeatStartFeedback(m_flow);

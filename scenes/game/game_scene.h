@@ -104,7 +104,7 @@ private:
     void FinishLoading();
     void PlayStageBgmForCurrentMap();
     void CrossFadeStageBgmForCurrentMap(float durationSeconds);
-    void UpdateShieldBossBgmCue();
+    void UpdateBossBgmCue();
     void DrawLoadingScreen() const;
     void LoadTuningState();
     bool SaveUiTuningState();

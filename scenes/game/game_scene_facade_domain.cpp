@@ -133,7 +133,7 @@ void GameScene::FinalizeGameplayFrame(float effectiveGameplayDeltaTime)
     GameSession_SetTimeRemaining(m_flow.timeRemaining);
     RunGameplayFrame(effectiveGameplayDeltaTime);
     TryStartCameraTutorial();
-    UpdateShieldBossBgmCue();
+    UpdateBossBgmCue();
     if (Entity* player = FindEntityByTag(kTagPlayer))
     {
         game_scene_player_visual_system::UpdateAnimation(m_player, m_flow, *player, m_player.dodgeRemaining > 0.0f);

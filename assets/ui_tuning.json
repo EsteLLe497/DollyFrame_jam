@@ -193,8 +193,8 @@
     "bodyLayer": 30,
     "bodyLineSpacing": 54.0,
     "bodyWidth": 920.0,
-    "bodyX": 500.0,
-    "bodyY": 680.0,
+    "bodyX": 604.0,
+    "bodyY": 715.0,
     "contentImageHeight": 388.0,
     "contentImageLayer": 25,
     "contentImageWidth": 700.0,
@@ -237,11 +237,11 @@
     "promptFontSize": 28.0,
     "promptLayer": 40,
     "promptX": 850.0,
-    "promptY": 892.0,
+    "promptY": 957.0,
     "titleFontSize": 42.0,
     "titleLayer": 30,
-    "titleX": 824.0,
-    "titleY": 118.0
+    "titleX": 810.0,
+    "titleY": 124.0
   },
   "version": 1
 }

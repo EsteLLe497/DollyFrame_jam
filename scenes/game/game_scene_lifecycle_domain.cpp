@@ -151,7 +151,7 @@ void GameScene::FinishLoading()
 void GameScene::PlayStageBgmForCurrentMap()
 {
     // Select the BGM from the active map name so stage transitions update music.
-    m_lifecycle.shieldBossBgmCrossFadeStarted = false;
+    m_lifecycle.bossBgmCrossFadeStarted = false;
     Audio_PlayBgmCue(ResolveStageBgmCueName(m_lifecycle.currentMapCsvPath));
 }
 
@@ -161,22 +161,32 @@ void GameScene::CrossFadeStageBgmForCurrentMap(float durationSeconds)
     Audio_CrossFadeBgmCue(ResolveStageBgmCueName(m_lifecycle.currentMapCsvPath), durationSeconds);
 }
 
-void GameScene::UpdateShieldBossBgmCue()
+void GameScene::UpdateBossBgmCue()
 {
-    constexpr float kShieldBossBgmCrossFadeSeconds = 1.6f;
+    constexpr float kBossBgmCrossFadeSeconds = 1.6f;
 
-    if (m_lifecycle.shieldBossBgmCrossFadeStarted)
-    {
-        return;
-    }
-    if (!IsShieldBossIntroCinematicActive())
+    if (m_lifecycle.bossBgmCrossFadeStarted)
     {
         return;
     }
 
-    // Start the boss BGM when the black curtain appears for mid-boss 1.
-    m_lifecycle.shieldBossBgmCrossFadeStarted = true;
-    Audio_CrossFadeBgmCue("bgm_forest_boss", kShieldBossBgmCrossFadeSeconds);
+    const char* bossBgmCue = nullptr;
+    if (IsShieldBossIntroCinematicActive())
+    {
+        bossBgmCue = "bgm_forest_boss";
+    }
+    else if (IsMidBoss3IntroCinematicActive())
+    {
+        bossBgmCue = "bgm_ruins_boss";
+    }
+    if (!bossBgmCue)
+    {
+        return;
+    }
+
+    // ボス登場演出に合わせ、現在のステージBGMから対応するボスBGMへ切り替える。
+    m_lifecycle.bossBgmCrossFadeStarted = true;
+    Audio_CrossFadeBgmCue(bossBgmCue, kBossBgmCrossFadeSeconds);
 }
 
 void GameScene::OnExit()

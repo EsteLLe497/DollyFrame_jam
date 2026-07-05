@@ -50,6 +50,7 @@ namespace
         { "bgm_ruins", "assets/effects/Sound/Stage_BGM/ruins.wav" },
         { "bgm_under", "assets/effects/Sound/Stage_BGM/under.wav" },
         { "bgm_forest_boss", "assets/effects/Sound/Boss_BGM/forest_boss.wav" },
+        { "bgm_ruins_boss", "assets/effects/Sound/Boss_BGM/ruins_boss.wav" },
         { "boss_forest_attack2", "assets/effects/Sound/Boss_SE/Forest/attack2.wav" },
         { "boss_forest_boost", "assets/effects/Sound/Boss_SE/Forest/boost.wav" },
         { "boss_forest_dead", "assets/effects/Sound/Boss_SE/Forest/dead.wav" },
