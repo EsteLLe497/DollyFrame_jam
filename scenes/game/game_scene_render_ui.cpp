@@ -26,8 +26,8 @@ namespace
     constexpr float kCaptureFinderBaseTilesX = 23.0f;
     constexpr const char* kPhotoTrayFrameTextureKey = "ui_photo_frame";
     constexpr const char* kPhotoTrayEmptyTextureKey = "ui_photo_empty";
-    constexpr const char* kPhotoTrayPhotoFilmTextureKey = "ui_photo_frame_film_black";
-    constexpr const char* kPhotoTrayEmptyFilmTextureKey = "ui_photo_frame_film_brown";
+    constexpr const char* kPhotoTrayPhotoFilmTextureKey = "ui_photo_frame_film_brown";
+    constexpr const char* kPhotoTrayEmptyFilmTextureKey = "ui_photo_frame_film_black";
     constexpr const char* kPhotoTrayOuterTextureKey = "ui_photo_album_outer";
     constexpr const char* kPhotoTrayInnerTextureKey = "ui_photo_album_inner";
     constexpr float kPhotoTrayOuterX = 20.0f;
