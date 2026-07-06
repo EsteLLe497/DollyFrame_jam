@@ -517,6 +517,15 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
 
 }
 
+void GameScene::OffsetCameraX(bool facingRight, float deltaTime)
+{
+    const float offsetAmount = 100.0f;
+    const float targetOffsetX = facingRight ? offsetAmount : -offsetAmount;
+
+    const float blend = 1.0f - std::pow(0.0001f, deltaTime * 1.0f);
+    m_camera.cameraOffsetX = std::lerp(m_camera.cameraOffsetX, targetOffsetX, blend);
+}
+
 void GameScene::ApplyShieldBossSlamCameraWork(float deltaTime)
 {
     m_render.slamCameraZoomBoost = 0.0f;
@@ -2005,6 +2014,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         gCameraFollowY >= 0.5f &&
         !stabilizeMidBoss3CameraY &&
         !shieldBossCameraActive;
+    const bool offsetCameraX = !stabilizeMidBoss3CameraY && !shieldBossCameraActive;
     const float cameraYBeforeFollow = m_flow.cameraY;
     if (stabilizeMidBoss3CameraY)
     {
@@ -2036,7 +2046,9 @@ void GameScene::UpdatePlayer(float deltaTime)
         GetCameraFollowOffsetY(m_tileMap),
         deltaTime,
         gCameraFollowY >= 0.5f && !stabilizeMidBoss3CameraY,
-        !useDeadZoneVerticalCamera);
+        !useDeadZoneVerticalCamera,
+        !offsetCameraX,
+        m_camera.cameraOffsetX);
     if (stabilizeMidBoss3CameraY)
     {
         m_flow.cameraY = cameraYBeforeFollow;
@@ -2044,6 +2056,10 @@ void GameScene::UpdatePlayer(float deltaTime)
     if (useDeadZoneVerticalCamera)
     {
         UpdateCameraByMarkers(*transform, deltaTime);
+    }
+    if (offsetCameraX)
+    {
+        OffsetCameraX(m_player.facingRight, deltaTime);
     }
     else
     {

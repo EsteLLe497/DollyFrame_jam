@@ -501,10 +501,12 @@ inline void UpdateCamera(
     float cameraYOffsetY,
     float deltaTime,
     bool followY,
-    bool updateY = true)
+    bool updateY = true,
+    bool offsetX = false,
+    float cameraOffsetX = 0.0f)
 {
     const float targetX = std::clamp(
-        playerX + playerWidth * 0.5f - cameraVisibleWidth * 0.5f,
+        playerX + playerWidth * 0.5f - cameraVisibleWidth * 0.5f + cameraOffsetX,
         0.0f,
         std::max(0.0f, mapWidth - cameraVisibleWidth));
     const float followX = std::clamp(gCameraFollowSpeedX * deltaTime, 0.0f, 1.0f);
