@@ -462,10 +462,11 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     m_flow.cameraY = std::clamp(m_flow.cameraY, 0.0f, maxCameraY);
 
     const float cameraCenterY = m_flow.cameraY + visibleHeight * 0.5f;
-    const float deadZoneY = 100.0f;
+    const float deadZoneY = std::max(1.0f, gCameraDeadZoneY);
 
-    const float centerDeltaY = playerCenterY - cameraCenterY;
-    float targetCameraY = playerCenterY - visibleHeight * 0.5f;
+    const float targetPlayerCenterY = playerCenterY + gCameraTargetOffsetY;
+    const float centerDeltaY = targetPlayerCenterY - cameraCenterY;
+    float targetCameraY = targetPlayerCenterY - visibleHeight * 0.5f;
     targetCameraY = std::clamp(targetCameraY, 0.0f, maxCameraY);
     const bool movingCameraDown = targetCameraY > m_flow.cameraY;
 
@@ -480,12 +481,25 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
         movingCameraDown ? normalizedDeadZoneDistance : smoothedRecenteringStrength;
     if (movingCameraDown)
     {
-        m_camera.cameraYRecenteringStrength = targetRecenteringStrength;
+        if (gCameraDeadZoneDownStrengthResponse <= 0.001f)
+        {
+            m_camera.cameraYRecenteringStrength = targetRecenteringStrength;
+        }
+        else
+        {
+            const float strengthBlend = 1.0f - std::pow(
+                0.001f,
+                deltaTime * std::max(0.01f, gCameraDeadZoneDownStrengthResponse));
+            m_camera.cameraYRecenteringStrength +=
+                (targetRecenteringStrength - m_camera.cameraYRecenteringStrength) * strengthBlend;
+        }
     }
     else
     {
         const float strengthResponseSpeed =
-            targetRecenteringStrength > m_camera.cameraYRecenteringStrength ? 12.0f : 4.0f;
+            targetRecenteringStrength > m_camera.cameraYRecenteringStrength
+            ? std::max(0.01f, gCameraDeadZoneStrengthRiseResponse)
+            : std::max(0.01f, gCameraDeadZoneStrengthFallResponse);
         const float strengthBlend = 1.0f - std::pow(0.001f, deltaTime * strengthResponseSpeed);
         m_camera.cameraYRecenteringStrength +=
             (targetRecenteringStrength - m_camera.cameraYRecenteringStrength) * strengthBlend;
@@ -502,13 +516,13 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
     {
         const float maxStepY = std::max(
             0.0f,
-            kFixedCameraYFollowSpeed * deadZoneY * m_camera.cameraYRecenteringStrength * deltaTime);
+            gCameraDeadZoneDownMaxSpeedY * m_camera.cameraYRecenteringStrength * deltaTime);
         m_flow.cameraY += std::min(cameraDeltaY, maxStepY);
     }
     else
     {
         const float followRate = std::clamp(
-            kFixedCameraYFollowSpeed * m_camera.cameraYRecenteringStrength * deltaTime,
+            std::max(0.01f, gCameraDeadZoneFollowSpeedY) * m_camera.cameraYRecenteringStrength * deltaTime,
             0.0f,
             1.0f);
         m_flow.cameraY += cameraDeltaY * followRate;
@@ -517,12 +531,15 @@ void GameScene::UpdateCameraByMarkers(const TransformComponent& playerTransform,
 
 }
 
-void GameScene::OffsetCameraX(bool facingRight, float deltaTime)
+void GameScene::OffsetCameraX(bool facingRight, bool playerMovingHorizontally, float deltaTime)
 {
-    const float offsetAmount = 100.0f;
-    const float targetOffsetX = facingRight ? offsetAmount : -offsetAmount;
+    const float offsetAmount = std::max(0.0f, gCameraLookAheadOffsetX);
+    const float targetOffsetX = playerMovingHorizontally ? 0.0f : (facingRight ? offsetAmount : -offsetAmount);
 
-    const float blend = 1.0f - std::pow(0.0001f, deltaTime * 1.0f);
+    const float response = playerMovingHorizontally
+        ? std::max(0.01f, gCameraLookAheadReturnResponse)
+        : std::max(0.01f, gCameraLookAheadResponse);
+    const float blend = 1.0f - std::pow(0.001f, deltaTime * response);
     m_camera.cameraOffsetX = std::lerp(m_camera.cameraOffsetX, targetOffsetX, blend);
 }
 
@@ -2032,6 +2049,29 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_camera.midBoss3CameraYLock = 0.0f;
     }
 
+    const bool playerMovingHorizontally =
+        std::fabs(moveAxis) > 0.01f ||
+        std::fabs(m_player.velocityX) > 1.0f ||
+        isDodging;
+    if (offsetCameraX)
+    {
+        OffsetCameraX(m_player.facingRight, playerMovingHorizontally, deltaTime);
+    }
+    else
+    {
+        m_camera.cameraOffsetX = 0.0f;
+    }
+
+    const float viewScale = std::max(0.0001f, GetViewScale());
+    const float screenCenteredCameraWidth = std::clamp(
+        (static_cast<float>(SCREEN_WIDTH) - GetViewOriginX() * 2.0f) / viewScale,
+        1.0f,
+        gCameraViewWidth);
+    const float cameraFollowSpeedX =
+        playerMovingHorizontally && std::fabs(m_camera.cameraOffsetX) > 0.5f
+        ? std::min(gCameraFollowSpeedX, std::max(0.01f, gCameraLookAheadCatchUpSpeedX))
+        : gCameraFollowSpeedX;
+
     game_scene_player_movement_system::UpdateCamera(
         m_flow.cameraX,
         m_flow.cameraY,
@@ -2039,15 +2079,17 @@ void GameScene::UpdatePlayer(float deltaTime)
         transform->y,
         playerWidth,
         playerHeight,
-        GetCameraFollowSpanX(m_tileMap),
+        screenCenteredCameraWidth,
         GetCameraVisibleHeight(m_tileMap),
         mapWidth,
         mapHeight,
-        GetCameraFollowOffsetY(m_tileMap),
+        GetCameraFollowOffsetY(m_tileMap) + gCameraTargetOffsetY,
+        gCameraTargetOffsetX,
         deltaTime,
+        cameraFollowSpeedX,
         gCameraFollowY >= 0.5f && !stabilizeMidBoss3CameraY,
         !useDeadZoneVerticalCamera,
-        !offsetCameraX,
+        offsetCameraX,
         m_camera.cameraOffsetX);
     if (stabilizeMidBoss3CameraY)
     {
@@ -2057,11 +2099,7 @@ void GameScene::UpdatePlayer(float deltaTime)
     {
         UpdateCameraByMarkers(*transform, deltaTime);
     }
-    if (offsetCameraX)
-    {
-        OffsetCameraX(m_player.facingRight, deltaTime);
-    }
-    else
+    if (!offsetCameraX)
     {
         m_camera.cameraYRecenteringStrength = 0.0f;
     }
@@ -2080,7 +2118,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
         const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
         const float targetY = std::clamp(
-            transform->y + playerHeight * 0.5f - visibleHeight * 0.5f + GetCameraFollowOffsetY(m_tileMap),
+            transform->y + playerHeight * 0.5f - visibleHeight * 0.5f + GetCameraFollowOffsetY(m_tileMap) + gCameraTargetOffsetY,
             0.0f,
             maxCameraY);
         const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
