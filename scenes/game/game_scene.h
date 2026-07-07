@@ -118,7 +118,7 @@ private:
     std::string ResolveDefaultTileTextureKeyForCurrentMap() const;
     void BuildCameraMarkers();
     void UpdateCameraByMarkers(const TransformComponent& playerTransform, float deltaTime, bool followY = true);
-    void OffsetCameraX(bool facingRight, float deltaTime);
+    void OffsetCameraX(bool facingRight, bool playerMovingHorizontally, float deltaTime);
     void ApplyShieldBossSlamCameraWork(float deltaTime);
     void ApplyShieldBossFramingCameraWork(float deltaTime);
     bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
@@ -273,6 +273,7 @@ private:
     void UpdateEffects(float deltaTime);
     void UpdateTuningPanel();
     void DrawTuningPanel();
+    void DrawCameraDebugWindow();
     void DrawUiAdjustmentWindow();
     void DrawTutorialAdjustmentPanel();
     void DrawTutorialOverlay();
