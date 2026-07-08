@@ -821,13 +821,15 @@ PhotoCopyTileValueComponent::PhotoCopyTileValueComponent(int tileValueValue)
 {
 }
 
-DamagePlatformComponent::DamagePlatformComponent(int tileSpanValue)
+DamagePlatformComponent::DamagePlatformComponent(int tileSpanValue, bool captureAllowedValue)
     : tileSpan(std::max(1, tileSpanValue))
+    , captureAllowed(captureAllowedValue)
 {
 }
 
-SpikeStripComponent::SpikeStripComponent(int tileSpanValue)
+SpikeStripComponent::SpikeStripComponent(int tileSpanValue, bool captureAllowedValue)
     : tileSpan(std::max(1, tileSpanValue))
+    , captureAllowed(captureAllowedValue)
 {
 }
 

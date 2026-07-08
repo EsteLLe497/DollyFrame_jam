@@ -272,7 +272,8 @@ namespace
                 HasTag(*entity, EntityTag::LaserSwitch) ||
                 HasTag(*entity, EntityTag::Shutter) ||
                 HasTag(*entity, EntityTag::LaserBeam) ||
-                HasTag(*entity, EntityTag::StageLight))
+                HasTag(*entity, EntityTag::StageLight) ||
+                IsUncapturableDamageFloorEntity(*entity))
             {
                 return;
             }

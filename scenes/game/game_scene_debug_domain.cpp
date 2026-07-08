@@ -256,6 +256,29 @@ void GameScene::DrawCameraDebugWindow()
     }
 
     auto& tuning = m_tuning;
+    auto applyAspectLockedCameraView = [&](float zoom)
+    {
+        constexpr float baseWidth = 1920.0f;
+        constexpr float baseHeight = 1080.0f;
+        const float oldCenterX = m_flow.cameraX + tuning.cameraViewWidth * 0.5f;
+        const float oldCenterY = m_flow.cameraY + tuning.cameraViewHeight * 0.5f;
+
+        zoom = std::clamp(zoom, 0.5f, 3.0f);
+        tuning.cameraViewWidth = baseWidth / zoom;
+        tuning.cameraViewHeight = baseHeight / zoom;
+
+        const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - tuning.cameraViewWidth);
+        const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - tuning.cameraViewHeight);
+        m_flow.cameraX = std::clamp(oldCenterX - tuning.cameraViewWidth * 0.5f, 0.0f, maxCameraX);
+        m_flow.cameraY = std::clamp(oldCenterY - tuning.cameraViewHeight * 0.5f, 0.0f, maxCameraY);
+    };
+
+    auto applyAspectLockedCameraWidth = [&](float width)
+    {
+        constexpr float baseWidth = 1920.0f;
+        applyAspectLockedCameraView(baseWidth / std::clamp(width, 640.0f, 3840.0f));
+    };
+
     const float viewScale = std::max(0.0001f, GetViewScale());
     const float viewOriginX = GetViewOriginX();
     const float viewOriginY = GetViewOriginY();
@@ -343,18 +366,28 @@ void GameScene::DrawCameraDebugWindow()
     }
 
     ImGui::SeparatorText("表示範囲");
-    ImGui::DragFloat("カメラ幅", &tuning.cameraViewWidth, 1.0f, 320.0f, 3840.0f, "%.1f px");
-    ImGui::DragFloat("カメラ高さ", &tuning.cameraViewHeight, 1.0f, 180.0f, 2160.0f, "%.1f px");
+    constexpr float baseCameraWidth = 1920.0f;
+    float cameraZoom = baseCameraWidth / std::max(1.0f, tuning.cameraViewWidth);
+    if (ImGui::SliderFloat("寄せ/引き倍率", &cameraZoom, 0.5f, 3.0f, "%.2fx"))
+    {
+        applyAspectLockedCameraView(cameraZoom);
+    }
+    float cameraViewWidth = tuning.cameraViewWidth;
+    if (ImGui::DragFloat("カメラ幅（比率固定）", &cameraViewWidth, 4.0f, 640.0f, 3840.0f, "%.1f px"))
+    {
+        applyAspectLockedCameraWidth(cameraViewWidth);
+    }
+    ImGui::Text("カメラ高さ（自動）: %.1f px", tuning.cameraViewHeight);
+    ImGui::Text("比率: 1920:1080");
     if (ImGui::Button("1920x1080"))
     {
-        tuning.cameraViewWidth = 1920.0f;
-        tuning.cameraViewHeight = 1080.0f;
+        applyAspectLockedCameraView(1.0f);
     }
     ImGui::SameLine();
     if (ImGui::Button("初期値"))
     {
-        tuning.cameraViewWidth = tuning.defaultCameraViewWidth;
-        tuning.cameraViewHeight = tuning.defaultCameraViewHeight;
+        const float defaultZoom = baseCameraWidth / std::max(1.0f, tuning.defaultCameraViewWidth);
+        applyAspectLockedCameraView(defaultZoom);
         tuning.cameraFollowSpeedX = 14.0f;
         tuning.cameraFollowSpeedY = 10.0f;
         tuning.cameraFollowY = 1.0f;

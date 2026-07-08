@@ -9,7 +9,7 @@ enum class GameEndReason
     GoalReached,
     TimeUp,
     HpZero,
-    BossDefeated,   //forest_boss(boss1) Œ‚”j
+    BossDefeated,   //forest_boss(boss1) ï¿½ï¿½ï¿½j
 };
 
 struct GameSessionState
@@ -24,6 +24,7 @@ struct GameSessionState
     float timeRemaining = 30.0f;
     GameEndReason endReason = GameEndReason::None;
     std::string startMapCsvPath = "assets/maps/stages/forest_v2.csv";
+    std::string lastMapCsvPath;
     bool loadSavedProgress = true;
     bool cameraTutorialCompleted = false;
     std::vector<int> completedTutorialNumbers;
@@ -39,6 +40,8 @@ void GameSession_SetCameraFlashOwned(bool owned);
 void GameSession_SetTimeRemaining(float timeRemaining);
 void GameSession_SetEndReason(GameEndReason reason);
 void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath);
+void GameSession_SetLastMapCsvPath(const std::string& lastMapCsvPath);
+const std::string& GameSession_GetLastMapCsvPath();
 void GameSession_SetLoadSavedProgress(bool loadSavedProgress);
 void GameSession_SetCameraTutorialCompleted(bool completed);
 bool gameSessionIsTutorialCompleted(int tutorialNumber);

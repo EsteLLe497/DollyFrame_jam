@@ -79,6 +79,16 @@ void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath)
         : startMapCsvPath;
 }
 
+void GameSession_SetLastMapCsvPath(const std::string& lastMapCsvPath)
+{
+    g_sessionState.lastMapCsvPath = lastMapCsvPath;
+}
+
+const std::string& GameSession_GetLastMapCsvPath()
+{
+    return g_sessionState.lastMapCsvPath;
+}
+
 void GameSession_SetLoadSavedProgress(bool loadSavedProgress)
 {
     g_sessionState.loadSavedProgress = loadSavedProgress;
