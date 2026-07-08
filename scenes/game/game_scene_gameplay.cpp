@@ -1037,6 +1037,164 @@ void GameScene::ApplyShieldBossFramingCameraWork(float deltaTime)
     m_flow.cameraY = std::clamp(targetCameraY, 0.0f, maxCameraY);
 }
 
+void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
+{
+    if (IsMidBoss3IntroCinematicActive())
+    {
+        return;
+    }
+
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    if (!playerTransform)
+    {
+        return;
+    }
+
+    const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+    const float baseVisibleWidth = GetCameraFollowSpanX(m_tileMap);
+    const float baseVisibleHeight = GetCameraVisibleHeight(m_tileMap);
+    const float mapWidth = GetMapPixelWidth();
+    const float mapHeight = GetMapPixelHeight();
+    const float cameraBlend = 1.0f - std::pow(0.001f, deltaTime * 1.05f);
+    const float zoomOutBlend = 1.0f - std::pow(0.001f, deltaTime * 1.25f);
+    const float zoomInBlend = 1.0f - std::pow(0.001f, deltaTime * 0.50f);
+
+    for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
+    {
+        const auto* enemy = entity ? entity->GetComponent<EnemyComponent>() : nullptr;
+        const auto* boss = entity ? entity->GetComponent<MidBoss3Component>() : nullptr;
+        const auto* bossTransform = entity ? entity->GetComponent<TransformComponent>() : nullptr;
+        const auto* bossSprite = entity ? entity->GetComponent<SpriteRenderComponent>() : nullptr;
+        if (!enemy ||
+            enemy->GetArchetype() != EnemyArchetype::MidBoss3 ||
+            !enemy->IsEnabled() ||
+            enemy->IsDefeated() ||
+            !boss ||
+            !boss->introFinished ||
+            boss->deathAnimationFinished ||
+            !bossTransform)
+        {
+            continue;
+        }
+
+        const Entity* attachedDrillEntity = nullptr;
+        const TransformComponent* attachedDrillTransform = nullptr;
+        const CapturedMidBoss3AttackComponent* attachedDrill = nullptr;
+        for (const auto& candidate : m_world.Entities())
+        {
+            const auto* attack = candidate ? candidate->GetComponent<CapturedMidBoss3AttackComponent>() : nullptr;
+            const auto* drillTransform = candidate ? candidate->GetComponent<TransformComponent>() : nullptr;
+            if (attack &&
+                attack->kind == CapturedMidBoss3AttackKind::Drill &&
+                attack->attachedToBoss &&
+                attack->carriedBoss == entity &&
+                drillTransform)
+            {
+                attachedDrillEntity = candidate.get();
+                attachedDrillTransform = drillTransform;
+                attachedDrill = attack;
+                break;
+            }
+        }
+
+        const float bossDrawWidth = bossTransform->width * bossTransform->scale * (bossSprite ? bossSprite->GetRenderScaleX() : 1.0f);
+        const float bossDrawHeight = bossTransform->height * bossTransform->scale * (bossSprite ? bossSprite->GetRenderScaleY() : 1.0f);
+        const float bossLeft = bossTransform->x + (bossSprite ? bossSprite->GetRenderOffsetX() : 0.0f);
+        const float bossTop = bossTransform->y + (bossSprite ? bossSprite->GetRenderOffsetY() : 0.0f);
+        const float bossRight = bossLeft + bossDrawWidth;
+        const float bossBottom = bossTop + bossDrawHeight;
+        const float bossCenterX = (bossLeft + bossRight) * 0.5f;
+        const float bossCenterY = (bossTop + bossBottom) * 0.5f;
+        const float playerW = playerTransform->width * playerTransform->scale;
+        const float playerH = playerTransform->height * playerTransform->scale;
+        const float playerCenterX = playerTransform->x + playerW * 0.5f;
+        const float playerCenterY = playerTransform->y + playerH * 0.5f;
+        const float bossPlayerDistance = std::hypot(bossCenterX - playerCenterX, bossCenterY - playerCenterY);
+        const float distanceT = std::clamp(
+            (bossPlayerDistance - tileSize * 5.0f) / std::max(tileSize, tileSize * 11.0f),
+            0.0f,
+            1.0f);
+        const float distanceEase = distanceT * distanceT * (3.0f - 2.0f * distanceT);
+
+        float left = bossLeft;
+        float top = bossTop;
+        float right = bossRight;
+        float bottom = bossBottom;
+        float focusX = bossCenterX;
+        float focusY = bossCenterY;
+        float marginX = std::lerp(tileSize * 1.15f, tileSize * 2.1f, distanceEase);
+        float marginY = std::lerp(tileSize * 1.05f, tileSize * 1.65f, distanceEase);
+        float minZoomScale = std::lerp(0.92f, 0.70f, distanceEase);
+        float distanceZoomScale = std::lerp(1.0f, 0.70f, distanceEase);
+
+        if (attachedDrill && attachedDrillTransform)
+        {
+            const float drillW = attachedDrillTransform->width * attachedDrillTransform->scale;
+            const float drillH = attachedDrillTransform->height * attachedDrillTransform->scale;
+            const float drillLeft = attachedDrillTransform->x;
+            const float drillTop = attachedDrillTransform->y;
+            const float drillRight = drillLeft + drillW;
+            const float drillBottom = drillTop + drillH;
+            left = std::min(left, drillLeft);
+            top = std::min(top, drillTop);
+            right = std::max(right, drillRight);
+            bottom = std::max(bottom, drillBottom);
+            const float drillCenterX = drillLeft + drillW * 0.5f;
+            const float drillCenterY = drillTop + drillH * 0.5f;
+            const float tipX = drillCenterX + attachedDrill->aimX * drillW * 0.5f;
+            const float tipY = drillCenterY + attachedDrill->aimY * drillW * 0.5f;
+            focusX = std::lerp((left + right) * 0.5f, tipX, 0.35f);
+            focusY = std::lerp((top + bottom) * 0.5f, tipY, 0.35f);
+            marginX = tileSize * 1.55f;
+            marginY = tileSize * 1.25f;
+            minZoomScale = 0.78f;
+            distanceZoomScale = 0.84f;
+            (void)attachedDrillEntity;
+        }
+        else
+        {
+            left = std::min(left, playerTransform->x);
+            top = std::min(top, playerTransform->y);
+            right = std::max(right, playerTransform->x + playerW);
+            bottom = std::max(bottom, playerTransform->y + playerH);
+            focusX = std::lerp(playerCenterX, (left + right) * 0.5f, distanceEase);
+            focusY = std::lerp(playerCenterY, (top + bottom) * 0.5f, distanceEase * 0.75f);
+        }
+
+        const float requiredWidth = std::max(tileSize, right - left + marginX * 2.0f);
+        const float requiredHeight = std::max(tileSize, bottom - top + marginY * 2.0f);
+        const float fitZoomScale = std::clamp(
+            std::min(baseVisibleWidth / requiredWidth, baseVisibleHeight / requiredHeight),
+            minZoomScale,
+            1.0f);
+        const float targetZoomScale = std::clamp(
+            std::min(fitZoomScale, distanceZoomScale),
+            minZoomScale,
+            1.0f);
+        const float zoomBlend = targetZoomScale < m_camera.shieldBossDistanceZoomScale
+            ? zoomOutBlend
+            : zoomInBlend;
+        m_camera.shieldBossDistanceZoomScale = std::lerp(
+            m_camera.shieldBossDistanceZoomScale,
+            targetZoomScale,
+            zoomBlend);
+
+        const float visibleWidth = baseVisibleWidth / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
+        const float visibleHeight = baseVisibleHeight / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
+        const float maxCameraX = std::max(0.0f, mapWidth - visibleWidth);
+        const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
+        const float targetCameraX = std::clamp(focusX - visibleWidth * 0.5f, 0.0f, maxCameraX);
+        const float targetCameraY = std::clamp(focusY - visibleHeight * 0.5f, 0.0f, maxCameraY);
+
+        m_flow.cameraX = std::lerp(m_flow.cameraX, targetCameraX, cameraBlend);
+        m_flow.cameraY = std::lerp(m_flow.cameraY, targetCameraY, cameraBlend);
+        m_camera.midBoss3CameraYLockInitialized = false;
+        m_camera.midBoss3CameraYLock = m_flow.cameraY;
+        return;
+    }
+}
+
 
 
 void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float height)
@@ -1977,6 +2135,11 @@ void GameScene::UpdatePlayer(float deltaTime)
 
     if (IsMidBoss3IntroCinematicActive())
     {
+        const float introInfluenceBlend = 1.0f - std::pow(0.001f, deltaTime * 5.8f);
+        m_render.bossIntroCameraInfluence = std::lerp(m_render.bossIntroCameraInfluence, 1.0f, introInfluenceBlend);
+        m_render.bossIntroCameraZoomBoost = 0.0f;
+        m_render.bossIntroCameraAnchorActive = false;
+
         for (const auto& entity : m_world.Entities())
         {
             if (!entity)
@@ -1998,21 +2161,28 @@ void GameScene::UpdatePlayer(float deltaTime)
 
             const float bossWidth = bossTransform->width * bossTransform->scale;
             const float bossHeight = bossTransform->height * bossTransform->scale;
-            const float visibleWidth = GetCameraFollowSpanX(m_tileMap);
-            const float visibleHeight = GetCameraVisibleHeight(m_tileMap);
+            const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+            const float introViewWidth = tileSize * 23.0f;
+            const float introViewHeight = introViewWidth * static_cast<float>(SCREEN_HEIGHT) / static_cast<float>(SCREEN_WIDTH);
+            const float visibleWidth = std::max(GetCameraFollowSpanX(m_tileMap), introViewWidth);
+            const float visibleHeight = std::max(GetCameraVisibleHeight(m_tileMap), introViewHeight);
             const float maxCameraX = std::max(0.0f, mapWidth - visibleWidth);
             const float maxCameraY = std::max(0.0f, mapHeight - visibleHeight);
+            const float targetCenterX = bossTransform->x + bossWidth * 0.5f;
+            const float targetCenterY = bossTransform->y + bossHeight * 0.5f + tileSize * 0.5f;
             const float targetCameraX = std::clamp(
-                bossTransform->x + bossWidth * 0.5f - visibleWidth * 0.5f,
+                targetCenterX - visibleWidth * 0.5f,
                 0.0f,
                 maxCameraX);
             const float targetCameraY = std::clamp(
-                bossTransform->y + bossHeight * 0.5f - visibleHeight * 0.5f,
+                targetCenterY - visibleHeight * 0.5f,
                 0.0f,
                 maxCameraY);
-            const float followRate = std::clamp(5.0f * deltaTime, 0.0f, 1.0f);
-            m_flow.cameraX += (targetCameraX - m_flow.cameraX) * followRate;
-            m_flow.cameraY += (targetCameraY - m_flow.cameraY) * followRate;
+            const float followRate = 1.0f - std::pow(0.001f, deltaTime * 5.8f);
+            m_flow.cameraX = std::lerp(m_flow.cameraX, targetCameraX, followRate * m_render.bossIntroCameraInfluence);
+            m_flow.cameraY = std::lerp(m_flow.cameraY, targetCameraY, followRate * m_render.bossIntroCameraInfluence);
+            m_render.bossIntroCameraTargetX = targetCenterX;
+            m_render.bossIntroCameraTargetY = targetCenterY;
             m_camera.midBoss3CameraYLockInitialized = false;
             m_camera.midBoss3CameraYLock = 0.0f;
             return;

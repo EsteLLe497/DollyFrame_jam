@@ -121,6 +121,7 @@ private:
     void OffsetCameraX(bool facingRight, bool playerMovingHorizontally, float deltaTime);
     void ApplyShieldBossSlamCameraWork(float deltaTime);
     void ApplyShieldBossFramingCameraWork(float deltaTime);
+    void ApplyMidBoss3FramingCameraWork(float deltaTime);
     bool TryGetFixedCameraByPlayerPosition(float playerCenterX, float playerCenterY, float& outCameraX, float& outCameraY) const;
     void StartFloorCameraTransition(int directionX, int directionY);
 
@@ -161,6 +162,8 @@ private:
     void ConfigureRangedSpriteAnimation(Entity& enemy, bool reverseFacing = false);
     void ConfigureShieldBossSpriteAnimation(Entity& enemy);
     void ConfigureBossShieldSpriteAnimation(Entity& shield);
+    void ConfigureMidBoss3SpriteAnimation(Entity& enemy);
+    void ConfigureMidBoss3FistSpriteAnimation(Entity& fist);
     void UpdateEnemies();
     int HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight);
     void UpdateBullets();

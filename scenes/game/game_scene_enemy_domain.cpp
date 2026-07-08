@@ -58,6 +58,20 @@ namespace
     inline constexpr float kBoss1KnockbackFps = 30.0f;
     inline constexpr float kBoss1DeathFps = 30.0f;
     inline constexpr float kBoss1AppearFps = 30.0f;
+    inline constexpr int kBoss3BodySheetColumns = 10;
+    inline constexpr int kBoss3BodySheetRows = 6;
+    inline constexpr int kBoss3BodyFrameCount = 60;
+    inline constexpr int kBoss3EventSheetColumns = 10;
+    inline constexpr int kBoss3EventSheetRows = 12;
+    inline constexpr int kBoss3EventFrameCount = 120;
+    inline constexpr int kBoss3FistSheetColumns = 10;
+    inline constexpr int kBoss3FistSheetRows = 6;
+    inline constexpr int kBoss3FistFrameCount = 60;
+    inline constexpr float kBoss3IdleFps = 12.0f;
+    inline constexpr float kBoss3MoveFps = 18.0f;
+    inline constexpr float kBoss3AppearFps = 24.0f;
+    inline constexpr float kBoss3DeathFps = 24.0f;
+    inline constexpr float kBoss3FistFps = 24.0f;
 
     constexpr float kEnemyDefeatHitStopSeconds = 0.08f;
     constexpr float kEnemyDefeatShakeSeconds = 0.18f;
@@ -574,6 +588,107 @@ void GameScene::ConfigureBossShieldSpriteAnimation(Entity& shield)
         kBoss1KnockbackFps,
         true);
     animation->Play("idle", true);
+}
+
+void GameScene::ConfigureMidBoss3SpriteAnimation(Entity& enemy)
+{
+    auto* sprite = enemy.GetComponent<SpriteRenderComponent>();
+    if (!sprite)
+    {
+        return;
+    }
+
+    if (auto* transform = enemy.GetComponent<TransformComponent>())
+    {
+        constexpr float kBoss3HitboxWidth = 240.0f;
+        constexpr float kBoss3HitboxHeight = 192.0f;
+        const float centerX = transform->x + transform->width * transform->scale * 0.5f;
+        const float bottomY = transform->y + transform->height * transform->scale;
+        transform->width = kBoss3HitboxWidth;
+        transform->height = kBoss3HitboxHeight;
+        transform->x = centerX - transform->width * transform->scale * 0.5f;
+        transform->y = bottomY - transform->height * transform->scale;
+    }
+
+    auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>();
+    if (!animation)
+    {
+        animation = &enemy.AddComponent<SpriteSheetAnimationComponent>();
+    }
+
+    const int idleTexture = m_assets.GetTexture("boss3_idle");
+    const int fallbackTexture = sprite->GetTextureId();
+    const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
+    const BossTextureResolver resolveTexture = [this](const std::string& key) { return m_assets.GetTexture(key); };
+
+    animation->DefineClip("idle", resolvedIdleTexture, kBoss3BodySheetColumns, kBoss3BodySheetRows, 0, kBoss3BodyFrameCount, kBoss3IdleFps, true);
+    DefineLazySingleSheetClip(
+        *animation,
+        "move_right",
+        "boss3_move_right",
+        resolveTexture,
+        kBoss3BodySheetColumns,
+        kBoss3BodySheetRows,
+        kBoss3BodyFrameCount,
+        kBoss3MoveFps,
+        true);
+    DefineLazySingleSheetClip(
+        *animation,
+        "move_left",
+        "boss3_move_left",
+        resolveTexture,
+        kBoss3BodySheetColumns,
+        kBoss3BodySheetRows,
+        kBoss3BodyFrameCount,
+        kBoss3MoveFps,
+        true);
+    DefineLazySingleSheetClip(
+        *animation,
+        "appear",
+        "boss3_appear",
+        resolveTexture,
+        kBoss3EventSheetColumns,
+        kBoss3EventSheetRows,
+        kBoss3EventFrameCount,
+        kBoss3AppearFps,
+        false);
+    DefineLazySingleSheetClip(
+        *animation,
+        "death",
+        "boss3_death",
+        resolveTexture,
+        kBoss3EventSheetColumns,
+        kBoss3EventSheetRows,
+        kBoss3EventFrameCount,
+        kBoss3DeathFps,
+        false);
+    // The authored 500x500 cells include transparent padding. Scale/offset the sheet so
+    // the visible body height matches the 192px gameplay hitbox.
+    sprite->SetRenderScale(1.205f, 1.506f);
+    sprite->SetRenderOffset(-25.7f, -49.2f);
+    sprite->SetFlipX(false);
+    animation->Play("idle", true);
+}
+
+void GameScene::ConfigureMidBoss3FistSpriteAnimation(Entity& fist)
+{
+    auto* sprite = fist.GetComponent<SpriteRenderComponent>();
+    if (!sprite)
+    {
+        return;
+    }
+
+    auto* animation = fist.GetComponent<SpriteSheetAnimationComponent>();
+    if (!animation)
+    {
+        animation = &fist.AddComponent<SpriteSheetAnimationComponent>();
+    }
+
+    const int punchTexture = m_assets.GetTexture("boss3_rocket_punch");
+    const int resolvedPunchTexture = punchTexture >= 0 ? punchTexture : sprite->GetTextureId();
+    animation->DefineClip("rocket", resolvedPunchTexture, kBoss3FistSheetColumns, kBoss3FistSheetRows, 0, kBoss3FistFrameCount, kBoss3FistFps, true);
+    sprite->SetFlipX(false);
+    animation->Play("rocket", true);
 }
 
 void GameScene::UpdateEnemies()
@@ -2122,6 +2237,36 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         health->ApplyDamage(amount);
         if (health->IsDead())
         {
+            if (auto* midBoss3 = enemy.GetComponent<MidBoss3Component>())
+            {
+                if (auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>();
+                    animation && animation->HasClip("death"))
+                {
+                    if (!midBoss3->deathAnimationActive && !midBoss3->deathAnimationFinished)
+                    {
+                        cleanupMidBoss3Defeat(enemy);
+                        midBoss3->deathAnimationActive = true;
+                        midBoss3->deathAnimationFinished = false;
+                        midBoss3->stateTimer = 0.0f;
+                        animation->Play("death", true);
+                        enemyComponent->respawnEnabled = false;
+                        TriggerBossDefeatStartFeedback(m_flow);
+                        m_flow.stageBgmCrossFadePending = true;
+                        m_flow.stageBgmCrossFadeDelayRemaining = kBossStageBgmReturnDelaySeconds;
+                        if (const auto* transform = enemy.GetComponent<TransformComponent>())
+                        {
+                            SpawnDropItems(
+                                transform->x + transform->width * transform->scale * 0.5f,
+                                transform->y + transform->height * transform->scale * 0.5f,
+                                GetEnemyDropCount(enemyComponent->GetArchetype()));
+                        }
+                    }
+                    m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
+                    m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
+                    return;
+                }
+            }
+
             if (auto* shieldBoss = enemy.GetComponent<ShieldBossComponent>())
             {
                 if (auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>())

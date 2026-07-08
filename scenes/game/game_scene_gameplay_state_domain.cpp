@@ -331,7 +331,7 @@ void GameScene::TryUseAttackCaptureSlot()
     if (attackItem->spawnArchetype == CapturedSpawnArchetype::MidBoss3FistAttack)
     {
         constexpr float kTileSize = 48.0f;
-        constexpr float kFistSpeed = 560.0f;
+        constexpr float kFistSpeed = 840.0f;
         constexpr float kFistGap = kTileSize;
         const float playerWidth = playerTransform->width * playerTransform->scale;
         const float playerHeight = playerTransform->height * playerTransform->scale;
@@ -353,8 +353,9 @@ void GameScene::TryUseAttackCaptureSlot()
         auto fistEntity = std::make_unique<Entity>();
         fistEntity->AddComponent<TagComponent>(kTagBullet);
         fistEntity->AddComponent<TransformComponent>(fistX, fistY, fistW, fistH);
-        fistEntity->AddComponent<TintComponent>(0.96f, 0.52f, 0.18f, 1.0f);
-        fistEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        fistEntity->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+        const int fistTexture = m_assets.GetTexture("boss3_rocket_punch");
+        fistEntity->AddComponent<SpriteRenderComponent>(fistTexture >= 0 ? fistTexture : m_whiteTexture);
         fistEntity->AddComponent<ProjectileComponent>(
             fireAim.x * kFistSpeed,
             fireAim.y * kFistSpeed,
@@ -367,12 +368,12 @@ void GameScene::TryUseAttackCaptureSlot()
         attack.launched = true;
         if (auto* sprite = fistEntity->GetComponent<SpriteRenderComponent>())
         {
-            sprite->SetSourceRect(0.0f, 0.0f, 1.0f, 1.0f);
-            sprite->SetFlipX(!facingRight);
+            sprite->SetSourceRect(0.0f, 0.0f, 1.0f / 10.0f, 1.0f / 6.0f);
+            sprite->SetFlipX(false);
         }
         if (auto* transform = fistEntity->GetComponent<TransformComponent>())
         {
-            transform->rotation = std::atan2(fireAim.y, fireAim.x);
+            transform->rotation = std::atan2(fireAim.y, fireAim.x) + 3.14159265f;
         }
         m_world.QueueSpawn(std::move(fistEntity));
         finishAttackUse();
@@ -397,8 +398,10 @@ void GameScene::TryUseAttackCaptureSlot()
         auto drillEntity = std::make_unique<Entity>();
         drillEntity->AddComponent<TagComponent>(kTagBullet);
         drillEntity->AddComponent<TransformComponent>(drillX, drillY, drillW, drillH);
-        drillEntity->AddComponent<TintComponent>(1.0f, 0.55f, 0.18f, 0.92f);
-        drillEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+        drillEntity->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 0.92f);
+        const int drillTexture = m_assets.GetTexture("boss3_drill");
+        auto& drillSprite = drillEntity->AddComponent<SpriteRenderComponent>(drillTexture >= 0 ? drillTexture : m_whiteTexture);
+        drillSprite.SetSourceRect(0.0f, 0.0f, 1.0f / 10.0f, 1.0f / 6.0f);
         drillEntity->AddComponent<ProjectileComponent>(0.0f, 0.0f, 2, ProjectileComponent::Owner::Photo);
         auto& attack = drillEntity->AddComponent<CapturedMidBoss3AttackComponent>(CapturedMidBoss3AttackKind::Drill);
         attack.waitRemaining = kDrillWaitSeconds;

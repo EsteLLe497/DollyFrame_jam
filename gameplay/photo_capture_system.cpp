@@ -1300,7 +1300,15 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Hazard;
-            item.textureId = scene.m_whiteTexture;
+            const int fistTexture = scene.m_assets.GetTexture("boss3_rocket_punch");
+            item.textureId = fistTexture >= 0 ? fistTexture : scene.m_whiteTexture;
+            item.sourceX = 0.0f;
+            item.sourceY = 0.0f;
+            item.sourceWidth = 1.0f / 10.0f;
+            item.sourceHeight = 1.0f / 6.0f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
         }
         else if (capturedMidBoss3DrillRubble)
         {
@@ -1308,7 +1316,15 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Hazard;
-            item.textureId = scene.m_whiteTexture;
+            const int drillTexture = scene.m_assets.GetTexture("boss3_drill");
+            item.textureId = drillTexture >= 0 ? drillTexture : scene.m_whiteTexture;
+            item.sourceX = 0.0f;
+            item.sourceY = 0.0f;
+            item.sourceWidth = 1.0f / 10.0f;
+            item.sourceHeight = 1.0f / 6.0f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
         }
         else if (capturedFallingRockRubble)
         {
@@ -1502,20 +1518,23 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             const float capturedCenterY = overlapTop + overlapHeight * 0.5f;
             const float capturedAttackWidth = capturedMidBoss3DrillRubble ? kMidBoss3CapturedDrillWidth : kMidBoss3CapturedFistWidth;
             const float capturedAttackHeight = capturedMidBoss3DrillRubble ? kMidBoss3CapturedDrillHeight : kMidBoss3CapturedFistHeight;
-            item.textureId = scene.m_whiteTexture;
+            const int attackTexture = capturedMidBoss3DrillRubble
+                ? scene.m_assets.GetTexture("boss3_drill")
+                : scene.m_assets.GetTexture("boss3_rocket_punch");
+            item.textureId = attackTexture >= 0 ? attackTexture : scene.m_whiteTexture;
             item.relativeX = capturedCenterX - frameX - capturedAttackWidth * 0.5f;
             item.relativeY = capturedCenterY - frameY - capturedAttackHeight * 0.5f;
             item.width = capturedAttackWidth;
             item.height = capturedAttackHeight;
             item.sourceX = 0.0f;
             item.sourceY = 0.0f;
-            item.sourceWidth = 1.0f;
-            item.sourceHeight = 1.0f;
+            item.sourceWidth = 1.0f / 10.0f;
+            item.sourceHeight = 1.0f / 6.0f;
             item.rotation = 0.0f;
             item.flipX = false;
-            item.tintR = 0.96f;
-            item.tintG = 0.52f;
-            item.tintB = 0.18f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
             item.tintA = 1.0f;
             item.role = PhotoCopyRole::Hazard;
             item.layer = PhotoCopyLayer::Foreground;
@@ -1540,14 +1559,15 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         else if (midBoss3Fist)
         {
-            item.textureId = scene.m_whiteTexture;
+            const int fistTexture = scene.m_assets.GetTexture("boss3_rocket_punch");
+            item.textureId = fistTexture >= 0 ? fistTexture : scene.m_whiteTexture;
             item.sourceX = 0.0f;
             item.sourceY = 0.0f;
-            item.sourceWidth = 1.0f;
-            item.sourceHeight = 1.0f;
-            item.tintR = 0.96f;
-            item.tintG = 0.52f;
-            item.tintB = 0.18f;
+            item.sourceWidth = 1.0f / 10.0f;
+            item.sourceHeight = 1.0f / 6.0f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
             item.tintA = 1.0f;
         }
         if (markerLight)
