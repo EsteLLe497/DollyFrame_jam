@@ -375,6 +375,7 @@ namespace
         nlohmann::json root;
         root["camera_view_width"] = gCameraViewWidth;
         root["camera_view_height"] = gCameraViewHeight;
+        root["camera_zoom"] = 1920.0f / std::max(1.0f, gCameraViewWidth);
         root["camera_follow_speed_x"] = gCameraFollowSpeedX;
         root["camera_follow_speed_y"] = gCameraFollowSpeedY;
         root["camera_follow_y"] = gCameraFollowY >= 0.5f;
@@ -870,6 +871,12 @@ namespace game_scene_detail
 
         gCameraViewWidth = root.value("camera_view_width", gCameraViewWidth);
         gCameraViewHeight = root.value("camera_view_height", gCameraViewHeight);
+        if (const auto zoomIt = root.find("camera_zoom"); zoomIt != root.end() && zoomIt->is_number())
+        {
+            const float cameraZoom = std::clamp(zoomIt->get<float>(), 0.5f, 3.0f);
+            gCameraViewWidth = 1920.0f / cameraZoom;
+            gCameraViewHeight = 1080.0f / cameraZoom;
+        }
         gCameraFollowSpeedX = root.value("camera_follow_speed_x", gCameraFollowSpeedX);
         gCameraFollowSpeedY = root.value("camera_follow_speed_y", gCameraFollowSpeedY);
         gCameraFollowY = root.value("camera_follow_y", gCameraFollowY >= 0.5f) ? 1.0f : 0.0f;
