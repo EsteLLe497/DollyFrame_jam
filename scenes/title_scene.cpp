@@ -44,16 +44,16 @@ namespace
     };
 
     constexpr StageSelectItem kStageSelectItems[kStageSelectItemCount] = {
-        { "forest.csv", "assets/maps/stages/forest.csv" },
-        { "forest_boss.csv", "assets/maps/stages/forest_boss.csv" },
-        { "ruins1.csv", "assets/maps/stages/ruins1.csv" },
-        { "ruins_boss.csv", "assets/maps/stages/ruins_boss.csv" },
-        { "under.csv", "assets/maps/stages/under.csv" },
-        { "under_boss.csv", "assets/maps/stages/under_boss.csv" },
-        { "stage_a.csv", "assets/maps/stages/stage_a.csv" },
-        { "stage_58x25.csv", "assets/maps/stages/stage_58x25.csv" },
-        { "stage_58x25_check.csv", "assets/maps/stages/stage_58x25_check.csv" },
-        { "side_scroll_stage01.csv", "assets/maps/stages/side_scroll_stage01.csv" },
+        { "森", "assets/maps/stages/forest.csv" },
+        { "森（ボス）", "assets/maps/stages/forest_boss.csv" },
+        { "廃墟", "assets/maps/stages/ruins1.csv" },
+        { "廃墟（ボス）", "assets/maps/stages/ruins_boss.csv" },
+        { "地下", "assets/maps/stages/under.csv" },
+        { "地下（ボス）", "assets/maps/stages/under_boss.csv" },
+        { "テスト: stage_a", "assets/maps/stages/stage_a.csv" },
+        { "テスト: 58x25", "assets/maps/stages/stage_58x25.csv" },
+        { "テスト: 58x25_check", "assets/maps/stages/stage_58x25_check.csv" },
+        { "テスト: 横スクロール", "assets/maps/stages/side_scroll_stage01.csv" },
     };
 
     int FindStageSelectIndex(const std::string& path)
@@ -78,6 +78,18 @@ namespace
         {
             return path;
         }
+    }
+
+    std::string GetStageDisplayName(const std::string& path)
+    {
+        for (const StageSelectItem& item : kStageSelectItems)
+        {
+            if (path == item.path)
+            {
+                return item.label;
+            }
+        }
+        return GetStageFileName(path);
     }
 
     void DrawOutlinedString(int x, int y, const char* text, int textColor, int outlineColor)
@@ -360,7 +372,7 @@ void TitleScene::DrawMainMenu() const
         DrawMenuRow(rowLeft, top, rowWidth, rowHeight, kMainMenuLabels[index], m_menuSelection == index);
     }
 
-    const std::string startMapName = GetStageFileName(GameSession_GetStartMapCsvPath());
+    const std::string startMapName = GetStageDisplayName(GameSession_GetStartMapCsvPath());
     const bool loadSavedProgress = GameSession_ShouldLoadSavedProgress();
     DrawClassicFrame(548, 386, 812, 580);
     DrawOutlinedString(570, 408, "開始", GetColor(255, 244, 220), GetColor(28, 16, 9));
@@ -420,7 +432,7 @@ void TitleScene::DrawStageSelectMenu() const
         DrawMenuRow(left, top, rowWidth, rowHeight, kStageSelectItems[index].label, m_stageSelection == index);
     }
 
-    const std::string currentStageName = GetStageFileName(GameSession_GetStartMapCsvPath());
+    const std::string currentStageName = GetStageDisplayName(GameSession_GetStartMapCsvPath());
     const std::string currentStageText = std::string("現在: ") + currentStageName;
     DrawCenteredOutlinedString(
         SCREEN_WIDTH / 2,
@@ -453,7 +465,7 @@ void TitleScene::UpdateMenuInput()
             if (nextIndex < kStageSelectItemCount)
             {
                 m_stageSelection = nextIndex;
-                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
             }
         }
         if (Input_IsActionPressed(InputAction::MoveDown) || Input_IsDpadDownPressed())
@@ -463,7 +475,7 @@ void TitleScene::UpdateMenuInput()
             if (nextIndex < kStageSelectItemCount)
             {
                 m_stageSelection = nextIndex;
-                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
             }
         }
         if (Input_IsActionPressed(InputAction::MoveLeft))
@@ -472,7 +484,7 @@ void TitleScene::UpdateMenuInput()
             if (nextIndex < kStageSelectItemCount)
             {
                 m_stageSelection = nextIndex;
-                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
             }
         }
         if (Input_IsActionPressed(InputAction::MoveRight))
@@ -481,14 +493,14 @@ void TitleScene::UpdateMenuInput()
             if (nextIndex < kStageSelectItemCount)
             {
                 m_stageSelection = nextIndex;
-                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+                m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
             }
         }
 
         if (Input_IsActionPressed(InputAction::Cancel) || Input_IsEastButtonPressed())
         {
             m_menuMode = MenuMode::Main;
-            m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
             return;
         }
 
@@ -509,12 +521,12 @@ void TitleScene::UpdateMenuInput()
     if (Input_IsActionPressed(InputAction::MoveUp) || Input_IsDpadUpPressed())
     {
         selection = (selection + itemCount - 1) % itemCount;
-        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
     if (Input_IsActionPressed(InputAction::MoveDown) || Input_IsDpadDownPressed())
     {
         selection = (selection + 1) % itemCount;
-        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
 
     if (m_menuMode == MenuMode::Options)
@@ -543,7 +555,7 @@ void TitleScene::UpdateMenuInput()
             default:
                 break;
             }
-            m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
         }
     }
 
@@ -552,7 +564,7 @@ void TitleScene::UpdateMenuInput()
         if (m_menuMode == MenuMode::Options)
         {
             m_menuMode = MenuMode::Main;
-            m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+            m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
         }
         return;
     }
@@ -585,12 +597,12 @@ void TitleScene::ConfirmMainMenu()
         break;
     case 1:
         m_menuMode = MenuMode::StageSelect;
-        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
         break;
     case 2:
         m_menuMode = MenuMode::Options;
         m_optionsSelection = 0;
-        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
         break;
     case 3:
         PublishSceneChange("demo");
@@ -642,12 +654,12 @@ void TitleScene::ConfirmOptionsMenu()
     default:
         break;
     }
-    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
 }
 
 void TitleScene::PublishSceneChange(const char* sceneId)
 {
-    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, sceneId, 0.0f, 0.0f });
 }
 

@@ -334,7 +334,7 @@ inline void UpdateBullets(
             {
                 transform->x += projectile->GetVelocityX() * deltaTime;
                 transform->y += projectile->GetVelocityY() * deltaTime;
-                transform->rotation = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
+                transform->rotation = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX()) + 3.14159265f;
 
                 bool fistHitEnemy = false;
                 for (Entity* target : enemyEntities)
@@ -346,6 +346,12 @@ inline void UpdateBullets(
                     if (!intersectsEntity(*target, *entity))
                     {
                         continue;
+                    }
+                    if (screenShakeEnabled && target->GetComponent<MidBoss3Component>())
+                    {
+                        flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, 0.18f);
+                        flow.screenShakeDuration = std::max(flow.screenShakeDuration, 0.18f);
+                        flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, 18.0f);
                     }
                     handleEnemyDamage(*target, entity, projectile->GetDamage(), "Captured MidBoss3 fist hit enemy");
                     bulletsToRemove.push_back(entity);
@@ -425,8 +431,25 @@ inline void UpdateBullets(
                     }
                     targetTransform->x = resolvedX;
                     targetTransform->y = resolvedY;
-                    transform->x = targetTransform->x + targetTransform->width * targetTransform->scale * 0.5f - transform->width * transform->scale * 0.5f;
-                    transform->y = targetTransform->y + targetTransform->height * targetTransform->scale * 0.5f - transform->height * transform->scale * 0.5f;
+                    const float attackWidth = transform->width * transform->scale;
+                    const float attackHeight = transform->height * transform->scale;
+                    const float aimLength = std::max(
+                        0.001f,
+                        std::hypot(capturedMidBoss3Attack->aimX, capturedMidBoss3Attack->aimY));
+                    const float aimX = capturedMidBoss3Attack->aimX / aimLength;
+                    const float aimY = capturedMidBoss3Attack->aimY / aimLength;
+                    const float bossCenterX = targetTransform->x + bossWidth * 0.5f;
+                    const float bossCenterY = targetTransform->y + bossHeight * 0.5f;
+                    const float bossHalfExtentAlongAim =
+                        std::fabs(aimX) * bossWidth * 0.5f +
+                        std::fabs(aimY) * bossHeight * 0.5f;
+                    const float embedDepth = std::min(36.0f, std::min(bossWidth, bossHeight) * 0.28f);
+                    const float tipX = bossCenterX - aimX * bossHalfExtentAlongAim + aimX * embedDepth;
+                    const float tipY = bossCenterY - aimY * bossHalfExtentAlongAim + aimY * embedDepth;
+                    const float drillCenterX = tipX - aimX * attackWidth * 0.5f;
+                    const float drillCenterY = tipY - aimY * attackWidth * 0.5f;
+                    transform->x = drillCenterX - attackWidth * 0.5f;
+                    transform->y = drillCenterY - attackHeight * 0.5f;
                     return stoppedBySolid;
                 };
 
@@ -451,17 +474,13 @@ inline void UpdateBullets(
                     }
 
                     capturedMidBoss3Attack->bossDamageTimer += deltaTime;
-                    const bool stoppedBySolid = pushAttachedTarget(*targetBoss, deltaTime);
+                    (void)pushAttachedTarget(*targetBoss, deltaTime);
                     if (capturedMidBoss3Attack->bossDamageTimer >= kBossDamageInterval)
                     {
                         capturedMidBoss3Attack->bossDamageTimer = 0.0f;
                         handleEnemyDamage(*targetBoss, entity, projectile->GetDamage(), "Captured MidBoss3 drill damaged enemy");
                     }
                     transform->rotation = std::atan2(capturedMidBoss3Attack->aimY, capturedMidBoss3Attack->aimX);
-                    if (stoppedBySolid)
-                    {
-                        stopAttachedDrill();
-                    }
                     continue;
                 }
 
@@ -529,11 +548,14 @@ inline void UpdateBullets(
                     projectile->SetVelocityX(0.0f);
                     projectile->SetVelocityY(0.0f);
                     aimTowardTarget(target);
-                    handleEnemyDamage(*target, entity, projectile->GetDamage(), "Captured MidBoss3 drill damaged enemy");
-                    if (pushAttachedTarget(*target, std::max(deltaTime, 1.0f / 60.0f)))
+                    if (screenShakeEnabled)
                     {
-                        stopAttachedDrill();
+                        flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, 0.22f);
+                        flow.screenShakeDuration = std::max(flow.screenShakeDuration, 0.22f);
+                        flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, 22.0f);
                     }
+                    handleEnemyDamage(*target, entity, projectile->GetDamage(), "Captured MidBoss3 drill damaged enemy");
+                    (void)pushAttachedTarget(*target, std::max(deltaTime, 1.0f / 60.0f));
                     attachedThisFrame = true;
                     break;
                 }

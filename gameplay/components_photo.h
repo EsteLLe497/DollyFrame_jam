@@ -137,17 +137,19 @@ public:
 class DamagePlatformComponent final : public MonoBehaviour
 {
 public:
-    explicit DamagePlatformComponent(int tileSpanValue);
+    explicit DamagePlatformComponent(int tileSpanValue, bool photoCapturableValue = false);
 
     int tileSpan;
+    bool photoCapturable;
 };
 
 class SpikeStripComponent final : public MonoBehaviour
 {
 public:
-    explicit SpikeStripComponent(int tileSpanValue);
+    explicit SpikeStripComponent(int tileSpanValue, bool photoCapturableValue = false);
 
     int tileSpan;
+    bool photoCapturable;
 };
 
 class VanishOnCaptureComponent final : public MonoBehaviour

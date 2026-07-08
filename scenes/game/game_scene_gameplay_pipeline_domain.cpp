@@ -28,7 +28,8 @@ void GameScene::UpdateGameplayActors(float gameplayDeltaTime)
     UpdateShields(gameplayDeltaTime);
     ApplyShieldBossSlamCameraWork(gameplayDeltaTime);
     ApplyShieldBossFramingCameraWork(gameplayDeltaTime);
-    // 配置座標は、このフレームのボスカメラとズームが確定してから計算する。
+    ApplyMidBoss3FramingCameraWork(gameplayDeltaTime);
+    // 配置座標�E、このフレームのボスカメラとズームが確定してから計算する、E
     HandlePhotoSpawn();
     UpdateBullets();
     UpdateDropItems(); // Legacy update order: drop item step

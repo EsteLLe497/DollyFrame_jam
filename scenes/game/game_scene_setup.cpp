@@ -375,6 +375,7 @@ namespace
         nlohmann::json root;
         root["camera_view_width"] = gCameraViewWidth;
         root["camera_view_height"] = gCameraViewHeight;
+        root["camera_zoom"] = 1920.0f / std::max(1.0f, gCameraViewWidth);
         root["camera_follow_speed_x"] = gCameraFollowSpeedX;
         root["camera_follow_speed_y"] = gCameraFollowSpeedY;
         root["camera_follow_y"] = gCameraFollowY >= 0.5f;
@@ -870,6 +871,12 @@ namespace game_scene_detail
 
         gCameraViewWidth = root.value("camera_view_width", gCameraViewWidth);
         gCameraViewHeight = root.value("camera_view_height", gCameraViewHeight);
+        if (const auto zoomIt = root.find("camera_zoom"); zoomIt != root.end() && zoomIt->is_number())
+        {
+            const float cameraZoom = std::clamp(zoomIt->get<float>(), 0.5f, 3.0f);
+            gCameraViewWidth = 1920.0f / cameraZoom;
+            gCameraViewHeight = 1080.0f / cameraZoom;
+        }
         gCameraFollowSpeedX = root.value("camera_follow_speed_x", gCameraFollowSpeedX);
         gCameraFollowSpeedY = root.value("camera_follow_speed_y", gCameraFollowSpeedY);
         gCameraFollowY = root.value("camera_follow_y", gCameraFollowY >= 0.5f) ? 1.0f : 0.0f;
@@ -965,6 +972,7 @@ namespace
         root["sourceTileValue"] = item.sourceTileValue;
         root["damagePlatformTileSpan"] = item.damagePlatformTileSpan;
         root["spikeStripTileSpan"] = item.spikeStripTileSpan;
+        root["damagePlatformPhotoCapturable"] = item.damagePlatformPhotoCapturable;
         root["sepiaRestoredTileValue"] = item.sepiaRestoredTileValue;
         root["sepiaRestoredMarkerObject"] = item.sepiaRestoredMarkerObject;
         root["sepiaShutterObject"] = item.sepiaShutterObject;
@@ -1021,6 +1029,9 @@ namespace
         item.sourceTileValue = root.value("sourceTileValue", item.sourceTileValue);
         item.damagePlatformTileSpan = root.value("damagePlatformTileSpan", item.damagePlatformTileSpan);
         item.spikeStripTileSpan = root.value("spikeStripTileSpan", item.spikeStripTileSpan);
+        item.damagePlatformPhotoCapturable = root.value(
+            "damagePlatformPhotoCapturable",
+            item.damagePlatformPhotoCapturable);
         item.sepiaRestoredTileValue = root.value("sepiaRestoredTileValue", item.sepiaRestoredTileValue);
         item.sepiaRestoredMarkerObject = root.value("sepiaRestoredMarkerObject", item.sepiaRestoredMarkerObject);
         item.sepiaShutterObject = root.value("sepiaShutterObject", item.sepiaShutterObject);
@@ -1852,6 +1863,7 @@ void GameScene::InitializeStageEntities()
             fistComp.baseOffsetX = offsets[index][0];
             fistComp.baseOffsetY = offsets[index][1];
             fistComp.idlePhase = static_cast<float>(index) * 1.35f;
+            ConfigureMidBoss3FistSpriteAnimation(fist);
             bossComp->fistEntities.push_back(&fist);
         }
     };
@@ -1874,12 +1886,13 @@ void GameScene::InitializeStageEntities()
         }
         else if (marker == 'R') // Ranged
         {
+            const bool reverseFacing = stageMarker.parameter < 0;
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
                 "sandbox_enemy_ranged",
                 static_cast<float>(column) * tileSize,
                 static_cast<float>(row) * tileSize);
-            ConfigureRangedSpriteAnimation(enemy);
+            ConfigureRangedSpriteAnimation(enemy, reverseFacing);
             placeGroundedEnemyAtMarker(enemy, column, row);
         }
         else if (marker == '$') // Charger
@@ -1975,6 +1988,7 @@ void GameScene::InitializeStageEntities()
                 transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
                 transform->y = static_cast<float>(row) * tileSize + (tileSize - transform->height * transform->scale) * 0.5f;
                 transform->y += tileSize * 2.0f;
+                ConfigureMidBoss3SpriteAnimation(boss);
                 if (auto* enemy = boss.GetComponent<EnemyComponent>())
                 {
                     enemy->spawnX = transform->x;

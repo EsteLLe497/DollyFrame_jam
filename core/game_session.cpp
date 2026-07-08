@@ -14,11 +14,14 @@ void GameSession_Reset(int maxHp, float timeLimit)
     g_sessionState.maxHp = maxHp;
     g_sessionState.currentHp = maxHp;
     g_sessionState.parts = 0;
+    g_sessionState.partsCollectedTotal = 0;
     g_sessionState.photoStorageSlots = 2;
     g_sessionState.hasRecoveryFilter = false;
     g_sessionState.hasCameraFlash = false;
     g_sessionState.timeLimit = timeLimit;
     g_sessionState.timeRemaining = timeLimit;
+    g_sessionState.clearTimeSeconds = 0.0f;
+    g_sessionState.elapsedSeconds = 0.0f;
     g_sessionState.endReason = GameEndReason::None;
     g_sessionState.loadSavedProgress = true;
     g_sessionState.cameraTutorialCompleted = false;
@@ -32,7 +35,9 @@ void GameSession_SetCurrentHp(int currentHp)
 
 void GameSession_AddParts(int amount)
 {
-    g_sessionState.parts = std::max(0, g_sessionState.parts + std::max(0, amount));
+    const int addedAmount = std::max(0, amount);
+    g_sessionState.parts = std::max(0, g_sessionState.parts + addedAmount);
+    g_sessionState.partsCollectedTotal += addedAmount;   // 追加
 }
 
 bool GameSession_SpendParts(int amount)
@@ -67,9 +72,21 @@ void GameSession_SetTimeRemaining(float timeRemaining)
     g_sessionState.timeRemaining = std::max(0.0f, timeRemaining);
 }
 
+void GameSession_AddElapsedSeconds(float deltaTime)
+{
+    if (deltaTime > 0.0f)
+    {
+        g_sessionState.elapsedSeconds += deltaTime;
+    }
+}
+
 void GameSession_SetEndReason(GameEndReason reason)
 {
     g_sessionState.endReason = reason;
+    if (reason != GameEndReason::None)
+    {
+        g_sessionState.clearTimeSeconds = g_sessionState.elapsedSeconds;  // ← こちらに変更
+    }
 }
 
 void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath)
@@ -77,6 +94,16 @@ void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath)
     g_sessionState.startMapCsvPath = startMapCsvPath.empty()
         ? std::string("assets/maps/stages/forest.csv")
         : startMapCsvPath;
+}
+
+void GameSession_SetLastMapCsvPath(const std::string& lastMapCsvPath)
+{
+    g_sessionState.lastMapCsvPath = lastMapCsvPath;
+}
+
+const std::string& GameSession_GetLastMapCsvPath()
+{
+    return g_sessionState.lastMapCsvPath;
 }
 
 void GameSession_SetLoadSavedProgress(bool loadSavedProgress)
