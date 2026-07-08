@@ -31,6 +31,15 @@ namespace
             return "結果なし";
         }
     }
+    struct FreeImagePlacement
+    {
+        const char* textureKey;
+        float x;
+        float y;
+        float width;
+        float height;
+    };
+
 
     void DrawOutlinedString(int x, int y, const char* text, int textColor, int outlineColor)
     {
@@ -197,6 +206,7 @@ void ResultScene::Update(float deltaTime)
 void ResultScene::Draw()
 {
     DrawBackdrop();
+    DrawFreeImages();
     DrawMenu();
 }
 
@@ -293,4 +303,46 @@ void ResultScene::DrawBackdrop() const
         SpriteDraw(m_whiteTexture, 192.0f, 430.0f, static_cast<float>(SCREEN_WIDTH) - 384.0f, 34.0f, 0.0f, 0.0f, 1.0f, 1.0f);
     }
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+void ResultScene::DrawFreeImages() const
+{
+    struct FreeImagePlacement
+    {
+        const char* textureKey;
+        float x;
+        float y;
+        float width;
+        float height;
+    };
+
+    // ここの数値(x, y, width, height)を書き換えて自由に位置・サイズを調整してください
+    const FreeImagePlacement placements[] =
+    {
+        { "karitatie", 40.0f, 450.0f, 360.0f, 280.0f },
+
+        { "kuria", static_cast<float>(SCREEN_WIDTH) - 300.0f,
+          450.0f, 220.0f, 160.0f },
+    };
+
+    for (const auto& placement : placements)
+    {
+        const int textureId = m_assets.GetTexture(placement.textureKey);
+        if (textureId < 0)
+        {
+            continue; // テクスチャが見つからない場合は描画しない
+        }
+
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+        SpriteDraw(
+            textureId,
+            placement.x,
+            placement.y,
+            placement.width,
+            placement.height,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
+    }
 }

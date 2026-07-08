@@ -1,374 +1,382 @@
 {
-    "textures": {
-        "white": {
-            "type": "solid",
-            "width": 1,
-            "height": 1,
-            "rgba": "FFFFFFFF"
-        },
-        "player": {
-            "type": "file",
-            "path": "assets/texture/player/chara_idle.png"
-        },
-        "player_idle": {
-            "type": "file",
-            "path": "assets/texture/player/chara_idle.png"
-        },
-        "player_move": {
-            "type": "file",
-            "path": "assets/texture/player/chara_move.png"
-        },
-        "player_jump": {
-            "type": "file",
-            "path": "assets/texture/player/chara_jump.png"
-        },
-        "player_capture": {
-            "type": "file",
-            "path": "assets/texture/player/chara_capture.png"
-        },
-        "player_paste": {
-            "type": "file",
-            "path": "assets/texture/player/chara_paste.png"
-        },
-        "player_attack": {
-            "type": "file",
-            "path": "assets/texture/player/chara_attack.png"
-        },
-        "target": {
-            "type": "checkerboard",
-            "width": 192,
-            "height": 192,
-            "rgbaA": "FFE08A2E",
-            "rgbaB": "FF5A2615",
-            "cellSize": 24
-        },
-        "merchant_sign": {
-            "type": "file",
-            "path": "assets/texture/mise.png"
-        },
-        "hazard": {
-            "type": "checkerboard",
-            "width": 128,
-            "height": 128,
-            "rgbaA": "FFE33F33",
-            "rgbaB": "FF4E0A07",
-            "cellSize": 16
-        },
-        "enemy": {
-            "type": "checkerboard",
-            "width": 144,
-            "height": 144,
-            "rgbaA": "FF7E63E6",
-            "rgbaB": "FF1D143A",
-            "cellSize": 18
-        },
-        "tile_default": {
-            "type": "file",
-            "path": "assets/texture/block.png"
-        },
-        "tile_forest_ground": {
-            "type": "file",
-            "path": "assets/texture/maptip/forest_ground.png"
-        },
-        "tile_value_2_blue": {
-            "type": "file",
-            "path": "assets/texture/maptip/tile_value_2_blue.png"
-        },
-        "tile_value_3_purple": {
-            "type": "file",
-            "path": "assets/texture/maptip/tile_value_3_purple.png"
-        },
-        "tile_value_h_damage": {
-            "type": "file",
-            "path": "assets/texture/maptip/tile_value_h_damage.png"
-        },
-        "tile_value_m_log": {
-            "type": "file",
-            "path": "assets/texture/maptip/tile_value_m_log.png"
-        },
-        "tile_value_battery": {
-            "type": "file",
-            "path": "assets/texture/maptip/tile_value_battery.png"
-        },
-        "tile_value_elevator_off": {
-            "type": "file",
-            "path": "assets/texture/maptip/tile_value_elevator_off.png"
-        },
-        "tile_value_elevator_on": {
-            "type": "file",
-            "path": "assets/texture/maptip/tile_value_elevator_on.png"
-        },
-        "enemy1_idle": {
-            "type": "file",
-            "path": "assets/texture/enemy1/enemy1_idle.png"
-        },
-        "enemy1_move": {
-            "type": "file",
-            "path": "assets/texture/enemy1/enemy1_move.png"
-        },
-        "enemy1_attack": {
-            "type": "file",
-            "path": "assets/texture/enemy1/enemy1_attack.png"
-        },
-        "enemy2_idle": {
-            "type": "file",
-            "path": "assets/texture/enemy2/enemy2_idle.png"
-        },
-        "enemy2_attack": {
-            "type": "file",
-            "path": "assets/texture/enemy2/enemy2_attack.png"
-        },
-        "boss1_body_move": {
-            "type": "file",
-            "path": "assets/texture/boss1/Body/Boss01_Move_30f.dds"
-        },
-        "boss1_body_attack01": {
-            "type": "file",
-            "path": "assets/texture/boss1/Body/Boss01_Attack01_180f.dds"
-        },
-        "boss1_body_attack02": {
-            "type": "file",
-            "path": "assets/texture/boss1/Body/Boss01_Attack02_165f.dds"
-        },
-        "boss1_body_knockback": {
-            "type": "file",
-            "path": "assets/texture/boss1/Body/Boss01_Knockback_30f.dds"
-        },
-        "boss1_body_death": {
-            "type": "file",
-            "path": "assets/texture/boss1/Full/Boss01_Destroy_120f.dds"
-        },
-        "boss1_body_start": {
-            "type": "file",
-            "path": "assets/texture/boss1/Full/Boss01_Start_150f.dds"
-        },
-        "boss1_shield_move": {
-            "type": "file",
-            "path": "assets/texture/boss1/Shield/Boss01_Move_Shield_30f.dds"
-        },
-        "boss1_shield_attack01": {
-            "type": "file",
-            "path": "assets/texture/boss1/Shield/Boss01_Attck01_Shield_180f.dds"
-        },
-        "boss1_shield_attack02": {
-            "type": "file",
-            "path": "assets/texture/boss1/Shield/Boss01_Attck02_Shield_165f.dds"
-        },
-        "boss1_shield_knockback": {
-            "type": "file",
-            "path": "assets/texture/boss1/Shield/Boss01_Knockback_Shield_30f.dds"
-        },
-        "boss3_idle": {
-            "type": "file",
-            "path": "assets/texture/boss3/boss3_idle.png"
-        },
-        "boss3_move_right": {
-            "type": "file",
-            "path": "assets/texture/boss3/boss3_move_right.png"
-        },
-        "boss3_move_left": {
-            "type": "file",
-            "path": "assets/texture/boss3/boss3_move_left.png"
-        },
-        "boss3_appear": {
-            "type": "file",
-            "path": "assets/texture/boss3/boss3_appear.png"
-        },
-        "boss3_death": {
-            "type": "file",
-            "path": "assets/texture/boss3/boss3_death.png"
-        },
-        "boss3_rocket_punch": {
-            "type": "file",
-            "path": "assets/texture/boss3/boss3_rocket_punch.png"
-        },
-        "boss3_drill": {
-            "type": "file",
-            "path": "assets/texture/boss3/boss3_drill.png"
-        },
-        "sepia_rubble": {
-            "type": "file",
-            "path": "assets/texture/SepiaSample1.png"
-        },
-        "sepia_rubble_stage": {
-            "type": "file",
-            "path": "assets/texture/sepia_rubble_stage.png"
-        },
-        "sepia_ground": {
-            "type": "file",
-            "path": "assets/texture/SepiaSample2.png"
-        },
-        "sepia_shutter_gate": {
-            "type": "file",
-            "path": "assets/texture/sepia_shutter_gate.png"
-        },
-        "sepia_shutter_gate_horizontal": {
-            "type": "file",
-            "path": "assets/texture/sepia_shutter_gate_horizontal.png"
-        },
-        "star": {
-            "type": "file",
-            "path": "assets/texture/gear/Star.png"
-        },
-        "apple": {
-            "type": "file",
-            "path": "assets/texture/gear/Apple.png"
-        },
-        "circle": {
-            "type": "file",
-            "path": "assets/texture/gear/circle.png"
-        },
-        "daikei": {
-            "type": "file",
-            "path": "assets/texture/gear/daikei.png"
-        },
-        "haguruma": {
-            "type": "file",
-            "path": "assets/texture/gear/haguruma.png"
-        },
-        "arrow": {
-            "type": "file",
-            "path": "assets/texture/arrow.png"
-        },
-        "sinrin10": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/sinrin10.png"
-        },
-        "sinrin11": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/sinrin11.png"
-        },
-        "forest_bg": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Forest.png"
-        },
-        "forest_fg": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Forest.png"
-        },
-        "forest1_bg": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Forest_03.png"
-        },
-        "forest1_fg": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Forest_03.png"
-        },
-        "forest2_bg": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Forest_04.png"
-        },
-        "forest2_fg": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Forest_04.png"
-        },
-        "forest3_bg": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Forest_05.png"
-        },
-        "forest3_fg": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Forest_05.png"
-        },
-        "ruins_bg": {
-            "type": "file",
-            "path": "assets/texture/BG/ruins/ruins.png"
-        },
-        "ruins_fg": {
-            "type": "file",
-            "path": "assets/texture/BG/ruins/ruins.png"
-        },
-        "photo_tray_backdrop": {
-            "type": "file",
-            "path": "assets/texture/photo_tray_backdrop.png"
-        },
-        "tutorial_frame_window": {
-            "type": "file",
-            "path": "assets/texture/tutorialUI/FrameWindow.png"
-        },
-        "tutorial_heading": {
-            "type": "file",
-            "path": "assets/texture/tutorialUI/Midashi.png"
-        },
-        "tutorial_content_image": {
-            "type": "file",
-            "path": "assets/texture/tutorialUI/CameraTutorial.png"
-        },
-        "tutorial_text_box": {
-            "type": "file",
-            "path": "assets/texture/tutorialUI/TextBox.png"
-        },
-        "ui_camera_body": {
-            "type": "file",
-            "path": "assets/texture/ui/camera_body.png"
-        },
-        "ui_camera_nofilter": {
-            "type": "file",
-            "path": "assets/texture/ui/camera_nofilter.png"
-        },
-        "ui_camera_flash_off": {
-            "type": "file",
-            "path": "assets/texture/ui/camera_flash_off.png"
-        },
-        "ui_camera_flash_on": {
-            "type": "file",
-            "path": "assets/texture/ui/camera_flash_on.png"
-        },
-        "ui_camera_heal": {
-            "type": "file",
-            "path": "assets/texture/ui/camera_heal.png"
-        },
-        "ui_parts_counter_panel": {
-            "type": "file",
-            "path": "assets/texture/ui/parts_counter_panel.png"
-        },
-        "ui_parts_counter_digits": {
-            "type": "file",
-            "path": "assets/texture/ui/parts_counter_digits.png"
-        },
-        "ui_photo_frame": {
-            "type": "file",
-            "path": "assets/texture/ui/photo_frame.png"
-        },
-        "ui_photo_frame_film_brown": {
-            "type": "file",
-            "path": "assets/texture/ui/photo_frame_film_brown.png"
-        },
-        "ui_photo_frame_film_black": {
-            "type": "file",
-            "path": "assets/texture/ui/photo_frame_film_black.png"
-        },
-        "ui_photo_empty": {
-            "type": "file",
-            "path": "assets/texture/ui/photo_empty.png"
-        },
-        "ui_photo_album_outer": {
-            "type": "file",
-            "path": "assets/texture/ui/photo_album_outer.png"
-        },
-        "ui_photo_album_inner": {
-            "type": "file",
-            "path": "assets/texture/ui/photo_album_inner.png"
-        },
-        "ui_hp": {
-            "type": "file",
-            "path": "assets/texture/testUI/UI_HP.png"
-        },
-        "ui_hp_damage": {
-            "type": "file",
-            "path": "assets/texture/testUI/UI_HP_Damage.png"
-        },
-        "bg_parts_tree_01": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_01.png"
-        },
-        "bg_parts_rock_01": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_01.png"
-        },
-        "bg_parts_grass_01": {
-            "type": "file",
-            "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_01.png"
-        }
+  "textures": {
+    "white": {
+      "type": "solid",
+      "width": 1,
+      "height": 1,
+      "rgba": "FFFFFFFF"
+    },
+    "player": {
+      "type": "file",
+      "path": "assets/texture/player/chara_idle.png"
+    },
+    "player_idle": {
+      "type": "file",
+      "path": "assets/texture/player/chara_idle.png"
+    },
+    "player_move": {
+      "type": "file",
+      "path": "assets/texture/player/chara_move.png"
+    },
+    "player_jump": {
+      "type": "file",
+      "path": "assets/texture/player/chara_jump.png"
+    },
+    "player_capture": {
+      "type": "file",
+      "path": "assets/texture/player/chara_capture.png"
+    },
+    "player_paste": {
+      "type": "file",
+      "path": "assets/texture/player/chara_paste.png"
+    },
+    "player_attack": {
+      "type": "file",
+      "path": "assets/texture/player/chara_attack.png"
+    },
+    "target": {
+      "type": "checkerboard",
+      "width": 192,
+      "height": 192,
+      "rgbaA": "FFE08A2E",
+      "rgbaB": "FF5A2615",
+      "cellSize": 24
+    },
+    "merchant_sign": {
+      "type": "file",
+      "path": "assets/texture/mise.png"
+    },
+    "hazard": {
+      "type": "checkerboard",
+      "width": 128,
+      "height": 128,
+      "rgbaA": "FFE33F33",
+      "rgbaB": "FF4E0A07",
+      "cellSize": 16
+    },
+    "enemy": {
+      "type": "checkerboard",
+      "width": 144,
+      "height": 144,
+      "rgbaA": "FF7E63E6",
+      "rgbaB": "FF1D143A",
+      "cellSize": 18
+    },
+    "tile_default": {
+      "type": "file",
+      "path": "assets/texture/block.png"
+    },
+    "tile_forest_ground": {
+      "type": "file",
+      "path": "assets/texture/maptip/forest_ground.png"
+    },
+    "tile_value_2_blue": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_2_blue.png"
+    },
+    "tile_value_3_purple": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_3_purple.png"
+    },
+    "tile_value_h_damage": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_h_damage.png"
+    },
+    "tile_value_m_log": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_m_log.png"
+    },
+    "tile_value_battery": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_battery.png"
+    },
+    "tile_value_elevator_off": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_elevator_off.png"
+    },
+    "tile_value_elevator_on": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_elevator_on.png"
+    },
+    "enemy1_idle": {
+      "type": "file",
+      "path": "assets/texture/enemy1/enemy1_idle.png"
+    },
+    "enemy1_move": {
+      "type": "file",
+      "path": "assets/texture/enemy1/enemy1_move.png"
+    },
+    "enemy1_attack": {
+      "type": "file",
+      "path": "assets/texture/enemy1/enemy1_attack.png"
+    },
+    "enemy2_idle": {
+      "type": "file",
+      "path": "assets/texture/enemy2/enemy2_idle.png"
+    },
+    "enemy2_attack": {
+      "type": "file",
+      "path": "assets/texture/enemy2/enemy2_attack.png"
+    },
+    "boss1_body_move": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Boss01_Move_30f.dds"
+    },
+    "boss1_body_attack01": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Boss01_Attack01_180f.dds"
+    },
+    "boss1_body_attack02": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Boss01_Attack02_165f.dds"
+    },
+    "boss1_body_knockback": {
+      "type": "file",
+      "path": "assets/texture/boss1/Body/Boss01_Knockback_30f.dds"
+    },
+    "boss1_body_death": {
+      "type": "file",
+      "path": "assets/texture/boss1/Full/Boss01_Destroy_120f.dds"
+    },
+    "boss1_body_start": {
+      "type": "file",
+      "path": "assets/texture/boss1/Full/Boss01_Start_150f.dds"
+    },
+    "boss1_shield_move": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Boss01_Move_Shield_30f.dds"
+    },
+    "boss1_shield_attack01": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Boss01_Attck01_Shield_180f.dds"
+    },
+    "boss1_shield_attack02": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Boss01_Attck02_Shield_165f.dds"
+    },
+    "boss1_shield_knockback": {
+      "type": "file",
+      "path": "assets/texture/boss1/Shield/Boss01_Knockback_Shield_30f.dds"
+    },
+    "boss3_idle": {
+      "type": "file",
+      "path": "assets/texture/boss3/boss3_idle.png"
+    },
+    "boss3_move_right": {
+      "type": "file",
+      "path": "assets/texture/boss3/boss3_move_right.png"
+    },
+    "boss3_move_left": {
+      "type": "file",
+      "path": "assets/texture/boss3/boss3_move_left.png"
+    },
+    "boss3_appear": {
+      "type": "file",
+      "path": "assets/texture/boss3/boss3_appear.png"
+    },
+    "boss3_death": {
+      "type": "file",
+      "path": "assets/texture/boss3/boss3_death.png"
+    },
+    "boss3_rocket_punch": {
+      "type": "file",
+      "path": "assets/texture/boss3/boss3_rocket_punch.png"
+    },
+    "boss3_drill": {
+      "type": "file",
+      "path": "assets/texture/boss3/boss3_drill.png"
+    },
+    "sepia_rubble": {
+      "type": "file",
+      "path": "assets/texture/SepiaSample1.png"
+    },
+    "sepia_rubble_stage": {
+      "type": "file",
+      "path": "assets/texture/sepia_rubble_stage.png"
+    },
+    "sepia_ground": {
+      "type": "file",
+      "path": "assets/texture/SepiaSample2.png"
+    },
+    "sepia_shutter_gate": {
+      "type": "file",
+      "path": "assets/texture/sepia_shutter_gate.png"
+    },
+    "sepia_shutter_gate_horizontal": {
+      "type": "file",
+      "path": "assets/texture/sepia_shutter_gate_horizontal.png"
+    },
+    "star": {
+      "type": "file",
+      "path": "assets/texture/gear/Star.png"
+    },
+    "apple": {
+      "type": "file",
+      "path": "assets/texture/gear/Apple.png"
+    },
+    "circle": {
+      "type": "file",
+      "path": "assets/texture/gear/circle.png"
+    },
+    "daikei": {
+      "type": "file",
+      "path": "assets/texture/gear/daikei.png"
+    },
+    "haguruma": {
+      "type": "file",
+      "path": "assets/texture/gear/haguruma.png"
+    },
+    "arrow": {
+      "type": "file",
+      "path": "assets/texture/arrow.png"
+    },
+    "sinrin10": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/sinrin10.png"
+    },
+    "sinrin11": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/sinrin11.png"
+    },
+    "forest_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest.png"
+    },
+    "forest_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest.png"
+    },
+    "forest1_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_03.png"
+    },
+    "forest1_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_03.png"
+    },
+    "forest2_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_04.png"
+    },
+    "forest2_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_04.png"
+    },
+    "forest3_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_05.png"
+    },
+    "forest3_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Forest_05.png"
+    },
+    "ruins_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins.png"
+    },
+    "ruins_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins.png"
+    },
+    "photo_tray_backdrop": {
+      "type": "file",
+      "path": "assets/texture/photo_tray_backdrop.png"
+    },
+    "tutorial_frame_window": {
+      "type": "file",
+      "path": "assets/texture/tutorialUI/FrameWindow.png"
+    },
+    "tutorial_heading": {
+      "type": "file",
+      "path": "assets/texture/tutorialUI/Midashi.png"
+    },
+    "tutorial_content_image": {
+      "type": "file",
+      "path": "assets/texture/tutorialUI/CameraTutorial.png"
+    },
+    "tutorial_text_box": {
+      "type": "file",
+      "path": "assets/texture/tutorialUI/TextBox.png"
+    },
+    "ui_camera_body": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_body.png"
+    },
+    "ui_camera_nofilter": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_nofilter.png"
+    },
+    "ui_camera_flash_off": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_flash_off.png"
+    },
+    "ui_camera_flash_on": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_flash_on.png"
+    },
+    "ui_camera_heal": {
+      "type": "file",
+      "path": "assets/texture/ui/camera_heal.png"
+    },
+    "ui_parts_counter_panel": {
+      "type": "file",
+      "path": "assets/texture/ui/parts_counter_panel.png"
+    },
+    "ui_parts_counter_digits": {
+      "type": "file",
+      "path": "assets/texture/ui/parts_counter_digits.png"
+    },
+    "ui_photo_frame": {
+      "type": "file",
+      "path": "assets/texture/ui/photo_frame.png"
+    },
+    "ui_photo_frame_film_brown": {
+      "type": "file",
+      "path": "assets/texture/ui/photo_frame_film_brown.png"
+    },
+    "ui_photo_frame_film_black": {
+      "type": "file",
+      "path": "assets/texture/ui/photo_frame_film_black.png"
+    },
+    "ui_photo_empty": {
+      "type": "file",
+      "path": "assets/texture/ui/photo_empty.png"
+    },
+    "ui_photo_album_outer": {
+      "type": "file",
+      "path": "assets/texture/ui/photo_album_outer.png"
+    },
+    "ui_photo_album_inner": {
+      "type": "file",
+      "path": "assets/texture/ui/photo_album_inner.png"
+    },
+    "ui_hp": {
+      "type": "file",
+      "path": "assets/texture/testUI/UI_HP.png"
+    },
+    "ui_hp_damage": {
+      "type": "file",
+      "path": "assets/texture/testUI/UI_HP_Damage.png"
+    },
+    "bg_parts_tree_01": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_01.png"
+    },
+    "bg_parts_rock_01": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_01.png"
+    },
+    "bg_parts_grass_01": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_01.png"
+    },
+    "karitatie": {
+      "type": "file",
+      "path": "assets/texture/karitatie.png"
+    },
+    "kuria": {
+      "type": "file",
+      "path": "assets/texture/kuria.png"
     }
+  }
 }
