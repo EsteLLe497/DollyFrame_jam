@@ -49,6 +49,32 @@ inline void UpdateEnemies(
     constexpr float kMidBoss2LandingInsetGrid = 6.0f;
     constexpr float kMidBoss2SideLandingInsetGrid = 3.0f;
     constexpr float kMidBoss2GroundOffsetGridY = 4.0f;
+    constexpr float kEnemyGravityStepSeconds = 1.0f / 120.0f;
+
+    const auto applyEnemyGravity = [&](EnemyComponent& enemy, TransformComponent& transform, float gravity, float maxFallSpeed) -> bool
+    {
+        const float totalDeltaTime = std::max(0.0f, flow.lastDeltaTime);
+        if (totalDeltaTime <= 0.0f)
+        {
+            return false;
+        }
+
+        const int stepCount = std::max(1, static_cast<int>(std::ceil(totalDeltaTime / kEnemyGravityStepSeconds)));
+        const float stepDeltaTime = totalDeltaTime / static_cast<float>(stepCount);
+        bool grounded = false;
+        for (int step = 0; step < stepCount; ++step)
+        {
+            enemy.velocityY = std::min(maxFallSpeed, enemy.velocityY + gravity * stepDeltaTime);
+            transform.y += enemy.velocityY * stepDeltaTime;
+            if (snapToGround(transform))
+            {
+                enemy.velocityY = 0.0f;
+                grounded = true;
+                break;
+            }
+        }
+        return grounded;
+    };
 
     for (Entity* entity : enemyEntities)
     {
@@ -2183,9 +2209,7 @@ inline void UpdateEnemies(
             const bool inAttackRange = horizontalGap <= kWalkerStopDistance;
             const bool inDetectRange = dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
 
-            enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
-            transform->y += enemy->velocityY * flow.lastDeltaTime;
-            const bool onGround = snapToGround(*transform);
+            const bool onGround = applyEnemyGravity(*enemy, *transform, kGravity, kMaxFallSpeed);
             if (onGround)
             {
                 enemy->velocityY = 0.0f;
@@ -2354,9 +2378,7 @@ inline void UpdateEnemies(
         {
             constexpr float kGravity = 1900.0f;
             constexpr float kMaxFallSpeed = 980.0f;
-            enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
-            transform->y += enemy->velocityY * flow.lastDeltaTime;
-            const bool onGround = snapToGround(*transform);
+            const bool onGround = applyEnemyGravity(*enemy, *transform, kGravity, kMaxFallSpeed);
             if (onGround)
             {
                 enemy->velocityY = 0.0f;
@@ -2440,9 +2462,7 @@ inline void UpdateEnemies(
 		constexpr float kMaxFallSpeed = 980.0f;
 		constexpr float kTileSize = 48.0f;
 
-            enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
-            transform->y += enemy->velocityY * flow.lastDeltaTime;
-            if (snapToGround(*transform))
+            if (applyEnemyGravity(*enemy, *transform, kGravity, kMaxFallSpeed))
             {
                 enemy->velocityY = 0.0f;
             }
@@ -4154,9 +4174,7 @@ inline void UpdateEnemies(
                 boss->state != MidBoss2State::SpearThrow &&
                 boss->state != MidBoss2State::SpearLanding)
             {
-                enemy->velocityY = std::min(kMaxFallSpeed, enemy->velocityY + kGravity * flow.lastDeltaTime);
-                transform->y += enemy->velocityY * flow.lastDeltaTime;
-                if (snapToGround(*transform))
+                if (applyEnemyGravity(*enemy, *transform, kGravity, kMaxFallSpeed))
                 {
                     enemy->velocityY = 0.0f;
                 }
