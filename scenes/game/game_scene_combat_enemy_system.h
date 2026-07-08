@@ -160,7 +160,7 @@ inline void UpdateEnemies(
             boss->facingRight = playerCenterX >= (boss->homeX + bossWidth * 0.5f);
             if (auto* sprite = entity->GetComponent<SpriteRenderComponent>())
             {
-                sprite->SetFlipX(boss->facingRight);
+                sprite->SetFlipX(false);
             }
 
             const auto isBossGrounded = [&]() -> bool
@@ -337,6 +337,33 @@ inline void UpdateEnemies(
                     }
                 }
             };
+            const auto playMidBoss3Clip = [&](const char* clipName, bool restart = false)
+            {
+                auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>();
+                if (!animation || !clipName)
+                {
+                    return;
+                }
+                if (restart || animation->GetCurrentClipName() != clipName)
+                {
+                    animation->Play(clipName, restart);
+                }
+            };
+            const auto isPinnedByCapturedDrill = [&]() -> bool
+            {
+                for (const auto& candidate : entities)
+                {
+                    const auto* capturedAttack = candidate ? candidate->GetComponent<CapturedMidBoss3AttackComponent>() : nullptr;
+                    if (capturedAttack &&
+                        capturedAttack->kind == CapturedMidBoss3AttackKind::Drill &&
+                        capturedAttack->attachedToBoss &&
+                        capturedAttack->carriedBoss == entity)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
             const auto updateIntroSequence = [&]() -> bool
             {
                 if (boss->introFinished)
@@ -373,6 +400,7 @@ inline void UpdateEnemies(
 
                 if (!boss->introStarted)
                 {
+                    playMidBoss3Clip("idle");
                     boss->homeX = boss->introFloatHomeX;
                     boss->homeY = boss->introGroundY;
                     transform->x = boss->homeX;
@@ -389,10 +417,12 @@ inline void UpdateEnemies(
                         boss->introStarted = true;
                         boss->introWaitingForTrigger = false;
                         boss->introTimer = 0.0f;
+                        playMidBoss3Clip("appear", true);
                     }
                     return true;
                 }
 
+                playMidBoss3Clip("appear");
                 boss->introTimer += deltaTime;
                 const float progress = smoothStep(boss->introTimer / std::max(0.01f, boss->params.introRiseTime));
                 boss->homeX = boss->introFloatHomeX;
@@ -405,7 +435,21 @@ inline void UpdateEnemies(
                 boss->flowStarted = false;
                 setIntroFists(std::clamp((progress - 0.45f) / 0.45f, 0.0f, 1.0f));
 
+                const auto* introAnimation = entity->GetComponent<SpriteSheetAnimationComponent>();
+                const bool introAnimationFinished =
+                    !introAnimation ||
+                    !introAnimation->HasClip("appear") ||
+                    (introAnimation->GetCurrentClipName() == "appear" && introAnimation->IsCurrentClipFinished());
                 if (progress >= 1.0f)
+                {
+                    boss->homeX = boss->introFloatHomeX;
+                    boss->homeY = boss->introFloatHomeY;
+                    transform->x = boss->homeX;
+                    transform->y = boss->homeY;
+                    setIntroFists(1.0f);
+                }
+
+                if (progress >= 1.0f && introAnimationFinished)
                 {
                     boss->introFinished = true;
                     boss->homeX = boss->introFloatHomeX;
@@ -415,11 +459,57 @@ inline void UpdateEnemies(
                     boss->stateTimer = 0.0f;
                     boss->idleTimer = 0.0f;
                     setIntroFists(1.0f);
+                    playMidBoss3Clip("idle", true);
                 }
                 return true;
             };
+            if (boss->deathAnimationActive)
+            {
+                playMidBoss3Clip("death");
+                boss->drillActive = false;
+                boss->reloadActive = false;
+                for (Entity* fistEntity : boss->fistEntities)
+                {
+                    if (auto* tint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr)
+                    {
+                        tint->a = 0.0f;
+                    }
+                }
+                if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>();
+                    animation && animation->IsCurrentClipFinished())
+                {
+                    boss->deathAnimationActive = false;
+                    boss->deathAnimationFinished = true;
+                    enemy->MarkDefeated();
+                    enemy->respawnEnabled = false;
+                    flow.stageBgmCrossFadePending = true;
+                    flow.stageBgmCrossFadeDelayRemaining = 1.25f;
+                }
+                continue;
+            }
             if (updateIntroSequence())
             {
+                continue;
+            }
+            if (isPinnedByCapturedDrill())
+            {
+                boss->state = MidBoss3State::AttackCooldown;
+                boss->stateTimer = 0.0f;
+                boss->launcherShotTimer = 0.0f;
+                boss->launcherShotsFired = 0;
+                boss->meteorShotsFired = 0;
+                boss->drillActive = false;
+                boss->drillFormed = false;
+                boss->drillGroundRush = false;
+                boss->drillDamageApplied = false;
+                boss->drillFloorObjectHits = 0;
+                boss->drillVelocityX = 0.0f;
+                boss->drillVelocityY = 0.0f;
+                boss->reloadActive = false;
+                setIntroFists(1.0f);
+                transform->x = boss->homeX;
+                transform->y = boss->homeY;
+                playMidBoss3Clip("idle");
                 continue;
             }
             const auto isEntityPendingRemove = [&](const Entity* target) -> bool
@@ -678,6 +768,7 @@ inline void UpdateEnemies(
                     {
                         fist->state = MidBoss3FistState::LauncherReady;
                         resetFistForAttack(*fist);
+                        fist->lockedFacingRight = boss->launcherDirection > 0;
                         if (fistTransform)
                         {
                             fistTransform->rotation = 0.0f;
@@ -709,7 +800,7 @@ inline void UpdateEnemies(
                     resetFistForAttack(*fist);
                     if (fistTransform)
                     {
-                        fistTransform->rotation = 1.5707963f;
+                        fistTransform->rotation = -1.5707963f;
                     }
                     if (auto* tint = fistEntity->GetComponent<TintComponent>())
                     {
@@ -1066,6 +1157,7 @@ inline void UpdateEnemies(
                         fist->state = MidBoss3FistState::Launching;
                         fist->velocityX = boss->launcherDirection < 0 ? -boss->params.launcherFistSpeed : boss->params.launcherFistSpeed;
                         fist->velocityY = 0.0f;
+                        fist->lockedFacingRight = boss->launcherDirection > 0;
                         fist->launchTimer = 0.0f;
                         fistTransform->rotation = 0.0f;
                         launched = true;
@@ -1106,7 +1198,7 @@ inline void UpdateEnemies(
                         fist->velocityX = (fist->meteorAimX / aimLength) * boss->params.meteorFistSpeed;
                         fist->velocityY = (fist->meteorAimY / aimLength) * boss->params.meteorFistSpeed;
                         fist->launchTimer = 0.0f;
-                        fistTransform->rotation = std::atan2(fist->velocityY, fist->velocityX);
+                        fistTransform->rotation = std::atan2(fist->velocityY, fist->velocityX) + 3.14159265f;
                         return true;
                     }
                     return false;
@@ -1802,12 +1894,12 @@ inline void UpdateEnemies(
                         const float aimLength = std::max(0.001f, std::hypot(aimDx, aimDy));
                         fist->meteorAimX = aimDx / aimLength;
                         fist->meteorAimY = aimDy / aimLength;
-                        fistTransform->rotation = std::atan2(fist->meteorAimY, fist->meteorAimX);
+                        fistTransform->rotation = std::atan2(fist->meteorAimY, fist->meteorAimX) + 3.14159265f;
                         fist->attackReadyTimer += deltaTime;
                     }
                     else
                     {
-                        fistTransform->rotation = 1.5707963f;
+                        fistTransform->rotation = -1.5707963f;
                         fist->attackReadyTimer = 0.0f;
                     }
                 }
@@ -1902,7 +1994,7 @@ inline void UpdateEnemies(
                     fist->launchTimer += deltaTime;
                     fistTransform->x += fist->velocityX * deltaTime;
                     fistTransform->y += fist->velocityY * deltaTime;
-                    fistTransform->rotation = std::atan2(fist->velocityY, fist->velocityX);
+                    fistTransform->rotation = std::atan2(fist->velocityY, fist->velocityX) + 3.14159265f;
 
                     const bool hitSolidTile = rectIntersectsSolid(fistTransform->x, fistTransform->y, fistWidth, fistHeight);
                     const bool outOfBounds =
@@ -2015,8 +2107,27 @@ inline void UpdateEnemies(
                 }
                 if (auto* fistSprite = fistEntity->GetComponent<SpriteRenderComponent>())
                 {
-                    fistSprite->SetFlipX(fist->velocityX < 0.0f || (!boss->facingRight && std::fabs(fist->velocityX) <= 0.01f));
+                    const bool usesAimedRotation =
+                        fist->state == MidBoss3FistState::MeteorReady ||
+                        fist->state == MidBoss3FistState::MeteorFalling;
+                    const bool usesLockedLauncherFacing =
+                        fist->state == MidBoss3FistState::LauncherReady ||
+                        fist->state == MidBoss3FistState::Launching;
+                    const bool facingRight = usesAimedRotation
+                        ? false
+                        : (usesLockedLauncherFacing
+                            ? fist->lockedFacingRight
+                            : (fist->velocityX > 0.0f || (boss->facingRight && std::fabs(fist->velocityX) <= 0.01f)));
+                    fistSprite->SetFlipX(facingRight);
                 }
+            }
+            if (boss->state == MidBoss3State::Move && boss->moving)
+            {
+                playMidBoss3Clip(boss->moveTargetX >= boss->moveStartX ? "move_right" : "move_left");
+            }
+            else
+            {
+                playMidBoss3Clip("idle");
             }
             continue;
         }
@@ -2255,7 +2366,9 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            const bool inDetectRange = dx <= 0.0f && dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
+            const bool facingRight = enemy->facing == EnemyComponent::FacingDirection::Right;
+            const bool playerInFacingDirection = facingRight ? dx >= 0.0f : dx <= 0.0f;
+            const bool inDetectRange = playerInFacingDirection && dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
             if (!inDetectRange && enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
                 enemy->attackTimer = enemy->attackCooldown;
@@ -2296,13 +2409,14 @@ inline void UpdateEnemies(
                 enemy->attackFrameTriggered = true;
 
                 constexpr float kBulletSpeed = 450.0f;
-                const float velX = -kBulletSpeed;
+                const float shotDirection = facingRight ? 1.0f : -1.0f;
+                const float velX = shotDirection * kBulletSpeed;
                 const float velY = 0.0f;
 
                 auto bullet = std::make_unique<Entity>();
                 bullet->AddComponent<TagComponent>(kTagBullet);
                 bullet->AddComponent<TransformComponent>(
-                    transform->x - 24.0f,
+                    transform->x + (facingRight ? transform->width * transform->scale : -24.0f),
                     transform->y + 24.0f,
                     48.0f, 24.0f);
                 bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);

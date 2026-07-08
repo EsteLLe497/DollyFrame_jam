@@ -1215,7 +1215,7 @@ void GameScene::RefreshEnemiesFromMarkers()
             const std::array<EnemySpawnRule, 5> enemySpawnRules
             {
                 EnemySpawnRule{ 'W', "sandbox_enemy_walker", &GameScene::ConfigureWalkerSpriteAnimation },
-                EnemySpawnRule{ 'R', "sandbox_enemy_ranged", &GameScene::ConfigureRangedSpriteAnimation },
+                EnemySpawnRule{ 'R', "sandbox_enemy_ranged", nullptr },
                 EnemySpawnRule{ '$', "sandbox_enemy_charger", nullptr },
                 EnemySpawnRule{ 'A', "sandbox_enemy_ghost", nullptr },
                 EnemySpawnRule{ 'D', "sandbox_enemy_blaster_robot", nullptr },
@@ -1231,7 +1231,11 @@ void GameScene::RefreshEnemiesFromMarkers()
                     }
 
                     Entity& enemy = SpawnStagePrefab(prefabs, rule.prefabId, markerX, markerY);
-                    if (rule.configure)
+                    if (spawnMarker == 'R')
+                    {
+                        ConfigureRangedSpriteAnimation(enemy, m_tileMap.GetMarkerParameter(column, row) < 0);
+                    }
+                    else if (rule.configure)
                     {
                         (this->*rule.configure)(enemy);
                     }
@@ -2055,6 +2059,7 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
             const float markerX = static_cast<float>(column) * tileSize;
             const float markerY = static_cast<float>(row) * tileSize;
             const int tileSpan = GetDamagePlatformTileSpanFromMarker(marker);
+            const bool photoCapturableDamagePlatform = marker == 'H';
             for (int cellIndex = 0; cellIndex < tileSpan; ++cellIndex)
             {
                 const float cellX = markerX + tileSize * static_cast<float>(cellIndex);
@@ -2068,7 +2073,7 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
                     tileSize);
                 damagePlatformBase->AddComponent<TintComponent>(0.66f, 0.12f, 0.94f, 1.0f);
                 damagePlatformBase->AddComponent<SpriteRenderComponent>(damageTexture);
-                damagePlatformBase->AddComponent<DamagePlatformComponent>(1);
+                damagePlatformBase->AddComponent<DamagePlatformComponent>(1, photoCapturableDamagePlatform);
                 damagePlatformBase->AddComponent<ImageOutlineColliderComponent>(
                     BuildDamagePlatformBaseOutline(),
                     0.2f);
@@ -2086,7 +2091,7 @@ void GameScene::RefreshDamageFootholdsFromMarkers()
                 damagePlatformSpike->AddComponent<SpriteRenderComponent>(
                     damageSpikeTexture >= 0 ? damageSpikeTexture : damageTexture);
                 damagePlatformSpike->AddComponent<GimmickComponent>(GimmickType::Hazard, true, false);
-                damagePlatformSpike->AddComponent<SpikeStripComponent>(1);
+                damagePlatformSpike->AddComponent<SpikeStripComponent>(1, photoCapturableDamagePlatform);
                 damagePlatformSpike->AddComponent<ImageOutlineColliderComponent>(
                     BuildDamagePlatformSpikeOutline(1),
                     0.2f);

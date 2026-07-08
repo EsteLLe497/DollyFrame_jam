@@ -965,6 +965,7 @@ namespace
         root["sourceTileValue"] = item.sourceTileValue;
         root["damagePlatformTileSpan"] = item.damagePlatformTileSpan;
         root["spikeStripTileSpan"] = item.spikeStripTileSpan;
+        root["damagePlatformPhotoCapturable"] = item.damagePlatformPhotoCapturable;
         root["sepiaRestoredTileValue"] = item.sepiaRestoredTileValue;
         root["sepiaRestoredMarkerObject"] = item.sepiaRestoredMarkerObject;
         root["sepiaShutterObject"] = item.sepiaShutterObject;
@@ -1021,6 +1022,9 @@ namespace
         item.sourceTileValue = root.value("sourceTileValue", item.sourceTileValue);
         item.damagePlatformTileSpan = root.value("damagePlatformTileSpan", item.damagePlatformTileSpan);
         item.spikeStripTileSpan = root.value("spikeStripTileSpan", item.spikeStripTileSpan);
+        item.damagePlatformPhotoCapturable = root.value(
+            "damagePlatformPhotoCapturable",
+            item.damagePlatformPhotoCapturable);
         item.sepiaRestoredTileValue = root.value("sepiaRestoredTileValue", item.sepiaRestoredTileValue);
         item.sepiaRestoredMarkerObject = root.value("sepiaRestoredMarkerObject", item.sepiaRestoredMarkerObject);
         item.sepiaShutterObject = root.value("sepiaShutterObject", item.sepiaShutterObject);
@@ -1852,6 +1856,7 @@ void GameScene::InitializeStageEntities()
             fistComp.baseOffsetX = offsets[index][0];
             fistComp.baseOffsetY = offsets[index][1];
             fistComp.idlePhase = static_cast<float>(index) * 1.35f;
+            ConfigureMidBoss3FistSpriteAnimation(fist);
             bossComp->fistEntities.push_back(&fist);
         }
     };
@@ -1874,12 +1879,13 @@ void GameScene::InitializeStageEntities()
         }
         else if (marker == 'R') // Ranged
         {
+            const bool reverseFacing = stageMarker.parameter < 0;
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
                 "sandbox_enemy_ranged",
                 static_cast<float>(column) * tileSize,
                 static_cast<float>(row) * tileSize);
-            ConfigureRangedSpriteAnimation(enemy);
+            ConfigureRangedSpriteAnimation(enemy, reverseFacing);
             placeGroundedEnemyAtMarker(enemy, column, row);
         }
         else if (marker == '$') // Charger
@@ -1975,6 +1981,7 @@ void GameScene::InitializeStageEntities()
                 transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
                 transform->y = static_cast<float>(row) * tileSize + (tileSize - transform->height * transform->scale) * 0.5f;
                 transform->y += tileSize * 2.0f;
+                ConfigureMidBoss3SpriteAnimation(boss);
                 if (auto* enemy = boss.GetComponent<EnemyComponent>())
                 {
                     enemy->spawnX = transform->x;
