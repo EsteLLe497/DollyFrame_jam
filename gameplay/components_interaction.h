@@ -364,6 +364,7 @@ public:
     bool shootsLeft = false;
     bool requiresLaserPower = false;
     float playerDamageTimer = 0.0f;
+    bool playerDamageContactActive = false;
     std::unordered_map<const GameObject*, float> enemyDamageTimers;
     float sparkTimer = 0.0f;
     bool active = true;

@@ -615,6 +615,7 @@ inline bool IsParameterizedEditorMarker(char marker)
     {
     case 'P':
     case 'F':
+    case 'R':
     case 'K':
     case 'L':
     case 'Q':
@@ -644,6 +645,8 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
     case 'P':
     case 'F':
         return std::clamp(parameter, -99, 99);
+    case 'R':
+        return std::clamp(parameter, -1, 1);
     case 'K':
     case 'L':
     case 'Q':

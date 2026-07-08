@@ -2255,7 +2255,9 @@ inline void UpdateEnemies(
             const float dy = playerTransform->y - transform->y;
             const float dist = std::sqrt(dx * dx + dy * dy);
 
-            const bool inDetectRange = dx <= 0.0f && dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
+            const bool facingRight = enemy->facing == EnemyComponent::FacingDirection::Right;
+            const bool playerInFacingDirection = facingRight ? dx >= 0.0f : dx <= 0.0f;
+            const bool inDetectRange = playerInFacingDirection && dist < enemy->detectRange && std::fabs(dy) < enemy->detectHeight;
             if (!inDetectRange && enemy->GetAIState() != EnemyComponent::AIState::Attack)
             {
                 enemy->attackTimer = enemy->attackCooldown;
@@ -2296,13 +2298,14 @@ inline void UpdateEnemies(
                 enemy->attackFrameTriggered = true;
 
                 constexpr float kBulletSpeed = 450.0f;
-                const float velX = -kBulletSpeed;
+                const float shotDirection = facingRight ? 1.0f : -1.0f;
+                const float velX = shotDirection * kBulletSpeed;
                 const float velY = 0.0f;
 
                 auto bullet = std::make_unique<Entity>();
                 bullet->AddComponent<TagComponent>(kTagBullet);
                 bullet->AddComponent<TransformComponent>(
-                    transform->x - 24.0f,
+                    transform->x + (facingRight ? transform->width * transform->scale : -24.0f),
                     transform->y + 24.0f,
                     48.0f, 24.0f);
                 bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
