@@ -76,7 +76,7 @@ namespace
     constexpr int kMenuOptionCount = 2;
     constexpr const char* kMenuLabels[kMenuOptionCount] =
     {
-        "森の廃墟へ進む",
+        "廃墟ステージへ進む",
         "タイトルへ戻る",
     };
     constexpr int kMenuRowWidth = 360;
@@ -169,7 +169,7 @@ void ResultScene::ConfirmSelection()
 
     if (m_selectedOption == 0)
     {
-        // forest_ruins (ruins1.csv) へ進む
+        // 廃墟ステージ (ruins1.csv) へ進む
         GameSession_SetStartMapCsvPath("assets/maps/stages/ruins1.csv");
         GameSession_SetLoadSavedProgress(false);
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
