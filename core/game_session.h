@@ -17,13 +17,16 @@ struct GameSessionState
     int maxHp = 3;
     int currentHp = 3;
     int parts = 0;
+    int partsCollectedTotal = 0;
     int photoStorageSlots = 2;
     bool hasRecoveryFilter = false;
     bool hasCameraFlash = false;
     float timeLimit = 30.0f;
     float timeRemaining = 30.0f;
+    float elapsedSeconds = 0.0f;
+    float clearTimeSeconds = 0.0f;
     GameEndReason endReason = GameEndReason::None;
-	std::string startMapCsvPath = "assets/maps/stages/forest_v2.csv";
+    std::string startMapCsvPath = "assets/maps/stages/forest_v2.csv";
     bool loadSavedProgress = true;
     bool cameraTutorialCompleted = false;
     std::vector<int> completedTutorialNumbers;
@@ -48,3 +51,4 @@ void gameSessionSetCompletedTutorialNumbers(const std::vector<int>& tutorialNumb
 const GameSessionState& GameSession_Get();
 const std::string& GameSession_GetStartMapCsvPath();
 bool GameSession_ShouldLoadSavedProgress();
+void GameSession_AddElapsedSeconds(float deltaTime);

@@ -222,6 +222,18 @@ void ResultScene::DrawMenu() const
     std::snprintf(detail, sizeof(detail), "%s", ToReasonLabel(session.endReason));
     DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 320, detail, GetColor(242, 226, 194), GetColor(28, 16, 9));
 
+    char statsLine[96] = {};
+    const int clearMinutes = static_cast<int>(session.clearTimeSeconds) / 60;
+    const int clearSeconds = static_cast<int>(session.clearTimeSeconds) % 60;
+    std::snprintf(
+        statsLine,
+        sizeof(statsLine),
+        "取得アイテム: %d個   クリアタイム: %02d:%02d",
+        session.partsCollectedTotal,
+        clearMinutes,
+        clearSeconds);
+    DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 356, statsLine, GetColor(255, 236, 196), GetColor(28, 16, 9));
+
     // 選択肢
     for (int index = 0; index < kMenuOptionCount; ++index)
     {
@@ -249,6 +261,8 @@ void ResultScene::DrawDebugUI()
     ImGui::Text("選択中: %s", m_selectedOption == 0 ? "森の廃墟へ進む" : "タイトルへ戻る");
     ImGui::Text("上下キー/マウスホバーで選択、Enter/Space/A/クリックで決定");
     ImGui::Text("プロンプト表示: %s", m_showPrompt ? "あり" : "なし");
+    ImGui::Text("取得アイテム(累計): %d", session.partsCollectedTotal);
+    ImGui::Text("クリアタイム: %.1f 秒", session.clearTimeSeconds);
     ImGui::End();
 }
 

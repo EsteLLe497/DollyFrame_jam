@@ -90,6 +90,9 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
     m_ui.shutterFlashRemaining = std::max(0.0f, m_ui.shutterFlashRemaining - deltaTime);
     m_ui.cameraFlash.pulseRemaining = std::max(0.0f, m_ui.cameraFlash.pulseRemaining - deltaTime);
+    
+    GameSession_AddElapsedSeconds(effectiveGameplayDeltaTime);
+
     const int currentParts = GameSession_Get().parts;
     if (m_ui.partsHudLastValue != currentParts)
     {
@@ -183,7 +186,3 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
 
     m_ui.hpDamageFlash = std::max(0.0f, m_ui.hpDamageFlash - deltaTime * 4.5f);
 }
-
-
-
-
