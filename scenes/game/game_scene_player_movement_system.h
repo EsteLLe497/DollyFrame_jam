@@ -499,15 +499,21 @@ inline void UpdateCamera(
     float mapWidth,
     float mapHeight,
     float cameraYOffsetY,
+    float cameraTargetOffsetX,
     float deltaTime,
+    float cameraFollowSpeedX,
     bool followY,
-    bool updateY = true)
+    bool updateY = true,
+    bool offsetX = false,
+    float cameraOffsetX = 0.0f)
 {
+    const float activeCameraOffsetX = offsetX ? cameraOffsetX : 0.0f;
+    const float cameraClampWidth = std::max(cameraVisibleWidth, gCameraViewWidth);
     const float targetX = std::clamp(
-        playerX + playerWidth * 0.5f - cameraVisibleWidth * 0.5f,
+        playerX + playerWidth * 0.5f - cameraVisibleWidth * 0.5f + cameraTargetOffsetX + activeCameraOffsetX,
         0.0f,
-        std::max(0.0f, mapWidth - cameraVisibleWidth));
-    const float followX = std::clamp(gCameraFollowSpeedX * deltaTime, 0.0f, 1.0f);
+        std::max(0.0f, mapWidth - cameraClampWidth));
+    const float followX = std::clamp(std::max(0.01f, cameraFollowSpeedX) * deltaTime, 0.0f, 1.0f);
     cameraX += (targetX - cameraX) * followX;
 
     if (!updateY)

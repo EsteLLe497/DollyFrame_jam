@@ -15,6 +15,7 @@ void GameScene::DrawDebugUI()
     const ActiveGameSceneScope activeScene(*this);
     ImGuiLayer_SetFoundationOverlayVisible(!m_debug.hideNonPhotoUi);
     DrawUiAdjustmentWindow();
+    DrawCameraDebugWindow();
     if (m_debug.hideNonPhotoUi)
     {
         DrawTestPhotoPanel();
@@ -243,6 +244,176 @@ void GameScene::DrawDebugUI()
     DrawMidBoss2DebugWindow();
     DrawProgressSavePanel();
     DrawTestPhotoPanel();
+}
+
+void GameScene::DrawCameraDebugWindow()
+{
+    ImGui::SetNextWindowSize(ImVec2(430.0f, 560.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("カメラ調整"))
+    {
+        ImGui::End();
+        return;
+    }
+
+    auto& tuning = m_tuning;
+    const float viewScale = std::max(0.0001f, GetViewScale());
+    const float viewOriginX = GetViewOriginX();
+    const float viewOriginY = GetViewOriginY();
+    const float viewWidth = GetViewWidth();
+    const float viewHeight = GetViewHeight();
+    const float visibleWorldWidth = std::clamp(
+        (static_cast<float>(SCREEN_WIDTH) - viewOriginX * 2.0f) / viewScale,
+        1.0f,
+        tuning.cameraViewWidth);
+    const float maxCameraX = std::max(0.0f, GetMapPixelWidth() - tuning.cameraViewWidth);
+    const float maxCameraY = std::max(0.0f, GetMapPixelHeight() - tuning.cameraViewHeight);
+
+    ImGui::SeparatorText("現在値");
+    ImGui::Text("カメラ位置: %.1f, %.1f", m_flow.cameraX, m_flow.cameraY);
+    ImGui::Text("カメラ上限: %.1f, %.1f", maxCameraX, maxCameraY);
+    ImGui::Text("表示倍率: %.3f", viewScale);
+    ImGui::Text("画面上の表示: %.1f x %.1f", viewWidth, viewHeight);
+    ImGui::Text("表示原点: %.1f, %.1f", viewOriginX, viewOriginY);
+    ImGui::Text("画面中央用ワールド幅: %.1f", visibleWorldWidth);
+    ImGui::Text("停止時オフセット: %.1f", m_camera.cameraOffsetX);
+
+    if (const Entity* player = FindEntityByTag(kTagPlayer))
+    {
+        if (const auto* transform = player->GetComponent<TransformComponent>())
+        {
+            const float playerWidth = transform->width * transform->scale;
+            const float playerHeight = transform->height * transform->scale;
+            const float playerCenterX = transform->x + playerWidth * 0.5f;
+            const float playerCenterY = transform->y + playerHeight * 0.5f;
+            const float playerScreenX = viewOriginX + (playerCenterX - m_flow.cameraX) * viewScale;
+            const float playerScreenY = viewOriginY + (playerCenterY - m_flow.cameraY) * viewScale;
+            ImGui::Text("プレイヤー画面位置: %.1f, %.1f", playerScreenX, playerScreenY);
+            ImGui::Text("画面中心との差: %.1f, %.1f",
+                playerScreenX - static_cast<float>(SCREEN_WIDTH) * 0.5f,
+                playerScreenY - static_cast<float>(SCREEN_HEIGHT) * 0.5f);
+        }
+    }
+
+    ImGui::SeparatorText("追従");
+    bool followY = tuning.cameraFollowY >= 0.5f;
+    if (ImGui::Checkbox("Y追従", &followY))
+    {
+        tuning.cameraFollowY = followY ? 1.0f : 0.0f;
+    }
+    ImGui::DragFloat("X追従速度", &tuning.cameraFollowSpeedX, 0.1f, 0.1f, 80.0f, "%.2f");
+    ImGui::DragFloat("Y追従速度", &tuning.cameraFollowSpeedY, 0.1f, 0.1f, 80.0f, "%.2f");
+
+    ImGui::SeparatorText("見ている位置");
+    ImGui::TextUnformatted("カメラサイズは変えず、追従先だけずらします。");
+    ImGui::DragFloat("視線オフセットX", &tuning.cameraTargetOffsetX, 1.0f, -960.0f, 960.0f, "%.1f px");
+    ImGui::DragFloat("視線オフセットY", &tuning.cameraTargetOffsetY, 1.0f, -540.0f, 540.0f, "%.1f px");
+    if (ImGui::Button("視線オフセットをリセット"))
+    {
+        tuning.cameraTargetOffsetX = 0.0f;
+        tuning.cameraTargetOffsetY = 0.0f;
+    }
+
+    ImGui::SeparatorText("停止時の向き寄せ");
+    ImGui::DragFloat("停止時の向き寄せ量", &tuning.cameraLookAheadOffsetX, 1.0f, 0.0f, 300.0f, "%.1f px");
+    ImGui::DragFloat("停止時の寄せ速度", &tuning.cameraLookAheadResponse, 0.01f, 0.01f, 5.0f, "%.2f");
+    ImGui::DragFloat("移動時の寄せ戻り速度", &tuning.cameraLookAheadReturnResponse, 0.01f, 0.01f, 5.0f, "%.2f");
+    ImGui::DragFloat("移動時のズレ回収追従速度", &tuning.cameraLookAheadCatchUpSpeedX, 0.1f, 0.1f, 80.0f, "%.2f");
+    if (ImGui::Button("寄せをリセット"))
+    {
+        m_camera.cameraOffsetX = 0.0f;
+    }
+
+    ImGui::SeparatorText("Yデッドゾーン追従");
+    ImGui::Text("追従強度: %.3f", m_camera.cameraYRecenteringStrength);
+    ImGui::DragFloat("デッドゾーンY", &tuning.cameraDeadZoneY, 1.0f, 1.0f, 600.0f, "%.1f px");
+    ImGui::DragFloat("上方向/通常の追従速度Y", &tuning.cameraDeadZoneFollowSpeedY, 0.1f, 0.1f, 40.0f, "%.2f");
+    ImGui::DragFloat("下方向の最大追従速度Y", &tuning.cameraDeadZoneDownMaxSpeedY, 10.0f, 0.0f, 4000.0f, "%.1f px/s");
+    ImGui::DragFloat("追従強度の立ち上がり", &tuning.cameraDeadZoneStrengthRiseResponse, 0.1f, 0.1f, 40.0f, "%.2f");
+    ImGui::DragFloat("追従強度の戻り", &tuning.cameraDeadZoneStrengthFallResponse, 0.1f, 0.1f, 40.0f, "%.2f");
+    ImGui::DragFloat("下方向強度の反応", &tuning.cameraDeadZoneDownStrengthResponse, 0.1f, 0.0f, 40.0f, "%.2f");
+    if (ImGui::Button("Yデッドゾーン初期値"))
+    {
+        tuning.cameraDeadZoneY = 100.0f;
+        tuning.cameraDeadZoneFollowSpeedY = 7.5f;
+        tuning.cameraDeadZoneDownMaxSpeedY = 750.0f;
+        tuning.cameraDeadZoneStrengthRiseResponse = 12.0f;
+        tuning.cameraDeadZoneStrengthFallResponse = 4.0f;
+        tuning.cameraDeadZoneDownStrengthResponse = 0.0f;
+        m_camera.cameraYRecenteringStrength = 0.0f;
+    }
+
+    ImGui::SeparatorText("表示範囲");
+    ImGui::DragFloat("カメラ幅", &tuning.cameraViewWidth, 1.0f, 320.0f, 3840.0f, "%.1f px");
+    ImGui::DragFloat("カメラ高さ", &tuning.cameraViewHeight, 1.0f, 180.0f, 2160.0f, "%.1f px");
+    if (ImGui::Button("1920x1080"))
+    {
+        tuning.cameraViewWidth = 1920.0f;
+        tuning.cameraViewHeight = 1080.0f;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("初期値"))
+    {
+        tuning.cameraViewWidth = tuning.defaultCameraViewWidth;
+        tuning.cameraViewHeight = tuning.defaultCameraViewHeight;
+        tuning.cameraFollowSpeedX = 14.0f;
+        tuning.cameraFollowSpeedY = 10.0f;
+        tuning.cameraFollowY = 1.0f;
+        tuning.cameraTargetOffsetX = 0.0f;
+        tuning.cameraTargetOffsetY = 0.0f;
+        tuning.cameraLookAheadOffsetX = 24.0f;
+        tuning.cameraLookAheadResponse = 0.35f;
+        tuning.cameraLookAheadReturnResponse = 0.25f;
+        tuning.cameraLookAheadCatchUpSpeedX = 10.0f;
+        tuning.cameraDeadZoneY = 100.0f;
+        tuning.cameraDeadZoneFollowSpeedY = 7.5f;
+        tuning.cameraDeadZoneDownMaxSpeedY = 750.0f;
+        tuning.cameraDeadZoneStrengthRiseResponse = 12.0f;
+        tuning.cameraDeadZoneStrengthFallResponse = 4.0f;
+        tuning.cameraDeadZoneDownStrengthResponse = 0.0f;
+        m_camera.cameraOffsetX = 0.0f;
+        m_camera.cameraYRecenteringStrength = 0.0f;
+    }
+
+    ImGui::SeparatorText("保存");
+    if (ImGui::Button("カメラ設定を保存"))
+    {
+        WriteTuningJsonFile();
+
+        std::error_code ec;
+        const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
+        if (!ec)
+        {
+            m_debug.tuningFileWriteTime = writeTime;
+            m_debug.hasTuningFileWriteTime = true;
+        }
+
+        m_debug.saveStatusMessage = "カメラ設定を assets/tuning.json に保存しました。";
+        m_debug.saveStatusTimer = 3.0f;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("再読込##camera"))
+    {
+        LoadTuningJsonFile();
+        m_camera.cameraOffsetX = 0.0f;
+
+        std::error_code ec;
+        const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
+        if (!ec)
+        {
+            m_debug.tuningFileWriteTime = writeTime;
+            m_debug.hasTuningFileWriteTime = true;
+        }
+
+        m_debug.saveStatusMessage = "カメラ設定を assets/tuning.json から再読込しました。";
+        m_debug.saveStatusTimer = 3.0f;
+    }
+
+    if (!m_debug.saveStatusMessage.empty() && m_debug.saveStatusTimer > 0.0f)
+    {
+        ImGui::TextWrapped("%s", m_debug.saveStatusMessage.c_str());
+    }
+
+    ImGui::End();
 }
 
 void GameScene::DrawMidBoss2DebugWindow()
