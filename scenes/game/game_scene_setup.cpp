@@ -1852,6 +1852,7 @@ void GameScene::InitializeStageEntities()
             fistComp.baseOffsetX = offsets[index][0];
             fistComp.baseOffsetY = offsets[index][1];
             fistComp.idlePhase = static_cast<float>(index) * 1.35f;
+            ConfigureMidBoss3FistSpriteAnimation(fist);
             bossComp->fistEntities.push_back(&fist);
         }
     };
@@ -1975,6 +1976,7 @@ void GameScene::InitializeStageEntities()
                 transform->x = static_cast<float>(column) * tileSize + (tileSize - transform->width * transform->scale) * 0.5f;
                 transform->y = static_cast<float>(row) * tileSize + (tileSize - transform->height * transform->scale) * 0.5f;
                 transform->y += tileSize * 2.0f;
+                ConfigureMidBoss3SpriteAnimation(boss);
                 if (auto* enemy = boss.GetComponent<EnemyComponent>())
                 {
                     enemy->spawnX = transform->x;

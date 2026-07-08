@@ -119,7 +119,8 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
     }
     m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
     m_flow.stageTransitionFadeInTimer = std::max(0.0f, m_flow.stageTransitionFadeInTimer - deltaTime);
-    const float shieldBossCurtainTarget = IsShieldBossIntroCinematicActive() ? 1.0f : 0.0f;
+    const float shieldBossCurtainTarget =
+        (IsShieldBossIntroCinematicActive() || IsMidBoss3IntroCinematicActive()) ? 1.0f : 0.0f;
     const float shieldBossCurtainSpeed = 0.72f;
     const float shieldBossCurtainBlend = 1.0f - std::pow(0.001f, deltaTime * shieldBossCurtainSpeed);
     m_render.shieldBossIntroCurtainProgress = std::lerp(

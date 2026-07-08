@@ -47,7 +47,7 @@
             "transform": {
                 "x": 980.0,
                 "y": 360.0,
-                "width": 192.0,
+                "width": 240.0,
                 "height": 192.0,
                 "rotation": 0.0,
                 "scale": 1.0
@@ -834,7 +834,7 @@
         },
         "sandbox_mid_boss3": {
             "tag": "Enemy",
-            "texture": "enemy",
+            "texture": "boss3_idle",
             "transform": {
                 "x": 0.0,
                 "y": 0.0,
@@ -844,9 +844,9 @@
                 "scale": 1.0
             },
             "tint": {
-                "r": 0.82,
-                "g": 0.30,
-                "b": 0.94,
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
                 "a": 1.0
             },
             "enemy": {
@@ -866,7 +866,7 @@
         },
         "sandbox_mid_boss3_fist": {
             "tag": "MidBoss3Fist",
-            "texture": "white",
+            "texture": "boss3_rocket_punch",
             "transform": {
                 "x": 0.0,
                 "y": 0.0,
@@ -876,9 +876,9 @@
                 "scale": 1.0
             },
             "tint": {
-                "r": 0.96,
-                "g": 0.52,
-                "b": 0.18,
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
                 "a": 1.0
             },
             "rigidBody": {
