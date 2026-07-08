@@ -312,6 +312,29 @@ inline void GetTileCaptureTint(int tileValue, float& r, float& g, float& b, floa
     }
 }
 
+inline bool IsDamageFloorTileValue(int tileValue)
+{
+    return tileValue == 4;
+}
+
+inline bool IsUncapturableDamageFloorEntity(const Entity& entity)
+{
+    const auto* tag = entity.GetComponent<TagComponent>();
+    const auto* damagePlatform = entity.GetComponent<DamagePlatformComponent>();
+    if (damagePlatform)
+    {
+        return !damagePlatform->photoCapturable;
+    }
+
+    const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
+    if (spikeStrip)
+    {
+        return !spikeStrip->photoCapturable;
+    }
+
+    return tag && (tag->Is("DamagePlatform") || tag->Is("DamagePlatformSpike"));
+}
+
 inline PhotoCopyRole GetTileCopyRole(int tileValue)
 {
     if (tileValue == 4)

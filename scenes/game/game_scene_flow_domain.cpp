@@ -90,6 +90,9 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
     m_ui.shutterFlashRemaining = std::max(0.0f, m_ui.shutterFlashRemaining - deltaTime);
     m_ui.cameraFlash.pulseRemaining = std::max(0.0f, m_ui.cameraFlash.pulseRemaining - deltaTime);
+    
+    GameSession_AddElapsedSeconds(effectiveGameplayDeltaTime);
+
     const int currentParts = GameSession_Get().parts;
     if (m_ui.partsHudLastValue != currentParts)
     {
@@ -119,7 +122,8 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
     }
     m_flow.pitRestartFadeInTimer = std::max(0.0f, m_flow.pitRestartFadeInTimer - deltaTime);
     m_flow.stageTransitionFadeInTimer = std::max(0.0f, m_flow.stageTransitionFadeInTimer - deltaTime);
-    const float shieldBossCurtainTarget = IsShieldBossIntroCinematicActive() ? 1.0f : 0.0f;
+    const float shieldBossCurtainTarget =
+        (IsShieldBossIntroCinematicActive() || IsMidBoss3IntroCinematicActive()) ? 1.0f : 0.0f;
     const float shieldBossCurtainSpeed = 0.72f;
     const float shieldBossCurtainBlend = 1.0f - std::pow(0.001f, deltaTime * shieldBossCurtainSpeed);
     m_render.shieldBossIntroCurtainProgress = std::lerp(
@@ -183,7 +187,3 @@ void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, floa
 
     m_ui.hpDamageFlash = std::max(0.0f, m_ui.hpDamageFlash - deltaTime * 4.5f);
 }
-
-
-
-

@@ -35,6 +35,8 @@ namespace
     CueData g_testCue;
     CueData g_contactCue;
     CueData g_sceneCue;
+    CueData g_uiMoveCue;
+    CueData g_uiSelectCue;
     WAVEFORMATEX g_waveFormat{};
 
     float g_masterVolume = 0.8f;
@@ -98,6 +100,24 @@ namespace
             const double envelope = 1.0 - (static_cast<double>(i) / static_cast<double>(sampleCount));
             const double sample = std::sin(2.0 * PI_D * frequency * t) * envelope;
             cue.pcm[static_cast<size_t>(i)] = static_cast<short>(sample * amplitude);
+        }
+    }
+
+    // メニュー操作向けの短い合成音。周波数を滑らかに変化させ、二乗の減衰で角を取る。
+    void BuildChirp(CueData& cue, float durationSec, float startFrequency, float endFrequency, float amplitude)
+    {
+        constexpr int sampleRate = 48000;
+        const int sampleCount = static_cast<int>(sampleRate * durationSec);
+
+        cue.pcm.resize(static_cast<size_t>(sampleCount));
+        double phase = 0.0;
+        for (int i = 0; i < sampleCount; ++i)
+        {
+            const double progress = static_cast<double>(i) / static_cast<double>(sampleCount);
+            const double frequency = startFrequency + (endFrequency - startFrequency) * progress;
+            phase += 2.0 * PI_D * frequency / static_cast<double>(sampleRate);
+            const double envelope = (1.0 - progress) * (1.0 - progress);
+            cue.pcm[static_cast<size_t>(i)] = static_cast<short>(std::sin(phase) * envelope * amplitude);
         }
     }
 
@@ -186,6 +206,8 @@ namespace
         ApplyCueVolume(g_testCue.handle, "test_tone");
         ApplyCueVolume(g_contactCue.handle, "contact_tone");
         ApplyCueVolume(g_sceneCue.handle, "scene_change");
+        ApplyCueVolume(g_uiMoveCue.handle, "ui_move");
+        ApplyCueVolume(g_uiSelectCue.handle, "ui_select");
 
         for (const auto& kv : g_fileCues)
         {
@@ -207,10 +229,14 @@ bool Audio_Initialize()
     BuildTone(g_testCue, 0.18f, 660.0f, 12000.0f);
     BuildTone(g_contactCue, 0.12f, 880.0f, 10000.0f);
     BuildTone(g_sceneCue, 0.20f, 520.0f, 11000.0f);
+    BuildChirp(g_uiMoveCue, 0.05f, 1046.5f, 1046.5f, 6000.0f);
+    BuildChirp(g_uiSelectCue, 0.14f, 523.25f, 784.0f, 9000.0f);
 
     return CreateCueHandle(g_testCue, "test_tone") &&
         CreateCueHandle(g_contactCue, "contact_tone") &&
-        CreateCueHandle(g_sceneCue, "scene_change");
+        CreateCueHandle(g_sceneCue, "scene_change") &&
+        CreateCueHandle(g_uiMoveCue, "ui_move") &&
+        CreateCueHandle(g_uiSelectCue, "ui_select");
 }
 
 void Audio_Shutdown()
@@ -231,6 +257,16 @@ void Audio_Shutdown()
     {
         DeleteSoundMem(g_sceneCue.handle);
         g_sceneCue.handle = -1;
+    }
+    if (g_uiMoveCue.handle >= 0)
+    {
+        DeleteSoundMem(g_uiMoveCue.handle);
+        g_uiMoveCue.handle = -1;
+    }
+    if (g_uiSelectCue.handle >= 0)
+    {
+        DeleteSoundMem(g_uiSelectCue.handle);
+        g_uiSelectCue.handle = -1;
     }
 
     for (auto& kv : g_fileCues)
@@ -301,6 +337,16 @@ void Audio_PlayCue(const char* cueName)
     {
         ApplyCueVolume(g_sceneCue.handle, cue);
         PlayHandle(g_sceneCue.handle);
+    }
+    else if (cue == "ui_move")
+    {
+        ApplyCueVolume(g_uiMoveCue.handle, cue);
+        PlayHandle(g_uiMoveCue.handle);
+    }
+    else if (cue == "ui_select")
+    {
+        ApplyCueVolume(g_uiSelectCue.handle, cue);
+        PlayHandle(g_uiSelectCue.handle);
     }
     else
     {

@@ -2,6 +2,7 @@
 #include "asset_manifest.h"
 #include "event_bus.h"
 #include "scene.h"
+#include <string>
 
 class ResultScene final : public Scene
 {
@@ -13,6 +14,7 @@ public:
     void Update(float deltaTime) override;
     void Draw() override;
     void DrawDebugUI() override;
+    void DrawFreeImages() const;
     EventBus* GetEventBus() override;
 
 private:
@@ -35,5 +37,8 @@ private:
     int m_whiteTexture;
     float m_blinkTimer;
     bool m_showPrompt;
-    int m_selectedOption = 0; // 0: ruins‚Öi‚Ş, 1: ƒ^ƒCƒgƒ‹‚Ö–ß‚é
+    // Primary menu option resolved from the last played stage and end reason.
+    std::string m_primaryOptionLabel;
+    std::string m_primaryOptionMapCsv;
+    int m_selectedOption = 0; // 0: ruinsï¿½Öiï¿½ï¿½, 1: ï¿½^ï¿½Cï¿½gï¿½ï¿½ï¿½Ö–ß‚ï¿½
 };

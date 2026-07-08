@@ -272,7 +272,8 @@ namespace
                 HasTag(*entity, EntityTag::LaserSwitch) ||
                 HasTag(*entity, EntityTag::Shutter) ||
                 HasTag(*entity, EntityTag::LaserBeam) ||
-                HasTag(*entity, EntityTag::StageLight))
+                HasTag(*entity, EntityTag::StageLight) ||
+                IsUncapturableDamageFloorEntity(*entity))
             {
                 return;
             }
@@ -1400,7 +1401,7 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         Shader_ResetStyle();
         if (attackRubble)
         {
-            Shader_SetTint(0.96f, 0.52f, 0.18f, 0.95f);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 0.95f);
         }
         else
         {
@@ -1410,14 +1411,19 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         const int rubbleTexture = plainRubble && plainRubbleTexture >= 0
             ? plainRubbleTexture
             : m_assets.GetTexture("sepia_ground");
+        const int attackTexture = attackRubble && rubble
+            ? (rubble->source == SepiaRubbleSource::MidBoss3Drill
+                ? m_assets.GetTexture("boss3_drill")
+                : m_assets.GetTexture("boss3_rocket_punch"))
+            : -1;
         SpriteDraw(
-            attackRubble ? m_whiteTexture : rubbleTexture,
+            attackRubble ? (attackTexture >= 0 ? attackTexture : m_whiteTexture) : rubbleTexture,
             drawEntityX, drawEntityY,
             drawEntityW, drawEntityH,
-            attackRubble ? 0.0f : sourceX,
-            attackRubble ? 0.0f : sourceY,
-            attackRubble ? 1.0f : sourceW,
-            attackRubble ? 1.0f : sourceH);
+            attackRubble || plainRubble ? 0.0f : sourceX,
+            attackRubble || plainRubble ? 0.0f : sourceY,
+            attackRubble ? 1.0f / 10.0f : (plainRubble ? 1.0f : sourceW),
+            attackRubble ? 1.0f / 6.0f : (plainRubble ? 1.0f : sourceH));
 
     }
     SetDrawAreaFull();
