@@ -1514,6 +1514,7 @@ void GameScene::QueueResult(GameEndReason reason)
 
     m_flow.resultQueued = true;
     GameSession_SetEndReason(reason);
+    GameSession_SetLastMapCsvPath(m_lifecycle.currentMapCsvPath);
     m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "result", 0.0f, 0.0f });
 }
 

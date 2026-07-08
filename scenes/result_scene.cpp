@@ -10,10 +10,48 @@
 #include "sprite.h"
 #include "DxLib.h"
 #include <cstring>
+#include <string>
+#include <utility>
 #include <tracy/Tracy.hpp>
 
 namespace
 {
+    struct PrimaryOption
+    {
+        std::string label;
+        std::string mapCsvPath;
+    };
+
+    // 最後に遊んだステージと終了理由から、リザルトの主選択肢を決める。
+    // クリア時は次のステージ（森→廃墟→地下）、ゲームオーバー時は同じステージへの再挑戦。
+    PrimaryOption BuildPrimaryOption(const GameSessionState& session)
+    {
+        const bool cleared = session.endReason == GameEndReason::GoalReached ||
+            session.endReason == GameEndReason::BossDefeated;
+        const std::string& lastMap = session.lastMapCsvPath.empty()
+            ? session.startMapCsvPath
+            : session.lastMapCsvPath;
+
+        if (!cleared)
+        {
+            return { "同じステージに再挑戦", lastMap };
+        }
+
+        if (lastMap.find("forest") != std::string::npos)
+        {
+            return { "廃墟ステージへ進む", "assets/maps/stages/ruins1.csv" };
+        }
+        if (lastMap.find("ruins") != std::string::npos)
+        {
+            return { "地下ステージへ進む", "assets/maps/stages/under.csv" };
+        }
+        if (lastMap.find("under") != std::string::npos)
+        {
+            return { "最初のステージから遊びなおす", "assets/maps/stages/forest.csv" };
+        }
+        return { "もう一度遊ぶ", lastMap };
+    }
+
     const char* ToReasonLabel(GameEndReason reason)
     {
         switch (reason)
@@ -74,11 +112,7 @@ namespace
     }
 
     constexpr int kMenuOptionCount = 2;
-    constexpr const char* kMenuLabels[kMenuOptionCount] =
-    {
-        "廃墟ステージへ進む",
-        "タイトルへ戻る",
-    };
+    constexpr const char* kBackToTitleLabel = "タイトルへ戻る";
     constexpr int kMenuRowWidth = 360;
     constexpr int kMenuRowHeight = 44;
     constexpr int kMenuRowGap = 14;
@@ -107,6 +141,9 @@ void ResultScene::OnEnter(ResourceManager& resources)
     m_blinkTimer = 0.0f;
     m_showPrompt = true;
     m_selectedOption = 0;
+    PrimaryOption primaryOption = BuildPrimaryOption(GameSession_Get());
+    m_primaryOptionLabel = std::move(primaryOption.label);
+    m_primaryOptionMapCsv = std::move(primaryOption.mapCsvPath);
     Logger::Info("ResultScene entered");
 }
 
@@ -123,12 +160,12 @@ void ResultScene::UpdateMenuInput()
     if (Input_IsActionPressed(InputAction::MoveUp) || Input_IsDpadUpPressed())
     {
         m_selectedOption = (m_selectedOption + kMenuOptionCount - 1) % kMenuOptionCount;
-        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
     if (Input_IsActionPressed(InputAction::MoveDown) || Input_IsDpadDownPressed())
     {
         m_selectedOption = (m_selectedOption + 1) % kMenuOptionCount;
-        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
 
     // マウス操作: ホバーで選択、クリックで決定
@@ -148,7 +185,7 @@ void ResultScene::UpdateMenuInput()
     if (hoveredOption >= 0 && hoveredOption != m_selectedOption)
     {
         m_selectedOption = hoveredOption;
-        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "test_tone", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
 
     const bool confirmPressed =
@@ -165,12 +202,11 @@ void ResultScene::UpdateMenuInput()
 
 void ResultScene::ConfirmSelection()
 {
-    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "scene_change", 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
 
     if (m_selectedOption == 0)
     {
-        // 廃墟ステージ (ruins1.csv) へ進む
-        GameSession_SetStartMapCsvPath("assets/maps/stages/ruins1.csv");
+        GameSession_SetStartMapCsvPath(m_primaryOptionMapCsv);
         GameSession_SetLoadSavedProgress(false);
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
     }
@@ -235,10 +271,11 @@ void ResultScene::DrawMenu() const
     DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 356, statsLine, GetColor(255, 236, 196), GetColor(28, 16, 9));
 
     // 選択肢
+    const char* menuLabels[kMenuOptionCount] = { m_primaryOptionLabel.c_str(), kBackToTitleLabel };
     for (int index = 0; index < kMenuOptionCount; ++index)
     {
         const MenuOptionRect rect = GetOptionRect(index);
-        DrawMenuRow(rect.left, rect.top, kMenuRowWidth, kMenuRowHeight, kMenuLabels[index], m_selectedOption == index);
+        DrawMenuRow(rect.left, rect.top, kMenuRowWidth, kMenuRowHeight, menuLabels[index], m_selectedOption == index);
     }
 
     const int hintColor = m_showPrompt ? GetColor(252, 238, 214) : GetColor(168, 140, 104);
@@ -258,7 +295,8 @@ void ResultScene::DrawDebugUI()
     ImGui::Text("Result: %s", ToReasonLabel(session.endReason));
     ImGui::Text("HP: %d / %d", session.currentHp, session.maxHp);
     ImGui::Text("残り時間: %.1f / %.1f", session.timeRemaining, session.timeLimit);
-    ImGui::Text("選択中: %s", m_selectedOption == 0 ? "森の廃墟へ進む" : "タイトルへ戻る");
+    ImGui::Text("選択中: %s", m_selectedOption == 0 ? m_primaryOptionLabel.c_str() : kBackToTitleLabel);
+    ImGui::Text("主選択肢の遷移先: %s", m_primaryOptionMapCsv.c_str());
     ImGui::Text("上下キー/マウスホバーで選択、Enter/Space/A/クリックで決定");
     ImGui::Text("プロンプト表示: %s", m_showPrompt ? "あり" : "なし");
     ImGui::Text("取得アイテム(累計): %d", session.partsCollectedTotal);

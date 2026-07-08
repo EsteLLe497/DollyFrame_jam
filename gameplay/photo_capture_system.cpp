@@ -973,6 +973,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         const bool capturedLog = HasTag(*entity, kTagLog);
         const bool capturedDamagePlatform = HasTag(*entity, kTagDamagePlatform);
         const bool capturedDamagePlatformSpike = HasTag(*entity, kTagDamagePlatformSpike);
+        if (IsUncapturableDamageFloorEntity(*entity))
+        {
+            continue;
+        }
         const bool capturedBarrel = entity->GetComponent<BarrelComponent>() != nullptr && !capturedLog;
         const auto* fallingRock = entity->GetComponent<FallingRockComponent>();
         const bool capturedFallingRock = fallingRock != nullptr && !capturedLog;
@@ -1747,7 +1751,7 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
                 continue;
             }
 
-            if (tileValue == 1 || tileValue == 8 || tileValue == 11)
+            if (tileValue == 1 || tileValue == 8 || tileValue == 11 || IsDamageFloorTileValue(tileValue))
             {
                 continue;
             }
