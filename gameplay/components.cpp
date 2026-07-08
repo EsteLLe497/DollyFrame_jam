@@ -527,6 +527,7 @@ void LaserTurretComponent::DrawDebugUI()
     ImGui::Text("Direction: %s", directionName);
     ImGui::Text("Needs X Switch: %s", requiresLaserPower ? "Yes" : "No");
     ImGui::Text("Player Damage Timer: %.2f", playerDamageTimer);
+    ImGui::Text("Player Contact: %s", playerDamageContactActive ? "Yes" : "No");
     ImGui::Text("Active: %s", active ? "Yes" : "No");
     ImGui::Text("Warmup: %.2f", warmupRemaining);
     ImGui::Text("Beam Facing: %s", directionName);
@@ -821,13 +822,15 @@ PhotoCopyTileValueComponent::PhotoCopyTileValueComponent(int tileValueValue)
 {
 }
 
-DamagePlatformComponent::DamagePlatformComponent(int tileSpanValue)
+DamagePlatformComponent::DamagePlatformComponent(int tileSpanValue, bool photoCapturableValue)
     : tileSpan(std::max(1, tileSpanValue))
+    , photoCapturable(photoCapturableValue)
 {
 }
 
-SpikeStripComponent::SpikeStripComponent(int tileSpanValue)
+SpikeStripComponent::SpikeStripComponent(int tileSpanValue, bool photoCapturableValue)
     : tileSpan(std::max(1, tileSpanValue))
+    , photoCapturable(photoCapturableValue)
 {
 }
 

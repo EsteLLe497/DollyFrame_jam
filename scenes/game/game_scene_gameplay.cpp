@@ -3789,6 +3789,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
             beamTransform->width = 0.0f;
             beamTransform->height = 0.0f;
             turret->playerDamageTimer = 0.0f;
+            turret->playerDamageContactActive = false;
             turret->enemyDamageTimers.clear();
             if (beamDamage)
             {
@@ -3801,6 +3802,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
         {
             beamTransform->width = 0.0f;
             turret->playerDamageTimer = 0.0f;
+            turret->playerDamageContactActive = false;
             turret->enemyDamageTimers.clear();
             if (beamDamage)
             {
@@ -4021,7 +4023,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                 const float playerHeight = playerLaserBlockTransform->height * playerLaserBlockTransform->scale;
                 playerHitByLaser =
                     beamLength > 0.0f &&
-                    intersectsRect(activeBeam, *playerLaserBlockTransform) &&
+                    intersectsRect(beamAabb, *playerLaserBlockTransform) &&
                     (firesUp
                         ? playerLaserBlockTransform->y + playerHeight >= hitY - 0.5f
                         : playerLaserBlockTransform->y <= hitY + 0.5f);
@@ -4154,9 +4156,20 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
         {
             if (auto* playerTransform = player->GetComponent<TransformComponent>())
             {
-                if (beamLength > 0.0f && (intersectsRect(activeBeam, *playerTransform) || playerHitByLaser))
+                const bool playerTouchedLaser =
+                    (beamLength > 0.0f && intersectsRect(activeBeam, *playerTransform)) ||
+                    playerHitByLaser;
+                if (playerTouchedLaser)
                 {
-                    turret->playerDamageTimer += deltaTime;
+                    if (!turret->playerDamageContactActive)
+                    {
+                        turret->playerDamageTimer = damageInterval;
+                        turret->playerDamageContactActive = true;
+                    }
+                    else
+                    {
+                        turret->playerDamageTimer += deltaTime;
+                    }
                     m_flow.playerTouchingHazard = true;
                     while (turret->playerDamageTimer >= damageInterval)
                     {
@@ -4167,6 +4180,7 @@ void GameScene::UpdateLaserTurrets(float deltaTime)
                 else
                 {
                     turret->playerDamageTimer = 0.0f;
+                    turret->playerDamageContactActive = false;
                 }
             }
         }

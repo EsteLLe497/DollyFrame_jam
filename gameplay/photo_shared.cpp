@@ -404,6 +404,29 @@ bool ContainsOnlyShieldArchetypeItems(const std::vector<CapturedPhotoItem>& item
     return foundShield;
 }
 
+bool IsPureVanishObjectItem(const CapturedPhotoItem& item)
+{
+    return item.vanishOnCapture &&
+        item.spawnArchetype == CapturedSpawnArchetype::None &&
+        item.damagePlatformTileSpan <= 0 &&
+        item.spikeStripTileSpan <= 0;
+}
+
+bool ContainsOnlyPureVanishObjectItems(const std::vector<CapturedPhotoItem>& items)
+{
+    bool foundVanishObject = false;
+    for (const auto& item : items)
+    {
+        if (IsPureVanishObjectItem(item))
+        {
+            foundVanishObject = true;
+            continue;
+        }
+        return false;
+    }
+    return foundVanishObject;
+}
+
 void NormalizeItemsToBounds(std::vector<CapturedPhotoItem>& items, float& width, float& height)
 {
     if (items.empty())
@@ -435,10 +458,71 @@ void NormalizeItemsToBounds(std::vector<CapturedPhotoItem>& items, float& width,
     height = (std::max)(1.0f, maxY - minY);
 }
 
+float GetLSizePhotoContentHeight(float contentWidth)
+{
+    constexpr float kLSizePhotoAspect = 127.0f / 89.0f;
+    const float printedWidth = GetPrintedPhotoWidth(contentWidth);
+    const float printedHeight = printedWidth / kLSizePhotoAspect;
+    return (std::max)(1.0f, printedHeight - gPrintedPhotoPaddingTop - gPrintedPhotoFooterHeight);
+}
+
+std::vector<CapturedPhotoItem> BuildRawPlacementItems(
+    const std::vector<CapturedPhotoItem>& sourceItems,
+    float captureWidth,
+    float captureHeight,
+    bool flipX);
+
+std::vector<CapturedPhotoItem> BuildPureVanishObjectPrintedPhotoItems(
+    const std::vector<CapturedPhotoItem>& sourceItems,
+    int paperTextureId,
+    PhotoFilterTheme capturedTheme,
+    float captureWidth,
+    float captureHeight,
+    bool flipX,
+    float& outWidth,
+    float& outHeight)
+{
+    std::vector<CapturedPhotoItem> items = BuildRawPlacementItems(
+        sourceItems,
+        captureWidth,
+        captureHeight,
+        flipX);
+
+    float boundsWidth = 1.0f;
+    float boundsHeight = 1.0f;
+    NormalizeItemsToBounds(items, boundsWidth, boundsHeight);
+
+    const float contentWidth = (std::max)((std::max)(1.0f, captureWidth), boundsWidth);
+    const float contentHeight = (std::max)(GetLSizePhotoContentHeight(contentWidth), boundsHeight);
+    const float offsetX = (std::max)(0.0f, (contentWidth - boundsWidth) * 0.5f);
+    const float offsetY = (std::max)(0.0f, (contentHeight - boundsHeight) * 0.5f);
+    for (auto& item : items)
+    {
+        item.relativeX += offsetX;
+        item.relativeY += offsetY;
+    }
+
+    outWidth = GetPrintedPhotoWidth(contentWidth);
+    outHeight = GetPrintedPhotoHeight(contentHeight);
+    return BuildPrintedPhotoItems(
+        items,
+        paperTextureId,
+        capturedTheme,
+        contentWidth,
+        contentHeight,
+        false,
+        false);
+}
+
 bool ContainsShapePreservingItem(const std::vector<CapturedPhotoItem>& items)
 {
     for (const auto& item : items)
     {
+        if (IsPureVanishObjectItem(item))
+        {
+            continue;
+        }
+
         if (item.sourceTileValue > 0 ||
             !item.collisionOutline.empty() ||
             item.lightRadius > 0.0f ||
@@ -703,6 +787,21 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
 {
     const bool containsArchetype = ContainsSpawnArchetypeItem(capture.items);
     const bool preservesShape = ContainsShapePreservingItem(capture.items);
+    if (ContainsOnlyPureVanishObjectItems(capture.items))
+    {
+        std::vector<CapturedPhotoItem> items = BuildPureVanishObjectPrintedPhotoItems(
+            capture.items,
+            whiteTexture,
+            capture.capturedTheme,
+            (std::max)(1.0f, capture.width),
+            (std::max)(1.0f, capture.height),
+            placement.flipX,
+            outWidth,
+            outHeight);
+        RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);
+        return items;
+    }
+
     if (ContainsOnlyShieldArchetypeItems(capture.items))
     {
         outWidth = (std::max)(1.0f, capture.width);

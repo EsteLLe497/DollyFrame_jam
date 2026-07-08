@@ -1712,11 +1712,15 @@ void PhotoPasteSystem::SpawnPhotoGroup(
         }
         if (item.damagePlatformTileSpan > 0)
         {
-            lastSpawnedEntity->AddComponent<DamagePlatformComponent>(item.damagePlatformTileSpan);
+            lastSpawnedEntity->AddComponent<DamagePlatformComponent>(
+                item.damagePlatformTileSpan,
+                item.damagePlatformPhotoCapturable);
         }
         if (item.spikeStripTileSpan > 0)
         {
-            lastSpawnedEntity->AddComponent<SpikeStripComponent>(item.spikeStripTileSpan);
+            lastSpawnedEntity->AddComponent<SpikeStripComponent>(
+                item.spikeStripTileSpan,
+                item.damagePlatformPhotoCapturable);
         }
         lastSpawnedEntity->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
         const PhotoCopyLayer spawnedLayer =

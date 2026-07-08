@@ -463,6 +463,31 @@ namespace
         }
     }
 
+    bool IsDamageObjectCaptureBlocked(const Entity& entity)
+    {
+        const auto* damagePlatform = entity.GetComponent<DamagePlatformComponent>();
+        if (damagePlatform)
+        {
+            return !damagePlatform->photoCapturable;
+        }
+
+        const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
+        if (spikeStrip)
+        {
+            return !spikeStrip->photoCapturable;
+        }
+
+        if (HasTag(entity, EntityTag::Hazard) ||
+            HasTag(entity, EntityTag::DamagePlatform) ||
+            HasTag(entity, EntityTag::DamagePlatformSpike))
+        {
+            return true;
+        }
+
+        const auto* gimmick = entity.GetComponent<GimmickComponent>();
+        return gimmick && gimmick->GetType() == GimmickType::Hazard;
+    }
+
     bool SpawnRestoredSepiaMarkerObject(
         std::vector<std::unique_ptr<Entity>>& pendingEntities,
         int whiteTexture,
@@ -867,6 +892,10 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             continue;
         }
         if (HasTag(*entity, EntityTag::BossShockwave))
+        {
+            continue;
+        }
+        if (IsDamageObjectCaptureBlocked(*entity))
         {
             continue;
         }
@@ -1417,11 +1446,13 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if (damagePlatform)
         {
             item.damagePlatformTileSpan = damagePlatform->tileSpan;
+            item.damagePlatformPhotoCapturable = damagePlatform->photoCapturable;
             item.sourceTileValue = 0;
         }
         if (spikeStrip)
         {
             item.spikeStripTileSpan = spikeStrip->tileSpan;
+            item.damagePlatformPhotoCapturable = spikeStrip->photoCapturable;
             item.sourceTileValue = 0;
         }
         if (auto* tint = entity->GetComponent<TintComponent>())
@@ -1697,6 +1728,10 @@ void PhotoCaptureSystem::CaptureTilesInFrame(
             }
 
             if (tileValue == 1 || tileValue == 8 || tileValue == 11)
+            {
+                continue;
+            }
+            if (GetTileCopyRole(tileValue) == PhotoCopyRole::Hazard)
             {
                 continue;
             }
