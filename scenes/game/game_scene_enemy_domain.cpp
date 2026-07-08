@@ -380,7 +380,7 @@ void GameScene::ConfigureWalkerSpriteAnimation(Entity& enemy)
     animation->Play("idle", true);
 }
 
-void GameScene::ConfigureRangedSpriteAnimation(Entity& enemy)
+void GameScene::ConfigureRangedSpriteAnimation(Entity& enemy, bool reverseFacing)
 {
     auto* sprite = enemy.GetComponent<SpriteRenderComponent>();
     if (!sprite)
@@ -409,10 +409,13 @@ void GameScene::ConfigureRangedSpriteAnimation(Entity& enemy)
     if (auto* enemyComponent = enemy.GetComponent<EnemyComponent>())
     {
         enemyComponent->attackTimer = enemyComponent->attackCooldown;
+        enemyComponent->facing = reverseFacing
+            ? EnemyComponent::FacingDirection::Right
+            : EnemyComponent::FacingDirection::Left;
     }
 
     // Enemy2 is left-facing; the shot is emitted on the attack clip's 39th frame.
-    sprite->SetFlipX(false);
+    sprite->SetFlipX(reverseFacing);
     animation->DefineClip("idle", resolvedIdleTexture, kEnemy2IdleSheetColumns, kEnemy2IdleSheetRows, 0, kEnemy2IdleFrameCount, kEnemy2IdleFps, true);
     animation->DefineClip("attack", resolvedAttackTexture, kEnemy2AttackSheetColumns, kEnemy2AttackSheetRows, 0, kEnemy2AttackFrameCount, kEnemy2AttackFps, false);
     animation->Play("idle", true);

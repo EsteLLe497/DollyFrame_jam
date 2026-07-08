@@ -158,7 +158,7 @@ private:
     void TrySpawnPlayerAfterimage(const TransformComponent& transform);
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void ConfigureWalkerSpriteAnimation(Entity& enemy);
-    void ConfigureRangedSpriteAnimation(Entity& enemy);
+    void ConfigureRangedSpriteAnimation(Entity& enemy, bool reverseFacing = false);
     void ConfigureShieldBossSpriteAnimation(Entity& enemy);
     void ConfigureBossShieldSpriteAnimation(Entity& shield);
     void UpdateEnemies();
