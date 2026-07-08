@@ -1841,6 +1841,12 @@ void GameScene::DrawCaptureOverlay() const
         const float glowWidth = overlapWidth * viewScale;
         const float glowHeight = overlapHeight * viewScale;
         const bool isBestTarget = entity == bestTarget;
+        const bool sepiaFinder = m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia;
+        if (sepiaFinder)
+        {
+            // セピアファインダーはフィルム演出のみ表示し、重なり時の白っぽい加算表示を出さない。
+            return;
+        }
 
         Shader_ResetStyle();
         Shader_SetBlendMode(ShaderBlendMode2D::Additive);
