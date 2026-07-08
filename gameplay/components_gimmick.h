@@ -92,6 +92,13 @@ enum class SepiaRubbleSource
     FallingRock,
 };
 
+enum class SepiaRubbleVisualMode
+{
+    RestoreOnly,
+    CellRubble,
+    GroupObject,
+};
+
 class SepiaRubbleComponent final : public MonoBehaviour
 {
 public:
@@ -135,6 +142,7 @@ public:
     int maxColumn = 0;
     int maxRow = 0;
     bool isRestored = false;
+    SepiaRubbleVisualMode visualMode = SepiaRubbleVisualMode::RestoreOnly;
     float restoredLifetime = 0.0f;
     std::vector<int> cellColumns;
     std::vector<int> cellRows;
