@@ -263,24 +263,21 @@ namespace
         int defaultTexture,
         int tileTexture2,
         int tileTexture3,
-        int tileTexture4,
-        int sepiaGroundTexture)
+        int tileTexture4)
     {
         if (item.sourceTileValue > 0)
         {
             return GetTileTextureForPaste(item.sourceTileValue, defaultTexture, tileTexture2, tileTexture3, tileTexture4);
         }
-        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround &&
-            !item.sepiaRestoredMarkerObject &&
-            sepiaGroundTexture >= 0)
+        if (item.textureId >= 0)
         {
-            return sepiaGroundTexture;
+            return item.textureId;
         }
         if (item.sepiaRestoredTileValue > 0)
         {
             return GetTileTextureForPaste(item.sepiaRestoredTileValue, defaultTexture, tileTexture2, tileTexture3, tileTexture4);
         }
-        return item.textureId >= 0 ? item.textureId : defaultTexture;
+        return defaultTexture;
     }
 
     bool IsHazardTileValue(int tileValue)
@@ -304,72 +301,6 @@ namespace
             return !IsHazardTileValue(item.sepiaRestoredTileValue);
         }
         return item.damagePlatformTileSpan > 0 || item.vanishOnCapture;
-    }
-
-    bool ShouldSplitSepiaGroundIntoCells(const CapturedPhotoItem& item, float tileSize)
-    {
-        if (tileSize <= 0.0f ||
-            item.spawnArchetype != CapturedSpawnArchetype::SepiaGround ||
-            (item.width <= tileSize + 0.01f && item.height <= tileSize + 0.01f))
-        {
-            return false;
-        }
-
-        // In the current capture spec, restored marker '+' is the only marker2 object
-        // that reaches this SepiaGround path.
-        return true;
-    }
-
-    std::vector<CapturedPhotoItem> BuildSepiaGroundPlacementPreviewCells(
-        const std::vector<CapturedPhotoItem>& items,
-        float tileSize)
-    {
-        if (tileSize <= 0.0f)
-        {
-            return items;
-        }
-
-        std::vector<CapturedPhotoItem> result;
-        result.reserve(items.size());
-        for (const auto& item : items)
-        {
-            if (!ShouldSplitSepiaGroundIntoCells(item, tileSize))
-            {
-                result.push_back(item);
-                continue;
-            }
-
-            for (float offsetY = 0.0f; offsetY < item.height - 0.001f; offsetY += tileSize)
-            {
-                const float pieceHeight = (std::min)(tileSize, item.height - offsetY);
-                if (pieceHeight <= 0.0f)
-                {
-                    continue;
-                }
-
-                for (float offsetX = 0.0f; offsetX < item.width - 0.001f; offsetX += tileSize)
-                {
-                    const float pieceWidth = (std::min)(tileSize, item.width - offsetX);
-                    if (pieceWidth <= 0.0f)
-                    {
-                        continue;
-                    }
-
-                    CapturedPhotoItem piece = item;
-                    piece.relativeX = item.relativeX + offsetX;
-                    piece.relativeY = item.relativeY + offsetY;
-                    piece.width = pieceWidth;
-                    piece.height = pieceHeight;
-                    piece.sourceX = 0.0f;
-                    piece.sourceY = 0.0f;
-                    piece.sourceWidth = pieceWidth / tileSize;
-                    piece.sourceHeight = pieceHeight / tileSize;
-                    result.push_back(piece);
-                }
-            }
-        }
-
-        return result;
     }
 
     std::unique_ptr<Entity> CreateSepiaGroundPhotoBox(
@@ -644,7 +575,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         scene.m_whiteTexture,
         previewWidth,
         previewHeight);
-    previewItems = BuildSepiaGroundPlacementPreviewCells(previewItems, scene.m_tileMap.GetTileSize());
     PhotoPlacementState basePlacement = scene.m_photo.placement;
     basePlacement.rotation = 0.0f;
     float basePreviewWidth = 0.0f;
@@ -655,7 +585,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         scene.m_whiteTexture,
         basePreviewWidth,
         basePreviewHeight);
-    basePreviewItems = BuildSepiaGroundPlacementPreviewCells(basePreviewItems, scene.m_tileMap.GetTileSize());
     const bool pulseEnabled = scene.m_debug.effectPlacementPulseEnabled;
     const float timeSeconds = static_cast<float>(GetNowCount()) / 1000.0f;
     const float pulse01 = pulseEnabled ? (0.5f + 0.5f * std::sin(timeSeconds * 6.2831853072f * kValidPreviewPulseHz)) : 0.5f;
@@ -728,19 +657,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 const auto& item = basePreviewItems[index];
                 CapturedPhotoItem previewItem = item;
                 photo_shared::ApplyPreviewFilterTheme(previewItem);
-                if (previewItem.spawnArchetype == CapturedSpawnArchetype::SepiaGround &&
-                    !previewItem.sepiaRestoredMarkerObject)
-                {
-                    const int sepiaGroundTexture = scene.m_assets.GetTexture("sepia_rubble_stage");
-                    if (sepiaGroundTexture >= 0)
-                    {
-                        previewItem.textureId = sepiaGroundTexture;
-                        previewItem.tintR = 1.0f;
-                        previewItem.tintG = 1.0f;
-                        previewItem.tintB = 1.0f;
-                        previewItem.tintA = 1.0f;
-                    }
-                }
 
                 const float drawX = contentOffsetX + item.relativeX * viewScale;
                 const float drawY = contentOffsetY + item.relativeY * viewScale;
@@ -856,19 +772,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         {
             CapturedPhotoItem previewItem = item;
             photo_shared::ApplyPreviewFilterTheme(previewItem);
-            if (previewItem.spawnArchetype == CapturedSpawnArchetype::SepiaGround &&
-                !previewItem.sepiaRestoredMarkerObject)
-            {
-                const int sepiaGroundTexture = scene.m_assets.GetTexture("sepia_rubble_stage");
-                if (sepiaGroundTexture >= 0)
-                {
-                    previewItem.textureId = sepiaGroundTexture;
-                    previewItem.tintR = 1.0f;
-                    previewItem.tintG = 1.0f;
-                    previewItem.tintB = 1.0f;
-                    previewItem.tintA = 1.0f;
-                }
-            }
             const float drawX = viewOriginX + ((scene.m_photo.placement.x + item.relativeX) - scene.m_flow.cameraX) * viewScale;
             const float drawY = viewOriginY + ((scene.m_photo.placement.y + item.relativeY) - scene.m_flow.cameraY) * viewScale;
             const float drawWidth = item.width * viewScale;
@@ -1760,64 +1663,23 @@ void PhotoPasteSystem::SpawnPhotoGroup(
                 scene.m_tileTexture,
                 scene.m_tileTexture2,
                 scene.m_tileTexture3,
-                scene.m_tileTexture4,
-                scene.m_assets.GetTexture("sepia_rubble_stage"));
-            const float tileSize = scene.m_tileMap.GetTileSize();
-            if (!ShouldSplitSepiaGroundIntoCells(item, tileSize))
-            {
-                auto groundEntity = CreateSepiaGroundPhotoBox(
-                    item,
-                    groupId,
-                    pasteOrder,
-                    sepiaGroundTexture,
-                    spawnX + item.relativeX,
-                    spawnY + item.relativeY,
-                    item.width,
-                    item.height,
-                    item.sourceX,
-                    item.sourceY,
-                    item.sourceWidth,
-                    item.sourceHeight);
-                lastSpawnedEntity = groundEntity.get();
-                scene.m_world.Spawn(std::move(groundEntity));
-                ++spawnedPhotoBoxCount;
-                continue;
-            }
-
-            for (float offsetY = 0.0f; offsetY < item.height - 0.001f; offsetY += tileSize)
-            {
-                const float pieceHeight = (std::min)(tileSize, item.height - offsetY);
-                if (pieceHeight <= 0.0f)
-                {
-                    continue;
-                }
-
-                for (float offsetX = 0.0f; offsetX < item.width - 0.001f; offsetX += tileSize)
-                {
-                    const float pieceWidth = (std::min)(tileSize, item.width - offsetX);
-                    if (pieceWidth <= 0.0f)
-                    {
-                        continue;
-                    }
-
-                    auto groundEntity = CreateSepiaGroundPhotoBox(
-                        item,
-                        groupId,
-                        pasteOrder,
-                        sepiaGroundTexture,
-                        spawnX + item.relativeX + offsetX,
-                        spawnY + item.relativeY + offsetY,
-                        pieceWidth,
-                        pieceHeight,
-                        0.0f,
-                        0.0f,
-                        pieceWidth / tileSize,
-                        pieceHeight / tileSize);
-                    lastSpawnedEntity = groundEntity.get();
-                    scene.m_world.Spawn(std::move(groundEntity));
-                    ++spawnedPhotoBoxCount;
-                }
-            }
+                scene.m_tileTexture4);
+            auto groundEntity = CreateSepiaGroundPhotoBox(
+                item,
+                groupId,
+                pasteOrder,
+                sepiaGroundTexture,
+                spawnX + item.relativeX,
+                spawnY + item.relativeY,
+                item.width,
+                item.height,
+                item.sourceX,
+                item.sourceY,
+                item.sourceWidth,
+                item.sourceHeight);
+            lastSpawnedEntity = groundEntity.get();
+            scene.m_world.Spawn(std::move(groundEntity));
+            ++spawnedPhotoBoxCount;
             continue;
         }
 
@@ -1882,8 +1744,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             scene.m_tileTexture,
             scene.m_tileTexture2,
             scene.m_tileTexture3,
-            scene.m_tileTexture4,
-            scene.m_assets.GetTexture("sepia_rubble_stage")));
+            scene.m_tileTexture4));
         if (auto* sprite = lastSpawnedEntity->GetComponent<SpriteRenderComponent>())
         {
             sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);

@@ -1338,37 +1338,18 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
             group->cellColumns.size() == group->cellRows.size())
         {
             int groupTexture = m_assets.GetTexture("sepia_ground");
-            bool drawCellGroup = true;
+            const bool drawCellGroup =
+                group->visualMode == SepiaRubbleVisualMode::CellRubble ||
+                (group->markerType == '<' &&
+                    group->restoredMarkerType == '\0' &&
+                    group->restoredTileValue > 0);
             Shader_ResetStyle();
             Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
-
-            if (restoredMarkerPreview)
+            if (drawCellGroup)
             {
-                const char marker = static_cast<char>(
-                    std::toupper(static_cast<unsigned char>(group->restoredMarkerType)));
-                Shader_SetTint(1.0f, 1.0f, 1.0f, 0.92f);
-                switch (marker)
-                {
-                case '+':
-                    if (group->markerType == '>')
-                    {
-                        groupTexture = m_assets.GetTexture("sepia_rubble_stage");
-                    }
-                    else
-                    {
-                        drawCellGroup = false;
-                    }
-                    break;
-                default:
-                    drawCellGroup = false;
-                    break;
-                }
-            }
-            else
-            {
-                const int plainRubbleTexture = m_assets.GetTexture("sepia_rubble_stage");
-                groupTexture = plainRubble && plainRubbleTexture >= 0
-                    ? plainRubbleTexture
+                const int cellRubbleTexture = m_assets.GetTexture("sepia_rubble_stage");
+                groupTexture = cellRubbleTexture >= 0
+                    ? cellRubbleTexture
                     : m_assets.GetTexture("sepia_ground");
             }
 
@@ -2766,20 +2747,6 @@ void GameScene::DrawPhotoStorageTray() const
         for (const auto& item : storedCapture.items)
         {
             CapturedPhotoItem previewItem = item;
-            if (previewItem.spawnArchetype == CapturedSpawnArchetype::SepiaGround &&
-                !previewItem.sepiaRestoredMarkerObject)
-            {
-                const int sepiaGroundTexture = m_assets.GetTexture("sepia_rubble_stage");
-                if (sepiaGroundTexture >= 0)
-                {
-                    previewItem.textureId = sepiaGroundTexture;
-                    previewItem.tintR = 1.0f;
-                    previewItem.tintG = 1.0f;
-                    previewItem.tintB = 1.0f;
-                    previewItem.tintA = 1.0f;
-                }
-            }
-
             DrawCapturedPreviewItem(
                 m_tileTexture,
                 previewItem,

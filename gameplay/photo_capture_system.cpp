@@ -1291,7 +1291,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         if (scene.m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia)
         {
             if (sepiaGroup && sepiaGroup->markerType == '>' &&
-                sepiaGroup->restoredMarkerType == '\0' && sepiaGroup->restoredTileValue > 0)
+                sepiaGroup->visualMode == SepiaRubbleVisualMode::CellRubble)
             {
                 item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
                 item.textureId = scene.m_assets.GetTexture("sepia_rubble_stage");
@@ -1333,6 +1333,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 item.tintG = 1.0f;
                 item.tintB = 1.0f;
                 item.tintA = 1.0f;
+                item.sepiaRestoredTileValue = sepiaGroup->restoredTileValue;
                 item.sepiaPlainRubbleObject = true;
 
                 scene.m_photo.capture.items.push_back(item);
@@ -1342,7 +1343,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                 continue;
             }
 
-            if (sepiaGroup && sepiaGroup->markerType == '>' && sepiaGroup->restoredMarkerType != '\0')
+            if (sepiaGroup && sepiaGroup->markerType == '>' &&
+                sepiaGroup->visualMode == SepiaRubbleVisualMode::GroupObject &&
+                sepiaGroup->restoredMarkerType != '\0')
             {
                 if (ApplySepiaRestoredMarkerCaptureSpec(
                     *sepiaGroup,

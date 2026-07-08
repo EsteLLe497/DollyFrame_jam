@@ -797,6 +797,26 @@ namespace
 
         return false;
     }
+
+    SepiaRubbleVisualMode ResolveSepiaRubbleVisualMode(char targetMarker, char restoredMarkerType)
+    {
+        if (targetMarker == '<')
+        {
+            return SepiaRubbleVisualMode::RestoreOnly;
+        }
+
+        if (targetMarker == '>')
+        {
+            if (restoredMarkerType == '\0' || restoredMarkerType == '+')
+            {
+                return SepiaRubbleVisualMode::CellRubble;
+            }
+
+            return SepiaRubbleVisualMode::GroupObject;
+        }
+
+        return SepiaRubbleVisualMode::RestoreOnly;
+    }
 }
 
 void GameScene::SpawnBatterySwitchMarker(float x, float y, int requiredBatteryCount, bool controlsLaserPower, int linkId, float tileSize, SwitchPressMode pressMode)
@@ -2352,6 +2372,9 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
                 targetRestoredMarkerParameter,
                 groupMinColumn, groupMinRow, groupMaxColumn, groupMaxRow,
                 false);
+            groupComp.visualMode = ResolveSepiaRubbleVisualMode(
+                targetMarker,
+                targetRestoredMarkerType);
 
             groupComp.cellColumns.reserve(groupCells.size());
             groupComp.cellRows.reserve(groupCells.size());
