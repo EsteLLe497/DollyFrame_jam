@@ -158,6 +158,34 @@
             "type": "file",
             "path": "assets/texture/boss1/Shield/Boss01_Knockback_Shield_30f.dds"
         },
+        "boss3_idle": {
+            "type": "file",
+            "path": "assets/texture/boss3/boss3_idle.png"
+        },
+        "boss3_move_right": {
+            "type": "file",
+            "path": "assets/texture/boss3/boss3_move_right.png"
+        },
+        "boss3_move_left": {
+            "type": "file",
+            "path": "assets/texture/boss3/boss3_move_left.png"
+        },
+        "boss3_appear": {
+            "type": "file",
+            "path": "assets/texture/boss3/boss3_appear.png"
+        },
+        "boss3_death": {
+            "type": "file",
+            "path": "assets/texture/boss3/boss3_death.png"
+        },
+        "boss3_rocket_punch": {
+            "type": "file",
+            "path": "assets/texture/boss3/boss3_rocket_punch.png"
+        },
+        "boss3_drill": {
+            "type": "file",
+            "path": "assets/texture/boss3/boss3_drill.png"
+        },
         "sepia_rubble": {
             "type": "file",
             "path": "assets/texture/SepiaSample1.png"

@@ -388,7 +388,7 @@ public:
     struct Params
     {
         int boss3Hp = 1;
-        int boss3WidthGrid = 4;
+        int boss3WidthGrid = 5;
         int boss3HeightGrid = 4;
         int fistWidthGrid = 3;
         int fistHeightGrid = 2;
@@ -466,6 +466,8 @@ public:
     bool introStarted = true;
     bool introFinished = true;
     bool introGroundInitialized = false;
+    bool deathAnimationActive = false;
+    bool deathAnimationFinished = false;
     float introTimer = 0.0f;
     float introTriggerX = 0.0f;
     float introFloatHomeX = 0.0f;
@@ -525,6 +527,7 @@ public:
     bool meteorHoldInitialized = false;
     bool captureJammerActive = false;
     bool broken = false;
+    bool lockedFacingRight = false;
     bool impactAttackActive = false;
     bool impactDamageApplied = false;
     float impactAttackX = 0.0f;

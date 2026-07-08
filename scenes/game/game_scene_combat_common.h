@@ -75,8 +75,11 @@ inline void PlayRangedSpriteAnimation(Entity& entity, const char* clipName, bool
         return;
     }
 
-    // Enemy2 is authored left-facing and should never turn around.
-    sprite->SetFlipX(false);
+    // Enemy2 is authored left-facing; CSV can mirror it by setting facing right.
+    if (auto* enemy = entity.GetComponent<EnemyComponent>())
+    {
+        sprite->SetFlipX(enemy->facing == EnemyComponent::FacingDirection::Right);
+    }
     animation->Play(clipName, restart);
 }
 

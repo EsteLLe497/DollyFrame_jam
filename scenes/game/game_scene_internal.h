@@ -323,13 +323,13 @@ inline bool IsUncapturableDamageFloorEntity(const Entity& entity)
     const auto* damagePlatform = entity.GetComponent<DamagePlatformComponent>();
     if (damagePlatform)
     {
-        return !damagePlatform->captureAllowed;
+        return !damagePlatform->photoCapturable;
     }
 
     const auto* spikeStrip = entity.GetComponent<SpikeStripComponent>();
     if (spikeStrip)
     {
-        return !spikeStrip->captureAllowed;
+        return !spikeStrip->photoCapturable;
     }
 
     return tag && (tag->Is("DamagePlatform") || tag->Is("DamagePlatformSpike"));
@@ -638,6 +638,7 @@ inline bool IsParameterizedEditorMarker(char marker)
     {
     case 'P':
     case 'F':
+    case 'R':
     case 'K':
     case 'L':
     case 'Q':
@@ -667,6 +668,8 @@ inline int NormalizeEditorMarkerParameter(char marker, int parameter)
     case 'P':
     case 'F':
         return std::clamp(parameter, -99, 99);
+    case 'R':
+        return std::clamp(parameter, -1, 1);
     case 'K':
     case 'L':
     case 'Q':

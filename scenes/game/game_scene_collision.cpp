@@ -1958,6 +1958,14 @@ bool GameScene::IsPhotoPlacementValid(float x, float y, float width, float heigh
 
         TransformComponent candidate(x + item.relativeX, y + item.relativeY, item.width, item.height);
         candidate.rotation = item.rotation;
+        const bool participatesInPlacementRules =
+            item.spawnArchetype != CapturedSpawnArchetype::None ||
+            item.layer == PhotoCopyLayer::Foreground;
+        if (!participatesInPlacementRules)
+        {
+            continue;
+        }
+
         const bool blocksPlayer =
             item.layer == PhotoCopyLayer::Foreground &&
             item.spawnArchetype != CapturedSpawnArchetype::Projectile &&
