@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 
 #include "game_session.h"
+#include "photo_log.h"
 
 #include <algorithm>
 
@@ -26,6 +27,7 @@ void GameSession_Reset(int maxHp, float timeLimit)
     g_sessionState.loadSavedProgress = true;
     g_sessionState.cameraTutorialCompleted = false;
     g_sessionState.completedTutorialNumbers.clear();
+    PhotoLog_Reset();//新しい周回の開始でログをクリア
 }
 
 void GameSession_SetCurrentHp(int currentHp)
