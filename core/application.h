@@ -47,7 +47,7 @@ private:
     float m_sceneTransitionTimer;
     float m_sceneTransitionDuration;
     DWORD m_frameCount;
-    DWORD m_fpsTick;
+    LONGLONG m_fpsTick;
     std::string m_pendingSceneId;
     std::unique_ptr<ResourceManager> m_resources;
     std::unique_ptr<SceneManager> m_sceneManager;
