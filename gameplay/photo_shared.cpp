@@ -870,8 +870,9 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
         return items;
     }
 
-    outWidth = GetPrintedPhotoWidth(capture.width);
-    outHeight = GetPrintedPhotoHeight(capture.height);
+    // 通常写真も中身サイズ基準で配置し、写真を再撮影した時の余白二重乗りで巨大化しないようにします。
+    outWidth = (std::max)(1.0f, capture.width);
+    outHeight = (std::max)(1.0f, capture.height);
     std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
         capture.items,
         whiteTexture,
