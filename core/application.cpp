@@ -144,30 +144,50 @@ int Application::Run(HINSTANCE instance, int nCmdShow)
         return 1;
     }
 
-    const int frameMs = 1000 / TARGET_FPS;
-    int lastTick = GetNowCount();
-    m_fpsTick = static_cast<DWORD>(lastTick);
+    // GetNowCount はミリ秒精度（実分解能 約15.6ms）で 60FPS のフレーム予算と同程度のため、
+    // マイクロ秒精度の GetNowHiPerformanceCount でフレームを刻む。
+    constexpr LONGLONG kFrameMicroseconds = 1000000LL / TARGET_FPS;
+    // ヒッチ（ウィンドウ操作・ロード等）後に deltaTime が暴れないよう上限を設ける。
+    constexpr float kMaxDeltaTime = 0.1f;
+
+    LONGLONG lastFrameTick = GetNowHiPerformanceCount();
+    LONGLONG nextFrameTick = lastFrameTick + kFrameMicroseconds;
+    m_fpsTick = lastFrameTick;
 
     while (m_running && ProcessMessage() == 0)
     {
         FrameMark;
 
-        const int now = GetNowCount();
-        if ((now - static_cast<int>(m_fpsTick)) >= 1000)
+        const LONGLONG now = GetNowHiPerformanceCount();
+        if ((now - m_fpsTick) >= 1000000LL)
         {
             m_currentFps = static_cast<float>(m_frameCount);
             m_frameCount = 0;
-            m_fpsTick = static_cast<DWORD>(now);
+            m_fpsTick = now;
         }
 
-        if ((now - lastTick) < frameMs)
+        if (now < nextFrameTick)
         {
-            WaitTimer(1);
+            // 残りが 2ms 以上あればスリープ、それ未満はスピンで精度を出す。
+            if ((nextFrameTick - now) >= 2000)
+            {
+                WaitTimer(1);
+            }
             continue;
         }
 
-        const float deltaTime = static_cast<float>(now - lastTick) / 1000.0f;
-        lastTick = now;
+        // 次フレームの締切は前回締切からの加算で刻み、周期のドリフトを防ぐ。
+        // 大きく遅れた場合は現在時刻から貼り直す。
+        nextFrameTick += kFrameMicroseconds;
+        if (now >= nextFrameTick)
+        {
+            nextFrameTick = now + kFrameMicroseconds;
+        }
+
+        const float deltaTime = std::min(
+            static_cast<float>(now - lastFrameTick) / 1000000.0f,
+            kMaxDeltaTime);
+        lastFrameTick = now;
 
         Update(deltaTime);
         Draw();
@@ -195,6 +215,10 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     SetGraphMode(kVirtualScreenWidth, kVirtualScreenHeight, 32, 60);
     SetWindowSizeChangeEnableFlag(FALSE, FALSE);
     SetAlwaysRunFlag(TRUE);
+    // ScreenFlip の垂直同期待ちを無効化し、フレームペーシングは Run() のリミッターに一本化する。
+    // モニタのリフレッシュレート（60Hz/144Hz 等）で挙動が変わったり、
+    // VSync 待ちと手動ウェイトが競合してジッターになるのを防ぐ。
+    SetWaitVSyncFlag(FALSE);
     if (DxLib_Init() == -1)
     {
         return false;

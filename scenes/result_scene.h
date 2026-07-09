@@ -14,6 +14,7 @@ public:
     void Update(float deltaTime) override;
     void Draw() override;
     void DrawDebugUI() override;
+    void DrawFreeImages() const;
     EventBus* GetEventBus() override;
 
 private:

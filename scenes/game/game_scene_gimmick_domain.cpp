@@ -897,6 +897,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             0.0f,
             batteryGenerator->cooldownRemaining - deltaTime);
 
+        const int batteryTexture = m_assets.GetTexture("tile_value_battery");
 		const bool powered = linkPowered[batteryGenerator->linkId];
         if (powered && batteryGenerator->cooldownRemaining <= 0.0f && tileSize > 0.0f)
 		{
@@ -913,8 +914,8 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
                 spawnY,
                 tileSize,
                 tileSize);
-            battery->AddComponent<TintComponent>(0.94f, 0.82f, 0.22f, 1.0f);
-            battery->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            battery->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            battery->AddComponent<SpriteRenderComponent>(batteryTexture);
             battery->AddComponent<BatteryComponent>(
                 1900.0f,
                 980.0f,

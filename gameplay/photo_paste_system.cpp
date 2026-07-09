@@ -263,22 +263,21 @@ namespace
         int defaultTexture,
         int tileTexture2,
         int tileTexture3,
-        int tileTexture4,
-        int sepiaGroundTexture)
+        int tileTexture4)
     {
         if (item.sourceTileValue > 0)
         {
             return GetTileTextureForPaste(item.sourceTileValue, defaultTexture, tileTexture2, tileTexture3, tileTexture4);
         }
-        if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround && sepiaGroundTexture >= 0)
+        if (item.textureId >= 0)
         {
-            return sepiaGroundTexture;
+            return item.textureId;
         }
         if (item.sepiaRestoredTileValue > 0)
         {
             return GetTileTextureForPaste(item.sepiaRestoredTileValue, defaultTexture, tileTexture2, tileTexture3, tileTexture4);
         }
-        return item.textureId >= 0 ? item.textureId : defaultTexture;
+        return defaultTexture;
     }
 
     bool IsHazardTileValue(int tileValue)
@@ -302,6 +301,56 @@ namespace
             return !IsHazardTileValue(item.sepiaRestoredTileValue);
         }
         return item.damagePlatformTileSpan > 0 || item.vanishOnCapture;
+    }
+
+    std::unique_ptr<Entity> CreateSepiaGroundPhotoBox(
+        const CapturedPhotoItem& item,
+        int groupId,
+        int pasteOrder,
+        int textureId,
+        float x,
+        float y,
+        float width,
+        float height,
+        float sourceX,
+        float sourceY,
+        float sourceWidth,
+        float sourceHeight)
+    {
+        auto groundEntity = std::make_unique<Entity>();
+        Entity* spawnedGround = groundEntity.get();
+
+        spawnedGround->AddComponent<TagComponent>(kTagPhotoBox);
+        spawnedGround->AddComponent<PhotoCopyGroupComponent>(groupId);
+        spawnedGround->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
+        spawnedGround->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
+        const PhotoCopyRole pastedRole = ShouldPasteAsSolidEnvironment(item)
+            ? PhotoCopyRole::Solid
+            : item.role;
+        spawnedGround->AddComponent<PhotoCopyRoleComponent>(pastedRole);
+        spawnedGround->AddComponent<PhotoCopyLayerComponent>(item.layer);
+        spawnedGround->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
+        spawnedGround->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
+        spawnedGround->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
+
+        spawnedGround->AddComponent<TransformComponent>(x, y, width, height);
+        spawnedGround->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+        spawnedGround->AddComponent<SpriteRenderComponent>(textureId);
+        if (auto* sprite = spawnedGround->GetComponent<SpriteRenderComponent>())
+        {
+            sprite->SetSourceRect(sourceX, sourceY, sourceWidth, sourceHeight);
+            sprite->SetFlipX(item.flipX);
+        }
+        if (item.sepiaRestoredTileValue > 0)
+        {
+            spawnedGround->AddComponent<PhotoCopyTileValueComponent>(item.sepiaRestoredTileValue);
+        }
+        if (auto* transform = spawnedGround->GetComponent<TransformComponent>())
+        {
+            transform->rotation = item.rotation;
+        }
+
+        return groundEntity;
     }
 
     void UpdatePlacementPadCursor(
@@ -608,22 +657,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
                 const auto& item = basePreviewItems[index];
                 CapturedPhotoItem previewItem = item;
                 photo_shared::ApplyPreviewFilterTheme(previewItem);
-                if (previewItem.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
-                {
-                    const int sepiaGroundTexture = scene.m_assets.GetTexture("sepia_rubble_stage");
-                    if (sepiaGroundTexture >= 0)
-                    {
-                        previewItem.textureId = sepiaGroundTexture;
-                        previewItem.sourceX = 0.0f;
-                        previewItem.sourceY = 0.0f;
-                        previewItem.sourceWidth = 1.0f;
-                        previewItem.sourceHeight = 1.0f;
-                        previewItem.tintR = 1.0f;
-                        previewItem.tintG = 1.0f;
-                        previewItem.tintB = 1.0f;
-                        previewItem.tintA = 1.0f;
-                    }
-                }
 
                 const float drawX = contentOffsetX + item.relativeX * viewScale;
                 const float drawY = contentOffsetY + item.relativeY * viewScale;
@@ -739,22 +772,6 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         {
             CapturedPhotoItem previewItem = item;
             photo_shared::ApplyPreviewFilterTheme(previewItem);
-            if (previewItem.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
-            {
-                const int sepiaGroundTexture = scene.m_assets.GetTexture("sepia_rubble_stage");
-                if (sepiaGroundTexture >= 0)
-                {
-                    previewItem.textureId = sepiaGroundTexture;
-                    previewItem.sourceX = 0.0f;
-                    previewItem.sourceY = 0.0f;
-                    previewItem.sourceWidth = 1.0f;
-                    previewItem.sourceHeight = 1.0f;
-                    previewItem.tintR = 1.0f;
-                    previewItem.tintG = 1.0f;
-                    previewItem.tintB = 1.0f;
-                    previewItem.tintA = 1.0f;
-                }
-            }
             const float drawX = viewOriginX + ((scene.m_photo.placement.x + item.relativeX) - scene.m_flow.cameraX) * viewScale;
             const float drawY = viewOriginY + ((scene.m_photo.placement.y + item.relativeY) - scene.m_flow.cameraY) * viewScale;
             const float drawWidth = item.width * viewScale;
@@ -1641,48 +1658,28 @@ void PhotoPasteSystem::SpawnPhotoGroup(
 
         if (item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
         {
-            auto groundEntity = std::make_unique<Entity>();
-            Entity* spawnedGround = groundEntity.get();
-            lastSpawnedEntity = spawnedGround;
-
-            spawnedGround->AddComponent<TagComponent>(kTagPhotoBox);
-            spawnedGround->AddComponent<PhotoCopyGroupComponent>(groupId);
-            spawnedGround->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
-            spawnedGround->AddComponent<PhotoPasteAnimationComponent>(gPastedObjectPasteAnimationSeconds);
-            const PhotoCopyRole pastedRole = ShouldPasteAsSolidEnvironment(item)
-                ? PhotoCopyRole::Solid
-                : item.role;
-            spawnedGround->AddComponent<PhotoCopyRoleComponent>(pastedRole);
-            spawnedGround->AddComponent<PhotoCopyLayerComponent>(item.layer);
-            spawnedGround->AddComponent<PhotoCopyOriginComponent>(PhotoCopyOrigin::Generic);
-            spawnedGround->AddComponent<PhotoCopyEffectComponent>(item.appliedTheme);
-            spawnedGround->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);
-
-            spawnedGround->AddComponent<TransformComponent>(
-                spawnX + item.relativeX, spawnY + item.relativeY,
-                item.width, item.height);
-            spawnedGround->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
-            spawnedGround->AddComponent<SpriteRenderComponent>(GetPhotoItemTextureForPaste(
+            const int sepiaGroundTexture = GetPhotoItemTextureForPaste(
                 item,
                 scene.m_tileTexture,
                 scene.m_tileTexture2,
                 scene.m_tileTexture3,
-                scene.m_tileTexture4,
-                scene.m_assets.GetTexture("sepia_rubble_stage")));
-            if (item.sepiaRestoredTileValue > 0)
-            {
-                spawnedGround->AddComponent<PhotoCopyTileValueComponent>(item.sepiaRestoredTileValue);
-            }
-
-            // Pasted restored ground uses its visible rectangle so side collisions do not become thin.
-
-            if (auto* transform = spawnedGround->GetComponent<TransformComponent>())
-            {
-                transform->rotation = item.rotation;
-            }
-
-            ++spawnedPhotoBoxCount;
+                scene.m_tileTexture4);
+            auto groundEntity = CreateSepiaGroundPhotoBox(
+                item,
+                groupId,
+                pasteOrder,
+                sepiaGroundTexture,
+                spawnX + item.relativeX,
+                spawnY + item.relativeY,
+                item.width,
+                item.height,
+                item.sourceX,
+                item.sourceY,
+                item.sourceWidth,
+                item.sourceHeight);
+            lastSpawnedEntity = groundEntity.get();
             scene.m_world.Spawn(std::move(groundEntity));
+            ++spawnedPhotoBoxCount;
             continue;
         }
 
@@ -1747,8 +1744,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             scene.m_tileTexture,
             scene.m_tileTexture2,
             scene.m_tileTexture3,
-            scene.m_tileTexture4,
-            scene.m_assets.GetTexture("sepia_rubble_stage")));
+            scene.m_tileTexture4));
         if (auto* sprite = lastSpawnedEntity->GetComponent<SpriteRenderComponent>())
         {
             sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);

@@ -5,10 +5,13 @@
 #include "components.h"
 #include "entity.h"
 
+#include <algorithm>
+
 PhysicsWorld::PhysicsWorld()
     : m_worldId(b2_nullWorldId)
     , m_eventBus(nullptr)
     , m_initialized(false)
+    , m_stepAccumulator(0.0f)
 {
 }
 
@@ -28,6 +31,7 @@ bool PhysicsWorld::Initialize(float gravityX, float gravityY, EventBus& eventBus
     worldDef.gravity = { gravityX, gravityY };
     m_worldId = b2CreateWorld(&worldDef);
     m_eventBus = &eventBus;
+    m_stepAccumulator = 0.0f;
     m_initialized = B2_IS_NON_NULL(m_worldId);
     return m_initialized;
 }
@@ -52,8 +56,20 @@ void PhysicsWorld::Step(float deltaTime)
         return;
     }
 
-    b2World_Step(m_worldId, deltaTime, 4);
-    GatherContactEvents();
+    // Box2D は固定タイムステップ前提。可変 dt をそのまま渡すと実フレームレートで
+    // 挙動（ジャンプ高さ・衝突結果）が変わるため、固定幅で刻んで進める。
+    constexpr float kFixedTimeStep = 1.0f / 60.0f;
+    constexpr int kMaxStepsPerUpdate = 4;
+
+    m_stepAccumulator += std::min(deltaTime, kFixedTimeStep * static_cast<float>(kMaxStepsPerUpdate));
+    for (int step = 0; step < kMaxStepsPerUpdate && m_stepAccumulator >= kFixedTimeStep; ++step)
+    {
+        b2World_Step(m_worldId, kFixedTimeStep, 4);
+        // 接触イベントはステップごとに回収する。まとめて最後に読むと
+        // 途中ステップのイベントが失われる。
+        GatherContactEvents();
+        m_stepAccumulator -= kFixedTimeStep;
+    }
 }
 
 b2WorldId PhysicsWorld::GetWorldId() const

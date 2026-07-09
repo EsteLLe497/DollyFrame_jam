@@ -3201,13 +3201,9 @@ void GameScene::UpdateFallingRocks(float deltaTime)
                 if (playerTransform)
                 {
                     const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
-                    const float playerCenterY = playerTransform->y + playerTransform->height * playerTransform->scale * 0.5f;
                     const float fallingrockCenterX = transform->x + fallingrockWidth * 0.5f;
-                    const float fallingrockCenterY = transform->y + fallingrockHeight * 0.5f;
                     const float dx = playerCenterX - fallingrockCenterX;
-                    const float dy = playerCenterY - fallingrockCenterY;
-                    const float distance = std::sqrt(dx * dx + dy * dy);
-                    if (distance <= activationDistance)
+                    if (std::fabs(dx) <= activationDistance)
                     {
                         fallingRock->active = true;
                         setFallingRockVisible(*entity, true);
@@ -3374,6 +3370,24 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
         setHangingObjectVisible(hangingEntity, false);
     };
 
+    auto isRidingHangingObject = [&](const TransformComponent& riderTransform, const TransformComponent& hangingTransform) -> bool
+    {
+        const float riderWidth = riderTransform.width * riderTransform.scale;
+        const float riderHeight = riderTransform.height * riderTransform.scale;
+        const float hangingWidth = hangingTransform.width * hangingTransform.scale;
+        const float riderLeft = riderTransform.x + 6.0f;
+        const float riderRight = riderTransform.x + riderWidth - 6.0f;
+        const float riderBottom = riderTransform.y + riderHeight;
+        const float hangingLeft = hangingTransform.x;
+        const float hangingRight = hangingTransform.x + hangingWidth;
+        const float hangingTop = hangingTransform.y;
+        const float topTolerance = std::max(6.0f, tileSize * 0.25f);
+        const bool horizontallyOverlapping = riderRight > hangingLeft && riderLeft < hangingRight;
+        return horizontallyOverlapping &&
+            riderTransform.y < hangingTop &&
+            riderBottom <= hangingTop + topTolerance;
+    };
+
     std::vector<Entity*> enemyEntities;
     enemyEntities.reserve(m_world.EntitiesByTag(EntityTag::Enemy).size());
     for (Entity* enemyEntity : m_world.EntitiesByTag(EntityTag::Enemy))
@@ -3445,9 +3459,13 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
 
         if (player && IntersectsEntity(*entity, *player))
         {
-            HandlePlayerDamage(*player, entity, "GameScene player damaged by hanging gravity object", hanging->contactDamage);
-            breakHangingObject(*entity, *hanging, *transform);
-            continue;
+            const auto* playerTransform = player->GetComponent<TransformComponent>();
+            if (!playerTransform || !isRidingHangingObject(*playerTransform, *transform))
+            {
+                HandlePlayerDamage(*player, entity, "GameScene player damaged by hanging gravity object", hanging->contactDamage);
+                breakHangingObject(*entity, *hanging, *transform);
+                continue;
+            }
         }
 
         bool consumed = false;
@@ -3459,6 +3477,12 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
             }
 
             if (!IntersectsEntity(*entity, *enemyEntity))
+            {
+                continue;
+            }
+
+            const auto* enemyTransform = enemyEntity->GetComponent<TransformComponent>();
+            if (enemyTransform && isRidingHangingObject(*enemyTransform, *transform))
             {
                 continue;
             }

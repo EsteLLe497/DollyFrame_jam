@@ -27,4 +27,7 @@ private:
     b2WorldId m_worldId;
     EventBus* m_eventBus;
     bool m_initialized;
+    // Accumulates real elapsed time so the simulation can advance in
+    // fixed-size steps regardless of the caller's frame rate.
+    float m_stepAccumulator;
 };

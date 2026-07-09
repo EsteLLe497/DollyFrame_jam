@@ -1333,13 +1333,81 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
             rubble &&
             rubble->source == SepiaRubbleSource::Generic &&
             (!group || group->restoredMarkerType == '\0');
+        if (group && !attackRubble &&
+            !group->cellColumns.empty() &&
+            group->cellColumns.size() == group->cellRows.size())
+        {
+            int groupTexture = m_assets.GetTexture("sepia_ground");
+            const bool drawCellGroup =
+                group->visualMode == SepiaRubbleVisualMode::CellRubble ||
+                (group->markerType == '<' &&
+                    group->restoredMarkerType == '\0' &&
+                    group->restoredTileValue > 0);
+            Shader_ResetStyle();
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 0.9f);
+            if (drawCellGroup)
+            {
+                const int cellRubbleTexture = m_assets.GetTexture("sepia_rubble_stage");
+                groupTexture = cellRubbleTexture >= 0
+                    ? cellRubbleTexture
+                    : m_assets.GetTexture("sepia_ground");
+            }
+
+            const int groupColumns = group->maxColumn - group->minColumn + 1;
+            const int groupRows = group->maxRow - group->minRow + 1;
+            if (drawCellGroup && groupTexture >= 0 && groupColumns > 0 && groupRows > 0)
+            {
+                const float cellWorldW = objectWorldX / static_cast<float>(groupColumns);
+                const float cellWorldH = objectWorldY / static_cast<float>(groupRows);
+                if (cellWorldW > 0.0f && cellWorldH > 0.0f)
+                {
+                    for (size_t ci = 0; ci < group->cellColumns.size(); ++ci)
+                    {
+                        const int localColumn = group->cellColumns[ci] - group->minColumn;
+                        const int localRow = group->cellRows[ci] - group->minRow;
+                        if (localColumn < 0 || localColumn >= groupColumns ||
+                            localRow < 0 || localRow >= groupRows)
+                        {
+                            continue;
+                        }
+
+                        const float cellLeft = objectWorldX0 + static_cast<float>(localColumn) * cellWorldW;
+                        const float cellTop = objectWorldY0 + static_cast<float>(localRow) * cellWorldH;
+                        const float cellRight = cellLeft + cellWorldW;
+                        const float cellBottom = cellTop + cellWorldH;
+                        const float cellOverlapLeft = std::max(frameX, cellLeft);
+                        const float cellOverlapTop = std::max(frameY, cellTop);
+                        const float cellOverlapRight = std::min(frameX + frameWidth, cellRight);
+                        const float cellOverlapBottom = std::min(frameY + frameHeight, cellBottom);
+                        const float cellOverlapW = cellOverlapRight - cellOverlapLeft;
+                        const float cellOverlapH = cellOverlapBottom - cellOverlapTop;
+                        if (cellOverlapW <= 1.0f || cellOverlapH <= 1.0f)
+                        {
+                            continue;
+                        }
+
+                        SpriteDraw(
+                            groupTexture,
+                            GetViewOriginX() + (cellOverlapLeft - m_flow.cameraX) * viewScale,
+                            GetViewOriginY() + (cellOverlapTop - m_flow.cameraY) * viewScale,
+                            cellOverlapW * viewScale,
+                            cellOverlapH * viewScale,
+                            std::clamp((cellOverlapLeft - cellLeft) / cellWorldW, 0.0f, 1.0f),
+                            std::clamp((cellOverlapTop - cellTop) / cellWorldH, 0.0f, 1.0f),
+                            std::clamp(cellOverlapW / cellWorldW, 0.0f, 1.0f),
+                            std::clamp(cellOverlapH / cellWorldH, 0.0f, 1.0f));
+                    }
+
+                    Shader_ResetStyle();
+                    continue;
+                }
+            }
+
+            Shader_ResetStyle();
+        }
 
         if (restoredMarkerPreview && !attackRubble)
         {
-            const float fullDrawX = GetViewOriginX() + (objectWorldX0 - m_flow.cameraX) * viewScale;
-            const float fullDrawY = GetViewOriginY() + (objectWorldY0 - m_flow.cameraY) * viewScale;
-            const float fullDrawW = objectWorldX * viewScale;
-            const float fullDrawH = objectWorldY * viewScale;
             const char marker = static_cast<char>(
                 std::toupper(static_cast<unsigned char>(group->restoredMarkerType)));
 
@@ -1347,6 +1415,10 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
             Shader_SetTint(1.0f, 1.0f, 1.0f, 0.92f);
             if (marker == 'J')
             {
+                const float fullDrawX = GetViewOriginX() + (objectWorldX0 - m_flow.cameraX) * viewScale;
+                const float fullDrawY = GetViewOriginY() + (objectWorldY0 - m_flow.cameraY) * viewScale;
+                const float fullDrawW = objectWorldX * viewScale;
+                const float fullDrawH = objectWorldY * viewScale;
                 const int shutterTexture = m_assets.GetTexture(
                     objectWorldX > objectWorldY ? "sepia_shutter_gate_horizontal" : "sepia_shutter_gate");
                 photo_shared::DrawSepiaShutterItem(
@@ -1379,6 +1451,10 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
                     restoredTexture >= 0 ? restoredTexture : m_whiteTexture);
                 break;
             case '+':
+                if (group->markerType == '<')
+                {
+                    restoredTexture = m_assets.GetTexture("tile_value_elevator_off");
+                }
                 break;
             default:
                 break;
@@ -1386,14 +1462,14 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
 
             SpriteDraw(
                 restoredTexture >= 0 ? restoredTexture : m_whiteTexture,
-                fullDrawX,
-                fullDrawY,
-                fullDrawW,
-                fullDrawH,
-                0.0f,
-                0.0f,
-                1.0f,
-                1.0f);
+                drawEntityX,
+                drawEntityY,
+                drawEntityW,
+                drawEntityH,
+                sourceX,
+                sourceY,
+                sourceW,
+                sourceH);
             Shader_ResetStyle();
             continue;
         }
@@ -1841,6 +1917,12 @@ void GameScene::DrawCaptureOverlay() const
         const float glowWidth = overlapWidth * viewScale;
         const float glowHeight = overlapHeight * viewScale;
         const bool isBestTarget = entity == bestTarget;
+        const bool sepiaFinder = m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia;
+        if (sepiaFinder)
+        {
+            // セピアファインダーはフィルム演出のみ表示し、重なり時の白っぽい加算表示を出さない。
+            return;
+        }
 
         Shader_ResetStyle();
         Shader_SetBlendMode(ShaderBlendMode2D::Additive);
@@ -2665,23 +2747,6 @@ void GameScene::DrawPhotoStorageTray() const
         for (const auto& item : storedCapture.items)
         {
             CapturedPhotoItem previewItem = item;
-            if (previewItem.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
-            {
-                const int sepiaGroundTexture = m_assets.GetTexture("sepia_rubble_stage");
-                if (sepiaGroundTexture >= 0)
-                {
-                    previewItem.textureId = sepiaGroundTexture;
-                    previewItem.sourceX = 0.0f;
-                    previewItem.sourceY = 0.0f;
-                    previewItem.sourceWidth = 1.0f;
-                    previewItem.sourceHeight = 1.0f;
-                    previewItem.tintR = 1.0f;
-                    previewItem.tintG = 1.0f;
-                    previewItem.tintB = 1.0f;
-                    previewItem.tintA = 1.0f;
-                }
-            }
-
             DrawCapturedPreviewItem(
                 m_tileTexture,
                 previewItem,
