@@ -361,8 +361,7 @@ void ResultScene::DrawFreeImages() const
     // ここの数値(x, y, width, height)を書き換えて自由に位置・サイズを調整してください
     const FreeImagePlacement placements[] =
     {
-        { "date", 40.0f, 450.0f, 360.0f, 280.0f },
-
+        { "date", 40.0f, 330.0f, 360.0f, 520.0f },
         { "kuria", static_cast<float>(SCREEN_WIDTH) - 300.0f,
           450.0f, 220.0f, 160.0f },
     };
