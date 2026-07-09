@@ -3450,8 +3450,28 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
             continue;
         }
 
+        TransformComponent previousTransform(transform->x, transform->y, transform->width, transform->height);
+        previousTransform.scale = transform->scale;
+
+        auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+        const bool playerWasRiding =
+            playerTransform &&
+            isRidingHangingObject(*playerTransform, previousTransform);
+
+        std::vector<Entity*> ridingEnemies;
+        ridingEnemies.reserve(enemyEntities.size());
+        for (Entity* enemyEntity : enemyEntities)
+        {
+            auto* enemyTransform = enemyEntity ? enemyEntity->GetComponent<TransformComponent>() : nullptr;
+            if (enemyTransform && isRidingHangingObject(*enemyTransform, previousTransform))
+            {
+                ridingEnemies.push_back(enemyEntity);
+            }
+        }
+
         hanging->velocityY = std::min(hanging->maxFallSpeed, hanging->velocityY + hanging->gravity * deltaTime);
         transform->y += hanging->velocityY * deltaTime;
+        const float deltaY = transform->y - previousTransform.y;
 
         const float objectHeight = transform->height * transform->scale;
         if (transform->y + objectHeight >= mapHeight)
@@ -3468,8 +3488,7 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
 
         if (player && IntersectsEntity(*entity, *player))
         {
-            const auto* playerTransform = player->GetComponent<TransformComponent>();
-            if (!playerTransform || !isRidingHangingObject(*playerTransform, *transform))
+            if (!playerWasRiding && (!playerTransform || !isRidingHangingObject(*playerTransform, *transform)))
             {
                 HandlePlayerDamage(*player, entity, "GameScene player damaged by hanging gravity object", hanging->contactDamage);
                 breakHangingObject(*entity, *hanging, *transform);
@@ -3490,8 +3509,10 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
                 continue;
             }
 
+            const bool enemyWasRiding =
+                std::find(ridingEnemies.begin(), ridingEnemies.end(), enemyEntity) != ridingEnemies.end();
             const auto* enemyTransform = enemyEntity->GetComponent<TransformComponent>();
-            if (enemyTransform && isRidingHangingObject(*enemyTransform, *transform))
+            if (enemyWasRiding || (enemyTransform && isRidingHangingObject(*enemyTransform, *transform)))
             {
                 continue;
             }
@@ -3504,6 +3525,30 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
         if (consumed)
         {
             continue;
+        }
+
+        if (deltaY > 0.0f)
+        {
+            if (playerWasRiding && playerTransform)
+            {
+                playerTransform->y += deltaY;
+                m_player.velocityY = 0.0f;
+                m_player.grounded = true;
+                m_player.coyoteTimeRemaining = gCoyoteTimeSeconds;
+            }
+
+            for (Entity* enemyEntity : ridingEnemies)
+            {
+                auto* enemy = enemyEntity ? enemyEntity->GetComponent<EnemyComponent>() : nullptr;
+                auto* enemyTransform = enemyEntity ? enemyEntity->GetComponent<TransformComponent>() : nullptr;
+                if (!enemy || !enemy->IsEnabled() || !enemyTransform)
+                {
+                    continue;
+                }
+
+                enemyTransform->y += deltaY;
+                enemy->velocityY = 0.0f;
+            }
         }
     }
 }
