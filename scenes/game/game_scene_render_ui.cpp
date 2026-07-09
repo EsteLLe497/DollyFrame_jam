@@ -1184,7 +1184,9 @@ void GameScene::DrawStageDarknessOverlay() const
 
 void GameScene::DrawSepiaFilmFilterOverlay() const
 {
-    if (m_photo.placement.active)
+    if (m_photo.placement.active ||
+        IsShieldBossIntroCinematicActive() ||
+        IsMidBoss3IntroCinematicActive())
     {
         return;
     }
