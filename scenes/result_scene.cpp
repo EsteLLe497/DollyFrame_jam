@@ -9,6 +9,9 @@
 #include "shader.h"
 #include "sprite.h"
 #include "DxLib.h"
+#include "photo_log.h"
+#include "game_scene_render_ui_helpers.h"
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -243,6 +246,7 @@ void ResultScene::Draw()
 {
     DrawBackdrop();
     DrawFreeImages();
+    DrawCapturedPhotosGrid();
     DrawMenu();
 }
 
@@ -382,5 +386,80 @@ void ResultScene::DrawFreeImages() const
             0.0f,
             1.0f,
             1.0f);
+    }
+}
+void ResultScene::DrawCapturedPhotosGrid() const
+{
+    constexpr int kColumns = 3;
+    constexpr int kRows = 3;
+    constexpr float kCellWidth = 140.0f;
+    constexpr float kCellHeight = 100.0f;
+    constexpr float kCellGapX = 12.0f;
+    constexpr float kCellGapY = 12.0f;
+    constexpr float kMarginRight = 40.0f;
+    constexpr float kMarginBottom = 40.0f;
+    constexpr float kPadding = 6.0f;
+
+    // グリッド全体のサイズから右下基準の開始座標を逆算する
+    const float gridWidth = static_cast<float>(kColumns) * kCellWidth + static_cast<float>(kColumns - 1) * kCellGapX;
+    const float gridHeight = static_cast<float>(kRows) * kCellHeight + static_cast<float>(kRows - 1) * kCellGapY;
+    const float kGridStartX = static_cast<float>(SCREEN_WIDTH) - kMarginRight - gridWidth;
+    const float kGridStartY = static_cast<float>(SCREEN_HEIGHT) - kMarginBottom - gridHeight;
+
+    const int photoCount = PhotoLog_GetCount();
+
+    for (int index = 0; index < kColumns * kRows; ++index)
+    {
+        const int column = index % kColumns;
+        const int row = index / kColumns;
+        const float cellX = kGridStartX + static_cast<float>(column) * (kCellWidth + kCellGapX);
+        const float cellY = kGridStartY + static_cast<float>(row) * (kCellHeight + kCellGapY);
+        DrawBox(
+            static_cast<int>(cellX),
+            static_cast<int>(cellY),
+            static_cast<int>(cellX + kCellWidth),
+            static_cast<int>(cellY + kCellHeight),
+            GetColor(60, 50, 40),
+            TRUE);
+        DrawBox(
+            static_cast<int>(cellX),
+            static_cast<int>(cellY),
+            static_cast<int>(cellX + kCellWidth),
+            static_cast<int>(cellY + kCellHeight),
+            GetColor(200, 180, 140),
+            FALSE);
+
+        if (index >= photoCount)
+        {
+            continue; // 未撮影スロットは枠だけ表示
+        }
+
+        const PhotoCaptureState& capture = PhotoLog_GetEntry(index);
+        if (!capture.hasPhoto || capture.items.empty())
+        {
+            continue;
+        }
+
+        const float innerX = cellX + kPadding;
+        const float innerY = cellY + kPadding;
+        const float innerWidth = kCellWidth - kPadding * 2.0f;
+        const float innerHeight = kCellHeight - kPadding * 2.0f;
+        const float scale = std::min(
+            innerWidth / std::max(1.0f, capture.width),
+            innerHeight / std::max(1.0f, capture.height));
+        const float contentX = innerX + (innerWidth - capture.width * scale) * 0.5f;
+        const float contentY = innerY + (innerHeight - capture.height * scale) * 0.5f;
+
+        for (const auto& item : capture.items)
+        {
+            game_scene_detail::DrawCapturedPreviewItem(
+                m_whiteTexture,
+                item,
+                contentX + item.relativeX * scale,
+                contentY + item.relativeY * scale,
+                item.width * scale,
+                item.height * scale,
+                1.0f);
+        }
     }
 }

@@ -16,6 +16,7 @@ public:
     void DrawDebugUI() override;
     void DrawFreeImages() const;
     EventBus* GetEventBus() override;
+    void DrawCapturedPhotosGrid() const;
 
 private:
     void DrawBackdrop() const;
