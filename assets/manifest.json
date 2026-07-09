@@ -370,9 +370,9 @@
       "type": "file",
       "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_01.png"
     },
-    "karitatie": {
+    "date": {
       "type": "file",
-      "path": "assets/texture/karitatie.png"
+      "path": "assets/texture/date.png"
     },
     "kuria": {
       "type": "file",
