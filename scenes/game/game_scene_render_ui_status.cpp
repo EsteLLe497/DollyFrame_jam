@@ -202,11 +202,13 @@ namespace
     void DrawBossHpParallelogramGauge(
         const GameSceneUiBossHpTuning& bossUi,
         int currentHp,
-        int maxHp)
+        int maxHp,
+        float scale = 1.0f)
     {
-        const float width = bossUi.panelWidth;
-        const float height = bossUi.barHeight;
-        const float slant = std::max(1.0f, bossUi.panelPadding);
+        const float safeScale = std::max(0.1f, scale);
+        const float width = bossUi.panelWidth * safeScale;
+        const float height = bossUi.barHeight * safeScale;
+        const float slant = std::max(1.0f, bossUi.panelPadding * safeScale);
         const float marginRight = std::max(0.0f, bossUi.panelExtraHeight);
         const float marginBottom = std::max(0.0f, bossUi.marginTop);
         const float x = static_cast<float>(SCREEN_WIDTH) - width - slant - marginRight;
@@ -824,7 +826,7 @@ void GameScene::DrawMidBoss3HpBar() const
         return;
     }
 
-    DrawBossHpParallelogramGauge(m_ui.tuning.bossHp, currentHp, maxHp);
+    DrawBossHpParallelogramGauge(m_ui.tuning.bossHp, currentHp, maxHp, 1.5f);
     return;
 
     const auto& bossUi = m_ui.tuning.bossHp;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <vector>
 
@@ -557,7 +558,7 @@ public:
 
     float detectRange = 5.0f * 48.0f;
     int burstCount = 3;
-    float burstInterval = 0.15f;
+    float burstInterval = 0.65f;
     float cooldown = 3.0f;
     int shotsRemaining = 0;
     float burstTimer = 0.0f;
@@ -575,6 +576,7 @@ public:
         , m_velocityY(velocityY)
         , m_attracting(false)
         , m_attractTimer(0.0f)
+        , m_age(0.0f)
     {
     }
 
@@ -587,6 +589,8 @@ public:
     void SetAttracting(bool v) { m_attracting = v; }
     float GetAttractTimer() const { return m_attractTimer; }
     void SetAttractTimer(float v) { m_attractTimer = v; }
+    float GetAge() const { return m_age; }
+    void AddAge(float deltaTime) { m_age += std::max(0.0f, deltaTime); }
 
 private:
     int m_value;
@@ -594,6 +598,7 @@ private:
     float m_velocityY;
     bool m_attracting;
     float m_attractTimer;
+    float m_age;
 };
 
 class ProjectileComponent final : public MonoBehaviour
