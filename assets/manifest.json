@@ -377,6 +377,10 @@
     "kuria": {
       "type": "file",
       "path": "assets/texture/kuria.png"
+    },
+    "karihaikei": {
+      "type": "file",
+      "path": "assets/texture/BG/result/karihaikei.png"
     }
   }
 }

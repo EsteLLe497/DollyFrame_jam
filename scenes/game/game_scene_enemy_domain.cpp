@@ -843,6 +843,8 @@ void GameScene::UpdateEnemies()
                         enemy->MarkDefeated();
                         enemy->respawnEnabled = false;
                         m_flow.shieldBossDefeatedThisScene = true;
+                        // ボス撃破でゴールを解放する（シャッターは useBossDefeatSignal 側で自動的に開く）。
+                        m_flow.goalUnlockedBySwitch = true;
                         PlayShieldBossSoundCue("boss_forest_destroy");
                         m_flow.stageBgmCrossFadePending = true;
                         m_flow.stageBgmCrossFadeDelayRemaining = kBossStageBgmReturnDelaySeconds;
@@ -860,11 +862,9 @@ void GameScene::UpdateEnemies()
                             SpawnBossDefeatStartEffect(centerX, groundY, width);
                         }
                         TriggerBossDefeatFinishFeedback(m_flow);
-
-                        //リザルト画面へ遷移
-                        QueueResult(GameEndReason::BossDefeated);
                     }
                 }
+
                 if (boss->shieldEntity)
                 {
                     if (auto* shieldTint = boss->shieldEntity->GetComponent<TintComponent>())
@@ -2082,6 +2082,7 @@ void GameScene::RemoveDefeatedEnemies()
         {
             GameSession_SetCameraFlashOwned(true);
             m_ui.cameraFlash.unlocked = true;
+            m_flow.midBoss3DefeatedThisScene = true;
         }
         if (!enemy->respawnEnabled) continue;
 
