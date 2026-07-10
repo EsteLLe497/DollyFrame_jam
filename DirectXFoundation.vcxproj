@@ -95,6 +95,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="game_scene_camerawork.cpp" />
+    <ClCompile Include="photo_log.cpp" />
     <ClCompile Include="scenes\game\game_viewport.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
@@ -380,6 +381,7 @@
     <ClInclude Include="core\game_font.h" />
     <ClInclude Include="core\asset_manifest.h" />
     <ClInclude Include="game_scene_camerawork.h" />
+    <ClInclude Include="photo_log.h" />
     <ClInclude Include="physics\image_outline.h" />
     <ClInclude Include="physics\collision.h" />
     <ClInclude Include="core\component.h" />

@@ -1056,9 +1056,8 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
     const float baseVisibleHeight = GetCameraVisibleHeight(m_tileMap);
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
-    const float cameraBlend = 1.0f - std::pow(0.001f, deltaTime * 1.05f);
-    const float zoomOutBlend = 1.0f - std::pow(0.001f, deltaTime * 1.25f);
-    const float zoomInBlend = 1.0f - std::pow(0.001f, deltaTime * 0.50f);
+    const float cameraBlend = 1.0f - std::pow(0.001f, deltaTime * 0.72f);
+    const float zoomInBlend = 1.0f - std::pow(0.001f, deltaTime * 0.18f);
 
     for (Entity* entity : m_world.EntitiesByTag(EntityTag::Enemy))
     {
@@ -1110,23 +1109,20 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
         const float playerH = playerTransform->height * playerTransform->scale;
         const float playerCenterX = playerTransform->x + playerW * 0.5f;
         const float playerCenterY = playerTransform->y + playerH * 0.5f;
-        const float bossPlayerDistance = std::hypot(bossCenterX - playerCenterX, bossCenterY - playerCenterY);
-        const float distanceT = std::clamp(
-            (bossPlayerDistance - tileSize * 5.0f) / std::max(tileSize, tileSize * 11.0f),
-            0.0f,
-            1.0f);
-        const float distanceEase = distanceT * distanceT * (3.0f - 2.0f * distanceT);
-
         float left = bossLeft;
         float top = bossTop;
         float right = bossRight;
         float bottom = bossBottom;
         float focusX = bossCenterX;
         float focusY = bossCenterY;
-        float marginX = std::lerp(tileSize * 1.15f, tileSize * 2.1f, distanceEase);
-        float marginY = std::lerp(tileSize * 1.05f, tileSize * 1.65f, distanceEase);
-        float minZoomScale = std::lerp(0.92f, 0.70f, distanceEase);
-        float distanceZoomScale = std::lerp(1.0f, 0.70f, distanceEase);
+        float marginX = tileSize * 2.25f;
+        float marginY = tileSize * 1.75f;
+        float minZoomScale = 0.66f;
+
+        left = std::min(left, playerTransform->x);
+        top = std::min(top, playerTransform->y);
+        right = std::max(right, playerTransform->x + playerW);
+        bottom = std::max(bottom, playerTransform->y + playerH);
 
         if (attachedDrill && attachedDrillTransform)
         {
@@ -1146,20 +1142,15 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
             const float tipY = drillCenterY + attachedDrill->aimY * drillW * 0.5f;
             focusX = std::lerp((left + right) * 0.5f, tipX, 0.35f);
             focusY = std::lerp((top + bottom) * 0.5f, tipY, 0.35f);
-            marginX = tileSize * 1.55f;
-            marginY = tileSize * 1.25f;
-            minZoomScale = 0.78f;
-            distanceZoomScale = 0.84f;
+            marginX = tileSize * 2.45f;
+            marginY = tileSize * 1.9f;
+            minZoomScale = 0.64f;
             (void)attachedDrillEntity;
         }
         else
         {
-            left = std::min(left, playerTransform->x);
-            top = std::min(top, playerTransform->y);
-            right = std::max(right, playerTransform->x + playerW);
-            bottom = std::max(bottom, playerTransform->y + playerH);
-            focusX = std::lerp(playerCenterX, (left + right) * 0.5f, distanceEase);
-            focusY = std::lerp(playerCenterY, (top + bottom) * 0.5f, distanceEase * 0.75f);
+            focusX = (left + right) * 0.5f;
+            focusY = (top + bottom) * 0.5f;
         }
 
         const float requiredWidth = std::max(tileSize, right - left + marginX * 2.0f);
@@ -1168,17 +1159,20 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
             std::min(baseVisibleWidth / requiredWidth, baseVisibleHeight / requiredHeight),
             minZoomScale,
             1.0f);
-        const float targetZoomScale = std::clamp(
-            std::min(fitZoomScale, distanceZoomScale),
-            minZoomScale,
-            1.0f);
-        const float zoomBlend = targetZoomScale < m_camera.shieldBossDistanceZoomScale
-            ? zoomOutBlend
-            : zoomInBlend;
-        m_camera.shieldBossDistanceZoomScale = std::lerp(
-            m_camera.shieldBossDistanceZoomScale,
-            targetZoomScale,
-            zoomBlend);
+        const float targetZoomScale = fitZoomScale < 0.98f
+            ? std::clamp(fitZoomScale * 0.94f, minZoomScale, 1.0f)
+            : 0.92f;
+        if (m_camera.shieldBossDistanceZoomScale > targetZoomScale)
+        {
+            m_camera.shieldBossDistanceZoomScale = targetZoomScale;
+        }
+        else
+        {
+            m_camera.shieldBossDistanceZoomScale = std::lerp(
+                m_camera.shieldBossDistanceZoomScale,
+                targetZoomScale,
+                zoomInBlend);
+        }
 
         const float visibleWidth = baseVisibleWidth / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
         const float visibleHeight = baseVisibleHeight / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
@@ -1187,8 +1181,22 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
         const float targetCameraX = std::clamp(focusX - visibleWidth * 0.5f, 0.0f, maxCameraX);
         const float targetCameraY = std::clamp(focusY - visibleHeight * 0.5f, 0.0f, maxCameraY);
 
-        m_flow.cameraX = std::lerp(m_flow.cameraX, targetCameraX, cameraBlend);
-        m_flow.cameraY = std::lerp(m_flow.cameraY, targetCameraY, cameraBlend);
+        const float contentLeft = std::clamp(left - marginX, 0.0f, mapWidth);
+        const float contentTop = std::clamp(top - marginY, 0.0f, mapHeight);
+        const float contentRight = std::clamp(right + marginX, 0.0f, mapWidth);
+        const float contentBottom = std::clamp(bottom + marginY, 0.0f, mapHeight);
+        const float containMinCameraX = std::clamp(contentRight - visibleWidth, 0.0f, maxCameraX);
+        const float containMaxCameraX = std::clamp(contentLeft, 0.0f, maxCameraX);
+        const float containMinCameraY = std::clamp(contentBottom - visibleHeight, 0.0f, maxCameraY);
+        const float containMaxCameraY = std::clamp(contentTop, 0.0f, maxCameraY);
+        const float smoothedCameraX = std::lerp(m_flow.cameraX, targetCameraX, cameraBlend);
+        const float smoothedCameraY = std::lerp(m_flow.cameraY, targetCameraY, cameraBlend);
+        m_flow.cameraX = containMinCameraX <= containMaxCameraX
+            ? std::clamp(smoothedCameraX, containMinCameraX, containMaxCameraX)
+            : targetCameraX;
+        m_flow.cameraY = containMinCameraY <= containMaxCameraY
+            ? std::clamp(smoothedCameraY, containMinCameraY, containMaxCameraY)
+            : targetCameraY;
         m_camera.midBoss3CameraYLockInitialized = false;
         m_camera.midBoss3CameraYLock = m_flow.cameraY;
         return;
@@ -1922,8 +1930,9 @@ void GameScene::UpdatePlayer(float deltaTime)
     }
 
     const bool shieldBossIntroActive = IsShieldBossIntroCinematicActive();
+    const bool midBoss3IntroActive = IsMidBoss3IntroCinematicActive();
     // Boss intro locks the player so the entrance reads like a short cutscene.
-    const bool blockPlayerInput = m_photo.placement.active || shieldBossIntroActive;
+    const bool blockPlayerInput = m_photo.placement.active || shieldBossIntroActive || midBoss3IntroActive;
     const auto controls = game_scene_player_system::SampleControls(blockPlayerInput);
     const float moveAxis = controls.moveAxis;
     const float tileSize = m_tileMap.GetTileSize();
@@ -3441,8 +3450,28 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
             continue;
         }
 
+        TransformComponent previousTransform(transform->x, transform->y, transform->width, transform->height);
+        previousTransform.scale = transform->scale;
+
+        auto* playerTransform = player ? player->GetComponent<TransformComponent>() : nullptr;
+        const bool playerWasRiding =
+            playerTransform &&
+            isRidingHangingObject(*playerTransform, previousTransform);
+
+        std::vector<Entity*> ridingEnemies;
+        ridingEnemies.reserve(enemyEntities.size());
+        for (Entity* enemyEntity : enemyEntities)
+        {
+            auto* enemyTransform = enemyEntity ? enemyEntity->GetComponent<TransformComponent>() : nullptr;
+            if (enemyTransform && isRidingHangingObject(*enemyTransform, previousTransform))
+            {
+                ridingEnemies.push_back(enemyEntity);
+            }
+        }
+
         hanging->velocityY = std::min(hanging->maxFallSpeed, hanging->velocityY + hanging->gravity * deltaTime);
         transform->y += hanging->velocityY * deltaTime;
+        const float deltaY = transform->y - previousTransform.y;
 
         const float objectHeight = transform->height * transform->scale;
         if (transform->y + objectHeight >= mapHeight)
@@ -3459,8 +3488,7 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
 
         if (player && IntersectsEntity(*entity, *player))
         {
-            const auto* playerTransform = player->GetComponent<TransformComponent>();
-            if (!playerTransform || !isRidingHangingObject(*playerTransform, *transform))
+            if (!playerWasRiding && (!playerTransform || !isRidingHangingObject(*playerTransform, *transform)))
             {
                 HandlePlayerDamage(*player, entity, "GameScene player damaged by hanging gravity object", hanging->contactDamage);
                 breakHangingObject(*entity, *hanging, *transform);
@@ -3481,8 +3509,10 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
                 continue;
             }
 
+            const bool enemyWasRiding =
+                std::find(ridingEnemies.begin(), ridingEnemies.end(), enemyEntity) != ridingEnemies.end();
             const auto* enemyTransform = enemyEntity->GetComponent<TransformComponent>();
-            if (enemyTransform && isRidingHangingObject(*enemyTransform, *transform))
+            if (enemyWasRiding || (enemyTransform && isRidingHangingObject(*enemyTransform, *transform)))
             {
                 continue;
             }
@@ -3495,6 +3525,30 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
         if (consumed)
         {
             continue;
+        }
+
+        if (deltaY > 0.0f)
+        {
+            if (playerWasRiding && playerTransform)
+            {
+                playerTransform->y += deltaY;
+                m_player.velocityY = 0.0f;
+                m_player.grounded = true;
+                m_player.coyoteTimeRemaining = gCoyoteTimeSeconds;
+            }
+
+            for (Entity* enemyEntity : ridingEnemies)
+            {
+                auto* enemy = enemyEntity ? enemyEntity->GetComponent<EnemyComponent>() : nullptr;
+                auto* enemyTransform = enemyEntity ? enemyEntity->GetComponent<TransformComponent>() : nullptr;
+                if (!enemy || !enemy->IsEnabled() || !enemyTransform)
+                {
+                    continue;
+                }
+
+                enemyTransform->y += deltaY;
+                enemy->velocityY = 0.0f;
+            }
         }
     }
 }

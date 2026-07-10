@@ -423,6 +423,9 @@
     <ClCompile Include="game_scene_camerawork.cpp">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClCompile>
+    <ClCompile Include="photo_log.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -454,9 +457,6 @@
     </ClInclude>
     <ClInclude Include="scenes\demo_scene.h">
       <Filter>Header Files\Scenes</Filter>
-    </ClInclude>
-    <ClInclude Include="scenes\game\game_viewport.h">
-      <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>
     <ClInclude Include="rendering\directX.h">
       <Filter>Header Files\Rendering</Filter>
@@ -587,5 +587,28 @@
     <ClInclude Include="game_scene_camerawork.h">
       <Filter>Source Files\Scenes\Game</Filter>
     </ClInclude>
+    <ClInclude Include="photo_log.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="assets\shaders\darkness_overlay_ps.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\light_blur_horizontal_ps.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\light_blur_vertical_ps.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\light_extract_ps.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\lighting_composite_ps.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\forest_fog_ps.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

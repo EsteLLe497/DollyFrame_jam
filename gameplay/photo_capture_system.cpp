@@ -9,6 +9,8 @@
 #include "game_scene_internal.h"
 #include "photo_filter_rules.h"
 
+#include "photo_log.h"
+
 using namespace game_scene_detail;
 
 namespace
@@ -1090,6 +1092,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             HasTag(*entity, EntityTag::BatteryGenerator) ||
             HasTag(*entity, EntityTag::ConveyorBelt) ||
             HasTag(*entity, EntityTag::Elevator) ||
+            HasTag(*entity, EntityTag::SepiaElevator) ||
             HasTag(*entity, EntityTag::LaserSwitch) ||
             HasTag(*entity, EntityTag::ProtectiveWall))
         {
@@ -2002,6 +2005,9 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     scene.m_photo.capture.tintG = scene.m_photo.capture.items.front().tintG;
     scene.m_photo.capture.tintB = scene.m_photo.capture.items.front().tintB;
     scene.m_photo.capture.tintA = scene.m_photo.capture.items.front().tintA;
+
+    PhotoLog_Add(scene.m_photo.capture);//撮影確定のたびにログへ記録
+
     if (scene.m_photo.capture.containsEnemyAttackPaste)
     {
         Logger::Info(

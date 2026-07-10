@@ -474,7 +474,11 @@ inline void UpdateBullets(
                     }
 
                     capturedMidBoss3Attack->bossDamageTimer += deltaTime;
-                    (void)pushAttachedTarget(*targetBoss, deltaTime);
+                    if (pushAttachedTarget(*targetBoss, deltaTime))
+                    {
+                        stopAttachedDrill();
+                        continue;
+                    }
                     if (capturedMidBoss3Attack->bossDamageTimer >= kBossDamageInterval)
                     {
                         capturedMidBoss3Attack->bossDamageTimer = 0.0f;
@@ -817,6 +821,24 @@ inline void UpdateBullets(
 
             bulletsToRemove.push_back(entity);
             continue;
+        }
+
+        if (projectile->GetOwner() == ProjectileComponent::Owner::BlasterRobot)
+        {
+            bool hitObstacle = false;
+            for (const auto& obstacle : obstacleBounds)
+            {
+                if (IntersectsBounds(*transform, obstacle))
+                {
+                    hitObstacle = true;
+                    break;
+                }
+            }
+            if (hitObstacle)
+            {
+                bulletsToRemove.push_back(entity);
+                continue;
+            }
         }
 
         if (projectile->GetOwner() == ProjectileComponent::Owner::Enemy &&

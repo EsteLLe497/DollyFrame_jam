@@ -7,7 +7,7 @@
 
 namespace game_scene_combat_system
 {
-template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename PlayShieldBossCueFn, typename StopShieldBossCueFn, typename SpawnTeleportTrailFn, typename SpawnSlamImpactEffectFn, typename SpawnRushSmokeEffectFn, typename SpawnLightLandingEffectFn, typename SpawnBossRoarEffectFn, typename SpawnBeamShockwaveFn, typename SpawnMidBoss3FistImpactEffectFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
+template <typename SnapToGroundFn, typename PlayEnemyGunFn, typename PlayShieldBossRoarFn, typename PlayShieldBossCueFn, typename StopShieldBossCueFn, typename SpawnTeleportTrailFn, typename SpawnSlamImpactEffectFn, typename SpawnRushSmokeEffectFn, typename SpawnLightLandingEffectFn, typename SpawnBossRoarEffectFn, typename SpawnBeamShockwaveFn, typename SpawnMidBoss3FistImpactEffectFn, typename SpawnDropItemsFn, typename HandlePlayerDamageFn, typename CheckPhotoBoxCollisionFn, typename IsSolidTileFn>
 inline void UpdateEnemies(
     std::vector<std::unique_ptr<Entity>>& entities,
     const std::vector<Entity*>& enemyEntities,
@@ -33,6 +33,7 @@ inline void UpdateEnemies(
     SpawnBossRoarEffectFn&& spawnBossRoarEffect,
     SpawnBeamShockwaveFn&& spawnBeamShockwave,
     SpawnMidBoss3FistImpactEffectFn&& spawnMidBoss3FistImpactEffect,
+    SpawnDropItemsFn&& spawnDropItems,
     HandlePlayerDamageFn&& handlePlayerDamage,
     CheckPhotoBoxCollisionFn&& checkPhotoBoxCollision,
     IsSolidTileFn&& isSolidTile)
@@ -508,8 +509,12 @@ inline void UpdateEnemies(
                     boss->deathAnimationFinished = true;
                     enemy->MarkDefeated();
                     enemy->respawnEnabled = false;
+                    // ボス撃破でゴールを解放する（シャッターは useBossDefeatSignal 側で自動的に開く）。
+                    flow.midBoss3DefeatedThisScene = true;
+                    flow.goalUnlockedBySwitch = true;
                     flow.stageBgmCrossFadePending = true;
                     flow.stageBgmCrossFadeDelayRemaining = 1.25f;
+                    spawnDropItems(*entity);
                 }
                 continue;
             }
@@ -545,14 +550,22 @@ inline void UpdateEnemies(
             };
             const auto spawnSepiaCollisionRubble = [&](float x, float y, float width, float height, SepiaRubbleSource source)
             {
-                const float rubbleSize = std::clamp(std::min(width, height), kTileSize * 0.75f, kTileSize * 2.0f);
+                const bool attackRubble =
+                    source == SepiaRubbleSource::MidBoss3Fist ||
+                    source == SepiaRubbleSource::MidBoss3Drill;
+                const float rubbleWidth = attackRubble
+                    ? std::max(kTileSize * 0.5f, width)
+                    : std::clamp(std::min(width, height), kTileSize * 0.75f, kTileSize * 2.0f);
+                const float rubbleHeight = attackRubble
+                    ? std::max(kTileSize * 0.5f, height)
+                    : rubbleWidth;
                 auto rubble = std::make_unique<Entity>();
                 rubble->AddComponent<TagComponent>("SepiaRubble");
                 rubble->AddComponent<TransformComponent>(
-                    x + width * 0.5f - rubbleSize * 0.5f,
-                    y + height * 0.5f - rubbleSize * 0.5f,
-                    rubbleSize,
-                    rubbleSize);
+                    x + width * 0.5f - rubbleWidth * 0.5f,
+                    y + height * 0.5f - rubbleHeight * 0.5f,
+                    rubbleWidth,
+                    rubbleHeight);
                 rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
                 rubble->AddComponent<SpriteRenderComponent>(rubbleTexture >= 0 ? rubbleTexture : tileTexture);
                 rubble->AddComponent<SepiaRubbleComponent>(source);
@@ -1812,11 +1825,15 @@ inline void UpdateEnemies(
                     boss->state == MidBoss3State::LauncherMeteorFist)
                     ? initialMeteorCenterX()
                     : findMeteorTargetCenterX(meteorSlot);
+                const float safeMeteorCenterX = std::clamp(
+                    meteorCenterX,
+                    fistWidth * 0.5f + kTileSize,
+                    std::max(fistWidth * 0.5f + kTileSize, mapWidth - fistWidth * 0.5f - kTileSize));
                 const float meteorStartX = std::clamp(
-                    meteorCenterX - fistWidth * 0.5f,
+                    safeMeteorCenterX - fistWidth * 0.5f,
                     0.0f,
                     std::max(0.0f, mapWidth - fistWidth));
-                const float meteorGroundY = findMeteorGroundY(meteorCenterX);
+                const float meteorGroundY = findMeteorGroundY(safeMeteorCenterX);
                 const bool outerMeteorFist = fist->fistIndex == 0 || fist->fistIndex == 3;
                 const float meteorStartOffsetGrid = outerMeteorFist ? 7.8f : 11.4f;
                 const float meteorStartY = std::clamp(

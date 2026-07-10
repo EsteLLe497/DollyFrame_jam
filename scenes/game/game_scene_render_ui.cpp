@@ -1184,7 +1184,9 @@ void GameScene::DrawStageDarknessOverlay() const
 
 void GameScene::DrawSepiaFilmFilterOverlay() const
 {
-    if (m_photo.placement.active)
+    if (m_photo.placement.active ||
+        IsShieldBossIntroCinematicActive() ||
+        IsMidBoss3IntroCinematicActive())
     {
         return;
     }
@@ -1920,10 +1922,12 @@ void GameScene::DrawCaptureOverlay() const
         const float glowWidth = overlapWidth * viewScale;
         const float glowHeight = overlapHeight * viewScale;
         const bool isBestTarget = entity == bestTarget;
-        const bool sepiaFinder = m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia;
-        if (sepiaFinder)
+        const bool hidesFinderGlow =
+            m_photo.capture.selectedTheme == PhotoFilterTheme::None ||
+            m_photo.capture.selectedTheme == PhotoFilterTheme::Sepia;
+        if (hidesFinderGlow)
         {
-            // セピアファインダーはフィルム演出のみ表示し、重なり時の白っぽい加算表示を出さない。
+            // フィルターなし/セピアでは、重なり時に白い仮テクスチャ風の加算表示を出さない。
             return;
         }
 
@@ -3005,6 +3009,39 @@ void GameScene::DrawBackdropBaseInView(
             const float uSpan4 = viewWidth / static_cast<float>(texW4);
             const float vSpan4 = viewHeight / static_cast<float>(texH4);
             drawTiledRepeating(bg4Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU1, scrollV1, uSpan4, vSpan4);
+        }
+    }
+    if (m_lifecycle.ruinsStageEnabled)
+    {
+        struct RuinsLayerConfig
+        {
+            const char* textureKey;
+            float parallaxX;
+        };
+
+        static const RuinsLayerConfig kRuinsLayersInOrder[] =
+        {
+            { "ruins_layer2", 0.60f }, // 一番速い
+            { "ruins_layer3", 0.55f },
+            { "ruins_layer4", 0.50f },
+            { "ruins_layer5", 0.40f },
+            { "ruins_layer6", 0.36f },
+            { "ruins_layer7", 0.25f }, // 一番遅い
+        };
+
+        for (const RuinsLayerConfig& layer : kRuinsLayersInOrder)
+        {
+            const int layerTexture = m_assets.GetTexture(layer.textureKey);
+            if (layerTexture < 0) continue;
+
+            const int layerTexW = TextureGetWidth(layerTexture);
+            const int layerTexH = TextureGetHeight(layerTexture);
+            if (layerTexW <= 0 || layerTexH <= 0) continue;
+
+            const float layerScrollU = calcScroll(m_flow.cameraX, layer.parallaxX, static_cast<float>(layerTexW));
+            const float layerUSpan = viewWidth / static_cast<float>(layerTexW);
+            const float layerVSpan = viewHeight / static_cast<float>(layerTexH);
+            drawTiledRepeating(layerTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, layerScrollU, 0.0f, layerUSpan, layerVSpan);
         }
     }
 }

@@ -2,7 +2,7 @@
   "activeCheckpointId": -1,
   "cameraTutorialCompleted": true,
   "cameraX": 0.0,
-  "cameraY": 2063.93994140625,
+  "cameraY": 1947.0,
   "completedTutorialNumbers": [
     1
   ],
@@ -156,7 +156,7 @@
     ],
     "selectedCaptureSlot": 0
   },
-  "playerX": 359.0398864746094,
+  "playerX": 384.0,
   "playerY": 2400.0,
   "respawnX": 384.0,
   "respawnY": 2400.0,

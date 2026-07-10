@@ -843,6 +843,8 @@ void GameScene::UpdateEnemies()
                         enemy->MarkDefeated();
                         enemy->respawnEnabled = false;
                         m_flow.shieldBossDefeatedThisScene = true;
+                        // ボス撃破でゴールを解放する（シャッターは useBossDefeatSignal 側で自動的に開く）。
+                        m_flow.goalUnlockedBySwitch = true;
                         PlayShieldBossSoundCue("boss_forest_destroy");
                         m_flow.stageBgmCrossFadePending = true;
                         m_flow.stageBgmCrossFadeDelayRemaining = kBossStageBgmReturnDelaySeconds;
@@ -860,11 +862,9 @@ void GameScene::UpdateEnemies()
                             SpawnBossDefeatStartEffect(centerX, groundY, width);
                         }
                         TriggerBossDefeatFinishFeedback(m_flow);
-
-                        //リザルト画面へ遷移
-                        QueueResult(GameEndReason::BossDefeated);
                     }
                 }
+
                 if (boss->shieldEntity)
                 {
                     if (auto* shieldTint = boss->shieldEntity->GetComponent<TintComponent>())
@@ -958,6 +958,19 @@ void GameScene::UpdateEnemies()
         {
             SpawnMidBoss3FistImpactEffect(x, y, width, height);
         },
+        [this](Entity& enemyEntity)
+        {
+            const auto* enemy = enemyEntity.GetComponent<EnemyComponent>();
+            const auto* transform = enemyEntity.GetComponent<TransformComponent>();
+            if (!enemy || !transform)
+            {
+                return;
+            }
+            SpawnDropItems(
+                transform->x + transform->width * transform->scale * 0.5f,
+                transform->y + transform->height * transform->scale * 0.5f,
+                GetEnemyDropCount(enemy->GetArchetype()));
+        },
         [this, player](Entity* sourceEntity, int amount, const char* logMessage)
         {
             if (player)
@@ -1037,6 +1050,11 @@ void GameScene::UpdateBullets()
     {
         std::vector<TransformComponent> tempBounds;
         GetPhotoBoxBounds(tempBounds);
+        obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        std::vector<TransformComponent> tempBounds;
+        GetEntityBoundsByTag("CapturedShield", tempBounds);
         obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
     }
     {
@@ -1130,6 +1148,8 @@ void GameScene::UpdateDropItems()
     constexpr float kMaxFallSpeed = 800.0f;
     constexpr float kAttractRange = 120.0f;
     constexpr float kAttractSpeed = 400.0f;
+    constexpr float kForceAttractDelay = 1.25f;
+    constexpr float kForceAttractSpeed = 760.0f;
     constexpr float kCollectRange = 48.0f;
     constexpr float kFriction = 0.85f; 
 
@@ -1142,6 +1162,7 @@ void GameScene::UpdateDropItems()
         auto* transform = entity->GetComponent<TransformComponent>();
         auto* drop = entity->GetComponent<DropItemComponent>();
         if (!transform || !drop) continue;
+        drop->AddAge(m_flow.lastDeltaTime);
 
         if (playerTransform)
         {
@@ -1158,19 +1179,29 @@ void GameScene::UpdateDropItems()
                 continue;
             }
 
-            if (dist < kAttractRange)
+            const bool forceAttract = drop->GetAge() >= kForceAttractDelay;
+            if (dist < kAttractRange || forceAttract)
             {
                 
                 drop->SetAttracting(true);
                 const float length = std::max(1.0f, dist);
-                const float attractStrength = kAttractSpeed * (1.0f - dist / kAttractRange) + 200.0f;
+                const float attractStrength = forceAttract
+                    ? kForceAttractSpeed
+                    : kAttractSpeed * (1.0f - dist / kAttractRange) + 200.0f;
                 drop->SetVelocityX(dx / length * attractStrength);
                 drop->SetVelocityY(dy / length * attractStrength);
+                drop->SetAttractTimer(std::min(0.18f, drop->GetAttractTimer() + m_flow.lastDeltaTime));
             }
             else
             {
                 drop->SetAttracting(false);
+                drop->SetAttractTimer(0.0f);
             }
+        }
+        else
+        {
+            drop->SetAttracting(false);
+            drop->SetAttractTimer(0.0f);
         }
 
         if (!drop->IsAttracting())
@@ -1184,7 +1215,7 @@ void GameScene::UpdateDropItems()
 
         
         const float prevY = transform->y;
-        const bool onGround = SnapEnemyToGround(*transform);
+        const bool onGround = !drop->IsAttracting() && SnapEnemyToGround(*transform);
         if (onGround)
         {
             
@@ -2051,6 +2082,7 @@ void GameScene::RemoveDefeatedEnemies()
         {
             GameSession_SetCameraFlashOwned(true);
             m_ui.cameraFlash.unlocked = true;
+            m_flow.midBoss3DefeatedThisScene = true;
         }
         if (!enemy->respawnEnabled) continue;
 
@@ -2252,13 +2284,6 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                         TriggerBossDefeatStartFeedback(m_flow);
                         m_flow.stageBgmCrossFadePending = true;
                         m_flow.stageBgmCrossFadeDelayRemaining = kBossStageBgmReturnDelaySeconds;
-                        if (const auto* transform = enemy.GetComponent<TransformComponent>())
-                        {
-                            SpawnDropItems(
-                                transform->x + transform->width * transform->scale * 0.5f,
-                                transform->y + transform->height * transform->scale * 0.5f,
-                                GetEnemyDropCount(enemyComponent->GetArchetype()));
-                        }
                     }
                     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
                     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });

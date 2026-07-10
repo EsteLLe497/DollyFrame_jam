@@ -493,7 +493,22 @@ std::vector<CapturedPhotoItem> BuildPureVanishObjectPrintedPhotoItems(
     NormalizeItemsToBounds(items, boundsWidth, boundsHeight);
 
     const float contentWidth = (std::max)((std::max)(1.0f, captureWidth), boundsWidth);
-    const float contentHeight = (std::max)(GetLSizePhotoContentHeight(contentWidth), boundsHeight);
+    const float contentHeight = GetLSizePhotoContentHeight(contentWidth);
+    const float fitScale = boundsHeight > contentHeight
+        ? std::clamp(contentHeight / boundsHeight, 0.01f, 1.0f)
+        : 1.0f;
+    if (fitScale < 1.0f)
+    {
+        for (auto& item : items)
+        {
+            item.relativeX *= fitScale;
+            item.relativeY *= fitScale;
+            item.width *= fitScale;
+            item.height *= fitScale;
+        }
+        boundsWidth *= fitScale;
+        boundsHeight *= fitScale;
+    }
     const float offsetX = (std::max)(0.0f, (contentWidth - boundsWidth) * 0.5f);
     const float offsetY = (std::max)(0.0f, (contentHeight - boundsHeight) * 0.5f);
     for (auto& item : items)
@@ -870,8 +885,9 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
         return items;
     }
 
-    outWidth = GetPrintedPhotoWidth(capture.width);
-    outHeight = GetPrintedPhotoHeight(capture.height);
+    // 通常写真も中身サイズ基準で配置し、写真を再撮影した時の余白二重乗りで巨大化しないようにします。
+    outWidth = (std::max)(1.0f, capture.width);
+    outHeight = (std::max)(1.0f, capture.height);
     std::vector<CapturedPhotoItem> items = BuildPrintedPhotoItems(
         capture.items,
         whiteTexture,

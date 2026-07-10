@@ -42,26 +42,28 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
         linkPowered[linkId] = true;
     };
-    bool shieldBossDefeated = false;
+
+    bool shieldBossDefeated = m_flow.shieldBossDefeatedThisScene || m_flow.midBoss3DefeatedThisScene;
     bool hasProtectiveWalls = false;
     bool hasIntactProtectiveWall = false;
-    for (const auto& entity : m_world.Entities())
-    {
-        if (!entity)
-        {
-            continue;
-        }
-        const auto* enemy = entity->GetComponent<EnemyComponent>();
-        if (!enemy)
-        {
-            continue;
-        }
-        if (enemy->GetArchetype() == EnemyArchetype::ShieldBoss && enemy->IsDefeated())
-        {
-            shieldBossDefeated = true;
-            break;
-        }
-    }
+    //bool hasIntactProtectiveWall = false;
+    //for (const auto& entity : m_world.Entities())
+    //{
+    //    if (!entity)
+    //    {
+    //        continue;
+    //    }
+    //    const auto* enemy = entity->GetComponent<EnemyComponent>();
+    //    if (!enemy)
+    //    {
+    //        continue;
+    //    }
+    //    if (enemy->GetArchetype() == EnemyArchetype::ShieldBoss && enemy->IsDefeated())
+    //    {
+    //        shieldBossDefeated = true;
+    //        break;
+    //    }
+    //}
 
     auto isPlayerOnTopOfPlatform = [&](const TransformComponent& platform, float topTolerance) -> bool
     {

@@ -9,6 +9,9 @@
 #include "shader.h"
 #include "sprite.h"
 #include "DxLib.h"
+#include "photo_log.h"
+#include "game_scene_render_ui_helpers.h"
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -39,7 +42,7 @@ namespace
 
         if (lastMap.find("forest") != std::string::npos)
         {
-            return { "廃墟ステージへ進む", "assets/maps/stages/ruins1.csv" };
+            return { "廃墟ステージへ進む", "assets/maps/stages/ruins_v2.csv" };
         }
         if (lastMap.find("ruins") != std::string::npos)
         {
@@ -243,6 +246,7 @@ void ResultScene::Draw()
 {
     DrawBackdrop();
     DrawFreeImages();
+    DrawCapturedPhotosGrid();
     DrawMenu();
 }
 
@@ -302,6 +306,7 @@ void ResultScene::DrawDebugUI()
     const GameSessionState& session = GameSession_Get();
     ImGui::Begin("リザルト");
     ImGui::Text("試作版のリザルト画面です");
+    ImGui::Text("karihaikei texture id: %d", m_assets.GetTexture("karihaikei"));
     ImGui::Text("Result: %s", ToReasonLabel(session.endReason));
     ImGui::Text("HP: %d / %d", session.currentHp, session.maxHp);
     ImGui::Text("残り時間: %.1f / %.1f", session.timeRemaining, session.timeLimit);
@@ -324,17 +329,29 @@ void ResultScene::DrawBackdrop() const
     const GameSessionState& session = GameSession_Get();
     const bool cleared = session.endReason == GameEndReason::GoalReached ||
         session.endReason == GameEndReason::BossDefeated;
+
+    // ここに追加: 一番奥の背景画像
+    const int backgroundTexture = m_assets.GetTexture("karihaikei");
+    if (backgroundTexture >= 0)
+    {
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+        SpriteDraw(
+            backgroundTexture,
+            0.0f,
+            0.0f,
+            static_cast<float>(SCREEN_WIDTH),
+            static_cast<float>(SCREEN_HEIGHT),
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
+    }
+
     const float accentR = cleared ? 0.18f : 0.78f;
     const float accentG = cleared ? 0.62f : 0.24f;
     const float accentB = cleared ? 0.32f : 0.14f;
-    Shader_SetTint(0.11f, 0.07f, 0.10f, 1.0f);
-    SpriteDraw(m_whiteTexture, 0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(accentR, accentG, accentB, 1.0f);
-    SpriteDraw(m_whiteTexture, 112.0f, 112.0f, static_cast<float>(SCREEN_WIDTH) - 224.0f, 20.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(0.18f, 0.10f, 0.16f, 1.0f);
-    SpriteDraw(m_whiteTexture, 112.0f, 164.0f, static_cast<float>(SCREEN_WIDTH) - 224.0f, 220.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(0.95f, 0.84f, 0.32f, 1.0f);
-    SpriteDraw(m_whiteTexture, 152.0f, 206.0f, static_cast<float>(SCREEN_WIDTH) - 304.0f, 30.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    //Shader_SetTint(0.11f, 0.07f, 0.10f, 1.0f);
+    //SpriteDraw(m_whiteTexture, 0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f, 0.0f, 1.0f, 1.0f);
     if (m_showPrompt)
     {
         Shader_SetTint(0.88f, 0.88f, 0.88f, 1.0f);
@@ -357,8 +374,7 @@ void ResultScene::DrawFreeImages() const
     // ここの数値(x, y, width, height)を書き換えて自由に位置・サイズを調整してください
     const FreeImagePlacement placements[] =
     {
-        { "karitatie", 40.0f, 450.0f, 360.0f, 280.0f },
-
+        { "date", 40.0f, -250.0f, 360.0f, 2120.0f },
         { "kuria", static_cast<float>(SCREEN_WIDTH) - 300.0f,
           450.0f, 220.0f, 160.0f },
     };
@@ -382,5 +398,80 @@ void ResultScene::DrawFreeImages() const
             0.0f,
             1.0f,
             1.0f);
+    }
+}
+void ResultScene::DrawCapturedPhotosGrid() const
+{
+    constexpr int kColumns = 3;
+    constexpr int kRows = 3;
+    constexpr float kCellWidth = 140.0f;
+    constexpr float kCellHeight = 100.0f;
+    constexpr float kCellGapX = 12.0f;
+    constexpr float kCellGapY = 12.0f;
+    constexpr float kMarginRight = 40.0f;
+    constexpr float kMarginBottom = 40.0f;
+    constexpr float kPadding = 6.0f;
+
+    // グリッド全体のサイズから右下基準の開始座標を逆算する
+    const float gridWidth = static_cast<float>(kColumns) * kCellWidth + static_cast<float>(kColumns - 1) * kCellGapX;
+    const float gridHeight = static_cast<float>(kRows) * kCellHeight + static_cast<float>(kRows - 1) * kCellGapY;
+    const float kGridStartX = static_cast<float>(SCREEN_WIDTH) - kMarginRight - gridWidth;
+    const float kGridStartY = static_cast<float>(SCREEN_HEIGHT) - kMarginBottom - gridHeight;
+
+    const int photoCount = PhotoLog_GetCount();
+
+    for (int index = 0; index < kColumns * kRows; ++index)
+    {
+        const int column = index % kColumns;
+        const int row = index / kColumns;
+        const float cellX = kGridStartX + static_cast<float>(column) * (kCellWidth + kCellGapX);
+        const float cellY = kGridStartY + static_cast<float>(row) * (kCellHeight + kCellGapY);
+        DrawBox(
+            static_cast<int>(cellX),
+            static_cast<int>(cellY),
+            static_cast<int>(cellX + kCellWidth),
+            static_cast<int>(cellY + kCellHeight),
+            GetColor(60, 50, 40),
+            TRUE);
+        DrawBox(
+            static_cast<int>(cellX),
+            static_cast<int>(cellY),
+            static_cast<int>(cellX + kCellWidth),
+            static_cast<int>(cellY + kCellHeight),
+            GetColor(200, 180, 140),
+            FALSE);
+
+        if (index >= photoCount)
+        {
+            continue; // 未撮影スロットは枠だけ表示
+        }
+
+        const PhotoCaptureState& capture = PhotoLog_GetEntry(index);
+        if (!capture.hasPhoto || capture.items.empty())
+        {
+            continue;
+        }
+
+        const float innerX = cellX + kPadding;
+        const float innerY = cellY + kPadding;
+        const float innerWidth = kCellWidth - kPadding * 2.0f;
+        const float innerHeight = kCellHeight - kPadding * 2.0f;
+        const float scale = std::min(
+            innerWidth / std::max(1.0f, capture.width),
+            innerHeight / std::max(1.0f, capture.height));
+        const float contentX = innerX + (innerWidth - capture.width * scale) * 0.5f;
+        const float contentY = innerY + (innerHeight - capture.height * scale) * 0.5f;
+
+        for (const auto& item : capture.items)
+        {
+            game_scene_detail::DrawCapturedPreviewItem(
+                m_whiteTexture,
+                item,
+                contentX + item.relativeX * scale,
+                contentY + item.relativeY * scale,
+                item.width * scale,
+                item.height * scale,
+                1.0f);
+        }
     }
 }
