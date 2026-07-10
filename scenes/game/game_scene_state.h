@@ -677,6 +677,7 @@ struct GameSceneLifecycleState
     char lastStageTransitionMarker = '\0';
     bool darknessStageEnabled = false;
     bool forestStageEnabled = false;
+    bool ruinsStageEnabled = false;
     ResourceManager* loadingResources = nullptr;
     bool loadingActive = false;
     bool loadingFinished = false;

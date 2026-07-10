@@ -67,6 +67,12 @@ namespace
         const std::string stem = ToLowerCopy(path.stem().string());
         return stem.find("forest") != std::string::npos;
     }
+    bool IsRuinsStageMapPath(const std::string& mapPath)
+    {
+        std::filesystem::path path(mapPath);
+        const std::string stem = ToLowerCopy(path.stem().string());
+        return stem.find("ruins") != std::string::npos;
+    }
 
     std::string ResolveDefaultTileTextureKeyForMapPath(const std::string& mapCsvPath)
     {
@@ -576,6 +582,7 @@ void GameScene::RefreshStageRenderProfile()
 {
     m_lifecycle.darknessStageEnabled = IsDarknessStageMapPath(m_lifecycle.currentMapCsvPath);
     m_lifecycle.forestStageEnabled = IsForestStageMapPath(m_lifecycle.currentMapCsvPath);
+    m_lifecycle.ruinsStageEnabled = IsRuinsStageMapPath(m_lifecycle.currentMapCsvPath);
     if (m_lifecycle.forestStageEnabled)
     {
         DirectXSetPostProcessVignette(0.54f, 0.43f, 0.34f, 0.58f);
