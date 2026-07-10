@@ -11,6 +11,7 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr int kLoadingDotCount = 10;
+    constexpr float kResultTransitionDuration = 0.95f;
 
     const char* GetLoadingStepLabel(int step)
     {
@@ -45,6 +46,12 @@ void GameScene::Update(float deltaTime)
     if (m_lifecycle.loadingActive)
     {
         UpdateLoading(deltaTime);
+        return;
+    }
+
+    if (m_flow.resultQueued)
+    {
+        UpdateResultTransition(deltaTime);
         return;
     }
 
@@ -95,6 +102,86 @@ void GameScene::Draw()
     UpdatePostProcessPlayerLight();
     DrawWorldAndUiLayers();
     ResetFrameRendering();
+    DrawResultTransitionOverlay();
+}
+
+void GameScene::UpdateResultTransition(float deltaTime)
+{
+    m_flow.resultTransitionTimer += deltaTime;
+    if (!m_flow.resultTransitionSceneRequested && m_flow.resultTransitionTimer >= kResultTransitionDuration)
+    {
+        m_flow.resultTransitionSceneRequested = true;
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "result", 0.0f, 0.0f });
+    }
+}
+
+void GameScene::DrawResultTransitionOverlay() const
+{
+    if (!m_flow.resultQueued)
+    {
+        return;
+    }
+
+    const float rawT = std::clamp(m_flow.resultTransitionTimer / kResultTransitionDuration, 0.0f, 1.0f);
+    const float invT = 1.0f - rawT;
+    const float t = 1.0f - invT * invT * invT * invT * invT;
+    const int screenW = SCREEN_WIDTH;
+    const int screenH = SCREEN_HEIGHT;
+    const int dimAlpha = std::clamp(static_cast<int>(std::round(36.0f + t * 116.0f)), 0, 170);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, dimAlpha);
+    DrawBox(0, 0, screenW, screenH, GetColor(0, 0, 0), TRUE);
+
+    constexpr int filmHeight = 132;
+    constexpr int filmRailHeight = 28;
+    constexpr int filmHoleWidth = 20;
+    constexpr int filmHoleHeight = 16;
+    constexpr int filmHoleGap = 34;
+    constexpr int filmFrameWidth = 270;
+    const int filmLength = screenW + 520;
+    const int filmTravel = screenW + 760;
+    const int filmLeft = static_cast<int>(std::round(static_cast<float>(screenW + 260) - t * static_cast<float>(filmTravel)));
+    const int topFilmY = 36;
+    const int bottomFilmY = screenH - 36 - filmHeight;
+    const int filmColor = GetColor(12, 12, 12);
+    const int frameColor = GetColor(248, 248, 248);
+    const int dividerColor = GetColor(10, 10, 10);
+    const int holeColor = GetColor(248, 248, 248);
+
+    const auto drawFilmStrip = [&](int y, int phaseOffset)
+    {
+        const int left = filmLeft + phaseOffset;
+        const int right = left + filmLength;
+        if (right < -120 || left > screenW + 120)
+        {
+            return;
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 248);
+        DrawBox(left, y, right, y + filmHeight, filmColor, TRUE);
+
+        const int firstHoleX = left + 18 + (static_cast<int>(std::round(rawT * 320.0f)) % filmHoleGap);
+        for (int x = firstHoleX - filmHoleGap * 2; x < right + filmHoleGap; x += filmHoleGap)
+        {
+            DrawBox(x, y + 6, x + filmHoleWidth, y + 6 + filmHoleHeight, holeColor, TRUE);
+            DrawBox(x, y + filmHeight - 6 - filmHoleHeight, x + filmHoleWidth, y + filmHeight - 6, holeColor, TRUE);
+        }
+
+        const int frameTop = y + filmRailHeight + 4;
+        const int frameBottom = y + filmHeight - filmRailHeight - 4;
+        for (int frameX = left; frameX < right; frameX += filmFrameWidth)
+        {
+            DrawBox(frameX + 8, frameTop + 6, frameX + filmFrameWidth - 8, frameBottom - 6, frameColor, TRUE);
+            DrawBox(frameX + filmFrameWidth - 3, frameTop, frameX + filmFrameWidth + 3, frameBottom, dividerColor, TRUE);
+        }
+
+        DrawBox(left, y + filmRailHeight, right, y + filmRailHeight + 4, dividerColor, TRUE);
+        DrawBox(left, y + filmHeight - filmRailHeight - 4, right, y + filmHeight - filmRailHeight, dividerColor, TRUE);
+    };
+
+    drawFilmStrip(topFilmY, 0);
+    drawFilmStrip(bottomFilmY, 180);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
 }
 
 void GameScene::UpdatePostProcessPlayerLight() const

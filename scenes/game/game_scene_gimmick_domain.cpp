@@ -1516,9 +1516,11 @@ void GameScene::QueueResult(GameEndReason reason)
     }
 
     m_flow.resultQueued = true;
+    m_flow.resultTransitionSceneRequested = false;
+    m_flow.resultTransitionTimer = 0.0f;
     GameSession_SetEndReason(reason);
     GameSession_SetLastMapCsvPath(m_lifecycle.currentMapCsvPath);
-    m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "result", 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
 }
 
 void GameScene::StartPitRestart(Entity* player, const char* logMessage)
