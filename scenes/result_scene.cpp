@@ -129,11 +129,26 @@ namespace
     constexpr int kMenuRowHeight = 44;
     constexpr int kMenuRowGap = 14;
     constexpr int kMenuRowTop = 420;
+    constexpr float kResultIntroDuration = 0.55f;
+    constexpr int kResultFilmHeight = 132;
+    constexpr int kResultFilmRailHeight = 28;
+    constexpr int kResultFilmHoleWidth = 20;
+    constexpr int kResultFilmHoleHeight = 16;
+    constexpr int kResultFilmHoleGap = 34;
+    constexpr int kResultFilmFrameWidth = 270;
+
+    float EaseOutCubic(float t)
+    {
+        t = std::clamp(t, 0.0f, 1.0f);
+        const float invT = 1.0f - t;
+        return 1.0f - invT * invT * invT;
+    }
 }
 
 ResultScene::ResultScene()
     : m_whiteTexture(-1)
     , m_blinkTimer(0.0f)
+    , m_introTimer(0.0f)
     , m_showPrompt(true)
     , m_selectedOption(0)
 {
@@ -151,6 +166,7 @@ void ResultScene::OnEnter(ResourceManager& resources)
     m_whiteTexture = m_assets.GetTexture("white");
     m_eventBus.Clear();
     m_blinkTimer = 0.0f;
+    m_introTimer = 0.0f;
     m_showPrompt = true;
     m_selectedOption = 0;
     PrimaryOption primaryOption = BuildPrimaryOption(GameSession_Get());
@@ -232,6 +248,7 @@ void ResultScene::ConfirmSelection()
 void ResultScene::Update(float deltaTime)
 {
     ZoneScoped;
+    m_introTimer = std::min(m_introTimer + deltaTime, kResultIntroDuration);
     m_blinkTimer += deltaTime;
     if (m_blinkTimer >= 0.45f)
     {
@@ -239,38 +256,58 @@ void ResultScene::Update(float deltaTime)
         m_showPrompt = !m_showPrompt;
     }
 
+    if (m_introTimer < kResultIntroDuration)
+    {
+        return;
+    }
+
     UpdateMenuInput();
 }
 
 void ResultScene::Draw()
 {
-    DrawBackdrop();
-    DrawFreeImages();
-    DrawCapturedPhotosGrid();
-    DrawMenu();
+    const float offsetX = GetIntroOffsetX();
+    if (offsetX > 0.5f)
+    {
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+        DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
+    }
+
+    DrawBackdrop(offsetX);
+    DrawFreeImages(offsetX);
+    DrawCapturedPhotosGrid(offsetX);
+    DrawMenu(offsetX);
+    DrawResultFilmFrame();
 }
 
-void ResultScene::DrawMenu() const
+float ResultScene::GetIntroOffsetX() const
+{
+    const float progress = std::clamp(m_introTimer / kResultIntroDuration, 0.0f, 1.0f);
+    return (1.0f - EaseOutCubic(progress)) * static_cast<float>(SCREEN_WIDTH);
+}
+
+void ResultScene::DrawMenu(float offsetX) const
 {
     const GameSessionState& session = GameSession_Get();
     const bool cleared = session.endReason == GameEndReason::GoalReached ||
         session.endReason == GameEndReason::BossDefeated;
+    const int drawOffsetX = static_cast<int>(std::round(offsetX));
 
     // 大見出し
     if (cleared)
     {
-        DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 220, "GAME CLEAR", GetColor(255, 244, 220), GetColor(52, 30, 14));
-        DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 260, "ゲームクリア", GetColor(255, 226, 164), GetColor(28, 16, 9));
+        DrawCenteredOutlinedString(SCREEN_WIDTH / 2 + drawOffsetX, 220, "GAME CLEAR", GetColor(255, 244, 220), GetColor(52, 30, 14));
+        DrawCenteredOutlinedString(SCREEN_WIDTH / 2 + drawOffsetX, 260, "ゲームクリア", GetColor(255, 226, 164), GetColor(28, 16, 9));
     }
     else
     {
-        DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 220, "GAME OVER", GetColor(255, 244, 220), GetColor(52, 30, 14));
-        DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 260, "ゲームオーバー", GetColor(255, 226, 164), GetColor(28, 16, 9));
+        DrawCenteredOutlinedString(SCREEN_WIDTH / 2 + drawOffsetX, 220, "GAME OVER", GetColor(255, 244, 220), GetColor(52, 30, 14));
+        DrawCenteredOutlinedString(SCREEN_WIDTH / 2 + drawOffsetX, 260, "ゲームオーバー", GetColor(255, 226, 164), GetColor(28, 16, 9));
     }
 
     char detail[64] = {};
     std::snprintf(detail, sizeof(detail), "%s", ToReasonLabel(session.endReason));
-    DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 320, detail, GetColor(242, 226, 194), GetColor(28, 16, 9));
+    DrawCenteredOutlinedString(SCREEN_WIDTH / 2 + drawOffsetX, 320, detail, GetColor(242, 226, 194), GetColor(28, 16, 9));
 
     char statsLine[96] = {};
     const int clearMinutes = static_cast<int>(session.clearTimeSeconds) / 60;
@@ -282,23 +319,77 @@ void ResultScene::DrawMenu() const
         session.partsCollectedTotal,
         clearMinutes,
         clearSeconds);
-    DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 356, statsLine, GetColor(255, 236, 196), GetColor(28, 16, 9));
+    DrawCenteredOutlinedString(SCREEN_WIDTH / 2 + drawOffsetX, 356, statsLine, GetColor(255, 236, 196), GetColor(28, 16, 9));
 
     // 選択肢
     const char* menuLabels[kMenuOptionCount] = { m_primaryOptionLabel.c_str(), kBackToTitleLabel };
     for (int index = 0; index < kMenuOptionCount; ++index)
     {
         const MenuOptionRect rect = GetOptionRect(index);
-        DrawMenuRow(rect.left, rect.top, kMenuRowWidth, kMenuRowHeight, menuLabels[index], m_selectedOption == index);
+        DrawMenuRow(rect.left + drawOffsetX, rect.top, kMenuRowWidth, kMenuRowHeight, menuLabels[index], m_selectedOption == index);
     }
 
     const int hintColor = m_showPrompt ? GetColor(252, 238, 214) : GetColor(168, 140, 104);
     DrawCenteredOutlinedString(
-        SCREEN_WIDTH / 2,
+        SCREEN_WIDTH / 2 + drawOffsetX,
         kMenuRowTop + kMenuOptionCount * (kMenuRowHeight + kMenuRowGap) + 30,
         "上下キー・マウス: 選択   Enter/Space/A/クリック: 決定",
         hintColor,
         GetColor(28, 16, 9));
+}
+
+void ResultScene::DrawResultFilmFrame() const
+{
+    const float progress = std::clamp(m_introTimer / kResultIntroDuration, 0.0f, 1.0f);
+    const float eased = EaseOutCubic(progress);
+    const int screenW = SCREEN_WIDTH;
+    const int screenH = SCREEN_HEIGHT;
+    const int filmLength = screenW + 520;
+    const float startLeft = static_cast<float>(screenW + 160);
+    const float stoppedLeft = -220.0f;
+    const int filmLeft = static_cast<int>(std::round(startLeft + (stoppedLeft - startLeft) * eased));
+    const int topFilmY = 36;
+    const int bottomFilmY = screenH - 36 - kResultFilmHeight;
+    const int filmColor = GetColor(12, 12, 12);
+    const int frameColor = GetColor(248, 248, 248);
+    const int dividerColor = GetColor(10, 10, 10);
+    const int holeColor = GetColor(248, 248, 248);
+
+    const auto drawFilmStrip = [&](int y, int phaseOffset)
+    {
+        const int left = filmLeft + phaseOffset;
+        const int right = left + filmLength;
+        if (right < -120 || left > screenW + 120)
+        {
+            return;
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 248);
+        DrawBox(left, y, right, y + kResultFilmHeight, filmColor, TRUE);
+
+        const int holePhase = static_cast<int>(std::round((1.0f - eased) * 260.0f)) % kResultFilmHoleGap;
+        const int firstHoleX = left + 18 + holePhase;
+        for (int x = firstHoleX - kResultFilmHoleGap * 2; x < right + kResultFilmHoleGap; x += kResultFilmHoleGap)
+        {
+            DrawBox(x, y + 6, x + kResultFilmHoleWidth, y + 6 + kResultFilmHoleHeight, holeColor, TRUE);
+            DrawBox(x, y + kResultFilmHeight - 6 - kResultFilmHoleHeight, x + kResultFilmHoleWidth, y + kResultFilmHeight - 6, holeColor, TRUE);
+        }
+
+        const int frameTop = y + kResultFilmRailHeight + 4;
+        const int frameBottom = y + kResultFilmHeight - kResultFilmRailHeight - 4;
+        for (int frameX = left; frameX < right; frameX += kResultFilmFrameWidth)
+        {
+            DrawBox(frameX + 8, frameTop + 6, frameX + kResultFilmFrameWidth - 8, frameBottom - 6, frameColor, TRUE);
+            DrawBox(frameX + kResultFilmFrameWidth - 3, frameTop, frameX + kResultFilmFrameWidth + 3, frameBottom, dividerColor, TRUE);
+        }
+
+        DrawBox(left, y + kResultFilmRailHeight, right, y + kResultFilmRailHeight + 4, dividerColor, TRUE);
+        DrawBox(left, y + kResultFilmHeight - kResultFilmRailHeight - 4, right, y + kResultFilmHeight - kResultFilmRailHeight, dividerColor, TRUE);
+    };
+
+    drawFilmStrip(topFilmY, 0);
+    drawFilmStrip(bottomFilmY, 180);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
 }
 
 void ResultScene::DrawDebugUI()
@@ -324,7 +415,7 @@ EventBus* ResultScene::GetEventBus()
     return &m_eventBus;
 }
 
-void ResultScene::DrawBackdrop() const
+void ResultScene::DrawBackdrop(float offsetX) const
 {
     const GameSessionState& session = GameSession_Get();
     const bool cleared = session.endReason == GameEndReason::GoalReached ||
@@ -337,7 +428,7 @@ void ResultScene::DrawBackdrop() const
         Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
         SpriteDraw(
             backgroundTexture,
-            0.0f,
+            offsetX,
             0.0f,
             static_cast<float>(SCREEN_WIDTH),
             static_cast<float>(SCREEN_HEIGHT),
@@ -355,12 +446,12 @@ void ResultScene::DrawBackdrop() const
     if (m_showPrompt)
     {
         Shader_SetTint(0.88f, 0.88f, 0.88f, 1.0f);
-        SpriteDraw(m_whiteTexture, 192.0f, 430.0f, static_cast<float>(SCREEN_WIDTH) - 384.0f, 34.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+        SpriteDraw(m_whiteTexture, 192.0f + offsetX, 430.0f, static_cast<float>(SCREEN_WIDTH) - 384.0f, 34.0f, 0.0f, 0.0f, 1.0f, 1.0f);
     }
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-void ResultScene::DrawFreeImages() const
+void ResultScene::DrawFreeImages(float offsetX) const
 {
     struct FreeImagePlacement
     {
@@ -390,7 +481,7 @@ void ResultScene::DrawFreeImages() const
         Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
         SpriteDraw(
             textureId,
-            placement.x,
+            placement.x + offsetX,
             placement.y,
             placement.width,
             placement.height,
@@ -400,7 +491,7 @@ void ResultScene::DrawFreeImages() const
             1.0f);
     }
 }
-void ResultScene::DrawCapturedPhotosGrid() const
+void ResultScene::DrawCapturedPhotosGrid(float offsetX) const
 {
     constexpr int kColumns = 3;
     constexpr int kRows = 3;
@@ -424,7 +515,7 @@ void ResultScene::DrawCapturedPhotosGrid() const
     {
         const int column = index % kColumns;
         const int row = index / kColumns;
-        const float cellX = kGridStartX + static_cast<float>(column) * (kCellWidth + kCellGapX);
+        const float cellX = kGridStartX + static_cast<float>(column) * (kCellWidth + kCellGapX) + offsetX;
         const float cellY = kGridStartY + static_cast<float>(row) * (kCellHeight + kCellGapY);
         DrawBox(
             static_cast<int>(cellX),

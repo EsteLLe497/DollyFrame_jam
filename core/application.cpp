@@ -3,7 +3,9 @@
 #include "application.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstring>
 #include <memory>
 #include <string>
 
@@ -33,6 +35,7 @@ namespace
     constexpr int TARGET_FPS = 60;
     constexpr float SCENE_TRANSITION_DURATION = 0.70f;
     constexpr float SCENE_TRANSITION_SWAP_TIME = SCENE_TRANSITION_DURATION * 0.5f;
+    constexpr float kCursorTrailSpawnDistance = 18.0f;
 
     struct SoundCueAsset
     {
@@ -125,10 +128,19 @@ Application::Application()
     , m_frameCount(0)
     , m_fpsTick(0)
     , m_pendingSceneId()
+    , m_cursorParticles()
+    , m_cursorParticleCursor(0)
+    , m_lastCursorX(0)
+    , m_lastCursorY(0)
+    , m_cursorParticleSpawnRemainder(0.0f)
     , m_resources(std::make_unique<ResourceManager>())
     , m_sceneManager(std::make_unique<SceneManager>())
     , m_sceneRegistry(std::make_unique<SceneRegistry>())
 {
+    for (CursorParticle& particle : m_cursorParticles)
+    {
+        particle.active = false;
+    }
 }
 
 Application::~Application()
@@ -337,10 +349,12 @@ void Application::Update(float deltaTime)
     if (m_sceneTransitionActive)
     {
         UpdateSceneTransition(deltaTime);
+        UpdateCursorParticles(deltaTime);
         return;
     }
 
     m_sceneManager->Update(deltaTime);
+    UpdateCursorParticles(deltaTime);
     ProcessSceneEvents();
 }
 
@@ -354,6 +368,7 @@ void Application::Draw()
     {
         DrawSceneTransition();
     }
+    DrawCursorParticles();
     if (m_exitConfirmationOpen)
     {
         DrawExitConfirmation();
@@ -364,6 +379,173 @@ void Application::Draw()
     ImGuiLayer_EndFrame();
     ImGuiLayer_DrawFoundationWindow(m_currentFps);
     Present();
+}
+
+void Application::UpdateCursorParticles(float deltaTime)
+{
+    for (CursorParticle& particle : m_cursorParticles)
+    {
+        if (!particle.active)
+        {
+            continue;
+        }
+
+        particle.age += deltaTime;
+        if (particle.age >= particle.lifetime)
+        {
+            particle.active = false;
+            continue;
+        }
+
+        particle.x += particle.vx * deltaTime;
+        particle.y += particle.vy * deltaTime;
+        particle.vx *= std::pow(0.04f, deltaTime);
+        particle.vy = particle.vy * std::pow(0.06f, deltaTime) - 8.0f * deltaTime;
+    }
+
+    if (!ShouldShowCursorParticles())
+    {
+        m_lastCursorX = Input_GetMouseX();
+        m_lastCursorY = Input_GetMouseY();
+        m_cursorParticleSpawnRemainder = 0.0f;
+        return;
+    }
+
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
+    const float dx = static_cast<float>(mouseX - m_lastCursorX);
+    const float dy = static_cast<float>(mouseY - m_lastCursorY);
+    const float distance = std::sqrt(dx * dx + dy * dy);
+    if (distance > 0.5f)
+    {
+        m_cursorParticleSpawnRemainder += distance;
+        const float invDistance = 1.0f / std::max(distance, 0.001f);
+        const float dirX = dx * invDistance;
+        const float dirY = dy * invDistance;
+        while (m_cursorParticleSpawnRemainder >= kCursorTrailSpawnDistance)
+        {
+            m_cursorParticleSpawnRemainder -= kCursorTrailSpawnDistance;
+            const float stepBack = m_cursorParticleSpawnRemainder;
+            const float x = static_cast<float>(mouseX) - dirX * stepBack;
+            const float y = static_cast<float>(mouseY) - dirY * stepBack;
+            const float side = ((m_cursorParticleCursor % 2) == 0) ? 1.0f : -1.0f;
+            SpawnCursorParticle(
+                x,
+                y,
+                -dirX * 42.0f - dirY * side * 10.0f,
+                -dirY * 42.0f + dirX * side * 10.0f,
+                0.34f,
+                2.2f + static_cast<float>(m_cursorParticleCursor % 3) * 0.45f,
+                255,
+                226,
+                160,
+                false);
+        }
+    }
+
+    if (Input_IsMouseLeftPressed())
+    {
+        SpawnCursorParticle(static_cast<float>(mouseX), static_cast<float>(mouseY), 0.0f, 0.0f, 0.26f, 13.0f, 255, 245, 220, true);
+        for (int index = 0; index < 6; ++index)
+        {
+            const float angle = static_cast<float>(index) * 1.04719755f;
+            SpawnCursorParticle(
+                static_cast<float>(mouseX),
+                static_cast<float>(mouseY),
+                std::cos(angle) * 58.0f,
+                std::sin(angle) * 58.0f,
+                0.28f,
+                2.0f,
+                255,
+                236,
+                190,
+                false);
+        }
+    }
+
+    m_lastCursorX = mouseX;
+    m_lastCursorY = mouseY;
+}
+
+void Application::DrawCursorParticles() const
+{
+    if (!ShouldShowCursorParticles())
+    {
+        return;
+    }
+
+    for (const CursorParticle& particle : m_cursorParticles)
+    {
+        if (!particle.active)
+        {
+            continue;
+        }
+
+        const float t = std::clamp(particle.age / std::max(0.001f, particle.lifetime), 0.0f, 1.0f);
+        const float alphaT = 1.0f - t;
+        const int alpha = std::clamp(static_cast<int>(std::round(alphaT * alphaT * 190.0f)), 0, 190);
+        if (alpha <= 0)
+        {
+            continue;
+        }
+
+        SetDrawBlendMode(particle.ring ? DX_BLENDMODE_ALPHA : DX_BLENDMODE_ADD, alpha);
+        const int color = GetColor(particle.colorR, particle.colorG, particle.colorB);
+        if (particle.ring)
+        {
+            DrawCircleAA(particle.x, particle.y, particle.size + 24.0f * t, 32, color, FALSE, 2.0f);
+        }
+        else
+        {
+            DrawCircleAA(particle.x, particle.y, std::max(0.8f, particle.size * alphaT), 16, color, TRUE);
+        }
+    }
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+}
+
+void Application::SpawnCursorParticle(
+    float x,
+    float y,
+    float vx,
+    float vy,
+    float lifetime,
+    float size,
+    int colorR,
+    int colorG,
+    int colorB,
+    bool ring)
+{
+    CursorParticle& particle = m_cursorParticles[static_cast<std::size_t>(m_cursorParticleCursor)];
+    m_cursorParticleCursor = (m_cursorParticleCursor + 1) % static_cast<int>(m_cursorParticles.size());
+
+    particle.x = x;
+    particle.y = y;
+    particle.vx = vx;
+    particle.vy = vy;
+    particle.age = 0.0f;
+    particle.lifetime = lifetime;
+    particle.size = size;
+    particle.colorR = colorR;
+    particle.colorG = colorG;
+    particle.colorB = colorB;
+    particle.ring = ring;
+    particle.active = true;
+}
+
+bool Application::ShouldShowCursorParticles() const
+{
+    if (!m_sceneManager)
+    {
+        return false;
+    }
+
+    Scene* currentScene = m_sceneManager->GetCurrentScene();
+    if (!currentScene)
+    {
+        return false;
+    }
+
+    return std::strcmp(currentScene->GetSceneId(), "game") != 0;
 }
 
 void Application::DrawExitConfirmation() const

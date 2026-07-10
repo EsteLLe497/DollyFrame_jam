@@ -3,6 +3,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <array>
 #include <memory>
 #include <string>
 
@@ -20,10 +21,30 @@ public:
     int Run(HINSTANCE instance, int nCmdShow);
 
 private:
+    struct CursorParticle
+    {
+        float x;
+        float y;
+        float vx;
+        float vy;
+        float age;
+        float lifetime;
+        float size;
+        int colorR;
+        int colorG;
+        int colorB;
+        bool ring;
+        bool active;
+    };
+
     bool Initialize(HINSTANCE instance, int nCmdShow);
     void Shutdown();
     void Update(float deltaTime);
     void Draw();
+    void UpdateCursorParticles(float deltaTime);
+    void DrawCursorParticles() const;
+    void SpawnCursorParticle(float x, float y, float vx, float vy, float lifetime, float size, int colorR, int colorG, int colorB, bool ring);
+    bool ShouldShowCursorParticles() const;
     void DrawExitConfirmation() const;
     void DrawSceneTransition() const;
     void ClearCurrentSceneEvents();
@@ -49,6 +70,11 @@ private:
     DWORD m_frameCount;
     LONGLONG m_fpsTick;
     std::string m_pendingSceneId;
+    std::array<CursorParticle, 96> m_cursorParticles;
+    int m_cursorParticleCursor;
+    int m_lastCursorX;
+    int m_lastCursorY;
+    float m_cursorParticleSpawnRemainder;
     std::unique_ptr<ResourceManager> m_resources;
     std::unique_ptr<SceneManager> m_sceneManager;
     std::unique_ptr<SceneRegistry> m_sceneRegistry;
