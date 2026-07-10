@@ -375,8 +375,8 @@ void ResultScene::DrawFreeImages() const
     const FreeImagePlacement placements[] =
     {
         { "date", 40.0f, -250.0f, 360.0f, 2120.0f },
-        { "kuria", static_cast<float>(SCREEN_WIDTH) - 300.0f,
-          450.0f, 220.0f, 160.0f },
+        { "kuria", static_cast<float>(SCREEN_WIDTH) - 700.0f,
+          150.0f, 320.0f, 180.0f },
     };
 
     for (const auto& placement : placements)
@@ -402,15 +402,15 @@ void ResultScene::DrawFreeImages() const
 }
 void ResultScene::DrawCapturedPhotosGrid() const
 {
-    constexpr int kColumns = 3;
-    constexpr int kRows = 3;
-    constexpr float kCellWidth = 140.0f;
-    constexpr float kCellHeight = 100.0f;
-    constexpr float kCellGapX = 12.0f;
-    constexpr float kCellGapY = 12.0f;
-    constexpr float kMarginRight = 40.0f;
-    constexpr float kMarginBottom = 40.0f;
-    constexpr float kPadding = 6.0f;
+    constexpr int kColumns = 3;//横の枚数
+    constexpr int kRows = 3;//縦の枚数
+	constexpr float kCellWidth = 180.0f;//セルの幅
+	constexpr float kCellHeight = 120.0f;//セルの高さ
+	constexpr float kCellGapX = 12.0f;//セル間の横の隙間
+    constexpr float kCellGapY = 12.0f;//セル間の縦の隙間
+	constexpr float kMarginRight = 40.0f + 112.0f;//右端の余白
+	constexpr float kMarginBottom = 40.0f + 112.0f;//下端の余白
+    constexpr float kPadding = 6.0f;//内側の余白
 
     // グリッド全体のサイズから右下基準の開始座標を逆算する
     const float gridWidth = static_cast<float>(kColumns) * kCellWidth + static_cast<float>(kColumns - 1) * kCellGapX;
