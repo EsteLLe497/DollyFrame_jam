@@ -16,6 +16,7 @@ void GameScene::DrawDebugUI()
     ImGuiLayer_SetFoundationOverlayVisible(!m_debug.hideNonPhotoUi);
     DrawUiAdjustmentWindow();
     DrawCameraDebugWindow();
+    DrawPadSettingsWindow();
     if (m_debug.hideNonPhotoUi)
     {
         DrawTestPhotoPanel();
@@ -244,6 +245,45 @@ void GameScene::DrawDebugUI()
     DrawMidBoss2DebugWindow();
     DrawProgressSavePanel();
     DrawTestPhotoPanel();
+}
+
+void GameScene::DrawPadSettingsWindow()
+{
+    ImGui::SetNextWindowSize(ImVec2(430.0f, 340.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("PAD調整"))
+    {
+        ImGui::End();
+        return;
+    }
+
+    GameScenePadCursorTuning& pad = m_ui.padCursor;
+
+    ImGui::SeparatorText("状態");
+    ImGui::Text("ゲームパッド: %s", Input_IsGamepadConnected() ? "接続中" : "未接続");
+    ImGui::Text("右スティック: %.2f, %.2f", Input_GetRightStickX(), Input_GetRightStickY());
+    ImGui::Text("ファインダー操作元: %s", m_ui.finderCursorPadDriving ? "パッド" : "マウス");
+
+    ImGui::SeparatorText("感度（ファインダー／貼り付け候補 共通）");
+    ImGui::SliderFloat("デッドゾーン", &pad.deadZone, 0.0f, 0.6f, "%.2f");
+    ImGui::SliderFloat("最大速度 (px/秒)", &pad.maxSpeed, 200.0f, 6000.0f, "%.0f");
+    ImGui::SliderFloat("応答性", &pad.response, 1.0f, 40.0f, "%.1f");
+    ImGui::SliderFloat("減衰", &pad.damping, 1.0f, 40.0f, "%.1f");
+
+    // 手入力で範囲外になっても安全な値に収める。
+    pad.deadZone = std::clamp(pad.deadZone, 0.0f, 0.95f);
+    pad.maxSpeed = std::max(1.0f, pad.maxSpeed);
+    pad.response = std::max(0.1f, pad.response);
+    pad.damping = std::max(0.0f, pad.damping);
+
+    ImGui::Spacing();
+    if (ImGui::Button("既定値に戻す"))
+    {
+        pad = GameScenePadCursorTuning{};
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled("(既定: DZ0.18 / 2600 / 18 / 12)");
+
+    ImGui::End();
 }
 
 void GameScene::DrawCameraDebugWindow()

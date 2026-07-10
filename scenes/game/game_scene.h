@@ -173,6 +173,7 @@ private:
     void UpdateCameraMode();
     float UpdatePhotoModes(float deltaTime);
     void UpdateCaptureFinderZoomInput();
+    void UpdateCaptureFinderCursor();
     void ProcessFilterInput();
     void UpdateTuningHotReload(float deltaTime);
     void HandleGlobalSceneShortcuts(float deltaTime);
@@ -277,6 +278,7 @@ private:
     void UpdateTuningPanel();
     void DrawTuningPanel();
     void DrawCameraDebugWindow();
+    void DrawPadSettingsWindow();
     void DrawUiAdjustmentWindow();
     void DrawTutorialAdjustmentPanel();
     void DrawTutorialOverlay();
@@ -328,6 +330,9 @@ private:
     // Collision / map query helpers
     bool IsPhotoTrayHit(float screenX, float screenY) const;
     void GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const;
+    // ファインダーと貼り付け候補で共有するパッドカーソルの現在スクリーン座標を返す。
+    // パッド操作中は仮想カーソル、それ以外は生マウス座標。
+    void GetActivePadCursorScreen(float& screenX, float& screenY) const;
     Entity* FindCaptureTarget(const TransformComponent& playerTransform) const;
     bool IsSolidTile(int column, int row) const;
     bool IsSlopeTile(int column, int row) const;
