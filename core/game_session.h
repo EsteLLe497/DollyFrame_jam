@@ -26,7 +26,7 @@ struct GameSessionState
     float elapsedSeconds = 0.0f;
     float clearTimeSeconds = 0.0f;
     GameEndReason endReason = GameEndReason::None;
-    std::string startMapCsvPath = "assets/maps/stages/ruins_v2.csv";
+    std::string startMapCsvPath = "assets/maps/stages/forest_v2.csv";
     std::string lastMapCsvPath;
     bool loadSavedProgress = true;
     bool cameraTutorialCompleted = false;

@@ -440,6 +440,7 @@ struct GameSceneFlowState
     bool goalUnlocked = false;
     bool goalUnlockedBySwitch = false;
     bool shieldBossDefeatedThisScene = false;
+    bool midBoss3DefeatedThisScene = false;
     bool cameraMode = false;
     int enemyCount = 0;
     float lastDeltaTime = 0.0f;

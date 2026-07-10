@@ -42,7 +42,7 @@ namespace
 
         if (lastMap.find("forest") != std::string::npos)
         {
-            return { "廃墟ステージへ進む", "assets/maps/stages/ruins1.csv" };
+            return { "廃墟ステージへ進む", "assets/maps/stages/ruins_v2.csv" };
         }
         if (lastMap.find("ruins") != std::string::npos)
         {
@@ -306,6 +306,7 @@ void ResultScene::DrawDebugUI()
     const GameSessionState& session = GameSession_Get();
     ImGui::Begin("リザルト");
     ImGui::Text("試作版のリザルト画面です");
+    ImGui::Text("karihaikei texture id: %d", m_assets.GetTexture("karihaikei"));
     ImGui::Text("Result: %s", ToReasonLabel(session.endReason));
     ImGui::Text("HP: %d / %d", session.currentHp, session.maxHp);
     ImGui::Text("残り時間: %.1f / %.1f", session.timeRemaining, session.timeLimit);
@@ -328,17 +329,29 @@ void ResultScene::DrawBackdrop() const
     const GameSessionState& session = GameSession_Get();
     const bool cleared = session.endReason == GameEndReason::GoalReached ||
         session.endReason == GameEndReason::BossDefeated;
+
+    // ここに追加: 一番奥の背景画像
+    const int backgroundTexture = m_assets.GetTexture("karihaikei");
+    if (backgroundTexture >= 0)
+    {
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+        SpriteDraw(
+            backgroundTexture,
+            0.0f,
+            0.0f,
+            static_cast<float>(SCREEN_WIDTH),
+            static_cast<float>(SCREEN_HEIGHT),
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
+    }
+
     const float accentR = cleared ? 0.18f : 0.78f;
     const float accentG = cleared ? 0.62f : 0.24f;
     const float accentB = cleared ? 0.32f : 0.14f;
-    Shader_SetTint(0.11f, 0.07f, 0.10f, 1.0f);
-    SpriteDraw(m_whiteTexture, 0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(accentR, accentG, accentB, 1.0f);
-    SpriteDraw(m_whiteTexture, 112.0f, 112.0f, static_cast<float>(SCREEN_WIDTH) - 224.0f, 20.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(0.18f, 0.10f, 0.16f, 1.0f);
-    SpriteDraw(m_whiteTexture, 112.0f, 164.0f, static_cast<float>(SCREEN_WIDTH) - 224.0f, 220.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(0.95f, 0.84f, 0.32f, 1.0f);
-    SpriteDraw(m_whiteTexture, 152.0f, 206.0f, static_cast<float>(SCREEN_WIDTH) - 304.0f, 30.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    //Shader_SetTint(0.11f, 0.07f, 0.10f, 1.0f);
+    //SpriteDraw(m_whiteTexture, 0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), 0.0f, 0.0f, 1.0f, 1.0f);
     if (m_showPrompt)
     {
         Shader_SetTint(0.88f, 0.88f, 0.88f, 1.0f);

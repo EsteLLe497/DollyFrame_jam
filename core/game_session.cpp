@@ -94,7 +94,7 @@ void GameSession_SetEndReason(GameEndReason reason)
 void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath)
 {
     g_sessionState.startMapCsvPath = startMapCsvPath.empty()
-        ? std::string("assets/maps/stages/forest.csv")
+        ? std::string("assets/maps/stages/forest_v2.csv")
         : startMapCsvPath;
 }
 
