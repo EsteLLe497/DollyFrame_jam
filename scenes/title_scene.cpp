@@ -12,6 +12,7 @@
 #include "resource_manager.h"
 #include "shader.h"
 #include "sprite.h"
+#include "texture.h"
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -28,19 +29,36 @@ namespace
         const char* path;
     };
 
-    constexpr int kMainMenuItemCount = 6;
+    constexpr int kMainMenuItemCount = 4;
     constexpr int kOptionsMenuItemCount = 4;
     constexpr int kStageSelectItemCount = 10;
     constexpr int kStageSelectColumnCount = 2;
     constexpr int kStageSelectRowCount = (kStageSelectItemCount + kStageSelectColumnCount - 1) / kStageSelectColumnCount;
+    constexpr int kMainMenuRowWidth = 340;
+    constexpr int kMainMenuRowHeight = 48;
+    constexpr int kMainMenuRowGap = 16;
+    constexpr int kMainMenuMarginLeft = 150;
+    constexpr int kMainMenuMarginBottom = 218;
+    constexpr int kOptionsMenuRowLeft = 146;
+    constexpr int kOptionsMenuRowTop = 386;
+    constexpr int kOptionsMenuRowWidth = 520;
+    constexpr int kOptionsMenuRowHeight = 34;
+    constexpr int kOptionsMenuRowGap = 8;
+    constexpr int kStageSelectRowLeft = 146;
+    constexpr int kStageSelectRowTop = 386;
+    constexpr int kStageSelectRowWidth = 268;
+    constexpr int kStageSelectRowHeight = 34;
+    constexpr int kStageSelectRowGap = 8;
+    constexpr int kStageSelectColumnGap = 18;
+    constexpr float kStartTransitionDuration = 0.65f;
+    constexpr int kStartTransitionBladeCount = 6;
+    constexpr float kPi = 3.14159265358979323846f;
 
     constexpr const char* kMainMenuLabels[kMainMenuItemCount] = {
         "ゲーム開始",
-        "ステージ選択",
+        "シーン選択",
         "設定",
-        "デモシーン",
-        "シェーダーテスト",
-        "終了",
+        "ゲームを終了",
     };
 
     constexpr StageSelectItem kStageSelectItems[kStageSelectItemCount] = {
@@ -208,10 +226,14 @@ namespace
         }
         DrawOutlinedString(left + 52, top + 11, label, textColor, GetColor(28, 16, 9));
     }
+
 }
 
 TitleScene::TitleScene()
     : m_whiteTexture(-1)
+    , m_titleTexture(-1)
+    , m_titleTextureWidth(0)
+    , m_titleTextureHeight(0)
     , m_blinkTimer(0.0f)
     , m_sceneTime(0.0f)
     , m_showPrompt(true)
@@ -221,6 +243,10 @@ TitleScene::TitleScene()
     , m_optionsSelection(0)
     , m_bgmEnabled(true)
     , m_bgmRestoreVolume(1.0f)
+    , m_startTransitionActive(false)
+    , m_startTransitionSceneRequested(false)
+    , m_startTransitionTimer(0.0f)
+    , m_startTransitionSceneId(nullptr)
 {
 }
 
@@ -233,6 +259,18 @@ void TitleScene::OnEnter(ResourceManager& resources)
 {
     ZoneScoped;
     m_whiteTexture = resources.CreateSolidTexture(1, 1, 0xFFFFFFFF);
+    m_titleTexture = resources.LoadTexture(L"assets\\texture\\BG\\title\\title1.png");
+    m_titleTextureWidth = 0;
+    m_titleTextureHeight = 0;
+    if (m_titleTexture >= 0)
+    {
+        m_titleTextureWidth = TextureGetWidth(m_titleTexture);
+        m_titleTextureHeight = TextureGetHeight(m_titleTexture);
+    }
+    if (m_titleTexture < 0 || m_titleTextureWidth <= 0 || m_titleTextureHeight <= 0)
+    {
+        Logger::Warn("TitleScene title texture could not be loaded: assets/texture/BG/title/title1.png");
+    }
     m_eventBus.Clear();
     m_blinkTimer = 0.0f;
     m_sceneTime = 0.0f;
@@ -241,6 +279,10 @@ void TitleScene::OnEnter(ResourceManager& resources)
     m_menuSelection = 0;
     m_stageSelection = FindStageSelectIndex(GameSession_GetStartMapCsvPath());
     m_optionsSelection = 0;
+    m_startTransitionActive = false;
+    m_startTransitionSceneRequested = false;
+    m_startTransitionTimer = 0.0f;
+    m_startTransitionSceneId = nullptr;
     GameSession_SetLoadSavedProgress(true);
     m_bgmEnabled = Audio_GetMasterVolume() > 0.001f;
     m_bgmRestoreVolume = m_bgmEnabled ? Audio_GetMasterVolume() : 1.0f;
@@ -258,6 +300,18 @@ void TitleScene::Update(float deltaTime)
         m_showPrompt = !m_showPrompt;
     }
 
+    if (m_startTransitionActive)
+    {
+        m_startTransitionTimer += deltaTime;
+        if (!m_startTransitionSceneRequested && m_startTransitionTimer >= kStartTransitionDuration)
+        {
+            const char* sceneId = m_startTransitionSceneId != nullptr ? m_startTransitionSceneId : "game";
+            m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, sceneId, 0.0f, 0.0f });
+            m_startTransitionSceneRequested = true;
+        }
+        return;
+    }
+
     UpdateMenuInput();
 }
 
@@ -265,6 +319,7 @@ void TitleScene::Draw()
 {
     DrawBackdrop();
     DrawMenu();
+    DrawStartTransition();
 }
 
 void TitleScene::DrawDebugUI()
@@ -290,40 +345,23 @@ void TitleScene::DrawBackdrop() const
 {
     const float screenWidth = static_cast<float>(SCREEN_WIDTH);
     const float screenHeight = static_cast<float>(SCREEN_HEIGHT);
-    const float pulse = 0.55f + 0.45f * std::sinf(m_sceneTime * 2.2f);
 
     Shader_ResetStyle();
-    Shader_SetTint(0.12f, 0.08f, 0.04f, 1.0f);
+    Shader_SetTint(0.02f, 0.02f, 0.025f, 1.0f);
     SpriteDraw(m_whiteTexture, 0.0f, 0.0f, screenWidth, screenHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
-    Shader_ResetStyle();
-    Shader_SetTint(0.34f, 0.23f, 0.10f, 1.0f);
-    SpriteDraw(m_whiteTexture, 0.0f, 0.0f, screenWidth, 208.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(0.22f, 0.14f, 0.07f, 1.0f);
-    SpriteDraw(m_whiteTexture, 0.0f, 208.0f, screenWidth, screenHeight - 208.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-    Shader_SetTint(0.06f, 0.04f, 0.02f, 0.5f);
-    SpriteDraw(m_whiteTexture, 0.0f, 0.0f, screenWidth, screenHeight, 0.0f, 0.0f, 1.0f, 1.0f);
-
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 160);
-    DrawCircle(720, 114, 54, GetColor(242, 214, 156), TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(30.0f + pulse * 52.0f));
-    DrawCircle(720, 114, 84, GetColor(214, 164, 84), TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
-
-    for (int i = 0; i < 18; ++i)
+    if (m_titleTexture >= 0 && m_titleTextureWidth > 0 && m_titleTextureHeight > 0)
     {
-        const int x = 46 + (i * 71) % (SCREEN_WIDTH - 92);
-        const int y = 34 + (i * 43) % 188;
-        const int shine = static_cast<int>(150.0f + 70.0f * std::sinf(m_sceneTime * 2.0f + static_cast<float>(i)));
-        DrawCircle(x, y, i % 3 == 0 ? 2 : 1, GetColor(shine, shine - 14, 100), TRUE);
+        float imageX = 0.0f;
+        float imageY = 0.0f;
+        float imageWidth = 0.0f;
+        float imageHeight = 0.0f;
+        GetTitleImageRect(imageX, imageY, imageWidth, imageHeight);
+        Shader_ResetStyle();
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+        SpriteDraw(m_titleTexture, imageX, imageY, imageWidth, imageHeight, 0.0f, 0.0f, 1.0f, 1.0f);
     }
 
-    DrawCameraSilhouette(616);
-
-    DrawTitleLogo(SCREEN_WIDTH / 2, 104);
-
-    Shader_ResetStyle();
-    Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     Shader_ResetStyle();
 }
 
@@ -331,11 +369,6 @@ void TitleScene::DrawMenu() const
 {
     Shader_ResetStyle();
     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-
-    DrawClassicFrame(116, 282, 844, 604);
-    DrawBox(142, 306, 452, 324, GetColor(212, 165, 82), TRUE);
-    DrawOutlinedString(148, 338, "ドリー・フレーム", GetColor(255, 244, 220), GetColor(28, 16, 9));
-    DrawString(150, 360, "プレートを装填し、シャッターを切れ。", GetColor(242, 226, 194));
 
     if (m_menuMode == MenuMode::Main)
     {
@@ -353,56 +386,43 @@ void TitleScene::DrawMenu() const
     if (m_menuMode != MenuMode::StageSelect)
     {
         const int hintColor = m_showPrompt ? GetColor(252, 238, 214) : GetColor(168, 140, 104);
-        DrawCenteredOutlinedString(SCREEN_WIDTH / 2, 574, "W/S・上下キー: 選択   Enter/Space/A: 決定   Esc/B: 戻る", hintColor, GetColor(28, 16, 9));
+        DrawCenteredOutlinedString(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 44, "W/S・上下キー: 選択   Enter/Space/A: 決定   Esc/B: 戻る", hintColor, GetColor(28, 16, 9));
     }
     SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
 }
 
 void TitleScene::DrawMainMenu() const
 {
-    constexpr int rowLeft = 146;
-    constexpr int rowTop = 386;
-    constexpr int rowWidth = 360;
-    constexpr int rowHeight = 34;
-    constexpr int rowGap = 8;
-
     for (int index = 0; index < kMainMenuItemCount; ++index)
     {
-        const int top = rowTop + index * (rowHeight + rowGap);
-        DrawMenuRow(rowLeft, top, rowWidth, rowHeight, kMainMenuLabels[index], m_menuSelection == index);
+        const MenuOptionRect rect = GetMainMenuOptionRect(index);
+        DrawMenuRow(
+            rect.left,
+            rect.top,
+            rect.right - rect.left,
+            rect.bottom - rect.top,
+            kMainMenuLabels[index],
+            m_menuSelection == index);
     }
-
-    const std::string startMapName = GetStageDisplayName(GameSession_GetStartMapCsvPath());
-    const bool loadSavedProgress = GameSession_ShouldLoadSavedProgress();
-    DrawClassicFrame(548, 386, 812, 580);
-    DrawOutlinedString(570, 408, "開始", GetColor(255, 244, 220), GetColor(28, 16, 9));
-    DrawString(570, 436, "次の露光を始める。", GetColor(242, 226, 194));
-    DrawString(570, 458, loadSavedProgress ? "セーブを続きから読み込む。" : "選択したCSVで新規開始する。", GetColor(242, 226, 194));
-    DrawString(570, 480, startMapName.c_str(), GetColor(255, 226, 164));
-    DrawOutlinedString(570, 506, "ステージ選択", GetColor(255, 226, 164), GetColor(28, 16, 9));
-    DrawString(570, 534, "起動時に読み込むCSVを選ぶ。", GetColor(242, 226, 194));
-    DrawString(570, 556, "選んだらそのままゲームへ入る。", GetColor(242, 226, 194));
 }
 
 void TitleScene::DrawOptionsMenu() const
 {
-    constexpr int rowLeft = 146;
-    constexpr int rowTop = 386;
-    constexpr int rowWidth = 520;
-    constexpr int rowHeight = 34;
-    constexpr int rowGap = 8;
-
     const int masterVolume = static_cast<int>(std::round(Audio_GetMasterVolume() * 100.0f));
     const int seVolume = static_cast<int>(std::round(Audio_GetSeVolume() * 100.0f));
 
     char label[96] = {};
     std::snprintf(label, sizeof(label), "BGM: %s", m_bgmEnabled ? "ON" : "OFF");
-    DrawMenuRow(rowLeft, rowTop, rowWidth, rowHeight, label, m_optionsSelection == 0);
+    MenuOptionRect rect = GetOptionsMenuOptionRect(0);
+    DrawMenuRow(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, label, m_optionsSelection == 0);
     std::snprintf(label, sizeof(label), "MASTER VOLUME: %d%%", masterVolume);
-    DrawMenuRow(rowLeft, rowTop + (rowHeight + rowGap), rowWidth, rowHeight, label, m_optionsSelection == 1);
+    rect = GetOptionsMenuOptionRect(1);
+    DrawMenuRow(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, label, m_optionsSelection == 1);
     std::snprintf(label, sizeof(label), "SE VOLUME: %d%%", seVolume);
-    DrawMenuRow(rowLeft, rowTop + (rowHeight + rowGap) * 2, rowWidth, rowHeight, label, m_optionsSelection == 2);
-    DrawMenuRow(rowLeft, rowTop + (rowHeight + rowGap) * 3, rowWidth, rowHeight, "BACK", m_optionsSelection == 3);
+    rect = GetOptionsMenuOptionRect(2);
+    DrawMenuRow(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, label, m_optionsSelection == 2);
+    rect = GetOptionsMenuOptionRect(3);
+    DrawMenuRow(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, "BACK", m_optionsSelection == 3);
 
     DrawClassicFrame(682, 386, 822, 470);
     DrawString(696, 408, "左右キー", GetColor(255, 226, 164));
@@ -411,13 +431,6 @@ void TitleScene::DrawOptionsMenu() const
 
 void TitleScene::DrawStageSelectMenu() const
 {
-    constexpr int rowLeft = 146;
-    constexpr int rowTop = 386;
-    constexpr int rowWidth = 268;
-    constexpr int rowHeight = 34;
-    constexpr int rowGap = 8;
-    constexpr int columnGap = 18;
-
     DrawClassicFrame(116, 282, 844, 604);
     DrawBox(142, 306, 494, 324, GetColor(212, 165, 82), TRUE);
     DrawOutlinedString(148, 338, "ステージ選択", GetColor(255, 244, 220), GetColor(28, 16, 9));
@@ -425,11 +438,14 @@ void TitleScene::DrawStageSelectMenu() const
 
     for (int index = 0; index < kStageSelectItemCount; ++index)
     {
-        const int column = index % kStageSelectColumnCount;
-        const int row = index / kStageSelectColumnCount;
-        const int left = rowLeft + column * (rowWidth + columnGap);
-        const int top = rowTop + row * (rowHeight + rowGap);
-        DrawMenuRow(left, top, rowWidth, rowHeight, kStageSelectItems[index].label, m_stageSelection == index);
+        const MenuOptionRect rect = GetStageSelectOptionRect(index);
+        DrawMenuRow(
+            rect.left,
+            rect.top,
+            rect.right - rect.left,
+            rect.bottom - rect.top,
+            kStageSelectItems[index].label,
+            m_stageSelection == index);
     }
 
     const std::string currentStageName = GetStageDisplayName(GameSession_GetStartMapCsvPath());
@@ -448,8 +464,130 @@ void TitleScene::DrawStageSelectMenu() const
         GetColor(28, 16, 9));
 }
 
+void TitleScene::DrawStartTransition() const
+{
+    if (!m_startTransitionActive)
+    {
+        return;
+    }
+
+    const float rawT = std::clamp(m_startTransitionTimer / kStartTransitionDuration, 0.0f, 1.0f);
+    const float t = rawT * rawT * (3.0f - 2.0f * rawT);
+    const float centerX = static_cast<float>(SCREEN_WIDTH) * 0.5f;
+    const float centerY = static_cast<float>(SCREEN_HEIGHT) * 0.5f;
+    const float outerRadius = std::sqrt(
+        static_cast<float>(SCREEN_WIDTH * SCREEN_WIDTH + SCREEN_HEIGHT * SCREEN_HEIGHT)) * 0.75f;
+    const float apertureRadius = std::max(0.0f, outerRadius * (1.0f - t) - 18.0f * t);
+    const float rotation = -0.34f + t * 0.82f;
+    const int bladeAlpha = std::clamp(static_cast<int>(std::round(255.0f * (0.25f + 0.75f * t))), 0, 255);
+    const int bladeColor = GetColor(6, 6, 8);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, bladeAlpha);
+    for (int index = 0; index < kStartTransitionBladeCount; ++index)
+    {
+        const float angle0 = rotation + (static_cast<float>(index) / kStartTransitionBladeCount) * kPi * 2.0f;
+        const float angle1 = rotation + (static_cast<float>(index + 1) / kStartTransitionBladeCount) * kPi * 2.0f;
+        const float inner0X = centerX + std::cos(angle0) * apertureRadius;
+        const float inner0Y = centerY + std::sin(angle0) * apertureRadius;
+        const float inner1X = centerX + std::cos(angle1) * apertureRadius;
+        const float inner1Y = centerY + std::sin(angle1) * apertureRadius;
+        const float outer0X = centerX + std::cos(angle0 - 0.18f) * outerRadius;
+        const float outer0Y = centerY + std::sin(angle0 - 0.18f) * outerRadius;
+        const float outer1X = centerX + std::cos(angle1 + 0.18f) * outerRadius;
+        const float outer1Y = centerY + std::sin(angle1 + 0.18f) * outerRadius;
+
+        DrawTriangleAA(inner0X, inner0Y, outer0X, outer0Y, outer1X, outer1Y, bladeColor, TRUE);
+        DrawTriangleAA(inner0X, inner0Y, outer1X, outer1Y, inner1X, inner1Y, bladeColor, TRUE);
+    }
+
+    if (rawT > 0.76f)
+    {
+        const int fadeAlpha = std::clamp(static_cast<int>(std::round((rawT - 0.76f) / 0.24f * 255.0f)), 0, 255);
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, fadeAlpha);
+        DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
+    }
+
+    if (apertureRadius > 8.0f)
+    {
+        const int glintAlpha = std::clamp(static_cast<int>(std::round((1.0f - rawT) * 120.0f)), 0, 120);
+        SetDrawBlendMode(DX_BLENDMODE_ADD, glintAlpha);
+        DrawCircleAA(centerX, centerY, apertureRadius * 0.045f, 32, GetColor(255, 235, 190), TRUE);
+    }
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+}
+
+void TitleScene::GetTitleImageRect(float& x, float& y, float& width, float& height) const
+{
+    const float screenWidth = static_cast<float>(SCREEN_WIDTH);
+    const float screenHeight = static_cast<float>(SCREEN_HEIGHT);
+    if (m_titleTextureWidth <= 0 || m_titleTextureHeight <= 0)
+    {
+        x = 0.0f;
+        y = 0.0f;
+        width = screenWidth;
+        height = screenHeight;
+        return;
+    }
+
+    const float textureWidth = static_cast<float>(m_titleTextureWidth);
+    const float textureHeight = static_cast<float>(m_titleTextureHeight);
+    const float scale = (std::min)(screenWidth / textureWidth, screenHeight / textureHeight);
+    width = textureWidth * scale;
+    height = textureHeight * scale;
+    x = (screenWidth - width) * 0.5f;
+    y = (screenHeight - height) * 0.5f;
+}
+
+TitleScene::MenuOptionRect TitleScene::GetMainMenuOptionRect(int index) const
+{
+    float imageX = 0.0f;
+    float imageY = 0.0f;
+    float imageWidth = static_cast<float>(SCREEN_WIDTH);
+    float imageHeight = static_cast<float>(SCREEN_HEIGHT);
+    GetTitleImageRect(imageX, imageY, imageWidth, imageHeight);
+
+    const int left = static_cast<int>(std::round(imageX + kMainMenuMarginLeft));
+    const int top = static_cast<int>(std::round(
+        imageY + imageHeight - kMainMenuMarginBottom -
+        kMainMenuItemCount * kMainMenuRowHeight -
+        (kMainMenuItemCount - 1) * kMainMenuRowGap +
+        index * (kMainMenuRowHeight + kMainMenuRowGap)));
+    return { left, top, left + kMainMenuRowWidth, top + kMainMenuRowHeight };
+}
+
+TitleScene::MenuOptionRect TitleScene::GetOptionsMenuOptionRect(int index) const
+{
+    const int top = kOptionsMenuRowTop + index * (kOptionsMenuRowHeight + kOptionsMenuRowGap);
+    return {
+        kOptionsMenuRowLeft,
+        top,
+        kOptionsMenuRowLeft + kOptionsMenuRowWidth,
+        top + kOptionsMenuRowHeight,
+    };
+}
+
+TitleScene::MenuOptionRect TitleScene::GetStageSelectOptionRect(int index) const
+{
+    const int column = index % kStageSelectColumnCount;
+    const int row = index / kStageSelectColumnCount;
+    const int left = kStageSelectRowLeft + column * (kStageSelectRowWidth + kStageSelectColumnGap);
+    const int top = kStageSelectRowTop + row * (kStageSelectRowHeight + kStageSelectRowGap);
+    return { left, top, left + kStageSelectRowWidth, top + kStageSelectRowHeight };
+}
+
+bool TitleScene::IsPointInsideMenuOption(const MenuOptionRect& rect, int x, int y) const
+{
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
 void TitleScene::UpdateMenuInput()
 {
+    if (m_startTransitionActive)
+    {
+        return;
+    }
+
     if (m_menuMode == MenuMode::StageSelect)
     {
         constexpr int columnCount = kStageSelectColumnCount;
@@ -497,6 +635,23 @@ void TitleScene::UpdateMenuInput()
             }
         }
 
+        const int mouseX = Input_GetMouseX();
+        const int mouseY = Input_GetMouseY();
+        int hoveredStage = -1;
+        for (int index = 0; index < kStageSelectItemCount; ++index)
+        {
+            if (IsPointInsideMenuOption(GetStageSelectOptionRect(index), mouseX, mouseY))
+            {
+                hoveredStage = index;
+                break;
+            }
+        }
+        if (hoveredStage >= 0 && hoveredStage != m_stageSelection)
+        {
+            m_stageSelection = hoveredStage;
+            m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
+        }
+
         if (Input_IsActionPressed(InputAction::Cancel) || Input_IsEastButtonPressed())
         {
             m_menuMode = MenuMode::Main;
@@ -508,7 +663,8 @@ void TitleScene::UpdateMenuInput()
             Input_IsActionPressed(InputAction::Confirm) ||
             Input_IsActionPressed(InputAction::StartGame) ||
             Input_IsSouthButtonPressed();
-        if (confirmPressed)
+        const bool mouseClickConfirm = hoveredStage >= 0 && Input_IsMouseLeftPressed();
+        if (confirmPressed || mouseClickConfirm)
         {
             ConfirmStageSelectMenu();
         }
@@ -526,6 +682,26 @@ void TitleScene::UpdateMenuInput()
     if (Input_IsActionPressed(InputAction::MoveDown) || Input_IsDpadDownPressed())
     {
         selection = (selection + 1) % itemCount;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
+    }
+
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
+    int hoveredSelection = -1;
+    for (int index = 0; index < itemCount; ++index)
+    {
+        const MenuOptionRect rect = (m_menuMode == MenuMode::Main)
+            ? GetMainMenuOptionRect(index)
+            : GetOptionsMenuOptionRect(index);
+        if (IsPointInsideMenuOption(rect, mouseX, mouseY))
+        {
+            hoveredSelection = index;
+            break;
+        }
+    }
+    if (hoveredSelection >= 0 && hoveredSelection != selection)
+    {
+        selection = hoveredSelection;
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
 
@@ -573,7 +749,8 @@ void TitleScene::UpdateMenuInput()
         Input_IsActionPressed(InputAction::Confirm) ||
         Input_IsActionPressed(InputAction::StartGame) ||
         Input_IsSouthButtonPressed();
-    if (!confirmPressed)
+    const bool mouseClickConfirm = hoveredSelection >= 0 && Input_IsMouseLeftPressed();
+    if (!confirmPressed && !mouseClickConfirm)
     {
         return;
     }
@@ -593,7 +770,7 @@ void TitleScene::ConfirmMainMenu()
     switch (m_menuSelection)
     {
     case 0:
-        PublishSceneChange("game");
+        BeginStartTransition("game");
         break;
     case 1:
         m_menuMode = MenuMode::StageSelect;
@@ -605,12 +782,6 @@ void TitleScene::ConfirmMainMenu()
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
         break;
     case 3:
-        PublishSceneChange("demo");
-        break;
-    case 4:
-        PublishSceneChange("shader_showcase");
-        break;
-    case 5:
         m_eventBus.Publish({ EventType::ExitApplicationRequested, nullptr, nullptr, "", 0.0f, 0.0f });
         break;
     default:
@@ -627,7 +798,21 @@ void TitleScene::ConfirmStageSelectMenu()
 
     GameSession_SetStartMapCsvPath(kStageSelectItems[m_stageSelection].path);
     GameSession_SetLoadSavedProgress(false);
-    PublishSceneChange("game");
+    BeginStartTransition("game");
+}
+
+void TitleScene::BeginStartTransition(const char* sceneId)
+{
+    if (m_startTransitionActive)
+    {
+        return;
+    }
+
+    m_startTransitionActive = true;
+    m_startTransitionSceneRequested = false;
+    m_startTransitionTimer = 0.0f;
+    m_startTransitionSceneId = sceneId;
+    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
 }
 
 void TitleScene::ConfirmOptionsMenu()

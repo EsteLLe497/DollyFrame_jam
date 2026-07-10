@@ -24,12 +24,27 @@ private:
         StageSelect,
     };
 
+    struct MenuOptionRect
+    {
+        int left;
+        int top;
+        int right;
+        int bottom;
+    };
+
     void DrawBackdrop() const;
     void DrawMenu() const;
     void DrawMainMenu() const;
     void DrawOptionsMenu() const;
     void DrawStageSelectMenu() const;
+    void DrawStartTransition() const;
+    void GetTitleImageRect(float& x, float& y, float& width, float& height) const;
+    MenuOptionRect GetMainMenuOptionRect(int index) const;
+    MenuOptionRect GetOptionsMenuOptionRect(int index) const;
+    MenuOptionRect GetStageSelectOptionRect(int index) const;
+    bool IsPointInsideMenuOption(const MenuOptionRect& rect, int x, int y) const;
     void UpdateMenuInput();
+    void BeginStartTransition(const char* sceneId);
     void ConfirmMainMenu();
     void ConfirmOptionsMenu();
     void ConfirmStageSelectMenu();
@@ -38,6 +53,9 @@ private:
 
     EventBus m_eventBus;
     int m_whiteTexture;
+    int m_titleTexture;
+    int m_titleTextureWidth;
+    int m_titleTextureHeight;
     float m_blinkTimer;
     float m_sceneTime;
     bool m_showPrompt;
@@ -47,4 +65,8 @@ private:
     int m_optionsSelection;
     bool m_bgmEnabled;
     float m_bgmRestoreVolume;
+    bool m_startTransitionActive;
+    bool m_startTransitionSceneRequested;
+    float m_startTransitionTimer;
+    const char* m_startTransitionSceneId;
 };
