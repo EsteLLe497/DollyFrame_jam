@@ -284,7 +284,7 @@
     },
     "tutorial_frame_window": {
       "type": "file",
-      "path": "assets/texture/tutorialUI/FrameWindow.png"
+      "path": "assets/texture/tutorialUI/UI_Frame002.png"
     },
     "tutorial_heading": {
       "type": "file",

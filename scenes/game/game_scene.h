@@ -100,12 +100,14 @@ private:
 
     // Lifecycle / setup
     void UpdateLoading(float deltaTime);
+    void UpdateResultTransition(float deltaTime);
     void AdvanceLoadingStep();
     void FinishLoading();
     void PlayStageBgmForCurrentMap();
     void CrossFadeStageBgmForCurrentMap(float durationSeconds);
     void UpdateBossBgmCue();
     void DrawLoadingScreen() const;
+    void DrawResultTransitionOverlay() const;
     void LoadTuningState();
     bool SaveUiTuningState();
     bool LoadUiTuningState();
