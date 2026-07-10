@@ -13,9 +13,9 @@ namespace
 {
     constexpr float kPitRestartFadeDuration = 0.45f;
     constexpr float kRespawnInvulnerabilitySeconds = 0.6f;
-    constexpr float kPlayerDamageHitStopSeconds = 0.06f;
-    constexpr float kPlayerDamageShakeSeconds = 0.22f;
-    constexpr float kPlayerDamageShakeAmplitude = 18.0f;
+    constexpr float kPlayerDamageHitStopSeconds = 0.075f;
+    constexpr float kPlayerDamageShakeSeconds = 0.28f;
+    constexpr float kPlayerDamageShakeAmplitude = 24.0f;
 
     void TriggerPlayerDamageFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
     {

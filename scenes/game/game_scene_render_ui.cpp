@@ -1494,14 +1494,34 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
                 ? m_assets.GetTexture("boss3_drill")
                 : m_assets.GetTexture("boss3_rocket_punch"))
             : -1;
+        if (attackRubble)
+        {
+            const int clipLeft = static_cast<int>(std::floor(drawEntityX));
+            const int clipTop = static_cast<int>(std::floor(drawEntityY));
+            const int clipRight = static_cast<int>(std::ceil(drawEntityX + drawEntityW));
+            const int clipBottom = static_cast<int>(std::ceil(drawEntityY + drawEntityH));
+            SetDrawArea(clipLeft, clipTop, clipRight, clipBottom);
+            SpriteDraw(
+                attackTexture >= 0 ? attackTexture : m_whiteTexture,
+                GetViewOriginX() + (objectWorldX0 - m_flow.cameraX) * viewScale,
+                GetViewOriginY() + (objectWorldY0 - m_flow.cameraY) * viewScale,
+                objectWorldX * viewScale,
+                objectWorldY * viewScale,
+                0.0f,
+                0.0f,
+                1.0f / 10.0f,
+                1.0f / 6.0f);
+            SetDrawArea(effectLeft, effectTop, effectRight, effectBottom);
+            continue;
+        }
         SpriteDraw(
-            attackRubble ? (attackTexture >= 0 ? attackTexture : m_whiteTexture) : rubbleTexture,
+            rubbleTexture,
             drawEntityX, drawEntityY,
             drawEntityW, drawEntityH,
-            attackRubble || plainRubble ? 0.0f : sourceX,
-            attackRubble || plainRubble ? 0.0f : sourceY,
-            attackRubble ? 1.0f / 10.0f : (plainRubble ? 1.0f : sourceW),
-            attackRubble ? 1.0f / 6.0f : (plainRubble ? 1.0f : sourceH));
+            plainRubble ? 0.0f : sourceX,
+            plainRubble ? 0.0f : sourceY,
+            plainRubble ? 1.0f : sourceW,
+            plainRubble ? 1.0f : sourceH);
 
     }
     SetDrawAreaFull();
@@ -1889,9 +1909,12 @@ void GameScene::DrawCaptureOverlay() const
             (HasTag(*entity, EntityTag::BossShield) ||
                 HasTag(*entity, EntityTag::Boss1Shield) ||
                 HasTag(*entity, EntityTag::MidBoss1Shield) ||
+                HasTag(*entity, EntityTag::MidBoss3Fist) ||
                 HasTag(*entity, EntityTag::CapturedShield) ||
                 HasTag(*entity, EntityTag::WalkerMeleeAttack) ||
                 HasTag(*entity, EntityTag::BossShockwave) ||
+                entity->GetComponent<MidBoss3FistComponent>() ||
+                entity->GetComponent<CapturedMidBoss3AttackComponent>() ||
                 movingEnemyAttackVisual);
         if (hidesCaptureHitboxVisual)
         {

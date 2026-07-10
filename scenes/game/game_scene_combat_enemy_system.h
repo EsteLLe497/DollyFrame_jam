@@ -248,7 +248,44 @@ inline void UpdateEnemies(
                     std::sin(boss->idleTimer * boss->params.idleFloatSpeed + fist.idlePhase) *
                     boss->params.idleFloatAmplitude;
             };
-            const auto rectIntersectsSolid = [&](float x, float y, float width, float height) -> bool
+            const auto rectIntersectsBlockingEntity = [&](float x, float y, float width, float height, const Entity* ignoreEntity) -> bool
+            {
+                TransformComponent attackBounds(x, y, width, height);
+                for (Entity* candidate : interactionEntities)
+                {
+                    if (!candidate || candidate == ignoreEntity || candidate == entity)
+                    {
+                        continue;
+                    }
+
+                    const bool isShutter = HasTag(*candidate, "Shutter");
+                    const bool isCapturedMidBoss3Attack = candidate->GetComponent<CapturedMidBoss3AttackComponent>() != nullptr;
+                    const auto* otherFist = candidate->GetComponent<MidBoss3FistComponent>();
+                    if (!isShutter && !isCapturedMidBoss3Attack && !otherFist)
+                    {
+                        continue;
+                    }
+                    if (otherFist)
+                    {
+                        const auto* tint = candidate->GetComponent<TintComponent>();
+                        if (otherFist->state == MidBoss3FistState::Docked ||
+                            otherFist->state == MidBoss3FistState::Broken ||
+                            (tint && tint->a <= 0.05f))
+                        {
+                            continue;
+                        }
+                    }
+
+                    const auto* candidateTransform = candidate->GetComponent<TransformComponent>();
+                    if (!candidateTransform || !IntersectsBounds(attackBounds, *candidateTransform))
+                    {
+                        continue;
+                    }
+                    return true;
+                }
+                return false;
+            };
+            const auto rectIntersectsSolidIgnoring = [&](float x, float y, float width, float height, const Entity* ignoreEntity) -> bool
             {
                 const int columnCount = std::max(1, static_cast<int>(mapWidth / kTileSize));
                 const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
@@ -275,7 +312,11 @@ inline void UpdateEnemies(
                         }
                     }
                 }
-                return false;
+                return rectIntersectsBlockingEntity(x, y, width, height, ignoreEntity);
+            };
+            const auto rectIntersectsSolid = [&](float x, float y, float width, float height) -> bool
+            {
+                return rectIntersectsSolidIgnoring(x, y, width, height, nullptr);
             };
             const auto rectLeadingSideIntersectsSolid = [&](float x, float y, float width, float height, float velocityX) -> bool
             {
@@ -305,7 +346,7 @@ inline void UpdateEnemies(
                         return true;
                     }
                 }
-                return false;
+                return rectIntersectsBlockingEntity(x, y, width, height, nullptr);
             };
             const auto findIntroGroundY = [&]() -> float
             {
@@ -590,8 +631,10 @@ inline void UpdateEnemies(
             };
             const auto breakFistAtCollision = [&](MidBoss3FistComponent& targetFist, TransformComponent& targetTransform)
             {
-                constexpr float kFistImpactShakeSeconds = 0.24f;
-                constexpr float kFistImpactShakeAmplitude = 24.0f;
+                constexpr float kFistImpactHitStopSeconds = 0.075f;
+                constexpr float kFistImpactShakeSeconds = 0.32f;
+                constexpr float kFistImpactShakeAmplitude = 38.0f;
+                flow.hitStopRemaining = std::max(flow.hitStopRemaining, kFistImpactHitStopSeconds);
                 flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kFistImpactShakeSeconds);
                 flow.screenShakeDuration = std::max(flow.screenShakeDuration, kFistImpactShakeSeconds);
                 flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kFistImpactShakeAmplitude);
@@ -1346,8 +1389,10 @@ inline void UpdateEnemies(
                                 rectIntersectsSolid(nextX, boss->drillY, boss->drillWidth, boss->drillHeight);
                             if (hitWall)
                             {
-                                constexpr float kDrillImpactShakeSeconds = 0.24f;
-                                constexpr float kDrillImpactShakeAmplitude = 24.0f;
+                                constexpr float kDrillImpactHitStopSeconds = 0.105f;
+                                constexpr float kDrillImpactShakeSeconds = 0.40f;
+                                constexpr float kDrillImpactShakeAmplitude = 56.0f;
+                                flow.hitStopRemaining = std::max(flow.hitStopRemaining, kDrillImpactHitStopSeconds);
                                 flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kDrillImpactShakeSeconds);
                                 flow.screenShakeDuration = std::max(flow.screenShakeDuration, kDrillImpactShakeSeconds);
                                 flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kDrillImpactShakeAmplitude);
@@ -1385,8 +1430,10 @@ inline void UpdateEnemies(
                             const bool hitSolid = rectIntersectsSolid(nextX, nextY, boss->drillWidth, boss->drillHeight);
                             if (hitWall)
                             {
-                                constexpr float kDrillImpactShakeSeconds = 0.24f;
-                                constexpr float kDrillImpactShakeAmplitude = 24.0f;
+                                constexpr float kDrillImpactHitStopSeconds = 0.105f;
+                                constexpr float kDrillImpactShakeSeconds = 0.40f;
+                                constexpr float kDrillImpactShakeAmplitude = 56.0f;
+                                flow.hitStopRemaining = std::max(flow.hitStopRemaining, kDrillImpactHitStopSeconds);
                                 flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kDrillImpactShakeSeconds);
                                 flow.screenShakeDuration = std::max(flow.screenShakeDuration, kDrillImpactShakeSeconds);
                                 flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kDrillImpactShakeAmplitude);
@@ -1421,8 +1468,10 @@ inline void UpdateEnemies(
                                 }
                                 else
                                 {
-                                    constexpr float kDrillImpactShakeSeconds = 0.24f;
-                                    constexpr float kDrillImpactShakeAmplitude = 24.0f;
+                                    constexpr float kDrillImpactHitStopSeconds = 0.105f;
+                                    constexpr float kDrillImpactShakeSeconds = 0.40f;
+                                    constexpr float kDrillImpactShakeAmplitude = 56.0f;
+                                    flow.hitStopRemaining = std::max(flow.hitStopRemaining, kDrillImpactHitStopSeconds);
                                     flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kDrillImpactShakeSeconds);
                                     flow.screenShakeDuration = std::max(flow.screenShakeDuration, kDrillImpactShakeSeconds);
                                     flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kDrillImpactShakeAmplitude);
@@ -1832,7 +1881,9 @@ inline void UpdateEnemies(
                     std::max(0.0f, mapWidth - fistWidth));
                 const float meteorGroundY = findMeteorGroundY(safeMeteorCenterX);
                 const bool outerMeteorFist = fist->fistIndex == 0 || fist->fistIndex == 3;
-                const float meteorStartOffsetGrid = outerMeteorFist ? 7.8f : 11.4f;
+                const float meteorStartOffsetGrid =
+                    (outerMeteorFist ? 7.8f : 11.4f) +
+                    (boss->state == MidBoss3State::LauncherMeteorFist ? 3.0f : 0.0f);
                 const float meteorStartY = std::clamp(
                     meteorGroundY - fistHeight - meteorStartOffsetGrid * kTileSize,
                     0.0f,
@@ -2001,8 +2052,10 @@ inline void UpdateEnemies(
                     {
                         if (hitSolidTile && canBreakOnSolid)
                         {
-                            constexpr float kFistImpactShakeSeconds = 0.24f;
-                            constexpr float kFistImpactShakeAmplitude = 24.0f;
+                            constexpr float kFistImpactHitStopSeconds = 0.075f;
+                            constexpr float kFistImpactShakeSeconds = 0.32f;
+                            constexpr float kFistImpactShakeAmplitude = 38.0f;
+                            flow.hitStopRemaining = std::max(flow.hitStopRemaining, kFistImpactHitStopSeconds);
                             flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kFistImpactShakeSeconds);
                             flow.screenShakeDuration = std::max(flow.screenShakeDuration, kFistImpactShakeSeconds);
                             flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kFistImpactShakeAmplitude);
@@ -2036,7 +2089,7 @@ inline void UpdateEnemies(
                     fistTransform->y += fist->velocityY * deltaTime;
                     fistTransform->rotation = std::atan2(fist->velocityY, fist->velocityX) + 3.14159265f;
 
-                    const bool hitSolidTile = rectIntersectsSolid(fistTransform->x, fistTransform->y, fistWidth, fistHeight);
+                    const bool hitSolidTile = rectIntersectsSolidIgnoring(fistTransform->x, fistTransform->y, fistWidth, fistHeight, fistEntity);
                     const bool outOfBounds =
                         fistTransform->x < -fistWidth ||
                         fistTransform->x > mapWidth + fistWidth ||
@@ -2070,8 +2123,10 @@ inline void UpdateEnemies(
                         fist->impactDamageApplied = false;
                         if (hitSolidTile && canBreakOnSolid)
                         {
-                            constexpr float kFistImpactShakeSeconds = 0.24f;
-                            constexpr float kFistImpactShakeAmplitude = 24.0f;
+                            constexpr float kFistImpactHitStopSeconds = 0.075f;
+                            constexpr float kFistImpactShakeSeconds = 0.32f;
+                            constexpr float kFistImpactShakeAmplitude = 38.0f;
+                            flow.hitStopRemaining = std::max(flow.hitStopRemaining, kFistImpactHitStopSeconds);
                             flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kFistImpactShakeSeconds);
                             flow.screenShakeDuration = std::max(flow.screenShakeDuration, kFistImpactShakeSeconds);
                             flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, kFistImpactShakeAmplitude);
@@ -3019,9 +3074,9 @@ inline void UpdateEnemies(
 
             auto startBossKnockback = [&](float direction)
             {
-                constexpr float kBossKnockbackHitStopSeconds = 0.085f;
-                constexpr float kBossKnockbackShakeSeconds = 0.26f;
-                constexpr float kBossKnockbackShakeAmplitude = 30.0f;
+                constexpr float kBossKnockbackHitStopSeconds = 0.12f;
+                constexpr float kBossKnockbackShakeSeconds = 0.34f;
+                constexpr float kBossKnockbackShakeAmplitude = 44.0f;
                 boss->knockbackActive = true;
                 boss->knockbackTimer = 0.0f;
                 boss->knockbackStartX = transform->x;
