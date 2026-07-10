@@ -43,7 +43,7 @@ struct PSInput
     float2 suv : TEXCOORD1;
 };
 
-static const int kRaySampleCount = 8;
+static const int kRaySampleCount = 6;
 static const float kNoiseRepeat = 8.0;
 
 // =========================================================
