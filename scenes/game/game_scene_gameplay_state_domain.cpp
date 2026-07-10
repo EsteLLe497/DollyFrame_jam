@@ -359,7 +359,7 @@ void GameScene::TryUseAttackCaptureSlot()
         fistEntity->AddComponent<ProjectileComponent>(
             fireAim.x * kFistSpeed,
             fireAim.y * kFistSpeed,
-            1,
+            2,
             ProjectileComponent::Owner::Photo);
         auto& attack = fistEntity->AddComponent<CapturedMidBoss3AttackComponent>(CapturedMidBoss3AttackKind::Fist);
         attack.aimX = fireAim.x;
@@ -550,7 +550,11 @@ void GameScene::TryUseAttackCaptureSlot()
         spearEntity->AddComponent<TransformComponent>(spearX, spearY, spearW, spearH);
         spearEntity->AddComponent<TintComponent>(attackItem->tintR, attackItem->tintG, attackItem->tintB, attackItem->tintA);
         spearEntity->AddComponent<SpriteRenderComponent>(attackItem->textureId >= 0 ? attackItem->textureId : m_tileTexture);
-        spearEntity->AddComponent<ProjectileComponent>(0.0f, 0.0f, attackItem->projectileDamage, ProjectileComponent::Owner::Photo);
+        spearEntity->AddComponent<ProjectileComponent>(
+            0.0f,
+            0.0f,
+            attackItem->projectileDamage,
+            ProjectileComponent::Owner::Photo);
         auto& spear = spearEntity->AddComponent<MidBoss2SpearComponent>();
         spear.launched = false;
         spear.stuck = false;

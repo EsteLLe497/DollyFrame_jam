@@ -173,6 +173,18 @@ inline void UpdateBullets(
             continue;
         }
 
+        const auto getDamageAgainstTarget = [&](Entity& target) -> int
+        {
+            const int baseDamage = projectile->GetDamage();
+            if (projectile->GetOwner() == ProjectileComponent::Owner::Photo &&
+                target.GetComponent<MidBoss3Component>() &&
+                entity->GetComponent<CapturedMidBoss3AttackComponent>())
+            {
+                return baseDamage * 2;
+            }
+            return baseDamage;
+        };
+
         if (auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
         {
             const float targetAngle = std::atan2(spear->targetDirectionY, spear->targetDirectionX);
@@ -324,10 +336,37 @@ inline void UpdateBullets(
                         return true;
                     }
                 }
-                return isSolidTile(left, top) ||
+                if (isSolidTile(left, top) ||
                     isSolidTile(right, top) ||
                     isSolidTile(left, bottom) ||
-                    isSolidTile(right, bottom);
+                    isSolidTile(right, bottom))
+                {
+                    return true;
+                }
+
+                TransformComponent attackBounds(x, y, width, height);
+                for (const auto& obstacle : obstacleBounds)
+                {
+                    if (IntersectsBounds(attackBounds, obstacle))
+                    {
+                        return true;
+                    }
+                }
+
+                for (Entity* target : enemyEntities)
+                {
+                    const auto* boss = target ? target->GetComponent<MidBoss3Component>() : nullptr;
+                    if (!boss || !boss->drillActive || boss->drillWidth <= 0.0f || boss->drillHeight <= 0.0f)
+                    {
+                        continue;
+                    }
+                    TransformComponent drillBounds(boss->drillX, boss->drillY, boss->drillWidth, boss->drillHeight);
+                    if (IntersectsBounds(attackBounds, drillBounds))
+                    {
+                        return true;
+                    }
+                }
+                return false;
             };
 
             if (capturedMidBoss3Attack->kind == CapturedMidBoss3AttackKind::Fist)
@@ -349,11 +388,12 @@ inline void UpdateBullets(
                     }
                     if (screenShakeEnabled && target->GetComponent<MidBoss3Component>())
                     {
-                        flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, 0.18f);
-                        flow.screenShakeDuration = std::max(flow.screenShakeDuration, 0.18f);
-                        flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, 18.0f);
+                        flow.hitStopRemaining = std::max(flow.hitStopRemaining, 0.085f);
+                        flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, 0.26f);
+                        flow.screenShakeDuration = std::max(flow.screenShakeDuration, 0.26f);
+                        flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, 32.0f);
                     }
-                    handleEnemyDamage(*target, entity, projectile->GetDamage(), "Captured MidBoss3 fist hit enemy");
+                    handleEnemyDamage(*target, entity, getDamageAgainstTarget(*target), "Captured MidBoss3 fist hit enemy");
                     bulletsToRemove.push_back(entity);
                     fistHitEnemy = true;
                     break;
@@ -482,7 +522,7 @@ inline void UpdateBullets(
                     if (capturedMidBoss3Attack->bossDamageTimer >= kBossDamageInterval)
                     {
                         capturedMidBoss3Attack->bossDamageTimer = 0.0f;
-                        handleEnemyDamage(*targetBoss, entity, projectile->GetDamage(), "Captured MidBoss3 drill damaged enemy");
+                        handleEnemyDamage(*targetBoss, entity, getDamageAgainstTarget(*targetBoss), "Captured MidBoss3 drill damaged enemy");
                     }
                     transform->rotation = std::atan2(capturedMidBoss3Attack->aimY, capturedMidBoss3Attack->aimX);
                     continue;
@@ -554,11 +594,12 @@ inline void UpdateBullets(
                     aimTowardTarget(target);
                     if (screenShakeEnabled)
                     {
-                        flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, 0.22f);
-                        flow.screenShakeDuration = std::max(flow.screenShakeDuration, 0.22f);
-                        flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, 22.0f);
+                        flow.hitStopRemaining = std::max(flow.hitStopRemaining, 0.115f);
+                        flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, 0.34f);
+                        flow.screenShakeDuration = std::max(flow.screenShakeDuration, 0.34f);
+                        flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, 44.0f);
                     }
-                    handleEnemyDamage(*target, entity, projectile->GetDamage(), "Captured MidBoss3 drill damaged enemy");
+                    handleEnemyDamage(*target, entity, getDamageAgainstTarget(*target), "Captured MidBoss3 drill damaged enemy");
                     (void)pushAttachedTarget(*target, std::max(deltaTime, 1.0f / 60.0f));
                     attachedThisFrame = true;
                     break;
@@ -636,7 +677,7 @@ inline void UpdateBullets(
                         const float bottom = targetTransform->y + targetTransform->height * targetTransform->scale + spearRadius;
                         if (SegmentIntersectsExpandedAabb(spearStart, spearEnd, left, top, right, bottom))
                         {
-                            handleEnemyDamage(*targetBoss, entity, projectile->GetDamage(), "Captured MidBoss2 spear hit boss");
+                            handleEnemyDamage(*targetBoss, entity, getDamageAgainstTarget(*targetBoss), "Captured MidBoss2 spear hit boss");
                             bulletsToRemove.push_back(entity);
                             continue;
                         }
@@ -863,7 +904,7 @@ inline void UpdateBullets(
                     continue;
                 }
 
-                handleEnemyDamage(*target, entity, projectile->GetDamage(), "Photo bullet hit enemy");
+                handleEnemyDamage(*target, entity, getDamageAgainstTarget(*target), "Photo bullet hit enemy");
                 bulletsToRemove.push_back(entity);
                 goto next_bullet;
             }

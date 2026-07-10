@@ -73,24 +73,24 @@ namespace
     inline constexpr float kBoss3DeathFps = 24.0f;
     inline constexpr float kBoss3FistFps = 24.0f;
 
-    constexpr float kEnemyDefeatHitStopSeconds = 0.08f;
-    constexpr float kEnemyDefeatShakeSeconds = 0.18f;
-    constexpr float kEnemyDefeatShakeAmplitude = 14.0f;
-    constexpr float kEnemyKnockbackHitStopSeconds = 0.055f;
-    constexpr float kEnemyKnockbackShakeSeconds = 0.16f;
-    constexpr float kEnemyKnockbackShakeAmplitude = 15.0f;
-    constexpr float kBossKnockbackHitStopSeconds = 0.085f;
-    constexpr float kBossKnockbackShakeSeconds = 0.26f;
-    constexpr float kBossKnockbackShakeAmplitude = 60.0f;
-    constexpr float kNormalShieldBossHitStopSeconds = 0.10f;
-    constexpr float kNormalShieldBossHitShakeSeconds = 0.34f;
-    constexpr float kNormalShieldBossHitShakeAmplitude = 92.0f;
-    constexpr float kBossDefeatStartHitStopSeconds = 0.14f;
-    constexpr float kBossDefeatStartShakeSeconds = 0.44f;
-    constexpr float kBossDefeatStartShakeAmplitude = 64.0f;
-    constexpr float kBossDefeatFinishHitStopSeconds = 0.08f;
-    constexpr float kBossDefeatFinishShakeSeconds = 0.34f;
-    constexpr float kBossDefeatFinishShakeAmplitude = 42.0f;
+    constexpr float kEnemyDefeatHitStopSeconds = 0.095f;
+    constexpr float kEnemyDefeatShakeSeconds = 0.24f;
+    constexpr float kEnemyDefeatShakeAmplitude = 20.0f;
+    constexpr float kEnemyKnockbackHitStopSeconds = 0.07f;
+    constexpr float kEnemyKnockbackShakeSeconds = 0.22f;
+    constexpr float kEnemyKnockbackShakeAmplitude = 22.0f;
+    constexpr float kBossKnockbackHitStopSeconds = 0.12f;
+    constexpr float kBossKnockbackShakeSeconds = 0.34f;
+    constexpr float kBossKnockbackShakeAmplitude = 78.0f;
+    constexpr float kNormalShieldBossHitStopSeconds = 0.13f;
+    constexpr float kNormalShieldBossHitShakeSeconds = 0.42f;
+    constexpr float kNormalShieldBossHitShakeAmplitude = 110.0f;
+    constexpr float kBossDefeatStartHitStopSeconds = 0.18f;
+    constexpr float kBossDefeatStartShakeSeconds = 0.55f;
+    constexpr float kBossDefeatStartShakeAmplitude = 82.0f;
+    constexpr float kBossDefeatFinishHitStopSeconds = 0.11f;
+    constexpr float kBossDefeatFinishShakeSeconds = 0.42f;
+    constexpr float kBossDefeatFinishShakeAmplitude = 58.0f;
     constexpr float kBossStageBgmReturnDelaySeconds = 1.25f;
     constexpr float kBossStageBgmReturnCrossFadeSeconds = 1.6f;
 
@@ -734,6 +734,7 @@ void GameScene::UpdateEnemies()
     const auto& capturedShieldEntities = m_world.EntitiesByTag(EntityTag::CapturedShield);
     const auto& walkerMeleeAttackEntities = m_world.EntitiesByTag(EntityTag::WalkerMeleeAttack);
     const auto& bossShockwaveEntities = m_world.EntitiesByTag(EntityTag::BossShockwave);
+    const auto& midBoss3FistEntities = m_world.EntitiesByTag(EntityTag::MidBoss3Fist);
     std::vector<Entity*> interactionEntities;
     interactionEntities.reserve(
         photoBoxEntities.size() +
@@ -762,7 +763,8 @@ void GameScene::UpdateEnemies()
         midBoss1ShieldEntities.size() +
         capturedShieldEntities.size() +
         walkerMeleeAttackEntities.size() +
-        bossShockwaveEntities.size());
+        bossShockwaveEntities.size() +
+        midBoss3FistEntities.size());
     auto appendInteractionEntities = [&](EntityTag tag)
     {
         for (Entity* candidate : m_world.EntitiesByTag(tag))
@@ -800,6 +802,7 @@ void GameScene::UpdateEnemies()
     appendInteractionEntities(EntityTag::CapturedShield);
     appendInteractionEntities(EntityTag::WalkerMeleeAttack);
     appendInteractionEntities(EntityTag::BossShockwave);
+    appendInteractionEntities(EntityTag::MidBoss3Fist);
 
     for (Entity* entity : enemyEntities)
     {
@@ -1076,6 +1079,26 @@ void GameScene::UpdateBullets()
         std::vector<TransformComponent> tempBounds;
         GetEntityBoundsByTag("DamagePlatformSpike", tempBounds);
         obstacleBounds.insert(obstacleBounds.end(), tempBounds.begin(), tempBounds.end());
+    }
+    {
+        for (Entity* fistEntity : m_world.EntitiesByTag(EntityTag::MidBoss3Fist))
+        {
+            const auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+            const auto* transform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+            const auto* tint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr;
+            if (!fist ||
+                !transform ||
+                fist->state == MidBoss3FistState::Docked ||
+                fist->state == MidBoss3FistState::Broken ||
+                (tint && tint->a <= 0.05f))
+            {
+                continue;
+            }
+
+            TransformComponent rect(transform->x, transform->y, transform->width, transform->height);
+            rect.scale = transform->scale;
+            obstacleBounds.push_back(rect);
+        }
     }
     std::vector<Entity*> bulletsToRemove;
     
@@ -2281,6 +2304,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                         midBoss3->stateTimer = 0.0f;
                         animation->Play("death", true);
                         enemyComponent->respawnEnabled = false;
+                        m_flow.shieldBossDefeatedThisScene = true;
                         TriggerBossDefeatStartFeedback(m_flow);
                         m_flow.stageBgmCrossFadePending = true;
                         m_flow.stageBgmCrossFadeDelayRemaining = kBossStageBgmReturnDelaySeconds;
@@ -2424,6 +2448,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         if (enemyComponent->GetArchetype() == EnemyArchetype::MidBoss3)
         {
             // 森林ボスと同じ余韻を残してから、廃墟ステージBGMへ戻す。
+            m_flow.shieldBossDefeatedThisScene = true;
             m_flow.stageBgmCrossFadePending = true;
             m_flow.stageBgmCrossFadeDelayRemaining = kBossStageBgmReturnDelaySeconds;
         }
