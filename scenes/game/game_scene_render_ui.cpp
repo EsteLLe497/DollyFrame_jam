@@ -3008,6 +3008,39 @@ void GameScene::DrawBackdropBaseInView(
             drawTiledRepeating(bg4Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU1, scrollV1, uSpan4, vSpan4);
         }
     }
+    if (m_lifecycle.ruinsStageEnabled)
+    {
+        struct RuinsLayerConfig
+        {
+            const char* textureKey;
+            float parallaxX;
+        };
+
+        static const RuinsLayerConfig kRuinsLayersInOrder[] =
+        {
+            { "ruins_layer2", 0.60f }, // 一番速い
+            { "ruins_layer3", 0.55f },
+            { "ruins_layer4", 0.50f },
+            { "ruins_layer5", 0.40f },
+            { "ruins_layer6", 0.36f },
+            { "ruins_layer7", 0.25f }, // 一番遅い
+        };
+
+        for (const RuinsLayerConfig& layer : kRuinsLayersInOrder)
+        {
+            const int layerTexture = m_assets.GetTexture(layer.textureKey);
+            if (layerTexture < 0) continue;
+
+            const int layerTexW = TextureGetWidth(layerTexture);
+            const int layerTexH = TextureGetHeight(layerTexture);
+            if (layerTexW <= 0 || layerTexH <= 0) continue;
+
+            const float layerScrollU = calcScroll(m_flow.cameraX, layer.parallaxX, static_cast<float>(layerTexW));
+            const float layerUSpan = viewWidth / static_cast<float>(layerTexW);
+            const float layerVSpan = viewHeight / static_cast<float>(layerTexH);
+            drawTiledRepeating(layerTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, layerScrollU, 0.0f, layerUSpan, layerVSpan);
+        }
+    }
 }
 
 void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const

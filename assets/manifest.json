@@ -270,14 +270,6 @@
       "type": "file",
       "path": "assets/texture/BG/forest/BG_Forest_05.png"
     },
-    "ruins_bg": {
-      "type": "file",
-      "path": "assets/texture/BG/ruins/ruins.png"
-    },
-    "ruins_fg": {
-      "type": "file",
-      "path": "assets/texture/BG/ruins/ruins.png"
-    },
     "photo_tray_backdrop": {
       "type": "file",
       "path": "assets/texture/photo_tray_backdrop.png"
@@ -381,6 +373,38 @@
     "karihaikei": {
       "type": "file",
       "path": "assets/texture/BG/result/karihaikei.png"
+    },
+    "ruins_bg": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins_01.png"
+    },
+    "ruins_fg": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins_01.png"
+    },
+    "ruins_layer2": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins_02.png"
+    },
+    "ruins_layer3": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins_03.png"
+    },
+    "ruins_layer4": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins_04.png"
+    },
+    "ruins_layer5": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins_05.png"
+    },
+    "ruins_layer6": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins_06.png"
+    },
+    "ruins_layer7": {
+      "type": "file",
+      "path": "assets/texture/BG/ruins/ruins_07.png"
     }
   }
 }
