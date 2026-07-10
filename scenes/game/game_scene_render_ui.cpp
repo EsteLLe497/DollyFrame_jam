@@ -1216,8 +1216,10 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
     const float drawWidth = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale;
     const float drawHeight = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale;
-    const float drawX = static_cast<float>(Input_GetMouseX()) - drawWidth * 0.5f;
-    const float drawY = static_cast<float>(Input_GetMouseY()) - drawHeight * 0.5f;
+    // ファインダー枠は仮想カーソル中心。撮影判定と見た目を一致させるため、
+    // GetCaptureFrameRect が返したワールド矩形をそのままスクリーン座標へ変換する。
+    const float drawX = GetViewOriginX() + (frameX - m_flow.cameraX) * viewScale;
+    const float drawY = GetViewOriginY() + (frameY - m_flow.cameraY) * viewScale;
     const int left = static_cast<int>(std::round(drawX));
     const int top = static_cast<int>(std::round(drawY));
     const int right = static_cast<int>(std::round(drawX + drawWidth));
@@ -1793,12 +1795,13 @@ void GameScene::DrawCaptureOverlay() const
     const float overlayTop = 0.0f;
     const float overlayWidth = static_cast<float>(SCREEN_WIDTH);
     const float overlayHeight = static_cast<float>(SCREEN_HEIGHT);
-    // ファインダー本体はカメラから分離し、常にマウス中心のスクリーンUIとして描画する。
+    // ファインダー本体はカメラ倍率から分離したスクリーンUIだが、位置は仮想カーソル
+    // （マウス／右スティック両対応）中心に合わせる。撮影判定のワールド矩形を変換して使う。
     const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
     const float drawWidth = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale;
     const float drawHeight = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale;
-    const float drawX = static_cast<float>(Input_GetMouseX()) - drawWidth * 0.5f;
-    const float drawY = static_cast<float>(Input_GetMouseY()) - drawHeight * 0.5f;
+    const float drawX = viewOriginX + (frameX - m_flow.cameraX) * viewScale;
+    const float drawY = viewOriginY + (frameY - m_flow.cameraY) * viewScale;
     const int left = static_cast<int>(std::round(drawX));
     const int top = static_cast<int>(std::round(drawY));
     const int right = static_cast<int>(std::round(drawX + drawWidth));
@@ -3031,6 +3034,39 @@ void GameScene::DrawBackdropBaseInView(
             drawTiledRepeating(bg4Texture, viewOriginX, viewOriginY, viewWidth, viewHeight, scrollU1, scrollV1, uSpan4, vSpan4);
         }
     }
+    if (m_lifecycle.ruinsStageEnabled)
+    {
+        struct RuinsLayerConfig
+        {
+            const char* textureKey;
+            float parallaxX;
+        };
+
+        static const RuinsLayerConfig kRuinsLayersInOrder[] =
+        {
+            { "ruins_layer2", 0.60f }, // 一番速い
+            { "ruins_layer3", 0.55f },
+            { "ruins_layer4", 0.50f },
+            { "ruins_layer5", 0.40f },
+            { "ruins_layer6", 0.36f },
+            { "ruins_layer7", 0.25f }, // 一番遅い
+        };
+
+        for (const RuinsLayerConfig& layer : kRuinsLayersInOrder)
+        {
+            const int layerTexture = m_assets.GetTexture(layer.textureKey);
+            if (layerTexture < 0) continue;
+
+            const int layerTexW = TextureGetWidth(layerTexture);
+            const int layerTexH = TextureGetHeight(layerTexture);
+            if (layerTexW <= 0 || layerTexH <= 0) continue;
+
+            const float layerScrollU = calcScroll(m_flow.cameraX, layer.parallaxX, static_cast<float>(layerTexW));
+            const float layerUSpan = viewWidth / static_cast<float>(layerTexW);
+            const float layerVSpan = viewHeight / static_cast<float>(layerTexH);
+            drawTiledRepeating(layerTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, layerScrollU, 0.0f, layerUSpan, layerVSpan);
+        }
+    }
 }
 
 void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const
@@ -3454,8 +3490,14 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     height = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale / viewScale;
 
     // Cursor-centered finder: the visible frame and actual capture bounds must match.
-    const float cursorWorldX = m_flow.cameraX + (static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale;
-    const float cursorWorldY = m_flow.cameraY + (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
+    // ファインダーと貼り付け候補で共有するパッドカーソル（スクリーン座標）を使う。
+    // スクリーン座標を毎フレーム現在のカメラでワールドへ変換するため、
+    // カメラ（プレイヤー）が動いても画面上の位置は保たれつつ撮影対象は追従する。
+    float cursorScreenX = 0.0f;
+    float cursorScreenY = 0.0f;
+    GetActivePadCursorScreen(cursorScreenX, cursorScreenY);
+    const float cursorWorldX = m_flow.cameraX + (cursorScreenX - viewOriginX) / viewScale;
+    const float cursorWorldY = m_flow.cameraY + (cursorScreenY - viewOriginY) / viewScale;
     x = cursorWorldX - width * 0.5f;
     y = cursorWorldY - height * 0.5f;
 }

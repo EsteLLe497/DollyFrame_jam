@@ -429,6 +429,8 @@ struct GameSceneFlowState
     bool playerTouchingTarget = false;
     bool playerTouchingHazard = false;
     bool resultQueued = false;
+    bool resultTransitionSceneRequested = false;
+    float resultTransitionTimer = 0.0f;
     float timeLimit = 60.0f;
     float timeRemaining = 60.0f;
     float cameraX = 0.0f;
@@ -440,6 +442,7 @@ struct GameSceneFlowState
     bool goalUnlocked = false;
     bool goalUnlockedBySwitch = false;
     bool shieldBossDefeatedThisScene = false;
+    bool midBoss3DefeatedThisScene = false;
     bool cameraMode = false;
     int enemyCount = 0;
     float lastDeltaTime = 0.0f;
@@ -466,12 +469,38 @@ struct GameSceneFlowState
 };
 
 
+// パッド（右スティック）カーソルの感度設定。撮影ファインダーと貼り付け候補で共有する。
+// 速度・応答・減衰はスクリーンpx基準。ImGui（DrawPadSettingsWindow）から実行時調整できる。
+struct GameScenePadCursorTuning
+{
+    float deadZone = 0.18f;   // スティックの遊び（0〜1）
+    float maxSpeed = 2600.0f; // フルに倒したときの速度（スクリーンpx/秒）
+    float response = 18.0f;   // 目標速度への追従の速さ（大きいほど即応）
+    float damping = 12.0f;    // スティックを離したときの減速の強さ
+};
+
+
 struct GameSceneUiState
 {
     float shutterFlashRemaining = 0.0f;
     float developedPhotoPreviewRemaining = 0.0f;
     float photoTrayReveal = 0.0f;
     float captureFinderScale = 1.0f;
+    GameScenePadCursorTuning padCursor;
+    // 撮影ファインダーの仮想カーソル（スクリーン座標）。マウス移動時はマウス位置に追従し、
+    // 右スティック入力時はスティックで動かす（プレイ中はパッドとマウスを自由に切替可能）。
+    // スクリーン座標で保持することで、カメラ（プレイヤー）が動いても画面上の位置が保たれ、
+    // 撮影判定は毎フレーム現在のカメラでワールドへ変換される（＝プレイヤーに追従する）。
+    float finderCursorScreenX = 0.0f;
+    float finderCursorScreenY = 0.0f;
+    float finderCursorVelocityX = 0.0f;
+    float finderCursorVelocityY = 0.0f;
+    bool finderCursorInitialized = false;
+    // パッドが操作している間だけ true。マウス操作時は生マウス座標に完全追従させる。
+    bool finderCursorPadDriving = false;
+    int finderCursorLastMouseX = 0;
+    int finderCursorLastMouseY = 0;
+    unsigned int finderCursorLastTimeMs = 0;
     float captureRapidTimer = 0.0f;
     float captureLockoutRemaining = 0.0f;
     int captureRapidCount = 0;
@@ -676,6 +705,7 @@ struct GameSceneLifecycleState
     char lastStageTransitionMarker = '\0';
     bool darknessStageEnabled = false;
     bool forestStageEnabled = false;
+    bool ruinsStageEnabled = false;
     ResourceManager* loadingResources = nullptr;
     bool loadingActive = false;
     bool loadingFinished = false;

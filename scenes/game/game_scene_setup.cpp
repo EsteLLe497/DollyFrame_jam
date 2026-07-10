@@ -67,6 +67,12 @@ namespace
         const std::string stem = ToLowerCopy(path.stem().string());
         return stem.find("forest") != std::string::npos;
     }
+    bool IsRuinsStageMapPath(const std::string& mapPath)
+    {
+        std::filesystem::path path(mapPath);
+        const std::string stem = ToLowerCopy(path.stem().string());
+        return stem.find("ruins") != std::string::npos;
+    }
 
     std::string ResolveDefaultTileTextureKeyForMapPath(const std::string& mapCsvPath)
     {
@@ -576,6 +582,7 @@ void GameScene::RefreshStageRenderProfile()
 {
     m_lifecycle.darknessStageEnabled = IsDarknessStageMapPath(m_lifecycle.currentMapCsvPath);
     m_lifecycle.forestStageEnabled = IsForestStageMapPath(m_lifecycle.currentMapCsvPath);
+    m_lifecycle.ruinsStageEnabled = IsRuinsStageMapPath(m_lifecycle.currentMapCsvPath);
     if (m_lifecycle.forestStageEnabled)
     {
         DirectXSetPostProcessVignette(0.54f, 0.43f, 0.34f, 0.58f);
@@ -1262,8 +1269,11 @@ namespace
             }
         }
 
-        photo.selectedCaptureSlot = root.value("selectedCaptureSlot", photo.selectedCaptureSlot);
-        photo.nextCaptureSlot = root.value("nextCaptureSlot", photo.nextCaptureSlot);
+        // 破損・手編集セーブ対策: スロット番号は必ず配列範囲に収める。
+        // 範囲外（特に負値）が入ると写真トレイの剰余計算で負インデックスになり範囲外アクセスする。
+        const int captureSlotMax = static_cast<int>(photo.savedCaptures.size()) - 1;
+        photo.selectedCaptureSlot = std::clamp(root.value("selectedCaptureSlot", photo.selectedCaptureSlot), 0, captureSlotMax);
+        photo.nextCaptureSlot = std::clamp(root.value("nextCaptureSlot", photo.nextCaptureSlot), 0, captureSlotMax);
 
         const auto pendingStoreIt = root.find("pendingStore");
         if (pendingStoreIt != root.end() && pendingStoreIt->is_object())
@@ -1681,6 +1691,27 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     LoadStageTransitionLinks();
     m_assets.LoadDefaults(resources);
     m_whiteTexture = m_assets.GetTexture("white");
+
+    // 撮影・写真トレイで最初に使うテクスチャを先読みする。
+    // 遅延ロードのままだと初回シャッターのフレームでディスクI/Oが走り、カクつきになる。
+    constexpr const char* kPhotoPreloadTextureKeys[] = {
+        "sepia_rubble",
+        "sepia_rubble_stage",
+        "sepia_ground",
+        "sepia_shutter_gate",
+        "sepia_shutter_gate_horizontal",
+        "ui_photo_frame",
+        "ui_photo_frame_film_brown",
+        "ui_photo_frame_film_black",
+    };
+    for (const char* textureKey : kPhotoPreloadTextureKeys)
+    {
+        if (m_assets.GetTexture(textureKey) < 0)
+        {
+            Logger::Warn(std::string("Photo texture preload failed: ") + textureKey);
+        }
+    }
+
     InitializeTestPhotoResources(resources);
     m_tileMap.LoadFromCsv(m_lifecycle.currentMapCsvPath, 48.0f);
     RefreshTileTextureForCurrentMap();

@@ -550,6 +550,9 @@ inline void UpdateEnemies(
                     boss->deathAnimationFinished = true;
                     enemy->MarkDefeated();
                     enemy->respawnEnabled = false;
+                    // ボス撃破でゴールを解放する（シャッターは useBossDefeatSignal 側で自動的に開く）。
+                    flow.midBoss3DefeatedThisScene = true;
+                    flow.goalUnlockedBySwitch = true;
                     flow.stageBgmCrossFadePending = true;
                     flow.stageBgmCrossFadeDelayRemaining = 1.25f;
                     spawnDropItems(*entity);

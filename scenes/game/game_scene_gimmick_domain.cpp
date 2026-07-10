@@ -42,26 +42,28 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
         linkPowered[linkId] = true;
     };
-    bool shieldBossDefeated = false;
+
+    bool shieldBossDefeated = m_flow.shieldBossDefeatedThisScene || m_flow.midBoss3DefeatedThisScene;
     bool hasProtectiveWalls = false;
     bool hasIntactProtectiveWall = false;
-    for (const auto& entity : m_world.Entities())
-    {
-        if (!entity)
-        {
-            continue;
-        }
-        const auto* enemy = entity->GetComponent<EnemyComponent>();
-        if (!enemy)
-        {
-            continue;
-        }
-        if (enemy->GetArchetype() == EnemyArchetype::ShieldBoss && enemy->IsDefeated())
-        {
-            shieldBossDefeated = true;
-            break;
-        }
-    }
+    //bool hasIntactProtectiveWall = false;
+    //for (const auto& entity : m_world.Entities())
+    //{
+    //    if (!entity)
+    //    {
+    //        continue;
+    //    }
+    //    const auto* enemy = entity->GetComponent<EnemyComponent>();
+    //    if (!enemy)
+    //    {
+    //        continue;
+    //    }
+    //    if (enemy->GetArchetype() == EnemyArchetype::ShieldBoss && enemy->IsDefeated())
+    //    {
+    //        shieldBossDefeated = true;
+    //        break;
+    //    }
+    //}
 
     auto isPlayerOnTopOfPlatform = [&](const TransformComponent& platform, float topTolerance) -> bool
     {
@@ -1514,9 +1516,11 @@ void GameScene::QueueResult(GameEndReason reason)
     }
 
     m_flow.resultQueued = true;
+    m_flow.resultTransitionSceneRequested = false;
+    m_flow.resultTransitionTimer = 0.0f;
     GameSession_SetEndReason(reason);
     GameSession_SetLastMapCsvPath(m_lifecycle.currentMapCsvPath);
-    m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "result", 0.0f, 0.0f });
+    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
 }
 
 void GameScene::StartPitRestart(Entity* player, const char* logMessage)
