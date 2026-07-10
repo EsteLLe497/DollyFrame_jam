@@ -16,11 +16,6 @@ namespace
 {
     constexpr int kMaxPhotoGroups = 3;
     constexpr float kArchetypePhotoFrameLifetimeSeconds = 0.45f;
-    constexpr float kPadDeadZone = 0.18f;
-    constexpr float kPadCursorMaxSpeed = 920.0f;
-    constexpr float kPadCursorResponse = 14.0f;
-    constexpr float kPadCursorDamping = 10.0f;
-    constexpr float kPadCursorMouseReturnDelay = 0.28f;
     constexpr float kPlacementInvalidFlashSeconds = 0.22f;
     constexpr float kPlacementConfirmFlashSeconds = 0.14f;
     constexpr float kValidPreviewPulseHz = 2.2f;
@@ -353,62 +348,6 @@ namespace
         return groundEntity;
     }
 
-    void UpdatePlacementPadCursor(
-        float mouseWorldX,
-        float mouseWorldY,
-        bool mouseMoved,
-        float rightX,
-        float rightY,
-        float dt,
-        float& cursorWorldX,
-        float& cursorWorldY,
-        float& velocityX,
-        float& velocityY,
-        float& lastPadInputSeconds,
-        float nowSeconds)
-    {
-        if (mouseMoved)
-        {
-            cursorWorldX = mouseWorldX;
-            cursorWorldY = mouseWorldY;
-            velocityX = 0.0f;
-            velocityY = 0.0f;
-            lastPadInputSeconds = -1000.0f;
-            return;
-        }
-
-        const float magnitude = std::sqrt(rightX * rightX + rightY * rightY);
-        const bool padActive = Input_IsGamepadConnected() && magnitude > kPadDeadZone;
-        if (padActive)
-        {
-            const float normalizedMagnitude = std::clamp((magnitude - kPadDeadZone) / (1.0f - kPadDeadZone), 0.0f, 1.0f);
-            const float curvedMagnitude = normalizedMagnitude * normalizedMagnitude;
-            const float scale = curvedMagnitude / magnitude;
-            const float desiredVelocityX = rightX * scale * kPadCursorMaxSpeed;
-            const float desiredVelocityY = rightY * scale * kPadCursorMaxSpeed;
-            const float response = std::min(1.0f, dt * kPadCursorResponse);
-            velocityX += (desiredVelocityX - velocityX) * response;
-            velocityY += (desiredVelocityY - velocityY) * response;
-            lastPadInputSeconds = nowSeconds;
-        }
-        else
-        {
-            const float damping = std::max(0.0f, 1.0f - dt * kPadCursorDamping);
-            velocityX *= damping;
-            velocityY *= damping;
-
-            if (nowSeconds - lastPadInputSeconds >= kPadCursorMouseReturnDelay)
-            {
-                const float returnFactor = std::min(1.0f, dt * 6.0f);
-                cursorWorldX += (mouseWorldX - cursorWorldX) * returnFactor;
-                cursorWorldY += (mouseWorldY - cursorWorldY) * returnFactor;
-            }
-        }
-
-        cursorWorldX += velocityX * dt;
-        cursorWorldY += velocityY * dt;
-    }
-
 }
 
 int PhotoPasteSystem::GetPhotoTraySlotAt(const GameScene& scene, float screenX, float screenY)
@@ -469,8 +408,10 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
         return;
     }
 
+    // 配置は右クリック長押し、またはパッドのLT長押しで行う。
+    // 押した瞬間に候補表示、離した瞬間に貼り付け（両者を統合して扱う）。
     static bool previousRightDown = false;
-    const bool rightDown = Input_IsKeyDown(VK_RBUTTON);
+    const bool rightDown = Input_IsKeyDown(VK_RBUTTON) || Input_IsLeftTriggerDown();
     const bool rightPressed = rightDown && !previousRightDown;
     const bool rightReleased = !rightDown && previousRightDown;
     previousRightDown = rightDown;
@@ -528,6 +469,11 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
         scene.m_photo.placement.bridgeEnabled = !scene.m_photo.placement.bridgeEnabled;
     }
     if (rightDown && Input_IsMouseLeftPressed())
+    {
+        scene.m_photo.placement.rotation += kPlacementQuarterTurn;
+    }
+    // 配置候補表示中にRT（右トリガー）を押すたびに90度ずつ回転させる。
+    if (Input_IsRightTriggerPressed())
     {
         scene.m_photo.placement.rotation += kPlacementQuarterTurn;
     }
@@ -971,72 +917,23 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
     const float viewOriginX = scene.GetViewOriginX();
     const float viewOriginY = scene.GetViewOriginY();
 
-    const float mapWidth = scene.GetMapPixelWidth();
     const float mapHeight = scene.GetMapPixelHeight();
-    static float padCursorWorldX = 0.0f;
-    static float padCursorWorldY = 0.0f;
-    static float padCursorVelocityX = 0.0f;
-    static float padCursorVelocityY = 0.0f;
+    // 貼り付け候補カーソルはファインダーとパッドカーソル位置を共有する。
+    // 共有カーソル（スクリーン座標）は UpdateCaptureFinderCursor が毎フレーム更新しており、
+    // ここでは現在位置を読むだけ。スクリーン座標なのでカメラ（プレイヤー）が動いても
+    // 画面上の位置は保たれ、毎フレーム現在のカメラでワールドへ変換される。
     static unsigned int lastTimeMs = 0;
-    static bool initialized = false;
-    static int lastSessionId = -1;
-    static float lastPadInputSeconds = -1000.0f;
-    static int lastMouseX = Input_GetMouseX();
-    static int lastMouseY = Input_GetMouseY();
-
-    const float cursorStartWorldX = scene.m_flow.cameraX + gCameraViewWidth * 0.5f;
-    const float cursorStartWorldY = scene.m_flow.cameraY + gCameraViewHeight * 0.5f;
-
-    if (!initialized)
-    {
-        padCursorWorldX = cursorStartWorldX;
-        padCursorWorldY = cursorStartWorldY;
-        initialized = true;
-    }
-
-    if (lastSessionId != scene.m_photo.placement.sessionId)
-    {
-        padCursorWorldX = cursorStartWorldX;
-        padCursorWorldY = cursorStartWorldY;
-        padCursorVelocityX = 0.0f;
-        padCursorVelocityY = 0.0f;
-        lastPadInputSeconds = -1000.0f;
-        lastSessionId = scene.m_photo.placement.sessionId;
-    }
-
     const unsigned int nowMs = static_cast<unsigned int>(GetNowCount());
     const float dt = lastTimeMs ? (static_cast<float>(nowMs - lastTimeMs) / 1000.0f) : (1.0f / 60.0f);
     lastTimeMs = nowMs;
     scene.m_photo.placement.invalidFlashRemaining = std::max(0.0f, scene.m_photo.placement.invalidFlashRemaining - dt);
     scene.m_photo.placement.confirmFlashRemaining = std::max(0.0f, scene.m_photo.placement.confirmFlashRemaining - dt);
 
-    const int mouseX = Input_GetMouseX();
-    const int mouseY = Input_GetMouseY();
-    const bool mouseMoved = mouseX != lastMouseX || mouseY != lastMouseY;
-    lastMouseX = mouseX;
-    lastMouseY = mouseY;
-    const float mouseWorldX = ((static_cast<float>(mouseX) - viewOriginX) / viewScale) + scene.m_flow.cameraX;
-    const float mouseWorldY = ((static_cast<float>(mouseY) - viewOriginY) / viewScale) + scene.m_flow.cameraY;
-    const float rightX = Input_GetRightStickX();
-    const float rightY = Input_GetRightStickY();
-    UpdatePlacementPadCursor(
-        mouseWorldX,
-        mouseWorldY,
-        mouseMoved,
-        rightX,
-        rightY,
-        dt,
-        padCursorWorldX,
-        padCursorWorldY,
-        padCursorVelocityX,
-        padCursorVelocityY,
-        lastPadInputSeconds,
-        static_cast<float>(nowMs) / 1000.0f);
-    padCursorWorldX = std::clamp(padCursorWorldX, 0.0f, std::max(0.0f, mapWidth));
-    padCursorWorldY = std::clamp(padCursorWorldY, 0.0f, std::max(0.0f, mapHeight));
-
-    const float cursorWorldX = padCursorWorldX;
-    const float cursorWorldY = padCursorWorldY;
+    float cursorScreenX = 0.0f;
+    float cursorScreenY = 0.0f;
+    scene.GetActivePadCursorScreen(cursorScreenX, cursorScreenY);
+    const float cursorWorldX = scene.m_flow.cameraX + (cursorScreenX - viewOriginX) / viewScale;
+    const float cursorWorldY = scene.m_flow.cameraY + (cursorScreenY - viewOriginY) / viewScale;
     spawnX = cursorWorldX - spawnWidth * 0.5f;
     spawnY = std::clamp(cursorWorldY - spawnHeight * 0.5f, 0.0f, std::max(0.0f, mapHeight - spawnHeight));
 
@@ -1047,8 +944,7 @@ bool PhotoPasteSystem::UpdatePlacementPreview(
     scene.m_photo.placement.height = spawnHeight;
     scene.m_photo.placement.valid = scene.IsPhotoPlacementValid(spawnX, spawnY, spawnWidth, spawnHeight);
 
-    const float cursorScreenX = viewOriginX + (cursorWorldX - scene.m_flow.cameraX) * viewScale;
-    const float cursorScreenY = viewOriginY + (cursorWorldY - scene.m_flow.cameraY) * viewScale;
+    // トレイ判定はカーソルのスクリーン座標をそのまま使う（上で算出済み）。
     const bool blockedByTray = scene.IsPhotoTrayHit(cursorScreenX, cursorScreenY);
     scene.m_photo.placement.blockedByUi = blockedByTray;
 

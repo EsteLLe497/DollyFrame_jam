@@ -1216,8 +1216,10 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
     const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
     const float drawWidth = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale;
     const float drawHeight = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale;
-    const float drawX = static_cast<float>(Input_GetMouseX()) - drawWidth * 0.5f;
-    const float drawY = static_cast<float>(Input_GetMouseY()) - drawHeight * 0.5f;
+    // ファインダー枠は仮想カーソル中心。撮影判定と見た目を一致させるため、
+    // GetCaptureFrameRect が返したワールド矩形をそのままスクリーン座標へ変換する。
+    const float drawX = GetViewOriginX() + (frameX - m_flow.cameraX) * viewScale;
+    const float drawY = GetViewOriginY() + (frameY - m_flow.cameraY) * viewScale;
     const int left = static_cast<int>(std::round(drawX));
     const int top = static_cast<int>(std::round(drawY));
     const int right = static_cast<int>(std::round(drawX + drawWidth));
@@ -1773,12 +1775,13 @@ void GameScene::DrawCaptureOverlay() const
     const float overlayTop = 0.0f;
     const float overlayWidth = static_cast<float>(SCREEN_WIDTH);
     const float overlayHeight = static_cast<float>(SCREEN_HEIGHT);
-    // ファインダー本体はカメラから分離し、常にマウス中心のスクリーンUIとして描画する。
+    // ファインダー本体はカメラ倍率から分離したスクリーンUIだが、位置は仮想カーソル
+    // （マウス／右スティック両対応）中心に合わせる。撮影判定のワールド矩形を変換して使う。
     const float finderUiScale = GetCaptureFinderScreenScale(m_tileMap.GetTileSize());
     const float drawWidth = gCaptureFrameWidthPx * m_ui.captureFinderScale * finderUiScale;
     const float drawHeight = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale;
-    const float drawX = static_cast<float>(Input_GetMouseX()) - drawWidth * 0.5f;
-    const float drawY = static_cast<float>(Input_GetMouseY()) - drawHeight * 0.5f;
+    const float drawX = viewOriginX + (frameX - m_flow.cameraX) * viewScale;
+    const float drawY = viewOriginY + (frameY - m_flow.cameraY) * viewScale;
     const int left = static_cast<int>(std::round(drawX));
     const int top = static_cast<int>(std::round(drawY));
     const int right = static_cast<int>(std::round(drawX + drawWidth));
@@ -3464,8 +3467,14 @@ void GameScene::GetCaptureFrameRect(const TransformComponent& playerTransform, f
     height = gCaptureFrameHeightPx * m_ui.captureFinderScale * finderUiScale / viewScale;
 
     // Cursor-centered finder: the visible frame and actual capture bounds must match.
-    const float cursorWorldX = m_flow.cameraX + (static_cast<float>(Input_GetMouseX()) - viewOriginX) / viewScale;
-    const float cursorWorldY = m_flow.cameraY + (static_cast<float>(Input_GetMouseY()) - viewOriginY) / viewScale;
+    // ファインダーと貼り付け候補で共有するパッドカーソル（スクリーン座標）を使う。
+    // スクリーン座標を毎フレーム現在のカメラでワールドへ変換するため、
+    // カメラ（プレイヤー）が動いても画面上の位置は保たれつつ撮影対象は追従する。
+    float cursorScreenX = 0.0f;
+    float cursorScreenY = 0.0f;
+    GetActivePadCursorScreen(cursorScreenX, cursorScreenY);
+    const float cursorWorldX = m_flow.cameraX + (cursorScreenX - viewOriginX) / viewScale;
+    const float cursorWorldY = m_flow.cameraY + (cursorScreenY - viewOriginY) / viewScale;
     x = cursorWorldX - width * 0.5f;
     y = cursorWorldY - height * 0.5f;
 }
