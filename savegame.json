@@ -1,11 +1,13 @@
 {
   "activeCheckpointId": -1,
-  "cameraTutorialCompleted": false,
+  "cameraTutorialCompleted": true,
   "cameraX": 0.0,
-  "cameraY": 0.0,
-  "completedTutorialNumbers": [],
+  "cameraY": 1947.0,
+  "completedTutorialNumbers": [
+    1
+  ],
   "hasCheckpoint": false,
-  "mapCsvPath": "assets/maps/stages/ruins_boss.csv",
+  "mapCsvPath": "assets/maps/stages/forest_v2.csv",
   "photo": {
     "attackCapture": {
       "attackCaptureCount": 0,
@@ -47,7 +49,7 @@
     },
     "groups": {
       "activeGroupCount": 0,
-      "hasSpawnedCopy": false,
+      "hasSpawnedCopy": true,
       "nextGroupId": 1,
       "nextPasteOrder": 1
     },
@@ -154,10 +156,10 @@
     ],
     "selectedCaptureSlot": 0
   },
-  "playerX": 406.3260498046875,
-  "playerY": 432.0,
-  "respawnX": 192.0,
-  "respawnY": 336.0,
+  "playerX": 384.0,
+  "playerY": 2400.0,
+  "respawnX": 384.0,
+  "respawnY": 2400.0,
   "sessionCurrentHp": 3,
   "sessionHasCameraFlash": false,
   "sessionHasRecoveryFilter": false,
@@ -166,7 +168,7 @@
   "sessionPhotoStorageSlots": 2,
   "sessionTimeLimit": 60.0,
   "sessionTimeRemaining": 60.0,
-  "stageStartX": 192.0,
-  "stageStartY": 336.0,
+  "stageStartX": 384.0,
+  "stageStartY": 2400.0,
   "version": 1
 }
