@@ -62,7 +62,7 @@ namespace
     };
 
     constexpr StageSelectItem kStageSelectItems[kStageSelectItemCount] = {
-        { "森", "assets/maps/stages/forest.csv" },
+        { "森", "assets/maps/stages/forest_v2.csv" },
         { "森（ボス）", "assets/maps/stages/forest_boss.csv" },
         { "廃墟", "assets/maps/stages/ruins_v2.csv" },
         { "廃墟（ボス）", "assets/maps/stages/ruins_boss.csv" },

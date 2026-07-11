@@ -8,6 +8,7 @@
 #include "photo_filter_rules.h"
 #include "photo_shared.h"
 #include "DxLib.h"
+#include <algorithm>
 #include <cmath>
 
 using namespace game_scene_detail;
@@ -1247,7 +1248,11 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedBullet->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
             spawnedBullet->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
             spawnedBullet->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : scene.m_tileTexture);
-            auto& projectile = spawnedBullet->AddComponent<ProjectileComponent>(item.projectileVelocityX, item.projectileVelocityY, item.projectileDamage, ProjectileComponent::Owner::Photo);
+            auto& projectile = spawnedBullet->AddComponent<ProjectileComponent>(
+                item.projectileVelocityX,
+                item.projectileVelocityY,
+                item.projectileDamage,
+                ProjectileComponent::Owner::Photo);
             if (item.spearProjectile)
             {
                 auto& spear = spawnedBullet->AddComponent<MidBoss2SpearComponent>();
