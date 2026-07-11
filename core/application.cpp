@@ -21,6 +21,7 @@
 #include "imgui_layer.h"
 #include "input.h"
 #include "logger.h"
+#include "loading_preview_scene.h"
 #include "resource_manager.h"
 #include "result_scene.h"
 #include "scene_manager.h"
@@ -106,10 +107,52 @@ namespace
 
     void DrawStartupLoadingScreen(const char* text)
     {
+        static_cast<void>(text);
         SetDrawScreen(DX_SCREEN_BACK);
         ClearDrawScreen();
-        DrawBox(0, 0, kVirtualScreenWidth, kVirtualScreenHeight, GetColor(6, 8, 14), TRUE);
-        DrawString(kVirtualScreenWidth / 2 - 84, kVirtualScreenHeight / 2 - 8, text, GetColor(210, 230, 255));
+
+        const int centerX = kVirtualScreenWidth / 2;
+        DrawBox(0, 0, kVirtualScreenWidth, kVirtualScreenHeight, GetColor(16, 11, 9), TRUE);
+
+        constexpr int stripTop = 226;
+        constexpr int stripHeight = 300;
+        constexpr int frameWidth = 238;
+        constexpr int frameHeight = 186;
+        constexpr int frameGap = 18;
+        DrawBox(0, stripTop, kVirtualScreenWidth, stripTop + stripHeight, GetColor(8, 8, 8), TRUE);
+        DrawBox(0, stripTop + 42, kVirtualScreenWidth, stripTop + 45, GetColor(74, 64, 53), TRUE);
+        DrawBox(0, stripTop + stripHeight - 45, kVirtualScreenWidth, stripTop + stripHeight - 42, GetColor(74, 64, 53), TRUE);
+
+        for (int x = -12; x < kVirtualScreenWidth + 42; x += 42)
+        {
+            DrawBox(x, stripTop + 10, x + 24, stripTop + 26, GetColor(211, 188, 150), TRUE);
+            DrawBox(x, stripTop + stripHeight - 26, x + 24, stripTop + stripHeight - 10, GetColor(211, 188, 150), TRUE);
+        }
+
+        const int frameTop = stripTop + 58;
+        for (int index = 0; index < 5; ++index)
+        {
+            const int left = -94 + index * (frameWidth + frameGap);
+            const int right = left + frameWidth;
+            DrawBox(left - 5, frameTop - 5, right + 5, frameTop + frameHeight + 5, GetColor(190, 170, 139), TRUE);
+            DrawBox(left, frameTop, right, frameTop + frameHeight, GetColor(62, 45, 34), TRUE);
+            DrawBox(left, frameTop, right, frameTop + 82, GetColor(144 - index * 8, 91 - index * 5, 62), TRUE);
+            DrawCircle(left + 170, frameTop + 54, 28, GetColor(202, 141, 86), TRUE);
+            DrawCircle(left + 54, frameTop + frameHeight - 34, 68, GetColor(40, 38, 29), TRUE);
+            DrawCircle(right - 42, frameTop + frameHeight - 30, 76, GetColor(31, 31, 25), TRUE);
+            DrawBox(left, frameTop + frameHeight - 40, right, frameTop + frameHeight, GetColor(25, 25, 22), TRUE);
+            DrawBox(left, frameTop, right, frameTop + frameHeight, GetColor(228, 207, 172), FALSE);
+        }
+
+        const int gateLeft = centerX - frameWidth / 2 - 12;
+        const int gateRight = centerX + frameWidth / 2 + 12;
+        DrawBox(gateLeft, stripTop + 48, gateRight, stripTop + stripHeight - 48, GetColor(255, 220, 142), FALSE);
+
+        const char* loadingText = "旅の記録を読み込んでいます…";
+        const int loadingWidth = GetDrawStringWidth(loadingText, -1);
+        DrawString(centerX - loadingWidth / 2, 136, loadingText, GetColor(239, 220, 186));
+        DrawBox(centerX - 210, kVirtualScreenHeight - 92, centerX + 210, kVirtualScreenHeight - 86, GetColor(92, 73, 56), TRUE);
+        DrawBox(centerX - 210, kVirtualScreenHeight - 92, centerX + 34, kVirtualScreenHeight - 86, GetColor(224, 174, 92), TRUE);
         ScreenFlip();
     }
 
@@ -251,9 +294,12 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     {
         return false;
     }
-    if (!ImGuiLayer_Initialize(GetMainWindowHandle(), DirectXGetDevice(), DirectXGetDeviceContext()))
+    if constexpr (build_config::kDebugFeaturesEnabled)
     {
-        return false;
+        if (!ImGuiLayer_Initialize(GetMainWindowHandle(), DirectXGetDevice(), DirectXGetDeviceContext()))
+        {
+            return false;
+        }
     }
 
     LoadSoundCueAssets();
@@ -278,6 +324,13 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
         {
             return std::make_unique<ShaderShowcaseScene>();
         });
+    if constexpr (build_config::kDebugFeaturesEnabled)
+    {
+        m_sceneRegistry->Register("loading_preview", []()
+            {
+                return std::make_unique<LoadingPreviewScene>();
+            });
+    }
 
     m_sceneManager->SetScene(m_sceneRegistry->Create("title"), *m_resources);
     m_initialized = true;
@@ -294,7 +347,10 @@ void Application::Shutdown()
     }
 
     m_sceneManager->Shutdown();
-    ImGuiLayer_Shutdown();
+    if constexpr (build_config::kDebugFeaturesEnabled)
+    {
+        ImGuiLayer_Shutdown();
+    }
     Audio_Shutdown();
     SpriteFinalize();
     m_resources->Shutdown();
@@ -312,10 +368,13 @@ void Application::Update(float deltaTime)
     Input_Update();
     Audio_Update();
 
-    if (Input_IsActionPressed(InputAction::TogglePostProcess))
+    if constexpr (build_config::kDebugFeaturesEnabled)
     {
-        DirectXTogglePostProcess();
-        Logger::Info(DirectXIsPostProcessEnabled() ? "Post process: ON" : "Post process: OFF");
+        if (Input_IsActionPressed(InputAction::TogglePostProcess))
+        {
+            DirectXTogglePostProcess();
+            Logger::Info(DirectXIsPostProcessEnabled() ? "Post process: ON" : "Post process: OFF");
+        }
     }
 
     ClearCurrentSceneEvents();
@@ -373,11 +432,14 @@ void Application::Draw()
     {
         DrawExitConfirmation();
     }
-    ImGuiLayer_BeginFrame();
-    ImGuiLayer_SetFoundationOverlayVisible(true);
-    m_sceneManager->DrawDebugUI();
-    ImGuiLayer_EndFrame();
-    ImGuiLayer_DrawFoundationWindow(m_currentFps);
+    if constexpr (build_config::kDebugFeaturesEnabled)
+    {
+        ImGuiLayer_BeginFrame();
+        ImGuiLayer_SetFoundationOverlayVisible(true);
+        m_sceneManager->DrawDebugUI();
+        ImGuiLayer_EndFrame();
+        ImGuiLayer_DrawFoundationWindow(m_currentFps);
+    }
     Present();
 }
 
@@ -722,9 +784,12 @@ HWND Application::CreateAppWindow(HINSTANCE instance, int nCmdShow)
 
 LRESULT Application::HandleMessage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    if (ImGuiLayer_WndProcHandler(hWnd, message, wParam, lParam))
+    if constexpr (build_config::kDebugFeaturesEnabled)
     {
-        return TRUE;
+        if (ImGuiLayer_WndProcHandler(hWnd, message, wParam, lParam))
+        {
+            return TRUE;
+        }
     }
     return DefWindowProc(hWnd, message, wParam, lParam);
 }

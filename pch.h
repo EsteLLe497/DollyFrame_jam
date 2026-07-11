@@ -31,3 +31,5 @@
 #endif
 #include <sol/sol.hpp>
 #include <tracy/Tracy.hpp>
+
+#include "build_config.h"

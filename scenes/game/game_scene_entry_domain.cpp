@@ -10,7 +10,6 @@ using namespace game_scene_detail;
 
 namespace
 {
-    constexpr int kLoadingDotCount = 10;
     constexpr float kResultTransitionDuration = 0.95f;
 
     const char* GetLoadingStepLabel(int step)
@@ -228,45 +227,132 @@ void GameScene::UpdatePostProcessPlayerLight() const
 
 void GameScene::DrawLoadingScreen() const
 {
-    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(3, 5, 10), TRUE);
-
-    const float pulse = 0.5f + 0.5f * std::sin(m_lifecycle.loadingElapsed * 4.0f);
-    const int centerX = SCREEN_WIDTH / 2;
-    const int centerY = SCREEN_HEIGHT / 2;
-    const int textColor = GetColor(218, 232, 255);
-    const int mutedColor = GetColor(106, 132, 168);
-    const int barBackColor = GetColor(18, 28, 44);
-    const int barFillColor = GetColor(92, 184, 255);
-
-    for (int i = 0; i < kLoadingDotCount; ++i)
-    {
-        const float angle = m_lifecycle.loadingElapsed * 3.2f + static_cast<float>(i) * (6.2831853f / static_cast<float>(kLoadingDotCount));
-        const float phase = 0.5f + 0.5f * std::sin(angle + m_lifecycle.loadingElapsed * 2.0f);
-        const int alpha = std::clamp(static_cast<int>(72.0f + phase * 164.0f), 0, 255);
-        const int x = centerX + static_cast<int>(std::round(std::cos(angle) * 44.0f));
-        const int y = centerY - 54 + static_cast<int>(std::round(std::sin(angle) * 18.0f));
-        SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
-        DrawCircleAA(static_cast<float>(x), static_cast<float>(y), 5.0f + phase * 2.0f, 24, barFillColor, TRUE);
-    }
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-
-    char label[64]{};
-    std::snprintf(label, sizeof(label), "LOADING %s", GetLoadingStepLabel(m_lifecycle.loadingStep));
-    DrawString(centerX - 92, centerY + 6, label, textColor);
-
-    const int barWidth = 360;
-    const int barHeight = 10;
-    const int barLeft = centerX - barWidth / 2;
-    const int barTop = centerY + 42;
+    const float pulse = 0.5f + 0.5f * std::sin(m_lifecycle.loadingElapsed * 3.0f);
     const float displayedProgress = m_lifecycle.loadingFinished
         ? 1.0f
         : std::clamp(m_lifecycle.loadingProgress + pulse * 0.025f, 0.0f, 0.985f);
-    const int fillRight = barLeft + static_cast<int>(std::round(static_cast<float>(barWidth) * displayedProgress));
-    DrawBox(barLeft, barTop, barLeft + barWidth, barTop + barHeight, barBackColor, TRUE);
-    DrawBox(barLeft, barTop, fillRight, barTop + barHeight, barFillColor, TRUE);
-    DrawBox(barLeft, barTop, barLeft + barWidth, barTop + barHeight, GetColor(74, 96, 128), FALSE);
+    const int centerX = SCREEN_WIDTH / 2;
+    const int centerY = SCREEN_HEIGHT / 2;
 
-    DrawString(centerX - 132, centerY + 68, "Preparing stage assets...", mutedColor);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(16, 11, 9), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(28.0f + pulse * 18.0f));
+    DrawCircleAA(static_cast<float>(centerX), static_cast<float>(centerY), 520.0f, 64, GetColor(132, 76, 38), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    constexpr int stripHeight = 326;
+    constexpr int stripTop = 184;
+    constexpr int railHeight = 44;
+    constexpr int frameWidth = 250;
+    constexpr int frameHeight = 206;
+    constexpr int frameGap = 18;
+    constexpr int framePitch = frameWidth + frameGap;
+    constexpr int holeGap = 42;
+
+    constexpr float stepsPerSecond = 1.7f;
+    const float rawStep = m_lifecycle.loadingElapsed * stepsPerSecond;
+    const int completedSteps = static_cast<int>(std::floor(rawStep));
+    const float stepPhase = rawStep - static_cast<float>(completedSteps);
+    const float advancePhase = std::clamp(stepPhase / 0.22f, 0.0f, 1.0f);
+    const float easedAdvance = 1.0f - std::pow(1.0f - advancePhase, 3.0f);
+    const float travel = (static_cast<float>(completedSteps) + easedAdvance) * static_cast<float>(framePitch);
+    const int travelWithinPitch = static_cast<int>(std::round(travel)) % framePitch;
+    const int firstFrameNumber = completedSteps + (advancePhase >= 0.999f ? 1 : 0);
+    const int stripLeft = -framePitch - travelWithinPitch;
+
+    DrawBox(0, stripTop, SCREEN_WIDTH, stripTop + stripHeight, GetColor(8, 8, 8), TRUE);
+    DrawBox(0, stripTop + railHeight, SCREEN_WIDTH, stripTop + railHeight + 3, GetColor(74, 64, 53), TRUE);
+    DrawBox(0, stripTop + stripHeight - railHeight - 3, SCREEN_WIDTH, stripTop + stripHeight - railHeight, GetColor(74, 64, 53), TRUE);
+
+    const int holeOffset = travelWithinPitch % holeGap;
+    for (int x = -holeGap - holeOffset; x < SCREEN_WIDTH + holeGap; x += holeGap)
+    {
+        DrawBox(x, stripTop + 10, x + 24, stripTop + 26, GetColor(211, 188, 150), TRUE);
+        DrawBox(x, stripTop + stripHeight - 26, x + 24, stripTop + stripHeight - 10, GetColor(211, 188, 150), TRUE);
+    }
+
+    const char* textureKeys[3] = {};
+    if (m_lifecycle.ruinsStageEnabled)
+    {
+        textureKeys[0] = "ruins_bg";
+        textureKeys[1] = "ruins_layer2";
+        textureKeys[2] = "ruins_layer3";
+    }
+    else
+    {
+        textureKeys[0] = "forest_bg";
+        textureKeys[1] = "forest1_bg";
+        textureKeys[2] = "forest2_bg";
+    }
+
+    const int frameTop = stripTop + railHeight + 16;
+    for (int index = 0; index < 8; ++index)
+    {
+        const int frameLeft = stripLeft + index * framePitch;
+        const int frameRight = frameLeft + frameWidth;
+        if (frameRight < 0 || frameLeft > SCREEN_WIDTH)
+        {
+            continue;
+        }
+
+        const int sequenceNumber = firstFrameNumber + index - 1;
+        const int textureIndex = ((sequenceNumber % 3) + 3) % 3;
+        const int texture = m_assets.GetTexture(textureKeys[textureIndex]);
+        DrawBox(frameLeft - 5, frameTop - 5, frameRight + 5, frameTop + frameHeight + 5, GetColor(190, 170, 139), TRUE);
+        DrawBox(frameLeft, frameTop, frameRight, frameTop + frameHeight, GetColor(51, 40, 34), TRUE);
+        if (texture >= 0)
+        {
+            Shader_ResetStyle();
+            const float exposure = 0.92f + 0.08f * std::sin(m_lifecycle.loadingElapsed * 5.0f + static_cast<float>(index));
+            Shader_SetTint(exposure, exposure * 0.94f, exposure * 0.82f, 1.0f);
+            SpriteDraw(texture,
+                static_cast<float>(frameLeft),
+                static_cast<float>(frameTop),
+                static_cast<float>(frameWidth),
+                static_cast<float>(frameHeight),
+                0.0f, 0.0f, 1.0f, 1.0f);
+            Shader_ResetStyle();
+        }
+        DrawBox(frameLeft, frameTop, frameRight, frameTop + frameHeight, GetColor(228, 207, 172), FALSE);
+    }
+
+    const int gateLeft = centerX - frameWidth / 2 - 12;
+    const int gateRight = centerX + frameWidth / 2 + 12;
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 46);
+    DrawBox(gateLeft, stripTop + railHeight + 4, gateRight, stripTop + stripHeight - railHeight - 4, GetColor(255, 205, 112), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawBox(gateLeft, stripTop + railHeight + 4, gateRight, stripTop + stripHeight - railHeight - 4, GetColor(255, 220, 142), FALSE);
+
+    const char* loadingText = m_lifecycle.loadingFinished
+        ? "旅の記録を読み込みました"
+        : "旅の記録を読み込んでいます…";
+    const int textWidth = GetDrawStringWidth(loadingText, -1);
+    DrawString(centerX - textWidth / 2, 104, loadingText, GetColor(239, 220, 186));
+
+    constexpr int progressWidth = 420;
+    const int progressLeft = centerX - progressWidth / 2;
+    const int progressTop = SCREEN_HEIGHT - 76;
+    DrawBox(progressLeft, progressTop, progressLeft + progressWidth, progressTop + 6, GetColor(92, 73, 56), TRUE);
+    DrawBox(progressLeft, progressTop,
+        progressLeft + static_cast<int>(std::round(progressWidth * displayedProgress)),
+        progressTop + 6,
+        GetColor(224, 174, 92),
+        TRUE);
+
+    if constexpr (build_config::kDebugFeaturesEnabled)
+    {
+        char debugLabel[64]{};
+        std::snprintf(debugLabel, sizeof(debugLabel), "LOADING %s  %d%%",
+            GetLoadingStepLabel(m_lifecycle.loadingStep),
+            static_cast<int>(std::round(displayedProgress * 100.0f)));
+        DrawString(24, SCREEN_HEIGHT - 42, debugLabel, GetColor(166, 132, 102));
+    }
+
+    if (m_lifecycle.loadingFinished)
+    {
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 44);
+        DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(255, 244, 220), TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
 }
 
 EventBus* GameScene::GetEventBus()

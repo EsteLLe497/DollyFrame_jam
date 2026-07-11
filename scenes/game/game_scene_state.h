@@ -554,10 +554,10 @@ struct GameScenePlayerState
 
 struct GameSceneDebugState
 {
-    bool showCollisionDebug = true;
+    bool showCollisionDebug = build_config::kDebugFeaturesEnabled;
     bool showTuningPanel = false;
     bool showEscapeMenu = false;
-    bool showBackdropGrid = true;
+    bool showBackdropGrid = build_config::kDebugFeaturesEnabled;
     bool hideNonPhotoUi = false;
     int escapeMenuSelection = 0;
     bool effectPlacementPulseEnabled = true;
