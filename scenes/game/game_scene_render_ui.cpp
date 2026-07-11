@@ -2808,7 +2808,7 @@ void GameScene::DrawBackdrop() const
 
     DrawBackdropBaseInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
 
-    if (m_debug.showBackdropGrid)
+    if (build_config::kDebugFeaturesEnabled && m_debug.showBackdropGrid)
     {
         DrawBackdropGridInView(viewOriginX, viewOriginY, viewWidth, viewHeight, viewScale);
     }
@@ -3420,6 +3420,11 @@ void GameScene::DrawMidBoss2TeleportSlotsInView(float viewOriginX, float viewOri
 
 void GameScene::DrawStageGuideInView() const
 {
+    if constexpr (!build_config::kDebugFeaturesEnabled)
+    {
+        return;
+    }
+
     if (const Entity* player = FindEntityByTag(kTagPlayer))
     {
         if (const auto* transform = player->GetComponent<TransformComponent>())

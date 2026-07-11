@@ -237,6 +237,9 @@
     <ClCompile Include="scenes\shader_showcase_scene.cpp">
       <Filter>Source Files\Scenes</Filter>
     </ClCompile>
+    <ClCompile Include="scenes\loading_preview_scene.cpp">
+      <Filter>Source Files\Scenes</Filter>
+    </ClCompile>
     <ClCompile Include="physics\tile_map.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
@@ -567,6 +570,9 @@
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="scenes\shader_showcase_scene.h">
+      <Filter>Header Files\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="scenes\loading_preview_scene.h">
       <Filter>Header Files\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="physics\tile_map.h">

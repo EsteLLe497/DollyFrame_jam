@@ -67,6 +67,7 @@ private:
     float m_bgmRestoreVolume;
     bool m_startTransitionActive;
     bool m_startTransitionSceneRequested;
+    bool m_loadingPreviewRequested;
     float m_startTransitionTimer;
     const char* m_startTransitionSceneId;
 };

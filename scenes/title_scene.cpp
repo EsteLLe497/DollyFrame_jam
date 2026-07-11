@@ -245,6 +245,7 @@ TitleScene::TitleScene()
     , m_bgmRestoreVolume(1.0f)
     , m_startTransitionActive(false)
     , m_startTransitionSceneRequested(false)
+    , m_loadingPreviewRequested(false)
     , m_startTransitionTimer(0.0f)
     , m_startTransitionSceneId(nullptr)
 {
@@ -281,6 +282,7 @@ void TitleScene::OnEnter(ResourceManager& resources)
     m_optionsSelection = 0;
     m_startTransitionActive = false;
     m_startTransitionSceneRequested = false;
+    m_loadingPreviewRequested = false;
     m_startTransitionTimer = 0.0f;
     m_startTransitionSceneId = nullptr;
     GameSession_SetLoadSavedProgress(true);
@@ -312,6 +314,25 @@ void TitleScene::Update(float deltaTime)
         return;
     }
 
+    if constexpr (build_config::kDebugFeaturesEnabled)
+    {
+        if (m_loadingPreviewRequested)
+        {
+            m_loadingPreviewRequested = false;
+            PublishSceneChange("loading_preview");
+            return;
+        }
+    }
+
+    if constexpr (build_config::kDebugFeaturesEnabled)
+    {
+        if (Input_IsKeyPressed(VK_F6))
+        {
+            PublishSceneChange("loading_preview");
+            return;
+        }
+    }
+
     UpdateMenuInput();
 }
 
@@ -333,6 +354,12 @@ void TitleScene::DrawDebugUI()
     ImGui::Text("開始CSV: %s", GameSession_GetStartMapCsvPath().c_str());
     ImGui::Text("操作: W/S・上下キーで選択、Enter/Space/Aで決定、Esc/Bで戻る");
     ImGui::Text("プロンプト表示: %s", m_showPrompt ? "あり" : "なし");
+    ImGui::Separator();
+    ImGui::TextUnformatted("F6: ロード画面プレビュー");
+    if (ImGui::Button("ロード画面プレビューを開く"))
+    {
+        m_loadingPreviewRequested = true;
+    }
     ImGui::End();
 }
 

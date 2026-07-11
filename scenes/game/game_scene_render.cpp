@@ -4445,7 +4445,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         viewScale);
     }
 
-    const bool shouldDrawCollisionDebug = m_debug.showCollisionDebug && (
+    const bool shouldDrawCollisionDebug = build_config::kDebugFeaturesEnabled && m_debug.showCollisionDebug && (
         photoFilter ||
         enemyComponent ||
         midBoss2Spear ||

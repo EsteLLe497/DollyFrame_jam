@@ -11,6 +11,11 @@ using namespace game_scene_detail;
 
 void GameScene::UpdateTuningHotReload(float deltaTime)
 {
+    if constexpr (!build_config::kDebugFeaturesEnabled)
+    {
+        return;
+    }
+
     const ActiveGameSceneScope activeScene(*this);
     if (!m_debug.showTuningPanel)
     {
@@ -37,6 +42,11 @@ void GameScene::UpdateTuningHotReload(float deltaTime)
 
 void GameScene::HandleGlobalSceneShortcuts(float deltaTime)
 {
+    if constexpr (!build_config::kDebugFeaturesEnabled)
+    {
+        return;
+    }
+
     if (m_debug.saveStatusTimer > 0.0f)
     {
         m_debug.saveStatusTimer = std::max(0.0f, m_debug.saveStatusTimer - deltaTime);
