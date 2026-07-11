@@ -429,6 +429,8 @@ struct GameSceneFlowState
     bool playerTouchingTarget = false;
     bool playerTouchingHazard = false;
     bool resultQueued = false;
+    bool resultTransitionSceneRequested = false;
+    float resultTransitionTimer = 0.0f;
     float timeLimit = 60.0f;
     float timeRemaining = 60.0f;
     float cameraX = 0.0f;

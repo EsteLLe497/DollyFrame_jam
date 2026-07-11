@@ -18,7 +18,7 @@
 namespace
 {
     constexpr const char* kForestFogShaderPath = "assets/shaders/forest_fog_ps.cso";
-    constexpr int kFogBufferWidth = kVirtualScreenWidth / 2;
+    constexpr int kFogBufferWidth = kVirtualScreenWidth / 4;
     constexpr int kFogBufferHeight = kVirtualScreenHeight / 2;
 
     int g_forestFogPixelShader = -1;		// ボリューム霧ピクセルシェーダー

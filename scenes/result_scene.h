@@ -14,13 +14,18 @@ public:
     void Update(float deltaTime) override;
     void Draw() override;
     void DrawDebugUI() override;
-    void DrawFreeImages() const;
+    void DrawFreeImages(float offsetX) const;
     EventBus* GetEventBus() override;
-    void DrawCapturedPhotosGrid() const;
+    void DrawCapturedPhotosGrid(float offsetX) const;
+    void DrawPhotoRevealAnimation(float offsetX) const;
+    void DrawResultVignette(float centerX, float centerY, int alpha) const;
 
 private:
-    void DrawBackdrop() const;
-    void DrawMenu() const;
+    void DrawBackdrop(float offsetX) const;
+    void DrawMenu(float offsetX) const;
+    void DrawResultFilmFrame() const;
+    float GetIntroOffsetX() const;
+    float GetIntroProgress() const;
     void UpdateMenuInput();
     void ConfirmSelection();
 
@@ -37,6 +42,9 @@ private:
     EventBus m_eventBus;
     int m_whiteTexture;
     float m_blinkTimer;
+    // Update() が呼ばれない間（アプリ側のシーン遷移フェード中）も進行するよう、
+    // deltaTime の積算ではなく GetNowCount() を基準にした開始時刻で管理する。
+    int m_introStartTimeMs;
     bool m_showPrompt;
     // Primary menu option resolved from the last played stage and end reason.
     std::string m_primaryOptionLabel;

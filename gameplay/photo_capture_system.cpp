@@ -1092,6 +1092,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             HasTag(*entity, EntityTag::BatteryGenerator) ||
             HasTag(*entity, EntityTag::ConveyorBelt) ||
             HasTag(*entity, EntityTag::Elevator) ||
+            HasTag(*entity, EntityTag::SepiaElevator) ||
             HasTag(*entity, EntityTag::LaserSwitch) ||
             HasTag(*entity, EntityTag::ProtectiveWall))
         {

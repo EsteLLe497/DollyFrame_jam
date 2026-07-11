@@ -555,7 +555,7 @@ void GameScene::DrawTutorialOverlay()
     }
 
     const auto& ui = m_ui.tuning.tutorial;
-    const int frameTexture = m_assets.GetTexture("ui_photo_frame");
+    const int frameTexture = m_assets.GetTexture("tutorial_frame_window");
     const int headingTexture = m_assets.GetTexture("tutorial_heading");
     const std::string contentTextureKey =
         windowPage && !windowPage->contentTextureKey.empty()
