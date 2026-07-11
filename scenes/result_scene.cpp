@@ -83,6 +83,12 @@ namespace
         return "ステージ";
     }
 
+    // 地下ステージ（under.csv）かどうかを判定する。under_boss.csvは含まない。
+    bool IsUnderStageMapPath(const std::string& mapPath)
+    {
+        return mapPath.find("under.csv") != std::string::npos;
+    }
+
     struct FreeImagePlacement
     {
         const char* textureKey;
@@ -134,8 +140,14 @@ namespace
         DrawOutlinedString(textX, textY, label, textColor, GetColor(28, 16, 9));
     }
 
-    constexpr int kMenuOptionCount = 2;
+    constexpr int kMenuOptionCount = 3;
     constexpr const char* kBackToTitleLabel = "タイトルへ戻る";
+    constexpr const char* kUnderBossOptionLabel = "地下ボスステージへ進む（未実装）";
+    constexpr int kConfirmDialogWidth = 560;
+    constexpr int kConfirmDialogHeight = 220;
+    constexpr int kConfirmDialogButtonWidth = 180;
+    constexpr int kConfirmDialogButtonHeight = 44;
+    constexpr int kConfirmDialogButtonGap = 30;
     constexpr int kMenuRowWidth = 360;
     constexpr int kMenuRowHeight = 44;
     constexpr int kMenuRowGap = 14;
@@ -360,9 +372,15 @@ void ResultScene::OnEnter(ResourceManager& resources)
     m_introStartTimeMs = GetNowCount();   // ← ここが m_introTimer = 0.0f; から変更
     m_showPrompt = true;
     m_selectedOption = 0;
+    m_confirmDialogOpen = false;
     PrimaryOption primaryOption = BuildPrimaryOption(GameSession_Get());
     m_primaryOptionLabel = std::move(primaryOption.label);
     m_primaryOptionMapCsv = std::move(primaryOption.mapCsvPath);
+    const GameSessionState& session = GameSession_Get();
+    const std::string& lastMap = session.lastMapCsvPath.empty()
+        ? session.startMapCsvPath
+        : session.lastMapCsvPath;
+    m_showUnderBossOption = lastMap.find("forest") == std::string::npos;
     Logger::Info("ResultScene entered");
 }
 
@@ -375,15 +393,17 @@ ResultScene::MenuOptionRect ResultScene::GetOptionRect(int index) const
 
 void ResultScene::UpdateMenuInput()
 {
+    const int activeOptionCount = m_showUnderBossOption ? kMenuOptionCount : kMenuOptionCount - 1;
+
     // キーボード / パッド操作
     if (Input_IsActionPressed(InputAction::MoveUp) || Input_IsDpadUpPressed())
     {
-        m_selectedOption = (m_selectedOption + kMenuOptionCount - 1) % kMenuOptionCount;
+        m_selectedOption = (m_selectedOption + activeOptionCount - 1) % activeOptionCount;
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
     if (Input_IsActionPressed(InputAction::MoveDown) || Input_IsDpadDownPressed())
     {
-        m_selectedOption = (m_selectedOption + 1) % kMenuOptionCount;
+        m_selectedOption = (m_selectedOption + 1) % activeOptionCount;
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
 
@@ -391,7 +411,7 @@ void ResultScene::UpdateMenuInput()
     const int mouseX = Input_GetMouseX();
     const int mouseY = Input_GetMouseY();
     int hoveredOption = -1;
-    for (int index = 0; index < kMenuOptionCount; ++index)
+    for (int index = 0; index < activeOptionCount; ++index)
     {
         const MenuOptionRect rect = GetOptionRect(index);
         if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom)
@@ -425,14 +445,128 @@ void ResultScene::ConfirmSelection()
 
     if (m_selectedOption == 0)
     {
+        if (IsUnderStageMapPath(m_primaryOptionMapCsv))
+        {
+            // 地下ステージも未実装部分が多いので、進む前に確認する。
+            m_pendingConfirmMapCsv = m_primaryOptionMapCsv;
+            m_confirmDialogOpen = true;
+            m_confirmDialogSelection = 0;
+            return;
+        }
+
         GameSession_SetStartMapCsvPath(m_primaryOptionMapCsv);
+        GameSession_SetLoadSavedProgress(false);
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
+    }
+    else if (m_selectedOption == 1)
+    {
+        // タイトルへ戻る
+        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+    }
+    else
+    {
+        // 地下ボスステージ（未実装）：直接遷移せず確認ダイアログを開く
+        m_pendingConfirmMapCsv = "assets/maps/stages/under_boss.csv";
+        m_confirmDialogOpen = true;
+        m_confirmDialogSelection = 0;
+    }
+}
+
+ResultScene::MenuOptionRect ResultScene::GetConfirmDialogOptionRect(int index) const
+{
+    const int dialogTop = SCREEN_HEIGHT / 2 - kConfirmDialogHeight / 2;
+    const int buttonsTop = dialogTop + kConfirmDialogHeight - kConfirmDialogButtonHeight - 30;
+    const int totalButtonsWidth = kConfirmDialogButtonWidth * 2 + kConfirmDialogButtonGap;
+    const int startLeft = SCREEN_WIDTH / 2 - totalButtonsWidth / 2;
+    const int left = startLeft + index * (kConfirmDialogButtonWidth + kConfirmDialogButtonGap);
+    return { left, buttonsTop, left + kConfirmDialogButtonWidth, buttonsTop + kConfirmDialogButtonHeight };
+}
+
+void ResultScene::UpdateConfirmDialogInput()
+{
+    if (Input_IsActionPressed(InputAction::MoveUp) || Input_IsDpadUpPressed() ||
+        Input_IsActionPressed(InputAction::MoveDown) || Input_IsDpadDownPressed())
+    {
+        m_confirmDialogSelection = (m_confirmDialogSelection + 1) % 2;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
+    }
+
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
+    int hoveredOption = -1;
+    for (int index = 0; index < 2; ++index)
+    {
+        const MenuOptionRect rect = GetConfirmDialogOptionRect(index);
+        if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom)
+        {
+            hoveredOption = index;
+            break;
+        }
+    }
+
+    if (hoveredOption >= 0 && hoveredOption != m_confirmDialogSelection)
+    {
+        m_confirmDialogSelection = hoveredOption;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
+    }
+
+    const bool confirmPressed =
+        Input_IsActionPressed(InputAction::Confirm) ||
+        Input_IsActionPressed(InputAction::StartGame) ||
+        Input_IsSouthButtonPressed();
+    const bool mouseClickConfirm = hoveredOption >= 0 && Input_IsMouseLeftPressed();
+
+    if (confirmPressed || mouseClickConfirm)
+    {
+        ConfirmDialogSelection();
+    }
+}
+
+void ResultScene::ConfirmDialogSelection()
+{
+    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
+
+    if (m_confirmDialogSelection == 0)
+    {
+        // はい：確認済みの遷移先へ進む
+        GameSession_SetStartMapCsvPath(m_pendingConfirmMapCsv);
         GameSession_SetLoadSavedProgress(false);
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
     }
     else
     {
-        // タイトルへ戻る
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        // いいえ：ダイアログを閉じて通常のメニューに戻る
+        m_confirmDialogOpen = false;
+    }
+}
+
+void ResultScene::DrawConfirmDialog() const
+{
+    if (!m_confirmDialogOpen)
+    {
+        return;
+    }
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 180);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    const int dialogLeft = SCREEN_WIDTH / 2 - kConfirmDialogWidth / 2;
+    const int dialogTop = SCREEN_HEIGHT / 2 - kConfirmDialogHeight / 2;
+    const int dialogRight = dialogLeft + kConfirmDialogWidth;
+    const int dialogBottom = dialogTop + kConfirmDialogHeight;
+
+    DrawBox(dialogLeft, dialogTop, dialogRight, dialogBottom, GetColor(40, 30, 20), TRUE);
+    DrawBox(dialogLeft, dialogTop, dialogRight, dialogBottom, GetColor(220, 190, 140), FALSE);
+
+    DrawCenteredOutlinedString(SCREEN_WIDTH / 2, dialogTop + 36, "未実装のステージです", GetColor(255, 220, 160), GetColor(28, 16, 9));
+    DrawCenteredOutlinedString(SCREEN_WIDTH / 2, dialogTop + 76, "本当に入りますか？", GetColor(240, 230, 210), GetColor(28, 16, 9));
+
+    const char* dialogLabels[2] = { "はい", "いいえ" };
+    for (int index = 0; index < 2; ++index)
+    {
+        const MenuOptionRect rect = GetConfirmDialogOptionRect(index);
+        DrawMenuRow(rect.left, rect.top, kConfirmDialogButtonWidth, kConfirmDialogButtonHeight, dialogLabels[index], m_confirmDialogSelection == index);
     }
 }
 
@@ -459,7 +593,14 @@ void ResultScene::Update(float deltaTime)
         return;
     }
 
-    UpdateMenuInput();
+    if (m_confirmDialogOpen)
+    {
+        UpdateConfirmDialogInput();
+    }
+    else
+    {
+        UpdateMenuInput();
+    }
 }
 
 float ResultScene::GetIntroProgress() const
@@ -490,6 +631,7 @@ void ResultScene::Draw()
     DrawPhotoRevealAnimation(offsetX);
     DrawMenu(offsetX);
     DrawResultFilmFrame();
+    DrawConfirmDialog();
 }
 
 //float ResultScene::GetIntroOffsetX() const
@@ -516,6 +658,7 @@ void ResultScene::DrawMenu(float offsetX) const
                 ? session.startMapCsvPath
                 : session.lastMapCsvPath;
             const char* stageName = GetStageDisplayName(lastMap);
+
             std::snprintf(line0, sizeof(line0), "STAGE CLEAR");
             std::snprintf(line1, sizeof(line1), "%sクリア", stageName);
         }
@@ -643,24 +786,25 @@ void ResultScene::DrawMenu(float offsetX) const
     }
 
     // 選択肢（写真の演出が終わったあとにふわっと表示）
+// 選択肢（写真の演出が終わったあとにふわっと表示）
     if (buttonsT > 0.0f)
     {
+        const int activeOptionCount = m_showUnderBossOption ? kMenuOptionCount : kMenuOptionCount - 1;
         const int riseOffset = static_cast<int>(std::round((1.0f - buttonsT) * kResultStatsRiseDistance));
         const int alpha = static_cast<int>(std::round(255.0f * buttonsT));
-        const char* menuLabels[kMenuOptionCount] = { m_primaryOptionLabel.c_str(), kBackToTitleLabel };
+        const char* menuLabels[kMenuOptionCount] = { m_primaryOptionLabel.c_str(), kBackToTitleLabel, kUnderBossOptionLabel };
 
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
-        for (int index = 0; index < kMenuOptionCount; ++index)
+        for (int index = 0; index < activeOptionCount; ++index)
         {
             const MenuOptionRect rect = GetOptionRect(index);
-            DrawMenuRow(rect.left + drawOffsetX, rect.top + riseOffset, 
-                kMenuRowWidth, kMenuRowHeight, menuLabels[index], m_selectedOption == index);
+            DrawMenuRow(rect.left + drawOffsetX, rect.top + riseOffset, kMenuRowWidth, kMenuRowHeight, menuLabels[index], m_selectedOption == index);
         }
 
         const int hintColor = m_showPrompt ? GetColor(252, 238, 214) : GetColor(168, 140, 104);
         DrawCenteredOutlinedString(
             SCREEN_WIDTH / 2 + drawOffsetX,
-            kMenuRowTop + kMenuOptionCount * (kMenuRowHeight + kMenuRowGap) + 30 + riseOffset,
+            kMenuRowTop + activeOptionCount * (kMenuRowHeight + kMenuRowGap) + 30 + riseOffset,
             "上下キー・マウス: 選択   Enter/Space/A/クリック: 決定",
             hintColor,
             GetColor(28, 16, 9));
