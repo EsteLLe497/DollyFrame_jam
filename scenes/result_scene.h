@@ -21,14 +21,6 @@ public:
     void DrawResultVignette(float centerX, float centerY, int alpha) const;
 
 private:
-    void DrawBackdrop(float offsetX) const;
-    void DrawMenu(float offsetX) const;
-    void DrawResultFilmFrame() const;
-    float GetIntroOffsetX() const;
-    float GetIntroProgress() const;
-    void UpdateMenuInput();
-    void ConfirmSelection();
-
     struct MenuOptionRect
     {
         int left;
@@ -36,7 +28,20 @@ private:
         int right;
         int bottom;
     };
+
+    void DrawBackdrop(float offsetX) const;
+    void DrawMenu(float offsetX) const;
+    void DrawResultFilmFrame() const;
+    float GetIntroOffsetX() const;
+    float GetIntroProgress() const;
+    void UpdateMenuInput();
+    void ConfirmSelection();
     MenuOptionRect GetOptionRect(int index) const;
+
+    void UpdateConfirmDialogInput();
+    void ConfirmDialogSelection();
+    MenuOptionRect GetConfirmDialogOptionRect(int index) const;
+    void DrawConfirmDialog() const;
 
     AssetManifest m_assets;
     EventBus m_eventBus;
@@ -49,5 +54,8 @@ private:
     // Primary menu option resolved from the last played stage and end reason.
     std::string m_primaryOptionLabel;
     std::string m_primaryOptionMapCsv;
-    int m_selectedOption = 0; // 0: ruins�֐i��, 1: �^�C�g���֖߂�
+    int m_selectedOption = 0; // 0: ruins
+    bool m_confirmDialogOpen = false;
+    std::string m_pendingConfirmMapCsv; // 確認ダイアログで「はい」を選んだ時に遷移する先
+    int m_confirmDialogSelection = 0; // 0: はい, 1: いいえ
 };
