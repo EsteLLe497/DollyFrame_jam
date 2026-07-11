@@ -95,6 +95,7 @@ private:
     void drawForestVolumetricFog() const;
     void ResetFrameRendering();
     bool IsMidBoss3IntroCinematicActive() const;
+    bool IsMidBoss3DefeatCinematicActive() const;
     bool IsShieldBossIntroCinematicActive() const;
     bool IsShieldBossBattleCameraActive() const;
 

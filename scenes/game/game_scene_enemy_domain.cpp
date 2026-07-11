@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 
 #include "game_scene_internal.h"
 #include "game_scene_combat_common.h"
@@ -262,7 +262,7 @@ namespace
             return;
         }
 
-        // 通常盾はボスを動かさないため、画面側を強めに揺らして命中感を出す。
+        // 通常盾はボスを動かさなぁE��め、画面側を強めに揺らして命中感を出す、E
         flow.screenShakeRemaining = kNormalShieldBossHitShakeSeconds;
         flow.screenShakeDuration = kNormalShieldBossHitShakeSeconds;
         flow.screenShakeAmplitude = kNormalShieldBossHitShakeAmplitude;
@@ -339,7 +339,7 @@ namespace
             return;
         }
 
-        // 中ボス1専用SEは発生フレームが重要なので、イベント待ちにせず即時再生する。
+        // 中ボス1専用SEは発生フレームが重要なので、イベント征E��にせず即時�E生する、E
         Audio_PlayCue(cueName);
         Logger::Info(std::string("ShieldBoss SE requested: ") + cueName);
     }
@@ -455,7 +455,7 @@ void GameScene::ConfigureShieldBossSpriteAnimation(Entity& enemy)
     const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
     const BossTextureResolver resolveTexture = [this](const std::string& key) { return m_assets.GetTexture(key); };
 
-    // DDS版Boss01の攻撃名を、そのまま戦闘フロー用のクリップ名に寄せる。
+    // DDS牁Eoss01の攻撁E��を、そのまま戦闘フロー用のクリチE�E名に寁E��る、E
     animation->DefineClip("idle", resolvedIdleTexture, kBoss1MoveSheetColumns, kBoss1MoveSheetRows, 0, kBoss1MoveFrameCount, kBoss1IdleFps, true);
     animation->DefineClip("move", resolvedIdleTexture, kBoss1MoveSheetColumns, kBoss1MoveSheetRows, 0, kBoss1MoveFrameCount, kBoss1MoveFps, true);
     DefineLazySingleSheetClip(
@@ -554,7 +554,7 @@ void GameScene::ConfigureBossShieldSpriteAnimation(Entity& shield)
     const int resolvedIdleTexture = idleTexture >= 0 ? idleTexture : fallbackTexture;
     const BossTextureResolver resolveTexture = [this](const std::string& key) { return m_assets.GetTexture(key); };
 
-    // 盾用DDSは本体と同じフレーム数で、攻撃中だけ本体と同期させる。
+    // 盾用DDSは本体と同じフレーム数で、攻撁E��だけ本体と同期させる、E
     animation->DefineClip("idle", resolvedIdleTexture, kBoss1MoveSheetColumns, kBoss1MoveSheetRows, 0, kBoss1MoveFrameCount, kBoss1IdleFps, true);
     animation->DefineClip("move", resolvedIdleTexture, kBoss1MoveSheetColumns, kBoss1MoveSheetRows, 0, kBoss1MoveFrameCount, kBoss1MoveFps, true);
     DefineLazySingleSheetClip(
@@ -817,7 +817,7 @@ void GameScene::UpdateEnemies()
             continue;
         }
 
-        // どの生成経路でも中ボス1が仮テクスチャのままにならないよう補完する。
+        // どの生�E経路でも中ボス1が仮チE��スチャのままにならなぁE��ぁE��完する、E
         if (!entity->GetComponent<SpriteSheetAnimationComponent>())
         {
             ConfigureShieldBossSpriteAnimation(*entity);
@@ -846,7 +846,7 @@ void GameScene::UpdateEnemies()
                         enemy->MarkDefeated();
                         enemy->respawnEnabled = false;
                         m_flow.shieldBossDefeatedThisScene = true;
-                        // ボス撃破でゴールを解放する（シャッターは useBossDefeatSignal 側で自動的に開く）。
+                        // ボス撁E��でゴールを解放する�E�シャチE��ーは useBossDefeatSignal 側で自動的に開く�E�、E
                         m_flow.goalUnlockedBySwitch = true;
                         PlayShieldBossSoundCue("boss_forest_destroy");
                         m_flow.stageBgmCrossFadePending = true;
@@ -1887,7 +1887,7 @@ void GameScene::UpdateShields(float deltaTime)
                 enemy->GetArchetype() == EnemyArchetype::ShieldBoss;
             if (skipNormalShieldBossKnockback)
             {
-                // 通常盾はボスを動かさず、命中感だけヒットストップとシェイクで出す。
+                // 通常盾はボスを動かさず、命中感だけヒチE��ストップとシェイクで出す、E
                 TriggerNormalShieldBossHitFeedback(m_flow, m_debug.screenShakeEnabled);
             }
             else if (startEnemyKnockback(*target, *enemy, *enemyTransform, dir, shield->knockbackGrids * kTileSize))
@@ -2302,6 +2302,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                         midBoss3->deathAnimationActive = true;
                         midBoss3->deathAnimationFinished = false;
                         midBoss3->stateTimer = 0.0f;
+                        animation->SetPlaybackSpeed(1.0f);
                         animation->Play("death", true);
                         enemyComponent->respawnEnabled = false;
                         m_flow.shieldBossDefeatedThisScene = true;
@@ -2447,7 +2448,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         cleanupMidBoss3Defeat(enemy);
         if (enemyComponent->GetArchetype() == EnemyArchetype::MidBoss3)
         {
-            // 森林ボスと同じ余韻を残してから、廃墟ステージBGMへ戻す。
+            // 森林�Eスと同じ余韻を残してから、廁E��スチE�EジBGMへ戻す、E
             m_flow.shieldBossDefeatedThisScene = true;
             m_flow.stageBgmCrossFadePending = true;
             m_flow.stageBgmCrossFadeDelayRemaining = kBossStageBgmReturnDelaySeconds;
