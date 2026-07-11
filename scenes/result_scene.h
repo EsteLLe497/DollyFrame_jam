@@ -56,6 +56,7 @@ private:
     std::string m_primaryOptionMapCsv;
     int m_selectedOption = 0; // 0: ruins
     bool m_confirmDialogOpen = false;
+    bool m_showUnderBossOption = false;
     std::string m_pendingConfirmMapCsv; // 確認ダイアログで「はい」を選んだ時に遷移する先
     int m_confirmDialogSelection = 0; // 0: はい, 1: いいえ
 };

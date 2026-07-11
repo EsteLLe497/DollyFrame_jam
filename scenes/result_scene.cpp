@@ -376,6 +376,11 @@ void ResultScene::OnEnter(ResourceManager& resources)
     PrimaryOption primaryOption = BuildPrimaryOption(GameSession_Get());
     m_primaryOptionLabel = std::move(primaryOption.label);
     m_primaryOptionMapCsv = std::move(primaryOption.mapCsvPath);
+    const GameSessionState& session = GameSession_Get();
+    const std::string& lastMap = session.lastMapCsvPath.empty()
+        ? session.startMapCsvPath
+        : session.lastMapCsvPath;
+    m_showUnderBossOption = lastMap.find("forest") == std::string::npos;
     Logger::Info("ResultScene entered");
 }
 
@@ -388,15 +393,17 @@ ResultScene::MenuOptionRect ResultScene::GetOptionRect(int index) const
 
 void ResultScene::UpdateMenuInput()
 {
+    const int activeOptionCount = m_showUnderBossOption ? kMenuOptionCount : kMenuOptionCount - 1;
+
     // キーボード / パッド操作
     if (Input_IsActionPressed(InputAction::MoveUp) || Input_IsDpadUpPressed())
     {
-        m_selectedOption = (m_selectedOption + kMenuOptionCount - 1) % kMenuOptionCount;
+        m_selectedOption = (m_selectedOption + activeOptionCount - 1) % activeOptionCount;
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
     if (Input_IsActionPressed(InputAction::MoveDown) || Input_IsDpadDownPressed())
     {
-        m_selectedOption = (m_selectedOption + 1) % kMenuOptionCount;
+        m_selectedOption = (m_selectedOption + 1) % activeOptionCount;
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
     }
 
@@ -404,7 +411,7 @@ void ResultScene::UpdateMenuInput()
     const int mouseX = Input_GetMouseX();
     const int mouseY = Input_GetMouseY();
     int hoveredOption = -1;
-    for (int index = 0; index < kMenuOptionCount; ++index)
+    for (int index = 0; index < activeOptionCount; ++index)
     {
         const MenuOptionRect rect = GetOptionRect(index);
         if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom)
@@ -779,25 +786,25 @@ void ResultScene::DrawMenu(float offsetX) const
     }
 
     // 選択肢（写真の演出が終わったあとにふわっと表示）
+// 選択肢（写真の演出が終わったあとにふわっと表示）
     if (buttonsT > 0.0f)
     {
+        const int activeOptionCount = m_showUnderBossOption ? kMenuOptionCount : kMenuOptionCount - 1;
         const int riseOffset = static_cast<int>(std::round((1.0f - buttonsT) * kResultStatsRiseDistance));
         const int alpha = static_cast<int>(std::round(255.0f * buttonsT));
-        const char* menuLabels[kMenuOptionCount] = { m_primaryOptionLabel.c_str(),
-            kBackToTitleLabel, kUnderBossOptionLabel };
+        const char* menuLabels[kMenuOptionCount] = { m_primaryOptionLabel.c_str(), kBackToTitleLabel, kUnderBossOptionLabel };
 
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
-        for (int index = 0; index < kMenuOptionCount; ++index)
+        for (int index = 0; index < activeOptionCount; ++index)
         {
             const MenuOptionRect rect = GetOptionRect(index);
-            DrawMenuRow(rect.left + drawOffsetX, rect.top + riseOffset, 
-                kMenuRowWidth, kMenuRowHeight, menuLabels[index], m_selectedOption == index);
+            DrawMenuRow(rect.left + drawOffsetX, rect.top + riseOffset, kMenuRowWidth, kMenuRowHeight, menuLabels[index], m_selectedOption == index);
         }
 
         const int hintColor = m_showPrompt ? GetColor(252, 238, 214) : GetColor(168, 140, 104);
         DrawCenteredOutlinedString(
             SCREEN_WIDTH / 2 + drawOffsetX,
-            kMenuRowTop + kMenuOptionCount * (kMenuRowHeight + kMenuRowGap) + 30 + riseOffset,
+            kMenuRowTop + activeOptionCount * (kMenuRowHeight + kMenuRowGap) + 30 + riseOffset,
             "上下キー・マウス: 選択   Enter/Space/A/クリック: 決定",
             hintColor,
             GetColor(28, 16, 9));
