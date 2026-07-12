@@ -522,6 +522,7 @@ public:
     float meteorHoldY = 0.0f;
     float meteorAimX = 0.0f;
     float meteorAimY = 1.0f;
+    float meteorTargetGroundY = 0.0f;
     float attackReadyTimer = 0.0f;
     bool damageApplied = false;
     bool atAttackStart = false;

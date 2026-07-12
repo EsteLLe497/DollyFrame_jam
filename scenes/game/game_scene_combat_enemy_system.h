@@ -261,6 +261,10 @@ inline void UpdateEnemies(
                     const bool isShutter = HasTag(*candidate, "Shutter");
                     const bool isCapturedMidBoss3Attack = candidate->GetComponent<CapturedMidBoss3AttackComponent>() != nullptr;
                     const auto* otherFist = candidate->GetComponent<MidBoss3FistComponent>();
+                    if (otherFist && otherFist->ownerBoss == entity)
+                    {
+                        continue;
+                    }
                     if (!isShutter && !isCapturedMidBoss3Attack && !otherFist)
                     {
                         continue;
@@ -314,11 +318,62 @@ inline void UpdateEnemies(
                 }
                 return rectIntersectsBlockingEntity(x, y, width, height, ignoreEntity);
             };
+            const auto rectBottomEnteredSolidFloor = [&](float previousX, float previousY, float x, float y, float width, float height) -> bool
+            {
+                if (y <= previousY)
+                {
+                    return false;
+                }
+
+                const int columnCount = std::max(1, static_cast<int>(mapWidth / kTileSize));
+                const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
+                const float travelX = x - previousX;
+                const float travelY = y - previousY;
+                const float travelLength = std::max(std::fabs(travelX), std::fabs(travelY));
+                const int steps = std::max(1, static_cast<int>(std::ceil(travelLength / std::max(1.0f, kTileSize * 0.35f))));
+                const auto pointInSolidTile = [&](float px, float py) -> bool
+                {
+                    const int column = static_cast<int>(std::floor(px / kTileSize));
+                    const int row = static_cast<int>(std::floor(py / kTileSize));
+                    if (column < 0 || column >= columnCount || row < 0)
+                    {
+                        return false;
+                    }
+                    if (row >= rowCount)
+                    {
+                        return true;
+                    }
+                    return isSolidTile(column, row);
+                };
+
+                for (int step = 1; step <= steps; ++step)
+                {
+                    const float t = static_cast<float>(step) / static_cast<float>(steps);
+                    const float previousT = static_cast<float>(step - 1) / static_cast<float>(steps);
+                    const float sampleX = previousX + travelX * t;
+                    const float sampleY = previousY + travelY * t;
+                    const float prevSampleX = previousX + travelX * previousT;
+                    const float prevSampleY = previousY + travelY * previousT;
+                    for (float sampleFactor : { 0.25f, 0.5f, 0.75f })
+                    {
+                        const float currentBottomX = sampleX + width * sampleFactor;
+                        const float currentBottomY = sampleY + height - 1.0f;
+                        const float previousBottomX = prevSampleX + width * sampleFactor;
+                        const float previousBottomY = prevSampleY + height - 1.0f;
+                        if (!pointInSolidTile(previousBottomX, previousBottomY) &&
+                            pointInSolidTile(currentBottomX, currentBottomY))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            };
             const auto rectIntersectsSolid = [&](float x, float y, float width, float height) -> bool
             {
                 return rectIntersectsSolidIgnoring(x, y, width, height, nullptr);
             };
-            const auto rectLeadingSideIntersectsSolid = [&](float x, float y, float width, float height, float velocityX) -> bool
+            const auto rectLeadingSideIntersectsSolid = [&](float x, float y, float width, float height, float velocityX, const Entity* ignoreEntity = nullptr) -> bool
             {
                 const int columnCount = std::max(1, static_cast<int>(mapWidth / kTileSize));
                 const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
@@ -346,7 +401,7 @@ inline void UpdateEnemies(
                         return true;
                     }
                 }
-                return rectIntersectsBlockingEntity(x, y, width, height, nullptr);
+                return rectIntersectsBlockingEntity(x, y, width, height, ignoreEntity);
             };
             const auto findIntroGroundY = [&]() -> float
             {
@@ -534,6 +589,10 @@ inline void UpdateEnemies(
             if (boss->deathAnimationActive)
             {
                 playMidBoss3Clip("death");
+                if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
+                {
+                    animation->SetPlaybackSpeed(1.0f);
+                }
                 boss->drillActive = false;
                 boss->reloadActive = false;
                 for (Entity* fistEntity : boss->fistEntities)
@@ -546,11 +605,12 @@ inline void UpdateEnemies(
                 if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>();
                     animation && animation->IsCurrentClipFinished())
                 {
+                    animation->SetPlaybackSpeed(1.0f);
                     boss->deathAnimationActive = false;
                     boss->deathAnimationFinished = true;
                     enemy->MarkDefeated();
                     enemy->respawnEnabled = false;
-                    // ボス撃破でゴールを解放する（シャッターは useBossDefeatSignal 側で自動的に開く）。
+                    // ボス撁E��でゴールを解放する�E�シャチE��ーは useBossDefeatSignal 側で自動的に開く�E�、E
                     flow.midBoss3DefeatedThisScene = true;
                     flow.goalUnlockedBySwitch = true;
                     flow.stageBgmCrossFadePending = true;
@@ -749,6 +809,7 @@ inline void UpdateEnemies(
                 fist.attackReadyTimer = 0.0f;
                 fist.meteorAimX = 0.0f;
                 fist.meteorAimY = 1.0f;
+                fist.meteorTargetGroundY = 0.0f;
                 fist.meteorHoldInitialized = false;
                 fist.damageApplied = false;
                 fist.atAttackStart = false;
@@ -1874,10 +1935,16 @@ inline void UpdateEnemies(
                     boss->state == MidBoss3State::LauncherMeteorFist)
                     ? initialMeteorCenterX()
                     : findMeteorTargetCenterX(meteorSlot);
+                const float meteorArenaMinCenterX = std::max(
+                    fistWidth * 0.5f + kTileSize,
+                    stageCenterX - kTileSize * 15.0f);
+                const float meteorArenaMaxCenterX = std::min(
+                    mapWidth - fistWidth * 0.5f - kTileSize,
+                    stageCenterX + kTileSize * 15.0f);
                 const float safeMeteorCenterX = std::clamp(
                     meteorCenterX,
-                    fistWidth * 0.5f + kTileSize,
-                    std::max(fistWidth * 0.5f + kTileSize, mapWidth - fistWidth * 0.5f - kTileSize));
+                    meteorArenaMinCenterX,
+                    std::max(meteorArenaMinCenterX, meteorArenaMaxCenterX));
                 const float meteorStartX = std::clamp(
                     safeMeteorCenterX - fistWidth * 0.5f,
                     0.0f,
@@ -1887,14 +1954,69 @@ inline void UpdateEnemies(
                 const float meteorStartOffsetGrid =
                     (outerMeteorFist ? 7.8f : 11.4f) +
                     (boss->state == MidBoss3State::LauncherMeteorFist ? 3.0f : 0.0f);
-                const float meteorStartY = std::clamp(
+                const float rawMeteorStartY = std::clamp(
                     meteorGroundY - fistHeight - meteorStartOffsetGrid * kTileSize,
                     0.0f,
                     std::max(0.0f, mapHeight - fistHeight));
-                const auto handleFistObjectCollision = [&]() -> bool
+                const auto rectIntersectsSolidTileOnly = [&](float x, float y, float width, float height) -> bool
+                {
+                    if (x < 0.0f || y < 0.0f || x + width > mapWidth || y + height > mapHeight)
+                    {
+                        return true;
+                    }
+
+                    const int columnCount = std::max(1, static_cast<int>(mapWidth / kTileSize));
+                    const int rowCount = std::max(1, static_cast<int>(mapHeight / kTileSize));
+                    const int leftColumn = static_cast<int>(std::floor(x / kTileSize));
+                    const int rightColumn = static_cast<int>(std::floor((x + width - 1.0f) / kTileSize));
+                    const int topRow = static_cast<int>(std::floor(y / kTileSize));
+                    const int bottomRow = static_cast<int>(std::floor((y + height - 1.0f) / kTileSize));
+                    for (int row = topRow; row <= bottomRow; ++row)
+                    {
+                        for (int column = leftColumn; column <= rightColumn; ++column)
+                        {
+                            if (column < 0 || column >= columnCount || row < 0 || row >= rowCount)
+                            {
+                                return true;
+                            }
+                            if (isSolidTile(column, row))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                };
+                const auto findSafeMeteorStartPosition = [&](float desiredX, float desiredY) -> std::pair<float, float>
+                {
+                    const float maxX = std::max(0.0f, mapWidth - fistWidth);
+                    const float maxY = std::max(0.0f, mapHeight - fistHeight);
+                    const float safeX = std::clamp(desiredX, kTileSize, std::max(kTileSize, maxX - kTileSize));
+                    for (int yStep = 0; yStep <= 28; ++yStep)
+                    {
+                        const float candidateY = std::clamp(
+                            desiredY + static_cast<float>(yStep) * kTileSize * 0.5f,
+                            0.0f,
+                            maxY);
+                        if (!rectIntersectsSolidTileOnly(safeX, candidateY, fistWidth, fistHeight))
+                        {
+                            return { safeX, candidateY };
+                        }
+                    }
+                    return { safeX, std::clamp(desiredY, 0.0f, maxY) };
+                };
+                const auto safeMeteorStart = findSafeMeteorStartPosition(meteorStartX, rawMeteorStartY);
+                const float safeMeteorStartX = safeMeteorStart.first;
+                const float meteorStartY = safeMeteorStart.second;
+                const auto handleFistObjectCollision = [&](bool breakOnStageObject = true) -> bool
                 {
                     Entity* hitObject = getProjectileObjectCollision(*fistTransform, fistEntity);
                     if (!hitObject)
+                    {
+                        return false;
+                    }
+
+                    if (hitObject == entity || hitObject->GetComponent<MidBoss3Component>())
                     {
                         return false;
                     }
@@ -1919,14 +2041,41 @@ inline void UpdateEnemies(
                         return false;
                     }
 
+                    if (HasTag(*hitObject, kTagEnemy))
+                    {
+                        const auto* targetEnemy = hitObject->GetComponent<EnemyComponent>();
+                        if (targetEnemy && targetEnemy->GetArchetype() == EnemyArchetype::MidBoss3)
+                        {
+                            return false;
+                        }
+                    }
+
                     if (isFloorObject(*hitObject))
                     {
+                        if (!breakOnStageObject)
+                        {
+                            return false;
+                        }
+                        breakFistAtCollision(*fist, *fistTransform);
+                        return true;
+                    }
+
+                    if (HasTag(*hitObject, "Shutter"))
+                    {
+                        if (!breakOnStageObject)
+                        {
+                            return false;
+                        }
                         breakFistAtCollision(*fist, *fistTransform);
                         return true;
                     }
 
                     if (isBreakableObject(*hitObject))
                     {
+                        if (!breakOnStageObject)
+                        {
+                            return false;
+                        }
                         queueDestroyEntity(hitObject, SepiaRubbleSource::MidBoss3Fist);
                         breakFistAtCollision(*fist, *fistTransform);
                         return true;
@@ -1968,9 +2117,17 @@ inline void UpdateEnemies(
                 {
                     if (!fist->meteorHoldInitialized)
                     {
-                        fist->meteorHoldX = meteorStartX;
+                        fist->meteorHoldX = safeMeteorStartX;
                         fist->meteorHoldY = meteorStartY;
+                        fist->meteorTargetGroundY = meteorGroundY;
                         fist->meteorHoldInitialized = true;
+                    }
+                    if (rectIntersectsSolidTileOnly(fist->meteorHoldX, fist->meteorHoldY, fistWidth, fistHeight))
+                    {
+                        const auto correctedMeteorStart = findSafeMeteorStartPosition(fist->meteorHoldX, fist->meteorHoldY);
+                        fist->meteorHoldX = correctedMeteorStart.first;
+                        fist->meteorHoldY = correctedMeteorStart.second;
+                        fist->meteorTargetGroundY = findMeteorGroundY(fist->meteorHoldX + fistWidth * 0.5f);
                     }
                     const float followStep = boss->params.fistReturnSpeed * deltaTime;
                     fistTransform->x = moveToward(fistTransform->x, fist->meteorHoldX, followStep);
@@ -2019,6 +2176,8 @@ inline void UpdateEnemies(
                 else if (fist->state == MidBoss3FistState::Launching)
                 {
                     fist->launchTimer += deltaTime;
+                    const float previousFistX = fistTransform->x;
+                    const float previousFistY = fistTransform->y;
                     fistTransform->x += fist->velocityX * deltaTime;
                     fistTransform->y += fist->velocityY * deltaTime;
                     fistTransform->rotation = 0.0f;
@@ -2028,12 +2187,25 @@ inline void UpdateEnemies(
                         std::fabs(fist->velocityX) + boss->params.launcherFistAcceleration * deltaTime);
                     fist->velocityX = launchDirection * acceleratedSpeed;
 
-                    const int leadingColumn = static_cast<int>(
-                        (fist->velocityX >= 0.0f
-                            ? fistTransform->x + fistWidth
-                            : fistTransform->x) / kTileSize);
-                    const int centerRow = static_cast<int>((fistTransform->y + fistHeight * 0.5f) / kTileSize);
-                    const bool hitSolidTile = isSolidTile(leadingColumn, centerRow);
+                    const auto sweptLauncherHitSolid = [&]() -> bool
+                    {
+                        const float travelX = fistTransform->x - previousFistX;
+                        const float travelY = fistTransform->y - previousFistY;
+                        const float travelLength = std::max(std::fabs(travelX), std::fabs(travelY));
+                        const int steps = std::max(1, static_cast<int>(std::ceil(travelLength / std::max(1.0f, kTileSize * 0.35f))));
+                        for (int step = 1; step <= steps; ++step)
+                        {
+                            const float t = static_cast<float>(step) / static_cast<float>(steps);
+                            const float sampleX = previousFistX + travelX * t;
+                            const float sampleY = previousFistY + travelY * t;
+                            if (rectLeadingSideIntersectsSolid(sampleX, sampleY, fistWidth, fistHeight, fist->velocityX, fistEntity))
+                            {
+                                return true;
+                            }
+                        }
+                        return false;
+                    };
+                    const bool hitSolidTile = sweptLauncherHitSolid();
                     const bool outOfBounds =
                         fistTransform->x < -fistWidth ||
                         fistTransform->x > mapWidth + fistWidth ||
@@ -2050,10 +2222,9 @@ inline void UpdateEnemies(
                     }
 
                     const bool hitObject = handleFistObjectCollision();
-                    const bool canBreakOnSolid = fist->launchTimer >= 0.12f;
-                    if (!hitObject && ((hitSolidTile && canBreakOnSolid) || outOfBounds))
+                    if (!hitObject && (hitSolidTile || outOfBounds))
                     {
-                        if (hitSolidTile && canBreakOnSolid)
+                        if (hitSolidTile)
                         {
                             constexpr float kFistImpactHitStopSeconds = 0.075f;
                             constexpr float kFistImpactShakeSeconds = 0.32f;
@@ -2088,11 +2259,21 @@ inline void UpdateEnemies(
                 else if (fist->state == MidBoss3FistState::MeteorFalling)
                 {
                     fist->launchTimer += deltaTime;
+                    const float previousFistX = fistTransform->x;
+                    const float previousFistY = fistTransform->y;
                     fistTransform->x += fist->velocityX * deltaTime;
                     fistTransform->y += fist->velocityY * deltaTime;
                     fistTransform->rotation = std::atan2(fist->velocityY, fist->velocityX) + 3.14159265f;
 
-                    const bool hitSolidTile = rectIntersectsSolidIgnoring(fistTransform->x, fistTransform->y, fistWidth, fistHeight, fistEntity);
+                    const float previousBottom = previousFistY + fistHeight;
+                    const float currentBottom = fistTransform->y + fistHeight;
+                    const float targetGroundY = fist->meteorTargetGroundY > 0.0f
+                        ? fist->meteorTargetGroundY
+                        : meteorGroundY;
+                    const bool hitGroundTile =
+                        fist->velocityY > 0.0f &&
+                        previousBottom < targetGroundY &&
+                        currentBottom >= targetGroundY;
                     const bool outOfBounds =
                         fistTransform->x < -fistWidth ||
                         fistTransform->x > mapWidth + fistWidth ||
@@ -2108,9 +2289,8 @@ inline void UpdateEnemies(
                         fist->damageApplied = true;
                     }
 
-                    const bool hitObject = handleFistObjectCollision();
-                    const bool canBreakOnSolid = fist->launchTimer >= 0.08f;
-                    if (!hitObject && ((hitSolidTile && canBreakOnSolid) || outOfBounds))
+                    const bool hitObject = handleFistObjectCollision(false);
+                    if (!hitObject && (hitGroundTile || outOfBounds))
                     {
                         const float impactCenterX = fistTransform->x + fistWidth * 0.5f;
                         const float impactCenterY = fistTransform->y + fistHeight * 0.5f;
@@ -2124,7 +2304,7 @@ inline void UpdateEnemies(
                         fist->impactAttackRemaining = 0.16f;
                         fist->impactAttackActive = true;
                         fist->impactDamageApplied = false;
-                        if (hitSolidTile && canBreakOnSolid)
+                        if (hitGroundTile)
                         {
                             constexpr float kFistImpactHitStopSeconds = 0.075f;
                             constexpr float kFistImpactShakeSeconds = 0.32f;
@@ -2660,7 +2840,7 @@ inline void UpdateEnemies(
 
 		constexpr float kGravity = 1900.0f;
 		constexpr float kMaxFallSpeed = 980.0f;
-		// 後ろジャンプは高さを保ったまま重力を強め、素早く着地させる
+		// 後ろジャンプ�E高さを保ったまま重力を強め、素早く着地させめE
 		constexpr float kBackJumpGravityScale = 1.6f;
 		constexpr float kBackJumpGravity = kGravity * kBackJumpGravityScale;
 		constexpr float kBackJumpMaxFallSpeed = kMaxFallSpeed * kBackJumpGravityScale;
@@ -2688,7 +2868,7 @@ inline void UpdateEnemies(
             constexpr float kAttack02RecoverySeconds =
                 static_cast<float>(kAttack02EndFrame - kAttack02ImpactFrame) / 30.0f;
             constexpr float kAttack02SlamDropSpeedScale = 1.45f;
-            // 叩きつけ後の本体も、盾と同じ正規化速度で地面へ戻します。
+            // 叩きつけ後�E本体も、盾と同じ正規化速度で地面へ戻します、E
             constexpr float kAttack02BossReturnSeconds =
                 static_cast<float>(kAttack02ImpactFrame - kAttack02ShieldDropStartFrame) /
                 (30.0f * kAttack02SlamDropSpeedScale);
@@ -2781,7 +2961,7 @@ inline void UpdateEnemies(
                 boss->targetY = enemy->spawnY;
                 boss->facing =
                     boss->targetX < playerCenterX ? ShieldBossFacing::Right : ShieldBossFacing::Left;
-                // 叩きつけ時と同じ高さまで上がる初速を、重力から逆算します。
+                // 叩きつけ時と同じ高さまで上がる�E速を、E��力から送E��します、E
                 bossVelocityY = -std::sqrt(2.0f * kBackJumpGravity * jumpHeightPx);
                 bossVelocityX = 0.0f;
                 boss->returningHomeJump = false;
@@ -3070,7 +3250,7 @@ inline void UpdateEnemies(
                     return;
                 }
 
-                // 盾落下SEは、叩きつけが地面に当たって盾が消える瞬間に合わせる。
+                // 盾落下SEは、叩きつけが地面に当たって盾が消える瞬間に合わせる、E
                 boss->shieldDropSoundPlayed = true;
                 playShieldBossCue(*entity, "boss_forest_shield_drop");
             };
@@ -3231,7 +3411,7 @@ inline void UpdateEnemies(
                         boss->rushBoostSoundPlayed = true;
                         playShieldBossCue(*entity, "boss_forest_boost");
                     }
-                    // アニメーションフレームではなく、実際の突進経過時間で滑らかに加速する。
+                    // アニメーションフレームではなく、実際の突E��経過時間で滑らかに加速する、E
                     const float rushAccelProgress = std::clamp(
                         boss->rushBoostElapsed / kRushAccelerationSeconds,
                         0.0f,
@@ -3334,7 +3514,7 @@ inline void UpdateEnemies(
                 const float flightSeconds = std::max(0.01f, riseSeconds * 2.0f);
                 const float progress = std::min(1.0f, boss->stateTimer / flightSeconds);
                 transform->x = boss->jumpStartX + (boss->targetX - boss->jumpStartX) * progress;
-                // 頂点以降も補間せず、重力加速と最大落下速度で盾と同様に落下させます。
+                // 頂点以降も補間せず、E��力加速と最大落下速度で盾と同様に落下させます、E
                 bossVelocityY = std::min(
                     kBackJumpMaxFallSpeed,
                     bossVelocityY + kBackJumpGravity * flow.lastDeltaTime);
@@ -3467,7 +3647,7 @@ inline void UpdateEnemies(
                 shieldTransform->y = impactFrameReached
                     ? slamTargetY
                     : slamWindupY + (slamTargetY - slamWindupY) * easedDescent;
-                // 空中で構えた盾の向きを保ったまま、衝撃波フレームまで縦に落とす。
+                // 空中で構えた盾の向きを保ったまま、衝撃波フレームまで縦に落とす、E
 
                 if (impactFrameReached)
                 {

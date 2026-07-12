@@ -1118,11 +1118,22 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
         float marginX = tileSize * 2.25f;
         float marginY = tileSize * 1.75f;
         float minZoomScale = 0.66f;
+        bool deathFocusMode = boss->deathAnimationActive;
+        bool meteorCameraActive = false;
 
-        left = std::min(left, playerTransform->x);
-        top = std::min(top, playerTransform->y);
-        right = std::max(right, playerTransform->x + playerW);
-        bottom = std::max(bottom, playerTransform->y + playerH);
+        if (deathFocusMode)
+        {
+            marginX = tileSize * 3.0f;
+            marginY = tileSize * 2.2f;
+            minZoomScale = 0.84f;
+        }
+        else
+        {
+            left = std::min(left, playerTransform->x);
+            top = std::min(top, playerTransform->y);
+            right = std::max(right, playerTransform->x + playerW);
+            bottom = std::max(bottom, playerTransform->y + playerH);
+        }
 
         const auto includeCameraBounds = [&](float x, float y, float width, float height)
         {
@@ -1135,9 +1146,159 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
             right = std::max(right, x + width);
             bottom = std::max(bottom, y + height);
         };
-
-        for (Entity* fistEntity : boss->fistEntities)
+        const auto rectIntersectsCameraBlocking = [&](float x, float y, float width, float height) -> bool
         {
+            if (x < 0.0f || y < 0.0f || x + width > mapWidth || y + height > mapHeight)
+            {
+                return true;
+            }
+
+            const int leftColumn = static_cast<int>(std::floor(x / tileSize));
+            const int rightColumn = static_cast<int>(std::floor((x + width - 1.0f) / tileSize));
+            const int topRow = static_cast<int>(std::floor(y / tileSize));
+            const int bottomRow = static_cast<int>(std::floor((y + height - 1.0f) / tileSize));
+            for (int row = topRow; row <= bottomRow; ++row)
+            {
+                for (int column = leftColumn; column <= rightColumn; ++column)
+                {
+                    if (IsSolidTile(column, row))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            TransformComponent bounds(x, y, width, height);
+            for (Entity* shutterEntity : m_world.EntitiesByTag(EntityTag::Shutter))
+            {
+                const auto* shutterTransform = shutterEntity ? shutterEntity->GetComponent<TransformComponent>() : nullptr;
+                if (!shutterTransform)
+                {
+                    continue;
+                }
+                const float shutterWidth = shutterTransform->width * shutterTransform->scale;
+                const float shutterHeight = shutterTransform->height * shutterTransform->scale;
+                const bool intersects =
+                    bounds.x < shutterTransform->x + shutterWidth &&
+                    bounds.x + bounds.width * bounds.scale > shutterTransform->x &&
+                    bounds.y < shutterTransform->y + shutterHeight &&
+                    bounds.y + bounds.height * bounds.scale > shutterTransform->y;
+                if (intersects)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        const auto includePredictedAttackEnd = [&](float startX, float startY, float width, float height, float dirX, float dirY)
+        {
+            const float length = std::max(0.001f, std::hypot(dirX, dirY));
+            const float stepX = (dirX / length) * tileSize * 0.75f;
+            const float stepY = (dirY / length) * tileSize * 0.75f;
+            float probeX = startX;
+            float probeY = startY;
+            const int maxSteps = static_cast<int>(std::max(mapWidth, mapHeight) / std::max(1.0f, tileSize) * 2.0f) + 8;
+            for (int step = 0; step < maxSteps; ++step)
+            {
+                const float nextX = probeX + stepX;
+                const float nextY = probeY + stepY;
+                if (rectIntersectsCameraBlocking(nextX, nextY, width, height))
+                {
+                    includeCameraBounds(probeX, probeY, width, height);
+                    return;
+                }
+                probeX = nextX;
+                probeY = nextY;
+            }
+            includeCameraBounds(probeX, probeY, width, height);
+        };
+
+        if (!deathFocusMode)
+        {
+            float launcherFistWidth = tileSize * 3.0f;
+            float launcherFistHeight = tileSize * 2.0f;
+            bool launcherFistInFlight = false;
+            for (Entity* fistEntity : boss->fistEntities)
+            {
+                const auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
+                const auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
+                if (!fist || !fistTransform)
+                {
+                    continue;
+                }
+                launcherFistWidth = fistTransform->width * fistTransform->scale;
+                launcherFistHeight = fistTransform->height * fistTransform->scale;
+                if (fist->state == MidBoss3FistState::LauncherReady ||
+                    fist->state == MidBoss3FistState::Launching)
+                {
+                    launcherFistInFlight = true;
+                }
+            }
+
+            bool drillRubbleActive = false;
+            const bool launcherRubbleCameraAllowed =
+                boss->state == MidBoss3State::LauncherFist ||
+                (boss->state == MidBoss3State::AttackCooldown &&
+                    (boss->cooldownAttack == 1 || boss->cooldownAttack == 3)) ||
+                launcherFistInFlight;
+            bool launcherRubbleActive = false;
+            for (Entity* rubbleEntity : m_world.EntitiesByTag(EntityTag::SepiaRubble))
+            {
+                const auto* rubble = rubbleEntity ? rubbleEntity->GetComponent<SepiaRubbleComponent>() : nullptr;
+                const auto* rubbleTransform = rubbleEntity ? rubbleEntity->GetComponent<TransformComponent>() : nullptr;
+                if (!rubble || !rubbleTransform)
+                {
+                    continue;
+                }
+                if (rubble->source == SepiaRubbleSource::MidBoss3Fist)
+                {
+                    if (!launcherRubbleCameraAllowed)
+                    {
+                        continue;
+                    }
+                    launcherRubbleActive = true;
+                }
+                else if (rubble->source == SepiaRubbleSource::MidBoss3Drill)
+                {
+                    drillRubbleActive = true;
+                }
+                else
+                {
+                    continue;
+                }
+                includeCameraBounds(
+                    rubbleTransform->x,
+                    rubbleTransform->y,
+                    rubbleTransform->width * rubbleTransform->scale,
+                    rubbleTransform->height * rubbleTransform->scale);
+            }
+
+            const bool launcherCameraHold =
+                boss->state == MidBoss3State::LauncherFist ||
+                (boss->state == MidBoss3State::AttackCooldown &&
+                    (boss->cooldownAttack == 1 || boss->cooldownAttack == 3)) ||
+                launcherFistInFlight ||
+                launcherRubbleActive;
+            if (launcherCameraHold)
+            {
+                const float stableStartX = boss->launcherDirection < 0
+                    ? mapWidth * 0.5f + tileSize * 0.7f
+                    : mapWidth * 0.5f - launcherFistWidth - tileSize * 0.7f;
+                const float startX = std::clamp(stableStartX, 0.0f, std::max(0.0f, mapWidth - launcherFistWidth));
+                const float lowerY = boss->launcherLowerLaneY;
+                const float upperY = boss->launcherUpperLaneY;
+                const float dirX = boss->launcherDirection < 0 ? -1.0f : 1.0f;
+                includeCameraBounds(startX, lowerY, launcherFistWidth, launcherFistHeight);
+                includeCameraBounds(startX, upperY, launcherFistWidth, launcherFistHeight);
+                includePredictedAttackEnd(startX, lowerY, launcherFistWidth, launcherFistHeight, dirX, 0.0f);
+                includePredictedAttackEnd(startX, upperY, launcherFistWidth, launcherFistHeight, dirX, 0.0f);
+                marginX = std::max(marginX, tileSize * 3.0f);
+                marginY = std::max(marginY, tileSize * 2.0f);
+                minZoomScale = std::min(minZoomScale, 0.58f);
+            }
+
+            for (Entity* fistEntity : boss->fistEntities)
+            {
             const auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
             const auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
             const auto* fistTint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr;
@@ -1152,23 +1313,76 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
             {
                 continue;
             }
-            includeCameraBounds(
-                fistTransform->x,
-                fistTransform->y,
-                fistTransform->width * fistTransform->scale,
-                fistTransform->height * fistTransform->scale);
+            if (fist->state == MidBoss3FistState::LauncherReady)
+            {
+                continue;
+            }
+            else if (fist->state == MidBoss3FistState::MeteorReady)
+            {
+                if (!fist->atAttackStart)
+                {
+                    continue;
+                }
+                meteorCameraActive = true;
+                const float fistW = fistTransform->width * fistTransform->scale;
+                const float fistH = fistTransform->height * fistTransform->scale;
+                const float stableX = fist->meteorHoldInitialized ? fist->meteorHoldX : fistTransform->x;
+                const float stableY = fist->meteorHoldInitialized ? fist->meteorHoldY : fistTransform->y;
+                includeCameraBounds(
+                    stableX,
+                    stableY,
+                    fistW,
+                    fistH);
+                marginX = std::max(marginX, tileSize * 1.2f);
+                marginY = std::max(marginY, tileSize * 1.0f);
+            }
+            }
+
+            const bool drillCameraRelevant =
+                (boss->state == MidBoss3State::DrillFist ||
+                    (boss->state == MidBoss3State::AttackCooldown && boss->cooldownAttack == 4) ||
+                    drillRubbleActive) &&
+                boss->drillWidth > 0.0f &&
+                boss->drillHeight > 0.0f;
+            if (drillCameraRelevant)
+            {
+                const float aimLength = std::max(0.001f, std::hypot(boss->drillAimX, boss->drillAimY));
+                const float aimX = boss->drillAimX / aimLength;
+                const float aimY = boss->drillAimY / aimLength;
+                const float stableDrillX = std::clamp(
+                    boss->drillChargeBaseX,
+                    0.0f,
+                    std::max(0.0f, mapWidth - boss->drillWidth));
+                const float stableDrillY = std::clamp(
+                    boss->drillChargeBaseY,
+                    0.0f,
+                    std::max(0.0f, mapHeight - boss->drillHeight));
+                const float currentDrillX = std::clamp(
+                    boss->drillX,
+                    0.0f,
+                    std::max(0.0f, mapWidth - boss->drillWidth));
+                const float currentDrillY = std::clamp(
+                    boss->drillY,
+                    0.0f,
+                    std::max(0.0f, mapHeight - boss->drillHeight));
+                includeCameraBounds(stableDrillX, stableDrillY, boss->drillWidth, boss->drillHeight);
+                includeCameraBounds(currentDrillX, currentDrillY, boss->drillWidth, boss->drillHeight);
+                includePredictedAttackEnd(
+                    currentDrillX,
+                    currentDrillY,
+                    boss->drillWidth,
+                    boss->drillHeight,
+                    aimX,
+                    aimY);
+                marginX = std::max(marginX, tileSize * 3.0f);
+                marginY = std::max(marginY, tileSize * 2.2f);
+                minZoomScale = std::min(minZoomScale, 0.58f);
+            }
         }
 
-        const bool drillCameraRelevant =
-            boss->state == MidBoss3State::DrillFist &&
-            boss->drillActive &&
-            std::fabs(boss->drillVelocityX) < 0.001f &&
-            std::fabs(boss->drillVelocityY) < 0.001f;
-        if (drillCameraRelevant &&
-            boss->drillWidth > 0.0f &&
-            boss->drillHeight > 0.0f)
+        if (meteorCameraActive)
         {
-            includeCameraBounds(boss->drillX, boss->drillY, boss->drillWidth, boss->drillHeight);
+            minZoomScale = std::max(minZoomScale, 0.82f);
         }
 
         if (attachedDrill && attachedDrillTransform)
@@ -1206,9 +1420,16 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
             std::min(baseVisibleWidth / requiredWidth, baseVisibleHeight / requiredHeight),
             minZoomScale,
             1.0f);
-        const float targetZoomScale = fitZoomScale < 0.98f
+        float targetZoomScale = fitZoomScale < 0.98f
             ? std::clamp(fitZoomScale * 0.94f, minZoomScale, 1.0f)
             : 0.92f;
+        if (deathFocusMode)
+        {
+            targetZoomScale = std::clamp(targetZoomScale, minZoomScale, 0.9f);
+        }
+        const float focusZoomBlend = deathFocusMode
+            ? 1.0f - std::pow(0.001f, deltaTime * 0.75f)
+            : zoomInBlend;
         if (m_camera.shieldBossDistanceZoomScale > targetZoomScale)
         {
             m_camera.shieldBossDistanceZoomScale = targetZoomScale;
@@ -1218,7 +1439,7 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
             m_camera.shieldBossDistanceZoomScale = std::lerp(
                 m_camera.shieldBossDistanceZoomScale,
                 targetZoomScale,
-                zoomInBlend);
+                focusZoomBlend);
         }
 
         const float visibleWidth = baseVisibleWidth / std::max(0.01f, m_camera.shieldBossDistanceZoomScale);
@@ -1236,8 +1457,11 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
         const float containMaxCameraX = std::clamp(contentLeft, 0.0f, maxCameraX);
         const float containMinCameraY = std::clamp(contentBottom - visibleHeight, 0.0f, maxCameraY);
         const float containMaxCameraY = std::clamp(contentTop, 0.0f, maxCameraY);
-        const float smoothedCameraX = std::lerp(m_flow.cameraX, targetCameraX, cameraBlend);
-        const float smoothedCameraY = std::lerp(m_flow.cameraY, targetCameraY, cameraBlend);
+        const float focusCameraBlend = deathFocusMode
+            ? 1.0f - std::pow(0.001f, deltaTime * 1.6f)
+            : cameraBlend;
+        const float smoothedCameraX = std::lerp(m_flow.cameraX, targetCameraX, focusCameraBlend);
+        const float smoothedCameraY = std::lerp(m_flow.cameraY, targetCameraY, focusCameraBlend);
         m_flow.cameraX = containMinCameraX <= containMaxCameraX
             ? std::clamp(smoothedCameraX, containMinCameraX, containMaxCameraX)
             : targetCameraX;
@@ -2279,8 +2503,35 @@ void GameScene::UpdatePlayer(float deltaTime)
         {
             return false;
         }
-        return m_flow.shieldBossDefeatedThisScene;
+        return m_flow.midBoss3DefeatedThisScene || m_flow.shieldBossDefeatedThisScene;
     }();
+    if (midBoss3ExitCameraActive)
+    {
+        const float exitVisibleWidth = std::max(1.0f, GetCameraFollowSpanX(m_tileMap));
+        const float exitVisibleHeight = std::max(1.0f, GetCameraVisibleHeight(m_tileMap));
+        const float maxExitCameraX = std::max(0.0f, mapWidth - exitVisibleWidth);
+        const float maxExitCameraY = std::max(0.0f, mapHeight - exitVisibleHeight);
+        const float playerCenterY = transform->y + playerHeight * 0.5f;
+        constexpr float kExitPlayerScreenRatioX = 0.34f;
+        const float playerCenterX = transform->x + playerWidth * 0.5f;
+        const float targetExitCameraX = std::clamp(
+            playerCenterX - exitVisibleWidth * kExitPlayerScreenRatioX,
+            0.0f,
+            maxExitCameraX);
+        const float targetExitCameraY = std::clamp(
+            playerCenterY - exitVisibleHeight * 0.5f + GetCameraFollowOffsetY(m_tileMap) + gCameraTargetOffsetY,
+            0.0f,
+            maxExitCameraY);
+        const float exitFollowX = 1.0f - std::pow(0.001f, deltaTime * 2.4f);
+        const float exitFollowY = 1.0f - std::pow(0.001f, deltaTime * 1.8f);
+        m_flow.cameraX = std::lerp(m_flow.cameraX, targetExitCameraX, exitFollowX);
+        m_flow.cameraY = std::lerp(m_flow.cameraY, targetExitCameraY, exitFollowY);
+        m_camera.midBoss3CameraYLockInitialized = false;
+        m_camera.midBoss3CameraYLock = 0.0f;
+        m_camera.cameraOffsetX = 0.0f;
+        m_camera.cameraYRecenteringStrength = 0.0f;
+        return;
+    }
     const bool stabilizeMidBoss3CameraY = activeMidBoss3CameraTarget;
     const bool shieldBossCameraActive =
         IsShieldBossIntroCinematicActive() ||
@@ -2379,35 +2630,6 @@ void GameScene::UpdatePlayer(float deltaTime)
         const float returnBlend = 1.0f - std::pow(0.001f, deltaTime * 0.95f);
         m_flow.cameraX = std::lerp(shieldBossIntroReturnStartX, normalCameraX, returnBlend);
         m_flow.cameraY = std::lerp(shieldBossIntroReturnStartY, normalCameraY, returnBlend);
-    }
-
-    if (midBoss3ExitCameraActive)
-    {
-        const float exitVisibleWidth = std::max(1.0f, GetCameraFollowSpanX(m_tileMap));
-        const float exitVisibleHeight = std::max(1.0f, GetCameraVisibleHeight(m_tileMap));
-        const float maxExitCameraX = std::max(0.0f, mapWidth - exitVisibleWidth);
-        const float maxExitCameraY = std::max(0.0f, mapHeight - exitVisibleHeight);
-        const float playerCenterX = transform->x + playerWidth * 0.5f;
-        const float playerCenterY = transform->y + playerHeight * 0.5f;
-        const float rightLookAhead = playerMovingHorizontally && moveAxis > 0.01f
-            ? exitVisibleWidth * 0.12f
-            : 0.0f;
-        const float targetExitCameraX = std::clamp(
-            playerCenterX - exitVisibleWidth * 0.5f + rightLookAhead,
-            0.0f,
-            maxExitCameraX);
-        const float targetExitCameraY = std::clamp(
-            playerCenterY - exitVisibleHeight * 0.5f + GetCameraFollowOffsetY(m_tileMap) + gCameraTargetOffsetY,
-            0.0f,
-            maxExitCameraY);
-        const float exitFollowX = 1.0f - std::pow(0.001f, deltaTime * 2.4f);
-        const float exitFollowY = 1.0f - std::pow(0.001f, deltaTime * 1.8f);
-        m_flow.cameraX = std::lerp(m_flow.cameraX, targetExitCameraX, exitFollowX);
-        m_flow.cameraY = std::lerp(m_flow.cameraY, targetExitCameraY, exitFollowY);
-        m_camera.midBoss3CameraYLockInitialized = false;
-        m_camera.midBoss3CameraYLock = 0.0f;
-        m_camera.cameraOffsetX = 0.0f;
-        return;
     }
 
     if (stabilizeMidBoss3CameraY)
