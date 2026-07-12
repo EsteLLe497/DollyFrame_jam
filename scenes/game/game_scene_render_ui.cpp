@@ -23,6 +23,7 @@ namespace
     constexpr float kPitRestartFadeDuration = 0.45f;
     constexpr float kStageTransitionFadeOutDuration = 0.45f;
     constexpr float kStageTransitionFadeInDuration = 1.10f;
+    constexpr float kSceneFadeOutDuration = 0.45f;
     constexpr float kCaptureFinderBaseTilesX = 23.0f;
     constexpr const char* kPhotoTrayFrameTextureKey = "ui_photo_frame";
     constexpr const char* kPhotoTrayEmptyTextureKey = "ui_photo_empty";
@@ -1724,7 +1725,8 @@ void GameScene::DrawPitRestartOverlay() const
 {
     const bool hasPitFade = m_flow.pitRestartActive || m_flow.pitRestartFadeInTimer > 0.0f;
     const bool hasStageTransitionFade = m_flow.stageTransitionActive || m_flow.stageTransitionFadeInTimer > 0.0f;
-    if (!hasPitFade && !hasStageTransitionFade)
+    const bool hasSceneFade = m_flow.sceneFadeOutActive;
+    if (!hasPitFade && !hasStageTransitionFade && !hasSceneFade)
     {
         return;
     }
@@ -1753,7 +1755,14 @@ void GameScene::DrawPitRestartOverlay() const
         stageTransitionAlpha = 1.0f - SmoothStep01(elapsed);
     }
 
-    const float alpha = std::max(pitAlpha, stageTransitionAlpha);
+    float sceneFadeAlpha = 0.0f;
+    if (m_flow.sceneFadeOutActive)
+    {
+        const float progress = Clamp01(1.0f - (m_flow.sceneFadeOutTimer / kSceneFadeOutDuration));
+        sceneFadeAlpha = progress;
+    }
+
+    const float alpha = std::max(std::max(pitAlpha, stageTransitionAlpha), sceneFadeAlpha);
 
     Shader_ResetStyle();
     Shader_SetTint(0.01f, 0.01f, 0.02f, alpha);

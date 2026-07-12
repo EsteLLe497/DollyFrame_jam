@@ -465,6 +465,9 @@ struct GameSceneFlowState
     bool stageTransitionActive = false;
     float stageTransitionTimer = 0.0f;
     float stageTransitionFadeInTimer = 0.0f;
+    bool sceneFadeOutActive = false;
+    float sceneFadeOutTimer = 0.0f;
+    std::string sceneFadeOutTarget;
     bool hasCheckpoint = false;
     int activeCheckpointId = -1;
     float stageStartX = 0.0f;

@@ -66,6 +66,11 @@ bool GameScene::TryHandleModalUpdates(float deltaTime)
         return true;
     }
 
+    if (UpdateSceneFadeOutFlow(deltaTime))
+    {
+        return true;
+    }
+
     if (m_ui.merchantShopOpen)
     {
         UpdateMerchantShopInput();
@@ -352,6 +357,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
     if (hideUiForIntroCinematic)
     {
         DrawShieldBossIntroCurtainOverlay();
+        DrawEscapeMenuOverlay();
         DrawTutorialOverlay();
         return;
     }
