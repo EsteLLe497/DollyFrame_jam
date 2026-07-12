@@ -164,6 +164,17 @@ namespace
 
     void FinishBgmFade()
     {
+        if (g_bgmFade.toCueName.empty())
+        {
+            if (!g_bgmFade.fromCueName.empty())
+            {
+                StopBgmCue(g_bgmFade.fromCueName);
+            }
+            g_currentBgmCueName.clear();
+            g_bgmFade = BgmFadeState{};
+            return;
+        }
+
         if (!g_bgmFade.fromCueName.empty() && g_bgmFade.fromCueName != g_bgmFade.toCueName)
         {
             StopBgmCue(g_bgmFade.fromCueName);
@@ -465,6 +476,38 @@ void Audio_CrossFadeBgmCue(const char* cueName, float durationSeconds)
     g_bgmFade.duration = std::max(0.001f, durationSeconds);
     g_bgmFade.lastTick = GetNowCount();
     g_currentBgmCueName = cue;
+    ApplyBgmFadeVolumes();
+}
+
+void Audio_FadeOutBgm(float durationSeconds)
+{
+    if (g_currentBgmCueName.empty() && !g_bgmFade.active)
+    {
+        return;
+    }
+
+    if (durationSeconds <= 0.0f)
+    {
+        Audio_StopBgm();
+        return;
+    }
+
+    if (g_bgmFade.active && g_bgmFade.toCueName.empty())
+    {
+        return;
+    }
+
+    if (g_bgmFade.active && !g_bgmFade.fromCueName.empty() && g_bgmFade.fromCueName != g_bgmFade.toCueName)
+    {
+        StopBgmCue(g_bgmFade.fromCueName);
+    }
+
+    g_bgmFade.fromCueName = g_bgmFade.active ? g_bgmFade.toCueName : g_currentBgmCueName;
+    g_bgmFade.toCueName.clear();
+    g_bgmFade.elapsed = 0.0f;
+    g_bgmFade.duration = std::max(0.001f, durationSeconds);
+    g_bgmFade.lastTick = GetNowCount();
+    g_bgmFade.active = !g_bgmFade.fromCueName.empty();
     ApplyBgmFadeVolumes();
 }
 

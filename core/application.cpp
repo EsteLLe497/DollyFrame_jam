@@ -36,6 +36,7 @@ namespace
     constexpr int TARGET_FPS = 60;
     constexpr float SCENE_TRANSITION_DURATION = 0.70f;
     constexpr float SCENE_TRANSITION_SWAP_TIME = SCENE_TRANSITION_DURATION * 0.5f;
+    constexpr float STARTUP_FADE_OUT_DURATION = 1.35f;
     constexpr float kCursorTrailSpawnDistance = 18.0f;
 
     struct SoundCueAsset
@@ -53,6 +54,8 @@ namespace
         { "bgm_forest", "assets/effects/Sound/Stage_BGM/forest.wav" },
         { "bgm_ruins", "assets/effects/Sound/Stage_BGM/ruins.wav" },
         { "bgm_under", "assets/effects/Sound/Stage_BGM/under.wav" },
+        { "bgm_title", "assets/effects/Sound/Stage_BGM/title.wav" },
+        { "bgm_result", "assets/effects/Sound/Stage_BGM/result.wav" },
         { "bgm_forest_boss", "assets/effects/Sound/Boss_BGM/forest_boss.wav" },
         { "bgm_ruins_boss", "assets/effects/Sound/Boss_BGM/ruins_boss.wav" },
         { "boss_forest_attack2", "assets/effects/Sound/Boss_SE/Forest/attack2.wav" },
@@ -105,54 +108,11 @@ namespace
         }
     }
 
-    void DrawStartupLoadingScreen(const char* text)
+    void DrawStartupBlackScreen()
     {
-        static_cast<void>(text);
         SetDrawScreen(DX_SCREEN_BACK);
         ClearDrawScreen();
-
-        const int centerX = kVirtualScreenWidth / 2;
-        DrawBox(0, 0, kVirtualScreenWidth, kVirtualScreenHeight, GetColor(16, 11, 9), TRUE);
-
-        constexpr int stripTop = 226;
-        constexpr int stripHeight = 300;
-        constexpr int frameWidth = 238;
-        constexpr int frameHeight = 186;
-        constexpr int frameGap = 18;
-        DrawBox(0, stripTop, kVirtualScreenWidth, stripTop + stripHeight, GetColor(8, 8, 8), TRUE);
-        DrawBox(0, stripTop + 42, kVirtualScreenWidth, stripTop + 45, GetColor(74, 64, 53), TRUE);
-        DrawBox(0, stripTop + stripHeight - 45, kVirtualScreenWidth, stripTop + stripHeight - 42, GetColor(74, 64, 53), TRUE);
-
-        for (int x = -12; x < kVirtualScreenWidth + 42; x += 42)
-        {
-            DrawBox(x, stripTop + 10, x + 24, stripTop + 26, GetColor(211, 188, 150), TRUE);
-            DrawBox(x, stripTop + stripHeight - 26, x + 24, stripTop + stripHeight - 10, GetColor(211, 188, 150), TRUE);
-        }
-
-        const int frameTop = stripTop + 58;
-        for (int index = 0; index < 5; ++index)
-        {
-            const int left = -94 + index * (frameWidth + frameGap);
-            const int right = left + frameWidth;
-            DrawBox(left - 5, frameTop - 5, right + 5, frameTop + frameHeight + 5, GetColor(190, 170, 139), TRUE);
-            DrawBox(left, frameTop, right, frameTop + frameHeight, GetColor(62, 45, 34), TRUE);
-            DrawBox(left, frameTop, right, frameTop + 82, GetColor(144 - index * 8, 91 - index * 5, 62), TRUE);
-            DrawCircle(left + 170, frameTop + 54, 28, GetColor(202, 141, 86), TRUE);
-            DrawCircle(left + 54, frameTop + frameHeight - 34, 68, GetColor(40, 38, 29), TRUE);
-            DrawCircle(right - 42, frameTop + frameHeight - 30, 76, GetColor(31, 31, 25), TRUE);
-            DrawBox(left, frameTop + frameHeight - 40, right, frameTop + frameHeight, GetColor(25, 25, 22), TRUE);
-            DrawBox(left, frameTop, right, frameTop + frameHeight, GetColor(228, 207, 172), FALSE);
-        }
-
-        const int gateLeft = centerX - frameWidth / 2 - 12;
-        const int gateRight = centerX + frameWidth / 2 + 12;
-        DrawBox(gateLeft, stripTop + 48, gateRight, stripTop + stripHeight - 48, GetColor(255, 220, 142), FALSE);
-
-        const char* loadingText = "旅の記録を読み込んでいます…";
-        const int loadingWidth = GetDrawStringWidth(loadingText, -1);
-        DrawString(centerX - loadingWidth / 2, 136, loadingText, GetColor(239, 220, 186));
-        DrawBox(centerX - 210, kVirtualScreenHeight - 92, centerX + 210, kVirtualScreenHeight - 86, GetColor(92, 73, 56), TRUE);
-        DrawBox(centerX - 210, kVirtualScreenHeight - 92, centerX + 34, kVirtualScreenHeight - 86, GetColor(224, 174, 92), TRUE);
+        DrawBox(0, 0, kVirtualScreenWidth, kVirtualScreenHeight, GetColor(0, 0, 0), TRUE);
         ScreenFlip();
     }
 
@@ -163,9 +123,12 @@ Application::Application()
     , m_running(true)
     , m_initialized(false)
     , m_exitConfirmationOpen(false)
+    , m_startupFadeActive(false)
+    , m_titleBgmPending(false)
     , m_sceneTransitionActive(false)
     , m_sceneTransitionSwapped(false)
     , m_currentFps(0.0f)
+    , m_startupFadeTimer(0.0f)
     , m_sceneTransitionTimer(0.0f)
     , m_sceneTransitionDuration(SCENE_TRANSITION_DURATION)
     , m_frameCount(0)
@@ -280,7 +243,7 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     }
     initializeGameFont();
     SetMouseDispFlag(TRUE);
-    DrawStartupLoadingScreen("LOADING...");
+    DrawStartupBlackScreen();
 
     DirectXInitialize(GetMainWindowHandle());
     if (!Shader_Initialize(nullptr, nullptr))
@@ -333,6 +296,9 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     }
 
     m_sceneManager->SetScene(m_sceneRegistry->Create("title"), *m_resources);
+    m_startupFadeActive = true;
+    m_titleBgmPending = true;
+    m_startupFadeTimer = 0.0f;
     m_initialized = true;
     Logger::Info("Application initialization completed");
     return true;
@@ -367,6 +333,7 @@ void Application::Update(float deltaTime)
     ZoneScoped;
     Input_Update();
     Audio_Update();
+    UpdateStartupFade(deltaTime);
 
     if constexpr (build_config::kDebugFeaturesEnabled)
     {
@@ -428,6 +395,7 @@ void Application::Draw()
         DrawSceneTransition();
     }
     DrawCursorParticles();
+    DrawStartupFade();
     if (m_exitConfirmationOpen)
     {
         DrawExitConfirmation();
@@ -610,6 +578,63 @@ bool Application::ShouldShowCursorParticles() const
     return std::strcmp(currentScene->GetSceneId(), "game") != 0;
 }
 
+void Application::UpdateStartupFade(float deltaTime)
+{
+    if (!m_startupFadeActive)
+    {
+        return;
+    }
+
+    m_startupFadeTimer += deltaTime;
+    if (m_startupFadeTimer >= STARTUP_FADE_OUT_DURATION)
+    {
+        m_startupFadeActive = false;
+        m_startupFadeTimer = 0.0f;
+        PlayPendingTitleBgm();
+    }
+}
+
+void Application::DrawStartupFade() const
+{
+    if (!m_startupFadeActive)
+    {
+        return;
+    }
+
+    // 起動直後だけタイトルを黒から見せ、専用ロード画面を挟まない。
+    const float fadeProgress = std::clamp(
+        m_startupFadeTimer / std::max(0.001f, STARTUP_FADE_OUT_DURATION),
+        0.0f,
+        1.0f);
+    const float easedProgress = fadeProgress * fadeProgress * (3.0f - 2.0f * fadeProgress);
+    const int drawAlpha = static_cast<int>((1.0f - easedProgress) * 255.0f);
+    if (drawAlpha <= 0)
+    {
+        return;
+    }
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, drawAlpha);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+}
+
+void Application::PlayPendingTitleBgm()
+{
+    if (!m_titleBgmPending)
+    {
+        return;
+    }
+
+    Scene* currentScene = m_sceneManager ? m_sceneManager->GetCurrentScene() : nullptr;
+    if (!currentScene || std::strcmp(currentScene->GetSceneId(), "title") != 0)
+    {
+        return;
+    }
+
+    m_titleBgmPending = false;
+    Audio_PlayBgmCue("bgm_title");
+}
+
 void Application::DrawExitConfirmation() const
 {
     const int centerX = SCREEN_WIDTH / 2;
@@ -750,6 +775,7 @@ void Application::UpdateSceneTransition(float deltaTime)
         m_sceneTransitionSwapped = false;
         m_sceneTransitionTimer = 0.0f;
         m_pendingSceneId.clear();
+        PlayPendingTitleBgm();
     }
 }
 
@@ -765,6 +791,16 @@ bool Application::RequestSceneChange(const std::string& sceneId)
     }
 
     m_pendingSceneId = sceneId;
+    if (sceneId == "title")
+    {
+        // どのシーンからタイトルへ戻っても、現在のBGMは暗転中に必ず落とす。
+        Audio_FadeOutBgm(SCENE_TRANSITION_SWAP_TIME);
+        m_titleBgmPending = true;
+    }
+    else
+    {
+        m_titleBgmPending = false;
+    }
     m_sceneTransitionActive = true;
     m_sceneTransitionSwapped = false;
     m_sceneTransitionTimer = 0.0f;

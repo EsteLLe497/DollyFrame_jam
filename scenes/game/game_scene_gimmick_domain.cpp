@@ -3,6 +3,7 @@
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
 #include "game_scene_world_interaction_system.h"
+#include "audio.h"
 
 #include <cctype>
 #include <limits>
@@ -1530,6 +1531,7 @@ void GameScene::QueueResult(GameEndReason reason)
     m_flow.resultTransitionTimer = 0.0f;
     GameSession_SetEndReason(reason);
     GameSession_SetLastMapCsvPath(m_lifecycle.currentMapCsvPath);
+    Audio_CrossFadeBgmCue("bgm_result", 0.25f);
     m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
 }
 

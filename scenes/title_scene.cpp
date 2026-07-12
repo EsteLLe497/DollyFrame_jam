@@ -840,6 +840,7 @@ void TitleScene::BeginStartTransition(const char* sceneId)
     m_startTransitionTimer = 0.0f;
     m_startTransitionSceneId = sceneId;
     m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
+    Audio_FadeOutBgm(kStartTransitionDuration);
 }
 
 void TitleScene::ConfirmOptionsMenu()
@@ -872,6 +873,7 @@ void TitleScene::ConfirmOptionsMenu()
 void TitleScene::PublishSceneChange(const char* sceneId)
 {
     m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
+    Audio_FadeOutBgm(0.65f);
     m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, sceneId, 0.0f, 0.0f });
 }
 

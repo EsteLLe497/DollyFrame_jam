@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "result_scene.h"
+#include "audio.h"
 #include "directX.h"
 #include "game_session.h"
 #include "imgui.h"
@@ -456,11 +457,13 @@ void ResultScene::ConfirmSelection()
 
         GameSession_SetStartMapCsvPath(m_primaryOptionMapCsv);
         GameSession_SetLoadSavedProgress(false);
+        Audio_FadeOutBgm(1.2f);
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
     }
     else if (m_selectedOption == 1)
     {
         // タイトルへ戻る
+        Audio_FadeOutBgm(1.2f);
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
     }
     else
@@ -531,6 +534,7 @@ void ResultScene::ConfirmDialogSelection()
         // はい：確認済みの遷移先へ進む
         GameSession_SetStartMapCsvPath(m_pendingConfirmMapCsv);
         GameSession_SetLoadSavedProgress(false);
+        Audio_FadeOutBgm(1.2f);
         m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "game", 0.0f, 0.0f });
     }
     else
