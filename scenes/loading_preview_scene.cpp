@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "directX.h"
+#include "audio.h"
 #include "imgui.h"
 #include "input.h"
 #include "resource_manager.h"
@@ -49,6 +50,7 @@ const char* LoadingPreviewScene::GetSceneId() const
 
 void LoadingPreviewScene::OnEnter(ResourceManager& resources)
 {
+    Audio_FadeOutBgm(1.2f);
     m_whiteTexture = resources.CreateSolidTexture(1, 1, 0xFFFFFFFF);
     m_stageTextures[0] = resources.LoadTexture(L"assets\\texture\\BG\\forest\\BG_Forest.png");
     m_stageTextures[1] = resources.LoadTexture(L"assets\\texture\\BG\\ruins\\ruins.png");

@@ -220,6 +220,33 @@ bool GameScene::IsMidBoss3IntroCinematicActive() const
     return false;
 }
 
+bool GameScene::IsMidBoss3DefeatCinematicActive() const
+{
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        const auto* boss = entity->GetComponent<MidBoss3Component>();
+        if (!enemy || !boss || enemy->GetArchetype() != EnemyArchetype::MidBoss3)
+        {
+            continue;
+        }
+        if (!enemy->IsEnabled() || enemy->IsDefeated())
+        {
+            continue;
+        }
+        if (boss->deathAnimationActive && !boss->deathAnimationFinished)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool GameScene::IsShieldBossIntroCinematicActive() const
 {
     for (const auto& entity : m_world.Entities())
@@ -276,7 +303,10 @@ bool GameScene::IsShieldBossBattleCameraActive() const
 
 void GameScene::DrawWorldAndUiLayers()
 {
-    const bool hideUiForIntroCinematic = IsMidBoss3IntroCinematicActive() || IsShieldBossIntroCinematicActive();
+    const bool hideUiForIntroCinematic =
+        IsMidBoss3IntroCinematicActive() ||
+        IsMidBoss3DefeatCinematicActive() ||
+        IsShieldBossIntroCinematicActive();
 
     DrawGameWorldLayers();
     // UIをビネット対象から外すため、ワールドだけを先にポストプロセス合成する。
@@ -306,7 +336,10 @@ void GameScene::DrawGameWorldLayers()
     // バッテリー必要数はスイッチ固有情報のため、UI非表示中もワールド上へ表示する。
     DrawBatterySwitchCounters();
     DrawStageDarknessOverlay();
-    DrawSepiaFilmFilterOverlay();
+    if (!IsMidBoss3DefeatCinematicActive())
+    {
+        DrawSepiaFilmFilterOverlay();
+    }
     DrawShieldBossSlamVignetteOverlay();
     if (!m_debug.hideNonPhotoUi)
     {

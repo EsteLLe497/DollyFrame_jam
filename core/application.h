@@ -45,6 +45,9 @@ private:
     void DrawCursorParticles() const;
     void SpawnCursorParticle(float x, float y, float vx, float vy, float lifetime, float size, int colorR, int colorG, int colorB, bool ring);
     bool ShouldShowCursorParticles() const;
+    void UpdateStartupFade(float deltaTime);
+    void DrawStartupFade() const;
+    void PlayPendingTitleBgm();
     void DrawExitConfirmation() const;
     void DrawSceneTransition() const;
     void ClearCurrentSceneEvents();
@@ -62,9 +65,12 @@ private:
     bool m_running;
     bool m_initialized;
     bool m_exitConfirmationOpen;
+    bool m_startupFadeActive;
+    bool m_titleBgmPending;
     bool m_sceneTransitionActive;
     bool m_sceneTransitionSwapped;
     float m_currentFps;
+    float m_startupFadeTimer;
     float m_sceneTransitionTimer;
     float m_sceneTransitionDuration;
     DWORD m_frameCount;

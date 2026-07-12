@@ -3,6 +3,7 @@
 #include "game_scene_internal.h"
 #include "game_scene_player_visual_system.h"
 #include "game_scene_world_interaction_system.h"
+#include "audio.h"
 
 #include <cctype>
 #include <limits>
@@ -429,6 +430,8 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
     }
 
     constexpr float kGearSocketAssistDistance = 25.0f;
+    constexpr float kGearSocketMinSizeRatio = 0.90f;
+    constexpr float kGearSocketMaxSizeRatio = 1.10f;
     constexpr float kGearSocketRotationSpeed = 3.5f;
     std::unordered_map<int, int> gearSocketActiveCounts;
     std::unordered_map<int, int> gearSocketRequiredCounts;
@@ -471,6 +474,14 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
             const float gearWidth = gearTransform->width * gearTransform->scale;
             const float gearHeight = gearTransform->height * gearTransform->scale;
+            if (gearWidth < socketWidth * kGearSocketMinSizeRatio ||
+                gearWidth > socketWidth * kGearSocketMaxSizeRatio ||
+                gearHeight < socketHeight * kGearSocketMinSizeRatio ||
+                gearHeight > socketHeight * kGearSocketMaxSizeRatio)
+            {
+                continue;
+            }
+
             const float gearCenterX = gearTransform->x + gearWidth * 0.5f;
             const float gearCenterY = gearTransform->y + gearHeight * 0.5f;
             const float dx = gearCenterX - socketCenterX;
@@ -1520,6 +1531,7 @@ void GameScene::QueueResult(GameEndReason reason)
     m_flow.resultTransitionTimer = 0.0f;
     GameSession_SetEndReason(reason);
     GameSession_SetLastMapCsvPath(m_lifecycle.currentMapCsvPath);
+    Audio_CrossFadeBgmCue("bgm_result", 0.25f);
     m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
 }
 
