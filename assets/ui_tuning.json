@@ -20,12 +20,12 @@
     "tileOffsetMultiplier": 0.44999998807907104
   },
   "boss_hp": {
-    "barHeight": 26.0,
+    "barHeight": 34.0,
     "hpTextOffsetY": 4.0,
-    "marginTop": 42.0,
+    "marginTop": 76.0,
     "panelExtraHeight": 34.0,
     "panelPadding": 22.0,
-    "panelWidth": 420.0,
+    "panelWidth": 800.0,
     "titleOffsetY": -18.0
   },
   "camera_flash_enabled": true,

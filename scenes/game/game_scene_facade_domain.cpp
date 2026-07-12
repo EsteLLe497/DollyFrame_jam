@@ -376,6 +376,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
     DrawCameraStatusHud();
     DrawPlayerHpBar();
     DrawPartsHud();
+    DrawShieldBossHpBar();
     DrawMidBoss2HpBar();
     DrawMidBoss3HpBar();
     DrawAttackCaptureSlot();
