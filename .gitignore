@@ -120,3 +120,8 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+
+############################################
+# Runtime-generated save data
+############################################
+savegame.json
