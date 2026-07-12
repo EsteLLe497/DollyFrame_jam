@@ -199,7 +199,10 @@ void GameScene::OnExit()
         0.0f,
         120.0f,
         170.0f);
-    Audio_StopBgm();
+    if (!m_flow.resultQueued)
+    {
+        Audio_StopBgm();
+    }
     m_lifecycle.loadingActive = false;
     m_lifecycle.loadingFinished = false;
     m_lifecycle.loadingWarmupFramesRemaining = 0;
