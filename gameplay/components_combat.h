@@ -467,8 +467,12 @@ public:
     bool introStarted = true;
     bool introFinished = true;
     bool introGroundInitialized = false;
+    bool introRoarSoundPlayed = false;
+    bool introRoarSoundStopped = false;
     bool deathAnimationActive = false;
     bool deathAnimationFinished = false;
+    bool deadSoundPlayed = false;
+    bool destroySoundPlayed = false;
     float introTimer = 0.0f;
     float introTriggerX = 0.0f;
     float introFloatHomeX = 0.0f;
@@ -478,6 +482,9 @@ public:
     bool drillFormed = false;
     bool drillGroundRush = false;
     bool drillDamageApplied = false;
+    bool drillChargeSoundPlayed = false;
+    bool drillLaunchSoundPlayed = false;
+    float drillHitSoundCooldown = 0.0f;
     int drillFloorObjectHits = 0;
     int drillDirection = -1;
     float drillX = 0.0f;
@@ -530,6 +537,9 @@ public:
     bool captureJammerActive = false;
     bool broken = false;
     bool lockedFacingRight = false;
+    bool rocketChargeSoundPlayed = false;
+    bool rocketLaunchSoundPlayed = false;
+    bool rocketHitSoundPlayed = false;
     bool impactAttackActive = false;
     bool impactDamageApplied = false;
     float impactAttackX = 0.0f;
@@ -665,6 +675,9 @@ public:
     bool groundRush = false;
     bool attachedToBoss = false;
     bool waitBaseInitialized = false;
+    bool chargeSoundPlayed = false;
+    bool launchSoundPlayed = false;
+    bool hitSoundPlayed = false;
     float bossDamageTimer = 0.0f;
     float attachedLifeRemaining = 0.0f;
     float knockbackRemaining = 0.0f;

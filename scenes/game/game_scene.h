@@ -307,6 +307,7 @@ private:
     void DrawCameraStatusHud() const;
     void DrawPlayerHpBar() const;
     void DrawPartsHud() const;
+    void DrawShieldBossHpBar() const;
     void DrawMidBoss2HpBar() const;
     void DrawMidBoss3HpBar() const;
     void DrawAttackCaptureSlot() const;
@@ -395,7 +396,7 @@ private:
     GameSceneDebugState m_debug;
     GameSceneEffectsState m_effects;
     GameSceneMapEditorState m_mapEditor;
-    GameSceneUiState m_ui;
+    mutable GameSceneUiState m_ui;
     GameSceneRenderState m_render;
     GameSceneTuningState m_tuning;
     GameSceneSaveState m_save;

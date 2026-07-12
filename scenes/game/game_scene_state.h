@@ -285,13 +285,25 @@ struct GameSceneUiPartsHudTuning
 
 struct GameSceneUiBossHpTuning
 {
-    float panelWidth = 420.0f;
-    float barHeight = 26.0f;
+    float panelWidth = 800.0f;
+    float barHeight = 34.0f;
     float panelPadding = 22.0f;
-    float marginTop = 42.0f;
+    float marginTop = 76.0f;
     float panelExtraHeight = 34.0f;
     float titleOffsetY = -18.0f;
     float hpTextOffsetY = 4.0f;
+};
+
+struct GameSceneBossHpUiState
+{
+    float displayRatio = 1.0f;
+    float damageLagRatio = 1.0f;
+    float flash = 0.0f;
+    float reveal = 0.0f;
+    int lastRaw = -1;
+    int lastMax = -1;
+    bool initialized = false;
+    bool visible = false;
 };
 
 struct GameSceneUiAttackCaptureTuning
@@ -516,6 +528,7 @@ struct GameSceneUiState
     float hpDamageFlash = 0.0f;
     int hpLastRaw = -1;
     bool hpUiInitialized = false;
+    GameSceneBossHpUiState bossHp;
     int partsHudLastValue = -1;
     float partsHudVisibleRemaining = 2.0f;
     float partsHudAlpha = 1.0f;

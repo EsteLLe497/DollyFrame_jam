@@ -366,6 +366,8 @@ void GameScene::TryUseAttackCaptureSlot()
         attack.aimY = fireAim.y;
         attack.direction = fireAim.direction;
         attack.launched = true;
+        attack.launchSoundPlayed = true;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, player, fistEntity.get(), "boss_ruins_firing", 0.0f, 0.0f });
         if (auto* sprite = fistEntity->GetComponent<SpriteRenderComponent>())
         {
             sprite->SetSourceRect(0.0f, 0.0f, 1.0f / 10.0f, 1.0f / 6.0f);
@@ -418,6 +420,8 @@ void GameScene::TryUseAttackCaptureSlot()
         attack.waitBaseX = drillX;
         attack.waitBaseY = drillY;
         attack.waitBaseInitialized = true;
+        attack.chargeSoundPlayed = true;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, player, drillEntity.get(), "boss_ruins_rocket_charge", 0.0f, 0.0f });
         if (auto* transform = drillEntity->GetComponent<TransformComponent>())
         {
             const AttackAim fireAim = resolveAttackAimTowardBoss(
