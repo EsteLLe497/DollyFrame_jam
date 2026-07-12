@@ -210,6 +210,7 @@ private:
     void ToggleEscapeMenuBgm();
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);
+    bool UpdateSceneFadeOutFlow(float deltaTime);
     void UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime);
     void StartCameraFlashPulse(float durationSeconds);
     void RunGameplayFrame(float gameplayDeltaTime);

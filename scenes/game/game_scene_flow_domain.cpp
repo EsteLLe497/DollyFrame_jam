@@ -10,6 +10,7 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr float kStageTransitionFadeInDuration = 1.10f;
+    constexpr float kSceneFadeOutDuration = 0.45f;
     constexpr float kCameraFilterHudAnimationDuration = 0.86f;
     constexpr float kPartsHudHoldSeconds = 2.0f;
     constexpr float kPartsHudFadeSeconds = 0.45f;
@@ -85,6 +86,28 @@ bool GameScene::UpdateStageTransitionFlow(float deltaTime)
     return true;
 }
 
+bool GameScene::UpdateSceneFadeOutFlow(float deltaTime)
+{
+    if (!m_flow.sceneFadeOutActive)
+    {
+        return false;
+    }
+
+    m_flow.sceneFadeOutTimer = std::max(0.0f, m_flow.sceneFadeOutTimer - deltaTime);
+    if (m_flow.sceneFadeOutTimer > 0.0f)
+    {
+        return true;
+    }
+
+    const std::string targetScene = m_flow.sceneFadeOutTarget.empty()
+        ? "title"
+        : m_flow.sceneFadeOutTarget;
+    m_flow.sceneFadeOutActive = false;
+    m_flow.sceneFadeOutTimer = 0.0f;
+    m_flow.sceneFadeOutTarget.clear();
+    m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, targetScene, 0.0f, 0.0f });
+    return true;
+}
 void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime)
 {
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);
