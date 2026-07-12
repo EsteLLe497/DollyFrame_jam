@@ -429,6 +429,8 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
     }
 
     constexpr float kGearSocketAssistDistance = 25.0f;
+    constexpr float kGearSocketMinSizeRatio = 0.90f;
+    constexpr float kGearSocketMaxSizeRatio = 1.10f;
     constexpr float kGearSocketRotationSpeed = 3.5f;
     std::unordered_map<int, int> gearSocketActiveCounts;
     std::unordered_map<int, int> gearSocketRequiredCounts;
@@ -471,6 +473,14 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
             const float gearWidth = gearTransform->width * gearTransform->scale;
             const float gearHeight = gearTransform->height * gearTransform->scale;
+            if (gearWidth < socketWidth * kGearSocketMinSizeRatio ||
+                gearWidth > socketWidth * kGearSocketMaxSizeRatio ||
+                gearHeight < socketHeight * kGearSocketMinSizeRatio ||
+                gearHeight > socketHeight * kGearSocketMaxSizeRatio)
+            {
+                continue;
+            }
+
             const float gearCenterX = gearTransform->x + gearWidth * 0.5f;
             const float gearCenterY = gearTransform->y + gearHeight * 0.5f;
             const float dx = gearCenterX - socketCenterX;
