@@ -205,7 +205,7 @@ private:
     void ResetHangingGravityObjectsForRespawn();
     void RefreshMarkerDrivenSystems();
     void RefreshMarkerDrivenSystemsByMarkerChange(char before, char after);
-    void UpdateEscapeMenuInput();
+    void UpdateEscapeMenuInput(float deltaTime);
     void UpdateMerchantShopInput();
     void ToggleEscapeMenuBgm();
     bool UpdatePitRestartFlow(float deltaTime);

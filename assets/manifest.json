@@ -34,6 +34,10 @@
       "type": "file",
       "path": "assets/texture/player/chara_attack.png"
     },
+    "dolly_pause_portrait": {
+      "type": "file",
+      "path": "assets/texture/player/Dolly.png"
+    },
     "target": {
       "type": "checkerboard",
       "width": 192,

@@ -557,6 +557,7 @@ struct GameSceneDebugState
     bool showCollisionDebug = build_config::kDebugFeaturesEnabled;
     bool showTuningPanel = false;
     bool showEscapeMenu = false;
+    float escapeMenuAnimation = 0.0f;
     bool showBackdropGrid = build_config::kDebugFeaturesEnabled;
     bool hideNonPhotoUi = false;
     int escapeMenuSelection = 0;

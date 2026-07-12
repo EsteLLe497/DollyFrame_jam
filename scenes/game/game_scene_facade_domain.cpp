@@ -78,7 +78,7 @@ bool GameScene::TryHandleModalUpdates(float deltaTime)
 
     if (m_debug.showEscapeMenu)
     {
-        UpdateEscapeMenuInput();
+        UpdateEscapeMenuInput(deltaTime);
         return true;
     }
 

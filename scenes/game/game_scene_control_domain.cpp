@@ -219,10 +219,12 @@ bool GameScene::OnCancelAction()
     m_debug.showEscapeMenu = !m_debug.showEscapeMenu;
     if (!m_debug.showEscapeMenu)
     {
+        m_debug.escapeMenuAnimation = 0.0f;
         return true;
     }
 
     m_debug.escapeMenuSelection = 0;
+    m_debug.escapeMenuAnimation = 0.0f;
     m_photo.placement.active = false;
     m_photo.placement.valid = false;
     m_photo.placement.blockedByUi = false;
