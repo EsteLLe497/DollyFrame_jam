@@ -409,6 +409,10 @@
     "ruins_layer7": {
       "type": "file",
       "path": "assets/texture/BG/ruins/ruins_07.png"
+    },
+    "photo_save_frame": {
+      "type": "file",
+      "path": "assets/texture/BG/result/Photo_Save.png"
     }
   }
 }

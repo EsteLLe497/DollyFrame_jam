@@ -73,7 +73,7 @@ namespace
     //    default:
     //        return "結果なし";
     //    }
-    //}
+    //}////今後実装予定はなさそうなので消しても可
 
     // 最後に遊んだステージ名から見出しに使う日本語ステージ名を決める。
     const char* GetStageDisplayName(const std::string& mapPath)
@@ -172,17 +172,25 @@ namespace
         return 1.0f - invT * invT * invT;
     }
 
-    // 撮影写真グリッド（右下3x3）のレイアウト。DrawCapturedPhotosGrid と
-    // DrawPhotoRevealAnimation の両方から参照するのでファイルスコープに置く。
+    // 撮影写真グリッド（右下、フィルムアルバム風）。1行=3枚。
+        // outer/inner/filmの画像本来の縦横比を保ったまま敷くための計算をここに集約する。
     constexpr int kPhotoGridColumns = 3;
     constexpr int kPhotoGridRows = 3;
-    constexpr float kPhotoGridCellWidth = 180.0f;
-    constexpr float kPhotoGridCellHeight = 120.0f;
-    constexpr float kPhotoGridCellGapX = 12.0f;
-    constexpr float kPhotoGridCellGapY = 12.0f;
-    constexpr float kPhotoGridMarginRight = 40.0f + 112.0f;
+    constexpr float kPhotoGridRowWidth = 430.0f;      // 1行(3枚ぶん)の全体の幅
+    constexpr float kPhotoGridRowGapY = 14.0f;        // 行と行の間の隙間
+    constexpr float kPhotoGridMarginRight = 80.0f;
     constexpr float kPhotoGridMarginBottom = 40.0f + 145.0f;
-    constexpr float kPhotoGridPadding = 6.0f;
+    constexpr int kPhotoGridCaptionFontSize = 22;      // キャプションの文字サイズ
+    constexpr float kPhotoGridCaptionOffsetY = 26.0f;  // グリッド上端からどれだけ上に離すか
+
+    // photo_album_outer.png / inner.png / film系画像の実ピクセルサイズから算出した比率。
+    // 画像を差し替えない限りここは変更不要です。
+    constexpr float kPhotoAlbumOuterAspect = 6100.0f / 2000.0f;       // outer: 6100x2000
+    constexpr float kPhotoAlbumInnerWidthRatio = 5700.0f / 6100.0f;   // inner: 5700x1600
+    constexpr float kPhotoAlbumInnerHeightRatio = 1600.0f / 2000.0f;
+    constexpr float kPhotoFilmAspect = 1580.0f / 1140.0f;             // film系: 1580x1140
+    constexpr float kPhotoSlotGapXRatio = 0.02f;      // スロット間の隙間（inner幅に対する比率）
+    constexpr float kPhotoSlotPaddingRatio = 0.10f;   // フィルム内側の写真の余白（スロット幅に対する比率）
 
     struct PhotoCellRect
     {
@@ -192,30 +200,73 @@ namespace
         float height;
     };
 
+    struct PhotoRowLayout
+    {
+        float outerX;
+        float outerY;
+        float outerWidth;
+        float outerHeight;
+        float innerX;
+        float innerY;
+        float innerWidth;
+        float innerHeight;
+    };
+
+    float GetPhotoGridRowHeight()
+    {
+        return kPhotoGridRowWidth / kPhotoAlbumOuterAspect;
+    }
+
+    float GetPhotoSlotPadding(float slotWidth)
+    {
+        return slotWidth * kPhotoSlotPaddingRatio;
+    }
+
     PhotoCellRect ComputePhotoGridBounds()
     {
-        const float gridWidth =
-            static_cast<float>(kPhotoGridColumns) * kPhotoGridCellWidth +
-            static_cast<float>(kPhotoGridColumns - 1) * kPhotoGridCellGapX;
-        const float gridHeight =
-            static_cast<float>(kPhotoGridRows) * kPhotoGridCellHeight +
-            static_cast<float>(kPhotoGridRows - 1) * kPhotoGridCellGapY;
+        const float gridWidth = kPhotoGridRowWidth;
+        const float gridHeight = static_cast<float>(kPhotoGridRows) * GetPhotoGridRowHeight()
+            + static_cast<float>(kPhotoGridRows - 1) * kPhotoGridRowGapY;
         const float gridStartX = static_cast<float>(SCREEN_WIDTH) - kPhotoGridMarginRight - gridWidth;
         const float gridStartY = static_cast<float>(SCREEN_HEIGHT) - kPhotoGridMarginBottom - gridHeight;
         return PhotoCellRect{ gridStartX, gridStartY, gridWidth, gridHeight };
     }
 
-    PhotoCellRect ComputePhotoGridCellRect(int index)
+    PhotoRowLayout ComputePhotoRowLayout(float rowX, float rowY)
+    {
+        PhotoRowLayout layout;
+        layout.outerX = rowX;
+        layout.outerY = rowY;
+        layout.outerWidth = kPhotoGridRowWidth;
+        layout.outerHeight = GetPhotoGridRowHeight();
+        layout.innerWidth = layout.outerWidth * kPhotoAlbumInnerWidthRatio;
+        layout.innerHeight = layout.outerHeight * kPhotoAlbumInnerHeightRatio;
+        layout.innerX = layout.outerX + (layout.outerWidth - layout.innerWidth) * 0.5f;
+        layout.innerY = layout.outerY + (layout.outerHeight - layout.innerHeight) * 0.5f;
+        return layout;
+    }
+
+    PhotoRowLayout ComputePhotoRowLayoutByIndex(int rowIndex)
     {
         const PhotoCellRect bounds = ComputePhotoGridBounds();
-        const int column = index % kPhotoGridColumns;
+        const float rowY = bounds.y + static_cast<float>(rowIndex) * (GetPhotoGridRowHeight() + kPhotoGridRowGapY);
+        return ComputePhotoRowLayout(bounds.x, rowY);
+    }
+
+    // 撮影写真1枚ぶんのスロット（フィルムを敷いて写真を乗せる領域）を返す。
+    PhotoCellRect ComputePhotoGridCellRect(int index)
+    {
         const int row = index / kPhotoGridColumns;
-        return PhotoCellRect{
-            bounds.x + static_cast<float>(column) * (kPhotoGridCellWidth + kPhotoGridCellGapX),
-            bounds.y + static_cast<float>(row) * (kPhotoGridCellHeight + kPhotoGridCellGapY),
-            kPhotoGridCellWidth,
-            kPhotoGridCellHeight
-        };
+        const int column = index % kPhotoGridColumns;
+        const PhotoRowLayout rowLayout = ComputePhotoRowLayoutByIndex(row);
+
+        const float slotGapX = rowLayout.innerWidth * kPhotoSlotGapXRatio;
+        const float slotWidth = (rowLayout.innerWidth - slotGapX * 2.0f) / static_cast<float>(kPhotoGridColumns);
+        const float slotHeight = rowLayout.innerHeight;
+        const float slotX = rowLayout.innerX + static_cast<float>(column) * (slotWidth + slotGapX);
+        const float slotY = rowLayout.innerY;
+
+        return PhotoCellRect{ slotX, slotY, slotWidth, slotHeight };
     }
 
     // 写真の演出タイミング。ここの数値だけ変えれば速さ・見え方を調整できます。
@@ -254,7 +305,7 @@ namespace
     constexpr float kResultTitleHoldDuration = 2.5f;    // 中央での表示時間（回転が終わってからこの秒数だけ静止）
     constexpr float kResultTitleMoveDuration = 0.55f;   // 移動にかかる時間
     constexpr float kResultTitleMoveScale = 0.72f;      // 移動先での縮小率
-    constexpr float kResultTitleMoveTopMargin = 150.0f;  // 写真グリッドとの間の余白
+    constexpr float kResultTitleMoveTopMargin = 140.0f;  // 写真グリッドとの間の余白
 
     constexpr float kVignetteInnerRadius = 230.0f;  // ← 260 から変更（少し狭く＝より強く見える）
     constexpr float kVignetteOuterRadius = 500.0f;  // ← 560 から変更
@@ -981,62 +1032,95 @@ void ResultScene::DrawFreeImages(float offsetX) const
             1.0f);
     }
 }
+
 void ResultScene::DrawCapturedPhotosGrid(float offsetX) const
 {
     const int photoCount = PhotoLog_GetCount();
     const float elapsedSeconds = static_cast<float>(GetNowCount() - m_introStartTimeMs) * 0.001f;
     const float landedAt = GetPhotoRevealStartDelay() + kPhotoRevealHoldDuration + kPhotoRevealFlyDuration;
 
+    const int outerTexture = m_assets.GetTexture("ui_photo_album_outer");
+    const int innerTexture = m_assets.GetTexture("ui_photo_album_inner");
+    const int filmBlackTexture = m_assets.GetTexture("ui_photo_frame_film_black");
+    const int filmBrownTexture = m_assets.GetTexture("ui_photo_frame_film_brown");
+
+    Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+
+    // グリッドの上に小さくキャプションを表示
+    {
+        const PhotoCellRect bounds = ComputePhotoGridBounds();
+        const int prevFontSize = GetFontSize();
+        SetFontSize(kPhotoGridCaptionFontSize);
+        DrawCenteredOutlinedString(
+            static_cast<int>(bounds.x + bounds.width * 0.5f + offsetX),
+            static_cast<int>(bounds.y - kPhotoGridCaptionOffsetY),
+            "撮った写真",
+            GetColor(255, 240, 210),
+            GetColor(28, 16, 9));
+        SetFontSize(prevFontSize);
+    }
+    // 行ごと（3枚まとまり）にアルバムの外枠・内枠を、縦横比を保ったまま敷く。
+    for (int row = 0; row < kPhotoGridRows; ++row)
+    {
+        const PhotoRowLayout rowLayout = ComputePhotoRowLayoutByIndex(row);
+        if (outerTexture >= 0)
+        {
+            SpriteDraw(outerTexture, rowLayout.outerX + offsetX, rowLayout.outerY, rowLayout.outerWidth, rowLayout.outerHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        }
+        if (innerTexture >= 0)
+        {
+            SpriteDraw(innerTexture, rowLayout.innerX + offsetX, rowLayout.innerY, rowLayout.innerWidth, rowLayout.innerHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        }
+    }
+
     for (int index = 0; index < kPhotoGridColumns * kPhotoGridRows; ++index)
     {
         const PhotoCellRect cell = ComputePhotoGridCellRect(index);
         const float cellX = cell.x + offsetX;
         const float cellY = cell.y;
-        DrawBox(
-            static_cast<int>(cellX),
-            static_cast<int>(cellY),
-            static_cast<int>(cellX + cell.width),
-            static_cast<int>(cellY + cell.height),
-            GetColor(60, 50, 40),
-            TRUE);
-        DrawBox(
-            static_cast<int>(cellX),
-            static_cast<int>(cellY),
-            static_cast<int>(cellX + cell.width),
-            static_cast<int>(cellY + cell.height),
-            GetColor(200, 180, 140),
-            FALSE);
 
-        if (index >= photoCount)
+        const PhotoCaptureState* capture = nullptr;
+        if (index < photoCount)
         {
-            continue; // 未撮影スロットは枠だけ表示
+            const PhotoCaptureState& entry = PhotoLog_GetEntry(index);
+            if (entry.hasPhoto && !entry.items.empty())
+            {
+                capture = &entry;
+            }
         }
 
-        // まだ中央でのポップイン〜飛翔演出中の写真は DrawPhotoRevealAnimation 側で描画する。
-        // ここでは着地済みのものだけ静的に描画する。
+        // まだ中央でのポップイン〜飛翔演出中の写真は DrawPhotoRevealAnimation 側で描画するので、
+        // ここでは「着地済み」のものだけを撮影済み（茶色フィルム）として扱う。
         const float thisLandedAt = landedAt + static_cast<float>(index) * kPhotoRevealStagger;
-        if (elapsedSeconds < thisLandedAt)
+        const bool landed = elapsedSeconds >= thisLandedAt;
+        const bool showAsFilled = capture != nullptr && landed;
+
+        // フィルム（未撮影=黒、撮影済み=茶色）を、縦横比を保ったままスロット中央に敷く。
+        const int filmTexture = showAsFilled ? filmBrownTexture : filmBlackTexture;
+        if (filmTexture >= 0)
+        {
+            const float filmHeight = cell.width / kPhotoFilmAspect;
+            const float filmY = cellY + (cell.height - filmHeight) * 0.5f;
+            SpriteDraw(filmTexture, cellX, filmY, cell.width, filmHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        }
+
+        if (!showAsFilled)
         {
             continue;
         }
 
-        const PhotoCaptureState& capture = PhotoLog_GetEntry(index);
-        if (!capture.hasPhoto || capture.items.empty())
-        {
-            continue;
-        }
-
-        const float innerX = cellX + kPhotoGridPadding;
-        const float innerY = cellY + kPhotoGridPadding;
-        const float innerWidth = cell.width - kPhotoGridPadding * 2.0f;
-        const float innerHeight = cell.height - kPhotoGridPadding * 2.0f;
+        const float padding = GetPhotoSlotPadding(cell.width);
+        const float innerX = cellX + padding;
+        const float innerY = cellY + padding;
+        const float innerWidth = cell.width - padding * 2.0f;
+        const float innerHeight = cell.height - padding * 2.0f;
         const float scale = std::min(
-            innerWidth / std::max(1.0f, capture.width),
-            innerHeight / std::max(1.0f, capture.height));
-        const float contentX = innerX + (innerWidth - capture.width * scale) * 0.5f;
-        const float contentY = innerY + (innerHeight - capture.height * scale) * 0.5f;
+            innerWidth / std::max(1.0f, capture->width),
+            innerHeight / std::max(1.0f, capture->height));
+        const float contentX = innerX + (innerWidth - capture->width * scale) * 0.5f;
+        const float contentY = innerY + (innerHeight - capture->height * scale) * 0.5f;
 
-        for (const auto& item : capture.items)
+        for (const auto& item : capture->items)
         {
             game_scene_detail::DrawCapturedPreviewItem(
                 m_whiteTexture,
@@ -1139,7 +1223,8 @@ void ResultScene::DrawPhotoRevealAnimation(float offsetX) const
             FALSE);
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
-        const float innerPadding = kPhotoGridPadding * (boxWidth / targetCell.width);
+        const float innerPadding = GetPhotoSlotPadding
+        (targetCell.width) * (boxWidth / targetCell.width);
         const float innerX = drawX + innerPadding;
         const float innerY = drawY + innerPadding;
         const float innerWidth = boxWidth - innerPadding * 2.0f;
