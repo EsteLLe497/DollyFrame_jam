@@ -137,6 +137,7 @@ struct CapturedPhotoItem
     float projectileVelocityX = 0.0f;
     float projectileVelocityY = 0.0f;
     int projectileDamage = 1;
+    bool spriteProjectile = false;
     bool spearProjectile = false;
     bool spearStuck = false;
     float spearDirectionX = 0.0f;

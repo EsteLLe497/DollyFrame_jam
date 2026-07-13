@@ -1749,6 +1749,9 @@ void GameScene::RefreshLaserTurretsFromMarkers()
         return;
     }
 
+    const int laserTexture = m_assets.GetTexture("tile_value_laser");
+    const int resolvedLaserTexture = laserTexture >= 0 ? laserTexture : m_whiteTexture;
+
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -1773,9 +1776,17 @@ void GameScene::RefreshLaserTurretsFromMarkers()
 
             auto turret = std::make_unique<Entity>();
             turret->AddComponent<TagComponent>(kTagLaserTurret);
-            turret->AddComponent<TransformComponent>(turretX, turretY, turretWidth, turretHeight);
-            turret->AddComponent<TintComponent>(0.40f, 0.44f, 0.50f, 1.0f);
-            turret->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            auto& turretTransform = turret->AddComponent<TransformComponent>(turretX, turretY, turretWidth, turretHeight);
+            turret->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            auto& turretSprite = turret->AddComponent<SpriteRenderComponent>(resolvedLaserTexture);
+            turretSprite.SetFlipX(!vertical && !shootsLeft);
+            if (vertical)
+            {
+                constexpr float kQuarterTurnRadians = 3.14159265f * -0.5f;
+                turretSprite.SetRenderOffset(-tileSize, tileSize);
+                turretSprite.SetRenderScale(3.0f, 1.0f / 3.0f);
+                turretTransform.rotation = kQuarterTurnRadians;
+            }
             auto& turretComponent = turret->AddComponent<LaserTurretComponent>(
                 beamThickness,
                 1.0f,
@@ -2413,6 +2424,9 @@ void GameScene::ReflashFallingRockfromMarkers()
         return;
     }
 
+    const int rockTexture = m_assets.GetTexture("tile_value_s_falling_rock");
+    const int resolvedRockTexture = rockTexture >= 0 ? rockTexture : m_whiteTexture;
+
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -2430,8 +2444,8 @@ void GameScene::ReflashFallingRockfromMarkers()
                 static_cast<float>(row) * tileSize,
                 tileSize * 2.0f,
                 tileSize * 2.0f);
-            fallingRock->AddComponent<TintComponent>(0.6f, 0.6f, 0.85f, 1.0f);
-            fallingRock->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            fallingRock->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            fallingRock->AddComponent<SpriteRenderComponent>(resolvedRockTexture);
             fallingRock->AddComponent<ImageOutlineColliderComponent>(
                 std::vector<b2Vec2>{
                     { 0.0f, 0.0f },

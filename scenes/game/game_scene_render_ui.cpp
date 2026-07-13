@@ -1334,6 +1334,8 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
             rubble &&
             (rubble->source == SepiaRubbleSource::MidBoss3Fist ||
                 rubble->source == SepiaRubbleSource::MidBoss3Drill);
+        const bool fallingRockRubble =
+            rubble && rubble->source == SepiaRubbleSource::FallingRock;
         const bool plainRubble =
             rubble &&
             rubble->source == SepiaRubbleSource::Generic &&
@@ -1446,8 +1448,8 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
                 Shader_SetTint(0.54f, 0.34f, 0.16f, 0.92f);
                 break;
             case 'S':
-                restoredTexture = m_whiteTexture;
-                Shader_SetTint(0.60f, 0.60f, 0.60f, 0.92f);
+                restoredTexture = m_assets.GetTexture("tile_value_s_falling_rock");
+                Shader_SetTint(1.0f, 1.0f, 1.0f, 0.92f);
                 break;
             case '[':
                 restoredTexture = ResolveSepiaFinderGearTextureId(
@@ -1491,7 +1493,9 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         const int plainRubbleTexture = m_assets.GetTexture("sepia_rubble_stage");
         const int rubbleTexture = plainRubble && plainRubbleTexture >= 0
             ? plainRubbleTexture
-            : m_assets.GetTexture("sepia_ground");
+            : fallingRockRubble
+                ? m_assets.GetTexture("tile_value_s_falling_rock")
+                : m_assets.GetTexture("sepia_ground");
         const int attackTexture = attackRubble && rubble
             ? (rubble->source == SepiaRubbleSource::MidBoss3Drill
                 ? m_assets.GetTexture("boss3_drill")

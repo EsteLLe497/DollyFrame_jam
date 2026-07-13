@@ -894,6 +894,7 @@ void GameScene::UpdateEnemies()
         enemyEntities,
         interactionEntities,
         m_tileTexture,
+        m_assets.GetTexture("enemy2_shot"),
         m_assets.GetTexture("sepia_rubble"),
         GetMapPixelWidth(),
         GetMapPixelHeight(),

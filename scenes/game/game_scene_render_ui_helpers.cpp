@@ -133,7 +133,8 @@ void game_scene_detail::DrawCapturedPreviewItem(
     float alpha)
 {
     Shader_ResetStyle();
-    Shader_SetTint(item.tintR, item.tintG, item.tintB, std::min(1.0f, item.tintA) * alpha);
+    const float tintScale = item.spriteProjectile ? 0.8f : 1.0f;
+    Shader_SetTint(item.tintR * tintScale, item.tintG * tintScale, item.tintB * tintScale, std::min(1.0f, item.tintA) * alpha);
     if (item.sepiaShutterObject)
     {
         photo_shared::DrawSepiaShutterItem(
@@ -150,6 +151,24 @@ void game_scene_detail::DrawCapturedPreviewItem(
 
     if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
     {
+        if (item.spriteProjectile)
+        {
+            SpriteDraw(
+                item.textureId >= 0 ? item.textureId : fallbackTextureId,
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                item.sourceX,
+                item.sourceY,
+                item.sourceWidth,
+                item.sourceHeight,
+                item.flipX,
+                item.rotation);
+            Shader_ResetStyle();
+            return;
+        }
+
         const float projectileAngle = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
         const int color = GetColor(
             static_cast<int>(std::round(item.tintR * 255.0f)),

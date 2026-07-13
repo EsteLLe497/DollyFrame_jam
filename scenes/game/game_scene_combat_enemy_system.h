@@ -13,6 +13,7 @@ inline void UpdateEnemies(
     const std::vector<Entity*>& enemyEntities,
     const std::vector<Entity*>& interactionEntities,
     int tileTexture,
+    int enemy2ShotTexture,
     int rubbleTexture,
     float mapWidth,
     float mapHeight,
@@ -2825,8 +2826,16 @@ inline void UpdateEnemies(
                     transform->x + (facingRight ? transform->width * transform->scale : -24.0f),
                     transform->y + 24.0f,
                     48.0f, 24.0f);
-                bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
-                bullet->AddComponent<SpriteRenderComponent>(tileTexture);
+                bullet->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+                auto& bulletSprite = bullet->AddComponent<SpriteRenderComponent>(
+                    enemy2ShotTexture >= 0 ? enemy2ShotTexture : tileTexture);
+                bulletSprite.SetFlipX(facingRight);
+                if (enemy2ShotTexture >= 0)
+                {
+                    auto& bulletAnimation = bullet->AddComponent<SpriteSheetAnimationComponent>();
+                    bulletAnimation.DefineClip("shot", enemy2ShotTexture, 5, 6, 0, 30, 30.0f, true);
+                    bulletAnimation.Play("shot", true);
+                }
                 bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
                 playEnemyGun(*entity);
                 newBullets.push_back(std::move(bullet));
