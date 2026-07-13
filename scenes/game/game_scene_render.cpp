@@ -3196,6 +3196,32 @@ void GameScene::DrawEntity(const Entity& entity) const
                 return;
             }
 
+            if (sprite->GetTextureId() == m_assets.GetTexture("enemy2_shot"))
+            {
+                if (tint)
+                {
+                    Shader_SetTint(tint->r, tint->g, tint->b, tint->a * alphaMultiplier);
+                }
+                else
+                {
+                    Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
+                }
+                SpriteDraw(
+                    sprite->GetTextureId(),
+                    drawX,
+                    drawY,
+                    drawWidth,
+                    drawHeight,
+                    sprite->GetSourceX(),
+                    sprite->GetSourceY(),
+                    sprite->GetSourceWidth(),
+                    sprite->GetSourceHeight(),
+                    sprite->GetFlipX(),
+                    transform->rotation);
+                Shader_ResetStyle();
+                return;
+            }
+
             const float angle = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
             if (midBoss2Spear)
             {

@@ -995,6 +995,7 @@ namespace
         root["projectileVelocityX"] = item.projectileVelocityX;
         root["projectileVelocityY"] = item.projectileVelocityY;
         root["projectileDamage"] = item.projectileDamage;
+        root["spriteProjectile"] = item.spriteProjectile;
         root["spearProjectile"] = item.spearProjectile;
         root["spearStuck"] = item.spearStuck;
         root["spearDirectionX"] = item.spearDirectionX;
@@ -1054,6 +1055,7 @@ namespace
         item.projectileVelocityX = root.value("projectileVelocityX", item.projectileVelocityX);
         item.projectileVelocityY = root.value("projectileVelocityY", item.projectileVelocityY);
         item.projectileDamage = root.value("projectileDamage", item.projectileDamage);
+        item.spriteProjectile = root.value("spriteProjectile", item.spriteProjectile);
         item.spearProjectile = root.value("spearProjectile", item.spearProjectile);
         item.spearStuck = root.value("spearStuck", item.spearStuck);
         item.spearDirectionX = root.value("spearDirectionX", item.spearDirectionX);

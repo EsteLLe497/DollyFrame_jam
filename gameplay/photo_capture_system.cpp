@@ -336,6 +336,7 @@ namespace
         const AssetManifest& assets,
         int restoredTextureId,
         int fallbackTexture,
+        int fallingRockTexture,
         int elevatorOffTexture,
         int shutterTextureId,
         CapturedPhotoItem& item)
@@ -357,14 +358,14 @@ namespace
             return true;
         case 'S':
             item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
-            item.textureId = fallbackTexture;
+            item.textureId = fallingRockTexture >= 0 ? fallingRockTexture : fallbackTexture;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
             item.placementRuleGroup = PhotoPlacementRuleGroup::Group2;
-            item.tintR = 0.6f;
-            item.tintG = 0.6f;
-            item.tintB = 0.6f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
             item.tintA = 1.0f;
             item.sepiaRestoredMarkerObject = true;
             return true;
@@ -1355,6 +1356,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     scene.m_assets,
                     scene.m_assets.GetTexture("sepia_rubble_stage"),
                     scene.m_whiteTexture,
+                    scene.m_assets.GetTexture("tile_value_s_falling_rock"),
                     scene.m_assets.GetTexture("tile_value_elevator_off"),
                     scene.m_assets.GetTexture("sepia_shutter_gate"),
                     item))
@@ -1518,14 +1520,15 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         else if (capturedFallingRockRubble)
         {
             item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
+            item.textureId = scene.m_assets.GetTexture("tile_value_s_falling_rock");
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
-            item.textureId = scene.m_whiteTexture;
         }
         else if (capturedFallingRock)
         {
             item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
+            item.textureId = scene.m_assets.GetTexture("tile_value_s_falling_rock");
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
@@ -1723,11 +1726,13 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         else if (capturedFallingRockRubble)
         {
-            item.textureId = scene.m_whiteTexture;
             item.sourceX = 0.0f;
             item.sourceY = 0.0f;
             item.sourceWidth = 1.0f;
             item.sourceHeight = 1.0f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
             item.tintA = 1.0f;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
@@ -1736,6 +1741,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         else if (capturedFallingRock)
         {
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
             item.tintA = 1.0f;
         }
         else if (midBoss3Fist)
@@ -1763,7 +1771,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.projectileVelocityX = projectile->GetVelocityX();
             item.projectileVelocityY = projectile->GetVelocityY();
             item.projectileDamage = projectile->GetDamage();
-            item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+            const int enemy2ShotTexture = scene.m_assets.GetTexture("enemy2_shot");
+            item.spriteProjectile =
+                enemy2ShotTexture >= 0 && sprite->GetTextureId() == enemy2ShotTexture;
+            if (item.spriteProjectile)
+            {
+                item.flipX = sprite->GetFlipX();
+            }
+            else
+            {
+                item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+            }
             if (const auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
             {
                 if (capturedMidBoss2Spear)
@@ -1848,7 +1866,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !capturedShutter && !midBoss3Fist)
+        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !capturedShutter && !midBoss3Fist && !item.spriteProjectile)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }
