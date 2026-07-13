@@ -183,6 +183,10 @@ struct GameSceneUiTutorialTuning
     float contentImageY = 250.0f;
     float contentImageWidth = 700.0f;
     float contentImageHeight = 388.0f;
+    float contentPanelX = 455.0f;
+    float contentPanelY = 245.0f;
+    float contentPanelWidth = 1010.0f;
+    float contentPanelHeight = 620.0f;
     float bodyX = 500.0f;
     float bodyY = 680.0f;
     float bodyWidth = 920.0f;
@@ -193,6 +197,7 @@ struct GameSceneUiTutorialTuning
     float bodyFontSize = 32.0f;
     float promptFontSize = 28.0f;
     int frameLayer = 10;
+    int contentPanelLayer = 15;
     int headingLayer = 20;
     int contentImageLayer = 25;
     int titleLayer = 30;

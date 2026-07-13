@@ -200,6 +200,11 @@
     "contentImageWidth": 700.0,
     "contentImageX": 610.0,
     "contentImageY": 293.0,
+    "contentPanelHeight": 861.0,
+    "contentPanelLayer": 15,
+    "contentPanelWidth": 1294.0,
+    "contentPanelX": 315.0,
+    "contentPanelY": 110.0,
     "dialogueBoxHeight": 359.0,
     "dialogueBoxLayer": 10,
     "dialogueBoxWidth": 1400.0,
@@ -232,16 +237,16 @@
     "headingHeight": 150.0,
     "headingLayer": 20,
     "headingWidth": 865.0,
-    "headingX": 530.0,
-    "headingY": 135.0,
+    "headingX": 531.0,
+    "headingY": 129.0,
     "promptFontSize": 28.0,
     "promptLayer": 40,
     "promptX": 850.0,
     "promptY": 912.0,
     "titleFontSize": 42.0,
     "titleLayer": 30,
-    "titleX": 810.0,
-    "titleY": 184.0
+    "titleX": 818.0,
+    "titleY": 174.0
   },
   "version": 1
 }

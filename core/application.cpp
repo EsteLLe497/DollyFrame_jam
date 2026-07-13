@@ -47,9 +47,9 @@ namespace
 
     constexpr SoundCueAsset kSoundCueAssets[] =
     {
-        { "shutter", "assets/effects/Sound/Plater_SE/shutter.wav" },
+        { "shutter", "assets/effects/Sound/Player_SE/shutter.wav" },
         { "barrel", "assets/effects/Sound/Stage_SE/barrel.wav" },
-        { "cant_paste", "assets/effects/Sound/Plater_SE/cantPaste.wav" },
+        { "cant_paste", "assets/effects/Sound/Player_SE/cantPaste.wav" },
         { "enemy_gun", "assets/effects/Sound/Enemy_SE/EnemyGun.wav" },
         { "bgm_forest", "assets/effects/Sound/Stage_BGM/forest.wav" },
         { "bgm_ruins", "assets/effects/Sound/Stage_BGM/ruins.wav" },

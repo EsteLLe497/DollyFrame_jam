@@ -30,6 +30,7 @@ namespace
         DialogueText,
         DialoguePrompt,
         Frame,
+        ContentPanel,
         Heading,
         ContentImage,
         Title,
@@ -557,6 +558,7 @@ void GameScene::DrawTutorialOverlay()
     const auto& ui = m_ui.tuning.tutorial;
     const int frameTexture = m_assets.GetTexture("tutorial_frame_window");
     const int headingTexture = m_assets.GetTexture("tutorial_heading");
+    const int contentPanelTexture = m_assets.GetTexture("tutorial_content_panel");
     const std::string contentTextureKey =
         windowPage && !windowPage->contentTextureKey.empty()
         ? windowPage->contentTextureKey
@@ -683,14 +685,15 @@ void GameScene::DrawTutorialOverlay()
 
     if (drawWindow)
     {
-        std::array<TutorialDrawElement, 7> elements = {{
+        std::array<TutorialDrawElement, 8> elements = {{
             { 0, 0, TutorialDrawKind::Dim },
             { ui.frameLayer, 1, TutorialDrawKind::Frame },
-            { ui.headingLayer, 2, TutorialDrawKind::Heading },
-            { ui.contentImageLayer, 3, TutorialDrawKind::ContentImage },
-            { ui.titleLayer, 4, TutorialDrawKind::Title },
-            { ui.bodyLayer, 5, TutorialDrawKind::Body },
-            { ui.promptLayer, 6, TutorialDrawKind::Prompt },
+            { ui.contentPanelLayer, 2, TutorialDrawKind::ContentPanel },
+            { ui.headingLayer, 3, TutorialDrawKind::Heading },
+            { ui.contentImageLayer, 4, TutorialDrawKind::ContentImage },
+            { ui.titleLayer, 5, TutorialDrawKind::Title },
+            { ui.bodyLayer, 6, TutorialDrawKind::Body },
+            { ui.promptLayer, 7, TutorialDrawKind::Prompt },
         }};
         std::stable_sort(
             elements.begin(),
@@ -711,6 +714,14 @@ void GameScene::DrawTutorialOverlay()
                 break;
             case TutorialDrawKind::Frame:
                 DrawTutorialFrame(frameTexture, ui.frameX, ui.frameY, ui.frameWidth, ui.frameHeight);
+                break;
+            case TutorialDrawKind::ContentPanel:
+                DrawTutorialImage(
+                    contentPanelTexture,
+                    ui.contentPanelX,
+                    ui.contentPanelY,
+                    ui.contentPanelWidth,
+                    ui.contentPanelHeight);
                 break;
             case TutorialDrawKind::Heading:
                 drawTutorialImageAspectFit(
@@ -889,6 +900,10 @@ void GameScene::DrawTutorialAdjustmentPanel()
         drag("説明画像Y##tutorial_window", ui.contentImageY, 1.0f, -2000.0f, 3000.0f);
         drag("説明画像幅##tutorial_window", ui.contentImageWidth, 1.0f, 10.0f, 4000.0f);
         drag("説明画像高さ##tutorial_window", ui.contentImageHeight, 1.0f, 10.0f, 3000.0f);
+        drag("sozai_002 X##tutorial_window", ui.contentPanelX, 1.0f, -2000.0f, 4000.0f);
+        drag("sozai_002 Y##tutorial_window", ui.contentPanelY, 1.0f, -2000.0f, 3000.0f);
+        drag("sozai_002 Width##tutorial_window", ui.contentPanelWidth, 1.0f, 10.0f, 4000.0f);
+        drag("sozai_002 Height##tutorial_window", ui.contentPanelHeight, 1.0f, 10.0f, 3000.0f);
         drag("タイトルX##tutorial_window", ui.titleX, 1.0f, -2000.0f, 4000.0f);
         drag("タイトルY##tutorial_window", ui.titleY, 1.0f, -2000.0f, 3000.0f);
         drag("本文X##tutorial_window", ui.bodyX, 1.0f, -2000.0f, 4000.0f);
@@ -900,6 +915,7 @@ void GameScene::DrawTutorialAdjustmentPanel()
         drag("本文文字サイズ##tutorial_window", ui.bodyFontSize, 1.0f, 8.0f, 160.0f);
         drag("閉じる文字サイズ##tutorial_window", ui.promptFontSize, 1.0f, 8.0f, 160.0f);
         dragLayer("外枠レイヤー##tutorial_window", ui.frameLayer);
+        dragLayer("sozai_002 Layer##tutorial_window", ui.contentPanelLayer);
         dragLayer("見出し画像レイヤー##tutorial_window", ui.headingLayer);
         dragLayer("説明画像レイヤー##tutorial_window", ui.contentImageLayer);
         dragLayer("タイトルレイヤー##tutorial_window", ui.titleLayer);
