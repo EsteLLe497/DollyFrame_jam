@@ -1297,45 +1297,20 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
                 minZoomScale = std::min(minZoomScale, 0.58f);
             }
 
-            for (Entity* fistEntity : boss->fistEntities)
+            const bool meteorCameraHold =
+                (boss->state == MidBoss3State::MeteorFist ||
+                    boss->state == MidBoss3State::LauncherMeteorFist) &&
+                boss->meteorCameraBoundsInitialized;
+            if (meteorCameraHold)
             {
-            const auto* fist = fistEntity ? fistEntity->GetComponent<MidBoss3FistComponent>() : nullptr;
-            const auto* fistTransform = fistEntity ? fistEntity->GetComponent<TransformComponent>() : nullptr;
-            const auto* fistTint = fistEntity ? fistEntity->GetComponent<TintComponent>() : nullptr;
-            const bool fistCameraRelevant =
-                fist &&
-                (fist->state == MidBoss3FistState::LauncherReady ||
-                    fist->state == MidBoss3FistState::MeteorReady);
-            if (!fist ||
-                !fistTransform ||
-                !fistCameraRelevant ||
-                (fistTint && fistTint->a <= 0.05f))
-            {
-                continue;
-            }
-            if (fist->state == MidBoss3FistState::LauncherReady)
-            {
-                continue;
-            }
-            else if (fist->state == MidBoss3FistState::MeteorReady)
-            {
-                if (!fist->atAttackStart)
-                {
-                    continue;
-                }
                 meteorCameraActive = true;
-                const float fistW = fistTransform->width * fistTransform->scale;
-                const float fistH = fistTransform->height * fistTransform->scale;
-                const float stableX = fist->meteorHoldInitialized ? fist->meteorHoldX : fistTransform->x;
-                const float stableY = fist->meteorHoldInitialized ? fist->meteorHoldY : fistTransform->y;
                 includeCameraBounds(
-                    stableX,
-                    stableY,
-                    fistW,
-                    fistH);
+                    boss->meteorCameraLeft,
+                    boss->meteorCameraTop,
+                    std::max(1.0f, boss->meteorCameraRight - boss->meteorCameraLeft),
+                    std::max(1.0f, boss->meteorCameraBottom - boss->meteorCameraTop));
                 marginX = std::max(marginX, tileSize * 1.2f);
                 marginY = std::max(marginY, tileSize * 1.0f);
-            }
             }
 
             const bool drillCameraRelevant =
@@ -1365,15 +1340,26 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
                     boss->drillY,
                     0.0f,
                     std::max(0.0f, mapHeight - boss->drillHeight));
-                includeCameraBounds(stableDrillX, stableDrillY, boss->drillWidth, boss->drillHeight);
-                includeCameraBounds(currentDrillX, currentDrillY, boss->drillWidth, boss->drillHeight);
-                includePredictedAttackEnd(
-                    currentDrillX,
-                    currentDrillY,
-                    boss->drillWidth,
-                    boss->drillHeight,
-                    aimX,
-                    aimY);
+                if (boss->drillGroundRush && boss->drillGroundRushCameraInitialized)
+                {
+                    includeCameraBounds(
+                        boss->drillGroundRushCameraLeft,
+                        boss->drillGroundRushCameraTop,
+                        std::max(1.0f, boss->drillGroundRushCameraRight - boss->drillGroundRushCameraLeft),
+                        std::max(1.0f, boss->drillGroundRushCameraBottom - boss->drillGroundRushCameraTop));
+                }
+                else
+                {
+                    includeCameraBounds(stableDrillX, stableDrillY, boss->drillWidth, boss->drillHeight);
+                    includeCameraBounds(currentDrillX, currentDrillY, boss->drillWidth, boss->drillHeight);
+                    includePredictedAttackEnd(
+                        currentDrillX,
+                        currentDrillY,
+                        boss->drillWidth,
+                        boss->drillHeight,
+                        aimX,
+                        aimY);
+                }
                 marginX = std::max(marginX, tileSize * 3.0f);
                 marginY = std::max(marginY, tileSize * 2.2f);
                 minZoomScale = std::min(minZoomScale, 0.58f);
@@ -1430,9 +1416,15 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
         const float focusZoomBlend = deathFocusMode
             ? 1.0f - std::pow(0.001f, deltaTime * 0.75f)
             : zoomInBlend;
+        const float focusZoomOutBlend = deathFocusMode
+            ? 1.0f - std::pow(0.001f, deltaTime * 1.15f)
+            : 1.0f - std::pow(0.001f, deltaTime * 0.95f);
         if (m_camera.shieldBossDistanceZoomScale > targetZoomScale)
         {
-            m_camera.shieldBossDistanceZoomScale = targetZoomScale;
+            m_camera.shieldBossDistanceZoomScale = std::lerp(
+                m_camera.shieldBossDistanceZoomScale,
+                targetZoomScale,
+                focusZoomOutBlend);
         }
         else
         {
@@ -1462,12 +1454,27 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
             : cameraBlend;
         const float smoothedCameraX = std::lerp(m_flow.cameraX, targetCameraX, focusCameraBlend);
         const float smoothedCameraY = std::lerp(m_flow.cameraY, targetCameraY, focusCameraBlend);
-        m_flow.cameraX = containMinCameraX <= containMaxCameraX
-            ? std::clamp(smoothedCameraX, containMinCameraX, containMaxCameraX)
-            : targetCameraX;
-        m_flow.cameraY = containMinCameraY <= containMaxCameraY
-            ? std::clamp(smoothedCameraY, containMinCameraY, containMaxCameraY)
-            : targetCameraY;
+        const float containCorrectionBlend = deathFocusMode
+            ? 1.0f
+            : 1.0f - std::pow(0.001f, deltaTime * 1.05f);
+        auto softenContain = [containCorrectionBlend](float value, float minValue, float maxValue, float fallback) -> float
+        {
+            if (minValue > maxValue)
+            {
+                return fallback;
+            }
+            if (value < minValue)
+            {
+                return std::lerp(value, minValue, containCorrectionBlend);
+            }
+            if (value > maxValue)
+            {
+                return std::lerp(value, maxValue, containCorrectionBlend);
+            }
+            return value;
+        };
+        m_flow.cameraX = softenContain(smoothedCameraX, containMinCameraX, containMaxCameraX, targetCameraX);
+        m_flow.cameraY = softenContain(smoothedCameraY, containMinCameraY, containMaxCameraY, targetCameraY);
         m_camera.midBoss3CameraYLockInitialized = false;
         m_camera.midBoss3CameraYLock = m_flow.cameraY;
         return;

@@ -584,20 +584,6 @@ inline void UpdateBullets(
                     nextY + hitInsetY,
                     std::max(1.0f, attackWidth - hitInsetX * 2.0f),
                     std::max(1.0f, attackHeight - hitInsetY * 2.0f));
-                if (rectIntersectsSolid(nextX, nextY, attackWidth, attackHeight))
-                {
-                    if (!capturedMidBoss3Attack->hitSoundPlayed)
-                    {
-                        Audio_PlayCue("boss_ruins_rocket_hit");
-                        capturedMidBoss3Attack->hitSoundPlayed = true;
-                    }
-                    bulletsToRemove.push_back(entity);
-                    continue;
-                }
-                transform->x = nextX;
-                transform->y = nextY;
-                transform->rotation = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
-
                 bool attachedThisFrame = false;
                 for (Entity* target : enemyEntities)
                 {
@@ -638,6 +624,20 @@ inline void UpdateBullets(
                 {
                     continue;
                 }
+
+                if (rectIntersectsSolid(nextX, nextY, attackWidth, attackHeight))
+                {
+                    if (!capturedMidBoss3Attack->hitSoundPlayed)
+                    {
+                        Audio_PlayCue("boss_ruins_rocket_hit");
+                        capturedMidBoss3Attack->hitSoundPlayed = true;
+                    }
+                    bulletsToRemove.push_back(entity);
+                    continue;
+                }
+                transform->x = nextX;
+                transform->y = nextY;
+                transform->rotation = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
 
                 const bool outOfBounds =
                     transform->x + transform->width * transform->scale < 0.0f ||

@@ -693,6 +693,7 @@ inline void UpdateEnemies(
                 boss->drillDamageApplied = false;
                 boss->drillChargeSoundPlayed = false;
                 boss->drillLaunchSoundPlayed = false;
+                boss->drillGroundRushCameraInitialized = false;
                 boss->drillHitSoundCooldown = 0.0f;
                 boss->drillFloorObjectHits = 0;
                 boss->drillVelocityX = 0.0f;
@@ -1130,6 +1131,7 @@ inline void UpdateEnemies(
                 boss->stateTimer = 0.0f;
                 boss->launcherShotTimer = 0.0f;
                 boss->meteorShotsFired = 0;
+                boss->meteorCameraBoundsInitialized = false;
                 boss->cooldownAttack = 2;
                 boss->meteorDirection = resolvePlayerSideFromBoss(boss->lastFlowMoveSide);
                 boss->lastFlowMoveSide = boss->meteorDirection;
@@ -1142,6 +1144,7 @@ inline void UpdateEnemies(
                 boss->launcherShotTimer = 0.0f;
                 boss->launcherShotsFired = 0;
                 boss->meteorShotsFired = 0;
+                boss->meteorCameraBoundsInitialized = false;
                 boss->cooldownAttack = 3;
                 boss->launcherDirection = resolvePlayerSideFromBoss(boss->lastFlowMoveSide);
                 boss->meteorDirection = boss->launcherDirection;
@@ -1170,6 +1173,7 @@ inline void UpdateEnemies(
                 boss->drillDamageApplied = false;
                 boss->drillChargeSoundPlayed = false;
                 boss->drillLaunchSoundPlayed = false;
+                boss->drillGroundRushCameraInitialized = false;
                 boss->drillHitSoundCooldown = 0.0f;
                 boss->drillFloorObjectHits = 0;
                 boss->drillVelocityX = 0.0f;
@@ -1611,6 +1615,28 @@ inline void UpdateEnemies(
                                     boss->drillVelocityY = 0.0f;
                                     boss->drillAimX = static_cast<float>(boss->drillDirection);
                                     boss->drillAimY = 0.0f;
+                                    if (!boss->drillGroundRushCameraInitialized)
+                                    {
+                                        float rushEndX = boss->drillX;
+                                        const float rushStepX = static_cast<float>(boss->drillDirection) * kTileSize * 0.5f;
+                                        const int maxRushSteps = static_cast<int>(mapWidth / std::max(1.0f, kTileSize)) + 8;
+                                        for (int step = 0; step < maxRushSteps; ++step)
+                                        {
+                                            const float candidateX = rushEndX + rushStepX;
+                                            if (candidateX < 0.0f ||
+                                                candidateX + boss->drillWidth > mapWidth ||
+                                                rectIntersectsSolid(candidateX, boss->drillY, boss->drillWidth, boss->drillHeight))
+                                            {
+                                                break;
+                                            }
+                                            rushEndX = candidateX;
+                                        }
+                                        boss->drillGroundRushCameraInitialized = true;
+                                        boss->drillGroundRushCameraLeft = std::min(boss->drillX, rushEndX);
+                                        boss->drillGroundRushCameraTop = boss->drillY;
+                                        boss->drillGroundRushCameraRight = std::max(boss->drillX + boss->drillWidth, rushEndX + boss->drillWidth);
+                                        boss->drillGroundRushCameraBottom = boss->drillY + boss->drillHeight;
+                                    }
                                 }
                                 else
                                 {
@@ -2208,6 +2234,21 @@ inline void UpdateEnemies(
                         fist->meteorHoldY = meteorStartY;
                         fist->meteorTargetGroundY = meteorGroundY;
                         fist->meteorHoldInitialized = true;
+                        if (!boss->meteorCameraBoundsInitialized)
+                        {
+                            boss->meteorCameraBoundsInitialized = true;
+                            boss->meteorCameraLeft = fist->meteorHoldX;
+                            boss->meteorCameraTop = fist->meteorHoldY;
+                            boss->meteorCameraRight = fist->meteorHoldX + fistWidth;
+                            boss->meteorCameraBottom = fist->meteorHoldY + fistHeight;
+                        }
+                        else
+                        {
+                            boss->meteorCameraLeft = std::min(boss->meteorCameraLeft, fist->meteorHoldX);
+                            boss->meteorCameraTop = std::min(boss->meteorCameraTop, fist->meteorHoldY);
+                            boss->meteorCameraRight = std::max(boss->meteorCameraRight, fist->meteorHoldX + fistWidth);
+                            boss->meteorCameraBottom = std::max(boss->meteorCameraBottom, fist->meteorHoldY + fistHeight);
+                        }
                     }
                     if (rectIntersectsSolidTileOnly(fist->meteorHoldX, fist->meteorHoldY, fistWidth, fistHeight))
                     {

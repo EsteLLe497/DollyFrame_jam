@@ -451,6 +451,11 @@ public:
     float meteorAnchorX = 0.0f;
     float meteorLowerStartY = 0.0f;
     float meteorUpperStartY = 0.0f;
+    bool meteorCameraBoundsInitialized = false;
+    float meteorCameraLeft = 0.0f;
+    float meteorCameraTop = 0.0f;
+    float meteorCameraRight = 0.0f;
+    float meteorCameraBottom = 0.0f;
     float idleTimer = 0.0f;
     float stateTimer = 0.0f;
     float launcherShotTimer = 0.0f;
@@ -484,6 +489,7 @@ public:
     bool drillDamageApplied = false;
     bool drillChargeSoundPlayed = false;
     bool drillLaunchSoundPlayed = false;
+    bool drillGroundRushCameraInitialized = false;
     float drillHitSoundCooldown = 0.0f;
     int drillFloorObjectHits = 0;
     int drillDirection = -1;
@@ -491,6 +497,10 @@ public:
     float drillY = 0.0f;
     float drillChargeBaseX = 0.0f;
     float drillChargeBaseY = 0.0f;
+    float drillGroundRushCameraLeft = 0.0f;
+    float drillGroundRushCameraTop = 0.0f;
+    float drillGroundRushCameraRight = 0.0f;
+    float drillGroundRushCameraBottom = 0.0f;
     float drillWidth = 0.0f;
     float drillHeight = 0.0f;
     float drillVelocityX = 0.0f;
