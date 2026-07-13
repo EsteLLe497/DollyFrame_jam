@@ -280,11 +280,15 @@
     },
     "tutorial_frame_window": {
       "type": "file",
-      "path": "assets/texture/tutorialUI/UI_Frame002.png"
+      "path": "assets/texture/tutorialUI/sozai_001.png"
     },
     "tutorial_heading": {
       "type": "file",
-      "path": "assets/texture/tutorialUI/Midashi.png"
+      "path": "assets/texture/tutorialUI/sozai_003.png"
+    },
+    "tutorial_content_panel": {
+      "type": "file",
+      "path": "assets/texture/tutorialUI/sozai_002.png"
     },
     "tutorial_content_image": {
       "type": "file",

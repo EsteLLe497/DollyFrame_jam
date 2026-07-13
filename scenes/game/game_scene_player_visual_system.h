@@ -248,18 +248,48 @@ inline void UpdatePresentation(
         return;
     }
 
-    static_cast<void>(deltaTime);
     static_cast<void>(moveAxis);
-    static_cast<void>(wasGrounded);
     static_cast<void>(isDodging);
-    static_cast<void>(landedThisFrame);
 
-    playerState.visualScaleX = 1.0f;
-    playerState.visualScaleY = 1.0f;
-    playerState.visualOffsetY = 0.0f;
+    constexpr float kJumpStretchScaleX = -0.045f;
+    constexpr float kJumpStretchScaleY = 0.095f;
+    constexpr float kLandingStretchScaleX = 0.115f;
+    constexpr float kLandingStretchScaleY = -0.075f;
+    constexpr float kJumpStretchDecay = 13.0f;
+    constexpr float kLandingImpactDecay = 16.0f;
+
+    if (wasGrounded && !playerState.grounded && playerState.velocityY < 0.0f)
+    {
+        playerState.jumpStretch = std::max(playerState.jumpStretch, 1.0f);
+    }
+    if (landedThisFrame)
+    {
+        playerState.landingImpact = std::max(playerState.landingImpact, 1.0f);
+        playerState.jumpStretch = 0.0f;
+    }
+
+    const float jumpDecay = 1.0f - std::pow(0.001f, std::max(0.0f, deltaTime) * kJumpStretchDecay);
+    const float landingDecay = 1.0f - std::pow(0.001f, std::max(0.0f, deltaTime) * kLandingImpactDecay);
+    playerState.jumpStretch = std::lerp(playerState.jumpStretch, 0.0f, jumpDecay);
+    playerState.landingImpact = std::lerp(playerState.landingImpact, 0.0f, landingDecay);
+
+    playerState.visualScaleX =
+        1.0f +
+        playerState.jumpStretch * kJumpStretchScaleX +
+        playerState.landingImpact * kLandingStretchScaleX;
+    playerState.visualScaleY =
+        1.0f +
+        playerState.jumpStretch * kJumpStretchScaleY +
+        playerState.landingImpact * kLandingStretchScaleY;
+
+    const auto* transform = player.GetComponent<TransformComponent>();
+    const float baseWidth = transform ? transform->width * transform->scale : 0.0f;
+    const float baseHeight = transform ? transform->height * transform->scale : 0.0f;
+    const float visualOffsetX = baseWidth * (1.0f - playerState.visualScaleX) * 0.5f;
+    playerState.visualOffsetY = baseHeight * (1.0f - playerState.visualScaleY);
     playerState.visualRotation = 0.0f;
-    sprite->SetRenderScale(1.0f, 1.0f);
-    sprite->SetRenderOffset(0.0f, 0.0f);
+    sprite->SetRenderScale(playerState.visualScaleX, playerState.visualScaleY);
+    sprite->SetRenderOffset(visualOffsetX, playerState.visualOffsetY);
     sprite->SetRenderRotationOffset(0.0f);
 }
 
