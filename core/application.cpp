@@ -47,9 +47,9 @@ namespace
 
     constexpr SoundCueAsset kSoundCueAssets[] =
     {
-        { "shutter", "assets/effects/Sound/Plater_SE/shutter.wav" },
+        { "shutter", "assets/effects/Sound/Player_SE/shutter.wav" },
         { "barrel", "assets/effects/Sound/Stage_SE/barrel.wav" },
-        { "cant_paste", "assets/effects/Sound/Plater_SE/cantPaste.wav" },
+        { "cant_paste", "assets/effects/Sound/Player_SE/cantPaste.wav" },
         { "enemy_gun", "assets/effects/Sound/Enemy_SE/EnemyGun.wav" },
         { "bgm_forest", "assets/effects/Sound/Stage_BGM/forest.wav" },
         { "bgm_ruins", "assets/effects/Sound/Stage_BGM/ruins.wav" },
@@ -65,6 +65,15 @@ namespace
         { "boss_forest_knockback", "assets/effects/Sound/Boss_SE/Forest/nockback.wav" },
         { "boss_forest_roar", "assets/effects/Sound/Boss_SE/Forest/roar.wav" },
         { "boss_forest_shield_drop", "assets/effects/Sound/Boss_SE/Forest/shield_drop.wav" },
+        { "boss_ruins_roar", "assets/effects/Sound/Boss_SE/Ruins/roar.wav" },
+        { "boss_ruins_rocket_charge", "assets/effects/Sound/Boss_SE/Ruins/rocketCharge.wav" },
+        { "boss_ruins_rocket", "assets/effects/Sound/Boss_SE/Ruins/rocket.wav" },
+        { "boss_ruins_rocket_hit", "assets/effects/Sound/Boss_SE/Ruins/rocketHit.wav" },
+        { "boss_ruins_firing", "assets/effects/Sound/Boss_SE/Ruins/firing.wav" },
+        { "boss_ruins_hit", "assets/effects/Sound/Boss_SE/Ruins/hit.wav" },
+        { "boss_ruins_hit2", "assets/effects/Sound/Boss_SE/Ruins/hit2.wav" },
+        { "boss_ruins_dead", "assets/effects/Sound/Boss_SE/Ruins/dead.wav" },
+        { "boss_ruins_destroy", "assets/effects/Sound/Boss_SE/Ruins/detroy.wav" },
     };
 
     void LoadSoundCueAssets()

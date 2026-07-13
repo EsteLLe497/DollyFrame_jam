@@ -18,6 +18,7 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr int kDebugEscapeMenuItemCount = 16;
+    constexpr float kEscapeMenuSceneFadeOutDuration = 0.45f;
     constexpr std::array<int, 6> kPlayerEscapeMenuActions = { 0, 5, 6, 7, 14, 15 };
 
     constexpr int GetEscapeMenuItemCount()
@@ -244,7 +245,11 @@ void GameScene::UpdateEscapeMenuInput(float deltaTime)
         break;
     case 14:
         m_debug.showEscapeMenu = false;
-        m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, "title", 0.0f, 0.0f });
+        m_debug.escapeMenuAnimation = 0.0f;
+        m_flow.sceneFadeOutActive = true;
+        m_flow.sceneFadeOutTimer = kEscapeMenuSceneFadeOutDuration;
+        m_flow.sceneFadeOutTarget = "title";
+        Audio_FadeOutBgm(kEscapeMenuSceneFadeOutDuration);
         break;
     case 15:
         m_debug.showEscapeMenu = false;

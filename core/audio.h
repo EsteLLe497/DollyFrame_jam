@@ -6,6 +6,7 @@ void Audio_Update();
 void Audio_PlayTestTone();
 void Audio_PlayCue(const char* cueName);
 void Audio_StopCue(const char* cueName);
+void Audio_FadeOutCue(const char* cueName, float durationSeconds);
 void Audio_PlayBgmCue(const char* cueName);
 void Audio_CrossFadeBgmCue(const char* cueName, float durationSeconds);
 void Audio_FadeOutBgm(float durationSeconds);

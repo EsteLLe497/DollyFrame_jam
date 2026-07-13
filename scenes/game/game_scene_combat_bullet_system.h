@@ -2,6 +2,7 @@
 
 #include <limits>
 
+#include "audio.h"
 #include "game_scene_combat_common.h"
 
 namespace game_scene_combat_system
@@ -393,6 +394,11 @@ inline void UpdateBullets(
                         flow.screenShakeDuration = std::max(flow.screenShakeDuration, 0.26f);
                         flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, 32.0f);
                     }
+                    if (!capturedMidBoss3Attack->hitSoundPlayed)
+                    {
+                        Audio_PlayCue("boss_ruins_hit");
+                        capturedMidBoss3Attack->hitSoundPlayed = true;
+                    }
                     handleEnemyDamage(*target, entity, getDamageAgainstTarget(*target), "Captured MidBoss3 fist hit enemy");
                     bulletsToRemove.push_back(entity);
                     fistHitEnemy = true;
@@ -413,6 +419,11 @@ inline void UpdateBullets(
                     transform->y > mapHeight;
                 if (hitSolidTile || outOfBounds)
                 {
+                    if (hitSolidTile && !capturedMidBoss3Attack->hitSoundPlayed)
+                    {
+                        Audio_PlayCue("boss_ruins_hit");
+                        capturedMidBoss3Attack->hitSoundPlayed = true;
+                    }
                     bulletsToRemove.push_back(entity);
                 }
                 continue;
@@ -549,6 +560,15 @@ inline void UpdateBullets(
                         continue;
                     }
                     capturedMidBoss3Attack->launched = true;
+                    if (capturedMidBoss3Attack->chargeSoundPlayed)
+                    {
+                        Audio_StopCue("boss_ruins_rocket_charge");
+                    }
+                    if (!capturedMidBoss3Attack->launchSoundPlayed)
+                    {
+                        Audio_PlayCue("boss_ruins_rocket");
+                        capturedMidBoss3Attack->launchSoundPlayed = true;
+                    }
                     projectile->SetVelocityX(capturedMidBoss3Attack->aimX * kDrillLaunchSpeed);
                     projectile->SetVelocityY(capturedMidBoss3Attack->aimY * kDrillLaunchSpeed);
                 }
@@ -564,15 +584,6 @@ inline void UpdateBullets(
                     nextY + hitInsetY,
                     std::max(1.0f, attackWidth - hitInsetX * 2.0f),
                     std::max(1.0f, attackHeight - hitInsetY * 2.0f));
-                if (rectIntersectsSolid(nextX, nextY, attackWidth, attackHeight))
-                {
-                    bulletsToRemove.push_back(entity);
-                    continue;
-                }
-                transform->x = nextX;
-                transform->y = nextY;
-                transform->rotation = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
-
                 bool attachedThisFrame = false;
                 for (Entity* target : enemyEntities)
                 {
@@ -599,6 +610,11 @@ inline void UpdateBullets(
                         flow.screenShakeDuration = std::max(flow.screenShakeDuration, 0.34f);
                         flow.screenShakeAmplitude = std::max(flow.screenShakeAmplitude, 44.0f);
                     }
+                    if (!capturedMidBoss3Attack->hitSoundPlayed)
+                    {
+                        Audio_PlayCue("boss_ruins_rocket_hit");
+                        capturedMidBoss3Attack->hitSoundPlayed = true;
+                    }
                     handleEnemyDamage(*target, entity, getDamageAgainstTarget(*target), "Captured MidBoss3 drill damaged enemy");
                     (void)pushAttachedTarget(*target, std::max(deltaTime, 1.0f / 60.0f));
                     attachedThisFrame = true;
@@ -608,6 +624,20 @@ inline void UpdateBullets(
                 {
                     continue;
                 }
+
+                if (rectIntersectsSolid(nextX, nextY, attackWidth, attackHeight))
+                {
+                    if (!capturedMidBoss3Attack->hitSoundPlayed)
+                    {
+                        Audio_PlayCue("boss_ruins_rocket_hit");
+                        capturedMidBoss3Attack->hitSoundPlayed = true;
+                    }
+                    bulletsToRemove.push_back(entity);
+                    continue;
+                }
+                transform->x = nextX;
+                transform->y = nextY;
+                transform->rotation = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
 
                 const bool outOfBounds =
                     transform->x + transform->width * transform->scale < 0.0f ||

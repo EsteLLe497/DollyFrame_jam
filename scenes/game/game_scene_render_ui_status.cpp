@@ -248,6 +248,138 @@ namespace
         DrawLineAA(x + width, y + height, x, y + height, GetColor(210, 220, 242), 1.2f);
         DrawLineAA(x, y + height, x + slant, y, GetColor(210, 220, 242), 1.2f);
     }
+
+    void UpdateBossHpUiState(
+        GameSceneBossHpUiState& state,
+        int currentHp,
+        int maxHp,
+        float deltaTime,
+        bool keepVisibleAtZero = false)
+    {
+        constexpr float kRevealSpeed = 2.35f;
+        constexpr float kDisplayDropSpeed = 18.0f;
+        constexpr float kDisplayRecoverSpeed = 10.0f;
+        constexpr float kDamageLagSpeed = 1.55f;
+        constexpr float kFlashDecaySpeed = 3.8f;
+
+        const int safeMaxHp = std::max(1, maxHp);
+        const int safeCurrentHp = std::clamp(currentHp, 0, safeMaxHp);
+        const float targetRatio = static_cast<float>(safeCurrentHp) / static_cast<float>(safeMaxHp);
+
+        if (!state.initialized || state.lastMax != safeMaxHp)
+        {
+            state.displayRatio = targetRatio;
+            state.damageLagRatio = targetRatio;
+            state.flash = 0.0f;
+            state.reveal = 0.0f;
+            state.lastRaw = safeCurrentHp;
+            state.lastMax = safeMaxHp;
+            state.initialized = true;
+        }
+        else
+        {
+            if (state.lastRaw >= 0 && safeCurrentHp < state.lastRaw)
+            {
+                state.flash = 1.0f;
+            }
+            state.lastRaw = safeCurrentHp;
+
+            const float displaySpeed = targetRatio < state.displayRatio
+                ? kDisplayDropSpeed
+                : kDisplayRecoverSpeed;
+            state.displayRatio += (targetRatio - state.displayRatio) * std::min(1.0f, deltaTime * displaySpeed);
+            state.displayRatio = std::clamp(state.displayRatio, 0.0f, 1.0f);
+
+            if (state.damageLagRatio < state.displayRatio)
+            {
+                state.damageLagRatio = state.displayRatio;
+            }
+            else
+            {
+                state.damageLagRatio += (state.displayRatio - state.damageLagRatio) * std::min(1.0f, deltaTime * kDamageLagSpeed);
+                state.damageLagRatio = std::clamp(state.damageLagRatio, 0.0f, 1.0f);
+            }
+        }
+
+        state.visible = safeCurrentHp > 0 || keepVisibleAtZero;
+        state.reveal += (1.0f - state.reveal) * std::min(1.0f, deltaTime * kRevealSpeed);
+        state.flash = std::max(0.0f, state.flash - deltaTime * kFlashDecaySpeed);
+    }
+
+    void DrawEnderInspiredBossHpGauge(const GameSceneUiBossHpTuning& bossUi, const GameSceneBossHpUiState& state)
+    {
+        if (!state.initialized || !state.visible || state.reveal <= 0.01f)
+        {
+            return;
+        }
+
+        const float revealT = EaseOutCubic(state.reveal);
+        const float frameAlphaScale = std::clamp(state.reveal * 4.0f, 0.0f, 1.0f);
+        const float fillIntroT = EaseOutCubic(std::clamp((state.reveal - 0.22f) / 0.78f, 0.0f, 1.0f));
+        const float width = bossUi.panelWidth;
+        const float height = bossUi.barHeight;
+        constexpr float kOrnamentWidth = 42.0f;
+        const float x = static_cast<float>(SCREEN_WIDTH) - width - bossUi.panelExtraHeight - kOrnamentWidth;
+        const float baseY = static_cast<float>(SCREEN_HEIGHT) - height - bossUi.marginTop;
+        const float y = baseY + (1.0f - revealT) * 28.0f;
+        const float alphaScale = std::clamp(revealT, 0.0f, 1.0f);
+        const int baseAlpha = static_cast<int>(std::round(210.0f * frameAlphaScale));
+        const int lineAlpha = static_cast<int>(std::round(185.0f * frameAlphaScale));
+        const int fillAlpha = static_cast<int>(std::round(235.0f * alphaScale));
+        const float introFillWidth = width * fillIntroT;
+        const float displayWidth = std::min(width * std::clamp(state.displayRatio, 0.0f, 1.0f), introFillWidth);
+        const float lagWidth = std::min(width * std::clamp(state.damageLagRatio, 0.0f, 1.0f), introFillWidth);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(118.0f * frameAlphaScale)));
+        DrawBoxAA(x - 20.0f, y - 14.0f, x + width + 20.0f, y + height + 18.0f, GetColor(0, 0, 0), TRUE);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, baseAlpha);
+        DrawBoxAA(x, y, x + width, y + height, GetColor(20, 5, 8), TRUE);
+        DrawBoxAA(x, y + height * 0.55f, x + width, y + height, GetColor(36, 8, 12), TRUE);
+
+        if (lagWidth > displayWidth + 0.5f)
+        {
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(190.0f * alphaScale)));
+            DrawBoxAA(x, y + 1.0f, x + lagWidth, y + height - 1.0f, GetColor(248, 78, 58), TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(92.0f * alphaScale)));
+            DrawBoxAA(x, y + 1.0f, x + lagWidth, y + height * 0.45f, GetColor(255, 184, 150), TRUE);
+        }
+
+        if (displayWidth > 0.5f)
+        {
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, fillAlpha);
+            DrawBoxAA(x, y + 1.0f, x + displayWidth, y + height - 1.0f, GetColor(172, 18, 32), TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(128.0f * alphaScale)));
+            DrawBoxAA(x, y + 2.0f, x + displayWidth, y + height * 0.42f, GetColor(255, 112, 104), TRUE);
+        }
+
+        if (fillIntroT > 0.01f && fillIntroT < 0.995f)
+        {
+            const float sweepX = x + introFillWidth;
+            SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(150.0f * alphaScale)));
+            DrawLineAA(sweepX, y - 3.0f, sweepX + 8.0f, y + height + 3.0f, GetColor(255, 210, 176), 2.0f);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(78.0f * alphaScale)));
+            DrawBoxAA(std::max(x, sweepX - 42.0f), y + 1.0f, sweepX, y + height - 1.0f, GetColor(255, 128, 96), TRUE);
+        }
+
+        if (state.flash > 0.0f)
+        {
+            SetDrawBlendMode(DX_BLENDMODE_ADD, static_cast<int>(std::round(120.0f * state.flash * alphaScale)));
+            DrawBoxAA(x, y - 4.0f, x + width, y + height + 4.0f, GetColor(255, 90, 82), TRUE);
+        }
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, lineAlpha);
+        DrawLineAA(x - 42.0f, y - 8.0f, x + width + 42.0f, y - 8.0f, GetColor(244, 166, 150), 1.4f);
+        DrawLineAA(x - 18.0f, y + height + 8.0f, x + width + 18.0f, y + height + 8.0f, GetColor(166, 58, 58), 1.2f);
+        DrawBoxAA(x - 1.0f, y - 1.0f, x + width + 1.0f, y + height + 1.0f, GetColor(238, 164, 150), FALSE);
+
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(170.0f * frameAlphaScale)));
+        DrawCircleAA(x - 32.0f, y + height * 0.5f, 5.0f, 18, GetColor(238, 162, 146), TRUE);
+        DrawCircleAA(x + width + 32.0f, y + height * 0.5f, 5.0f, 18, GetColor(238, 162, 146), TRUE);
+        DrawLineAA(x - 28.0f, y + height * 0.5f, x - 8.0f, y + height * 0.5f, GetColor(238, 162, 146), 1.2f);
+        DrawLineAA(x + width + 8.0f, y + height * 0.5f, x + width + 28.0f, y + height * 0.5f, GetColor(238, 162, 146), 1.2f);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
 }
 
 void GameScene::DrawCameraStatusHud() const
@@ -585,6 +717,64 @@ void GameScene::DrawPartsHud() const
     Shader_ResetStyle();
 }
 
+void GameScene::DrawShieldBossHpBar() const
+{
+    const Entity* bossEntity = nullptr;
+    bool keepVisibleForDeathMotion = false;
+    for (const auto& entity : m_world.Entities())
+    {
+        if (!entity)
+        {
+            continue;
+        }
+
+        const auto* enemy = entity->GetComponent<EnemyComponent>();
+        if (!enemy || !enemy->IsEnabled() || enemy->IsDefeated() ||
+            enemy->GetArchetype() != EnemyArchetype::ShieldBoss)
+        {
+            continue;
+        }
+
+        const auto* boss = entity->GetComponent<ShieldBossComponent>();
+        if (!boss || !boss->combatStarted || !boss->appearAnimationFinished ||
+            boss->introDropActive || boss->appearAnimationActive ||
+            boss->roarAnimationActive || boss->deathAnimationFinished)
+        {
+            continue;
+        }
+
+        bossEntity = entity.get();
+        keepVisibleForDeathMotion = boss->deathAnimationActive;
+        break;
+    }
+
+    if (!bossEntity)
+    {
+        return;
+    }
+
+    const auto* health = bossEntity->GetComponent<HealthComponent>();
+    if (!health)
+    {
+        return;
+    }
+
+    const int maxHp = (std::max)(1, health->GetMaxHealth());
+    const int currentHp = std::clamp(health->GetCurrentHealth(), 0, maxHp);
+    if (currentHp <= 0 && !keepVisibleForDeathMotion)
+    {
+        return;
+    }
+
+    UpdateBossHpUiState(
+        m_ui.bossHp,
+        currentHp,
+        maxHp,
+        std::max(0.0f, m_flow.lastDeltaTime),
+        keepVisibleForDeathMotion);
+    DrawEnderInspiredBossHpGauge(m_ui.tuning.bossHp, m_ui.bossHp);
+}
+
 void GameScene::DrawMidBoss2HpBar() const
 {
     const Entity* bossEntity = nullptr;
@@ -627,7 +817,8 @@ void GameScene::DrawMidBoss2HpBar() const
         return;
     }
 
-    DrawBossHpParallelogramGauge(m_ui.tuning.bossHp, currentHp, maxHp);
+    UpdateBossHpUiState(m_ui.bossHp, currentHp, maxHp, std::max(0.0f, m_flow.lastDeltaTime));
+    DrawEnderInspiredBossHpGauge(m_ui.tuning.bossHp, m_ui.bossHp);
     return;
 
     const auto& bossUi = m_ui.tuning.bossHp;
@@ -787,6 +978,7 @@ void GameScene::DrawMidBoss2HpBar() const
 void GameScene::DrawMidBoss3HpBar() const
 {
     const Entity* bossEntity = nullptr;
+    bool keepVisibleForDeathMotion = false;
     for (const auto& entity : m_world.Entities())
     {
         if (!entity)
@@ -800,11 +992,12 @@ void GameScene::DrawMidBoss3HpBar() const
             continue;
         }
         const auto* boss = entity->GetComponent<MidBoss3Component>();
-        if (!boss || !boss->introFinished)
+        if (!boss || !boss->introFinished || boss->deathAnimationFinished)
         {
             continue;
         }
         bossEntity = entity.get();
+        keepVisibleForDeathMotion = boss->deathAnimationActive;
         break;
     }
 
@@ -821,12 +1014,18 @@ void GameScene::DrawMidBoss3HpBar() const
 
     const int maxHp = (std::max)(1, health->GetMaxHealth());
     const int currentHp = std::clamp(health->GetCurrentHealth(), 0, maxHp);
-    if (currentHp <= 0)
+    if (currentHp <= 0 && !keepVisibleForDeathMotion)
     {
         return;
     }
 
-    DrawBossHpParallelogramGauge(m_ui.tuning.bossHp, currentHp, maxHp, 1.5f);
+    UpdateBossHpUiState(
+        m_ui.bossHp,
+        currentHp,
+        maxHp,
+        std::max(0.0f, m_flow.lastDeltaTime),
+        keepVisibleForDeathMotion);
+    DrawEnderInspiredBossHpGauge(m_ui.tuning.bossHp, m_ui.bossHp);
     return;
 
     const auto& bossUi = m_ui.tuning.bossHp;

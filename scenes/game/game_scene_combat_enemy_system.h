@@ -184,6 +184,7 @@ inline void UpdateEnemies(
             }
             boss->idleTimer += deltaTime;
             boss->stateTimer += deltaTime;
+            boss->drillHitSoundCooldown = std::max(0.0f, boss->drillHitSoundCooldown - deltaTime);
             boss->facingRight = playerCenterX >= (boss->homeX + bossWidth * 0.5f);
             if (auto* sprite = entity->GetComponent<SpriteRenderComponent>())
             {
@@ -472,6 +473,41 @@ inline void UpdateEnemies(
                     animation->Play(clipName, restart);
                 }
             };
+            const auto playMidBoss3Cue = [&](const char* cueName)
+            {
+                playShieldBossCue(*entity, cueName);
+            };
+            const auto stopMidBoss3Cue = [&](const char* cueName)
+            {
+                stopShieldBossCue(*entity, cueName);
+            };
+            const auto playMidBoss3DrillHitCue = [&]()
+            {
+                if (boss->drillHitSoundCooldown <= 0.0f)
+                {
+                    playMidBoss3Cue("boss_ruins_rocket_hit");
+                    boss->drillHitSoundCooldown = 0.16f;
+                }
+            };
+            const auto playMidBoss3FistLaunchCue = [&](MidBoss3FistComponent& targetFist)
+            {
+                if (!targetFist.rocketLaunchSoundPlayed)
+                {
+                    playMidBoss3Cue("boss_ruins_firing");
+                    targetFist.rocketLaunchSoundPlayed = true;
+                }
+            };
+            const auto playMidBoss3FistHitCue = [&](MidBoss3FistComponent& targetFist)
+            {
+                const bool activePunch =
+                    targetFist.state == MidBoss3FistState::Launching ||
+                    targetFist.state == MidBoss3FistState::MeteorFalling;
+                if (activePunch && !targetFist.rocketHitSoundPlayed)
+                {
+                    playMidBoss3Cue("boss_ruins_hit2");
+                    targetFist.rocketHitSoundPlayed = true;
+                }
+            };
             const auto isPinnedByCapturedDrill = [&]() -> bool
             {
                 for (const auto& candidate : entities)
@@ -546,6 +582,22 @@ inline void UpdateEnemies(
                 }
 
                 playMidBoss3Clip("appear");
+                constexpr int kIntroRoarStartFrame = 66;
+                constexpr int kIntroRoarStopFrame = 100;
+                const auto* roarAnimation = entity->GetComponent<SpriteSheetAnimationComponent>();
+                const int roarLocalFrame = roarAnimation ? roarAnimation->GetCurrentLocalFrameIndex() : 0;
+                if (!boss->introRoarSoundPlayed && roarLocalFrame >= kIntroRoarStartFrame)
+                {
+                    playMidBoss3Cue("boss_ruins_roar");
+                    boss->introRoarSoundPlayed = true;
+                }
+                if (boss->introRoarSoundPlayed &&
+                    !boss->introRoarSoundStopped &&
+                    roarLocalFrame >= kIntroRoarStopFrame)
+                {
+                    stopMidBoss3Cue("boss_ruins_roar");
+                    boss->introRoarSoundStopped = true;
+                }
                 boss->introTimer += deltaTime;
                 const float progress = smoothStep(boss->introTimer / std::max(0.01f, boss->params.introRiseTime));
                 boss->homeX = boss->introFloatHomeX;
@@ -608,6 +660,11 @@ inline void UpdateEnemies(
                     animation->SetPlaybackSpeed(1.0f);
                     boss->deathAnimationActive = false;
                     boss->deathAnimationFinished = true;
+                    if (!boss->destroySoundPlayed)
+                    {
+                        boss->destroySoundPlayed = true;
+                        playMidBoss3Cue("boss_ruins_destroy");
+                    }
                     enemy->MarkDefeated();
                     enemy->respawnEnabled = false;
                     // 繝懊せ謦・ｴ縺ｧ繧ｴ繝ｼ繝ｫ繧定ｧ｣謾ｾ縺吶ｋ・医す繝｣繝・ち繝ｼ縺ｯ useBossDefeatSignal 蛛ｴ縺ｧ閾ｪ蜍慕噪縺ｫ髢九￥・峨・
@@ -634,6 +691,10 @@ inline void UpdateEnemies(
                 boss->drillFormed = false;
                 boss->drillGroundRush = false;
                 boss->drillDamageApplied = false;
+                boss->drillChargeSoundPlayed = false;
+                boss->drillLaunchSoundPlayed = false;
+                boss->drillGroundRushCameraInitialized = false;
+                boss->drillHitSoundCooldown = 0.0f;
                 boss->drillFloorObjectHits = 0;
                 boss->drillVelocityX = 0.0f;
                 boss->drillVelocityY = 0.0f;
@@ -697,6 +758,7 @@ inline void UpdateEnemies(
                 constexpr float kFistImpactHitStopSeconds = 0.075f;
                 constexpr float kFistImpactShakeSeconds = 0.32f;
                 constexpr float kFistImpactShakeAmplitude = 38.0f;
+                playMidBoss3FistHitCue(targetFist);
                 flow.hitStopRemaining = std::max(flow.hitStopRemaining, kFistImpactHitStopSeconds);
                 flow.screenShakeRemaining = std::max(flow.screenShakeRemaining, kFistImpactShakeSeconds);
                 flow.screenShakeDuration = std::max(flow.screenShakeDuration, kFistImpactShakeSeconds);
@@ -814,6 +876,9 @@ inline void UpdateEnemies(
                 fist.damageApplied = false;
                 fist.atAttackStart = false;
                 fist.broken = false;
+                fist.rocketChargeSoundPlayed = false;
+                fist.rocketLaunchSoundPlayed = false;
+                fist.rocketHitSoundPlayed = false;
                 fist.impactAttackActive = false;
                 fist.impactDamageApplied = false;
                 fist.impactAttackRemaining = 0.0f;
@@ -1066,6 +1131,7 @@ inline void UpdateEnemies(
                 boss->stateTimer = 0.0f;
                 boss->launcherShotTimer = 0.0f;
                 boss->meteorShotsFired = 0;
+                boss->meteorCameraBoundsInitialized = false;
                 boss->cooldownAttack = 2;
                 boss->meteorDirection = resolvePlayerSideFromBoss(boss->lastFlowMoveSide);
                 boss->lastFlowMoveSide = boss->meteorDirection;
@@ -1078,6 +1144,7 @@ inline void UpdateEnemies(
                 boss->launcherShotTimer = 0.0f;
                 boss->launcherShotsFired = 0;
                 boss->meteorShotsFired = 0;
+                boss->meteorCameraBoundsInitialized = false;
                 boss->cooldownAttack = 3;
                 boss->launcherDirection = resolvePlayerSideFromBoss(boss->lastFlowMoveSide);
                 boss->meteorDirection = boss->launcherDirection;
@@ -1104,6 +1171,10 @@ inline void UpdateEnemies(
                 boss->drillFormed = false;
                 boss->drillGroundRush = false;
                 boss->drillDamageApplied = false;
+                boss->drillChargeSoundPlayed = false;
+                boss->drillLaunchSoundPlayed = false;
+                boss->drillGroundRushCameraInitialized = false;
+                boss->drillHitSoundCooldown = 0.0f;
                 boss->drillFloorObjectHits = 0;
                 boss->drillVelocityX = 0.0f;
                 boss->drillVelocityY = 0.0f;
@@ -1298,6 +1369,7 @@ inline void UpdateEnemies(
                             continue;
                         }
                         fist->state = MidBoss3FistState::Launching;
+                        playMidBoss3FistLaunchCue(*fist);
                         fist->velocityX = boss->launcherDirection < 0 ? -boss->params.launcherFistSpeed : boss->params.launcherFistSpeed;
                         fist->velocityY = 0.0f;
                         fist->lockedFacingRight = boss->launcherDirection > 0;
@@ -1337,6 +1409,7 @@ inline void UpdateEnemies(
                             continue;
                         }
                         fist->state = MidBoss3FistState::MeteorFalling;
+                        playMidBoss3FistLaunchCue(*fist);
                         const float aimLength = std::max(0.001f, std::hypot(fist->meteorAimX, fist->meteorAimY));
                         fist->velocityX = (fist->meteorAimX / aimLength) * boss->params.meteorFistSpeed;
                         fist->velocityY = (fist->meteorAimY / aimLength) * boss->params.meteorFistSpeed;
@@ -1409,6 +1482,11 @@ inline void UpdateEnemies(
                 {
                     if (boss->stateTimer < boss->params.drillFormTime + boss->params.drillWaitTime)
                     {
+                        if (!boss->drillChargeSoundPlayed)
+                        {
+                            playMidBoss3Cue("boss_ruins_rocket_charge");
+                            boss->drillChargeSoundPlayed = true;
+                        }
                         const float shakePhase = boss->idleTimer * 92.0f;
                         const float shakeX = std::sin(shakePhase) * boss->params.drillChargeShakeAmplitude;
                         const float shakeY = std::cos(shakePhase * 1.31f) * boss->params.drillChargeShakeAmplitude * 0.45f;
@@ -1438,6 +1516,12 @@ inline void UpdateEnemies(
                         {
                             boss->drillVelocityX = boss->drillAimX * boss->params.drillLaunchSpeed;
                             boss->drillVelocityY = boss->drillAimY * boss->params.drillLaunchSpeed;
+                            if (!boss->drillLaunchSoundPlayed)
+                            {
+                                stopMidBoss3Cue("boss_ruins_rocket_charge");
+                                playMidBoss3Cue("boss_ruins_rocket");
+                                boss->drillLaunchSoundPlayed = true;
+                            }
                             if (std::fabs(boss->drillVelocityX) < boss->params.drillLaunchSpeed * 0.25f)
                             {
                                 boss->drillVelocityX = static_cast<float>(boss->drillDirection) * boss->params.drillLaunchSpeed * 0.25f;
@@ -1453,6 +1537,7 @@ inline void UpdateEnemies(
                                 rectIntersectsSolid(nextX, boss->drillY, boss->drillWidth, boss->drillHeight);
                             if (hitWall)
                             {
+                                playMidBoss3DrillHitCue();
                                 constexpr float kDrillImpactHitStopSeconds = 0.105f;
                                 constexpr float kDrillImpactShakeSeconds = 0.40f;
                                 constexpr float kDrillImpactShakeAmplitude = 56.0f;
@@ -1494,6 +1579,7 @@ inline void UpdateEnemies(
                             const bool hitSolid = rectIntersectsSolid(nextX, nextY, boss->drillWidth, boss->drillHeight);
                             if (hitWall)
                             {
+                                playMidBoss3DrillHitCue();
                                 constexpr float kDrillImpactHitStopSeconds = 0.105f;
                                 constexpr float kDrillImpactShakeSeconds = 0.40f;
                                 constexpr float kDrillImpactShakeAmplitude = 56.0f;
@@ -1529,9 +1615,32 @@ inline void UpdateEnemies(
                                     boss->drillVelocityY = 0.0f;
                                     boss->drillAimX = static_cast<float>(boss->drillDirection);
                                     boss->drillAimY = 0.0f;
+                                    if (!boss->drillGroundRushCameraInitialized)
+                                    {
+                                        float rushEndX = boss->drillX;
+                                        const float rushStepX = static_cast<float>(boss->drillDirection) * kTileSize * 0.5f;
+                                        const int maxRushSteps = static_cast<int>(mapWidth / std::max(1.0f, kTileSize)) + 8;
+                                        for (int step = 0; step < maxRushSteps; ++step)
+                                        {
+                                            const float candidateX = rushEndX + rushStepX;
+                                            if (candidateX < 0.0f ||
+                                                candidateX + boss->drillWidth > mapWidth ||
+                                                rectIntersectsSolid(candidateX, boss->drillY, boss->drillWidth, boss->drillHeight))
+                                            {
+                                                break;
+                                            }
+                                            rushEndX = candidateX;
+                                        }
+                                        boss->drillGroundRushCameraInitialized = true;
+                                        boss->drillGroundRushCameraLeft = std::min(boss->drillX, rushEndX);
+                                        boss->drillGroundRushCameraTop = boss->drillY;
+                                        boss->drillGroundRushCameraRight = std::max(boss->drillX + boss->drillWidth, rushEndX + boss->drillWidth);
+                                        boss->drillGroundRushCameraBottom = boss->drillY + boss->drillHeight;
+                                    }
                                 }
                                 else
                                 {
+                                    playMidBoss3DrillHitCue();
                                     constexpr float kDrillImpactHitStopSeconds = 0.105f;
                                     constexpr float kDrillImpactShakeSeconds = 0.40f;
                                     constexpr float kDrillImpactShakeAmplitude = 56.0f;
@@ -1589,6 +1698,7 @@ inline void UpdateEnemies(
                                         continue;
                                     }
 
+                                    playMidBoss3DrillHitCue();
                                     breakFistAtCollision(*targetFist, *targetTransform);
                                     continue;
                                 }
@@ -1615,6 +1725,7 @@ inline void UpdateEnemies(
 
                                 if (isFloorObject(*target))
                                 {
+                                    playMidBoss3DrillHitCue();
                                     ++boss->drillFloorObjectHits;
                                     if (boss->drillFloorObjectHits >= 2)
                                     {
@@ -1625,6 +1736,7 @@ inline void UpdateEnemies(
 
                                 if (isBreakableObject(*target))
                                 {
+                                    playMidBoss3DrillHitCue();
                                     queueDestroyEntity(target.get(), SepiaRubbleSource::MidBoss3Drill);
                                 }
                             }
@@ -1634,6 +1746,7 @@ inline void UpdateEnemies(
                                 playerTransform &&
                                 IntersectsBounds(drillRect, *playerTransform))
                             {
+                                playMidBoss3DrillHitCue();
                                 handlePlayerDamage(entity, 2, "MidBoss3 drill damaged player");
                                 boss->drillDamageApplied = true;
                             }
@@ -2121,6 +2234,21 @@ inline void UpdateEnemies(
                         fist->meteorHoldY = meteorStartY;
                         fist->meteorTargetGroundY = meteorGroundY;
                         fist->meteorHoldInitialized = true;
+                        if (!boss->meteorCameraBoundsInitialized)
+                        {
+                            boss->meteorCameraBoundsInitialized = true;
+                            boss->meteorCameraLeft = fist->meteorHoldX;
+                            boss->meteorCameraTop = fist->meteorHoldY;
+                            boss->meteorCameraRight = fist->meteorHoldX + fistWidth;
+                            boss->meteorCameraBottom = fist->meteorHoldY + fistHeight;
+                        }
+                        else
+                        {
+                            boss->meteorCameraLeft = std::min(boss->meteorCameraLeft, fist->meteorHoldX);
+                            boss->meteorCameraTop = std::min(boss->meteorCameraTop, fist->meteorHoldY);
+                            boss->meteorCameraRight = std::max(boss->meteorCameraRight, fist->meteorHoldX + fistWidth);
+                            boss->meteorCameraBottom = std::max(boss->meteorCameraBottom, fist->meteorHoldY + fistHeight);
+                        }
                     }
                     if (rectIntersectsSolidTileOnly(fist->meteorHoldX, fist->meteorHoldY, fistWidth, fistHeight))
                     {
@@ -2217,6 +2345,7 @@ inline void UpdateEnemies(
                         playerTransform &&
                         IntersectsBounds(*fistTransform, *playerTransform))
                     {
+                        playMidBoss3FistHitCue(*fist);
                         handlePlayerDamage(fistEntity, 1, "MidBoss3 launcher fist damaged player");
                         fist->damageApplied = true;
                     }
@@ -2226,6 +2355,7 @@ inline void UpdateEnemies(
                     {
                         if (hitSolidTile)
                         {
+                            playMidBoss3FistHitCue(*fist);
                             constexpr float kFistImpactHitStopSeconds = 0.075f;
                             constexpr float kFistImpactShakeSeconds = 0.32f;
                             constexpr float kFistImpactShakeAmplitude = 38.0f;
@@ -2285,6 +2415,7 @@ inline void UpdateEnemies(
                         playerTransform &&
                         IntersectsBounds(*fistTransform, *playerTransform))
                     {
+                        playMidBoss3FistHitCue(*fist);
                         handlePlayerDamage(fistEntity, 1, "MidBoss3 meteor fist damaged player");
                         fist->damageApplied = true;
                     }
@@ -2306,6 +2437,7 @@ inline void UpdateEnemies(
                         fist->impactDamageApplied = false;
                         if (hitGroundTile)
                         {
+                            playMidBoss3FistHitCue(*fist);
                             constexpr float kFistImpactHitStopSeconds = 0.075f;
                             constexpr float kFistImpactShakeSeconds = 0.32f;
                             constexpr float kFistImpactShakeAmplitude = 38.0f;

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <functional>
 #include <utility>
 
@@ -351,7 +352,14 @@ namespace
             return;
         }
 
-        Audio_StopCue(cueName);
+        if (std::strcmp(cueName, "boss_ruins_roar") == 0)
+        {
+            Audio_FadeOutCue(cueName, 0.28f);
+        }
+        else
+        {
+            Audio_StopCue(cueName);
+        }
         Logger::Info(std::string("ShieldBoss SE stopped: ") + cueName);
     }
 
@@ -2304,6 +2312,11 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                         midBoss3->stateTimer = 0.0f;
                         animation->SetPlaybackSpeed(1.0f);
                         animation->Play("death", true);
+                        if (!midBoss3->deadSoundPlayed)
+                        {
+                            midBoss3->deadSoundPlayed = true;
+                            PlayShieldBossSoundCue("boss_ruins_dead");
+                        }
                         enemyComponent->respawnEnabled = false;
                         m_flow.shieldBossDefeatedThisScene = true;
                         TriggerBossDefeatStartFeedback(m_flow);

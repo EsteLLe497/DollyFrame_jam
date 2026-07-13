@@ -183,6 +183,10 @@ struct GameSceneUiTutorialTuning
     float contentImageY = 250.0f;
     float contentImageWidth = 700.0f;
     float contentImageHeight = 388.0f;
+    float contentPanelX = 455.0f;
+    float contentPanelY = 245.0f;
+    float contentPanelWidth = 1010.0f;
+    float contentPanelHeight = 620.0f;
     float bodyX = 500.0f;
     float bodyY = 680.0f;
     float bodyWidth = 920.0f;
@@ -193,6 +197,7 @@ struct GameSceneUiTutorialTuning
     float bodyFontSize = 32.0f;
     float promptFontSize = 28.0f;
     int frameLayer = 10;
+    int contentPanelLayer = 15;
     int headingLayer = 20;
     int contentImageLayer = 25;
     int titleLayer = 30;
@@ -285,13 +290,25 @@ struct GameSceneUiPartsHudTuning
 
 struct GameSceneUiBossHpTuning
 {
-    float panelWidth = 420.0f;
-    float barHeight = 26.0f;
+    float panelWidth = 800.0f;
+    float barHeight = 34.0f;
     float panelPadding = 22.0f;
-    float marginTop = 42.0f;
+    float marginTop = 76.0f;
     float panelExtraHeight = 34.0f;
     float titleOffsetY = -18.0f;
     float hpTextOffsetY = 4.0f;
+};
+
+struct GameSceneBossHpUiState
+{
+    float displayRatio = 1.0f;
+    float damageLagRatio = 1.0f;
+    float flash = 0.0f;
+    float reveal = 0.0f;
+    int lastRaw = -1;
+    int lastMax = -1;
+    bool initialized = false;
+    bool visible = false;
 };
 
 struct GameSceneUiAttackCaptureTuning
@@ -453,6 +470,9 @@ struct GameSceneFlowState
     bool stageTransitionActive = false;
     float stageTransitionTimer = 0.0f;
     float stageTransitionFadeInTimer = 0.0f;
+    bool sceneFadeOutActive = false;
+    float sceneFadeOutTimer = 0.0f;
+    std::string sceneFadeOutTarget;
     bool hasCheckpoint = false;
     int activeCheckpointId = -1;
     float stageStartX = 0.0f;
@@ -516,6 +536,7 @@ struct GameSceneUiState
     float hpDamageFlash = 0.0f;
     int hpLastRaw = -1;
     bool hpUiInitialized = false;
+    GameSceneBossHpUiState bossHp;
     int partsHudLastValue = -1;
     float partsHudVisibleRemaining = 2.0f;
     float partsHudAlpha = 1.0f;
