@@ -24,6 +24,52 @@ namespace
 
     using OutlinePoint = CapturedPhotoItem::OutlinePoint;
 
+    bool RectsOverlap(float leftA, float topA, float rightA, float bottomA, float leftB, float topB, float rightB, float bottomB)
+    {
+        return leftA < rightB &&
+            rightA > leftB &&
+            topA < bottomB &&
+            bottomA > topB;
+    }
+
+    bool TryRecoverPlayerFromFinder(PhotoFilterTheme selectedTheme, Entity& player, const TransformComponent& playerTransform, float frameX, float frameY, float frameWidth, float frameHeight)
+    {
+        if (GameSession_Get().recoveryFilterCount <= 0 ||
+            selectedTheme != PhotoFilterTheme::Cold)
+        {
+            return false;
+        }
+
+        auto* health = player.GetComponent<HealthComponent>();
+        if (!health || health->GetCurrentHealth() >= health->GetMaxHealth())
+        {
+            return false;
+        }
+
+        const float playerWidth = playerTransform.width * playerTransform.scale;
+        const float playerHeight = playerTransform.height * playerTransform.scale;
+        if (!RectsOverlap(
+            frameX,
+            frameY,
+            frameX + frameWidth,
+            frameY + frameHeight,
+            playerTransform.x,
+            playerTransform.y,
+            playerTransform.x + playerWidth,
+            playerTransform.y + playerHeight))
+        {
+            return false;
+        }
+
+        if (!GameSession_ConsumeRecoveryFilter())
+        {
+            return false;
+        }
+        health->SetCurrentHealth(health->GetCurrentHealth() + 1);
+        GameSession_SetCurrentHp(health->GetCurrentHealth());
+        return true;
+    }
+
     bool IsShieldBossRushCaptureReady(const Entity& bossEntity)
     {
         const auto* boss = bossEntity.GetComponent<ShieldBossComponent>();
@@ -842,6 +888,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     // 撮影判定も描画時と同じビュー状態で計算し、ファインダーの見た目と一致させる。
     scene.PrepareFrameRendering();
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
+    const bool recoveredPlayer = TryRecoverPlayerFromFinder(scene.m_photo.capture.selectedTheme, *player, *playerTransform, frameX, frameY, frameWidth, frameHeight);
     bool restoredSepiaBackground = false;
     scene.m_flow.cameraMode = false;
     bool hasSepiaRubbleInFrame = false;
@@ -924,7 +971,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
 
     if (scene.m_photo.capture.items.empty())
     {
-        if (flashEnabled || defeatedGhostInFinder || restoredSepiaBackground)
+        if (flashEnabled || defeatedGhostInFinder || restoredSepiaBackground || recoveredPlayer)
         {
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_ui.shutterFlashRemaining = gShutterFlashSeconds;

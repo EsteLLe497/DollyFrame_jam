@@ -150,9 +150,9 @@ void GameScene::UpdateMerchantShopInput()
 
     if (selected == 0)
     {
-        if (session.hasRecoveryFilter)
+        if (session.recoveryFilterCount >= 3)
         {
-            m_ui.merchantMessage = "すでに所持しています。";
+            m_ui.merchantMessage = "回復フィルターは3個までです。";
             m_ui.merchantMessageTimer = 1.8f;
             return;
         }
@@ -162,8 +162,8 @@ void GameScene::UpdateMerchantShopInput()
             m_ui.merchantMessageTimer = 1.8f;
             return;
         }
-        GameSession_SetRecoveryFilterOwned(true);
-        m_ui.merchantMessage = "回復フィルターを購入しました。";
+        GameSession_AddRecoveryFilter(1);
+        m_ui.merchantMessage = "回復フィルターを1個購入しました。";
         m_ui.merchantMessageTimer = 1.8f;
         return;
     }
@@ -299,7 +299,7 @@ void GameScene::DrawMerchantShopOverlay() const
 
     if (selected == 0)
     {
-        DrawFormatString(detailLeft + 22, detailTop + 104, GetColor(220, 230, 236), "所持: %s", session.hasRecoveryFilter ? "あり" : "なし");
+        DrawFormatString(detailLeft + 22, detailTop + 104, GetColor(220, 230, 236), "所持数: %d / 3", session.recoveryFilterCount);
     }
     else
     {
@@ -312,7 +312,7 @@ void GameScene::DrawMerchantShopOverlay() const
     const int buyBottom = detailBottom - 20;
     const bool canBuy =
         session.parts >= selectedItem.cost &&
-        ((selected == 0 && !session.hasRecoveryFilter) || (selected == 1 && session.photoStorageSlots < 3));
+        ((selected == 0 && session.recoveryFilterCount < 3) || (selected == 1 && session.photoStorageSlots < 3));
     DrawBox(buyLeft, buyTop, buyRight, buyBottom, canBuy ? GetColor(188, 148, 40) : GetColor(70, 76, 78), TRUE);
     DrawBox(buyLeft, buyTop, buyRight, buyBottom, canBuy ? GetColor(255, 238, 148) : GetColor(116, 124, 128), FALSE);
     DrawString(buyLeft + 108, buyTop + 14, "購入する", canBuy ? GetColor(32, 28, 18) : GetColor(172, 180, 182));

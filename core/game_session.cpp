@@ -8,15 +8,27 @@
 namespace
 {
     GameSessionState g_sessionState;
+
+    void SyncRecoveryFilterOwnedFlag()
+    {
+        g_sessionState.hasRecoveryFilter = g_sessionState.recoveryFilterCount > 0;
+    }
 }
 
 void GameSession_Reset(int maxHp, float timeLimit)
 {
+    const bool carryShopPurchases = g_sessionState.carryShopPurchasesToNextStage;
+    const int carriedParts = g_sessionState.parts;
+    const int carriedPhotoStorageSlots = g_sessionState.photoStorageSlots;
+    const int carriedRecoveryFilterCount = g_sessionState.recoveryFilterCount;
+    const bool carriedCameraFlash = g_sessionState.hasCameraFlash;
+
     g_sessionState.maxHp = maxHp;
     g_sessionState.currentHp = maxHp;
     g_sessionState.parts = 0;
     g_sessionState.partsCollectedTotal = 0;
     g_sessionState.photoStorageSlots = 2;
+    g_sessionState.recoveryFilterCount = 0;
     g_sessionState.hasRecoveryFilter = false;
     g_sessionState.hasCameraFlash = false;
     g_sessionState.timeLimit = timeLimit;
@@ -27,6 +39,15 @@ void GameSession_Reset(int maxHp, float timeLimit)
     g_sessionState.loadSavedProgress = true;
     g_sessionState.cameraTutorialCompleted = false;
     g_sessionState.completedTutorialNumbers.clear();
+    g_sessionState.carryShopPurchasesToNextStage = false;
+    if (carryShopPurchases)
+    {
+        g_sessionState.parts = std::max(0, carriedParts);
+        g_sessionState.photoStorageSlots = std::clamp(carriedPhotoStorageSlots, 1, 3);
+        g_sessionState.recoveryFilterCount = std::clamp(carriedRecoveryFilterCount, 0, 3);
+        SyncRecoveryFilterOwnedFlag();
+        g_sessionState.hasCameraFlash = carriedCameraFlash;
+    }
     PhotoLog_Reset();//新しい周回の開始でログをクリア
 }
 
@@ -61,7 +82,41 @@ void GameSession_SetPhotoStorageSlots(int slots)
 
 void GameSession_SetRecoveryFilterOwned(bool owned)
 {
-    g_sessionState.hasRecoveryFilter = owned;
+    g_sessionState.recoveryFilterCount = owned ? std::max(1, g_sessionState.recoveryFilterCount) : 0;
+    g_sessionState.recoveryFilterCount = std::clamp(g_sessionState.recoveryFilterCount, 0, 3);
+    SyncRecoveryFilterOwnedFlag();
+}
+
+void GameSession_SetRecoveryFilterCount(int count)
+{
+    g_sessionState.recoveryFilterCount = std::clamp(count, 0, 3);
+    SyncRecoveryFilterOwnedFlag();
+}
+
+bool GameSession_AddRecoveryFilter(int amount)
+{
+    const int addedAmount = std::max(0, amount);
+    if (addedAmount <= 0 || g_sessionState.recoveryFilterCount >= 3)
+    {
+        return false;
+    }
+
+    g_sessionState.recoveryFilterCount = std::clamp(g_sessionState.recoveryFilterCount + addedAmount, 0, 3);
+    SyncRecoveryFilterOwnedFlag();
+    return true;
+}
+
+bool GameSession_ConsumeRecoveryFilter()
+{
+    if (g_sessionState.recoveryFilterCount <= 0)
+    {
+        SyncRecoveryFilterOwnedFlag();
+        return false;
+    }
+
+    --g_sessionState.recoveryFilterCount;
+    SyncRecoveryFilterOwnedFlag();
+    return true;
 }
 
 void GameSession_SetCameraFlashOwned(bool owned)
@@ -111,6 +166,11 @@ const std::string& GameSession_GetLastMapCsvPath()
 void GameSession_SetLoadSavedProgress(bool loadSavedProgress)
 {
     g_sessionState.loadSavedProgress = loadSavedProgress;
+}
+
+void GameSession_SetCarryShopPurchasesToNextStage(bool carry)
+{
+    g_sessionState.carryShopPurchasesToNextStage = carry;
 }
 
 void GameSession_SetCameraTutorialCompleted(bool completed)

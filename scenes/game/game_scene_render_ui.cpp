@@ -2764,6 +2764,15 @@ void GameScene::DrawPhotoStorageTray() const
         {
             DrawAspectTexture(m_assets.GetTexture(kPhotoTrayEmptyTextureKey), slot.x, slot.y, slot.width);
             DrawPhotoTrayFilmStrips(m_assets.GetTexture(kPhotoTrayEmptyFilmTextureKey), slot.x, slot.y, slot.width);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(210.0f * std::clamp(m_ui.photoTrayReveal, 0.0f, 1.0f))));
+            DrawBox(
+                static_cast<int>(std::round(slot.x)),
+                static_cast<int>(std::round(slot.y)),
+                static_cast<int>(std::round(slot.x + slot.width)),
+                static_cast<int>(std::round(slot.y + kPhotoTrayPhotoHeight + kPhotoTrayPhotoInsetY * 2.0f)),
+                GetColor(0, 0, 0),
+                TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, trayAlpha);
             continue;
         }
 
