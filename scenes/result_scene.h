@@ -14,6 +14,7 @@ public:
     void Update(float deltaTime) override;
     void Draw() override;
     void DrawDebugUI() override;
+    bool OnCancelAction() override;
     void DrawFreeImages(float offsetX) const;
     EventBus* GetEventBus() override;
     void DrawCapturedPhotosGrid(float offsetX) const;
@@ -37,6 +38,16 @@ private:
     void UpdateMenuInput();
     void ConfirmSelection();
     MenuOptionRect GetOptionRect(int index) const;
+    int GetRegularOptionCount() const;
+    int GetActiveOptionCount() const;
+    bool IsMerchantOptionIndex(int index) const;
+    const char* GetMenuOptionLabel(int index) const;
+
+    void UpdateMerchantPageInput();
+    void ConfirmMerchantPurchase();
+    void DrawMerchantPage() const;
+    MenuOptionRect GetMerchantItemRect(int index) const;
+    int GetMerchantItemCount() const;
 
     void UpdateConfirmDialogInput();
     void ConfirmDialogSelection();
@@ -59,4 +70,10 @@ private:
     bool m_showUnderBossOption = false;
     std::string m_pendingConfirmMapCsv; // 確認ダイアログで「はい」を選んだ時に遷移する先
     int m_confirmDialogSelection = 0; // 0: はい, 1: いいえ
+    bool m_merchantAvailable = false;
+    bool m_merchantOffersFolderSlot = false;
+    bool m_merchantPageOpen = false;
+    int m_merchantSelection = 0;
+    float m_merchantMessageTimer = 0.0f;
+    std::string m_merchantMessage;
 };

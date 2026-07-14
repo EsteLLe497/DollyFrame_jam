@@ -1495,6 +1495,9 @@ bool GameScene::LoadProgressStateFromDisk()
     m_save.sessionParts = root.value("sessionParts", 0);
     m_save.sessionPhotoStorageSlots = root.value("sessionPhotoStorageSlots", 2);
     m_save.sessionHasRecoveryFilter = root.value("sessionHasRecoveryFilter", false);
+    m_save.sessionRecoveryFilterCount = root.value(
+        "sessionRecoveryFilterCount",
+        m_save.sessionHasRecoveryFilter ? 1 : 0);
     m_save.sessionHasCameraFlash = root.value("sessionHasCameraFlash", false);
     m_save.cameraTutorialCompleted = root.value("cameraTutorialCompleted", false);
     m_save.completedTutorialNumbers = root.value(
@@ -1567,6 +1570,7 @@ bool GameScene::SaveProgressState()
     m_save.sessionCurrentHp = session.currentHp;
     m_save.sessionParts = session.parts;
     m_save.sessionPhotoStorageSlots = session.photoStorageSlots;
+    m_save.sessionRecoveryFilterCount = session.recoveryFilterCount;
     m_save.sessionHasRecoveryFilter = session.hasRecoveryFilter;
     m_save.sessionHasCameraFlash = session.hasCameraFlash;
     m_save.cameraTutorialCompleted = session.cameraTutorialCompleted;
@@ -1591,6 +1595,7 @@ bool GameScene::SaveProgressState()
     root["sessionCurrentHp"] = m_save.sessionCurrentHp;
     root["sessionParts"] = m_save.sessionParts;
     root["sessionPhotoStorageSlots"] = m_save.sessionPhotoStorageSlots;
+    root["sessionRecoveryFilterCount"] = m_save.sessionRecoveryFilterCount;
     root["sessionHasRecoveryFilter"] = m_save.sessionHasRecoveryFilter;
     root["sessionHasCameraFlash"] = m_save.sessionHasCameraFlash;
     root["cameraTutorialCompleted"] = m_save.cameraTutorialCompleted;
@@ -1642,7 +1647,7 @@ void GameScene::ApplyLoadedProgressState()
     GameSession_SetCurrentHp(m_save.sessionCurrentHp);
     GameSession_AddParts(m_save.sessionParts);
     GameSession_SetPhotoStorageSlots(m_save.sessionPhotoStorageSlots);
-    GameSession_SetRecoveryFilterOwned(m_save.sessionHasRecoveryFilter);
+    GameSession_SetRecoveryFilterCount(m_save.sessionRecoveryFilterCount);
     GameSession_SetCameraFlashOwned(m_save.sessionHasCameraFlash);
     m_ui.cameraFlash.unlocked = m_save.sessionHasCameraFlash;
     gameSessionSetCompletedTutorialNumbers(m_save.completedTutorialNumbers);
@@ -2085,35 +2090,6 @@ void GameScene::InitializeStageEntities()
                     }
                 }
             }
-        }
-        else if (marker == ';')
-        {
-            constexpr float kMerchantSignAspect = 401.0f / 1172.0f;
-            const float merchantX = static_cast<float>(column) * tileSize;
-            const float merchantY = static_cast<float>(row) * tileSize;
-            const float merchantSize = tileSize * 4.0f;
-            const float signWidth = tileSize * 1.8f;
-            const float signHeight = signWidth * kMerchantSignAspect;
-            auto merchant = std::make_unique<Entity>();
-            merchant->AddComponent<TagComponent>(EntityTag::Merchant);
-            merchant->AddComponent<TransformComponent>(
-                merchantX,
-                merchantY,
-                merchantSize,
-                merchantSize);
-            const int merchantTexture = m_assets.GetTexture("merchant_sign");
-            merchant->AddComponent<MerchantComponent>();
-            m_world.Spawn(std::move(merchant));
-
-            auto sign = std::make_unique<Entity>();
-            sign->AddComponent<TransformComponent>(
-                merchantX + (merchantSize - signWidth) * 0.5f,
-                merchantY - signHeight - tileSize * 0.15f,
-                signWidth,
-                signHeight);
-            sign->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
-            sign->AddComponent<SpriteRenderComponent>(merchantTexture >= 0 ? merchantTexture : m_whiteTexture);
-            m_world.Spawn(std::move(sign));
         }
     }
 

@@ -774,6 +774,7 @@ struct GameSceneSaveState
     int sessionCurrentHp = 3;
     int sessionParts = 0;
     int sessionPhotoStorageSlots = 2;
+    int sessionRecoveryFilterCount = 0;
     bool sessionHasRecoveryFilter = false;
     bool sessionHasCameraFlash = false;
     bool cameraTutorialCompleted = false;
