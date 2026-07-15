@@ -350,6 +350,39 @@ namespace
         DrawTriangleAA(ax, ay, cx, cy, dx, dy, color, TRUE);
     }
 
+    void DrawSolidLineNoAA(
+        float startX,
+        float startY,
+        float endX,
+        float endY,
+        const COLOR_U8& color,
+        float thickness)
+    {
+        const float deltaX = endX - startX;
+        const float deltaY = endY - startY;
+        const float length = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+        if (length <= 0.0001f || thickness <= 0.0f)
+        {
+            return;
+        }
+
+        const float halfThickness = thickness * 0.5f;
+        const float normalX = -deltaY / length * halfThickness;
+        const float normalY = deltaX / length * halfThickness;
+        VERTEX2D vertices[4]{};
+        const auto setVertex = [&](VERTEX2D& vertex, float x, float y)
+        {
+            vertex.pos = VGet(x, y, 0.0f);
+            vertex.rhw = 1.0f;
+            vertex.dif = color;
+        };
+        setVertex(vertices[0], startX + normalX, startY + normalY);
+        setVertex(vertices[1], startX - normalX, startY - normalY);
+        setVertex(vertices[2], endX + normalX, endY + normalY);
+        setVertex(vertices[3], endX - normalX, endY - normalY);
+        DrawPrimitive2D(vertices, 4, DX_PRIMTYPE_TRIANGLESTRIP, DX_NONE_GRAPH, TRUE);
+    }
+
     void DrawPlayerSwitchDomeFace(
         int left,
         int right,
@@ -2705,19 +2738,34 @@ void GameScene::DrawEntity(const Entity& entity) const
                 const float wireScreenTop = viewOriginY + (hanging->wireTopY - m_flow.cameraY) * viewScale;
                 const float wireScreenWidth = std::max(1.0f, hanging->wireWidth * viewScale);
                 const float wireScreenHeight = hanging->wireLength * viewScale;
-                int left = static_cast<int>(std::round(wireScreenX - wireScreenWidth * 0.5f));
-                int top = static_cast<int>(std::round(wireScreenTop));
-                int right = static_cast<int>(std::round(wireScreenX + wireScreenWidth * 0.5f));
-                int bottom = static_cast<int>(std::round(wireScreenTop + wireScreenHeight));
-                if (right <= left)
-                {
-                    right = left + 1;
-                }
+                const float left = wireScreenX - wireScreenWidth * 0.5f;
+                const float top = wireScreenTop;
+                const float right = wireScreenX + wireScreenWidth * 0.5f;
+                const float bottom = wireScreenTop + wireScreenHeight;
                 if (bottom > top)
                 {
                     Shader_ResetStyle();
                     SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(255.0f * alphaMultiplier)));
-                    DrawBox(left, top, right, bottom, GetColor(0, 0, 0), TRUE);
+                    DrawBoxAA(left - 5.0f, top, right + 5.0f, bottom, GetColor(200, 200, 200), TRUE);
+                    DrawBoxAA(left, top, right, bottom, GetColor(100, 100, 100), TRUE);
+                    const float wirePixelWidth = right - left;
+                    if (wirePixelWidth >= 3.0f)
+                    {
+                        const float stripeHeight = std::max(1.0f, wireScreenWidth);
+                        const float stripeSpacing = std::max(stripeHeight + 1.0f, wireScreenWidth * 1.5f);
+                        const float stripeLeft = left + 0.0f;
+                        const float stripeRight = right - 0.0f;
+                        for (float stripeTop = top; stripeTop + stripeHeight <= bottom; stripeTop += stripeSpacing)
+                        {
+                            DrawSolidLineNoAA(
+                                stripeLeft - 3.0f,
+                                stripeTop,
+                                stripeRight + 3.0f,
+                                stripeTop + stripeHeight,
+                                GetColorU8(200, 200, 200, 255),
+                                3.5f);
+                        }
+                    }
                     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
                     Shader_ResetStyle();
                 }
