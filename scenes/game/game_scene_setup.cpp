@@ -1310,6 +1310,7 @@ void GameScene::ResetSceneState()
     m_debug = GameSceneDebugState{};
     m_testPhotos = GameSceneTestPhotoState{};
     m_tutorial = GameSceneTutorialState{};
+    m_bGuiDisplayAlphas.fill(0.0f);
     m_mapEditor.active = false;
     m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
     m_mapEditor.selectedTileValue = 1;
@@ -1370,6 +1371,7 @@ void GameScene::LoadTuningState()
     const ActiveGameSceneScope activeScene(*this);
     LoadTuningJsonFile();
     LoadUiTuningState();
+    LoadBGuiTuningState();
     loadTutorialData(1);
     std::error_code ec;
     const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
@@ -1444,6 +1446,107 @@ bool GameScene::LoadUiTuningState()
     m_debug.saveStatusMessage = "UI設定を assets/ui_tuning.json から読み込みました。";
     m_debug.saveStatusTimer = 3.0f;
     Logger::Info("Loaded UI tuning settings from assets/ui_tuning.json");
+    return true;
+}
+
+bool GameScene::SaveBGuiTuningState()
+{
+    nlohmann::json root;
+    root["version"] = 1;
+    root["fadeInSpeed"] = b_gui::gFadeInSpeed;
+    root["fadeOutSpeed"] = b_gui::gFadeOutSpeed;
+    root["showTriggerRects"] = b_gui::gShowTriggerRects;
+    root["displays"] = nlohmann::json::array();
+
+    for (const b_gui::DisplayDefinition& display : b_gui::gDisplayDefinitions)
+    {
+        root["displays"].push_back({
+            { "textureKey", display.textureKey },
+            { "worldX", display.worldX },
+            { "worldY", display.worldY },
+            { "width", display.width },
+            { "height", display.height },
+            { "triggerCenterX", display.triggerCenterX },
+            { "triggerCenterY", display.triggerCenterY },
+            { "triggerHalfWidth", display.triggerHalfWidth },
+            { "triggerHalfHeight", display.triggerHalfHeight },
+        });
+    }
+
+    std::ofstream stream(kBGuiTuningFilePath, std::ios::binary | std::ios::trunc);
+    if (!stream.is_open())
+    {
+        m_debug.saveStatusMessage = "Failed to save BGUI tuning.";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed to open BGUI tuning file for writing.");
+        return false;
+    }
+
+    try
+    {
+        stream << root.dump(2);
+    }
+    catch (...)
+    {
+        m_debug.saveStatusMessage = "Failed to serialize BGUI tuning.";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed to serialize BGUI tuning settings.");
+        return false;
+    }
+
+    m_debug.saveStatusMessage = "Saved BGUI tuning to assets/b_gui_tuning.json";
+    m_debug.saveStatusTimer = 3.0f;
+    Logger::Info("Saved BGUI tuning settings to assets/b_gui_tuning.json");
+    return true;
+}
+
+bool GameScene::LoadBGuiTuningState()
+{
+    std::ifstream stream(kBGuiTuningFilePath, std::ios::binary);
+    if (!stream.is_open())
+    {
+        return false;
+    }
+
+    nlohmann::json root;
+    try
+    {
+        stream >> root;
+    }
+    catch (...)
+    {
+        m_debug.saveStatusMessage = "Failed to load BGUI tuning.";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed to parse BGUI tuning settings.");
+        return false;
+    }
+
+    b_gui::gFadeInSpeed = root.value("fadeInSpeed", b_gui::gFadeInSpeed);
+    b_gui::gFadeOutSpeed = root.value("fadeOutSpeed", b_gui::gFadeOutSpeed);
+    b_gui::gShowTriggerRects = root.value("showTriggerRects", b_gui::gShowTriggerRects);
+
+    const auto displaysIt = root.find("displays");
+    if (displaysIt != root.end() && displaysIt->is_array())
+    {
+        const size_t count = std::min(displaysIt->size(), b_gui::kDisplayCount);
+        for (size_t index = 0; index < count; ++index)
+        {
+            const nlohmann::json& savedDisplay = (*displaysIt)[index];
+            b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+            display.worldX = savedDisplay.value("worldX", display.worldX);
+            display.worldY = savedDisplay.value("worldY", display.worldY);
+            display.width = savedDisplay.value("width", display.width);
+            display.height = savedDisplay.value("height", display.height);
+            display.triggerCenterX = savedDisplay.value("triggerCenterX", display.triggerCenterX);
+            display.triggerCenterY = savedDisplay.value("triggerCenterY", display.triggerCenterY);
+            display.triggerHalfWidth = savedDisplay.value("triggerHalfWidth", display.triggerHalfWidth);
+            display.triggerHalfHeight = savedDisplay.value("triggerHalfHeight", display.triggerHalfHeight);
+        }
+    }
+
+    m_debug.saveStatusMessage = "Loaded BGUI tuning from assets/b_gui_tuning.json";
+    m_debug.saveStatusTimer = 3.0f;
+    Logger::Info("Loaded BGUI tuning settings from assets/b_gui_tuning.json");
     return true;
 }
 

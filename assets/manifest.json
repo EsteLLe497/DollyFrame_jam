@@ -290,6 +290,22 @@
       "type": "file",
       "path": "assets/texture/photo_tray_backdrop.png"
     },
+    "b_gui_move_pc": {
+      "type": "file",
+      "path": "assets/texture/BGui/movePC.png"
+    },
+    "b_gui_move_pad": {
+      "type": "file",
+      "path": "assets/texture/BGui/movePad.png"
+    },
+    "b_gui_jump_pc": {
+      "type": "file",
+      "path": "assets/texture/BGui/jumpPC.png"
+    },
+    "b_gui_jump_pad": {
+      "type": "file",
+      "path": "assets/texture/BGui/jumpPad.png"
+    },
     "tutorial_frame_window": {
       "type": "file",
       "path": "assets/texture/tutorialUI/window/sozai_001.png"

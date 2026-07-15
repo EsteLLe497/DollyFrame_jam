@@ -1,0 +1,52 @@
+{
+  "displays": [
+    {
+      "height": 107.0,
+      "textureKey": "b_gui_move_pc",
+      "triggerCenterX": 536.0,
+      "triggerCenterY": 2298.0,
+      "triggerHalfHeight": 240.0,
+      "triggerHalfWidth": 360.0,
+      "width": 182.0,
+      "worldX": 536.0,
+      "worldY": 2298.0
+    },
+    {
+      "height": 108.0,
+      "textureKey": "b_gui_move_pad",
+      "triggerCenterX": 543.0,
+      "triggerCenterY": 2335.0,
+      "triggerHalfHeight": 240.0,
+      "triggerHalfWidth": 360.0,
+      "width": 169.0,
+      "worldX": 542.0,
+      "worldY": 2335.0
+    },
+    {
+      "height": 108.0,
+      "textureKey": "b_gui_jump_pc",
+      "triggerCenterX": 1988.0,
+      "triggerCenterY": 2274.0,
+      "triggerHalfHeight": 240.0,
+      "triggerHalfWidth": 360.0,
+      "width": 188.0,
+      "worldX": 1988.0,
+      "worldY": 2274.0
+    },
+    {
+      "height": 97.0,
+      "textureKey": "b_gui_jump_pad",
+      "triggerCenterX": 1999.0,
+      "triggerCenterY": 2316.0,
+      "triggerHalfHeight": 240.0,
+      "triggerHalfWidth": 360.0,
+      "width": 168.0,
+      "worldX": 1999.0,
+      "worldY": 2316.0
+    }
+  ],
+  "fadeInSpeed": 2.25,
+  "fadeOutSpeed": 3.200000047683716,
+  "showTriggerRects": false,
+  "version": 1
+}

@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 
+#include "b_gui_display_defs.h"
 #include "game_scene_internal.h"
 #include "game_scene_photo_storage_layout.h"
 #include "game_scene_render_ui_helpers.h"
@@ -3268,9 +3269,67 @@ void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, floa
         m_tileTexture3,
         m_tileTexture4);
     DrawStageTransitionMarkersInView(viewOriginX, viewOriginY, viewScale);
+    DrawBGuiDisplaysInView(viewOriginX, viewOriginY, viewScale);
     DrawMapEditorMarkersInView(viewOriginX, viewOriginY, viewScale);
     DrawMidBoss2TeleportSlotsInView(viewOriginX, viewOriginY, viewScale);
     DrawStageGuideInView();
+}
+
+void GameScene::DrawBGuiDisplaysInView(float viewOriginX, float viewOriginY, float viewScale) const
+{
+    if (!m_lifecycle.forestStageEnabled)
+    {
+        return;
+    }
+
+    for (size_t index = 0; index < b_gui::kDisplayCount; ++index)
+    {
+        const float alpha = m_bGuiDisplayAlphas[index];
+        if (alpha <= 0.01f)
+        {
+            continue;
+        }
+
+        const b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+        const int textureId = m_assets.GetTexture(display.textureKey);
+        if (textureId < 0)
+        {
+            continue;
+        }
+
+        const float drawX = viewOriginX + (display.worldX - m_flow.cameraX) * viewScale;
+        const float drawY = viewOriginY + (display.worldY - m_flow.cameraY) * viewScale;
+        const float drawWidth = display.width * viewScale;
+        const float drawHeight = display.height * viewScale;
+        if (drawX + drawWidth < viewOriginX ||
+            drawX > viewOriginX + GetViewWidth() ||
+            drawY + drawHeight < viewOriginY ||
+            drawY > viewOriginY + GetViewHeight())
+        {
+            continue;
+        }
+
+        Shader_ResetStyle();
+        Shader_SetTint(1.0f, 1.0f, 1.0f, alpha);
+        SpriteDraw(textureId, drawX, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
+    Shader_ResetStyle();
+
+    if (!b_gui::gShowTriggerRects)
+    {
+        return;
+    }
+
+    for (const b_gui::DisplayDefinition& display : b_gui::gDisplayDefinitions)
+    {
+        const int left = static_cast<int>(std::round(viewOriginX + (display.triggerCenterX - display.triggerHalfWidth - m_flow.cameraX) * viewScale));
+        const int top = static_cast<int>(std::round(viewOriginY + (display.triggerCenterY - display.triggerHalfHeight - m_flow.cameraY) * viewScale));
+        const int right = static_cast<int>(std::round(viewOriginX + (display.triggerCenterX + display.triggerHalfWidth - m_flow.cameraX) * viewScale));
+        const int bottom = static_cast<int>(std::round(viewOriginY + (display.triggerCenterY + display.triggerHalfHeight - m_flow.cameraY) * viewScale));
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 160);
+        DrawBox(left, top, right, bottom, GetColor(72, 220, 255), FALSE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
 }
 
 void GameScene::DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const
