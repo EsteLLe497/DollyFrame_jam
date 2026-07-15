@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "game_scene_test_photos.h"
 #include "tile_map.h"
 #include "game_scene_camerawork.h"
+#include "b_gui_display_defs.h"
 
 class TransformComponent;
 class PhotoSystem;
@@ -112,6 +114,8 @@ private:
     void LoadTuningState();
     bool SaveUiTuningState();
     bool LoadUiTuningState();
+    bool SaveBGuiTuningState();
+    bool LoadBGuiTuningState();
     void RefreshStageRenderProfile();
     void InitializeStageResources(ResourceManager& resources);
     void InitializeStageEntities();
@@ -156,6 +160,7 @@ private:
     bool IsConveyorUnderBattery(const TransformComponent& batteryTransform, float tileSize, int& outDirectionX,float& velocityX) const;
     void BuildPlayerSolidObjectBounds(std::vector<TransformComponent>& bounds) const;
     void UpdateLinkedGimmicks(float deltaTime);
+    void UpdateBGuiDisplays(float deltaTime);
     void UpdateMerchants(float deltaTime);
     void UpdatePlayerPresentation(Entity& player, float deltaTime, float moveAxis, bool wasGrounded, bool isDodging, bool landedThisFrame);
     void UpdatePlayerAfterimages(float deltaTime);
@@ -283,6 +288,7 @@ private:
     void DrawTuningPanel();
     void DrawCameraDebugWindow();
     void DrawPadSettingsWindow();
+    void DrawBGuiDebugWindow();
     void DrawUiAdjustmentWindow();
     void DrawTutorialAdjustmentPanel();
     void DrawTutorialOverlay();
@@ -323,6 +329,7 @@ private:
     void DrawBackdropGridInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight, float viewScale) const;
     void DrawBackdropFrameInView(float viewOriginX, float viewOriginY, float viewWidth, float viewHeight) const;
     void DrawCameraWorldInView(float viewOriginX, float viewOriginY, float viewScale) const;
+    void DrawBGuiDisplaysInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawStageTransitionMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const;
     void DrawMidBoss2TeleportSlotsInView(float viewOriginX, float viewOriginY, float viewScale) const;
@@ -403,6 +410,7 @@ private:
     GameSceneSaveState m_save;
     GameSceneTestPhotoState m_testPhotos;
     GameSceneTutorialState m_tutorial;
+    std::array<float, b_gui::kDisplayCount> m_bGuiDisplayAlphas = {};
     struct CameraRuntimeState
     {
         std::vector<fixedCameraRange> fixedRanges;

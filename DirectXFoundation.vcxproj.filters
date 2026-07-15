@@ -491,6 +491,9 @@
     <ClInclude Include="scenes\game\tutorial_csv_data.h">
       <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>
+    <ClInclude Include="scenes\game\b_gui_display_defs.h">
+      <Filter>Header Files\Scenes\Game</Filter>
+    </ClInclude>
     <ClInclude Include="scenes\game\tutorial_ui_controls.h">
       <Filter>Header Files\Scenes\Game</Filter>
     </ClInclude>

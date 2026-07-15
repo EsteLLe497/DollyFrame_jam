@@ -400,6 +400,7 @@
     <ClInclude Include="core\game_object.h" />
     <ClInclude Include="core\game_object_world.h" />
     <ClInclude Include="scenes\game\game_scene.h" />
+    <ClInclude Include="scenes\game\b_gui_display_defs.h" />
     <ClInclude Include="scenes\game\tutorial_csv_data.h" />
     <ClInclude Include="scenes\game\tutorial_ui_controls.h" />
     <ClInclude Include="scenes\game\tutorial_video_player.h" />

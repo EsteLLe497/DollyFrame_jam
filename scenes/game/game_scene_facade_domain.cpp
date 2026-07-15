@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "b_gui_display_defs.h"
 #include "game_scene_internal.h"
 #include "game_viewport.h"
 #include "game_scene_player_visual_system.h"
@@ -137,11 +138,51 @@ void GameScene::FinalizeGameplayFrame(float effectiveGameplayDeltaTime)
 {
     GameSession_SetTimeRemaining(m_flow.timeRemaining);
     RunGameplayFrame(effectiveGameplayDeltaTime);
+    UpdateBGuiDisplays(m_flow.lastDeltaTime);
     TryStartCameraTutorial();
     UpdateBossBgmCue();
     if (Entity* player = FindEntityByTag(kTagPlayer))
     {
         game_scene_player_visual_system::UpdateAnimation(m_player, m_flow, *player, m_player.dodgeRemaining > 0.0f);
+    }
+}
+
+void GameScene::UpdateBGuiDisplays(float deltaTime)
+{
+    if (!m_lifecycle.forestStageEnabled)
+    {
+        for (float& alpha : m_bGuiDisplayAlphas)
+        {
+            alpha = std::max(0.0f, alpha - b_gui::gFadeOutSpeed * deltaTime);
+        }
+        return;
+    }
+
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* transform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    if (!transform)
+    {
+        for (float& alpha : m_bGuiDisplayAlphas)
+        {
+            alpha = std::max(0.0f, alpha - b_gui::gFadeOutSpeed * deltaTime);
+        }
+        return;
+    }
+
+    const float playerCenterX = transform->x + transform->width * transform->scale * 0.5f;
+    const float playerCenterY = transform->y + transform->height * transform->scale * 0.5f;
+    for (size_t index = 0; index < b_gui::kDisplayCount; ++index)
+    {
+        const b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+        const bool inside =
+            playerCenterX >= display.triggerCenterX - display.triggerHalfWidth &&
+            playerCenterX <= display.triggerCenterX + display.triggerHalfWidth &&
+            playerCenterY >= display.triggerCenterY - display.triggerHalfHeight &&
+            playerCenterY <= display.triggerCenterY + display.triggerHalfHeight;
+        float& alpha = m_bGuiDisplayAlphas[index];
+        alpha = inside
+            ? std::min(1.0f, alpha + b_gui::gFadeInSpeed * deltaTime)
+            : std::max(0.0f, alpha - b_gui::gFadeOutSpeed * deltaTime);
     }
 }
 
