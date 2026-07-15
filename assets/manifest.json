@@ -292,23 +292,23 @@
     },
     "tutorial_frame_window": {
       "type": "file",
-      "path": "assets/texture/tutorialUI/sozai_001.png"
+      "path": "assets/texture/tutorialUI/window/sozai_001.png"
     },
     "tutorial_heading": {
       "type": "file",
-      "path": "assets/texture/tutorialUI/sozai_003.png"
+      "path": "assets/texture/tutorialUI/window/sozai_003.png"
     },
     "tutorial_content_panel": {
       "type": "file",
-      "path": "assets/texture/tutorialUI/sozai_002.png"
+      "path": "assets/texture/tutorialUI/window/sozai_002.png"
     },
     "tutorial_content_image": {
       "type": "file",
-      "path": "assets/texture/tutorialUI/CameraTutorial.png"
+      "path": "assets/texture/BGui/movePC.png"
     },
     "tutorial_text_box": {
       "type": "file",
-      "path": "assets/texture/tutorialUI/TextBox.png"
+      "path": "assets/texture/tutorialUI/window/TextBox.png"
     },
     "ui_camera_body": {
       "type": "file",
