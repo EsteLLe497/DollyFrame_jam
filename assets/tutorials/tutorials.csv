@@ -101,5 +101,5 @@
 # =========================================================
 # 実際にゲームで使用しているデータ
 # =========================================================
-tutorial_1,0,conversation,アマリリス,assets/texture/tutorialUI/Amaryllis.png,,"カメラの使い方、まだ分からないでしょう？\nしょうがないから教えてあげる。",,,
+tutorial_1,0,conversation,ドリー,assets/texture/tutorialUI/trouble.png,,"カメラの使い方、まだ分からないでしょう？\nしょうがないから教えてあげる。",,,
 tutorial_1,1,window,,,カメラの使い方,"右クリック長押しでカメラを構えます。\n写したいものを枠の中に入れて、左クリックで撮影。\n撮った写真は画面下のトレイから使用できます。",閉じる,tutorial_content_image,assets/tutorials/videos/tutorial_1.mp4

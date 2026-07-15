@@ -53,6 +53,19 @@ namespace
     constexpr float kStartTransitionDuration = 0.65f;
     constexpr int kStartTransitionBladeCount = 6;
     constexpr float kPi = 3.14159265358979323846f;
+    constexpr float kTitleLogoLayerScale = 0.58f;
+    constexpr float kTitleLogoLayerOffsetX = -0.028f;
+    constexpr float kTitleLogoLayerOffsetY = 0.048f;
+    constexpr float kTitleShakeAmplitudeX = 2.4f;
+    constexpr float kTitleShakeAmplitudeY = 1.6f;
+    constexpr float kTitleShakeGuard = 8.0f;
+    constexpr float kTitleParticleRespawnMargin = 48.0f;
+    constexpr const wchar_t* kTitleLayerPaths[] = {
+        L"assets\\texture\\BG\\title\\title.png",
+        L"assets\\texture\\BG\\title\\logo1.png",
+        L"assets\\texture\\BG\\title\\logo2.png",
+        L"assets\\texture\\BG\\title\\logo3.png",
+    };
 
     constexpr const char* kMainMenuLabels[kMainMenuItemCount] = {
         "ゲーム開始",
@@ -231,9 +244,9 @@ namespace
 
 TitleScene::TitleScene()
     : m_whiteTexture(-1)
-    , m_titleTexture(-1)
-    , m_titleTextureWidth(0)
-    , m_titleTextureHeight(0)
+    , m_titleLayerTextures{ -1, -1, -1, -1 }
+    , m_titleLayerTextureWidths{ 0, 0, 0, 0 }
+    , m_titleLayerTextureHeights{ 0, 0, 0, 0 }
     , m_blinkTimer(0.0f)
     , m_sceneTime(0.0f)
     , m_showPrompt(true)
@@ -260,17 +273,24 @@ void TitleScene::OnEnter(ResourceManager& resources)
 {
     ZoneScoped;
     m_whiteTexture = resources.CreateSolidTexture(1, 1, 0xFFFFFFFF);
-    m_titleTexture = resources.LoadTexture(L"assets\\texture\\BG\\title\\title1.png");
-    m_titleTextureWidth = 0;
-    m_titleTextureHeight = 0;
-    if (m_titleTexture >= 0)
+    for (size_t index = 0; index < m_titleLayerTextures.size(); ++index)
     {
-        m_titleTextureWidth = TextureGetWidth(m_titleTexture);
-        m_titleTextureHeight = TextureGetHeight(m_titleTexture);
-    }
-    if (m_titleTexture < 0 || m_titleTextureWidth <= 0 || m_titleTextureHeight <= 0)
-    {
-        Logger::Warn("TitleScene title texture could not be loaded: assets/texture/BG/title/title1.png");
+        m_titleLayerTextures[index] = resources.LoadTexture(kTitleLayerPaths[index]);
+        m_titleLayerTextureWidths[index] = 0;
+        m_titleLayerTextureHeights[index] = 0;
+        if (m_titleLayerTextures[index] >= 0)
+        {
+            m_titleLayerTextureWidths[index] = TextureGetWidth(m_titleLayerTextures[index]);
+            m_titleLayerTextureHeights[index] = TextureGetHeight(m_titleLayerTextures[index]);
+        }
+        if (m_titleLayerTextures[index] < 0 ||
+            m_titleLayerTextureWidths[index] <= 0 ||
+            m_titleLayerTextureHeights[index] <= 0)
+        {
+            char message[160] = {};
+            std::snprintf(message, sizeof(message), "TitleScene title layer texture could not be loaded: layer %zu", index);
+            Logger::Warn(message);
+        }
     }
     m_eventBus.Clear();
     m_blinkTimer = 0.0f;
@@ -285,6 +305,7 @@ void TitleScene::OnEnter(ResourceManager& resources)
     m_loadingPreviewRequested = false;
     m_startTransitionTimer = 0.0f;
     m_startTransitionSceneId = nullptr;
+    InitializeTitleParticles();
     GameSession_SetLoadSavedProgress(true);
     m_bgmEnabled = Audio_GetMasterVolume() > 0.001f;
     m_bgmRestoreVolume = m_bgmEnabled ? Audio_GetMasterVolume() : 1.0f;
@@ -296,6 +317,7 @@ void TitleScene::Update(float deltaTime)
     ZoneScoped;
     m_blinkTimer += deltaTime;
     m_sceneTime += deltaTime;
+    UpdateTitleParticles(deltaTime);
     if (m_blinkTimer >= 0.5f)
     {
         m_blinkTimer = 0.0f;
@@ -377,19 +399,83 @@ void TitleScene::DrawBackdrop() const
     Shader_SetTint(0.02f, 0.02f, 0.025f, 1.0f);
     SpriteDraw(m_whiteTexture, 0.0f, 0.0f, screenWidth, screenHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 
-    if (m_titleTexture >= 0 && m_titleTextureWidth > 0 && m_titleTextureHeight > 0)
+    float imageX = 0.0f;
+    float imageY = 0.0f;
+    float imageWidth = 0.0f;
+    float imageHeight = 0.0f;
+    GetTitleImageRect(imageX, imageY, imageWidth, imageHeight);
+    float shakeX = 0.0f;
+    float shakeY = 0.0f;
+    GetTitleShakeOffset(shakeX, shakeY);
+
+    // タイトル画面は背景だけ全画面、ロゴ3枚は理想画像に合わせて左上へ寄せる。
+    for (size_t index = 0; index < m_titleLayerTextures.size(); ++index)
     {
-        float imageX = 0.0f;
-        float imageY = 0.0f;
-        float imageWidth = 0.0f;
-        float imageHeight = 0.0f;
-        GetTitleImageRect(imageX, imageY, imageWidth, imageHeight);
+        if (m_titleLayerTextures[index] < 0 ||
+            m_titleLayerTextureWidths[index] <= 0 ||
+            m_titleLayerTextureHeights[index] <= 0)
+        {
+            continue;
+        }
+
         Shader_ResetStyle();
         Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
-        SpriteDraw(m_titleTexture, imageX, imageY, imageWidth, imageHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        const bool isLogoLayer = index > 0;
+        const float drawX = isLogoLayer ? imageX + imageWidth * kTitleLogoLayerOffsetX : imageX;
+        const float drawY = isLogoLayer ? imageY + imageHeight * kTitleLogoLayerOffsetY : imageY;
+        const float drawWidth = isLogoLayer ? imageWidth * kTitleLogoLayerScale : imageWidth;
+        const float drawHeight = isLogoLayer ? imageHeight * kTitleLogoLayerScale : imageHeight;
+        const float guard = isLogoLayer ? 0.0f : kTitleShakeGuard;
+        SpriteDraw(
+            m_titleLayerTextures[index],
+            drawX + shakeX - guard,
+            drawY + shakeY - guard,
+            drawWidth + guard * 2.0f,
+            drawHeight + guard * 2.0f,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f);
     }
 
+    DrawTitleParticles();
     Shader_ResetStyle();
+}
+
+void TitleScene::DrawTitleParticles() const
+{
+    float shakeX = 0.0f;
+    float shakeY = 0.0f;
+    GetTitleShakeOffset(shakeX, shakeY);
+
+    SetDrawBlendMode(DX_BLENDMODE_ADD, 160);
+    for (const TitleParticle& particle : m_titleParticles)
+    {
+        const float wave = std::sinf(m_sceneTime * particle.driftSpeed + particle.phase);
+        const float x = particle.x + wave * particle.driftAmplitude + shakeX;
+        const float y = particle.y + shakeY;
+        const int alpha = std::clamp(static_cast<int>(particle.alpha * 255.0f), 0, 255);
+        SetDrawBlendMode(DX_BLENDMODE_ADD, alpha);
+        DrawCircleAA(
+            x,
+            y,
+            particle.size,
+            12,
+            GetColor(210, 255, 255),
+            TRUE);
+    }
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+}
+
+void TitleScene::GetTitleShakeOffset(float& x, float& y) const
+{
+    // 複数の低周波を混ぜて、規則的すぎない手持ちカメラ風の揺れにする。
+    x =
+        std::sinf(m_sceneTime * 2.7f) * kTitleShakeAmplitudeX +
+        std::sinf(m_sceneTime * 6.1f + 1.2f) * (kTitleShakeAmplitudeX * 0.35f);
+    y =
+        std::cosf(m_sceneTime * 2.2f + 0.6f) * kTitleShakeAmplitudeY +
+        std::sinf(m_sceneTime * 5.4f) * (kTitleShakeAmplitudeY * 0.30f);
 }
 
 void TitleScene::DrawMenu() const
@@ -548,7 +634,7 @@ void TitleScene::GetTitleImageRect(float& x, float& y, float& width, float& heig
 {
     const float screenWidth = static_cast<float>(SCREEN_WIDTH);
     const float screenHeight = static_cast<float>(SCREEN_HEIGHT);
-    if (m_titleTextureWidth <= 0 || m_titleTextureHeight <= 0)
+    if (m_titleLayerTextureWidths[0] <= 0 || m_titleLayerTextureHeights[0] <= 0)
     {
         x = 0.0f;
         y = 0.0f;
@@ -557,13 +643,55 @@ void TitleScene::GetTitleImageRect(float& x, float& y, float& width, float& heig
         return;
     }
 
-    const float textureWidth = static_cast<float>(m_titleTextureWidth);
-    const float textureHeight = static_cast<float>(m_titleTextureHeight);
+    const float textureWidth = static_cast<float>(m_titleLayerTextureWidths[0]);
+    const float textureHeight = static_cast<float>(m_titleLayerTextureHeights[0]);
     const float scale = (std::min)(screenWidth / textureWidth, screenHeight / textureHeight);
     width = textureWidth * scale;
     height = textureHeight * scale;
     x = (screenWidth - width) * 0.5f;
     y = (screenHeight - height) * 0.5f;
+}
+
+void TitleScene::InitializeTitleParticles()
+{
+    const float screenHeight = static_cast<float>(SCREEN_HEIGHT);
+    for (size_t index = 0; index < m_titleParticles.size(); ++index)
+    {
+        const float y = std::fmod(static_cast<float>(index * 137), screenHeight + kTitleParticleRespawnMargin * 2.0f)
+            - kTitleParticleRespawnMargin;
+        ResetTitleParticle(index, y);
+    }
+}
+
+void TitleScene::ResetTitleParticle(size_t index, float y)
+{
+    const float screenWidth = static_cast<float>(SCREEN_WIDTH);
+    TitleParticle& particle = m_titleParticles[index];
+
+    // 疑似乱数テーブル代わりにindexから値を作り、タイトル演出の再現性を保つ。
+    const float seed = static_cast<float>(index);
+    particle.x = std::fmod(seed * 269.0f + 31.0f, screenWidth);
+    particle.y = y;
+    particle.speed = 34.0f + std::fmod(seed * 19.0f, 58.0f);
+    particle.driftAmplitude = 8.0f + std::fmod(seed * 11.0f, 22.0f);
+    particle.driftSpeed = 0.65f + std::fmod(seed * 0.17f, 1.15f);
+    particle.size = 1.6f + std::fmod(seed * 0.37f, 3.2f);
+    particle.phase = std::fmod(seed * 1.618f, kPi * 2.0f);
+    particle.alpha = 0.28f + std::fmod(seed * 0.07f, 0.42f);
+}
+
+void TitleScene::UpdateTitleParticles(float deltaTime)
+{
+    const float bottomY = static_cast<float>(SCREEN_HEIGHT) + kTitleParticleRespawnMargin;
+    for (size_t index = 0; index < m_titleParticles.size(); ++index)
+    {
+        TitleParticle& particle = m_titleParticles[index];
+        particle.y -= particle.speed * deltaTime;
+        if (particle.y < -kTitleParticleRespawnMargin)
+        {
+            ResetTitleParticle(index, bottomY);
+        }
+    }
 }
 
 TitleScene::MenuOptionRect TitleScene::GetMainMenuOptionRect(int index) const
