@@ -3696,7 +3696,7 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
         {
             for (int column = left; column <= right; ++column)
             {
-                if (m_tileMap.GetTile(column, row) != 1)
+                if (m_tileMap.GetTile(column, row) == 0)
                 {
                     continue;
                 }
@@ -3717,13 +3717,13 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
 
     auto breakHangingObject = [&](Entity& hangingEntity, HangingGravityObjectComponent& hanging, TransformComponent& transform)
     {
-        SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
-        m_eventBus.Publish({ EventType::PlaySoundRequest, &hangingEntity, nullptr, "barrel", 0.0f, 0.0f });
+        //SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
+        //m_eventBus.Publish({ EventType::PlaySoundRequest, &hangingEntity, nullptr, "barrel", 0.0f, 0.0f });
         hanging.active = false;
-        hanging.destroyed = true;
+        //hanging.destroyed = true;
         hanging.wireAttached = false;
         hanging.velocityY = 0.0f;
-        setHangingObjectVisible(hangingEntity, false);
+        //setHangingObjectVisible(hangingEntity, false);
     };
 
     auto isRidingHangingObject = [&](const TransformComponent& riderTransform, const TransformComponent& hangingTransform) -> bool
