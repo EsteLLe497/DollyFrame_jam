@@ -244,8 +244,8 @@ namespace
         // outer/inner/filmの画像本来の縦横比を保ったまま敷くための計算をここに集約する。
     constexpr int kPhotoGridColumns = 3;
     constexpr int kPhotoGridRows = 3;
-    constexpr float kPhotoGridRowWidth = 430.0f;      // 1行(3枚ぶん)の全体の幅
-    constexpr float kPhotoGridRowGapY = 14.0f;        // 行と行の間の隙間
+    constexpr float kPhotoGridRowWidth = 530.0f;      // 1行(3枚ぶん)の全体の幅
+    constexpr float kPhotoGridRowGapY = 0.0f;        // 行と行の間の隙間
     constexpr float kPhotoGridMarginRight = 80.0f;
     constexpr float kPhotoGridMarginBottom = 40.0f + 145.0f;
     constexpr int kPhotoGridCaptionFontSize = 22;      // キャプションの文字サイズ
@@ -254,9 +254,10 @@ namespace
     // photo_album_outer.png / inner.png / film系画像の実ピクセルサイズから算出した比率。
     // 画像を差し替えない限りここは変更不要です。
     constexpr float kPhotoAlbumOuterAspect = 6100.0f / 2000.0f;       // outer: 6100x2000
-    constexpr float kPhotoAlbumInnerWidthRatio = 5700.0f / 6100.0f;   // inner: 5700x1600
-    constexpr float kPhotoAlbumInnerHeightRatio = 1600.0f / 2000.0f;
+    constexpr float kPhotoAlbumInnerWidthRatio = 0.88f;   // ← 5700/6100(≒0.934) から変更
+    constexpr float kPhotoAlbumInnerHeightRatio = 0.85f;  // ← 1600/2000(=0.8) から変更
     constexpr float kPhotoFilmAspect = 1580.0f / 1140.0f;             // film系: 1580x1140
+    constexpr float kPhotoEmptyOverlayAlpha = 0.35f;  // photo_empty.pngの薄さ（0=完全に透明、1=完全に不透明）
     constexpr float kPhotoSlotGapXRatio = 0.02f;      // スロット間の隙間（inner幅に対する比率）
     constexpr float kPhotoSlotPaddingRatio = 0.10f;   // フィルム内側の写真の余白（スロット幅に対する比率）
 
@@ -1366,12 +1367,19 @@ void ResultScene::DrawFreeImages(float offsetX) const
         float height;
     };
 
-    constexpr float kDateImageHeight = 1400.0f; // ここだけ変えれば全体のサイズが変わる
-    constexpr float kDateImageWidth = kDateImageHeight * (2160.0f / 3840.0f);
+    // ==================================================================
+    // 仮画像（karitatie.png）。本番の画像が来たら、ここの定数だけ差し替えればOK。
+    // ==================================================================
+    constexpr float kKaritatieX = 40.0f;
+    constexpr float kKaritatieY = 200.0f;
+    constexpr float kKaritatieHeight = 400.0f;
+    constexpr float kKaritatieAspectWidth = 477.0f;   // ← karitatie.pngの実際の幅(px)
+    constexpr float kKaritatieAspectHeight = 353.0f;  // ← karitatie.pngの実際の高さ(px)
+    constexpr float kKaritatieWidth = kKaritatieHeight * (kKaritatieAspectWidth / kKaritatieAspectHeight);
 
     const FreeImagePlacement placements[] =
     {
-        { "date", 40.0f, -250.0f, kDateImageWidth, kDateImageHeight },
+        { "karitatie", kKaritatieX, kKaritatieY, kKaritatieWidth, kKaritatieHeight },
         //{ "kuria", static_cast<float>(SCREEN_WIDTH) - 300.0f, 450.0f, 220.0f, 160.0f },
     };
 
@@ -1395,6 +1403,39 @@ void ResultScene::DrawFreeImages(float offsetX) const
             1.0f,
             1.0f);
     }
+
+    // ==================================================================
+    // 隠しコマンドで表示される画像（date.png）。karitatieとは完全に独立した
+    // 位置・サイズ。被らないよう手動でX座標をずらしてある。
+    // ==================================================================
+    constexpr float kDateX = kKaritatieX + kKaritatieWidth + 40.0f; // ← karitatieの右側、被らない位置
+    constexpr float kDateY = 200.0f;
+    constexpr float kDateHeight = 400.0f;
+    constexpr float kDateAspectWidth = 2160.0f;   // ← date.pngの実際の幅(px)
+    constexpr float kDateAspectHeight = 3840.0f;  // ← date.pngの実際の高さ(px)
+    constexpr float kDateWidth = kDateHeight * (kDateAspectWidth / kDateAspectHeight);
+    constexpr int kDateKey1 = KEY_INPUT_LSHIFT;
+    constexpr int kDateKey2 = KEY_INPUT_D;
+
+    const bool showDateImage = CheckHitKey(kDateKey1) && CheckHitKey(kDateKey2);
+    if (showDateImage)
+    {
+        const int dateTextureId = m_assets.GetTexture("date");
+        if (dateTextureId >= 0)
+        {
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+            SpriteDraw(
+                dateTextureId,
+                kDateX + offsetX,
+                kDateY,
+                kDateWidth,
+                kDateHeight,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f);
+        }
+    }
 }
 
 void ResultScene::DrawCapturedPhotosGrid(float offsetX) const
@@ -1407,6 +1448,7 @@ void ResultScene::DrawCapturedPhotosGrid(float offsetX) const
     const int innerTexture = m_assets.GetTexture("ui_photo_album_inner");
     const int filmBlackTexture = m_assets.GetTexture("ui_photo_frame_film_black");
     const int filmBrownTexture = m_assets.GetTexture("ui_photo_frame_film_brown");
+    const int emptyTexture = m_assets.GetTexture("ui_photo_empty");
 
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -1458,6 +1500,17 @@ void ResultScene::DrawCapturedPhotosGrid(float offsetX) const
         const float thisLandedAt = landedAt + static_cast<float>(index) * kPhotoRevealStagger;
         const bool landed = elapsedSeconds >= thisLandedAt;
         const bool showAsFilled = capture != nullptr && landed;
+
+        // フィルム（未撮影=黒、撮影済み=茶色）を、縦横比を保ったままスロット中央に敷く。
+// 未撮影スロットには、photo_empty.pngを薄い白フィルターで先に敷いておく。
+        if (!showAsFilled && emptyTexture >= 0)
+        {
+            const float emptyHeight = cell.width / kPhotoFilmAspect;
+            const float emptyY = cellY + (cell.height - emptyHeight) * 0.5f;
+            Shader_SetTint(1.0f, 1.0f, 1.0f, kPhotoEmptyOverlayAlpha);
+            SpriteDraw(emptyTexture, cellX, emptyY, cell.width, emptyHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+        }
 
         // フィルム（未撮影=黒、撮影済み=茶色）を、縦横比を保ったままスロット中央に敷く。
         const int filmTexture = showAsFilled ? filmBrownTexture : filmBlackTexture;
