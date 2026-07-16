@@ -505,6 +505,12 @@ namespace
         root["capture_finder"] = ToJson(ui.tuning.captureFinder);
         root["capture_overlay"] = ToJson(ui.tuning.captureOverlay);
         root["tutorial"] = ToJson(ui.tuning.tutorial);
+        nlohmann::json tutorialPages = nlohmann::json::object();
+        for (const auto& [pageKey, pageTuning] : ui.tuning.tutorialPageTunings)
+        {
+            tutorialPages[pageKey] = ToJson(pageTuning);
+        }
+        root["tutorial_pages"] = tutorialPages;
         root["photo_tray"] = ToJson(ui.tuning.photoTray);
         root["developed_photo_preview"] = ToJson(ui.tuning.developedPhotoPreview);
         root["hp"] = ToJson(ui.tuning.hp);
@@ -544,6 +550,17 @@ namespace
         LoadUiSection(root, "capture_finder", ui.tuning.captureFinder);
         LoadUiSection(root, "capture_overlay", ui.tuning.captureOverlay);
         LoadUiSection(root, "tutorial", ui.tuning.tutorial);
+        ui.tuning.tutorialPageTunings.clear();
+        const auto tutorialPages = root.find("tutorial_pages");
+        if (tutorialPages != root.end() && tutorialPages->is_object())
+        {
+            for (auto it = tutorialPages->begin(); it != tutorialPages->end(); ++it)
+            {
+                GameSceneUiTutorialTuning pageTuning = ui.tuning.tutorial;
+                FromJson(it.value(), pageTuning);
+                ui.tuning.tutorialPageTunings.emplace(it.key(), pageTuning);
+            }
+        }
         LoadUiSection(root, "photo_tray", ui.tuning.photoTray);
         LoadUiSection(root, "developed_photo_preview", ui.tuning.developedPhotoPreview);
         LoadUiSection(root, "hp", ui.tuning.hp);
@@ -564,10 +581,10 @@ namespace
         float worldY;
         float width;
         float height;
-        float parallax; // 1.0 = カメラと完全に連動(通常の地形と同じ)
+        float parallax; // 1.0 = カメラと完�Eに連勁E通常の地形と同じ)
     };
 
-    // 仮配置。あとでCSVマーカー化する前提で、ここに直接座標を書く。
+    // 仮配置。あとでCSVマ�Eカー化する前提で、ここに直接座標を書く、E
     const BackgroundPartPlacement kBackgroundParts[] =
     {
         { "bg_parts_tree_01",  320.0f, 480.0f, 192.0f, 256.0f, 1.0f },
@@ -608,7 +625,7 @@ void GameScene::BuildCameraMarkers()
     std::filesystem::path path(m_lifecycle.currentMapCsvPath);
     std::string stageName = path.stem().string();
 
-    ////森林ステージ    
+    ////森林スチE�Eジ    
     //if (stageName == "forest")
     //{
     //    //カメラ1
@@ -672,7 +689,7 @@ void GameScene::BuildCameraMarkers()
     //    }
     //}
 
-    ////地下ステージ
+    ////地下スチE�Eジ
     //if (stageName == "under")
     //{
     //    {
@@ -995,6 +1012,7 @@ namespace
         root["projectileVelocityX"] = item.projectileVelocityX;
         root["projectileVelocityY"] = item.projectileVelocityY;
         root["projectileDamage"] = item.projectileDamage;
+        root["spriteProjectile"] = item.spriteProjectile;
         root["spearProjectile"] = item.spearProjectile;
         root["spearStuck"] = item.spearStuck;
         root["spearDirectionX"] = item.spearDirectionX;
@@ -1054,6 +1072,7 @@ namespace
         item.projectileVelocityX = root.value("projectileVelocityX", item.projectileVelocityX);
         item.projectileVelocityY = root.value("projectileVelocityY", item.projectileVelocityY);
         item.projectileDamage = root.value("projectileDamage", item.projectileDamage);
+        item.spriteProjectile = root.value("spriteProjectile", item.spriteProjectile);
         item.spearProjectile = root.value("spearProjectile", item.spearProjectile);
         item.spearStuck = root.value("spearStuck", item.spearStuck);
         item.spearDirectionX = root.value("spearDirectionX", item.spearDirectionX);
@@ -1269,8 +1288,8 @@ namespace
             }
         }
 
-        // 破損・手編集セーブ対策: スロット番号は必ず配列範囲に収める。
-        // 範囲外（特に負値）が入ると写真トレイの剰余計算で負インデックスになり範囲外アクセスする。
+        // 破損�E手編雁E��ーブ対筁E スロチE��番号は忁E��配�E篁E��に収める、E
+        // 篁E��外（特に負値�E�が入ると写真トレイの剰余計算で負インチE��クスになり篁E��外アクセスする、E
         const int captureSlotMax = static_cast<int>(photo.savedCaptures.size()) - 1;
         photo.selectedCaptureSlot = std::clamp(root.value("selectedCaptureSlot", photo.selectedCaptureSlot), 0, captureSlotMax);
         photo.nextCaptureSlot = std::clamp(root.value("nextCaptureSlot", photo.nextCaptureSlot), 0, captureSlotMax);
@@ -1308,6 +1327,7 @@ void GameScene::ResetSceneState()
     m_debug = GameSceneDebugState{};
     m_testPhotos = GameSceneTestPhotoState{};
     m_tutorial = GameSceneTutorialState{};
+    m_bGuiDisplayAlphas.fill(0.0f);
     m_mapEditor.active = false;
     m_mapEditor.brushTarget = GameSceneMapEditorState::BrushTarget::Tile;
     m_mapEditor.selectedTileValue = 1;
@@ -1337,7 +1357,7 @@ void GameScene::ResetSceneState()
     m_camera.cameraFixedLockEndX = 0.0f;
     m_camera.cameraFixedLockX = 0.0f;
     m_camera.cameraFixedLockY = 0.0f;
-    // ボス戦カメラの左右反転状態を、通常の右側構図へ戻します。
+    // ボス戦カメラの左右反転状態を、E��常の右側構図へ戻します、E
     m_camera.shieldBossCameraOffsetX = 0.0f;
     m_camera.shieldBossCameraOffsetY = 0.0f;
     m_camera.shieldBossCameraBaseY = 0.0f;
@@ -1368,6 +1388,7 @@ void GameScene::LoadTuningState()
     const ActiveGameSceneScope activeScene(*this);
     LoadTuningJsonFile();
     LoadUiTuningState();
+    LoadBGuiTuningState();
     loadTutorialData(1);
     std::error_code ec;
     const auto writeTime = std::filesystem::last_write_time(kTuningFilePath, ec);
@@ -1383,7 +1404,7 @@ bool GameScene::SaveUiTuningState()
     std::ofstream stream(kUiTuningFilePath, std::ios::binary | std::ios::trunc);
     if (!stream.is_open())
     {
-        m_debug.saveStatusMessage = "UI設定の保存に失敗しました。";
+        m_debug.saveStatusMessage = "Failed to save UI settings.";
         m_debug.saveStatusTimer = 3.0f;
         Logger::Warn("Failed to open UI tuning file for writing.");
         return false;
@@ -1395,7 +1416,7 @@ bool GameScene::SaveUiTuningState()
     }
     catch (...)
     {
-        m_debug.saveStatusMessage = "UI設定の保存中にエラーが発生しました。";
+        m_debug.saveStatusMessage = "Failed to serialize UI settings.";
         m_debug.saveStatusTimer = 3.0f;
         Logger::Warn("Failed to serialize UI tuning settings.");
         return false;
@@ -1403,13 +1424,13 @@ bool GameScene::SaveUiTuningState()
 
     if (!stream.good())
     {
-        m_debug.saveStatusMessage = "UI設定を最後まで書き込めませんでした。";
+        m_debug.saveStatusMessage = "Failed while writing UI settings.";
         m_debug.saveStatusTimer = 3.0f;
         Logger::Warn("Failed while writing UI tuning settings.");
         return false;
     }
 
-    m_debug.saveStatusMessage = "UI設定を assets/ui_tuning.json に保存しました。";
+    m_debug.saveStatusMessage = "Saved UI settings.";
     m_debug.saveStatusTimer = 3.0f;
     Logger::Info("Saved UI tuning settings to assets/ui_tuning.json");
     return true;
@@ -1420,7 +1441,7 @@ bool GameScene::LoadUiTuningState()
     std::ifstream stream(kUiTuningFilePath, std::ios::binary);
     if (!stream.is_open())
     {
-        m_debug.saveStatusMessage = "UI設定ファイルはまだありません。";
+        m_debug.saveStatusMessage = "UI settings file does not exist.";
         m_debug.saveStatusTimer = 3.0f;
         return false;
     }
@@ -1433,15 +1454,118 @@ bool GameScene::LoadUiTuningState()
     }
     catch (...)
     {
-        m_debug.saveStatusMessage = "UI設定ファイルの読込に失敗しました。";
+        m_debug.saveStatusMessage = "Failed to load UI settings.";
         m_debug.saveStatusTimer = 3.0f;
         Logger::Warn("Failed to load UI tuning settings.");
         return false;
     }
 
-    m_debug.saveStatusMessage = "UI設定を assets/ui_tuning.json から読み込みました。";
+    m_debug.saveStatusMessage = "Loaded UI settings.";
     m_debug.saveStatusTimer = 3.0f;
     Logger::Info("Loaded UI tuning settings from assets/ui_tuning.json");
+    return true;
+}
+
+bool GameScene::SaveBGuiTuningState()
+{
+    nlohmann::json root;
+    root["version"] = 1;
+    root["fadeInSpeed"] = b_gui::gFadeInSpeed;
+    root["fadeOutSpeed"] = b_gui::gFadeOutSpeed;
+    root["showTriggerRects"] = b_gui::gShowTriggerRects;
+    root["displays"] = nlohmann::json::array();
+
+    for (const b_gui::DisplayDefinition& display : b_gui::gDisplayDefinitions)
+    {
+        root["displays"].push_back({
+            { "textureKey", display.textureKey },
+            { "stageMask", display.stageMask },
+            { "worldX", display.worldX },
+            { "worldY", display.worldY },
+            { "width", display.width },
+            { "height", display.height },
+            { "triggerCenterX", display.triggerCenterX },
+            { "triggerCenterY", display.triggerCenterY },
+            { "triggerHalfWidth", display.triggerHalfWidth },
+            { "triggerHalfHeight", display.triggerHalfHeight },
+        });
+    }
+
+    std::ofstream stream(kBGuiTuningFilePath, std::ios::binary | std::ios::trunc);
+    if (!stream.is_open())
+    {
+        m_debug.saveStatusMessage = "Failed to save BGUI tuning.";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed to open BGUI tuning file for writing.");
+        return false;
+    }
+
+    try
+    {
+        stream << root.dump(2);
+    }
+    catch (...)
+    {
+        m_debug.saveStatusMessage = "Failed to serialize BGUI tuning.";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed to serialize BGUI tuning settings.");
+        return false;
+    }
+
+    m_debug.saveStatusMessage = "Saved BGUI tuning to assets/b_gui_tuning.json";
+    m_debug.saveStatusTimer = 3.0f;
+    Logger::Info("Saved BGUI tuning settings to assets/b_gui_tuning.json");
+    return true;
+}
+
+bool GameScene::LoadBGuiTuningState()
+{
+    std::ifstream stream(kBGuiTuningFilePath, std::ios::binary);
+    if (!stream.is_open())
+    {
+        return false;
+    }
+
+    nlohmann::json root;
+    try
+    {
+        stream >> root;
+    }
+    catch (...)
+    {
+        m_debug.saveStatusMessage = "Failed to load BGUI tuning.";
+        m_debug.saveStatusTimer = 3.0f;
+        Logger::Warn("Failed to parse BGUI tuning settings.");
+        return false;
+    }
+
+    b_gui::gFadeInSpeed = root.value("fadeInSpeed", b_gui::gFadeInSpeed);
+    b_gui::gFadeOutSpeed = root.value("fadeOutSpeed", b_gui::gFadeOutSpeed);
+    b_gui::gShowTriggerRects = root.value("showTriggerRects", b_gui::gShowTriggerRects);
+
+    const auto displaysIt = root.find("displays");
+    if (displaysIt != root.end() && displaysIt->is_array())
+    {
+        const size_t count = std::min(displaysIt->size(), b_gui::kDisplayCount);
+        for (size_t index = 0; index < count; ++index)
+        {
+            const nlohmann::json& savedDisplay = (*displaysIt)[index];
+            b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+            display.stageMask = savedDisplay.value("stageMask", display.stageMask);
+            display.worldX = savedDisplay.value("worldX", display.worldX);
+            display.worldY = savedDisplay.value("worldY", display.worldY);
+            display.width = savedDisplay.value("width", display.width);
+            display.height = savedDisplay.value("height", display.height);
+            display.triggerCenterX = savedDisplay.value("triggerCenterX", display.triggerCenterX);
+            display.triggerCenterY = savedDisplay.value("triggerCenterY", display.triggerCenterY);
+            display.triggerHalfWidth = savedDisplay.value("triggerHalfWidth", display.triggerHalfWidth);
+            display.triggerHalfHeight = savedDisplay.value("triggerHalfHeight", display.triggerHalfHeight);
+        }
+    }
+
+    m_debug.saveStatusMessage = "Loaded BGUI tuning from assets/b_gui_tuning.json";
+    m_debug.saveStatusTimer = 3.0f;
+    Logger::Info("Loaded BGUI tuning settings from assets/b_gui_tuning.json");
     return true;
 }
 
@@ -1479,7 +1603,7 @@ bool GameScene::LoadProgressStateFromDisk()
     m_save.hasData = true;
     m_save.mapCsvPath = root.value("mapCsvPath", m_lifecycle.currentMapCsvPath);
     const bool hadPersistedCheckpoint = root.value("hasCheckpoint", false);
-    // チェックポイントは起動中だけ有効とし、過去バージョンの保存値は復元しない。
+    // チェチE��ポイント�E起動中だけ有効とし、E��去バ�Eジョンの保存値は復允E��なぁE��E
     m_save.hasCheckpoint = false;
     m_save.activeCheckpointId = -1;
     m_save.stageStartX = root.value("stageStartX", 0.0f);
@@ -1495,7 +1619,11 @@ bool GameScene::LoadProgressStateFromDisk()
     m_save.sessionParts = root.value("sessionParts", 0);
     m_save.sessionPhotoStorageSlots = root.value("sessionPhotoStorageSlots", 2);
     m_save.sessionHasRecoveryFilter = root.value("sessionHasRecoveryFilter", false);
+    m_save.sessionRecoveryFilterCount = root.value(
+        "sessionRecoveryFilterCount",
+        m_save.sessionHasRecoveryFilter ? 1 : 0);
     m_save.sessionHasCameraFlash = root.value("sessionHasCameraFlash", false);
+    m_save.sessionHasSepiaFilter = root.value("sessionHasSepiaFilter", false);
     m_save.cameraTutorialCompleted = root.value("cameraTutorialCompleted", false);
     m_save.completedTutorialNumbers = root.value(
         "completedTutorialNumbers",
@@ -1506,7 +1634,7 @@ bool GameScene::LoadProgressStateFromDisk()
             m_save.completedTutorialNumbers.end(),
             1) == m_save.completedTutorialNumbers.end())
     {
-        // 旧形式の完了フラグをチュートリアル1番へ移行します。
+        // 旧形式�E完亁E��ラグをチュートリアル1番へ移行します、E
         m_save.completedTutorialNumbers.push_back(1);
     }
     m_save.sessionTimeLimit = root.value("sessionTimeLimit", 60.0f);
@@ -1518,7 +1646,7 @@ bool GameScene::LoadProgressStateFromDisk()
     }
     if (hadPersistedCheckpoint)
     {
-        // 古いチェックポイント地点から即座に再起動しないよう、開始地点へ移行する。
+        // 古ぁE��ェチE��ポイント地点から即座に再起動しなぁE��ぁE��E��始地点へ移行する、E
         m_save.respawnX = m_save.stageStartX;
         m_save.respawnY = m_save.stageStartY;
         m_save.playerX = m_save.stageStartX;
@@ -1536,7 +1664,7 @@ bool GameScene::SaveProgressState()
 {
     m_save.hasData = true;
     m_save.mapCsvPath = m_lifecycle.currentMapCsvPath;
-    // チェックポイントはゲーム終了時に破棄し、次回はステージ開始地点を使う。
+    // チェチE��ポイント�Eゲーム終亁E��に破棁E��、次回�EスチE�Eジ開始地点を使ぁE��E
     m_save.hasCheckpoint = false;
     m_save.activeCheckpointId = -1;
     m_save.stageStartX = m_flow.stageStartX;
@@ -1567,8 +1695,10 @@ bool GameScene::SaveProgressState()
     m_save.sessionCurrentHp = session.currentHp;
     m_save.sessionParts = session.parts;
     m_save.sessionPhotoStorageSlots = session.photoStorageSlots;
+    m_save.sessionRecoveryFilterCount = session.recoveryFilterCount;
     m_save.sessionHasRecoveryFilter = session.hasRecoveryFilter;
     m_save.sessionHasCameraFlash = session.hasCameraFlash;
+    m_save.sessionHasSepiaFilter = session.hasSepiaFilter;
     m_save.cameraTutorialCompleted = session.cameraTutorialCompleted;
     m_save.completedTutorialNumbers = session.completedTutorialNumbers;
     m_save.sessionTimeLimit = session.timeLimit;
@@ -1591,8 +1721,10 @@ bool GameScene::SaveProgressState()
     root["sessionCurrentHp"] = m_save.sessionCurrentHp;
     root["sessionParts"] = m_save.sessionParts;
     root["sessionPhotoStorageSlots"] = m_save.sessionPhotoStorageSlots;
+    root["sessionRecoveryFilterCount"] = m_save.sessionRecoveryFilterCount;
     root["sessionHasRecoveryFilter"] = m_save.sessionHasRecoveryFilter;
     root["sessionHasCameraFlash"] = m_save.sessionHasCameraFlash;
+    root["sessionHasSepiaFilter"] = m_save.sessionHasSepiaFilter;
     root["cameraTutorialCompleted"] = m_save.cameraTutorialCompleted;
     root["completedTutorialNumbers"] = m_save.completedTutorialNumbers;
     root["sessionTimeLimit"] = m_save.sessionTimeLimit;
@@ -1642,8 +1774,9 @@ void GameScene::ApplyLoadedProgressState()
     GameSession_SetCurrentHp(m_save.sessionCurrentHp);
     GameSession_AddParts(m_save.sessionParts);
     GameSession_SetPhotoStorageSlots(m_save.sessionPhotoStorageSlots);
-    GameSession_SetRecoveryFilterOwned(m_save.sessionHasRecoveryFilter);
+    GameSession_SetRecoveryFilterCount(m_save.sessionRecoveryFilterCount);
     GameSession_SetCameraFlashOwned(m_save.sessionHasCameraFlash);
+    GameSession_SetSepiaFilterOwned(m_save.sessionHasSepiaFilter);
     m_ui.cameraFlash.unlocked = m_save.sessionHasCameraFlash;
     gameSessionSetCompletedTutorialNumbers(m_save.completedTutorialNumbers);
     GameSession_SetTimeRemaining(m_save.sessionTimeRemaining);
@@ -1692,8 +1825,8 @@ void GameScene::InitializeStageResources(ResourceManager& resources)
     m_assets.LoadDefaults(resources);
     m_whiteTexture = m_assets.GetTexture("white");
 
-    // 撮影・写真トレイで最初に使うテクスチャを先読みする。
-    // 遅延ロードのままだと初回シャッターのフレームでディスクI/Oが走り、カクつきになる。
+    // 撮影・写真トレイで最初に使ぁE��クスチャを�E読みする、E
+    // 遁E��ロード�Eままだと初回シャチE��ーのフレームでチE��スクI/Oが走り、カクつきになる、E
     constexpr const char* kPhotoPreloadTextureKeys[] = {
         "sepia_rubble",
         "sepia_rubble_stage",
@@ -2043,7 +2176,7 @@ void GameScene::InitializeStageEntities()
                 spawnMidBoss3Fists(prefabs, boss);
             }
         }
-        else if (marker == 'A') // 繧ｴ繝ｼ繧ｹ繝・
+        else if (marker == 'A') // 繧�E�繝ｼ繧�E�繝�E
         {
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
@@ -2059,16 +2192,17 @@ void GameScene::InitializeStageEntities()
                 }
             }
         }
-        else if (marker == 'D') // 繝悶Λ繝ｭ繝・
+        else if (marker == 'D') // 繝悶Λ繝ｭ繝�E
         {
             Entity& enemy = SpawnStagePrefab(
                 prefabs,
                 "sandbox_enemy_blaster_robot",
                 static_cast<float>(column) * tileSize,
                 static_cast<float>(row) * tileSize);
+            ConfigureBlasterRobotSpriteAnimation(enemy);
             if (auto* transform = enemy.GetComponent<TransformComponent>())
             {
-                // FindSpawnPosition繧剃ｽｿ繧上★CSV縺ｮ蠎ｧ讓吶ｒ縺昴・縺ｾ縺ｾ菴ｿ縺・
+                // FindSpawnPosition繧剁E���E�繧上�ECSV縺�E�蠎ｧ讓吶�E�縺昴・縺�E�縺�E�菴�E�縺・
                 transform->x = static_cast<float>(column) * tileSize;
                 transform->y = static_cast<float>(row) * tileSize;
                 if (auto* enemyComp = enemy.GetComponent<EnemyComponent>())
@@ -2078,42 +2212,13 @@ void GameScene::InitializeStageEntities()
                 }
                 if (auto* blasterRobot = enemy.GetComponent<BlasterRobotComponent>())
                 {
-                    // 螟ｩ莠募愛螳夲ｼ壹・繝ｼ繧ｫ繝ｼ縺ｮ荳翫・繧ｿ繧､繝ｫ縺悟｣√↑繧牙､ｩ莠戊ｨｭ鄂ｮ
+                    // 螟ｩ莠募�E螳夲�E�壹・繝ｼ繧�E�繝ｼ縺�E�荳翫・繧�E�繧�E�繝ｫ縺悟｣√�E繧牙､�E�莠戊ｨ�E�鄂ｮ
                     if (row > 0 && m_tileMap.GetTile(column, row - 1) > 0)
                     {
                         blasterRobot->mountedOnCeiling = true;
                     }
                 }
             }
-        }
-        else if (marker == ';')
-        {
-            constexpr float kMerchantSignAspect = 401.0f / 1172.0f;
-            const float merchantX = static_cast<float>(column) * tileSize;
-            const float merchantY = static_cast<float>(row) * tileSize;
-            const float merchantSize = tileSize * 4.0f;
-            const float signWidth = tileSize * 1.8f;
-            const float signHeight = signWidth * kMerchantSignAspect;
-            auto merchant = std::make_unique<Entity>();
-            merchant->AddComponent<TagComponent>(EntityTag::Merchant);
-            merchant->AddComponent<TransformComponent>(
-                merchantX,
-                merchantY,
-                merchantSize,
-                merchantSize);
-            const int merchantTexture = m_assets.GetTexture("merchant_sign");
-            merchant->AddComponent<MerchantComponent>();
-            m_world.Spawn(std::move(merchant));
-
-            auto sign = std::make_unique<Entity>();
-            sign->AddComponent<TransformComponent>(
-                merchantX + (merchantSize - signWidth) * 0.5f,
-                merchantY - signHeight - tileSize * 0.15f,
-                signWidth,
-                signHeight);
-            sign->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
-            sign->AddComponent<SpriteRenderComponent>(merchantTexture >= 0 ? merchantTexture : m_whiteTexture);
-            m_world.Spawn(std::move(sign));
         }
     }
 
@@ -2207,7 +2312,7 @@ void GameScene::InitializeStageEntities()
         vanishObject.AddComponent<VanishOnCaptureComponent>(true);
     }
 
-    // 同じ列に複数ある場合は、地面に近い一番下のマーカーを復帰地点として採用する。
+    // 同じ列に褁E��ある場合�E、地面に近い一番下�Eマ�Eカーを復帰地点として採用する、E
     std::vector<const TileMarker*> checkpointMarkersByColumn(
         static_cast<size_t>((std::max)(0, m_tileMap.GetWidth())),
         nullptr);
@@ -2235,7 +2340,7 @@ void GameScene::InitializeStageEntities()
             continue;
         }
 
-        // 判定は縦列全体、復帰地点は実際のCマーカー位置として分離する。
+        // 判定�E縦列�E体、復帰地点は実際のCマ�Eカー位置として刁E��する、E
         const float checkpointX = AlignToGrid(static_cast<float>(stageMarker->column) * tileSize, tileSize);
         const float checkpointY = AlignToGrid(static_cast<float>(stageMarker->row) * tileSize - tileSize, tileSize);
         Entity& checkpoint = SpawnStagePrefab(
@@ -2268,7 +2373,11 @@ void GameScene::InitializeStageEntities()
         "sandbox_goal",
         AlignToGrid(goalX, tileSize),
         AlignToGrid(goalY, tileSize));
-    SetEntityTint(goal, 0.62f, 0.30f, 0.24f);
+    const bool bossStageGoalVisual =
+        m_lifecycle.currentMapCsvPath.find("_boss") != std::string::npos ||
+        m_lifecycle.currentMapCsvPath.find("/boss/") != std::string::npos ||
+        m_lifecycle.currentMapCsvPath.find("\\boss\\") != std::string::npos;
+    SetEntityTint(goal, 0.62f, 0.30f, 0.24f, bossStageGoalVisual ? 0.0f : 1.0f);
     m_flow.goalUnlocked = true;
     m_flow.goalUnlockedBySwitch = true;
 
@@ -2398,4 +2507,5 @@ void GameScene::ApplyMidBoss2TuningToActiveBosses()
         boss->params = m_tuning.midBoss2Params;
     }
 }
+
 

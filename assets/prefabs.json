@@ -176,7 +176,7 @@
                 "friction": 0.4,
                 "isSensor": false,
                 "imageEnabled": true,
-                "imagePath": "assets/texture/gear/Star.png",
+                "imagePath": "assets/texture/Star.png",
                 "alphaThreshold": 12,
                 "vertexStride": 6
             }
@@ -209,106 +209,7 @@
                 "friction": 0.4,
                 "isSensor": false,
                 "imageEnabled": true,
-                "imagePath": "assets/texture/gear/Apple.png",
-                "alphaThreshold": 12,
-                "vertexStride": 6
-            }
-        },
-        "circle_outline": {
-            "tag": "Circle",
-            "texture": "circle",
-            "transform": {
-                "x": 920.0,
-                "y": 220.0,
-                "width": 196.0,
-                "height": 196.0,
-                "rotation": 0.0,
-                "scale": 1.0
-            },
-            "tint": {
-                "r": 1.0,
-                "g": 1.0,
-                "b": 1.0,
-                "a": 1.0
-            },
-            "rigidBody": {
-                "enabled": true,
-                "type": "static",
-                "fixedRotation": true,
-                "gravityScale": 0.0
-            },
-            "collider": {
-                "enabled": false,
-                "friction": 0.4,
-                "isSensor": false,
-                "imageEnabled": true,
-                "imagePath": "assets/texture/gear/circle.png",
-                "alphaThreshold": 12,
-                "vertexStride": 6
-            }
-        },
-        "daikei_outline": {
-            "tag": "Daikei",
-            "texture": "daikei",
-            "transform": {
-                "x": 920.0,
-                "y": 220.0,
-                "width": 196.0,
-                "height": 196.0,
-                "rotation": 0.0,
-                "scale": 1.0
-            },
-            "tint": {
-                "r": 1.0,
-                "g": 1.0,
-                "b": 1.0,
-                "a": 1.0
-            },
-            "rigidBody": {
-                "enabled": true,
-                "type": "static",
-                "fixedRotation": true,
-                "gravityScale": 0.0
-            },
-            "collider": {
-                "enabled": false,
-                "friction": 0.4,
-                "isSensor": false,
-                "imageEnabled": true,
-                "imagePath": "assets/texture/gear/daikei.png",
-                "alphaThreshold": 12,
-                "vertexStride": 6
-            }
-        },
-        "haguruma_outline": {
-            "tag": "Haguruma",
-            "texture": "haguruma",
-            "transform": {
-                "x": 920.0,
-                "y": 220.0,
-                "width": 196.0,
-                "height": 196.0,
-                "rotation": 0.0,
-                "scale": 1.0
-            },
-            "tint": {
-                "r": 1.0,
-                "g": 1.0,
-                "b": 1.0,
-                "a": 1.0
-            },
-            "rigidBody": {
-                "enabled": true,
-                "type": "static",
-                "fixedRotation": true,
-                "gravityScale": 0.0
-            },
-            "collider": {
-                "enabled": false,
-                "friction": 0.4,
-                "isSensor": false,
-                "imageEnabled": true,
-                "imagePath": "assets/texture/gear/haguruma.png",
+                "imagePath": "assets/texture/Apple.png",
                 "alphaThreshold": 12,
                 "vertexStride": 6
             }
@@ -920,7 +821,7 @@
         },
         "sandbox_enemy_blaster_robot": {
             "tag": "Enemy",
-            "texture": "enemy",
+            "texture": "blaster_robot",
             "transform": {
                 "x": 0.0,
                 "y": 0.0,
@@ -930,9 +831,9 @@
                 "scale": 1.0
             },
             "tint": {
-                "r": 0.2,
-                "g": 0.8,
-                "b": 0.4,
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
                 "a": 1.0
             },
             "enemy": {

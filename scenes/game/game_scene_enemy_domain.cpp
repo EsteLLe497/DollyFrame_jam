@@ -443,6 +443,47 @@ void GameScene::ConfigureRangedSpriteAnimation(Entity& enemy, bool reverseFacing
     animation->Play("idle", true);
 }
 
+void GameScene::ConfigureBlasterRobotSpriteAnimation(Entity& enemy)
+{
+    auto* sprite = enemy.GetComponent<SpriteRenderComponent>();
+    if (!sprite)
+    {
+        return;
+    }
+
+    auto* animation = enemy.GetComponent<SpriteSheetAnimationComponent>();
+    if (!animation)
+    {
+        animation = &enemy.AddComponent<SpriteSheetAnimationComponent>();
+    }
+
+    const auto* transform = enemy.GetComponent<TransformComponent>();
+    constexpr float kBlasterRobotVisualScale = 1.45f;
+    sprite->SetRenderScale(kBlasterRobotVisualScale, kBlasterRobotVisualScale);
+    sprite->SetRenderOffset(
+        transform ? transform->width * (1.0f - kBlasterRobotVisualScale) * 0.5f : 0.0f,
+        transform ? transform->height * (1.0f - kBlasterRobotVisualScale) * 0.5f : 0.0f);
+
+    constexpr int kBlasterRobotSheetColumns = 10;
+    constexpr int kBlasterRobotSheetRows = 15;
+    constexpr int kBlasterRobotFrameCount = kBlasterRobotSheetColumns * kBlasterRobotSheetRows;
+    constexpr float kBlasterRobotFps = 18.0f;
+
+    const int textureId = m_assets.GetTexture("blaster_robot");
+    const int resolvedTextureId = textureId >= 0 ? textureId : sprite->GetTextureId();
+    sprite->SetSourceRect(0.0f, 0.0f, 1.0f / static_cast<float>(kBlasterRobotSheetColumns), 1.0f / static_cast<float>(kBlasterRobotSheetRows));
+    animation->DefineClip(
+        "idle",
+        resolvedTextureId,
+        kBlasterRobotSheetColumns,
+        kBlasterRobotSheetRows,
+        0,
+        kBlasterRobotFrameCount,
+        kBlasterRobotFps,
+        true);
+    animation->Play("idle", true);
+}
+
 void GameScene::ConfigureShieldBossSpriteAnimation(Entity& enemy)
 {
     auto* sprite = enemy.GetComponent<SpriteRenderComponent>();
@@ -870,6 +911,7 @@ void GameScene::UpdateEnemies()
                                 centerX,
                                 centerY,
                                 GetEnemyDropCount(enemy->GetArchetype()));
+                            SpawnBossRewardDrop(*enemy, *transform);
                             SpawnBossDefeatStartEffect(centerX, groundY, width);
                         }
                         TriggerBossDefeatFinishFeedback(m_flow);
@@ -894,6 +936,8 @@ void GameScene::UpdateEnemies()
         enemyEntities,
         interactionEntities,
         m_tileTexture,
+        m_assets.GetTexture("enemy2_shot"),
+        m_assets.GetTexture("blaster_robot_shot"),
         m_assets.GetTexture("sepia_rubble"),
         GetMapPixelWidth(),
         GetMapPixelHeight(),
@@ -908,7 +952,11 @@ void GameScene::UpdateEnemies()
         },
         [this](Entity& enemyEntity)
         {
-            m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, "enemy_gun", 0.0f, 0.0f });
+            const auto* enemy = enemyEntity.GetComponent<EnemyComponent>();
+            const char* cueName = enemy && enemy->GetArchetype() == EnemyArchetype::Walker
+                ? "enemy1_attack"
+                : "enemy_gun";
+            m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, cueName, 0.0f, 0.0f });
         },
         [this](Entity& bossEntity)
         {
@@ -981,6 +1029,7 @@ void GameScene::UpdateEnemies()
                 transform->x + transform->width * transform->scale * 0.5f,
                 transform->y + transform->height * transform->scale * 0.5f,
                 GetEnemyDropCount(enemy->GetArchetype()));
+            SpawnBossRewardDrop(*enemy, *transform);
         },
         [this, player](Entity* sourceEntity, int amount, const char* logMessage)
         {
@@ -1170,6 +1219,48 @@ void GameScene::SpawnDropItems(float x, float y, int count)
     }
 }
 
+void GameScene::SpawnSepiaFilterDrop(float spawnX, float spawnY, float settleX, float settleY)
+{
+    if (GameSession_Get().hasSepiaFilter)
+    {
+        return;
+    }
+
+    auto item = std::make_unique<Entity>();
+    item->AddComponent<TagComponent>(kTagDropItem);
+    item->AddComponent<TransformComponent>(spawnX - 18.0f, spawnY - 18.0f, 36.0f, 36.0f);
+    item->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+    item->AddComponent<SpriteRenderComponent>(m_assets.GetTexture("sepia_filter_drop_0"));
+    auto& drop = item->AddComponent<DropItemComponent>(0, 0.0f, 0.0f, DropItemKind::SepiaFilter);
+    drop.SetSettleTarget(settleX, settleY);
+    m_world.QueueSpawn(std::move(item));
+}
+
+void GameScene::SpawnBossRewardDrop(const EnemyComponent& enemy, const TransformComponent& transform)
+{
+    const EnemyArchetype archetype = enemy.GetArchetype();
+    if (archetype != EnemyArchetype::ShieldBoss)
+    {
+        return;
+    }
+
+    const float spawnX = transform.x + transform.width * transform.scale * 0.5f;
+    const float spawnY = transform.y + transform.height * transform.scale * 0.5f;
+    float settleX = spawnX;
+    float settleY = spawnY;
+    if (const Entity* player = FindEntityByTag(kTagPlayer))
+    {
+        if (const auto* playerTransform = player->GetComponent<TransformComponent>())
+        {
+            const float tileSize = std::max(1.0f, m_tileMap.GetTileSize());
+            settleX = spawnX;
+            settleY = std::max(18.0f, playerTransform->y - tileSize * 2.0f);
+        }
+    }
+
+    SpawnSepiaFilterDrop(spawnX, spawnY, settleX, settleY);
+}
+
 void GameScene::UpdateDropItems()
 {
     Entity* player = FindEntityByTag(kTagPlayer);
@@ -1195,6 +1286,33 @@ void GameScene::UpdateDropItems()
         if (!transform || !drop) continue;
         drop->AddAge(m_flow.lastDeltaTime);
 
+        if (drop->GetKind() == DropItemKind::SepiaFilter && drop->HasSettleTarget())
+        {
+            constexpr float kSepiaSettleSpeed = 720.0f;
+            const float centerX = transform->x + transform->width * transform->scale * 0.5f;
+            const float centerY = transform->y + transform->height * transform->scale * 0.5f;
+            const float dx = drop->GetSettleTargetX() - centerX;
+            const float dy = drop->GetSettleTargetY() - centerY;
+            const float dist = std::sqrt(dx * dx + dy * dy);
+            const float step = kSepiaSettleSpeed * std::max(0.0f, m_flow.lastDeltaTime);
+            drop->SetAttracting(false);
+            drop->SetVelocityX(0.0f);
+            drop->SetVelocityY(0.0f);
+            if (dist <= std::max(1.0f, step))
+            {
+                transform->x = drop->GetSettleTargetX() - transform->width * transform->scale * 0.5f;
+                transform->y = drop->GetSettleTargetY() - transform->height * transform->scale * 0.5f;
+                drop->ClearSettleTarget();
+            }
+            else
+            {
+                const float invDist = 1.0f / std::max(1.0f, dist);
+                transform->x += dx * invDist * step;
+                transform->y += dy * invDist * step;
+            }
+            continue;
+        }
+
         if (playerTransform)
         {
             const float dx = (playerTransform->x + playerTransform->width * 0.5f)
@@ -1205,7 +1323,19 @@ void GameScene::UpdateDropItems()
 
             if (dist < kCollectRange)
             {
-                GameSession_AddParts(drop->GetValue());
+                if (drop->GetKind() == DropItemKind::SepiaFilter)
+                {
+                    GameSession_SetSepiaFilterOwned(true);
+                    StartSepiaUnlockOverlay();
+                    if (m_photo.capture.selectedTheme == PhotoFilterTheme::None)
+                    {
+                        m_photo.capture.selectedTheme = PhotoFilterTheme::Sepia;
+                    }
+                }
+                else
+                {
+                    GameSession_AddParts(drop->GetValue());
+                }
                 collected.push_back(entity);
                 continue;
             }
@@ -1233,6 +1363,14 @@ void GameScene::UpdateDropItems()
         {
             drop->SetAttracting(false);
             drop->SetAttractTimer(0.0f);
+        }
+
+        if (drop->GetKind() == DropItemKind::SepiaFilter)
+        {
+            drop->SetAttracting(false);
+            drop->SetVelocityX(0.0f);
+            drop->SetVelocityY(0.0f);
+            continue;
         }
 
         if (!drop->IsAttracting())
@@ -2407,6 +2545,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                     transform->x + transform->width * transform->scale * 0.5f,
                     transform->y + transform->height * transform->scale * 0.5f,
                     dropCount);
+                SpawnBossRewardDrop(*enemyComponent, *transform);
             }
         }
     }
@@ -2454,6 +2593,7 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
                 transform->x + transform->width * transform->scale * 0.5f,
                 transform->y + transform->height * transform->scale * 0.5f,
                 dropCount);
+            SpawnBossRewardDrop(*enemyComponent, *transform);
         }
     }
     if (defeatedThisHit)
@@ -2478,5 +2618,13 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });
     m_eventBus.Publish({ EventType::LogMessage, &enemy, sourceEntity, logMessage, 0.0f, 0.0f });
 }
+
+
+
+
+
+
+
+
 
 

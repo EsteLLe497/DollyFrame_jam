@@ -27,6 +27,41 @@ namespace
         std::string mapCsvPath;
     };
 
+    enum class ResultMerchantItemType
+    {
+        RecoveryFilter,
+        FolderSlot,
+    };
+
+    struct ResultMerchantItem
+    {
+        ResultMerchantItemType type;
+        const char* name;
+        const char* description;
+        const char* detailLine1;
+        const char* detailLine2;
+        int cost;
+    };
+
+    constexpr ResultMerchantItem kResultMerchantItems[] = {
+        {
+            ResultMerchantItemType::RecoveryFilter,
+            "回復フィルター",
+            "撮影で体力を全回復。",
+            "自分を撮影すると",
+            "体力を全回復します。",
+            10,
+        },
+        {
+            ResultMerchantItemType::FolderSlot,
+            "フォルダ枠",
+            "写真フォルダを3枠に拡張。",
+            "写真フォルダを3枠に拡張し、",
+            "写真を3つ保持できます。",
+            30,
+        },
+    };
+
     // 最後に遊んだステージと終了理由から、リザルトの主選択肢を決める。
     // クリア時は次のステージ（森→廃墟→地下）、ゲームオーバー時は同じステージへの再挑戦。
     PrimaryOption BuildPrimaryOption(const GameSessionState& session)
@@ -90,6 +125,31 @@ namespace
         return mapPath.find("under.csv") != std::string::npos;
     }
 
+    bool IsBossClearResult(const GameSessionState& session)
+    {
+        return session.endReason == GameEndReason::GoalReached ||
+            session.endReason == GameEndReason::BossDefeated;
+    }
+
+    std::string GetResultLastMapPath(const GameSessionState& session)
+    {
+        return session.lastMapCsvPath.empty()
+            ? session.startMapCsvPath
+            : session.lastMapCsvPath;
+    }
+
+    bool IsForestBossResult(const GameSessionState& session)
+    {
+        return IsBossClearResult(session) &&
+            GetResultLastMapPath(session).find("forest_boss") != std::string::npos;
+    }
+
+    bool IsRuinsBossResult(const GameSessionState& session)
+    {
+        return IsBossClearResult(session) &&
+            GetResultLastMapPath(session).find("ruins_boss") != std::string::npos;
+    }
+
     struct FreeImagePlacement
     {
         const char* textureKey;
@@ -141,9 +201,10 @@ namespace
         DrawOutlinedString(textX, textY, label, textColor, GetColor(28, 16, 9));
     }
 
-    constexpr int kMenuOptionCount = 3;
+    constexpr int kRegularMenuOptionCount = 3;
     constexpr const char* kBackToTitleLabel = "タイトルへ戻る";
     constexpr const char* kUnderBossOptionLabel = "地下ボスステージへ進む（未実装）";
+    constexpr const char* kMerchantOptionLabel = "行商人へ";
     constexpr int kConfirmDialogWidth = 560;
     constexpr int kConfirmDialogHeight = 220;
     constexpr int kConfirmDialogButtonWidth = 180;
@@ -153,6 +214,13 @@ namespace
     constexpr int kMenuRowHeight = 44;
     constexpr int kMenuRowGap = 14;
     constexpr int kMenuRowTop = 520;
+    constexpr int kMenuHintGap = 30;
+    constexpr int kMerchantButtonBelowHintGap = 38;
+    constexpr int kMerchantPanelWidth = 780;
+    constexpr int kMerchantPanelHeight = 470;
+    constexpr int kMerchantItemWidth = 430;
+    constexpr int kMerchantItemHeight = 68;
+    constexpr int kMerchantItemGap = 12;
     constexpr float kResultIntroDuration = 0.55f;
     constexpr int kResultFilmHeight = 132;
     constexpr int kResultFilmRailHeight = 28;
@@ -176,8 +244,8 @@ namespace
         // outer/inner/filmの画像本来の縦横比を保ったまま敷くための計算をここに集約する。
     constexpr int kPhotoGridColumns = 3;
     constexpr int kPhotoGridRows = 3;
-    constexpr float kPhotoGridRowWidth = 430.0f;      // 1行(3枚ぶん)の全体の幅
-    constexpr float kPhotoGridRowGapY = 14.0f;        // 行と行の間の隙間
+    constexpr float kPhotoGridRowWidth = 530.0f;      // 1行(3枚ぶん)の全体の幅
+    constexpr float kPhotoGridRowGapY = 0.0f;        // 行と行の間の隙間
     constexpr float kPhotoGridMarginRight = 80.0f;
     constexpr float kPhotoGridMarginBottom = 40.0f + 145.0f;
     constexpr int kPhotoGridCaptionFontSize = 22;      // キャプションの文字サイズ
@@ -186,9 +254,10 @@ namespace
     // photo_album_outer.png / inner.png / film系画像の実ピクセルサイズから算出した比率。
     // 画像を差し替えない限りここは変更不要です。
     constexpr float kPhotoAlbumOuterAspect = 6100.0f / 2000.0f;       // outer: 6100x2000
-    constexpr float kPhotoAlbumInnerWidthRatio = 5700.0f / 6100.0f;   // inner: 5700x1600
-    constexpr float kPhotoAlbumInnerHeightRatio = 1600.0f / 2000.0f;
+    constexpr float kPhotoAlbumInnerWidthRatio = 0.88f;   // ← 5700/6100(≒0.934) から変更
+    constexpr float kPhotoAlbumInnerHeightRatio = 0.85f;  // ← 1600/2000(=0.8) から変更
     constexpr float kPhotoFilmAspect = 1580.0f / 1140.0f;             // film系: 1580x1140
+    constexpr float kPhotoEmptyOverlayAlpha = 0.35f;  // photo_empty.pngの薄さ（0=完全に透明、1=完全に不透明）
     constexpr float kPhotoSlotGapXRatio = 0.02f;      // スロット間の隙間（inner幅に対する比率）
     constexpr float kPhotoSlotPaddingRatio = 0.10f;   // フィルム内側の写真の余白（スロット幅に対する比率）
 
@@ -425,6 +494,10 @@ void ResultScene::OnEnter(ResourceManager& resources)
     m_showPrompt = true;
     m_selectedOption = 0;
     m_confirmDialogOpen = false;
+    m_merchantPageOpen = false;
+    m_merchantSelection = 0;
+    m_merchantMessage.clear();
+    m_merchantMessageTimer = 0.0f;
     PrimaryOption primaryOption = BuildPrimaryOption(GameSession_Get());
     m_primaryOptionLabel = std::move(primaryOption.label);
     m_primaryOptionMapCsv = std::move(primaryOption.mapCsvPath);
@@ -433,19 +506,84 @@ void ResultScene::OnEnter(ResourceManager& resources)
         ? session.startMapCsvPath
         : session.lastMapCsvPath;
     m_showUnderBossOption = lastMap.find("forest") == std::string::npos;
+    m_merchantOffersFolderSlot = IsForestBossResult(session);
+    m_merchantAvailable = m_merchantOffersFolderSlot || IsRuinsBossResult(session);
     Logger::Info("ResultScene entered");
+}
+
+bool ResultScene::OnCancelAction()
+{
+    if (m_merchantPageOpen)
+    {
+        m_merchantPageOpen = false;
+        m_merchantMessage.clear();
+        m_merchantMessageTimer = 0.0f;
+        return true;
+    }
+
+    if (m_confirmDialogOpen)
+    {
+        m_confirmDialogOpen = false;
+        return true;
+    }
+
+    return false;
 }
 
 ResultScene::MenuOptionRect ResultScene::GetOptionRect(int index) const
 {
     const int left = SCREEN_WIDTH / 2 - kMenuRowWidth / 2;
-    const int top = kMenuRowTop + index * (kMenuRowHeight + kMenuRowGap);
+    const int regularOptionCount = GetRegularOptionCount();
+    int top = kMenuRowTop + index * (kMenuRowHeight + kMenuRowGap);
+    if (m_merchantAvailable && index == regularOptionCount)
+    {
+        top = kMenuRowTop
+            + regularOptionCount * (kMenuRowHeight + kMenuRowGap)
+            + kMenuHintGap
+            + kMerchantButtonBelowHintGap;
+    }
     return { left, top, left + kMenuRowWidth, top + kMenuRowHeight };
+}
+
+int ResultScene::GetRegularOptionCount() const
+{
+    return m_showUnderBossOption ? kRegularMenuOptionCount : kRegularMenuOptionCount - 1;
+}
+
+int ResultScene::GetActiveOptionCount() const
+{
+    return GetRegularOptionCount() + (m_merchantAvailable ? 1 : 0);
+}
+
+bool ResultScene::IsMerchantOptionIndex(int index) const
+{
+    return m_merchantAvailable && index == GetRegularOptionCount();
+}
+
+const char* ResultScene::GetMenuOptionLabel(int index) const
+{
+    if (index == 0)
+    {
+        return m_primaryOptionLabel.c_str();
+    }
+    if (index == 1)
+    {
+        return kBackToTitleLabel;
+    }
+    if (IsMerchantOptionIndex(index))
+    {
+        return kMerchantOptionLabel;
+    }
+    return kUnderBossOptionLabel;
 }
 
 void ResultScene::UpdateMenuInput()
 {
-    const int activeOptionCount = m_showUnderBossOption ? kMenuOptionCount : kMenuOptionCount - 1;
+    const int activeOptionCount = GetActiveOptionCount();
+    if (activeOptionCount <= 0)
+    {
+        return;
+    }
 
     // キーボード / パッド操作
     if (Input_IsActionPressed(InputAction::MoveUp) || Input_IsDpadUpPressed())
@@ -495,6 +633,15 @@ void ResultScene::ConfirmSelection()
 {
     m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
 
+    if (IsMerchantOptionIndex(m_selectedOption))
+    {
+        m_merchantPageOpen = true;
+        m_merchantSelection = 0;
+        m_merchantMessage.clear();
+        m_merchantMessageTimer = 0.0f;
+        return;
+    }
+
     if (m_selectedOption == 0)
     {
         if (IsUnderStageMapPath(m_primaryOptionMapCsv))
@@ -506,6 +653,7 @@ void ResultScene::ConfirmSelection()
             return;
         }
 
+        GameSession_SetCarryShopPurchasesToNextStage(m_merchantAvailable);
         GameSession_SetStartMapCsvPath(m_primaryOptionMapCsv);
         GameSession_SetLoadSavedProgress(false);
         Audio_FadeOutBgm(1.2f);
@@ -524,6 +672,129 @@ void ResultScene::ConfirmSelection()
         m_confirmDialogOpen = true;
         m_confirmDialogSelection = 0;
     }
+}
+
+int ResultScene::GetMerchantItemCount() const
+{
+    return m_merchantOffersFolderSlot ? 2 : 1;
+}
+
+ResultScene::MenuOptionRect ResultScene::GetMerchantItemRect(int index) const
+{
+    const int panelLeft = SCREEN_WIDTH / 2 - kMerchantPanelWidth / 2;
+    const int panelTop = SCREEN_HEIGHT / 2 - kMerchantPanelHeight / 2;
+    const int left = panelLeft + 42;
+    const int top = panelTop + 122 + index * (kMerchantItemHeight + kMerchantItemGap);
+    return { left, top, left + kMerchantItemWidth, top + kMerchantItemHeight };
+}
+
+void ResultScene::UpdateMerchantPageInput()
+{
+    if (Input_IsActionPressed(InputAction::Cancel))
+    {
+        m_merchantPageOpen = false;
+        m_merchantMessage.clear();
+        m_merchantMessageTimer = 0.0f;
+        return;
+    }
+
+    const int itemCount = GetMerchantItemCount();
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
+    int hoveredItem = -1;
+    for (int index = 0; index < itemCount; ++index)
+    {
+        const MenuOptionRect rect = GetMerchantItemRect(index);
+        if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom)
+        {
+            hoveredItem = index;
+            break;
+        }
+    }
+
+    if (hoveredItem >= 0 && hoveredItem != m_merchantSelection)
+    {
+        m_merchantSelection = hoveredItem;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
+    }
+
+    if (Input_IsActionPressed(InputAction::MoveUp) || Input_IsDpadUpPressed())
+    {
+        m_merchantSelection = (m_merchantSelection + itemCount - 1) % itemCount;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
+    }
+    if (Input_IsActionPressed(InputAction::MoveDown) || Input_IsDpadDownPressed())
+    {
+        m_merchantSelection = (m_merchantSelection + 1) % itemCount;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_move", 0.0f, 0.0f });
+    }
+
+    const int panelLeft = SCREEN_WIDTH / 2 - kMerchantPanelWidth / 2;
+    const int panelTop = SCREEN_HEIGHT / 2 - kMerchantPanelHeight / 2;
+    const MenuOptionRect buyRect{
+        panelLeft + 500,
+        panelTop + kMerchantPanelHeight - 88,
+        panelLeft + kMerchantPanelWidth - 42,
+        panelTop + kMerchantPanelHeight - 36,
+    };
+    const bool mouseOnBuy =
+        mouseX >= buyRect.left && mouseX <= buyRect.right &&
+        mouseY >= buyRect.top && mouseY <= buyRect.bottom;
+    const bool confirmPressed =
+        Input_IsActionPressed(InputAction::Confirm) ||
+        Input_IsActionPressed(InputAction::StartGame) ||
+        Input_IsSouthButtonPressed();
+    const bool mouseClickConfirm = Input_IsMouseLeftPressed() && (hoveredItem >= 0 || mouseOnBuy);
+
+    if (confirmPressed || mouseClickConfirm)
+    {
+        ConfirmMerchantPurchase();
+    }
+}
+
+void ResultScene::ConfirmMerchantPurchase()
+{
+    const int selected = std::clamp(m_merchantSelection, 0, GetMerchantItemCount() - 1);
+    const ResultMerchantItem& item = kResultMerchantItems[selected];
+    const GameSessionState& session = GameSession_Get();
+
+    if (item.type == ResultMerchantItemType::RecoveryFilter)
+    {
+        if (session.recoveryFilterCount >= 3)
+        {
+            m_merchantMessage = "回復フィルターは3個までです。";
+            m_merchantMessageTimer = 1.8f;
+            return;
+        }
+        if (!GameSession_SpendParts(item.cost))
+        {
+            m_merchantMessage = "部品が足りません。";
+            m_merchantMessageTimer = 1.8f;
+            return;
+        }
+        GameSession_AddRecoveryFilter(1);
+        m_merchantMessage = "回復フィルターを1個購入しました。";
+        m_merchantMessageTimer = 1.8f;
+        m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
+        return;
+    }
+
+    if (session.photoStorageSlots >= 3)
+    {
+        m_merchantMessage = "フォルダ枠はすでに最大です。";
+        m_merchantMessageTimer = 1.8f;
+        return;
+    }
+    if (!GameSession_SpendParts(item.cost))
+    {
+        m_merchantMessage = "部品が足りません。";
+        m_merchantMessageTimer = 1.8f;
+        return;
+    }
+    GameSession_SetPhotoStorageSlots(3);
+    m_merchantMessage = "フォルダ枠を追加しました。写真を3枠使えます。";
+    m_merchantMessageTimer = 1.8f;
+    m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
 }
 
 ResultScene::MenuOptionRect ResultScene::GetConfirmDialogOptionRect(int index) const
@@ -583,6 +854,7 @@ void ResultScene::ConfirmDialogSelection()
     if (m_confirmDialogSelection == 0)
     {
         // はい：確認済みの遷移先へ進む
+        GameSession_SetCarryShopPurchasesToNextStage(m_merchantAvailable);
         GameSession_SetStartMapCsvPath(m_pendingConfirmMapCsv);
         GameSession_SetLoadSavedProgress(false);
         Audio_FadeOutBgm(1.2f);
@@ -634,6 +906,10 @@ void ResultScene::Update(float deltaTime)
         m_blinkTimer = 0.0f;
         m_showPrompt = !m_showPrompt;
     }
+    if (m_merchantMessageTimer > 0.0f)
+    {
+        m_merchantMessageTimer = std::max(0.0f, m_merchantMessageTimer - deltaTime);
+    }
 
     if (GetIntroProgress() < 1.0f)
     {
@@ -651,6 +927,10 @@ void ResultScene::Update(float deltaTime)
     if (m_confirmDialogOpen)
     {
         UpdateConfirmDialogInput();
+    }
+    else if (m_merchantPageOpen)
+    {
+        UpdateMerchantPageInput();
     }
     else
     {
@@ -686,6 +966,7 @@ void ResultScene::Draw()
     DrawPhotoRevealAnimation(offsetX);
     DrawMenu(offsetX);
     DrawResultFilmFrame();
+    DrawMerchantPage();
     DrawConfirmDialog();
 }
 
@@ -844,26 +1125,110 @@ void ResultScene::DrawMenu(float offsetX) const
 // 選択肢（写真の演出が終わったあとにふわっと表示）
     if (buttonsT > 0.0f)
     {
-        const int activeOptionCount = m_showUnderBossOption ? kMenuOptionCount : kMenuOptionCount - 1;
+        const int activeOptionCount = GetActiveOptionCount();
+        const int regularOptionCount = GetRegularOptionCount();
         const int riseOffset = static_cast<int>(std::round((1.0f - buttonsT) * kResultStatsRiseDistance));
         const int alpha = static_cast<int>(std::round(255.0f * buttonsT));
-        const char* menuLabels[kMenuOptionCount] = { m_primaryOptionLabel.c_str(), kBackToTitleLabel, kUnderBossOptionLabel };
 
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
         for (int index = 0; index < activeOptionCount; ++index)
         {
             const MenuOptionRect rect = GetOptionRect(index);
-            DrawMenuRow(rect.left + drawOffsetX, rect.top + riseOffset, kMenuRowWidth, kMenuRowHeight, menuLabels[index], m_selectedOption == index);
+            DrawMenuRow(rect.left + drawOffsetX, rect.top + riseOffset, kMenuRowWidth, kMenuRowHeight, GetMenuOptionLabel(index), m_selectedOption == index);
         }
 
         const int hintColor = m_showPrompt ? GetColor(252, 238, 214) : GetColor(168, 140, 104);
         DrawCenteredOutlinedString(
             SCREEN_WIDTH / 2 + drawOffsetX,
-            kMenuRowTop + activeOptionCount * (kMenuRowHeight + kMenuRowGap) + 30 + riseOffset,
+            kMenuRowTop + regularOptionCount * (kMenuRowHeight + kMenuRowGap) + kMenuHintGap + riseOffset,
             "上下キー・マウス: 選択   Enter/Space/A/クリック: 決定",
             hintColor,
             GetColor(28, 16, 9));
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+}
+
+void ResultScene::DrawMerchantPage() const
+{
+    if (!m_merchantPageOpen)
+    {
+        return;
+    }
+
+    const GameSessionState& session = GameSession_Get();
+    const int panelLeft = SCREEN_WIDTH / 2 - kMerchantPanelWidth / 2;
+    const int panelTop = SCREEN_HEIGHT / 2 - kMerchantPanelHeight / 2;
+    const int panelRight = panelLeft + kMerchantPanelWidth;
+    const int panelBottom = panelTop + kMerchantPanelHeight;
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 190);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    DrawBox(panelLeft, panelTop, panelRight, panelBottom, GetColor(34, 24, 16), TRUE);
+    DrawBox(panelLeft, panelTop, panelRight, panelBottom, GetColor(224, 190, 126), FALSE);
+    DrawOutlinedString(panelLeft + 34, panelTop + 26, "行商人", GetColor(255, 236, 178), GetColor(28, 16, 9));
+    DrawOutlinedString(panelLeft + 34, panelTop + 58, "Esc: 戻る   上下・マウス: 選択   Enter/クリック: 購入", GetColor(228, 212, 184), GetColor(28, 16, 9));
+    DrawFormatString(panelRight - 150, panelTop + 34, GetColor(255, 224, 92), "部品 x %d", session.parts);
+
+    const int itemCount = GetMerchantItemCount();
+    for (int index = 0; index < itemCount; ++index)
+    {
+        const ResultMerchantItem& item = kResultMerchantItems[index];
+        const MenuOptionRect rect = GetMerchantItemRect(index);
+        const bool selected = index == std::clamp(m_merchantSelection, 0, itemCount - 1);
+        const bool alreadyOwned =
+            (item.type == ResultMerchantItemType::RecoveryFilter && session.recoveryFilterCount >= 3) ||
+            (item.type == ResultMerchantItemType::FolderSlot && session.photoStorageSlots >= 3);
+        const bool affordable = session.parts >= item.cost;
+        const int fillColor = selected ? GetColor(98, 74, 46) : GetColor(54, 38, 24);
+        const int lineColor = selected ? GetColor(252, 220, 148) : GetColor(156, 118, 72);
+        const int textColor = alreadyOwned ? GetColor(156, 150, 136) : GetColor(250, 236, 210);
+
+        DrawBox(rect.left, rect.top, rect.right, rect.bottom, fillColor, TRUE);
+        DrawBox(rect.left, rect.top, rect.right, rect.bottom, lineColor, FALSE);
+        DrawOutlinedString(rect.left + 18, rect.top + 12, item.name, textColor, GetColor(28, 16, 9));
+        DrawFormatString(
+            rect.right - 108,
+            rect.top + 14,
+            affordable ? GetColor(255, 224, 92) : GetColor(158, 146, 124),
+            "部品 %d",
+            item.cost);
+        DrawString(rect.left + 18, rect.top + 40, item.description, GetColor(214, 198, 172));
+    }
+
+    const int selected = std::clamp(m_merchantSelection, 0, itemCount - 1);
+    const ResultMerchantItem& selectedItem = kResultMerchantItems[selected];
+    const int detailLeft = panelLeft + 500;
+    const int detailTop = panelTop + 122;
+    const int detailRight = panelRight - 42;
+    const int detailBottom = panelBottom - 108;
+    DrawBox(detailLeft, detailTop, detailRight, detailBottom, GetColor(42, 32, 24), TRUE);
+    DrawBox(detailLeft, detailTop, detailRight, detailBottom, GetColor(152, 118, 72), FALSE);
+    DrawOutlinedString(detailLeft + 18, detailTop + 18, selectedItem.name, GetColor(255, 236, 178), GetColor(28, 16, 9));
+    DrawString(detailLeft + 18, detailTop + 52, selectedItem.detailLine1, GetColor(222, 210, 188));
+    DrawString(detailLeft + 18, detailTop + 76, selectedItem.detailLine2, GetColor(222, 210, 188));
+    if (selectedItem.type == ResultMerchantItemType::RecoveryFilter)
+    {
+        DrawFormatString(detailLeft + 18, detailTop + 124, GetColor(230, 220, 198), "所持数: %d / 3", session.recoveryFilterCount);
+    }
+    else
+    {
+        DrawFormatString(detailLeft + 18, detailTop + 124, GetColor(230, 220, 198), "写真フォルダ: %d / 3", session.photoStorageSlots);
+    }
+
+    const bool canBuy =
+        session.parts >= selectedItem.cost &&
+        ((selectedItem.type == ResultMerchantItemType::RecoveryFilter && session.recoveryFilterCount < 3) ||
+            (selectedItem.type == ResultMerchantItemType::FolderSlot && session.photoStorageSlots < 3));
+    const MenuOptionRect buyRect{ detailLeft, panelBottom - 88, detailRight, panelBottom - 36 };
+    DrawBox(buyRect.left, buyRect.top, buyRect.right, buyRect.bottom, canBuy ? GetColor(188, 132, 38) : GetColor(78, 68, 56), TRUE);
+    DrawBox(buyRect.left, buyRect.top, buyRect.right, buyRect.bottom, canBuy ? GetColor(255, 226, 140) : GetColor(132, 120, 104), FALSE);
+    DrawCenteredOutlinedString((buyRect.left + buyRect.right) / 2, buyRect.top + 15, "購入する", canBuy ? GetColor(38, 28, 16) : GetColor(176, 164, 146), GetColor(255, 232, 176));
+
+    if (m_merchantMessageTimer > 0.0f && !m_merchantMessage.empty())
+    {
+        DrawOutlinedString(panelLeft + 42, panelBottom - 66, m_merchantMessage.c_str(), GetColor(255, 222, 116), GetColor(28, 16, 9));
     }
 }
 
@@ -1002,12 +1367,19 @@ void ResultScene::DrawFreeImages(float offsetX) const
         float height;
     };
 
-    constexpr float kDateImageHeight = 1400.0f; // ここだけ変えれば全体のサイズが変わる
-    constexpr float kDateImageWidth = kDateImageHeight * (2160.0f / 3840.0f);
+    // ==================================================================
+    // 仮画像（karitatie.png）。本番の画像が来たら、ここの定数だけ差し替えればOK。
+    // ==================================================================
+    constexpr float kKaritatieX = 40.0f;
+    constexpr float kKaritatieY = 200.0f;
+    constexpr float kKaritatieHeight = 400.0f;
+    constexpr float kKaritatieAspectWidth = 477.0f;   // ← karitatie.pngの実際の幅(px)
+    constexpr float kKaritatieAspectHeight = 353.0f;  // ← karitatie.pngの実際の高さ(px)
+    constexpr float kKaritatieWidth = kKaritatieHeight * (kKaritatieAspectWidth / kKaritatieAspectHeight);
 
     const FreeImagePlacement placements[] =
     {
-        { "date", 40.0f, -250.0f, kDateImageWidth, kDateImageHeight },
+        { "karitatie", kKaritatieX, kKaritatieY, kKaritatieWidth, kKaritatieHeight },
         //{ "kuria", static_cast<float>(SCREEN_WIDTH) - 300.0f, 450.0f, 220.0f, 160.0f },
     };
 
@@ -1031,6 +1403,39 @@ void ResultScene::DrawFreeImages(float offsetX) const
             1.0f,
             1.0f);
     }
+
+    // ==================================================================
+    // 隠しコマンドで表示される画像（date.png）。karitatieとは完全に独立した
+    // 位置・サイズ。被らないよう手動でX座標をずらしてある。
+    // ==================================================================
+    constexpr float kDateX = kKaritatieX + kKaritatieWidth + 40.0f; // ← karitatieの右側、被らない位置
+    constexpr float kDateY = 200.0f;
+    constexpr float kDateHeight = 400.0f;
+    constexpr float kDateAspectWidth = 2160.0f;   // ← date.pngの実際の幅(px)
+    constexpr float kDateAspectHeight = 3840.0f;  // ← date.pngの実際の高さ(px)
+    constexpr float kDateWidth = kDateHeight * (kDateAspectWidth / kDateAspectHeight);
+    constexpr int kDateKey1 = KEY_INPUT_LSHIFT;
+    constexpr int kDateKey2 = KEY_INPUT_D;
+
+    const bool showDateImage = CheckHitKey(kDateKey1) && CheckHitKey(kDateKey2);
+    if (showDateImage)
+    {
+        const int dateTextureId = m_assets.GetTexture("date");
+        if (dateTextureId >= 0)
+        {
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+            SpriteDraw(
+                dateTextureId,
+                kDateX + offsetX,
+                kDateY,
+                kDateWidth,
+                kDateHeight,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f);
+        }
+    }
 }
 
 void ResultScene::DrawCapturedPhotosGrid(float offsetX) const
@@ -1043,6 +1448,7 @@ void ResultScene::DrawCapturedPhotosGrid(float offsetX) const
     const int innerTexture = m_assets.GetTexture("ui_photo_album_inner");
     const int filmBlackTexture = m_assets.GetTexture("ui_photo_frame_film_black");
     const int filmBrownTexture = m_assets.GetTexture("ui_photo_frame_film_brown");
+    const int emptyTexture = m_assets.GetTexture("ui_photo_empty");
 
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -1094,6 +1500,17 @@ void ResultScene::DrawCapturedPhotosGrid(float offsetX) const
         const float thisLandedAt = landedAt + static_cast<float>(index) * kPhotoRevealStagger;
         const bool landed = elapsedSeconds >= thisLandedAt;
         const bool showAsFilled = capture != nullptr && landed;
+
+        // フィルム（未撮影=黒、撮影済み=茶色）を、縦横比を保ったままスロット中央に敷く。
+// 未撮影スロットには、photo_empty.pngを薄い白フィルターで先に敷いておく。
+        if (!showAsFilled && emptyTexture >= 0)
+        {
+            const float emptyHeight = cell.width / kPhotoFilmAspect;
+            const float emptyY = cellY + (cell.height - emptyHeight) * 0.5f;
+            Shader_SetTint(1.0f, 1.0f, 1.0f, kPhotoEmptyOverlayAlpha);
+            SpriteDraw(emptyTexture, cellX, emptyY, cell.width, emptyHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+        }
 
         // フィルム（未撮影=黒、撮影済み=茶色）を、縦横比を保ったままスロット中央に敷く。
         const int filmTexture = showAsFilled ? filmBrownTexture : filmBlackTexture;

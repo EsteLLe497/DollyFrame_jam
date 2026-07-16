@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "b_gui_display_defs.h"
 #include "game_scene_internal.h"
 #include "game_viewport.h"
 #include "game_scene_player_visual_system.h"
@@ -71,6 +72,11 @@ bool GameScene::TryHandleModalUpdates(float deltaTime)
         return true;
     }
 
+    if (UpdateSepiaUnlockOverlay(deltaTime))
+    {
+        return true;
+    }
+
     if (m_ui.merchantShopOpen)
     {
         UpdateMerchantShopInput();
@@ -137,11 +143,46 @@ void GameScene::FinalizeGameplayFrame(float effectiveGameplayDeltaTime)
 {
     GameSession_SetTimeRemaining(m_flow.timeRemaining);
     RunGameplayFrame(effectiveGameplayDeltaTime);
+    UpdateBGuiDisplays(m_flow.lastDeltaTime);
     TryStartCameraTutorial();
     UpdateBossBgmCue();
     if (Entity* player = FindEntityByTag(kTagPlayer))
     {
         game_scene_player_visual_system::UpdateAnimation(m_player, m_flow, *player, m_player.dodgeRemaining > 0.0f);
+    }
+}
+
+void GameScene::UpdateBGuiDisplays(float deltaTime)
+{
+    const Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* transform = player ? player->GetComponent<TransformComponent>() : nullptr;
+    if (!transform)
+    {
+        for (float& alpha : m_bGuiDisplayAlphas)
+        {
+            alpha = std::max(0.0f, alpha - b_gui::gFadeOutSpeed * deltaTime);
+        }
+        return;
+    }
+
+    const float playerCenterX = transform->x + transform->width * transform->scale * 0.5f;
+    const float playerCenterY = transform->y + transform->height * transform->scale * 0.5f;
+    for (size_t index = 0; index < b_gui::kDisplayCount; ++index)
+    {
+        const b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+        const bool stageEnabled =
+            ((display.stageMask & b_gui::StageForest) != 0 && m_lifecycle.forestStageEnabled) ||
+            ((display.stageMask & b_gui::StageRuins) != 0 && m_lifecycle.ruinsStageEnabled);
+        const bool inside =
+            stageEnabled &&
+            playerCenterX >= display.triggerCenterX - display.triggerHalfWidth &&
+            playerCenterX <= display.triggerCenterX + display.triggerHalfWidth &&
+            playerCenterY >= display.triggerCenterY - display.triggerHalfHeight &&
+            playerCenterY <= display.triggerCenterY + display.triggerHalfHeight;
+        float& alpha = m_bGuiDisplayAlphas[index];
+        alpha = inside
+            ? std::min(1.0f, alpha + b_gui::gFadeInSpeed * deltaTime)
+            : std::max(0.0f, alpha - b_gui::gFadeOutSpeed * deltaTime);
     }
 }
 
@@ -163,7 +204,7 @@ void GameScene::PrepareFrameRendering()
             baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
         }
     }
-    // 中ボス1との正規化距離に比例して、通常カメラを滑らかにズームアウトします。
+    // 中ボス1との正規化距離に比例して、E��常カメラを滑らかにズームアウトします、E
     baseCameraZoomMultiplier *= m_camera.shieldBossDistanceZoomScale;
     m_render.viewScaleMultiplier = m_mapEditor.active ? 1.0f : baseCameraZoomMultiplier;
 
@@ -314,7 +355,7 @@ void GameScene::DrawWorldAndUiLayers()
         IsShieldBossIntroCinematicActive();
 
     DrawGameWorldLayers();
-    // UIをビネット対象から外すため、ワールドだけを先にポストプロセス合成する。
+    // UIをビネット対象から外すため、ワールドだけを先にポスト�Eロセス合�Eする、E
     DirectXCompositeSceneToBackBuffer(static_cast<float>(GetNowCount()) * 0.001f);
     DrawGameUiLayers(hideUiForIntroCinematic);
 }
@@ -338,7 +379,7 @@ void GameScene::DrawGameWorldLayers()
     DrawEffects();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
     DrawPastedEntitiesFront();
-    // バッテリー必要数はスイッチ固有情報のため、UI非表示中もワールド上へ表示する。
+    // バッチE��ー忁E��数はスイチE��固有情報のため、UI非表示中もワールド上へ表示する、E
     DrawBatterySwitchCounters();
     DrawStageDarknessOverlay();
     if (!IsMidBoss3DefeatCinematicActive())
@@ -359,6 +400,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
         DrawShieldBossIntroCurtainOverlay();
         DrawEscapeMenuOverlay();
         DrawTutorialOverlay();
+        DrawSepiaUnlockOverlay();
         return;
     }
     if (m_debug.hideNonPhotoUi)
@@ -366,6 +408,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
         DrawTestPhotos();
         DrawEscapeMenuOverlay();
         DrawTutorialOverlay();
+        DrawSepiaUnlockOverlay();
         return;
     }
     DrawTestPhotos();
@@ -389,6 +432,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
     DrawEnemyAttackRects();
     DrawShieldBossIntroCurtainOverlay();
     DrawTutorialOverlay();
+    DrawSepiaUnlockOverlay();
 }
 
 void GameScene::ResetFrameRendering()

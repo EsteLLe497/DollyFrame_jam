@@ -13,6 +13,8 @@ inline void UpdateEnemies(
     const std::vector<Entity*>& enemyEntities,
     const std::vector<Entity*>& interactionEntities,
     int tileTexture,
+    int enemy2ShotTexture,
+    int blasterRobotShotTexture,
     int rubbleTexture,
     float mapWidth,
     float mapHeight,
@@ -2645,6 +2647,7 @@ inline void UpdateEnemies(
                         enemy->attackTimer = 0.0f;
                         enemy->attackFrameTriggered = false;
                         enemy->SetAIState(EnemyComponent::AIState::Attack);
+                        playEnemyGun(*entity);
                         if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
                         {
                             animation->SetPlaybackSpeed(1.0f);
@@ -2825,8 +2828,16 @@ inline void UpdateEnemies(
                     transform->x + (facingRight ? transform->width * transform->scale : -24.0f),
                     transform->y + 24.0f,
                     48.0f, 24.0f);
-                bullet->AddComponent<TintComponent>(1.0f, 0.9f, 0.2f, 1.0f);
-                bullet->AddComponent<SpriteRenderComponent>(tileTexture);
+                bullet->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+                auto& bulletSprite = bullet->AddComponent<SpriteRenderComponent>(
+                    enemy2ShotTexture >= 0 ? enemy2ShotTexture : tileTexture);
+                bulletSprite.SetFlipX(facingRight);
+                if (enemy2ShotTexture >= 0)
+                {
+                    auto& bulletAnimation = bullet->AddComponent<SpriteSheetAnimationComponent>();
+                    bulletAnimation.DefineClip("shot", enemy2ShotTexture, 5, 6, 0, 30, 30.0f, true);
+                    bulletAnimation.Play("shot", true);
+                }
                 bullet->AddComponent<ProjectileComponent>(velX, velY, 1);
                 playEnemyGun(*entity);
                 newBullets.push_back(std::move(bullet));
@@ -2946,8 +2957,17 @@ inline void UpdateEnemies(
                     transform->x + transform->width * transform->scale * 0.5f - 12.0f,
                     transform->y + transform->height * transform->scale * 0.5f - 12.0f,
                     24.0f, 24.0f);
-                bullet->AddComponent<TintComponent>(0.2f, 1.0f, 0.4f, 1.0f);
-                bullet->AddComponent<SpriteRenderComponent>(tileTexture);
+                bullet->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+                auto& bulletSprite = bullet->AddComponent<SpriteRenderComponent>(
+                    blasterRobotShotTexture >= 0 ? blasterRobotShotTexture : tileTexture);
+                bulletSprite.SetRenderScale(3.1f, 1.55f);
+                bulletSprite.SetRenderOffset(-25.2f, -6.6f);
+                if (blasterRobotShotTexture >= 0)
+                {
+                    auto& bulletAnimation = bullet->AddComponent<SpriteSheetAnimationComponent>();
+                    bulletAnimation.DefineClip("shot", blasterRobotShotTexture, 5, 6, 0, 30, 30.0f, true);
+                    bulletAnimation.Play("shot", true);
+                }
                 auto& proj = bullet->AddComponent<ProjectileComponent>(velX, velY, 1, ProjectileComponent::Owner::BlasterRobot);
                 proj.pierceRemaining = 2;
                 proj.maxEnemyHits = 2;

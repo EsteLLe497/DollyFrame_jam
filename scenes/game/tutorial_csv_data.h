@@ -23,6 +23,7 @@ enum class TutorialPageType
 struct TutorialPageData
 {
     TutorialPageType type = TutorialPageType::Conversation;
+    int order = 0;
     std::string speaker;
     std::string portraitPath;
     std::string title;

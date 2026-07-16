@@ -318,7 +318,6 @@ namespace
         float gearSocketWidthTiles = 2.0f;
         float gearSocketHeightTiles = 2.0f;
         LinkedGimmickColor batterySwitchColor{ 0.92f, 0.26f, 0.20f };
-        LinkedGimmickColor batteryGeneratorColor{ 0.32f, 0.32f, 0.32f };
         LinkedGimmickColor gearSocketColor{ 0.45f, 0.45f, 0.45f };
         LinkedGimmickColor elevatorColor{ 0.42f, 0.46f, 0.52f };
         LinkedGimmickColor laserSwitchColor{ 0.96f, 0.86f, 0.20f };
@@ -374,7 +373,7 @@ namespace
                         std::toupper(static_cast<unsigned char>(
                             tileMap.GetMarker2(column, row))));
                     const bool isPlayerSwitch = secondaryMarker == '*';
-                    // K2(J3 のように指定すると、必要数2のスイッチをリンクID 3へ接続する。
+                    // K2(J3 のように持E��すると、忁E��数2のスイチE��をリンクID 3へ接続する、E
                     const int linkIdOverride = secondaryMarker == 'J'
                         ? (std::max)(0, tileMap.GetMarkerParameter2(column, row))
                         : -1;
@@ -602,7 +601,7 @@ namespace
                 continue;
             }
 
-            // K4(Q のような指定は、最寄りの同型エレベーターへ接続する。
+            // K4(Q のような持E���E、最寁E��の同型エレベ�Eターへ接続する、E
             const float dx = elevatorMarker.x - marker.x;
             const float dy = elevatorMarker.y - marker.y;
             const float distanceSq = dx * dx + dy * dy;
@@ -850,6 +849,8 @@ void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int sp
 {
     const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
     auto generatorEntity = std::make_unique<Entity>();
+    const int generatorTexture = m_assets.GetTexture("tile_value_battery_generator");
+    auto elevatorEntity = std::make_unique<Entity>();
     generatorEntity->AddComponent<TagComponent>(kTagBatteryGenerator);
     generatorEntity->AddComponent<TransformComponent>(
         x,
@@ -857,11 +858,11 @@ void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int sp
         tileSize * cfg.batteryGeneratorWidthTiles,
         tileSize * cfg.batteryGeneratorHeightTiles);
     generatorEntity->AddComponent<TintComponent>(
-        cfg.batteryGeneratorColor.r,
-        cfg.batteryGeneratorColor.g,
-        cfg.batteryGeneratorColor.b,
+        1.0f,
+        1.0f,
+        1.0f,
         1.0f);
-    generatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    generatorEntity->AddComponent<SpriteRenderComponent>(generatorTexture);
     generatorEntity->AddComponent<BatteryGeneratorComponent>(
         linkId,
         cfg.batteryGeneratorCooldownSeconds,
@@ -876,19 +877,19 @@ void GameScene::SpawnGearMarker(float x, float y, int gearNo, float tileSize)
     switch (gearNo)
     {
     case 1:
-        gearTexture = m_assets.GetTexture("star");
+        gearTexture = m_assets.GetTexture("gear_circle");
         break;
     case 2:
-        gearTexture = m_assets.GetTexture("apple");
+        gearTexture = m_assets.GetTexture("gear_ellipse");
         break;
     case 3:
-        gearTexture = m_assets.GetTexture("circle");
+        gearTexture = m_assets.GetTexture("gear_triangle");
         break;
     case 4:
-        gearTexture = m_assets.GetTexture("daikei");
+        gearTexture = m_assets.GetTexture("gear_square");
         break;
     case 5:
-        gearTexture = m_assets.GetTexture("haguruma");
+        gearTexture = m_assets.GetTexture("gear_hexagon");
         break;
     default:
         break;
@@ -925,19 +926,19 @@ void GameScene::SpawnGearSocketMarker(
     switch (gearNo)
     {
     case 1:
-        gearTexture = m_assets.GetTexture("star");
+        gearTexture = m_assets.GetTexture("gear_circle");
         break;
     case 2:
-        gearTexture = m_assets.GetTexture("apple");
+        gearTexture = m_assets.GetTexture("gear_ellipse");
         break;
     case 3:
-        gearTexture = m_assets.GetTexture("circle");
+        gearTexture = m_assets.GetTexture("gear_triangle");
         break;
     case 4:
-        gearTexture = m_assets.GetTexture("daikei");
+        gearTexture = m_assets.GetTexture("gear_square");
         break;
     case 5:
-        gearTexture = m_assets.GetTexture("haguruma");
+        gearTexture = m_assets.GetTexture("gear_hexagon");
         break;
     default:
         break;
@@ -950,9 +951,9 @@ void GameScene::SpawnGearSocketMarker(
         tileSize * cfg.gearSocketWidthTiles,
         tileSize * cfg.gearSocketHeightTiles);
     socketEntity->AddComponent<TintComponent>(
-        cfg.gearSocketColor.r,
-        cfg.gearSocketColor.g,
-        cfg.gearSocketColor.b,
+        0.0f,
+        0.0f,
+        0.0f,
         1.0f);
     socketEntity->AddComponent<SpriteRenderComponent>(gearTexture >= 0 ? gearTexture : m_whiteTexture);
     socketEntity->AddComponent<GearSocketComponent>(gearNo, requiredGearCount, linkId);
@@ -1238,7 +1239,7 @@ void GameScene::RefreshEnemiesFromMarkers()
                 EnemySpawnRule{ 'R', "sandbox_enemy_ranged", nullptr },
                 EnemySpawnRule{ '$', "sandbox_enemy_charger", nullptr },
                 EnemySpawnRule{ 'A', "sandbox_enemy_ghost", nullptr },
-                EnemySpawnRule{ 'D', "sandbox_enemy_blaster_robot", nullptr },
+                EnemySpawnRule{ 'D', "sandbox_enemy_blaster_robot", &GameScene::ConfigureBlasterRobotSpriteAnimation },
             };
 
             const auto trySpawnRegularEnemy = [&](char spawnMarker) -> bool
@@ -1376,7 +1377,7 @@ void GameScene::RefreshBatteriesFromMarkers()
                 260.0f,
                 320.0f,
                 1);
-            // 開始直後の大きなdeltaTimeで床を抜けないよう、配置時点で接地を確定する。
+            // 開始直後�E大きなdeltaTimeで床を抜けなぁE��ぁE��E�E置時点で接地を確定する、E
             auto* batteryTransform = battery->GetComponent<TransformComponent>();
             auto* batteryComponent = battery->GetComponent<BatteryComponent>();
             if (batteryTransform && batteryComponent)
@@ -1749,6 +1750,9 @@ void GameScene::RefreshLaserTurretsFromMarkers()
         return;
     }
 
+    const int laserTexture = m_assets.GetTexture("tile_value_laser");
+    const int resolvedLaserTexture = laserTexture >= 0 ? laserTexture : m_whiteTexture;
+
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -1773,9 +1777,17 @@ void GameScene::RefreshLaserTurretsFromMarkers()
 
             auto turret = std::make_unique<Entity>();
             turret->AddComponent<TagComponent>(kTagLaserTurret);
-            turret->AddComponent<TransformComponent>(turretX, turretY, turretWidth, turretHeight);
-            turret->AddComponent<TintComponent>(0.40f, 0.44f, 0.50f, 1.0f);
-            turret->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            auto& turretTransform = turret->AddComponent<TransformComponent>(turretX, turretY, turretWidth, turretHeight);
+            turret->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            auto& turretSprite = turret->AddComponent<SpriteRenderComponent>(resolvedLaserTexture);
+            turretSprite.SetFlipX(!vertical && !shootsLeft);
+            if (vertical)
+            {
+                constexpr float kQuarterTurnRadians = 3.14159265f * -0.5f;
+                turretSprite.SetRenderOffset(-tileSize, tileSize);
+                turretSprite.SetRenderScale(3.0f, 1.0f / 3.0f);
+                turretTransform.rotation = kQuarterTurnRadians;
+            }
             auto& turretComponent = turret->AddComponent<LaserTurretComponent>(
                 beamThickness,
                 1.0f,
@@ -1897,7 +1909,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         const SwitchMarker& marker = switchMarkers[static_cast<size_t>(index)];
         if (!marker.controlsLaserPower)
         {
-            // ジェネレーターもスイッチと同じ解決済みリンクを利用する。
+            // ジェネレーターもスイチE��と同じ解決済みリンクを利用する、E
             batteryGeneratorSwitchLinkIds.push_back(switchLinkIds[static_cast<size_t>(index)]);
         }
     }
@@ -2356,7 +2368,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             auto rubble = std::make_unique<Entity>();
             rubble->AddComponent<TagComponent>(kTagSepiaRubble);
 
-            // 外接矩形サイズでTransformを作る（すでに groupX/Y/Width/Height は計算済み）
+            // 外接矩形サイズでTransformを作る�E�すでに groupX/Y/Width/Height は計算済み�E�E
             rubble->AddComponent<TransformComponent>(groupX, groupY, groupWidth, groupHeight);
 
             rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
@@ -2413,6 +2425,9 @@ void GameScene::ReflashFallingRockfromMarkers()
         return;
     }
 
+    const int rockTexture = m_assets.GetTexture("tile_value_s_falling_rock");
+    const int resolvedRockTexture = rockTexture >= 0 ? rockTexture : m_whiteTexture;
+
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -2430,8 +2445,8 @@ void GameScene::ReflashFallingRockfromMarkers()
                 static_cast<float>(row) * tileSize,
                 tileSize * 2.0f,
                 tileSize * 2.0f);
-            fallingRock->AddComponent<TintComponent>(0.6f, 0.6f, 0.85f, 1.0f);
-            fallingRock->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            fallingRock->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            fallingRock->AddComponent<SpriteRenderComponent>(resolvedRockTexture);
             fallingRock->AddComponent<ImageOutlineColliderComponent>(
                 std::vector<b2Vec2>{
                     { 0.0f, 0.0f },
@@ -2490,6 +2505,9 @@ void GameScene::RefreshHangingGravityObjectsFromMarkers()
         return 0.0f;
     };
 
+    const int hangingTexture = m_assets.GetTexture("tile_value_elevator_on");
+    const int resolvedHangingTexture = hangingTexture >= 0 ? hangingTexture : m_whiteTexture;
+
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -2515,8 +2533,8 @@ void GameScene::RefreshHangingGravityObjectsFromMarkers()
                 objectY,
                 objectWidth,
                 objectHeight);
-            hangingObject->AddComponent<TintComponent>(1.0f, 0.35f, 0.75f, 1.0f);
-            hangingObject->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            hangingObject->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            hangingObject->AddComponent<SpriteRenderComponent>(resolvedHangingTexture);
             auto& hanging = hangingObject->AddComponent<HangingGravityObjectComponent>(
                 gBarrelGravity,
                 500.0f,

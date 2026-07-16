@@ -350,6 +350,39 @@ namespace
         DrawTriangleAA(ax, ay, cx, cy, dx, dy, color, TRUE);
     }
 
+    void DrawSolidLineNoAA(
+        float startX,
+        float startY,
+        float endX,
+        float endY,
+        const COLOR_U8& color,
+        float thickness)
+    {
+        const float deltaX = endX - startX;
+        const float deltaY = endY - startY;
+        const float length = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+        if (length <= 0.0001f || thickness <= 0.0f)
+        {
+            return;
+        }
+
+        const float halfThickness = thickness * 0.5f;
+        const float normalX = -deltaY / length * halfThickness;
+        const float normalY = deltaX / length * halfThickness;
+        VERTEX2D vertices[4]{};
+        const auto setVertex = [&](VERTEX2D& vertex, float x, float y)
+        {
+            vertex.pos = VGet(x, y, 0.0f);
+            vertex.rhw = 1.0f;
+            vertex.dif = color;
+        };
+        setVertex(vertices[0], startX + normalX, startY + normalY);
+        setVertex(vertices[1], startX - normalX, startY - normalY);
+        setVertex(vertices[2], endX + normalX, endY + normalY);
+        setVertex(vertices[3], endX - normalX, endY - normalY);
+        DrawPrimitive2D(vertices, 4, DX_PRIMTYPE_TRIANGLESTRIP, DX_NONE_GRAPH, TRUE);
+    }
+
     void DrawPlayerSwitchDomeFace(
         int left,
         int right,
@@ -2278,7 +2311,7 @@ void GameScene::DrawEntity(const Entity& entity) const
         const auto* shield = entity.GetComponent<ShieldComponent>();
         if (shield && sprite->GetTextureId() == m_whiteTexture)
         {
-            // 攻撃・盾の判定用白テクスチャは見た目だけ隠し、当たり判定は残す。
+            // 攻撁E�E盾の判定用白チE��スチャは見た目だけ隠し、当たり判定�E残す、E
             return;
         }
         if (HasTag(tag, EntityTag::CapturedShield) &&
@@ -2705,19 +2738,34 @@ void GameScene::DrawEntity(const Entity& entity) const
                 const float wireScreenTop = viewOriginY + (hanging->wireTopY - m_flow.cameraY) * viewScale;
                 const float wireScreenWidth = std::max(1.0f, hanging->wireWidth * viewScale);
                 const float wireScreenHeight = hanging->wireLength * viewScale;
-                int left = static_cast<int>(std::round(wireScreenX - wireScreenWidth * 0.5f));
-                int top = static_cast<int>(std::round(wireScreenTop));
-                int right = static_cast<int>(std::round(wireScreenX + wireScreenWidth * 0.5f));
-                int bottom = static_cast<int>(std::round(wireScreenTop + wireScreenHeight));
-                if (right <= left)
-                {
-                    right = left + 1;
-                }
+                const float left = wireScreenX - wireScreenWidth * 0.5f;
+                const float top = wireScreenTop;
+                const float right = wireScreenX + wireScreenWidth * 0.5f;
+                const float bottom = wireScreenTop + wireScreenHeight;
                 if (bottom > top)
                 {
                     Shader_ResetStyle();
                     SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(255.0f * alphaMultiplier)));
-                    DrawBox(left, top, right, bottom, GetColor(0, 0, 0), TRUE);
+                    DrawBoxAA(left - 5.0f, top, right + 5.0f, bottom, GetColor(200, 200, 200), TRUE);
+                    DrawBoxAA(left, top, right, bottom, GetColor(100, 100, 100), TRUE);
+                    const float wirePixelWidth = right - left;
+                    if (wirePixelWidth >= 3.0f)
+                    {
+                        const float stripeHeight = std::max(1.0f, wireScreenWidth);
+                        const float stripeSpacing = std::max(stripeHeight + 1.0f, wireScreenWidth * 1.5f);
+                        const float stripeLeft = left + 0.0f;
+                        const float stripeRight = right - 0.0f;
+                        for (float stripeTop = top; stripeTop + stripeHeight <= bottom; stripeTop += stripeSpacing)
+                        {
+                            DrawSolidLineNoAA(
+                                stripeLeft - 3.0f,
+                                stripeTop,
+                                stripeRight + 3.0f,
+                                stripeTop + stripeHeight,
+                                GetColorU8(200, 200, 200, 255),
+                                3.5f);
+                        }
+                    }
                     SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
                     Shader_ResetStyle();
                 }
@@ -3043,6 +3091,69 @@ void GameScene::DrawEntity(const Entity& entity) const
 
     if (tag && HasTag(tag, kTagGoal))
     {
+        const bool bossStageGoalVisual =
+            m_lifecycle.currentMapCsvPath.find("_boss") != std::string::npos ||
+            m_lifecycle.currentMapCsvPath.find("/boss/") != std::string::npos ||
+            m_lifecycle.currentMapCsvPath.find("\\boss\\") != std::string::npos;
+        if (bossStageGoalVisual)
+        {
+            const int left = static_cast<int>(std::round(drawX));
+            const int right = static_cast<int>(std::round(drawX + drawWidth));
+            int top = static_cast<int>(std::round(drawY));
+            int bottom = static_cast<int>(std::round(drawY + drawHeight));
+            const float tileSize = m_tileMap.GetTileSize();
+            if (tileSize > 0.0f && m_tileMap.GetWidth() > 0 && m_tileMap.GetHeight() > 0)
+            {
+                const float entityCenterX = transform->x + transform->width * transform->scale * 0.5f;
+                const float entityCenterY = transform->y + transform->height * transform->scale * 0.5f;
+                const int goalColumn = std::clamp(
+                    static_cast<int>(std::floor(entityCenterX / tileSize)),
+                    0,
+                    m_tileMap.GetWidth() - 1);
+                const int goalRow = std::clamp(
+                    static_cast<int>(std::floor(entityCenterY / tileSize)),
+                    0,
+                    m_tileMap.GetHeight() - 1);
+
+                int visualTopRow = goalRow;
+                while (visualTopRow > 0 && !IsSolidTile(goalColumn, visualTopRow - 1))
+                {
+                    --visualTopRow;
+                }
+
+                int visualBottomRow = goalRow;
+                while (visualBottomRow + 1 < m_tileMap.GetHeight() && !IsSolidTile(goalColumn, visualBottomRow + 1))
+                {
+                    ++visualBottomRow;
+                }
+
+                const float visualTopWorld = static_cast<float>(visualTopRow) * tileSize;
+                const float visualBottomWorld = static_cast<float>(visualBottomRow + 1) * tileSize;
+                top = static_cast<int>(std::round(viewOriginY + (visualTopWorld - m_flow.cameraY) * viewScale));
+                bottom = static_cast<int>(std::round(viewOriginY + (visualBottomWorld - m_flow.cameraY) * viewScale));
+            }
+            constexpr int kShadowBandCount = 8;
+            constexpr int kShadowMinAlpha = 24;
+            constexpr int kShadowMaxAlpha = 176;
+            const int shadowLeft = left + (right - left) / 2;
+            const int shadowWidth = (std::max)(1, right - shadowLeft);
+            for (int bandIndex = 0; bandIndex < kShadowBandCount; ++bandIndex)
+            {
+                const float bandEndRate = static_cast<float>(bandIndex + 1) / static_cast<float>(kShadowBandCount);
+                const int bandLeft = shadowLeft + static_cast<int>(std::floor(shadowWidth * static_cast<float>(bandIndex) / static_cast<float>(kShadowBandCount)));
+                const int bandRight = shadowLeft + static_cast<int>(std::ceil(shadowWidth * bandEndRate));
+                const int alpha = static_cast<int>(std::round(std::lerp(static_cast<float>(kShadowMinAlpha), static_cast<float>(kShadowMaxAlpha), bandEndRate)));
+                SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+                DrawBox(bandLeft, top, bandRight, bottom, GetColor(0, 0, 0), TRUE);
+            }
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            Shader_ResetStyle();
+            return;
+        }
+    }
+
+    if (tag && HasTag(tag, kTagGoal))
+    {
         Shader_SetOutline(
             m_flow.goalUnlocked ? 0.28f : 0.92f,
             m_flow.goalUnlocked ? 1.0f : 0.22f,
@@ -3091,7 +3202,7 @@ void GameScene::DrawEntity(const Entity& entity) const
     }
     else if (tag && HasTag(tag, "BossShockwave"))
     {
-        // 叩きつけ後の衝撃波は判定だけ残し、たたき台の青い可視判定は描かない。
+        // 叩きつけ後�E衝撃波は判定だけ残し、たたき台の青い可視判定�E描かなぁE��E
         Shader_ResetStyle();
         return;
     }
@@ -3099,6 +3210,49 @@ void GameScene::DrawEntity(const Entity& entity) const
     {
         const auto* drop = entity.GetComponent<DropItemComponent>();
         const float pulse = drop ? Clamp01(drop->GetAttractTimer() / 0.18f) : 0.0f;
+        if (drop && drop->GetKind() == DropItemKind::SepiaFilter)
+        {
+            const int frameIndex = (GetNowCount() / 120) % 2;
+            const int textureId = m_assets.GetTexture(frameIndex == 0 ? "sepia_filter_drop_0" : "sepia_filter_drop_1");
+            Shader_ResetStyle();
+            const float burstCenterX = drawX + drawWidth * 0.5f;
+            const float burstCenterY = drawY + drawHeight * 0.5f;
+            const float burstBaseRadius = std::max(drawWidth, drawHeight) * 0.78f;
+            const float burstOuterRadius = burstBaseRadius * (1.95f + 0.12f * std::sin(static_cast<float>(GetNowCount()) * 0.006f));
+            const float burstRotation = static_cast<float>(GetNowCount()) * 0.0018f;
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(132.0f * alphaMultiplier)), 0, 255));
+            for (int ray = 0; ray < 18; ++ray)
+            {
+                const float centerAngle = burstRotation + static_cast<float>(ray) * 6.2831853f / 18.0f;
+                const float halfAngle = (ray % 2 == 0) ? 0.115f : 0.075f;
+                const float outerRadius = burstOuterRadius * ((ray % 2 == 0) ? 1.0f : 0.72f);
+                const float ax = burstCenterX + std::cos(centerAngle - halfAngle) * burstBaseRadius;
+                const float ay = burstCenterY + std::sin(centerAngle - halfAngle) * burstBaseRadius;
+                const float bx = burstCenterX + std::cos(centerAngle) * outerRadius;
+                const float by = burstCenterY + std::sin(centerAngle) * outerRadius;
+                const float cx = burstCenterX + std::cos(centerAngle + halfAngle) * burstBaseRadius;
+                const float cy = burstCenterY + std::sin(centerAngle + halfAngle) * burstBaseRadius;
+                DrawTriangleAA(ax, ay, bx, by, cx, cy, GetColor(255, 234, 88), TRUE);
+            }
+            DrawCircleAA(burstCenterX, burstCenterY, burstBaseRadius * 1.05f, 48, GetColor(255, 248, 128), TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+            Shader_SetBlendMode(ShaderBlendMode2D::Alpha);
+            Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
+            SpriteDraw(
+                textureId >= 0 ? textureId : sprite->GetTextureId(),
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f,
+                false,
+                transform->rotation + std::sin(static_cast<float>(GetNowCount()) * 0.008f) * 0.16f);
+            Shader_ResetStyle();
+            return;
+        }
         DrawDropItemOctahedron(
             drawX,
             drawY,
@@ -3196,7 +3350,53 @@ void GameScene::DrawEntity(const Entity& entity) const
                 return;
             }
 
+            if (sprite->GetTextureId() == m_assets.GetTexture("enemy2_shot"))
+            {
+                if (tint)
+                {
+                    Shader_SetTint(tint->r, tint->g, tint->b, tint->a * alphaMultiplier);
+                }
+                else
+                {
+                    Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
+                }
+                SpriteDraw(
+                    sprite->GetTextureId(),
+                    drawX,
+                    drawY,
+                    drawWidth,
+                    drawHeight,
+                    sprite->GetSourceX(),
+                    sprite->GetSourceY(),
+                    sprite->GetSourceWidth(),
+                    sprite->GetSourceHeight(),
+                    sprite->GetFlipX(),
+                    transform->rotation);
+                Shader_ResetStyle();
+                return;
+            }
+
             const float angle = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
+            if (projectile->GetOwner() == ProjectileComponent::Owner::BlasterRobot &&
+                sprite->GetTextureId() == m_assets.GetTexture("blaster_robot_shot"))
+            {
+                Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
+                SpriteDraw(
+                    sprite->GetTextureId(),
+                    drawX,
+                    drawY,
+                    drawWidth,
+                    drawHeight,
+                    sprite->GetSourceX(),
+                    sprite->GetSourceY(),
+                    sprite->GetSourceWidth(),
+                    sprite->GetSourceHeight(),
+                    sprite->GetFlipX(),
+                    angle - 3.1415926535f);
+                Shader_ResetStyle();
+                return;
+            }
+
             if (midBoss2Spear)
             {
                 const auto* spear = midBoss2Spear;
@@ -4543,7 +4743,7 @@ void GameScene::DrawEnemyAttackRects() const
                 GetColor(255, 80, 80), TRUE);
         }
 
-        // ・ｽ・ｽ・ｽ{・ｽX・ｽU・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ
+        // ・�E�・�E�・�E�{・�E�X・�E�U・�E�・�E�・�E�・�E�・�E�・�E�
         const auto* boss = entity->GetComponent<ShieldBossComponent>();
         if (boss && boss->attackRectActive)
         {
@@ -4554,14 +4754,16 @@ void GameScene::DrawEnemyAttackRects() const
 
             const unsigned int color =
                 boss->state == ShieldBossState::Rush
-                ? GetColor(255, 80, 80)    // ・ｽﾋ進・ｽﾍオ・ｽ・ｽ・ｽ・ｽ・ｽW
+                ? GetColor(255, 80, 80)    // ・�E��E�進・�E��E�オ・�E�・�E�・�E�・�E�・�E�W
                 : boss->state == ShieldBossState::SlamPhase1
-                ? GetColor(255, 140, 0)    // ・ｽ・ｽ・ｽ・ｽ@・ｽﾍオ・ｽ・ｽ・ｽ・ｽ・ｽW
-                : GetColor(180, 0, 255);   // ・ｽ・ｽ・ｽ・ｽA・ｽﾍ趣ｿｽ
+                ? GetColor(255, 140, 0)    // ・�E�・�E�・�E�・�E�@・�E��E�オ・�E�・�E�・�E�・�E�・�E�W
+                : GetColor(180, 0, 255);   // ・�E�・�E�・�E�・�E�A・�E��E�趣�E��E�
 
             DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH,
                 color, TRUE);
         }
     }
 }
+
+
 

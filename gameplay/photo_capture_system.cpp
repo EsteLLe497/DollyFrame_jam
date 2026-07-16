@@ -24,6 +24,52 @@ namespace
 
     using OutlinePoint = CapturedPhotoItem::OutlinePoint;
 
+    bool RectsOverlap(float leftA, float topA, float rightA, float bottomA, float leftB, float topB, float rightB, float bottomB)
+    {
+        return leftA < rightB &&
+            rightA > leftB &&
+            topA < bottomB &&
+            bottomA > topB;
+    }
+
+    bool TryRecoverPlayerFromFinder(PhotoFilterTheme selectedTheme, Entity& player, const TransformComponent& playerTransform, float frameX, float frameY, float frameWidth, float frameHeight)
+    {
+        if (GameSession_Get().recoveryFilterCount <= 0 ||
+            selectedTheme != PhotoFilterTheme::Cold)
+        {
+            return false;
+        }
+
+        auto* health = player.GetComponent<HealthComponent>();
+        if (!health || health->GetCurrentHealth() >= health->GetMaxHealth())
+        {
+            return false;
+        }
+
+        const float playerWidth = playerTransform.width * playerTransform.scale;
+        const float playerHeight = playerTransform.height * playerTransform.scale;
+        if (!RectsOverlap(
+            frameX,
+            frameY,
+            frameX + frameWidth,
+            frameY + frameHeight,
+            playerTransform.x,
+            playerTransform.y,
+            playerTransform.x + playerWidth,
+            playerTransform.y + playerHeight))
+        {
+            return false;
+        }
+
+        if (!GameSession_ConsumeRecoveryFilter())
+        {
+            return false;
+        }
+        health->SetCurrentHealth(health->GetCurrentHealth() + 1);
+        GameSession_SetCurrentHp(health->GetCurrentHealth());
+        return true;
+    }
+
     bool IsShieldBossRushCaptureReady(const Entity& bossEntity)
     {
         const auto* boss = bossEntity.GetComponent<ShieldBossComponent>();
@@ -257,20 +303,20 @@ namespace
 
     int ResolveGearTextureId(const AssetManifest& assets, int gearNo, int fallbackTexture)
     {
-        const char* textureKey = "star";
+        const char* textureKey = "gear_circle";
         switch (gearNo)
         {
         case 2:
-            textureKey = "apple";
+            textureKey = "gear_ellipse";
             break;
         case 3:
-            textureKey = "circle";
+            textureKey = "gear_triangle";
             break;
         case 4:
-            textureKey = "daikei";
+            textureKey = "gear_square";
             break;
         case 5:
-            textureKey = "haguruma";
+            textureKey = "gear_hexagon";
             break;
         case 1:
         default:
@@ -283,7 +329,7 @@ namespace
             return textureId;
         }
 
-        const int defaultTextureId = assets.GetTexture("star");
+        const int defaultTextureId = assets.GetTexture("gear_circle");
         return defaultTextureId >= 0 ? defaultTextureId : fallbackTexture;
     }
 
@@ -336,7 +382,8 @@ namespace
         const AssetManifest& assets,
         int restoredTextureId,
         int fallbackTexture,
-        int elevatorOffTexture,
+        int fallingRockTexture,
+        int elevatorOnTexture,
         int shutterTextureId,
         CapturedPhotoItem& item)
     {
@@ -357,21 +404,21 @@ namespace
             return true;
         case 'S':
             item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
-            item.textureId = fallbackTexture;
+            item.textureId = fallingRockTexture >= 0 ? fallingRockTexture : fallbackTexture;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
             item.placementRuleGroup = PhotoPlacementRuleGroup::Group2;
-            item.tintR = 0.6f;
-            item.tintG = 0.6f;
-            item.tintB = 0.6f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
             item.tintA = 1.0f;
             item.sepiaRestoredMarkerObject = true;
             return true;
         case '+':
             item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
-            item.textureId = sepiaGroup.markerType == '<' && elevatorOffTexture >= 0
-                ? elevatorOffTexture
+            item.textureId = sepiaGroup.markerType == '<' && elevatorOnTexture >= 0
+                ? elevatorOnTexture
                 : restoredTextureId;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
@@ -841,6 +888,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
     // 撮影判定も描画時と同じビュー状態で計算し、ファインダーの見た目と一致させる。
     scene.PrepareFrameRendering();
     scene.GetCaptureFrameRect(*playerTransform, frameX, frameY, frameWidth, frameHeight);
+    const bool recoveredPlayer = TryRecoverPlayerFromFinder(scene.m_photo.capture.selectedTheme, *player, *playerTransform, frameX, frameY, frameWidth, frameHeight);
     bool restoredSepiaBackground = false;
     scene.m_flow.cameraMode = false;
     bool hasSepiaRubbleInFrame = false;
@@ -923,7 +971,7 @@ void PhotoCaptureSystem::HandleCapture(GameScene& scene)
 
     if (scene.m_photo.capture.items.empty())
     {
-        if (flashEnabled || defeatedGhostInFinder || restoredSepiaBackground)
+        if (flashEnabled || defeatedGhostInFinder || restoredSepiaBackground || recoveredPlayer)
         {
             scene.m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "shutter", 0.0f, 0.0f });
             scene.m_ui.shutterFlashRemaining = gShutterFlashSeconds;
@@ -1250,8 +1298,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                                 if (SpawnRestoredSepiaMarkerObject(
                                     scene.m_world.PendingEntities(),
                                     scene.m_whiteTexture,
-                                    scene.m_assets.GetTexture("star"),
-                                    scene.m_assets.GetTexture("tile_value_elevator_off"),
+                                    scene.m_assets.GetTexture("gear_circle"),
+                                    scene.m_assets.GetTexture("tile_value_elevator_on"),
                                     tileSize,
                                     restoredLifetimeSeconds,
                                     restoredMarkerType,
@@ -1355,7 +1403,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     scene.m_assets,
                     scene.m_assets.GetTexture("sepia_rubble_stage"),
                     scene.m_whiteTexture,
-                    scene.m_assets.GetTexture("tile_value_elevator_off"),
+                    scene.m_assets.GetTexture("tile_value_s_falling_rock"),
+                    scene.m_assets.GetTexture("tile_value_elevator_on"),
                     scene.m_assets.GetTexture("sepia_shutter_gate"),
                     item))
                 {
@@ -1518,14 +1567,15 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         else if (capturedFallingRockRubble)
         {
             item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
+            item.textureId = scene.m_assets.GetTexture("tile_value_s_falling_rock");
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
-            item.textureId = scene.m_whiteTexture;
         }
         else if (capturedFallingRock)
         {
             item.spawnArchetype = CapturedSpawnArchetype::FallingRock;
+            item.textureId = scene.m_assets.GetTexture("tile_value_s_falling_rock");
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
             item.origin = PhotoCopyOrigin::Generic;
@@ -1723,11 +1773,13 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         else if (capturedFallingRockRubble)
         {
-            item.textureId = scene.m_whiteTexture;
             item.sourceX = 0.0f;
             item.sourceY = 0.0f;
             item.sourceWidth = 1.0f;
             item.sourceHeight = 1.0f;
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
             item.tintA = 1.0f;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
@@ -1736,6 +1788,9 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
         }
         else if (capturedFallingRock)
         {
+            item.tintR = 1.0f;
+            item.tintG = 1.0f;
+            item.tintB = 1.0f;
             item.tintA = 1.0f;
         }
         else if (midBoss3Fist)
@@ -1763,7 +1818,17 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.projectileVelocityX = projectile->GetVelocityX();
             item.projectileVelocityY = projectile->GetVelocityY();
             item.projectileDamage = projectile->GetDamage();
-            item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+            const int enemy2ShotTexture = scene.m_assets.GetTexture("enemy2_shot");
+            item.spriteProjectile =
+                enemy2ShotTexture >= 0 && sprite->GetTextureId() == enemy2ShotTexture;
+            if (item.spriteProjectile)
+            {
+                item.flipX = sprite->GetFlipX();
+            }
+            else
+            {
+                item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX);
+            }
             if (const auto* spear = entity->GetComponent<MidBoss2SpearComponent>())
             {
                 if (capturedMidBoss2Spear)
@@ -1848,7 +1913,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.layer = PhotoCopyLayer::Foreground;
         }
 
-        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !capturedShutter && !midBoss3Fist)
+        if (!capturedBarrel && !capturedFallingRock && !capturedBattery && !capturedGear && !capturedLaserTurret && !capturedLog && !capturedShield && !capturedDamagePlatform && !capturedDamagePlatformSpike && !isPhotoBox && !capturedVanishObject && !capturedWalker && !capturedSepiaRubble && !capturedShutter && !midBoss3Fist && !item.spriteProjectile)
         {
             ApplyPhotoFilterToCapturedTarget(*entity, scene.m_photo.capture.selectedTheme);
         }

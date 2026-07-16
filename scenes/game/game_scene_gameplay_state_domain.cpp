@@ -42,6 +42,7 @@ namespace
         capture = PhotoCaptureState{};
         capture.selectedTheme = theme;
     }
+
 }
 
 void GameScene::UpdatePlayerAfterimages(float deltaTime)

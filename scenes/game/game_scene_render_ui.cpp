@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 
+#include "b_gui_display_defs.h"
 #include "game_scene_internal.h"
 #include "game_scene_photo_storage_layout.h"
 #include "game_scene_render_ui_helpers.h"
@@ -93,20 +94,20 @@ namespace
 
     int ResolveSepiaFinderGearTextureId(const AssetManifest& assets, int gearNo, int fallbackTexture)
     {
-        const char* textureKey = "star";
+        const char* textureKey = "gear_circle";
         switch (gearNo)
         {
         case 2:
-            textureKey = "apple";
+            textureKey = "gear_ellipse";
             break;
         case 3:
-            textureKey = "circle";
+            textureKey = "gear_triangle";
             break;
         case 4:
-            textureKey = "daikei";
+            textureKey = "gear_square";
             break;
         case 5:
-            textureKey = "haguruma";
+            textureKey = "gear_hexagon";
             break;
         case 1:
         default:
@@ -119,7 +120,7 @@ namespace
             return textureId;
         }
 
-        const int defaultTextureId = assets.GetTexture("star");
+        const int defaultTextureId = assets.GetTexture("gear_circle");
         return defaultTextureId >= 0 ? defaultTextureId : fallbackTexture;
     }
 
@@ -147,12 +148,47 @@ namespace
         float parallax; // 1.0 = 通常の足場と同じ動き
     };
 
-    //// 仮配置。座標は後で調整
+    //forest.csv(151列×27行、タイルサイズ48px＝横7248px×縦1296px)を実際に調べて、
+    //    岩壁に埋まらない開けた場所を選び、間隔・高さをランダムにばらして配置しています。
+// forest_v2.csv（実際に使われている森ステージ。357列×64行、タイルサイズ48px）を
+    // 実際に調べて、岩壁に埋まらず地面に近い場所へ配置しています。
     //constexpr BackgroundPartPlacement kBackgroundParts[] =
     //{
-    //    { "bg_parts_tree_01",  320.0f, 480.0f, 192.0f, 256.0f, 1.0f },
-    //    { "bg_parts_rock_01",  860.0f, 620.0f, 128.0f,  96.0f, 1.0f },
-    //    { "bg_parts_grass_01", 540.0f, 700.0f, 160.0f,  64.0f, 1.0f },
+    //    { "bg_parts_01", 200.0f,  2366.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 665.0f,  2406.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 1236.0f, 2426.0f, 130.0f,  70.0f, 1.0f },
+    //    { "bg_parts_04", 1729.0f, 2416.0f, 100.0f,  80.0f, 1.0f },
+    //    { "bg_parts_05", 2298.0f, 2330.0f, 100.0f,  70.0f, 1.0f },
+    //    { "bg_parts_06", 2884.0f, 2070.0f, 120.0f,  90.0f, 1.0f },
+    //    { "bg_parts_07", 3433.0f, 1734.0f, 100.0f,  90.0f, 1.0f },
+    //    { "bg_parts_08", 3902.0f, 1714.0f, 110.0f, 110.0f, 1.0f },
+    //    { "bg_parts_01", 4367.0f, 1454.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 4847.0f, 1062.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 5415.0f, 1082.0f, 130.0f,  70.0f, 1.0f },
+    //    { "bg_parts_04", 5915.0f, 1264.0f, 100.0f,  80.0f, 1.0f },
+    //    { "bg_parts_05", 6313.0f, 1034.0f, 100.0f,  70.0f, 1.0f },
+    //    { "bg_parts_06", 6710.0f, 1062.0f, 120.0f,  90.0f, 1.0f },
+    //    { "bg_parts_07", 7265.0f,  918.0f, 100.0f,  90.0f, 1.0f },
+    //    { "bg_parts_08", 7746.0f, 1090.0f, 110.0f, 110.0f, 1.0f },
+    //    { "bg_parts_01", 8217.0f, 1022.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 8728.0f, 1734.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 9235.0f, 1754.0f, 130.0f,  70.0f, 1.0f },
+    //    { "bg_parts_04", 9788.0f, 2128.0f, 100.0f,  80.0f, 1.0f },
+    //    { "bg_parts_05", 10185.0f,2138.0f, 100.0f,  70.0f, 1.0f },
+    //    { "bg_parts_06", 10559.0f,1878.0f, 120.0f,  90.0f, 1.0f },
+    //    { "bg_parts_07", 11023.0f,1542.0f, 100.0f,  90.0f, 1.0f },
+    //    { "bg_parts_08", 11450.0f,1618.0f, 110.0f, 110.0f, 1.0f },
+    //    { "bg_parts_01", 11836.0f,1406.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 12209.0f,1302.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 12696.0f,1322.0f, 130.0f,  70.0f, 1.0f },
+    //    { "bg_parts_04", 13253.0f,1312.0f, 100.0f,  80.0f, 1.0f },
+    //    { "bg_parts_05", 13830.0f,1082.0f, 100.0f,  70.0f, 1.0f },
+    //    { "bg_parts_06", 14357.0f,1062.0f, 120.0f,  90.0f, 1.0f },
+    //    { "bg_parts_07", 14869.0f,1350.0f, 100.0f,  90.0f, 1.0f },
+    //    { "bg_parts_08", 15229.0f, 802.0f, 110.0f, 110.0f, 1.0f },
+    //    { "bg_parts_01", 15731.0f, 734.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 16182.0f, 774.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 16778.0f, 794.0f, 130.0f,  70.0f, 1.0f },
     //};
 
     float SmoothStep01(float t);
@@ -1334,6 +1370,8 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
             rubble &&
             (rubble->source == SepiaRubbleSource::MidBoss3Fist ||
                 rubble->source == SepiaRubbleSource::MidBoss3Drill);
+        const bool fallingRockRubble =
+            rubble && rubble->source == SepiaRubbleSource::FallingRock;
         const bool plainRubble =
             rubble &&
             rubble->source == SepiaRubbleSource::Generic &&
@@ -1446,8 +1484,8 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
                 Shader_SetTint(0.54f, 0.34f, 0.16f, 0.92f);
                 break;
             case 'S':
-                restoredTexture = m_whiteTexture;
-                Shader_SetTint(0.60f, 0.60f, 0.60f, 0.92f);
+                restoredTexture = m_assets.GetTexture("tile_value_s_falling_rock");
+                Shader_SetTint(1.0f, 1.0f, 1.0f, 0.92f);
                 break;
             case '[':
                 restoredTexture = ResolveSepiaFinderGearTextureId(
@@ -1491,7 +1529,9 @@ void GameScene::DrawSepiaFilmFilterOverlay() const
         const int plainRubbleTexture = m_assets.GetTexture("sepia_rubble_stage");
         const int rubbleTexture = plainRubble && plainRubbleTexture >= 0
             ? plainRubbleTexture
-            : m_assets.GetTexture("sepia_ground");
+            : fallingRockRubble
+                ? m_assets.GetTexture("tile_value_s_falling_rock")
+                : m_assets.GetTexture("sepia_ground");
         const int attackTexture = attackRubble && rubble
             ? (rubble->source == SepiaRubbleSource::MidBoss3Drill
                 ? m_assets.GetTexture("boss3_drill")
@@ -2760,6 +2800,15 @@ void GameScene::DrawPhotoStorageTray() const
         {
             DrawAspectTexture(m_assets.GetTexture(kPhotoTrayEmptyTextureKey), slot.x, slot.y, slot.width);
             DrawPhotoTrayFilmStrips(m_assets.GetTexture(kPhotoTrayEmptyFilmTextureKey), slot.x, slot.y, slot.width);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(std::round(210.0f * std::clamp(m_ui.photoTrayReveal, 0.0f, 1.0f))));
+            DrawBox(
+                static_cast<int>(std::round(slot.x)),
+                static_cast<int>(std::round(slot.y)),
+                static_cast<int>(std::round(slot.x + slot.width)),
+                static_cast<int>(std::round(slot.y + kPhotoTrayPhotoHeight + kPhotoTrayPhotoInsetY * 2.0f)),
+                GetColor(0, 0, 0),
+                TRUE);
+            SetDrawBlendMode(DX_BLENDMODE_ALPHA, trayAlpha);
             continue;
         }
 
@@ -2970,11 +3019,20 @@ void GameScene::DrawBackdropBaseInView(
 
     //// 背景（奥）を描画
     //drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
-    // 
     // 背景前景（手前）を描画（Y を下にオフセット）
     //drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
     // 背景前景（手前）を描画（Y を下にオフセット）
+    // 廃墟ステージだけ、背景に薄く灰色フィルターをかける。
+    constexpr float kRuinsBackdropTint = 0.42f; // 1.0=元の色のまま、0に近いほど暗い灰色になる
+    if (m_lifecycle.ruinsStageEnabled)
+    {
+        Shader_SetTint(kRuinsBackdropTint, kRuinsBackdropTint, kRuinsBackdropTint, 1.0f);
+    }
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
+    if (m_lifecycle.ruinsStageEnabled)
+    {
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+    }
 
     if (drawForestLayers)
     {
@@ -3061,6 +3119,7 @@ void GameScene::DrawBackdropBaseInView(
             { "ruins_layer7", 0.25f }, // 一番遅い
         };
 
+        Shader_SetTint(kRuinsBackdropTint, kRuinsBackdropTint, kRuinsBackdropTint, 1.0f);
         for (const RuinsLayerConfig& layer : kRuinsLayersInOrder)
         {
             const int layerTexture = m_assets.GetTexture(layer.textureKey);
@@ -3075,6 +3134,7 @@ void GameScene::DrawBackdropBaseInView(
             const float layerVSpan = viewHeight / static_cast<float>(layerTexH);
             drawTiledRepeating(layerTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, layerScrollU, 0.0f, layerUSpan, layerVSpan);
         }
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }
 
@@ -3101,6 +3161,8 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
                 continue;
             }
 
+            const bool bossStageGoalMarker = false;
+
             const StageTransitionLink* transition = nullptr;
             for (const StageTransitionLink& link : gStageTransitionLinks)
             {
@@ -3111,7 +3173,7 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
                     break;
                 }
             }
-            if (!transition)
+            if (!transition && !bossStageGoalMarker)
             {
                 continue;
             }
@@ -3123,7 +3185,7 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
             const int right = static_cast<int>(std::round(viewOriginX + (worldX + tileSize - m_flow.cameraX) * viewScale));
             const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + tileSize - m_flow.cameraY) * viewScale));
 
-            if (marker == '=')
+            if (marker == '=' || bossStageGoalMarker)
             {
                 // 遷移オブジェクト本体は描かず、右半分へ向かって濃くなる影だけを表示する。
                 constexpr int kShadowBandCount = 8;
@@ -3152,8 +3214,11 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
 
             DrawBox(left, top, right, bottom, GetColor(255, 210, 90), FALSE);
 
+            if (transition)
+            {
             const std::string destName = GetMapDisplayName(transition->destinationMapCsv);
             DrawFormatString(left, top - 16, GetColor(180, 240, 255), "→ %s", destName.c_str());
+            }
         }
     }
 }
@@ -3242,7 +3307,7 @@ void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, floa
         GetViewHeight()
     };
 
-    //DrawBackgroundPartsInView(viewOriginX, viewOriginY, viewScale); // ★これを追加し直す
+    //DrawBackgroundPartsInView(viewOriginX, viewOriginY, viewScale);
 
     // 写真カメラを含む現在の表示範囲だけにタイル描画を制限する。
     m_tileMap.Draw(
@@ -3255,9 +3320,78 @@ void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, floa
         m_tileTexture3,
         m_tileTexture4);
     DrawStageTransitionMarkersInView(viewOriginX, viewOriginY, viewScale);
+    DrawBGuiDisplaysInView(viewOriginX, viewOriginY, viewScale);
     DrawMapEditorMarkersInView(viewOriginX, viewOriginY, viewScale);
     DrawMidBoss2TeleportSlotsInView(viewOriginX, viewOriginY, viewScale);
     DrawStageGuideInView();
+}
+
+void GameScene::DrawBGuiDisplaysInView(float viewOriginX, float viewOriginY, float viewScale) const
+{
+    for (size_t index = 0; index < b_gui::kDisplayCount; ++index)
+    {
+        const float alpha = m_bGuiDisplayAlphas[index];
+        if (alpha <= 0.01f)
+        {
+            continue;
+        }
+
+        const b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+        const bool stageEnabled =
+            ((display.stageMask & b_gui::StageForest) != 0 && m_lifecycle.forestStageEnabled) ||
+            ((display.stageMask & b_gui::StageRuins) != 0 && m_lifecycle.ruinsStageEnabled);
+        if (!stageEnabled)
+        {
+            continue;
+        }
+
+        const int textureId = m_assets.GetTexture(display.textureKey);
+        if (textureId < 0)
+        {
+            continue;
+        }
+
+        const float drawX = viewOriginX + (display.worldX - m_flow.cameraX) * viewScale;
+        const float drawY = viewOriginY + (display.worldY - m_flow.cameraY) * viewScale;
+        const float drawWidth = display.width * viewScale;
+        const float drawHeight = display.height * viewScale;
+        if (drawX + drawWidth < viewOriginX ||
+            drawX > viewOriginX + GetViewWidth() ||
+            drawY + drawHeight < viewOriginY ||
+            drawY > viewOriginY + GetViewHeight())
+        {
+            continue;
+        }
+
+        Shader_ResetStyle();
+        Shader_SetTint(1.0f, 1.0f, 1.0f, alpha);
+        SpriteDraw(textureId, drawX, drawY, drawWidth, drawHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
+    Shader_ResetStyle();
+
+    if (!b_gui::gShowTriggerRects)
+    {
+        return;
+    }
+
+    for (const b_gui::DisplayDefinition& display : b_gui::gDisplayDefinitions)
+    {
+        const bool stageEnabled =
+            ((display.stageMask & b_gui::StageForest) != 0 && m_lifecycle.forestStageEnabled) ||
+            ((display.stageMask & b_gui::StageRuins) != 0 && m_lifecycle.ruinsStageEnabled);
+        if (!stageEnabled)
+        {
+            continue;
+        }
+
+        const int left = static_cast<int>(std::round(viewOriginX + (display.triggerCenterX - display.triggerHalfWidth - m_flow.cameraX) * viewScale));
+        const int top = static_cast<int>(std::round(viewOriginY + (display.triggerCenterY - display.triggerHalfHeight - m_flow.cameraY) * viewScale));
+        const int right = static_cast<int>(std::round(viewOriginX + (display.triggerCenterX + display.triggerHalfWidth - m_flow.cameraX) * viewScale));
+        const int bottom = static_cast<int>(std::round(viewOriginY + (display.triggerCenterY + display.triggerHalfHeight - m_flow.cameraY) * viewScale));
+        SetDrawBlendMode(DX_BLENDMODE_ALPHA, 160);
+        DrawBox(left, top, right, bottom, GetColor(72, 220, 255), FALSE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
 }
 
 void GameScene::DrawMapEditorMarkersInView(float viewOriginX, float viewOriginY, float viewScale) const
@@ -3608,4 +3742,5 @@ void GameScene::DrawBatterySwitchCounters() const
         }
     }
 }
+
 

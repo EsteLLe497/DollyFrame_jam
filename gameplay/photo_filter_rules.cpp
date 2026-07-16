@@ -135,9 +135,9 @@ void GetPhotoFilterThemeOverlayColor(PhotoFilterTheme theme, float& r, float& g,
         b = 0.08f;
         break;
     case PhotoFilterTheme::Cold:
-        r = 0.14f;
-        g = 0.56f;
-        b = 1.0f;
+        r = 0.18f;
+        g = 0.92f;
+        b = 0.40f;
         break;
     case PhotoFilterTheme::Invert:
         r = 0.86f;

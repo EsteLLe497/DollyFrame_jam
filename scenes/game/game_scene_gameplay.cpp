@@ -2258,7 +2258,7 @@ void GameScene::UpdatePlayer(float deltaTime)
         m_player.velocityY = gPlayerJumpSpeed;
         m_player.grounded = false;
         m_player.coyoteTimeRemaining = 0.0f;
-        m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
+        m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "jump", 0.0f, 0.0f });
     }
 
     std::vector<TransformComponent> photoBoxes;
@@ -3038,8 +3038,10 @@ void GameScene::UpdateBarrels(float deltaTime)
         }
 
         const float previousY = transform->y;
+        const bool wasGrounded = barrel->grounded;
         barrel->velocityY = std::min(barrel->maxFallSpeed, barrel->velocityY + barrel->gravity * deltaTime);
         transform->y += barrel->velocityY * deltaTime;
+        barrel->accumulatedFallDistance += std::max(0.0f, transform->y - previousY);
         const bool canCollideAfterDrop = transform->y >= barrel->spawnY + std::max(8.0f, tileSize * 0.25f);
 
         if (isLog)
@@ -3064,6 +3066,12 @@ void GameScene::UpdateBarrels(float deltaTime)
                 transform->y = previousY;
                 barrel->velocityY = 0.0f;
                 barrel->grounded = TrySnapToGround(*transform, tileSize * 0.5f);
+            }
+
+            if (!wasGrounded && barrel->grounded && barrel->accumulatedFallDistance > 1.0f)
+            {
+                m_eventBus.Publish({ EventType::PlaySoundRequest, entity, nullptr, "fall", 0.0f, 0.0f });
+                barrel->accumulatedFallDistance = 0.0f;
             }
 
             continue;
@@ -3191,10 +3199,13 @@ void GameScene::UpdateFallingRocks(float deltaTime)
             m_world.QueueSpawn(std::move(rubble));
         };
 
-    auto resetFallingRock = [&](Entity& fallingRockEntity, FallingRockComponent& fallingRock, TransformComponent& transform)
+    auto resetFallingRock = [&](Entity& fallingRockEntity, FallingRockComponent& fallingRock, TransformComponent& transform, bool landedOnGround)
         {
             SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
-            m_eventBus.Publish({ EventType::PlaySoundRequest, &fallingRockEntity, nullptr, "fallingrock", 0.0f, 0.0f });
+            if (landedOnGround)
+            {
+                m_eventBus.Publish({ EventType::PlaySoundRequest, &fallingRockEntity, nullptr, "fall", 0.0f, 0.0f });
+            }
             
             spawnFallingRockRubble(transform);
 
@@ -3440,7 +3451,7 @@ void GameScene::UpdateFallingRocks(float deltaTime)
 
             if (jumpPad->boardGrounded && fallingRock.pendingJumpPadBreak)
             {
-                resetFallingRock(fallingRockEntity, fallingRock, rockTransform);
+                resetFallingRock(fallingRockEntity, fallingRock, rockTransform, false);
             }
             else
             {
@@ -3589,20 +3600,20 @@ void GameScene::UpdateFallingRocks(float deltaTime)
 
         if (transform->y + fallingrockHeight >= mapHeight)
         {
-            resetFallingRock(*entity, *fallingRock, *transform);
+            resetFallingRock(*entity, *fallingRock, *transform, true);
             continue;
         }
 
         if (canCollideAfterDrop && intersectsDespawnTile(*transform))
         {
-            resetFallingRock(*entity, *fallingRock, *transform);
+            resetFallingRock(*entity, *fallingRock, *transform, true);
             continue;
         }
 
         if (player && IntersectsEntity(*entity, *player))
         {
             HandlePlayerDamage(*player, entity, "GameScene player damaged by fallingrock");
-            resetFallingRock(*entity, *fallingRock, *transform);
+            resetFallingRock(*entity, *fallingRock, *transform, false);
             continue;
         }
 
@@ -3620,7 +3631,7 @@ void GameScene::UpdateFallingRocks(float deltaTime)
             }
 
             HandleEnemyDamage(*enemyEntity, entity, fallingRock->contactDamage, "FallingRock hit enemy");
-            resetFallingRock(*entity, *fallingRock, *transform);
+            resetFallingRock(*entity, *fallingRock, *transform, false);
             consumed = true;
             break;
         }
@@ -3648,7 +3659,7 @@ void GameScene::UpdateFallingRocks(float deltaTime)
                 gimmick->Consume();
             }
 
-            resetFallingRock(*entity, *fallingRock, *transform);
+            resetFallingRock(*entity, *fallingRock, *transform, false);
             consumed = true;
             break;
         }
@@ -3696,7 +3707,7 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
         {
             for (int column = left; column <= right; ++column)
             {
-                if (m_tileMap.GetTile(column, row) != 1)
+                if (m_tileMap.GetTile(column, row) == 0)
                 {
                     continue;
                 }
@@ -3717,13 +3728,13 @@ void GameScene::UpdateHangingGravityObjects(float deltaTime)
 
     auto breakHangingObject = [&](Entity& hangingEntity, HangingGravityObjectComponent& hanging, TransformComponent& transform)
     {
-        SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
-        m_eventBus.Publish({ EventType::PlaySoundRequest, &hangingEntity, nullptr, "barrel", 0.0f, 0.0f });
+        //SpawnBarrelBreakEffect(transform.x, transform.y, transform.width * transform.scale, transform.height * transform.scale);
+        //m_eventBus.Publish({ EventType::PlaySoundRequest, &hangingEntity, nullptr, "barrel", 0.0f, 0.0f });
         hanging.active = false;
-        hanging.destroyed = true;
+        //hanging.destroyed = true;
         hanging.wireAttached = false;
         hanging.velocityY = 0.0f;
-        setHangingObjectVisible(hangingEntity, false);
+        //setHangingObjectVisible(hangingEntity, false);
     };
 
     auto isRidingHangingObject = [&](const TransformComponent& riderTransform, const TransformComponent& hangingTransform) -> bool
@@ -5151,6 +5162,7 @@ void GameScene::UpdateSingleBattery(
     const float height = transform->height * transform->scale;
     const float previousX = transform->x;
     const float previousY = transform->y;
+    const bool wasGrounded = battery->grounded;
 
     // 接地中は支持面を先に確認し、開始フレームの大きなdeltaTimeによる床抜けを防ぐ。
     const bool keptGrounded =
@@ -5170,6 +5182,7 @@ void GameScene::UpdateSingleBattery(
             battery->velocityY + battery->gravity * deltaTime);
         battery->velocityY = fallVelocity;
         transform->y += battery->velocityY * deltaTime;
+        battery->accumulatedFallDistance += std::max(0.0f, battery->velocityY * deltaTime);
         snapped = TrySnapToGroundUsingPlatforms(
             *transform,
             gGroundSnapDistance,
@@ -5300,6 +5313,15 @@ void GameScene::UpdateSingleBattery(
     if (IsConveyorUnderBattery(*transform, tileSize, direction,velocity))
     {
         battery->velocityX = velocity * direction;
+    }
+
+    if (!wasGrounded && battery->grounded && battery->accumulatedFallDistance > 1.0f)
+    {
+        m_eventBus.Publish({ EventType::PlaySoundRequest, &batteryEntity, nullptr, "battery_fall", 0.0f, 0.0f });
+    }
+    if (battery->grounded)
+    {
+        battery->accumulatedFallDistance = 0.0f;
     }
 }
 

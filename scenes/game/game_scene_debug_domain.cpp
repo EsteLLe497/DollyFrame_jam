@@ -1,8 +1,10 @@
 #include "pch.h"
 
+#include "b_gui_display_defs.h"
 #include "game_scene_internal.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <filesystem>
 #include <system_error>
 
@@ -17,6 +19,7 @@ void GameScene::DrawDebugUI()
     DrawUiAdjustmentWindow();
     DrawCameraDebugWindow();
     DrawPadSettingsWindow();
+    DrawBGuiDebugWindow();
     if (m_debug.hideNonPhotoUi)
     {
         DrawTestPhotoPanel();
@@ -282,6 +285,137 @@ void GameScene::DrawPadSettingsWindow()
     }
     ImGui::SameLine();
     ImGui::TextDisabled("(既定: DZ0.18 / 2600 / 18 / 12)");
+
+    ImGui::End();
+}
+
+void GameScene::DrawBGuiDebugWindow()
+{
+    ImGui::SetNextWindowSize(ImVec2(460.0f, 560.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("BGUI Adjust"))
+    {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Checkbox("Show trigger rects", &b_gui::gShowTriggerRects);
+    ImGui::DragFloat("Fade in speed", &b_gui::gFadeInSpeed, 0.05f, 0.1f, 20.0f, "%.2f");
+    ImGui::DragFloat("Fade out speed", &b_gui::gFadeOutSpeed, 0.05f, 0.1f, 20.0f, "%.2f");
+
+    const auto placeDisplaysAround = [&](float centerX, float centerY)
+    {
+        const float drawTop = centerY - 304.0f;
+        constexpr float columnOffsetX = 420.0f;
+        constexpr float rowOffsetY = 160.0f;
+        for (size_t index = 0; index < b_gui::kDisplayCount; ++index)
+        {
+            b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+            const size_t column = index % 2;
+            const size_t row = index / 2;
+            display.worldX = centerX + 104.0f + static_cast<float>(column) * columnOffsetX;
+            display.worldY = drawTop + static_cast<float>(row) * rowOffsetY;
+            display.triggerCenterX = centerX;
+            display.triggerCenterY = centerY;
+            display.triggerHalfWidth = 360.0f;
+            display.triggerHalfHeight = 240.0f;
+        }
+        m_bGuiDisplayAlphas.fill(1.0f);
+    };
+
+    if (ImGui::Button("Place around player"))
+    {
+        if (const Entity* player = FindEntityByTag(kTagPlayer))
+        {
+            if (const auto* transform = player->GetComponent<TransformComponent>())
+            {
+                const float centerX = transform->x + transform->width * transform->scale * 0.5f;
+                const float centerY = transform->y + transform->height * transform->scale * 0.5f;
+                placeDisplaysAround(centerX, centerY);
+            }
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Place around stage start"))
+    {
+        placeDisplaysAround(m_flow.stageStartX + 64.0f, m_flow.stageStartY + 64.0f);
+    }
+
+    if (ImGui::Button("Reset BGUI defaults"))
+    {
+        b_gui::gDisplayDefinitions = b_gui::kDefaultDisplayDefinitions;
+        b_gui::gFadeInSpeed = 4.6f;
+        b_gui::gFadeOutSpeed = 3.2f;
+        m_bGuiDisplayAlphas.fill(0.0f);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Save BGUI"))
+    {
+        SaveBGuiTuningState();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Load BGUI"))
+    {
+        LoadBGuiTuningState();
+        m_bGuiDisplayAlphas.fill(0.0f);
+    }
+
+    ImGui::SeparatorText("Displays");
+    for (size_t index = 0; index < b_gui::kDisplayCount; ++index)
+    {
+        b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+        ImGui::PushID(static_cast<int>(index));
+        const bool open = ImGui::CollapsingHeader(display.textureKey, ImGuiTreeNodeFlags_DefaultOpen);
+        if (open)
+        {
+            ImGui::Text("Alpha: %.2f", m_bGuiDisplayAlphas[index]);
+            bool showForest = (display.stageMask & b_gui::StageForest) != 0;
+            bool showRuins = (display.stageMask & b_gui::StageRuins) != 0;
+            if (ImGui::Checkbox("Forest", &showForest))
+            {
+                display.stageMask = showForest
+                    ? display.stageMask | b_gui::StageForest
+                    : display.stageMask & ~b_gui::StageForest;
+            }
+            ImGui::SameLine();
+            if (ImGui::Checkbox("Ruins", &showRuins))
+            {
+                display.stageMask = showRuins
+                    ? display.stageMask | b_gui::StageRuins
+                    : display.stageMask & ~b_gui::StageRuins;
+            }
+            ImGui::DragFloat2("Draw pos", &display.worldX, 1.0f, -100000.0f, 100000.0f, "%.1f");
+            ImGui::DragFloat2("Draw size", &display.width, 1.0f, 1.0f, 4096.0f, "%.1f");
+            ImGui::DragFloat2("Trigger center", &display.triggerCenterX, 1.0f, -100000.0f, 100000.0f, "%.1f");
+            ImGui::DragFloat2("Trigger half size", &display.triggerHalfWidth, 1.0f, 1.0f, 4096.0f, "%.1f");
+
+            if (ImGui::Button("Center trigger on image"))
+            {
+                display.triggerCenterX = display.worldX + display.width * 0.5f;
+                display.triggerCenterY = display.worldY + display.height * 0.5f;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Copy row"))
+            {
+                char buffer[512] = {};
+                std::snprintf(
+                    buffer,
+                    sizeof(buffer),
+                    "{ \"%s\", %d, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff },",
+                    display.textureKey,
+                    display.stageMask,
+                    display.worldX,
+                    display.worldY,
+                    display.width,
+                    display.height,
+                    display.triggerCenterX,
+                    display.triggerCenterY,
+                    display.triggerHalfWidth,
+                    display.triggerHalfHeight);
+                ImGui::SetClipboardText(buffer);
+            }
+        }
+        ImGui::PopID();
+    }
 
     ImGui::End();
 }

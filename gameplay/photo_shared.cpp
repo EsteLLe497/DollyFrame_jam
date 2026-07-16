@@ -905,7 +905,8 @@ void ApplyPreviewFilterTheme(CapturedPhotoItem& item)
     if (item.sepiaRestoredMarkerObject ||
         item.sepiaShutterObject ||
         item.sepiaPlainRubbleObject ||
-        item.spawnArchetype == CapturedSpawnArchetype::SepiaGround)
+        item.spawnArchetype == CapturedSpawnArchetype::SepiaGround ||
+        item.spawnArchetype == CapturedSpawnArchetype::FallingRock)
     {
         return;
     }
@@ -931,7 +932,8 @@ void DrawCapturedPhotoItem(
     float alpha)
 {
     Shader_ResetStyle();
-    Shader_SetTint(item.tintR, item.tintG, item.tintB, alpha);
+    const float tintScale = item.spriteProjectile ? 0.8f : 1.0f;
+    Shader_SetTint(item.tintR * tintScale, item.tintG * tintScale, item.tintB * tintScale, alpha);
     if (item.sepiaShutterObject)
     {
         DrawSepiaShutterItem(
@@ -947,6 +949,23 @@ void DrawCapturedPhotoItem(
 
     if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
     {
+        if (item.spriteProjectile)
+        {
+            SpriteDraw(
+                item.textureId >= 0 ? item.textureId : fallbackTextureId,
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight,
+                item.sourceX,
+                item.sourceY,
+                item.sourceWidth,
+                item.sourceHeight,
+                item.flipX,
+                item.rotation);
+            return;
+        }
+
         const int color = GetColor(
             static_cast<int>(std::round(item.tintR * 255.0f)),
             static_cast<int>(std::round(item.tintG * 255.0f)),
