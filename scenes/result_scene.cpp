@@ -244,7 +244,7 @@ namespace
         // outer/inner/filmの画像本来の縦横比を保ったまま敷くための計算をここに集約する。
     constexpr int kPhotoGridColumns = 3;
     constexpr int kPhotoGridRows = 3;
-    constexpr float kPhotoGridRowWidth = 430.0f;      // 1行(3枚ぶん)の全体の幅
+    constexpr float kPhotoGridRowWidth = 530.0f;      // 1行(3枚ぶん)の全体の幅
     constexpr float kPhotoGridRowGapY = 0.0f;        // 行と行の間の隙間
     constexpr float kPhotoGridMarginRight = 80.0f;
     constexpr float kPhotoGridMarginBottom = 40.0f + 145.0f;
@@ -254,8 +254,8 @@ namespace
     // photo_album_outer.png / inner.png / film系画像の実ピクセルサイズから算出した比率。
     // 画像を差し替えない限りここは変更不要です。
     constexpr float kPhotoAlbumOuterAspect = 6100.0f / 2000.0f;       // outer: 6100x2000
-    constexpr float kPhotoAlbumInnerWidthRatio = 0.98f;   // ← 5700/6100(≒0.934) から変更
-    constexpr float kPhotoAlbumInnerHeightRatio = 0.94f;  // ← 1600/2000(=0.8) から変更
+    constexpr float kPhotoAlbumInnerWidthRatio = 0.88f;   // ← 5700/6100(≒0.934) から変更
+    constexpr float kPhotoAlbumInnerHeightRatio = 0.885f;  // ← 1600/2000(=0.8) から変更
     constexpr float kPhotoFilmAspect = 1580.0f / 1140.0f;             // film系: 1580x1140
     constexpr float kPhotoSlotGapXRatio = 0.02f;      // スロット間の隙間（inner幅に対する比率）
     constexpr float kPhotoSlotPaddingRatio = 0.10f;   // フィルム内側の写真の余白（スロット幅に対する比率）
