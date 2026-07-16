@@ -192,6 +192,10 @@ void GameScene::UpdateBossBgmCue()
 void GameScene::OnExit()
 {
     const ActiveGameSceneScope activeScene(*this);
+    Audio_StopCue("elevator_up");
+    m_elevatorUpSoundPlaying = false;
+    Audio_StopCue("shutter_open");
+    m_shutterSoundPlaying = false;
     DirectXSetPostProcessVignette(0.08f, 0.72f, 0.72f, 0.70f);
     DirectXSetPostProcessPlayerLight(
         static_cast<float>(kVirtualScreenWidth) * 0.5f,

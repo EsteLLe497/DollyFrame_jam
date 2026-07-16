@@ -952,7 +952,11 @@ void GameScene::UpdateEnemies()
         },
         [this](Entity& enemyEntity)
         {
-            m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, "enemy_gun", 0.0f, 0.0f });
+            const auto* enemy = enemyEntity.GetComponent<EnemyComponent>();
+            const char* cueName = enemy && enemy->GetArchetype() == EnemyArchetype::Walker
+                ? "enemy1_attack"
+                : "enemy_gun";
+            m_eventBus.Publish({ EventType::PlaySoundRequest, &enemyEntity, nullptr, cueName, 0.0f, 0.0f });
         },
         [this](Entity& bossEntity)
         {

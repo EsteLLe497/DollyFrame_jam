@@ -416,6 +416,8 @@ private:
     GameSceneSaveState m_save;
     GameSceneTestPhotoState m_testPhotos;
     GameSceneTutorialState m_tutorial;
+    bool m_elevatorUpSoundPlaying = false;
+    bool m_shutterSoundPlaying = false;
     std::array<float, b_gui::kDisplayCount> m_bGuiDisplayAlphas = {};
     struct CameraRuntimeState
     {
