@@ -52,7 +52,12 @@ void GameScene::UpdatePlayerAfterimages(float deltaTime)
 
 void GameScene::TrySpawnPlayerAfterimage(const TransformComponent& transform)
 {
-    game_scene_player_visual_system::TrySpawnAfterimage(m_player, transform);
+    Entity* player = FindEntityByTag(kTagPlayer);
+    const auto* sprite = player ? player->GetComponent<SpriteRenderComponent>() : nullptr;
+    if (sprite)
+    {
+        game_scene_player_visual_system::TrySpawnAfterimage(m_player, transform, *sprite);
+    }
 }
 
 void GameScene::HandlePhotoCapture()

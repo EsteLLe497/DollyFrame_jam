@@ -16,6 +16,9 @@ namespace
     constexpr float kPlayerDamageHitStopSeconds = 0.075f;
     constexpr float kPlayerDamageShakeSeconds = 0.28f;
     constexpr float kPlayerDamageShakeAmplitude = 24.0f;
+    constexpr float kPlayerDamageKnockbackHorizontalSpeed = 460.0f;
+    constexpr float kPlayerDamageKnockbackVerticalSpeed = -560.0f;
+    constexpr float kPlayerDamageKnockbackDuration = 0.18f;
 
     void TriggerPlayerDamageFeedback(GameSceneFlowState& flow, bool screenShakeEnabled)
     {
@@ -32,6 +35,35 @@ namespace
             flow.screenShakeDuration = 0.0f;
             flow.screenShakeAmplitude = 0.0f;
         }
+    }
+
+    void ApplyPlayerDamageKnockback(
+        GameScenePlayerState& playerState,
+        float& knockbackRemaining,
+        const Entity& player,
+        const Entity* sourceEntity)
+    {
+        float direction = playerState.facingRight ? -1.0f : 1.0f;
+        const auto* playerTransform = player.GetComponent<TransformComponent>();
+        const auto* sourceTransform = sourceEntity
+            ? sourceEntity->GetComponent<TransformComponent>()
+            : nullptr;
+        if (playerTransform && sourceTransform)
+        {
+            const float playerCenterX = playerTransform->x + playerTransform->width * playerTransform->scale * 0.5f;
+            const float sourceCenterX = sourceTransform->x + sourceTransform->width * sourceTransform->scale * 0.5f;
+            if (std::fabs(playerCenterX - sourceCenterX) > 0.01f)
+            {
+                direction = playerCenterX < sourceCenterX ? -1.0f : 1.0f;
+            }
+        }
+
+        playerState.velocityX = direction * kPlayerDamageKnockbackHorizontalSpeed;
+        playerState.velocityY = kPlayerDamageKnockbackVerticalSpeed;
+        knockbackRemaining = kPlayerDamageKnockbackDuration;
+        playerState.grounded = false;
+        playerState.coyoteTimeRemaining = 0.0f;
+        playerState.dodgeRemaining = 0.0f;
     }
 }
 
@@ -78,6 +110,7 @@ void GameScene::HandlePlayerDamage(Entity& player, Entity* sourceEntity, const c
     health->ApplyDamage((std::max)(1, amount));
     if (shouldTriggerDamageFeedback)
     {
+        ApplyPlayerDamageKnockback(m_player, m_playerKnockbackRemaining, player, sourceEntity);
         TriggerPlayerDamageFeedback(m_flow, m_debug.screenShakeEnabled);
     }
 
@@ -215,6 +248,7 @@ void GameScene::RespawnPlayer(Entity& player)
     ResetHangingGravityObjectsForRespawn();
 
     game_scene_player_state_logic::ResetPlayerStateAfterRespawn(m_player);
+    m_playerKnockbackRemaining = 0.0f;
     game_scene_player_visual_system::ResetSpriteAnimationToIdle(m_player, player);
 
     if (auto* health = player.GetComponent<HealthComponent>())

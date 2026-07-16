@@ -18,8 +18,15 @@ struct PlayerAfterimage
     float y = 0.0f;
     float rotation = 0.0f;
     float scale = 1.0f;
+    float renderScaleX = 1.0f;
+    float renderScaleY = 1.0f;
     bool flipX = false;
     float life = 0.0f;
+    int textureId = -1;
+    float sourceX = 0.0f;
+    float sourceY = 0.0f;
+    float sourceWidth = 1.0f;
+    float sourceHeight = 1.0f;
 };
 
 struct BarrelDebrisParticle

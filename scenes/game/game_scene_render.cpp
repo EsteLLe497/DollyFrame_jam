@@ -1243,27 +1243,27 @@ namespace
             const auto& afterimage = playerState.afterimages[index - 1];
             const float afterimageDrawX = viewOriginX + (afterimage.x - cameraX) * viewScale;
             const float afterimageDrawY = viewOriginY + (afterimage.y - cameraY) * viewScale;
-            const float afterimageDrawWidth = transform.width * afterimage.scale * viewScale;
-            const float afterimageDrawHeight = transform.height * afterimage.scale * viewScale;
-            const float alpha = Clamp01(afterimage.life / 0.18f) * 0.32f;
+            const float afterimageDrawWidth = transform.width * afterimage.scale * afterimage.renderScaleX * viewScale;
+            const float afterimageDrawHeight = transform.height * afterimage.scale * afterimage.renderScaleY * viewScale;
+            const float alpha = Clamp01(afterimage.life / 0.18f) * 0.42f;
             Shader_ResetStyle();
             Shader_SetOutline(
                 std::min(1.0f, afterimageR + outlineBoost),
                 std::min(1.0f, afterimageG + outlineBoost),
                 std::min(1.0f, afterimageB + outlineBoost),
                 1.0f,
-                1.4f);
+                1.6f);
             Shader_SetTint(afterimageR, afterimageG, afterimageB, alpha);
             SpriteDraw(
-                sprite.GetTextureId(),
+                afterimage.textureId >= 0 ? afterimage.textureId : sprite.GetTextureId(),
                 afterimageDrawX,
                 afterimageDrawY,
                 afterimageDrawWidth,
                 afterimageDrawHeight,
-                sprite.GetSourceX(),
-                sprite.GetSourceY(),
-                sprite.GetSourceWidth(),
-                sprite.GetSourceHeight(),
+                afterimage.sourceX,
+                afterimage.sourceY,
+                afterimage.sourceWidth,
+                afterimage.sourceHeight,
                 afterimage.flipX,
                 afterimage.rotation);
         }
