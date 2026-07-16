@@ -318,7 +318,6 @@ namespace
         float gearSocketWidthTiles = 2.0f;
         float gearSocketHeightTiles = 2.0f;
         LinkedGimmickColor batterySwitchColor{ 0.92f, 0.26f, 0.20f };
-        LinkedGimmickColor batteryGeneratorColor{ 0.32f, 0.32f, 0.32f };
         LinkedGimmickColor gearSocketColor{ 0.45f, 0.45f, 0.45f };
         LinkedGimmickColor elevatorColor{ 0.42f, 0.46f, 0.52f };
         LinkedGimmickColor laserSwitchColor{ 0.96f, 0.86f, 0.20f };
@@ -850,6 +849,8 @@ void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int sp
 {
     const LinkedGimmickSpawnConfig& cfg = kLinkedGimmickSpawnConfig;
     auto generatorEntity = std::make_unique<Entity>();
+    const int generatorTexture = m_assets.GetTexture("tile_value_battery_generator");
+    auto elevatorEntity = std::make_unique<Entity>();
     generatorEntity->AddComponent<TagComponent>(kTagBatteryGenerator);
     generatorEntity->AddComponent<TransformComponent>(
         x,
@@ -857,11 +858,11 @@ void GameScene::SpawnBatteryGeneratorMarker(float x, float y, int linkId, int sp
         tileSize * cfg.batteryGeneratorWidthTiles,
         tileSize * cfg.batteryGeneratorHeightTiles);
     generatorEntity->AddComponent<TintComponent>(
-        cfg.batteryGeneratorColor.r,
-        cfg.batteryGeneratorColor.g,
-        cfg.batteryGeneratorColor.b,
+        1.0f,
+        1.0f,
+        1.0f,
         1.0f);
-    generatorEntity->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+    generatorEntity->AddComponent<SpriteRenderComponent>(generatorTexture);
     generatorEntity->AddComponent<BatteryGeneratorComponent>(
         linkId,
         cfg.batteryGeneratorCooldownSeconds,
@@ -876,19 +877,19 @@ void GameScene::SpawnGearMarker(float x, float y, int gearNo, float tileSize)
     switch (gearNo)
     {
     case 1:
-        gearTexture = m_assets.GetTexture("star");
+        gearTexture = m_assets.GetTexture("gear_circle");
         break;
     case 2:
-        gearTexture = m_assets.GetTexture("apple");
+        gearTexture = m_assets.GetTexture("gear_ellipse");
         break;
     case 3:
-        gearTexture = m_assets.GetTexture("circle");
+        gearTexture = m_assets.GetTexture("gear_triangle");
         break;
     case 4:
-        gearTexture = m_assets.GetTexture("daikei");
+        gearTexture = m_assets.GetTexture("gear_square");
         break;
     case 5:
-        gearTexture = m_assets.GetTexture("haguruma");
+        gearTexture = m_assets.GetTexture("gear_hexagon");
         break;
     default:
         break;
@@ -925,19 +926,19 @@ void GameScene::SpawnGearSocketMarker(
     switch (gearNo)
     {
     case 1:
-        gearTexture = m_assets.GetTexture("star");
+        gearTexture = m_assets.GetTexture("gear_circle");
         break;
     case 2:
-        gearTexture = m_assets.GetTexture("apple");
+        gearTexture = m_assets.GetTexture("gear_ellipse");
         break;
     case 3:
-        gearTexture = m_assets.GetTexture("circle");
+        gearTexture = m_assets.GetTexture("gear_triangle");
         break;
     case 4:
-        gearTexture = m_assets.GetTexture("daikei");
+        gearTexture = m_assets.GetTexture("gear_square");
         break;
     case 5:
-        gearTexture = m_assets.GetTexture("haguruma");
+        gearTexture = m_assets.GetTexture("gear_hexagon");
         break;
     default:
         break;
@@ -950,9 +951,9 @@ void GameScene::SpawnGearSocketMarker(
         tileSize * cfg.gearSocketWidthTiles,
         tileSize * cfg.gearSocketHeightTiles);
     socketEntity->AddComponent<TintComponent>(
-        cfg.gearSocketColor.r,
-        cfg.gearSocketColor.g,
-        cfg.gearSocketColor.b,
+        0.0f,
+        0.0f,
+        0.0f,
         1.0f);
     socketEntity->AddComponent<SpriteRenderComponent>(gearTexture >= 0 ? gearTexture : m_whiteTexture);
     socketEntity->AddComponent<GearSocketComponent>(gearNo, requiredGearCount, linkId);
@@ -2504,6 +2505,9 @@ void GameScene::RefreshHangingGravityObjectsFromMarkers()
         return 0.0f;
     };
 
+    const int hangingTexture = m_assets.GetTexture("tile_value_elevator_on");
+    const int resolvedHangingTexture = hangingTexture >= 0 ? hangingTexture : m_whiteTexture;
+
     for (int row = 0; row < m_tileMap.GetHeight(); ++row)
     {
         for (int column = 0; column < m_tileMap.GetWidth(); ++column)
@@ -2529,8 +2533,8 @@ void GameScene::RefreshHangingGravityObjectsFromMarkers()
                 objectY,
                 objectWidth,
                 objectHeight);
-            hangingObject->AddComponent<TintComponent>(1.0f, 0.35f, 0.75f, 1.0f);
-            hangingObject->AddComponent<SpriteRenderComponent>(m_whiteTexture);
+            hangingObject->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);
+            hangingObject->AddComponent<SpriteRenderComponent>(resolvedHangingTexture);
             auto& hanging = hangingObject->AddComponent<HangingGravityObjectComponent>(
                 gBarrelGravity,
                 500.0f,

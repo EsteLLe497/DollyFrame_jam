@@ -512,12 +512,12 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         {
             socket->rotation += deltaTime * kGearSocketRotationSpeed;
             socketTransform->rotation = socket->rotation;
-            setEntityTint(*entity, 0.72f, 0.72f, 0.72f);
+            setEntityTint(*entity, 1.0f, 1.0f, 1.0f);
         }
         else
         {
             socketTransform->rotation = socket->rotation;
-            setEntityTint(*entity, 0.45f, 0.45f, 0.45f);
+            setEntityTint(*entity, 0.0f, 0.0f, 0.0f);
         }
     }
 
