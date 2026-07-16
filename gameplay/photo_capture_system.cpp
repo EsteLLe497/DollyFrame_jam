@@ -303,20 +303,20 @@ namespace
 
     int ResolveGearTextureId(const AssetManifest& assets, int gearNo, int fallbackTexture)
     {
-        const char* textureKey = "star";
+        const char* textureKey = "gear_circle";
         switch (gearNo)
         {
         case 2:
-            textureKey = "apple";
+            textureKey = "gear_ellipse";
             break;
         case 3:
-            textureKey = "circle";
+            textureKey = "gear_triangle";
             break;
         case 4:
-            textureKey = "daikei";
+            textureKey = "gear_square";
             break;
         case 5:
-            textureKey = "haguruma";
+            textureKey = "gear_hexagon";
             break;
         case 1:
         default:
@@ -329,7 +329,7 @@ namespace
             return textureId;
         }
 
-        const int defaultTextureId = assets.GetTexture("star");
+        const int defaultTextureId = assets.GetTexture("gear_circle");
         return defaultTextureId >= 0 ? defaultTextureId : fallbackTexture;
     }
 
@@ -383,7 +383,7 @@ namespace
         int restoredTextureId,
         int fallbackTexture,
         int fallingRockTexture,
-        int elevatorOffTexture,
+        int elevatorOnTexture,
         int shutterTextureId,
         CapturedPhotoItem& item)
     {
@@ -417,8 +417,8 @@ namespace
             return true;
         case '+':
             item.spawnArchetype = CapturedSpawnArchetype::SepiaGround;
-            item.textureId = sepiaGroup.markerType == '<' && elevatorOffTexture >= 0
-                ? elevatorOffTexture
+            item.textureId = sepiaGroup.markerType == '<' && elevatorOnTexture >= 0
+                ? elevatorOnTexture
                 : restoredTextureId;
             item.role = PhotoCopyRole::Solid;
             item.layer = PhotoCopyLayer::Foreground;
@@ -1298,8 +1298,8 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                                 if (SpawnRestoredSepiaMarkerObject(
                                     scene.m_world.PendingEntities(),
                                     scene.m_whiteTexture,
-                                    scene.m_assets.GetTexture("star"),
-                                    scene.m_assets.GetTexture("tile_value_elevator_off"),
+                                    scene.m_assets.GetTexture("gear_circle"),
+                                    scene.m_assets.GetTexture("tile_value_elevator_on"),
                                     tileSize,
                                     restoredLifetimeSeconds,
                                     restoredMarkerType,
@@ -1404,7 +1404,7 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
                     scene.m_assets.GetTexture("sepia_rubble_stage"),
                     scene.m_whiteTexture,
                     scene.m_assets.GetTexture("tile_value_s_falling_rock"),
-                    scene.m_assets.GetTexture("tile_value_elevator_off"),
+                    scene.m_assets.GetTexture("tile_value_elevator_on"),
                     scene.m_assets.GetTexture("sepia_shutter_gate"),
                     item))
                 {

@@ -126,6 +126,10 @@
       "type": "file",
       "path": "assets/texture/maptip/tile_value_s_falling_rock.png"
     },
+    "tile_value_battery_generator": {
+      "type": "file",
+      "path": "assets/texture/maptip/tile_value_battery_generator.png"
+    },
     "enemy1_idle": {
       "type": "file",
       "path": "assets/texture/enemy1/enemy1_idle.png"
@@ -240,23 +244,31 @@
     },
     "star": {
       "type": "file",
-      "path": "assets/texture/gear/Star.png"
+      "path": "assets/texture/Star.png"
     },
     "apple": {
       "type": "file",
-      "path": "assets/texture/gear/Apple.png"
+      "path": "assets/texture/Apple.png"
     },
-    "circle": {
+    "gear_circle": {
       "type": "file",
-      "path": "assets/texture/gear/circle.png"
+      "path": "assets/texture/gear/Gear_Circle.png"
     },
-    "daikei": {
+    "gear_ellipse": {
       "type": "file",
-      "path": "assets/texture/gear/daikei.png"
+      "path": "assets/texture/gear/Gear_Ellipse.png"
     },
-    "haguruma": {
+    "gear_hexagon": {
       "type": "file",
-      "path": "assets/texture/gear/haguruma.png"
+      "path": "assets/texture/gear/Gear_Hexagon.png"
+    },
+    "gear_square": {
+      "type": "file",
+      "path": "assets/texture/gear/Gear_Square.png"
+    },
+    "gear_triangle": {
+      "type": "file",
+      "path": "assets/texture/gear/Gear_Triangle.png"
     },
     "arrow": {
       "type": "file",

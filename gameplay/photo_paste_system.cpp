@@ -1219,7 +1219,7 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             spawnedGear->AddComponent<PhotoPasteOrderComponent>(pasteOrder);
             spawnedGear->AddComponent<TransformComponent>(spawnX + item.relativeX, spawnY + item.relativeY, item.width, item.height);
             spawnedGear->AddComponent<TintComponent>(item.tintR, item.tintG, item.tintB, item.tintA);
-            const int gearTexture = scene.m_assets.GetTexture("star");
+            const int gearTexture = scene.m_assets.GetTexture("gear_circle");
             spawnedGear->AddComponent<SpriteRenderComponent>(item.textureId >= 0 ? item.textureId : (gearTexture >= 0 ? gearTexture : scene.m_whiteTexture));
             spawnedGear->AddComponent<GearComponent>(item.gearNo > 0 ? item.gearNo : 1, true);
             spawnedGear->AddComponent<PhotoCopyLifetimeComponent>(gPastedObjectLifetimeSeconds);

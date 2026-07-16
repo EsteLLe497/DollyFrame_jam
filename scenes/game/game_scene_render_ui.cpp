@@ -94,20 +94,20 @@ namespace
 
     int ResolveSepiaFinderGearTextureId(const AssetManifest& assets, int gearNo, int fallbackTexture)
     {
-        const char* textureKey = "star";
+        const char* textureKey = "gear_circle";
         switch (gearNo)
         {
         case 2:
-            textureKey = "apple";
+            textureKey = "gear_ellipse";
             break;
         case 3:
-            textureKey = "circle";
+            textureKey = "gear_triangle";
             break;
         case 4:
-            textureKey = "daikei";
+            textureKey = "gear_square";
             break;
         case 5:
-            textureKey = "haguruma";
+            textureKey = "gear_hexagon";
             break;
         case 1:
         default:
@@ -120,7 +120,7 @@ namespace
             return textureId;
         }
 
-        const int defaultTextureId = assets.GetTexture("star");
+        const int defaultTextureId = assets.GetTexture("gear_circle");
         return defaultTextureId >= 0 ? defaultTextureId : fallbackTexture;
     }
 
