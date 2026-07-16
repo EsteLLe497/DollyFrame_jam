@@ -920,7 +920,7 @@
         },
         "sandbox_enemy_blaster_robot": {
             "tag": "Enemy",
-            "texture": "enemy",
+            "texture": "blaster_robot",
             "transform": {
                 "x": 0.0,
                 "y": 0.0,
@@ -930,9 +930,9 @@
                 "scale": 1.0
             },
             "tint": {
-                "r": 0.2,
-                "g": 0.8,
-                "b": 0.4,
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
                 "a": 1.0
             },
             "enemy": {

@@ -163,6 +163,7 @@ private:
     bool SnapEnemyToGround(TransformComponent& transform) const;
     void ConfigureWalkerSpriteAnimation(Entity& enemy);
     void ConfigureRangedSpriteAnimation(Entity& enemy, bool reverseFacing = false);
+    void ConfigureBlasterRobotSpriteAnimation(Entity& enemy);
     void ConfigureShieldBossSpriteAnimation(Entity& enemy);
     void ConfigureBossShieldSpriteAnimation(Entity& shield);
     void ConfigureMidBoss3SpriteAnimation(Entity& enemy);
@@ -171,6 +172,8 @@ private:
     int HandleFinderDefeatGhosts(float frameX, float frameY, float frameWidth, float frameHeight);
     void UpdateBullets();
     void SpawnDropItems(float x, float y, int count); 
+    void SpawnSepiaFilterDrop(float spawnX, float spawnY, float settleX, float settleY);
+    void SpawnBossRewardDrop(const EnemyComponent& enemy, const TransformComponent& transform);
     void UpdateDropItems();                            
     int GetEnemyDropCount(EnemyArchetype archetype) const;
     void UpdateCameraMode();
@@ -210,6 +213,7 @@ private:
     void ToggleEscapeMenuBgm();
     bool UpdatePitRestartFlow(float deltaTime);
     bool UpdateStageTransitionFlow(float deltaTime);
+    bool UpdateSepiaUnlockOverlay(float deltaTime);
     bool UpdateSceneFadeOutFlow(float deltaTime);
     void UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime);
     void StartCameraFlashPulse(float durationSeconds);
@@ -275,6 +279,7 @@ private:
         float height,
         const MidBoss2Component::Params& params);
     void SpawnMidBoss3FistImpactEffect(float x, float y, float width, float height);
+    void StartSepiaUnlockOverlay();
     void QueueResult(GameEndReason reason);
 
     // Effects / UI overlays
@@ -312,6 +317,7 @@ private:
     void DrawMidBoss2HpBar() const;
     void DrawMidBoss3HpBar() const;
     void DrawAttackCaptureSlot() const;
+    void DrawSepiaUnlockOverlay() const;
     void DrawMerchantPrompts() const;
     void DrawMerchantShopOverlay() const;
     void DrawBatterySwitchCounters() const;
@@ -335,8 +341,8 @@ private:
     // Collision / map query helpers
     bool IsPhotoTrayHit(float screenX, float screenY) const;
     void GetCaptureFrameRect(const TransformComponent& playerTransform, float& x, float& y, float& width, float& height) const;
-    // ファインダーと貼り付け候補で共有するパッドカーソルの現在スクリーン座標を返す。
-    // パッド操作中は仮想カーソル、それ以外は生マウス座標。
+    // ファインダーと貼り付け候補で共有するパチE��カーソルの現在スクリーン座標を返す、E
+    // パッド操作中は仮想カーソル、それ以外�E生�Eウス座標、E
     void GetActivePadCursorScreen(float& screenX, float& screenY) const;
     Entity* FindCaptureTarget(const TransformComponent& playerTransform) const;
     bool IsSolidTile(int column, int row) const;
@@ -453,3 +459,4 @@ private:
     static constexpr float easingTime = 0.35f;
     float m_prevOffsetX = 0.0f;
 };
+

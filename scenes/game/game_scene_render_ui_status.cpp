@@ -515,6 +515,155 @@ void GameScene::DrawCameraStatusHud() const
     Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
+void GameScene::DrawSepiaUnlockOverlay() const
+{
+    if (!m_ui.sepiaUnlockOverlayOpen)
+    {
+        return;
+    }
+
+    const int bodyTexture = m_assets.GetTexture(kCameraBodyTextureKey);
+    const int noFilterTexture = m_assets.GetTexture(kCameraNoFilterTextureKey);
+    if (bodyTexture < 0)
+    {
+        return;
+    }
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 146);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(0, 0, 0), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    constexpr float kModalCameraWidth = 320.0f;
+    constexpr float kModalCameraHeight = 224.0f;
+    const float cameraX = static_cast<float>(SCREEN_WIDTH) * 0.5f - kModalCameraWidth * 0.5f;
+    const float cameraY = static_cast<float>(SCREEN_HEIGHT) * 0.5f - 170.0f;
+    const float sheetWidth = kModalCameraWidth * 0.82f;
+    const float sheetHeight = kModalCameraHeight * 0.60f;
+    const float sheetTargetX = cameraX + kModalCameraWidth * 0.08f;
+    const float sheetTargetY = cameraY + 12.0f;
+
+    const auto drawCamera = [&](PhotoFilterTheme theme, float x, float y, float alpha)
+    {
+        const bool drawSepiaCamera = NormalizeCameraHudTheme(theme) == PhotoFilterTheme::Sepia && noFilterTexture >= 0;
+        const int baseTexture = drawSepiaCamera ? noFilterTexture : bodyTexture;
+        if (drawSepiaCamera)
+        {
+            DrawSepiaHudFilmEffect(x + 22.0f, y + 29.0f, kModalCameraWidth - 44.0f, kModalCameraHeight - 54.0f);
+        }
+        Shader_SetBlendMode(ShaderBlendMode2D::Alpha);
+        Shader_SetTint(1.0f, 1.0f, 1.0f, std::clamp(alpha, 0.0f, 1.0f));
+        SpriteDraw(baseTexture, x, y, kModalCameraWidth, kModalCameraHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        Shader_ResetStyle();
+    };
+
+    constexpr float kLoopSeconds = 2.55f;
+    constexpr float kInsertSeconds = 0.86f;
+    constexpr float kHoldSeconds = 0.54f;
+    constexpr float kClearSeconds = 0.86f;
+    const float loopT = std::fmod(std::max(0.0f, m_ui.sepiaUnlockOverlayTimer), kLoopSeconds);
+
+    if (loopT < kInsertSeconds)
+    {
+        const float animationT = std::clamp(loopT / kInsertSeconds, 0.0f, 1.0f);
+        const bool switched = animationT >= 0.62f;
+        const PhotoFilterTheme visibleTheme = switched ? PhotoFilterTheme::Sepia : PhotoFilterTheme::None;
+        const float cameraDownT = EaseInOut(std::min(animationT / 0.34f, 1.0f));
+        const float cameraReturnT = EaseInOut(std::clamp((animationT - 0.34f) / 0.28f, 0.0f, 1.0f));
+        const float cameraYOffset = 154.0f * (1.0f - cameraReturnT) * cameraDownT;
+        const float sheetInT = EaseOutCubic(std::min(animationT / 0.34f, 1.0f));
+        const float sheetDropT = EaseInOut(std::clamp((animationT - 0.45f) / 0.30f, 0.0f, 1.0f));
+        const float sheetX = std::lerp(-sheetWidth - 24.0f, sheetTargetX, sheetInT);
+        const float sheetY = sheetTargetY + sheetDropT * 58.0f;
+        const float sheetAlpha = animationT < 0.80f ? 1.0f : 1.0f - std::clamp((animationT - 0.80f) / 0.20f, 0.0f, 1.0f);
+        DrawCameraFilterSheet(PhotoFilterTheme::Sepia, sheetX, sheetY, sheetWidth, sheetHeight, sheetAlpha);
+        drawCamera(visibleTheme, cameraX, cameraY + cameraYOffset, 1.0f);
+    }
+    else if (loopT < kInsertSeconds + kHoldSeconds)
+    {
+        drawCamera(PhotoFilterTheme::Sepia, cameraX, cameraY, 1.0f);
+    }
+    else
+    {
+        const float animationT = std::clamp((loopT - kInsertSeconds - kHoldSeconds) / kClearSeconds, 0.0f, 1.0f);
+        const bool switched = animationT >= 0.52f;
+        const PhotoFilterTheme visibleTheme = switched ? PhotoFilterTheme::None : PhotoFilterTheme::Sepia;
+        const float cameraDownT = EaseInOut(std::min(animationT / 0.34f, 1.0f));
+        const float cameraReturnT = EaseInOut(std::clamp((animationT - 0.34f) / 0.28f, 0.0f, 1.0f));
+        const float cameraYOffset = 154.0f * (1.0f - cameraReturnT) * cameraDownT;
+        const float sheetRiseT = EaseInOut(std::min(animationT / 0.42f, 1.0f));
+        const float sheetExitT = EaseOutCubic(std::clamp((animationT - 0.42f) / 0.42f, 0.0f, 1.0f));
+        const float sheetY = std::lerp(std::lerp(sheetTargetY + 58.0f, sheetTargetY - 10.0f, sheetRiseT), -sheetHeight - 24.0f, sheetExitT);
+        const float sheetAlpha = animationT < 0.84f ? 1.0f : 1.0f - std::clamp((animationT - 0.84f) / 0.16f, 0.0f, 1.0f);
+        DrawCameraFilterSheet(PhotoFilterTheme::Sepia, sheetTargetX, sheetY, sheetWidth, sheetHeight, sheetAlpha);
+        drawCamera(visibleTheme, cameraX, cameraY + cameraYOffset, 1.0f);
+    }
+
+    const auto drawCenteredOutlinedText = [](int left, int top, int right, int bottom, const char* text, int fontSize, unsigned int color, unsigned int outlineColor)
+    {
+        const int previousFontSize = GetFontSize();
+        SetFontSize(std::max(8, fontSize));
+        const int textWidth = GetDrawStringWidth(text, -1);
+        const int textHeight = GetFontSize();
+        const int textX = left + (right - left - textWidth) / 2;
+        const int textY = top + (bottom - top - textHeight) / 2 - 1;
+        DrawString(textX + 2, textY + 2, text, GetColor(76, 44, 22));
+        DrawString(textX - 1, textY, text, outlineColor);
+        DrawString(textX + 1, textY, text, outlineColor);
+        DrawString(textX, textY - 1, text, outlineColor);
+        DrawString(textX, textY + 1, text, outlineColor);
+        DrawString(textX, textY, text, color);
+        SetFontSize(previousFontSize);
+    };
+
+    const int labelW = 470;
+    const int labelH = 72;
+    const int labelLeft = SCREEN_WIDTH / 2 - labelW / 2;
+    const int labelTop = SCREEN_HEIGHT / 2 + 68;
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 118);
+    DrawBox(labelLeft + 8, labelTop + 8, labelLeft + labelW + 8, labelTop + labelH + 8, GetColor(18, 8, 2), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    DrawBox(labelLeft, labelTop, labelLeft + labelW, labelTop + labelH, GetColor(96, 56, 22), TRUE);
+    DrawBox(labelLeft + 5, labelTop + 5, labelLeft + labelW - 5, labelTop + labelH - 5, GetColor(255, 217, 166), TRUE);
+    DrawBox(labelLeft + 10, labelTop + 10, labelLeft + labelW - 10, labelTop + labelH / 2, GetColor(255, 236, 198), TRUE);
+    DrawBox(labelLeft, labelTop, labelLeft + labelW, labelTop + labelH, GetColor(255, 238, 196), FALSE);
+    drawCenteredOutlinedText(labelLeft, labelTop, labelLeft + labelW, labelTop + labelH, "セピアフィルター", 34, GetColor(76, 48, 32), GetColor(255, 238, 198));
+
+    constexpr int kCloseWidth = 260;
+    constexpr int kCloseHeight = 74;
+    const int closeLeft = SCREEN_WIDTH / 2 - kCloseWidth / 2;
+    const int closeTop = SCREEN_HEIGHT / 2 + 200;
+    const int closeRight = closeLeft + kCloseWidth;
+    const int closeBottom = closeTop + kCloseHeight;
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
+    const bool hover = mouseX >= closeLeft && mouseX <= closeRight && mouseY >= closeTop && mouseY <= closeBottom;
+    const int radius = kCloseHeight / 2;
+    const int leftCenterX = closeLeft + radius;
+    const int rightCenterX = closeRight - radius;
+    const int centerY = closeTop + radius;
+    const unsigned int edgeColor = hover ? GetColor(126, 74, 32) : GetColor(92, 56, 28);
+    const unsigned int fillColor = hover ? GetColor(255, 220, 166) : GetColor(232, 184, 118);
+    const unsigned int topLight = hover ? GetColor(255, 241, 202) : GetColor(250, 213, 156);
+
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 128);
+    DrawBox(leftCenterX + 7, closeTop + 8, rightCenterX + 7, closeBottom + 8, GetColor(18, 8, 2), TRUE);
+    DrawOval(leftCenterX + 7, centerY + 8, radius, radius, GetColor(18, 8, 2), TRUE);
+    DrawOval(rightCenterX + 7, centerY + 8, radius, radius, GetColor(18, 8, 2), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+    DrawBox(leftCenterX, closeTop, rightCenterX, closeBottom, edgeColor, TRUE);
+    DrawOval(leftCenterX, centerY, radius, radius, edgeColor, TRUE);
+    DrawOval(rightCenterX, centerY, radius, radius, edgeColor, TRUE);
+    DrawBox(leftCenterX, closeTop + 5, rightCenterX, closeBottom - 5, fillColor, TRUE);
+    DrawOval(leftCenterX, centerY, radius - 5, radius - 5, fillColor, TRUE);
+    DrawOval(rightCenterX, centerY, radius - 5, radius - 5, fillColor, TRUE);
+    DrawBox(leftCenterX - 2, closeTop + 9, rightCenterX + 2, closeTop + 29, topLight, TRUE);
+    DrawLine(closeLeft + 30, closeBottom - 10, closeRight - 30, closeBottom - 10, GetColor(154, 92, 42), 2);
+    drawCenteredOutlinedText(closeLeft, closeTop, closeRight, closeBottom, "閉じる", 32, GetColor(68, 42, 24), GetColor(255, 235, 198));
+
+    Shader_ResetStyle();
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+}
 void GameScene::DrawPlayerHpBar() const
 {
     const Entity* player = FindEntityByTag(kTagPlayer);
@@ -1168,3 +1317,6 @@ void GameScene::DrawAttackCaptureSlot() const
             attackCount);
     }
 }
+
+
+

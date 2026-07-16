@@ -108,6 +108,43 @@ bool GameScene::UpdateSceneFadeOutFlow(float deltaTime)
     m_eventBus.Publish({ EventType::SceneChangeRequested, nullptr, nullptr, targetScene, 0.0f, 0.0f });
     return true;
 }
+void GameScene::StartSepiaUnlockOverlay()
+{
+    m_ui.sepiaUnlockOverlayOpen = true;
+    m_ui.sepiaUnlockOverlayTimer = 0.0f;
+}
+
+bool GameScene::UpdateSepiaUnlockOverlay(float deltaTime)
+{
+    if (!m_ui.sepiaUnlockOverlayOpen)
+    {
+        return false;
+    }
+
+    m_ui.sepiaUnlockOverlayTimer += std::max(0.0f, deltaTime);
+
+    constexpr int kCloseWidth = 220;
+    constexpr int kCloseHeight = 64;
+    const int closeLeft = SCREEN_WIDTH / 2 - kCloseWidth / 2;
+    const int closeTop = SCREEN_HEIGHT / 2 + 202;
+    const int mouseX = Input_GetMouseX();
+    const int mouseY = Input_GetMouseY();
+    const bool closeClicked =
+        Input_IsMouseLeftPressed() &&
+        mouseX >= closeLeft && mouseX <= closeLeft + kCloseWidth &&
+        mouseY >= closeTop && mouseY <= closeTop + kCloseHeight;
+
+    if (Input_IsActionPressed(InputAction::Confirm) ||
+        Input_IsActionPressed(InputAction::Cancel) ||
+        Input_IsSouthButtonPressed() ||
+        Input_IsEastButtonPressed() ||
+        closeClicked)
+    {
+        m_ui.sepiaUnlockOverlayOpen = false;
+    }
+
+    return true;
+}
 void GameScene::UpdateFrameTimers(float deltaTime, float gameplayDeltaTime, float effectiveGameplayDeltaTime)
 {
     m_player.coyoteTimeRemaining = std::max(0.0f, m_player.coyoteTimeRemaining - effectiveGameplayDeltaTime);

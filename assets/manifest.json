@@ -50,6 +50,14 @@
       "type": "file",
       "path": "assets/texture/mise.png"
     },
+    "sepia_filter_drop_0": {
+      "type": "file",
+      "path": "assets/texture/kira.png"
+    },
+    "sepia_filter_drop_1": {
+      "type": "file",
+      "path": "assets/texture/kira2.png"
+    },
     "hazard": {
       "type": "checkerboard",
       "width": 128,
@@ -65,6 +73,14 @@
       "rgbaA": "FF7E63E6",
       "rgbaB": "FF1D143A",
       "cellSize": 18
+    },
+    "blaster_robot": {
+      "type": "file",
+      "path": "assets/texture/blaster_robot.png"
+    },
+    "blaster_robot_shot": {
+      "type": "file",
+      "path": "assets/texture/blaster_robot_shot.png"
     },
     "tile_default": {
       "type": "file",

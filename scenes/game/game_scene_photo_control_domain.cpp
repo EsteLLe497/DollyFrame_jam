@@ -21,7 +21,7 @@ namespace
         case PhotoFilterTheme::Cold:
             return GameSession_Get().hasRecoveryFilter ? PhotoFilterTheme::Cold : PhotoFilterTheme::None;
         case PhotoFilterTheme::Sepia:
-            return PhotoFilterTheme::Sepia;
+            return GameSession_Get().hasSepiaFilter ? PhotoFilterTheme::Sepia : PhotoFilterTheme::None;
         case PhotoFilterTheme::None:
         case PhotoFilterTheme::Hot:
         case PhotoFilterTheme::Invert:
@@ -35,8 +35,9 @@ namespace
         switch (theme)
         {
         case PhotoFilterTheme::None:
-        case PhotoFilterTheme::Sepia:
             return true;
+        case PhotoFilterTheme::Sepia:
+            return GameSession_Get().hasSepiaFilter;
         case PhotoFilterTheme::Cold:
             return GameSession_Get().hasRecoveryFilter;
         case PhotoFilterTheme::Hot:
@@ -54,12 +55,17 @@ namespace
     PhotoFilterTheme GetNextSelectableFilterTheme(PhotoFilterTheme current)
     {
         const bool hasRecoveryFilter = GameSession_Get().hasRecoveryFilter;
+        const bool hasSepiaFilter = GameSession_Get().hasSepiaFilter;
         switch (NormalizeSelectableFilterTheme(current))
         {
         case PhotoFilterTheme::None:
-            return hasRecoveryFilter ? PhotoFilterTheme::Cold : PhotoFilterTheme::Sepia;
+            if (hasRecoveryFilter)
+            {
+                return PhotoFilterTheme::Cold;
+            }
+            return hasSepiaFilter ? PhotoFilterTheme::Sepia : PhotoFilterTheme::None;
         case PhotoFilterTheme::Cold:
-            return PhotoFilterTheme::Sepia;
+            return hasSepiaFilter ? PhotoFilterTheme::Sepia : PhotoFilterTheme::None;
         case PhotoFilterTheme::Sepia:
         default:
             return PhotoFilterTheme::None;
@@ -69,10 +75,15 @@ namespace
     PhotoFilterTheme GetPreviousSelectableFilterTheme(PhotoFilterTheme current)
     {
         const bool hasRecoveryFilter = GameSession_Get().hasRecoveryFilter;
+        const bool hasSepiaFilter = GameSession_Get().hasSepiaFilter;
         switch (NormalizeSelectableFilterTheme(current))
         {
         case PhotoFilterTheme::None:
-            return PhotoFilterTheme::Sepia;
+            if (hasSepiaFilter)
+            {
+                return PhotoFilterTheme::Sepia;
+            }
+            return hasRecoveryFilter ? PhotoFilterTheme::Cold : PhotoFilterTheme::None;
         case PhotoFilterTheme::Sepia:
             return hasRecoveryFilter ? PhotoFilterTheme::Cold : PhotoFilterTheme::None;
         case PhotoFilterTheme::Cold:
@@ -294,7 +305,10 @@ void GameScene::ProcessFilterInput()
     }
     if (Input_IsActionPressed(InputAction::SelectFilterSepia))
     {
-        m_photo.capture.selectedTheme = PhotoFilterTheme::Sepia;
+        if (IsSelectableFilterTheme(PhotoFilterTheme::Sepia))
+        {
+            m_photo.capture.selectedTheme = PhotoFilterTheme::Sepia;
+        }
     }
     if (Input_IsActionPressed(InputAction::CycleFilter))
     {

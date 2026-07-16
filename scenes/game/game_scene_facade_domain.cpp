@@ -71,6 +71,11 @@ bool GameScene::TryHandleModalUpdates(float deltaTime)
         return true;
     }
 
+    if (UpdateSepiaUnlockOverlay(deltaTime))
+    {
+        return true;
+    }
+
     if (m_ui.merchantShopOpen)
     {
         UpdateMerchantShopInput();
@@ -163,7 +168,7 @@ void GameScene::PrepareFrameRendering()
             baseCameraZoomMultiplier = std::max(1.0f, static_cast<float>(SCREEN_WIDTH) / targetWorldWidth);
         }
     }
-    // 中ボス1との正規化距離に比例して、通常カメラを滑らかにズームアウトします。
+    // 中ボス1との正規化距離に比例して、E��常カメラを滑らかにズームアウトします、E
     baseCameraZoomMultiplier *= m_camera.shieldBossDistanceZoomScale;
     m_render.viewScaleMultiplier = m_mapEditor.active ? 1.0f : baseCameraZoomMultiplier;
 
@@ -314,7 +319,7 @@ void GameScene::DrawWorldAndUiLayers()
         IsShieldBossIntroCinematicActive();
 
     DrawGameWorldLayers();
-    // UIをビネット対象から外すため、ワールドだけを先にポストプロセス合成する。
+    // UIをビネット対象から外すため、ワールドだけを先にポスト�Eロセス合�Eする、E
     DirectXCompositeSceneToBackBuffer(static_cast<float>(GetNowCount()) * 0.001f);
     DrawGameUiLayers(hideUiForIntroCinematic);
 }
@@ -338,7 +343,7 @@ void GameScene::DrawGameWorldLayers()
     DrawEffects();
     DrawPhotoBoxesByLayer(PhotoCopyLayer::Foreground);
     DrawPastedEntitiesFront();
-    // バッテリー必要数はスイッチ固有情報のため、UI非表示中もワールド上へ表示する。
+    // バッチE��ー忁E��数はスイチE��固有情報のため、UI非表示中もワールド上へ表示する、E
     DrawBatterySwitchCounters();
     DrawStageDarknessOverlay();
     if (!IsMidBoss3DefeatCinematicActive())
@@ -359,6 +364,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
         DrawShieldBossIntroCurtainOverlay();
         DrawEscapeMenuOverlay();
         DrawTutorialOverlay();
+        DrawSepiaUnlockOverlay();
         return;
     }
     if (m_debug.hideNonPhotoUi)
@@ -366,6 +372,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
         DrawTestPhotos();
         DrawEscapeMenuOverlay();
         DrawTutorialOverlay();
+        DrawSepiaUnlockOverlay();
         return;
     }
     DrawTestPhotos();
@@ -389,6 +396,7 @@ void GameScene::DrawGameUiLayers(bool hideUiForIntroCinematic)
     DrawEnemyAttackRects();
     DrawShieldBossIntroCurtainOverlay();
     DrawTutorialOverlay();
+    DrawSepiaUnlockOverlay();
 }
 
 void GameScene::ResetFrameRendering()

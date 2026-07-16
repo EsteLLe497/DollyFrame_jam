@@ -22,6 +22,7 @@ struct GameSessionState
     int recoveryFilterCount = 0;
     bool hasRecoveryFilter = false;
     bool hasCameraFlash = false;
+    bool hasSepiaFilter = false;
     float timeLimit = 30.0f;
     float timeRemaining = 30.0f;
     float elapsedSeconds = 0.0f;
@@ -45,6 +46,7 @@ void GameSession_SetRecoveryFilterCount(int count);
 bool GameSession_AddRecoveryFilter(int amount = 1);
 bool GameSession_ConsumeRecoveryFilter();
 void GameSession_SetCameraFlashOwned(bool owned);
+void GameSession_SetSepiaFilterOwned(bool owned);
 void GameSession_SetTimeRemaining(float timeRemaining);
 void GameSession_SetEndReason(GameEndReason reason);
 void GameSession_SetStartMapCsvPath(const std::string& startMapCsvPath);

@@ -374,7 +374,7 @@ namespace
                         std::toupper(static_cast<unsigned char>(
                             tileMap.GetMarker2(column, row))));
                     const bool isPlayerSwitch = secondaryMarker == '*';
-                    // K2(J3 のように指定すると、必要数2のスイッチをリンクID 3へ接続する。
+                    // K2(J3 のように持E��すると、忁E��数2のスイチE��をリンクID 3へ接続する、E
                     const int linkIdOverride = secondaryMarker == 'J'
                         ? (std::max)(0, tileMap.GetMarkerParameter2(column, row))
                         : -1;
@@ -602,7 +602,7 @@ namespace
                 continue;
             }
 
-            // K4(Q のような指定は、最寄りの同型エレベーターへ接続する。
+            // K4(Q のような持E���E、最寁E��の同型エレベ�Eターへ接続する、E
             const float dx = elevatorMarker.x - marker.x;
             const float dy = elevatorMarker.y - marker.y;
             const float distanceSq = dx * dx + dy * dy;
@@ -1238,7 +1238,7 @@ void GameScene::RefreshEnemiesFromMarkers()
                 EnemySpawnRule{ 'R', "sandbox_enemy_ranged", nullptr },
                 EnemySpawnRule{ '$', "sandbox_enemy_charger", nullptr },
                 EnemySpawnRule{ 'A', "sandbox_enemy_ghost", nullptr },
-                EnemySpawnRule{ 'D', "sandbox_enemy_blaster_robot", nullptr },
+                EnemySpawnRule{ 'D', "sandbox_enemy_blaster_robot", &GameScene::ConfigureBlasterRobotSpriteAnimation },
             };
 
             const auto trySpawnRegularEnemy = [&](char spawnMarker) -> bool
@@ -1376,7 +1376,7 @@ void GameScene::RefreshBatteriesFromMarkers()
                 260.0f,
                 320.0f,
                 1);
-            // 開始直後の大きなdeltaTimeで床を抜けないよう、配置時点で接地を確定する。
+            // 開始直後�E大きなdeltaTimeで床を抜けなぁE��ぁE��E�E置時点で接地を確定する、E
             auto* batteryTransform = battery->GetComponent<TransformComponent>();
             auto* batteryComponent = battery->GetComponent<BatteryComponent>();
             if (batteryTransform && batteryComponent)
@@ -1908,7 +1908,7 @@ void GameScene::RefreshLinkedGimmicksFromMarkers()
         const SwitchMarker& marker = switchMarkers[static_cast<size_t>(index)];
         if (!marker.controlsLaserPower)
         {
-            // ジェネレーターもスイッチと同じ解決済みリンクを利用する。
+            // ジェネレーターもスイチE��と同じ解決済みリンクを利用する、E
             batteryGeneratorSwitchLinkIds.push_back(switchLinkIds[static_cast<size_t>(index)]);
         }
     }
@@ -2367,7 +2367,7 @@ void GameScene::RefleshSepiaRubblesFromMarkers()
             auto rubble = std::make_unique<Entity>();
             rubble->AddComponent<TagComponent>(kTagSepiaRubble);
 
-            // 外接矩形サイズでTransformを作る（すでに groupX/Y/Width/Height は計算済み）
+            // 外接矩形サイズでTransformを作る�E�すでに groupX/Y/Width/Height は計算済み�E�E
             rubble->AddComponent<TransformComponent>(groupX, groupY, groupWidth, groupHeight);
 
             rubble->AddComponent<TintComponent>(1.0f, 1.0f, 1.0f, 1.0f);

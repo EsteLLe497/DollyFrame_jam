@@ -3114,6 +3114,8 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
                 continue;
             }
 
+            const bool bossStageGoalMarker = false;
+
             const StageTransitionLink* transition = nullptr;
             for (const StageTransitionLink& link : gStageTransitionLinks)
             {
@@ -3124,7 +3126,7 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
                     break;
                 }
             }
-            if (!transition)
+            if (!transition && !bossStageGoalMarker)
             {
                 continue;
             }
@@ -3136,7 +3138,7 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
             const int right = static_cast<int>(std::round(viewOriginX + (worldX + tileSize - m_flow.cameraX) * viewScale));
             const int bottom = static_cast<int>(std::round(viewOriginY + (worldY + tileSize - m_flow.cameraY) * viewScale));
 
-            if (marker == '=')
+            if (marker == '=' || bossStageGoalMarker)
             {
                 // 遷移オブジェクト本体は描かず、右半分へ向かって濃くなる影だけを表示する。
                 constexpr int kShadowBandCount = 8;
@@ -3165,8 +3167,11 @@ void GameScene::DrawStageTransitionMarkersInView(float viewOriginX, float viewOr
 
             DrawBox(left, top, right, bottom, GetColor(255, 210, 90), FALSE);
 
+            if (transition)
+            {
             const std::string destName = GetMapDisplayName(transition->destinationMapCsv);
             DrawFormatString(left, top - 16, GetColor(180, 240, 255), "→ %s", destName.c_str());
+            }
         }
     }
 }
@@ -3621,4 +3626,5 @@ void GameScene::DrawBatterySwitchCounters() const
         }
     }
 }
+
 
