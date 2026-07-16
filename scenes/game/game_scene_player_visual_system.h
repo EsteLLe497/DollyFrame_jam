@@ -15,12 +15,12 @@ using namespace game_scene_detail;
 inline constexpr float kPlayerAfterimageLifetime = 0.18f;
 inline constexpr float kPlayerAfterimageSpawnInterval = 0.03f;
 inline constexpr int kMaxPlayerAfterimages = 8;
-inline constexpr int kPlayerSheetColumns = 5;
-inline constexpr int kPlayerSheetRows = 6;
 inline constexpr int kPlayerMoveSheetColumns = 4;
 inline constexpr int kPlayerMoveSheetRows = 3;
 inline constexpr int kPlayerMoveFrameCount = 12;
 inline constexpr float kPlayerMoveFps = 18.0f;
+inline constexpr int kPlayerDodgeFrameCount = 4;
+inline constexpr float kPlayerDodgeFps = 28.0f;
 inline constexpr int kPlayerJumpSheetColumns = 5;
 inline constexpr int kPlayerJumpSheetRows = 4;
 inline constexpr int kPlayerJumpAscentStartFrame = 0;
@@ -86,7 +86,7 @@ inline void ConfigurePlayerSpriteAnimation(Entity& player, int idleTextureId = -
     animation->DefineClip("paste_hold", resolvedPasteTextureId, kPlayerPasteSheetColumns, kPlayerPasteSheetRows, 0, kPlayerPasteHoldFrameCount, kPlayerPasteHoldFps, false);
     animation->DefineClip("paste_release", resolvedPasteTextureId, kPlayerPasteSheetColumns, kPlayerPasteSheetRows, kPlayerPasteReleaseStartFrame, kPlayerPasteReleaseFrameCount, kPlayerPasteReleaseFps, false);
     animation->DefineClip("paste_attack_release", resolvedAttackTextureId, kPlayerAttackSheetColumns, kPlayerAttackSheetRows, 0, kPlayerAttackFrameCount, kPlayerAttackFps, false);
-    animation->DefineClip("dodge", textureId, kPlayerSheetColumns, kPlayerSheetRows, 10, 1, 1.0f, false);
+    animation->DefineClip("dodge", resolvedMoveTextureId, kPlayerMoveSheetColumns, kPlayerMoveSheetRows, 0, kPlayerDodgeFrameCount, kPlayerDodgeFps, false);
     animation->Play("idle", true);
 }
 
@@ -223,6 +223,7 @@ inline void UpdateAnimation(
     const bool usesNewCharacterSheet =
         currentClip == "idle" ||
         currentClip == "run" ||
+        currentClip == "dodge" ||
         currentClip == "jump" ||
         currentClip == "fall" ||
         currentClip == "capture_hold" ||
@@ -249,14 +250,17 @@ inline void UpdatePresentation(
     }
 
     static_cast<void>(moveAxis);
-    static_cast<void>(isDodging);
-
     constexpr float kJumpStretchScaleX = -0.045f;
     constexpr float kJumpStretchScaleY = 0.095f;
     constexpr float kLandingStretchScaleX = 0.115f;
     constexpr float kLandingStretchScaleY = -0.075f;
+    constexpr float kDodgeStretchScaleX = 0.16f;
+    constexpr float kDodgeStretchScaleY = -0.10f;
+    constexpr float kDodgeLeanRadians = 0.055f;
     constexpr float kJumpStretchDecay = 13.0f;
     constexpr float kLandingImpactDecay = 16.0f;
+    constexpr float kDodgeStretchEnterResponse = 42.0f;
+    constexpr float kDodgeStretchExitResponse = 18.0f;
 
     if (wasGrounded && !playerState.grounded && playerState.velocityY < 0.0f)
     {
@@ -270,38 +274,78 @@ inline void UpdatePresentation(
 
     const float jumpDecay = 1.0f - std::pow(0.001f, std::max(0.0f, deltaTime) * kJumpStretchDecay);
     const float landingDecay = 1.0f - std::pow(0.001f, std::max(0.0f, deltaTime) * kLandingImpactDecay);
+    const float dodgeResponse = isDodging ? kDodgeStretchEnterResponse : kDodgeStretchExitResponse;
+    const float dodgeBlend = 1.0f - std::pow(0.001f, std::max(0.0f, deltaTime) * dodgeResponse);
     playerState.jumpStretch = std::lerp(playerState.jumpStretch, 0.0f, jumpDecay);
     playerState.landingImpact = std::lerp(playerState.landingImpact, 0.0f, landingDecay);
+    playerState.dodgeStretch = std::lerp(playerState.dodgeStretch, isDodging ? 1.0f : 0.0f, dodgeBlend);
 
     playerState.visualScaleX =
         1.0f +
         playerState.jumpStretch * kJumpStretchScaleX +
-        playerState.landingImpact * kLandingStretchScaleX;
+        playerState.landingImpact * kLandingStretchScaleX +
+        playerState.dodgeStretch * kDodgeStretchScaleX;
     playerState.visualScaleY =
         1.0f +
         playerState.jumpStretch * kJumpStretchScaleY +
-        playerState.landingImpact * kLandingStretchScaleY;
+        playerState.landingImpact * kLandingStretchScaleY +
+        playerState.dodgeStretch * kDodgeStretchScaleY;
 
     const auto* transform = player.GetComponent<TransformComponent>();
     const float baseWidth = transform ? transform->width * transform->scale : 0.0f;
     const float baseHeight = transform ? transform->height * transform->scale : 0.0f;
     const float visualOffsetX = baseWidth * (1.0f - playerState.visualScaleX) * 0.5f;
     playerState.visualOffsetY = baseHeight * (1.0f - playerState.visualScaleY);
-    playerState.visualRotation = 0.0f;
+    playerState.visualRotation = playerState.dodgeDirection * playerState.dodgeStretch * kDodgeLeanRadians;
     sprite->SetRenderScale(playerState.visualScaleX, playerState.visualScaleY);
     sprite->SetRenderOffset(visualOffsetX, playerState.visualOffsetY);
-    sprite->SetRenderRotationOffset(0.0f);
+    sprite->SetRenderRotationOffset(playerState.visualRotation);
 }
 
 inline void UpdateAfterimages(GameScenePlayerState& playerState, float deltaTime)
 {
-    static_cast<void>(deltaTime);
-    playerState.afterimages.clear();
+    for (PlayerAfterimage& afterimage : playerState.afterimages)
+    {
+        afterimage.life = std::max(0.0f, afterimage.life - std::max(0.0f, deltaTime));
+    }
+    std::erase_if(
+        playerState.afterimages,
+        [](const PlayerAfterimage& afterimage)
+        {
+            return afterimage.life <= 0.0f;
+        });
 }
 
-inline void TrySpawnAfterimage(GameScenePlayerState& playerState, const TransformComponent& transform)
+inline void TrySpawnAfterimage(
+    GameScenePlayerState& playerState,
+    const TransformComponent& transform,
+    const SpriteRenderComponent& sprite)
 {
-    static_cast<void>(playerState);
-    static_cast<void>(transform);
+    if (!playerState.afterimages.empty() &&
+        playerState.afterimages.back().life > kPlayerAfterimageLifetime - kPlayerAfterimageSpawnInterval)
+    {
+        return;
+    }
+
+    PlayerAfterimage afterimage;
+    afterimage.x = transform.x + sprite.GetRenderOffsetX();
+    afterimage.y = transform.y + sprite.GetRenderOffsetY();
+    afterimage.rotation = transform.rotation + sprite.GetRenderRotationOffset();
+    afterimage.scale = transform.scale;
+    afterimage.renderScaleX = sprite.GetRenderScaleX();
+    afterimage.renderScaleY = sprite.GetRenderScaleY();
+    afterimage.flipX = sprite.GetFlipX();
+    afterimage.life = kPlayerAfterimageLifetime;
+    afterimage.textureId = sprite.GetTextureId();
+    afterimage.sourceX = sprite.GetSourceX();
+    afterimage.sourceY = sprite.GetSourceY();
+    afterimage.sourceWidth = sprite.GetSourceWidth();
+    afterimage.sourceHeight = sprite.GetSourceHeight();
+    playerState.afterimages.push_back(afterimage);
+
+    if (playerState.afterimages.size() > kMaxPlayerAfterimages)
+    {
+        playerState.afterimages.erase(playerState.afterimages.begin());
+    }
 }
 }

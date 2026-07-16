@@ -2216,12 +2216,15 @@ void GameScene::UpdatePlayer(float deltaTime)
     const float tileSize = m_tileMap.GetTileSize();
     const float playerWidth = transform->width * transform->scale;
     const float playerHeight = transform->height * transform->scale;
-    const bool wasGrounded = m_player.grounded || IsStandingOnGround(*transform);
+    const bool knockbackActive = m_playerKnockbackRemaining > 0.0f;
+    m_playerKnockbackRemaining = std::max(0.0f, m_playerKnockbackRemaining - deltaTime);
+    const bool wasGrounded = !knockbackActive && (m_player.grounded || IsStandingOnGround(*transform));
 
     if (shieldBossIntroActive)
     {
         m_player.velocityX = 0.0f;
         m_player.velocityY = 0.0f;
+        m_playerKnockbackRemaining = 0.0f;
         m_player.dodgeRemaining = 0.0f;
         UpdatePlayerAfterimages(deltaTime);
         UpdatePlayerPresentation(*player, deltaTime, 0.0f, wasGrounded, false, false);
@@ -2235,14 +2238,26 @@ void GameScene::UpdatePlayer(float deltaTime)
     game_scene_player_system::TickDodgeState(m_player, deltaTime);
     UpdatePlayerAfterimages(deltaTime);
 
-    game_scene_player_system::UpdateFacingFromMoveAxis(m_player, moveAxis);
+    if (!knockbackActive)
+    {
+        game_scene_player_system::UpdateFacingFromMoveAxis(m_player, moveAxis);
+    }
 
-    if (controls.dodgePressed &&wasGrounded&& game_scene_player_system::TryBeginDodge(
+    if (!knockbackActive && controls.dodgePressed && wasGrounded && game_scene_player_system::TryBeginDodge(
         m_player,
         moveAxis,
         dodgeDuration,
         gPlayerDodgeCooldown))
     {
+        if (auto* sprite = player->GetComponent<SpriteRenderComponent>())
+        {
+            sprite->SetFlipX(!m_player.facingRight);
+        }
+        if (auto* animation = player->GetComponent<SpriteSheetAnimationComponent>())
+        {
+            animation->Play("dodge", true);
+        }
+        TrySpawnPlayerAfterimage(*transform);
         m_eventBus.Publish({ EventType::PlaySoundRequest, player, nullptr, "test_tone", 0.0f, 0.0f });
         m_eventBus.Publish({ EventType::LogMessage, player, nullptr, "Player dodged", 0.0f, 0.0f });
     }
@@ -2250,7 +2265,8 @@ void GameScene::UpdatePlayer(float deltaTime)
     const bool isDodging = m_player.dodgeRemaining > 0.0f;
     const float mapWidth = GetMapPixelWidth();
     const float mapHeight = GetMapPixelHeight();
-    const bool canJumpNow = !isDodging &&
+    const bool canJumpNow = !knockbackActive &&
+        !isDodging &&
         controls.jumpPressed &&
         (wasGrounded || m_player.coyoteTimeRemaining > 0.0f);
     if (canJumpNow)
@@ -2268,17 +2284,21 @@ void GameScene::UpdatePlayer(float deltaTime)
     std::vector<TransformComponent> solidObjects;
     BuildPlayerSolidObjectBounds(solidObjects);
 
-    const float targetHorizontalVelocity = game_scene_player_system::GetHorizontalVelocity(
-        m_player,
-        moveAxis,
-        gPlayerDodgeSpeed,
-        gPlayerMoveSpeed);
+    const float targetHorizontalVelocity = knockbackActive
+        ? m_player.velocityX
+        : game_scene_player_system::GetHorizontalVelocity(
+            m_player,
+            moveAxis,
+            gPlayerDodgeSpeed,
+            gPlayerMoveSpeed);
     const float estimatedHorizontalVelocity =
-        !isDodging &&
-            !wasGrounded &&
-            std::fabs(m_player.velocityX) > std::fabs(targetHorizontalVelocity) + 1.0f
+        knockbackActive
             ? m_player.velocityX
-            : targetHorizontalVelocity;
+            : !isDodging &&
+                !wasGrounded &&
+                std::fabs(m_player.velocityX) > std::fabs(targetHorizontalVelocity) + 1.0f
+                ? m_player.velocityX
+                : targetHorizontalVelocity;
     const float estimatedVerticalVelocity = canJumpNow
         ? gPlayerJumpSpeed
         : std::min(gPlayerMaxFallSpeed, m_player.velocityY + gPlayerGravity * deltaTime);
@@ -2292,7 +2312,8 @@ void GameScene::UpdatePlayer(float deltaTime)
     for (int stepIndex = 0; stepIndex < subSteps; ++stepIndex)
     {
         float horizontalVelocity = targetHorizontalVelocity;
-        if (!isDodging &&
+        if (!knockbackActive &&
+            !isDodging &&
             !groundedAtStepStart &&
             std::fabs(m_player.velocityX) > std::fabs(targetHorizontalVelocity) + 1.0f)
         {
@@ -2410,15 +2431,14 @@ void GameScene::UpdatePlayer(float deltaTime)
             });
 
         groundedAtStepStart = m_player.grounded;
-
-        if (isDodging)
-        {
-            TrySpawnPlayerAfterimage(*transform);
-        }
     }
 
     const bool landedThisFrame = !wasGrounded && m_player.grounded;
     UpdatePlayerPresentation(*player, deltaTime, moveAxis, wasGrounded, isDodging, landedThisFrame);
+    if (isDodging)
+    {
+        TrySpawnPlayerAfterimage(*transform);
+    }
 
     if (IsMidBoss3IntroCinematicActive())
     {

@@ -407,6 +407,7 @@ private:
     PhotoState m_photo;
     GameSceneFlowState m_flow;
     GameScenePlayerState m_player;
+    float m_playerKnockbackRemaining = 0.0f;
     GameSceneDebugState m_debug;
     GameSceneEffectsState m_effects;
     GameSceneMapEditorState m_mapEditor;
