@@ -152,44 +152,44 @@ namespace
     //    岩壁に埋まらない開けた場所を選び、間隔・高さをランダムにばらして配置しています。
 // forest_v2.csv（実際に使われている森ステージ。357列×64行、タイルサイズ48px）を
     // 実際に調べて、岩壁に埋まらず地面に近い場所へ配置しています。
-    constexpr BackgroundPartPlacement kBackgroundParts[] =
-    {
-        { "bg_parts_01", 200.0f,  2366.0f, 110.0f, 130.0f, 1.0f },
-        { "bg_parts_02", 665.0f,  2406.0f,  90.0f,  90.0f, 1.0f },
-        { "bg_parts_03", 1236.0f, 2426.0f, 130.0f,  70.0f, 1.0f },
-        { "bg_parts_04", 1729.0f, 2416.0f, 100.0f,  80.0f, 1.0f },
-        { "bg_parts_05", 2298.0f, 2330.0f, 100.0f,  70.0f, 1.0f },
-        { "bg_parts_06", 2884.0f, 2070.0f, 120.0f,  90.0f, 1.0f },
-        { "bg_parts_07", 3433.0f, 1734.0f, 100.0f,  90.0f, 1.0f },
-        { "bg_parts_08", 3902.0f, 1714.0f, 110.0f, 110.0f, 1.0f },
-        { "bg_parts_01", 4367.0f, 1454.0f, 110.0f, 130.0f, 1.0f },
-        { "bg_parts_02", 4847.0f, 1062.0f,  90.0f,  90.0f, 1.0f },
-        { "bg_parts_03", 5415.0f, 1082.0f, 130.0f,  70.0f, 1.0f },
-        { "bg_parts_04", 5915.0f, 1264.0f, 100.0f,  80.0f, 1.0f },
-        { "bg_parts_05", 6313.0f, 1034.0f, 100.0f,  70.0f, 1.0f },
-        { "bg_parts_06", 6710.0f, 1062.0f, 120.0f,  90.0f, 1.0f },
-        { "bg_parts_07", 7265.0f,  918.0f, 100.0f,  90.0f, 1.0f },
-        { "bg_parts_08", 7746.0f, 1090.0f, 110.0f, 110.0f, 1.0f },
-        { "bg_parts_01", 8217.0f, 1022.0f, 110.0f, 130.0f, 1.0f },
-        { "bg_parts_02", 8728.0f, 1734.0f,  90.0f,  90.0f, 1.0f },
-        { "bg_parts_03", 9235.0f, 1754.0f, 130.0f,  70.0f, 1.0f },
-        { "bg_parts_04", 9788.0f, 2128.0f, 100.0f,  80.0f, 1.0f },
-        { "bg_parts_05", 10185.0f,2138.0f, 100.0f,  70.0f, 1.0f },
-        { "bg_parts_06", 10559.0f,1878.0f, 120.0f,  90.0f, 1.0f },
-        { "bg_parts_07", 11023.0f,1542.0f, 100.0f,  90.0f, 1.0f },
-        { "bg_parts_08", 11450.0f,1618.0f, 110.0f, 110.0f, 1.0f },
-        { "bg_parts_01", 11836.0f,1406.0f, 110.0f, 130.0f, 1.0f },
-        { "bg_parts_02", 12209.0f,1302.0f,  90.0f,  90.0f, 1.0f },
-        { "bg_parts_03", 12696.0f,1322.0f, 130.0f,  70.0f, 1.0f },
-        { "bg_parts_04", 13253.0f,1312.0f, 100.0f,  80.0f, 1.0f },
-        { "bg_parts_05", 13830.0f,1082.0f, 100.0f,  70.0f, 1.0f },
-        { "bg_parts_06", 14357.0f,1062.0f, 120.0f,  90.0f, 1.0f },
-        { "bg_parts_07", 14869.0f,1350.0f, 100.0f,  90.0f, 1.0f },
-        { "bg_parts_08", 15229.0f, 802.0f, 110.0f, 110.0f, 1.0f },
-        { "bg_parts_01", 15731.0f, 734.0f, 110.0f, 130.0f, 1.0f },
-        { "bg_parts_02", 16182.0f, 774.0f,  90.0f,  90.0f, 1.0f },
-        { "bg_parts_03", 16778.0f, 794.0f, 130.0f,  70.0f, 1.0f },
-    };
+    //constexpr BackgroundPartPlacement kBackgroundParts[] =
+    //{
+    //    { "bg_parts_01", 200.0f,  2366.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 665.0f,  2406.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 1236.0f, 2426.0f, 130.0f,  70.0f, 1.0f },
+    //    { "bg_parts_04", 1729.0f, 2416.0f, 100.0f,  80.0f, 1.0f },
+    //    { "bg_parts_05", 2298.0f, 2330.0f, 100.0f,  70.0f, 1.0f },
+    //    { "bg_parts_06", 2884.0f, 2070.0f, 120.0f,  90.0f, 1.0f },
+    //    { "bg_parts_07", 3433.0f, 1734.0f, 100.0f,  90.0f, 1.0f },
+    //    { "bg_parts_08", 3902.0f, 1714.0f, 110.0f, 110.0f, 1.0f },
+    //    { "bg_parts_01", 4367.0f, 1454.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 4847.0f, 1062.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 5415.0f, 1082.0f, 130.0f,  70.0f, 1.0f },
+    //    { "bg_parts_04", 5915.0f, 1264.0f, 100.0f,  80.0f, 1.0f },
+    //    { "bg_parts_05", 6313.0f, 1034.0f, 100.0f,  70.0f, 1.0f },
+    //    { "bg_parts_06", 6710.0f, 1062.0f, 120.0f,  90.0f, 1.0f },
+    //    { "bg_parts_07", 7265.0f,  918.0f, 100.0f,  90.0f, 1.0f },
+    //    { "bg_parts_08", 7746.0f, 1090.0f, 110.0f, 110.0f, 1.0f },
+    //    { "bg_parts_01", 8217.0f, 1022.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 8728.0f, 1734.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 9235.0f, 1754.0f, 130.0f,  70.0f, 1.0f },
+    //    { "bg_parts_04", 9788.0f, 2128.0f, 100.0f,  80.0f, 1.0f },
+    //    { "bg_parts_05", 10185.0f,2138.0f, 100.0f,  70.0f, 1.0f },
+    //    { "bg_parts_06", 10559.0f,1878.0f, 120.0f,  90.0f, 1.0f },
+    //    { "bg_parts_07", 11023.0f,1542.0f, 100.0f,  90.0f, 1.0f },
+    //    { "bg_parts_08", 11450.0f,1618.0f, 110.0f, 110.0f, 1.0f },
+    //    { "bg_parts_01", 11836.0f,1406.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 12209.0f,1302.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 12696.0f,1322.0f, 130.0f,  70.0f, 1.0f },
+    //    { "bg_parts_04", 13253.0f,1312.0f, 100.0f,  80.0f, 1.0f },
+    //    { "bg_parts_05", 13830.0f,1082.0f, 100.0f,  70.0f, 1.0f },
+    //    { "bg_parts_06", 14357.0f,1062.0f, 120.0f,  90.0f, 1.0f },
+    //    { "bg_parts_07", 14869.0f,1350.0f, 100.0f,  90.0f, 1.0f },
+    //    { "bg_parts_08", 15229.0f, 802.0f, 110.0f, 110.0f, 1.0f },
+    //    { "bg_parts_01", 15731.0f, 734.0f, 110.0f, 130.0f, 1.0f },
+    //    { "bg_parts_02", 16182.0f, 774.0f,  90.0f,  90.0f, 1.0f },
+    //    { "bg_parts_03", 16778.0f, 794.0f, 130.0f,  70.0f, 1.0f },
+    //};
 
     float SmoothStep01(float t);
 
@@ -3019,11 +3019,20 @@ void GameScene::DrawBackdropBaseInView(
 
     //// 背景（奥）を描画
     //drawTiledRepeating(bgTexture, viewOriginX, viewOriginY, drawW, drawH, scrollU, scrollV, uSpan, vSpan);
-    // 
     // 背景前景（手前）を描画（Y を下にオフセット）
     //drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
     // 背景前景（手前）を描画（Y を下にオフセット）
+    // 廃墟ステージだけ、背景に薄く灰色フィルターをかける。
+    constexpr float kRuinsBackdropTint = 0.42f; // 1.0=元の色のまま、0に近いほど暗い灰色になる
+    if (m_lifecycle.ruinsStageEnabled)
+    {
+        Shader_SetTint(kRuinsBackdropTint, kRuinsBackdropTint, kRuinsBackdropTint, 1.0f);
+    }
     drawTiledRepeating(bg1Texture, viewOriginX, viewOriginY + bg1OffsetY, drawW1, drawH1, scrollU1, scrollV1, uSpan1, vSpan1);
+    if (m_lifecycle.ruinsStageEnabled)
+    {
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
+    }
 
     if (drawForestLayers)
     {
@@ -3110,6 +3119,7 @@ void GameScene::DrawBackdropBaseInView(
             { "ruins_layer7", 0.25f }, // 一番遅い
         };
 
+        Shader_SetTint(kRuinsBackdropTint, kRuinsBackdropTint, kRuinsBackdropTint, 1.0f);
         for (const RuinsLayerConfig& layer : kRuinsLayersInOrder)
         {
             const int layerTexture = m_assets.GetTexture(layer.textureKey);
@@ -3124,6 +3134,7 @@ void GameScene::DrawBackdropBaseInView(
             const float layerVSpan = viewHeight / static_cast<float>(layerTexH);
             drawTiledRepeating(layerTexture, viewOriginX, viewOriginY, viewWidth, viewHeight, layerScrollU, 0.0f, layerUSpan, layerVSpan);
         }
+        Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }
 
@@ -3260,26 +3271,26 @@ void GameScene::DrawBackdropFrameInView(float viewOriginX, float viewOriginY, fl
     SpriteDraw(m_whiteTexture, panelRight, viewOriginY, 10.0f, viewHeight, 0.0f, 0.0f, 1.0f, 1.0f);
 }
 
-void GameScene::DrawBackgroundPartsInView(float viewOriginX, float viewOriginY, float viewScale) const//パーツ
-{
-    for (const auto& part : kBackgroundParts)
-    {
-        const int textureId = m_assets.GetTexture(part.textureKey);
-        if (textureId < 0)
-        {
-            continue;
-        }
-
-        const float screenX = viewOriginX + (part.worldX - m_flow.cameraX * part.parallax) * viewScale;
-        const float screenY = viewOriginY + (part.worldY - m_flow.cameraY * part.parallax) * viewScale;
-        const float drawW = part.width * viewScale;
-        const float drawH = part.height * viewScale;
-
-        Shader_ResetStyle();
-        SpriteDraw(textureId, screenX, screenY, drawW, drawH, 0.0f, 0.0f, 1.0f, 1.0f);
-    }
-    Shader_ResetStyle();
-}
+//void GameScene::DrawBackgroundPartsInView(float viewOriginX, float viewOriginY, float viewScale) const//パーツ
+//{
+//    for (const auto& part : kBackgroundParts)
+//    {
+//        const int textureId = m_assets.GetTexture(part.textureKey);
+//        if (textureId < 0)
+//        {
+//            continue;
+//        }
+//
+//        const float screenX = viewOriginX + (part.worldX - m_flow.cameraX * part.parallax) * viewScale;
+//        const float screenY = viewOriginY + (part.worldY - m_flow.cameraY * part.parallax) * viewScale;
+//        const float drawW = part.width * viewScale;
+//        const float drawH = part.height * viewScale;
+//
+//        Shader_ResetStyle();
+//        SpriteDraw(textureId, screenX, screenY, drawW, drawH, 0.0f, 0.0f, 1.0f, 1.0f);
+//    }
+//    Shader_ResetStyle();
+//}
 
 void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, float viewScale) const
 {
@@ -3291,7 +3302,7 @@ void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, floa
         GetViewHeight()
     };
 
-    DrawBackgroundPartsInView(viewOriginX, viewOriginY, viewScale);
+    //DrawBackgroundPartsInView(viewOriginX, viewOriginY, viewScale);
 
     // 写真カメラを含む現在の表示範囲だけにタイル描画を制限する。
     m_tileMap.Draw(

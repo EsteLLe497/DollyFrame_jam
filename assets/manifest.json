@@ -477,6 +477,10 @@
     "bg_parts_08": {
       "type": "file",
       "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_08.png"
+    },
+    "karitatie": {
+      "type": "file",
+      "path": "assets/texture/karitatie.png"
     }
   }
 }
