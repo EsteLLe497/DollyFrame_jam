@@ -68,11 +68,23 @@ namespace
 
     bool IsLoopingSeCueName(const std::string& cueName)
     {
-        return cueName == "boss_ruins_rocket_charge";
+        return cueName == "boss_ruins_rocket_charge" ||
+            cueName == "elevator_up" ||
+            cueName == "shutter_open";
     }
 
     float ResolveCueGain(const std::string& cueName)
     {
+        if (cueName == "shutter_open")
+        {
+            return 1.5f;
+        }
+
+        if (cueName == "battery_fall")
+        {
+            return 0.8f;
+        }
+
         // ボスSE素材はBGMに埋もれやすいため、ボス別に同じ基準まで持ち上げる。
         if (cueName.find("boss_forest_") == 0 ||
             cueName.find("boss_ruins_") == 0)

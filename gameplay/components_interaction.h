@@ -28,9 +28,9 @@ public:
 
     float velocityX = 0.0f;
     float velocityY = 0.0f;
+    float accumulatedFallDistance = 0.0f;
     bool grounded = false;
     bool destroyed = false;
-    float accumulatedFallDistance = 0.0f;
     float gravity = 0.0f;
     float maxFallSpeed = 0.0f;
     float rollSpeed = 0.0f;
@@ -158,6 +158,7 @@ public:
 
     float velocityX = 0.0f;
     float velocityY = 0.0f;
+    float accumulatedFallDistance = 0.0f;
     bool grounded = false;
     float gravity = 0.0f;
     float maxFallSpeed = 0.0f;

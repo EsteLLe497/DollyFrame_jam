@@ -243,6 +243,8 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
     };
 
+    bool playerRidingAnyElevator = false;
+    bool anyShutterMoving = false;
     for (const auto& entity : m_world.Entities())
     {
         if (!entity)
@@ -318,7 +320,12 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
                 0.0f,
                 switchComponent->activationGraceRemaining - deltaTime);
         }
+        const bool wasPressed = switchComponent->isPressed;
         switchComponent->isPressed = pressCondition || switchComponent->activationGraceRemaining > 0.0f;
+        if (!wasPressed && switchComponent->isPressed)
+        {
+            Audio_PlayCue("switch_press");
+        }
         const float targetPress = switchComponent->isPressed ? switchComponent->pressDepth : 0.0f;
         const float responseSpeed = switchComponent->isPressed ? switchComponent->pressSpeed : switchComponent->releaseSpeed;
         switchComponent->currentPress += (targetPress - switchComponent->currentPress) * std::min(1.0f, deltaTime * responseSpeed);
@@ -595,6 +602,9 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
 
         const float previousY = transform->y;
         const bool powered = linkPowered[elevator->linkId];
+        const bool playerRidingElevator = isPlayerOnTopOfPlatform(
+            *transform,
+            std::max(kPlatformTopToleranceMin + 2.0f, tileSize * 0.28f));
         const int elevatorTexture = powered
             ? m_assets.GetTexture("tile_value_elevator_on")
             : m_assets.GetTexture("tile_value_elevator_off");
@@ -658,6 +668,8 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
 
         const float deltaY = transform->y - previousY;
+        playerRidingAnyElevator = playerRidingAnyElevator ||
+            (playerRidingElevator && std::fabs(deltaY) > 0.001f);
         carryPlayerByPlatformDeltaY(
             *transform,
             previousY,
@@ -667,6 +679,17 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             kPlatformPlayerInsetX);
 
         setEntityTint(*entity, 1.0f, 1.0f, 1.0f);
+    }
+
+    if (playerRidingAnyElevator && !m_elevatorUpSoundPlaying)
+    {
+        Audio_PlayCue("elevator_up");
+        m_elevatorUpSoundPlaying = true;
+    }
+    else if (!playerRidingAnyElevator && m_elevatorUpSoundPlaying)
+    {
+        Audio_StopCue("elevator_up");
+        m_elevatorUpSoundPlaying = false;
     }
 
     for (const auto& entity : m_world.Entities())
@@ -688,6 +711,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         const bool open = shutter->opensWhenUnpowered
             ? !linkActive
             : linkActive;
+        const float previousX = transform->x;
         const float previousY = transform->y;
         const float targetX = open
             ? shutter->baseX + shutter->moveRangeX
@@ -716,7 +740,10 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
         shutter->isOpen = open;
 
+        const float deltaX = transform->x - previousX;
         const float deltaY = transform->y - previousY;
+        anyShutterMoving = anyShutterMoving ||
+            std::fabs(deltaX) > 0.001f || std::fabs(deltaY) > 0.001f;
         if (std::fabs(deltaY) <= 0.001f)
         {
             continue;
@@ -737,6 +764,17 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             deltaY,
             topTolerance,
             kPlatformBatteryInsetX);
+    }
+
+    if (anyShutterMoving && !m_shutterSoundPlaying)
+    {
+        Audio_PlayCue("shutter_open");
+        m_shutterSoundPlaying = true;
+    }
+    else if (!anyShutterMoving && m_shutterSoundPlaying)
+    {
+        Audio_StopCue("shutter_open");
+        m_shutterSoundPlaying = false;
     }
 
     for (const auto& entity : m_world.Entities())

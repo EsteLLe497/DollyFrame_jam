@@ -2647,6 +2647,7 @@ inline void UpdateEnemies(
                         enemy->attackTimer = 0.0f;
                         enemy->attackFrameTriggered = false;
                         enemy->SetAIState(EnemyComponent::AIState::Attack);
+                        playEnemyGun(*entity);
                         if (auto* animation = entity->GetComponent<SpriteSheetAnimationComponent>())
                         {
                             animation->SetPlaybackSpeed(1.0f);
