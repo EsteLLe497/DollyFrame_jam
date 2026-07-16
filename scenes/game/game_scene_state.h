@@ -489,14 +489,14 @@ struct GameSceneFlowState
 };
 
 
-// パッド（右スティック）カーソルの感度設定。撮影ファインダーと貼り付け候補で共有する。
-// 速度・応答・減衰はスクリーンpx基準。ImGui（DrawPadSettingsWindow）から実行時調整できる。
+// パッド（右スチE��チE���E�カーソルの感度設定。撮影ファインダーと貼り付け候補で共有する、E
+// 速度・応答�E減衰はスクリーンpx基準、EmGui�E�ErawPadSettingsWindow�E�から実行時調整できる、E
 struct GameScenePadCursorTuning
 {
-    float deadZone = 0.18f;   // スティックの遊び（0〜1）
-    float maxSpeed = 2600.0f; // フルに倒したときの速度（スクリーンpx/秒）
-    float response = 18.0f;   // 目標速度への追従の速さ（大きいほど即応）
-    float damping = 12.0f;    // スティックを離したときの減速の強さ
+    float deadZone = 0.18f;   // スチE��チE��の遊�E�E�E、E�E�E
+    float maxSpeed = 2600.0f; // フルに倒したとき�E速度�E�スクリーンpx/秒！E
+    float response = 18.0f;   // 目標速度への追従�E速さ�E�大きいほど即応！E
+    float damping = 12.0f;    // スチE��チE��を離したとき�E減速�E強ぁE
 };
 
 
@@ -507,16 +507,16 @@ struct GameSceneUiState
     float photoTrayReveal = 0.0f;
     float captureFinderScale = 1.0f;
     GameScenePadCursorTuning padCursor;
-    // 撮影ファインダーの仮想カーソル（スクリーン座標）。マウス移動時はマウス位置に追従し、
-    // 右スティック入力時はスティックで動かす（プレイ中はパッドとマウスを自由に切替可能）。
-    // スクリーン座標で保持することで、カメラ（プレイヤー）が動いても画面上の位置が保たれ、
-    // 撮影判定は毎フレーム現在のカメラでワールドへ変換される（＝プレイヤーに追従する）。
+    // 撮影ファインダーの仮想カーソル�E�スクリーン座標）。�Eウス移動時はマウス位置に追従し、E
+    // 右スチE��チE��入力時はスチE��チE��で動かす（�Eレイ中はパッドとマウスを�E由に刁E��可能�E�、E
+    // スクリーン座標で保持することで、カメラ�E��Eレイヤー�E�が動いても画面上�E位置が保たれ、E
+    // 撮影判定�E毎フレーム現在のカメラでワールドへ変換される（＝�Eレイヤーに追従する）、E
     float finderCursorScreenX = 0.0f;
     float finderCursorScreenY = 0.0f;
     float finderCursorVelocityX = 0.0f;
     float finderCursorVelocityY = 0.0f;
     bool finderCursorInitialized = false;
-    // パッドが操作している間だけ true。マウス操作時は生マウス座標に完全追従させる。
+    // パッドが操作してぁE��間だぁEtrue。�Eウス操作時は生�Eウス座標に完�E追従させる、E
     bool finderCursorPadDriving = false;
     int finderCursorLastMouseX = 0;
     int finderCursorLastMouseY = 0;
@@ -541,6 +541,8 @@ struct GameSceneUiState
     float partsHudVisibleRemaining = 2.0f;
     float partsHudAlpha = 1.0f;
     bool merchantShopOpen = false;
+    bool sepiaUnlockOverlayOpen = false;
+    float sepiaUnlockOverlayTimer = 0.0f;
     int merchantSelection = 0;
     float merchantMessageTimer = 0.0f;
     std::string merchantMessage;
@@ -777,6 +779,7 @@ struct GameSceneSaveState
     int sessionRecoveryFilterCount = 0;
     bool sessionHasRecoveryFilter = false;
     bool sessionHasCameraFlash = false;
+    bool sessionHasSepiaFilter = false;
     bool cameraTutorialCompleted = false;
     std::vector<int> completedTutorialNumbers;
     float sessionTimeLimit = 60.0f;

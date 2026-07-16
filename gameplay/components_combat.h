@@ -588,11 +588,18 @@ public:
     bool facingRight = true;
 };
 
+enum class DropItemKind
+{
+    Parts,
+    SepiaFilter,
+};
+
 class DropItemComponent final : public MonoBehaviour
 {
 public:
-    DropItemComponent(int value, float velocityX, float velocityY)
+    DropItemComponent(int value, float velocityX, float velocityY, DropItemKind kind = DropItemKind::Parts)
         : m_value(value)
+        , m_kind(kind)
         , m_velocityX(velocityX)
         , m_velocityY(velocityY)
         , m_attracting(false)
@@ -602,6 +609,7 @@ public:
     }
 
     int GetValue() const { return m_value; }
+    DropItemKind GetKind() const { return m_kind; }
     float GetVelocityX() const { return m_velocityX; }
     float GetVelocityY() const { return m_velocityY; }
     void SetVelocityX(float v) { m_velocityX = v; }
@@ -612,14 +620,32 @@ public:
     void SetAttractTimer(float v) { m_attractTimer = v; }
     float GetAge() const { return m_age; }
     void AddAge(float deltaTime) { m_age += std::max(0.0f, deltaTime); }
+    bool HasSettleTarget() const { return m_hasSettleTarget; }
+    float GetSettleTargetX() const { return m_settleTargetX; }
+    float GetSettleTargetY() const { return m_settleTargetY; }
+    float GetSettleTimer() const { return m_settleTimer; }
+    void SetSettleTarget(float x, float y)
+    {
+        m_hasSettleTarget = true;
+        m_settleTargetX = x;
+        m_settleTargetY = y;
+        m_settleTimer = 0.0f;
+    }
+    void AddSettleTimer(float deltaTime) { m_settleTimer += std::max(0.0f, deltaTime); }
+    void ClearSettleTarget() { m_hasSettleTarget = false; }
 
 private:
     int m_value;
+    DropItemKind m_kind;
     float m_velocityX;
     float m_velocityY;
     bool m_attracting;
     float m_attractTimer;
     float m_age;
+    bool m_hasSettleTarget = false;
+    float m_settleTargetX = 0.0f;
+    float m_settleTargetY = 0.0f;
+    float m_settleTimer = 0.0f;
 };
 
 class ProjectileComponent final : public MonoBehaviour

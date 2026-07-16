@@ -22,6 +22,7 @@ void GameSession_Reset(int maxHp, float timeLimit)
     const int carriedPhotoStorageSlots = g_sessionState.photoStorageSlots;
     const int carriedRecoveryFilterCount = g_sessionState.recoveryFilterCount;
     const bool carriedCameraFlash = g_sessionState.hasCameraFlash;
+    const bool carriedSepiaFilter = g_sessionState.hasSepiaFilter;
 
     g_sessionState.maxHp = maxHp;
     g_sessionState.currentHp = maxHp;
@@ -31,6 +32,7 @@ void GameSession_Reset(int maxHp, float timeLimit)
     g_sessionState.recoveryFilterCount = 0;
     g_sessionState.hasRecoveryFilter = false;
     g_sessionState.hasCameraFlash = false;
+    g_sessionState.hasSepiaFilter = false;
     g_sessionState.timeLimit = timeLimit;
     g_sessionState.timeRemaining = timeLimit;
     g_sessionState.clearTimeSeconds = 0.0f;
@@ -47,6 +49,7 @@ void GameSession_Reset(int maxHp, float timeLimit)
         g_sessionState.recoveryFilterCount = std::clamp(carriedRecoveryFilterCount, 0, 3);
         SyncRecoveryFilterOwnedFlag();
         g_sessionState.hasCameraFlash = carriedCameraFlash;
+        g_sessionState.hasSepiaFilter = carriedSepiaFilter;
     }
     PhotoLog_Reset();//新しい周回の開始でログをクリア
 }
@@ -122,6 +125,11 @@ bool GameSession_ConsumeRecoveryFilter()
 void GameSession_SetCameraFlashOwned(bool owned)
 {
     g_sessionState.hasCameraFlash = owned;
+}
+
+void GameSession_SetSepiaFilterOwned(bool owned)
+{
+    g_sessionState.hasSepiaFilter = owned;
 }
 
 void GameSession_SetTimeRemaining(float timeRemaining)
