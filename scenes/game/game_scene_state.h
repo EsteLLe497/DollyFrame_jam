@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "components_combat.h"
@@ -404,6 +405,7 @@ struct GameSceneUiTuningState
     GameSceneUiCaptureFinderTuning captureFinder;
     GameSceneUiCaptureOverlayTuning captureOverlay;
     GameSceneUiTutorialTuning tutorial;
+    std::unordered_map<std::string, GameSceneUiTutorialTuning> tutorialPageTunings;
     GameSceneUiPhotoTrayTuning photoTray;
     GameSceneUiDevelopedPhotoPreviewTuning developedPhotoPreview;
     GameSceneUiHpTuning hp;

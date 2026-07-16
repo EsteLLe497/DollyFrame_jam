@@ -110,7 +110,7 @@ void drawTutorialNavigationButton(
 
     DrawOval(centerX, centerY, radiusX, radiusY, GetColor(88, 58, 30), TRUE);
     DrawOval(centerX, centerY, radiusX - 3, radiusY - 3, fillColor, TRUE);
-    const float direction = pointsLeft ? -1.0f : 1.0f;
+    const float direction = pointsLeft ? 1.0f : -1.0f;
     DrawTriangleAA(
         static_cast<float>(centerX) + direction * 12.0f,
         static_cast<float>(centerY) - 15.0f,

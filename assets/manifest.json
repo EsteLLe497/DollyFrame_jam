@@ -318,21 +318,33 @@
       "type": "file",
       "path": "assets/texture/photo_tray_backdrop.png"
     },
-    "b_gui_move_pc": {
+    "b_gui_move": {
       "type": "file",
-      "path": "assets/texture/BGui/movePC.png"
+      "path": "assets/texture/BGui/UI_Move.png"
     },
-    "b_gui_move_pad": {
+    "b_gui_jump": {
       "type": "file",
-      "path": "assets/texture/BGui/movePad.png"
+      "path": "assets/texture/BGui/UI_Jump.png"
     },
-    "b_gui_jump_pc": {
+    "b_gui_capture": {
       "type": "file",
-      "path": "assets/texture/BGui/jumpPC.png"
+      "path": "assets/texture/BGui/UI_Capture.png"
     },
-    "b_gui_jump_pad": {
+    "b_gui_paste": {
       "type": "file",
-      "path": "assets/texture/BGui/jumpPad.png"
+      "path": "assets/texture/BGui/UI_Paste.png"
+    },
+    "b_gui_attack_paste": {
+      "type": "file",
+      "path": "assets/texture/BGui/UI_AttackPaste.png"
+    },
+    "b_gui_rotate": {
+      "type": "file",
+      "path": "assets/texture/BGui/UI_Rotate.png"
+    },
+    "b_gui_change_filter": {
+      "type": "file",
+      "path": "assets/texture/BGui/UI_ChangeFilter.png"
     },
     "tutorial_frame_window": {
       "type": "file",

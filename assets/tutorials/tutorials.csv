@@ -101,5 +101,22 @@
 # =========================================================
 # 実際にゲームで使用しているデータ
 # =========================================================
-tutorial_1,0,conversation,ドリー,assets/texture/tutorialUI/trouble.png,,"カメラの使い方、まだ分からないでしょう？\nしょうがないから教えてあげる。",,,
-tutorial_1,1,window,,,カメラの使い方,"右クリック長押しでカメラを構えます。\n写したいものを枠の中に入れて、左クリックで撮影。\n撮った写真は画面下のトレイから使用できます。",閉じる,tutorial_content_image,assets/tutorials/videos/tutorial_1.mp4
+tutorial_1,0,conversation,ドリー,assets/texture/tutorialUI/normal.png,,"今日も写真を撮りに特別区まで来たけど...\nだいぶ奥まで来ちゃったな。",,,
+tutorial_1,1,conversation,ドリー,assets/texture/tutorialUI/trouble.png,,"...........................。\n完全に迷った。これはまずったなぁ～。",,,
+
+tutorial_2,0,conversation,ドリー,assets/texture/tutorialUI/trouble.png,,"ジャンプじゃ届きそうにないな...。",,,
+tutorial_2,1,conversation,ドリー,assets/texture/tutorialUI/smile.png,,"そうだ！こんな時は～\nこのカメラの出番だね！",,,
+tutorial_2,2,window,,,キャプチャー＆ペースト,"ファインダーを操作し、\n物体を撮影して貼り付けてみましょう。",閉じる,tutorial_camera_fallback,assets/tutorials/videos/tutorial1.mp4
+
+tutorial_3,0,conversation,ドリー,assets/texture/tutorialUI/smile.png,,"やった！無事に上に登れたね！\nこの調子でどんどん進むぞ～。",,,
+tutorial_3,1,window,,,物体の種類,"物体の中には消える物、重力が作用する物など,\n様々な種類があります。たくさん撮影して、\n物体の特徴を見極めながら進みましょう。",閉じる,tutorial_camera_fallback,assets/tutorials/videos/tutorial2.mp4,
+
+tutorial_4,0,conversation,ドリー,assets/texture/tutorialUI/surprise.png,,"わっ！！！\nレムナントがいる...。",,,
+tutorial_4,1,conversation,ドリー,assets/texture/tutorialUI/normal.png,,"倒す.....しかなさそうだね。",,,
+tutorial_4,2,window,,,レムナントとは？,"敵対してくる機械生命体の総称です。\n倒すとアーカ結晶をドロップします。\nこれを使ってのちにアイテムを購入することができます。",次へ,tutorial_camera_fallback,assets/tutorials/textures/test.jpg,
+tutorial_4,3,window,,,攻撃を跳ね返そう！,"敵の弾を撮影＋回転して跳ね返してみましょう。\nまた、\タイミングよく攻撃を撮影すると攻撃ペーストが\n可能になる敵がいます。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4
+tutorial_4,4,window,,,待ち受ける強敵,"各マップの最奥に強敵が待ち受けています。\n培った技術と知識を駆使して敵を討伐しましょう！",閉じる,tutorial_camera_fallback,assets/tutorials/textures/test.jpg,
+
+
+
+

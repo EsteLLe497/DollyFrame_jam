@@ -10,9 +10,16 @@
 
 namespace b_gui
 {
+    enum StageMask
+    {
+        StageForest = 1 << 0,
+        StageRuins = 1 << 1,
+    };
+
     struct DisplayDefinition
     {
         const char* textureKey;
+        int stageMask;
         float worldX;
         float worldY;
         float width;
@@ -23,11 +30,14 @@ namespace b_gui
         float triggerHalfHeight;
     };
 
-    inline constexpr std::array<DisplayDefinition, 4> kDefaultDisplayDefinitions = {{
-        { "b_gui_move_pc", 360.0f, 96.0f, 420.0f, 246.0f, 256.0f, 400.0f, 360.0f, 240.0f },
-        { "b_gui_move_pad", 360.0f, 360.0f, 360.0f, 249.0f, 256.0f, 400.0f, 360.0f, 240.0f },
-        { "b_gui_jump_pc", 840.0f, 96.0f, 420.0f, 197.0f, 256.0f, 400.0f, 360.0f, 240.0f },
-        { "b_gui_jump_pad", 840.0f, 330.0f, 360.0f, 200.0f, 256.0f, 400.0f, 360.0f, 240.0f },
+    inline constexpr std::array<DisplayDefinition, 7> kDefaultDisplayDefinitions = {{
+        { "b_gui_move", StageForest, 536.0f, 2298.0f, 182.0f, 107.0f, 536.0f, 2298.0f, 360.0f, 240.0f },
+        { "b_gui_jump", StageForest, 1988.0f, 2222.0f, 188.0f, 108.0f, 1988.0f, 2222.0f, 360.0f, 240.0f },
+        { "b_gui_capture", StageForest, 2540.0f, 2180.0f, 220.0f, 128.0f, 2540.0f, 2180.0f, 360.0f, 240.0f },
+        { "b_gui_paste", StageForest, 3140.0f, 2180.0f, 220.0f, 128.0f, 3140.0f, 2180.0f, 360.0f, 240.0f },
+        { "b_gui_attack_paste", StageForest, 3740.0f, 2180.0f, 260.0f, 128.0f, 3740.0f, 2180.0f, 360.0f, 240.0f },
+        { "b_gui_rotate", StageForest, 4340.0f, 2180.0f, 220.0f, 128.0f, 4340.0f, 2180.0f, 360.0f, 240.0f },
+        { "b_gui_change_filter", StageRuins, 900.0f, 2200.0f, 260.0f, 128.0f, 900.0f, 2200.0f, 360.0f, 240.0f },
     }};
 
     inline constexpr size_t kDisplayCount = kDefaultDisplayDefinitions.size();

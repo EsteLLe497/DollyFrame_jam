@@ -154,15 +154,6 @@ void GameScene::FinalizeGameplayFrame(float effectiveGameplayDeltaTime)
 
 void GameScene::UpdateBGuiDisplays(float deltaTime)
 {
-    if (!m_lifecycle.forestStageEnabled)
-    {
-        for (float& alpha : m_bGuiDisplayAlphas)
-        {
-            alpha = std::max(0.0f, alpha - b_gui::gFadeOutSpeed * deltaTime);
-        }
-        return;
-    }
-
     const Entity* player = FindEntityByTag(kTagPlayer);
     const auto* transform = player ? player->GetComponent<TransformComponent>() : nullptr;
     if (!transform)
@@ -179,7 +170,11 @@ void GameScene::UpdateBGuiDisplays(float deltaTime)
     for (size_t index = 0; index < b_gui::kDisplayCount; ++index)
     {
         const b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+        const bool stageEnabled =
+            ((display.stageMask & b_gui::StageForest) != 0 && m_lifecycle.forestStageEnabled) ||
+            ((display.stageMask & b_gui::StageRuins) != 0 && m_lifecycle.ruinsStageEnabled);
         const bool inside =
+            stageEnabled &&
             playerCenterX >= display.triggerCenterX - display.triggerHalfWidth &&
             playerCenterX <= display.triggerCenterX + display.triggerHalfWidth &&
             playerCenterY >= display.triggerCenterY - display.triggerHalfHeight &&

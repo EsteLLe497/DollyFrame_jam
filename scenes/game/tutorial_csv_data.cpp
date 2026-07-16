@@ -179,6 +179,7 @@ bool loadTutorialPagesFromCsv(
                 std::to_string(lineNumber) + ": " + csvPath);
             continue;
         }
+        orderedPage.page.order = orderedPage.order;
 
         const std::string pageType = toLowerCopy(cells[2]);
         if (pageType == "conversation")

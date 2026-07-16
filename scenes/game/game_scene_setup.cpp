@@ -505,6 +505,12 @@ namespace
         root["capture_finder"] = ToJson(ui.tuning.captureFinder);
         root["capture_overlay"] = ToJson(ui.tuning.captureOverlay);
         root["tutorial"] = ToJson(ui.tuning.tutorial);
+        nlohmann::json tutorialPages = nlohmann::json::object();
+        for (const auto& [pageKey, pageTuning] : ui.tuning.tutorialPageTunings)
+        {
+            tutorialPages[pageKey] = ToJson(pageTuning);
+        }
+        root["tutorial_pages"] = tutorialPages;
         root["photo_tray"] = ToJson(ui.tuning.photoTray);
         root["developed_photo_preview"] = ToJson(ui.tuning.developedPhotoPreview);
         root["hp"] = ToJson(ui.tuning.hp);
@@ -544,6 +550,17 @@ namespace
         LoadUiSection(root, "capture_finder", ui.tuning.captureFinder);
         LoadUiSection(root, "capture_overlay", ui.tuning.captureOverlay);
         LoadUiSection(root, "tutorial", ui.tuning.tutorial);
+        ui.tuning.tutorialPageTunings.clear();
+        const auto tutorialPages = root.find("tutorial_pages");
+        if (tutorialPages != root.end() && tutorialPages->is_object())
+        {
+            for (auto it = tutorialPages->begin(); it != tutorialPages->end(); ++it)
+            {
+                GameSceneUiTutorialTuning pageTuning = ui.tuning.tutorial;
+                FromJson(it.value(), pageTuning);
+                ui.tuning.tutorialPageTunings.emplace(it.key(), pageTuning);
+            }
+        }
         LoadUiSection(root, "photo_tray", ui.tuning.photoTray);
         LoadUiSection(root, "developed_photo_preview", ui.tuning.developedPhotoPreview);
         LoadUiSection(root, "hp", ui.tuning.hp);
@@ -1462,6 +1479,7 @@ bool GameScene::SaveBGuiTuningState()
     {
         root["displays"].push_back({
             { "textureKey", display.textureKey },
+            { "stageMask", display.stageMask },
             { "worldX", display.worldX },
             { "worldY", display.worldY },
             { "width", display.width },
@@ -1533,6 +1551,7 @@ bool GameScene::LoadBGuiTuningState()
         {
             const nlohmann::json& savedDisplay = (*displaysIt)[index];
             b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+            display.stageMask = savedDisplay.value("stageMask", display.stageMask);
             display.worldX = savedDisplay.value("worldX", display.worldX);
             display.worldY = savedDisplay.value("worldY", display.worldY);
             display.width = savedDisplay.value("width", display.width);

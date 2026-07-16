@@ -3282,11 +3282,6 @@ void GameScene::DrawCameraWorldInView(float viewOriginX, float viewOriginY, floa
 
 void GameScene::DrawBGuiDisplaysInView(float viewOriginX, float viewOriginY, float viewScale) const
 {
-    if (!m_lifecycle.forestStageEnabled)
-    {
-        return;
-    }
-
     for (size_t index = 0; index < b_gui::kDisplayCount; ++index)
     {
         const float alpha = m_bGuiDisplayAlphas[index];
@@ -3296,6 +3291,14 @@ void GameScene::DrawBGuiDisplaysInView(float viewOriginX, float viewOriginY, flo
         }
 
         const b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+        const bool stageEnabled =
+            ((display.stageMask & b_gui::StageForest) != 0 && m_lifecycle.forestStageEnabled) ||
+            ((display.stageMask & b_gui::StageRuins) != 0 && m_lifecycle.ruinsStageEnabled);
+        if (!stageEnabled)
+        {
+            continue;
+        }
+
         const int textureId = m_assets.GetTexture(display.textureKey);
         if (textureId < 0)
         {
@@ -3327,6 +3330,14 @@ void GameScene::DrawBGuiDisplaysInView(float viewOriginX, float viewOriginY, flo
 
     for (const b_gui::DisplayDefinition& display : b_gui::gDisplayDefinitions)
     {
+        const bool stageEnabled =
+            ((display.stageMask & b_gui::StageForest) != 0 && m_lifecycle.forestStageEnabled) ||
+            ((display.stageMask & b_gui::StageRuins) != 0 && m_lifecycle.ruinsStageEnabled);
+        if (!stageEnabled)
+        {
+            continue;
+        }
+
         const int left = static_cast<int>(std::round(viewOriginX + (display.triggerCenterX - display.triggerHalfWidth - m_flow.cameraX) * viewScale));
         const int top = static_cast<int>(std::round(viewOriginY + (display.triggerCenterY - display.triggerHalfHeight - m_flow.cameraY) * viewScale));
         const int right = static_cast<int>(std::round(viewOriginX + (display.triggerCenterX + display.triggerHalfWidth - m_flow.cameraX) * viewScale));
