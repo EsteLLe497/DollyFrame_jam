@@ -413,6 +413,38 @@
     "photo_save_frame": {
       "type": "file",
       "path": "assets/texture/BG/result/Photo_Save.png"
+    },
+    "bg_parts_01": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_01.png"
+    },
+    "bg_parts_02": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_02.png"
+    },
+    "bg_parts_03": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_03.png"
+    },
+    "bg_parts_04": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_04.png"
+    },
+    "bg_parts_05": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_05.png"
+    },
+    "bg_parts_06": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_06.png"
+    },
+    "bg_parts_07": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_07.png"
+    },
+    "bg_parts_08": {
+      "type": "file",
+      "path": "assets/texture/BG/forest/BG_Parts/BG_Parts_08.png"
     }
   }
 }
