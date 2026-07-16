@@ -90,6 +90,60 @@ namespace
             }));
     }
 
+    std::string makeTutorialPageTuningKey(
+        const GameSceneTutorialState& tutorial,
+        const TutorialPageData& page)
+    {
+        const int tutorialNumber = tutorial.activeTutorialNumber > 0
+            ? tutorial.activeTutorialNumber
+            : tutorial.loadedTutorialNumber;
+        return "tutorial_" + std::to_string(std::max(1, tutorialNumber)) +
+            ":" + std::to_string(page.order);
+    }
+
+    const GameSceneUiTutorialTuning& getTutorialPageTuning(
+        const GameSceneUiTuningState& tuning,
+        const GameSceneTutorialState& tutorial,
+        const TutorialPageData* page)
+    {
+        if (!page)
+        {
+            return tuning.tutorial;
+        }
+
+        const std::string key = makeTutorialPageTuningKey(tutorial, *page);
+        const auto found = tuning.tutorialPageTunings.find(key);
+        return found != tuning.tutorialPageTunings.end()
+            ? found->second
+            : tuning.tutorial;
+    }
+
+    GameSceneUiTutorialTuning* getMutableTutorialPageTuning(
+        GameSceneUiTuningState& tuning,
+        const GameSceneTutorialState& tutorial,
+        const TutorialPageData* page,
+        bool createIfMissing)
+    {
+        if (!page)
+        {
+            return &tuning.tutorial;
+        }
+
+        const std::string key = makeTutorialPageTuningKey(tutorial, *page);
+        auto found = tuning.tutorialPageTunings.find(key);
+        if (found != tuning.tutorialPageTunings.end())
+        {
+            return &found->second;
+        }
+        if (!createIfMissing)
+        {
+            return &tuning.tutorial;
+        }
+
+        auto [inserted, _] = tuning.tutorialPageTunings.emplace(key, tuning.tutorial);
+        return &inserted->second;
+    }
+
     bool findPreviousTutorialWindowIndex(
         const GameSceneTutorialState& tutorial,
         size_t currentIndex,
@@ -124,6 +178,8 @@ namespace
 
     void applyCurrentTutorialPage(GameSceneTutorialState& tutorial)
     {
+        const bool wasConversation =
+            tutorial.phase == TutorialPresentationPhase::Conversation;
         const TutorialPageData* page = getCurrentTutorialPage(tutorial);
         if (!page)
         {
@@ -131,9 +187,14 @@ namespace
             return;
         }
 
-        tutorial.dialogueFadeElapsed = 0.0f;
+        const bool isConversation = page->type == TutorialPageType::Conversation;
+        // Keep the dialogue frame visible while advancing dialogue pages.
+        if (!wasConversation || !isConversation)
+        {
+            tutorial.dialogueFadeElapsed = 0.0f;
+        }
         tutorial.dialogueRevealElapsed = 0.0f;
-        tutorial.phase = page->type == TutorialPageType::Conversation
+        tutorial.phase = isConversation
             ? TutorialPresentationPhase::Conversation
             : TutorialPresentationPhase::TutorialWindow;
     }
@@ -227,6 +288,46 @@ namespace
         drawTutorialImageAspectFit(textureId, x, y, width, height);
     }
 
+    bool isTutorialTexturePath(const std::string& value)
+    {
+        return value.find('/') != std::string::npos ||
+            value.find('\\') != std::string::npos ||
+            value.find('.') != std::string::npos;
+    }
+
+    std::string normalizeTutorialTexturePath(std::string path)
+    {
+        std::replace(path.begin(), path.end(), '\\', '/');
+        return path;
+    }
+
+    bool hasAssetRootPrefix(const std::string& path)
+    {
+        return path.rfind("assets/", 0) == 0 ||
+            path.rfind("assets\\", 0) == 0;
+    }
+
+    int resolveTutorialContentTexture(
+        const AssetManifest& assets,
+        const std::string& textureKeyOrPath)
+    {
+        const int manifestTexture = assets.GetTexture(textureKeyOrPath);
+        if (manifestTexture >= 0 || !isTutorialTexturePath(textureKeyOrPath))
+        {
+            return manifestTexture;
+        }
+
+        const std::string normalizedPath = normalizeTutorialTexturePath(textureKeyOrPath);
+        const int directTexture = assets.getTextureByPath(normalizedPath);
+        if (directTexture >= 0 || hasAssetRootPrefix(normalizedPath))
+        {
+            return directTexture;
+        }
+
+        // CSVからは tutorials/textures/test.jpg のようにassets配下基準でも指定できます。
+        return assets.getTextureByPath("assets/" + normalizedPath);
+    }
+
     void DrawTutorialText(
         const std::string& text,
         float x,
@@ -302,11 +403,13 @@ namespace
     {
         const float playerWidth = player.width * player.scale;
         const float playerHeight = player.height * player.scale;
+        const float playerCenterX = player.x + playerWidth * 0.5f;
         const float triggerX = static_cast<float>(column) * tileSize;
         const float triggerY = static_cast<float>(row) * tileSize;
         const float triggerWidth = static_cast<float>(std::max(1, widthTiles)) * tileSize;
-        return player.x < triggerX + triggerWidth &&
-            player.x + playerWidth > triggerX &&
+        // Start tutorials when the player's center reaches the event point.
+        return playerCenterX >= triggerX &&
+            playerCenterX < triggerX + triggerWidth &&
             player.y < triggerY + tileSize &&
             player.y + playerHeight > triggerY;
     }
@@ -327,7 +430,7 @@ bool GameScene::UpdateTutorialModal(float deltaTime)
             CompleteCameraTutorial();
             return true;
         }
-        const auto& ui = m_ui.tuning.tutorial;
+        const auto& ui = getTutorialPageTuning(m_ui.tuning, m_tutorial, page);
         const float fadeDuration = std::max(0.01f, ui.dialogueFadeDuration);
         m_tutorial.dialogueFadeElapsed += std::max(0.0f, deltaTime);
         if (m_tutorial.dialogueFadeElapsed >= fadeDuration)
@@ -358,7 +461,8 @@ bool GameScene::UpdateTutorialModal(float deltaTime)
         return true;
     }
 
-    const auto& ui = m_ui.tuning.tutorial;
+    const TutorialPageData* currentWindowPage = getCurrentTutorialPage(m_tutorial);
+    const auto& ui = getTutorialPageTuning(m_ui.tuning, m_tutorial, currentWindowPage);
     size_t previousWindowIndex = 0;
     size_t nextWindowIndex = 0;
     const bool hasPreviousWindow = findPreviousTutorialWindowIndex(
@@ -555,7 +659,6 @@ void GameScene::DrawTutorialOverlay()
         return;
     }
 
-    const auto& ui = m_ui.tuning.tutorial;
     const int frameTexture = m_assets.GetTexture("tutorial_frame_window");
     const int headingTexture = m_assets.GetTexture("tutorial_heading");
     const int contentPanelTexture = m_assets.GetTexture("tutorial_content_panel");
@@ -563,11 +666,12 @@ void GameScene::DrawTutorialOverlay()
         windowPage && !windowPage->contentTextureKey.empty()
         ? windowPage->contentTextureKey
         : "tutorial_content_image";
-    const int contentImageTexture = m_assets.GetTexture(contentTextureKey);
+    const int contentImageTexture = resolveTutorialContentTexture(m_assets, contentTextureKey);
     const int textBoxTexture = m_assets.GetTexture("tutorial_text_box");
 
     if (drawConversation)
     {
+        const auto& ui = getTutorialPageTuning(m_ui.tuning, m_tutorial, conversationPage);
         EnsureTutorialPortraitTexture();
         const bool preview = m_tutorial.previewConversation &&
             m_tutorial.phase != TutorialPresentationPhase::Conversation;
@@ -685,6 +789,7 @@ void GameScene::DrawTutorialOverlay()
 
     if (drawWindow)
     {
+        const auto& ui = getTutorialPageTuning(m_ui.tuning, m_tutorial, windowPage);
         std::array<TutorialDrawElement, 8> elements = {{
             { 0, 0, TutorialDrawKind::Dim },
             { ui.frameLayer, 1, TutorialDrawKind::Frame },
@@ -819,7 +924,6 @@ void GameScene::DrawTutorialAdjustmentPanel()
         return;
     }
 
-    auto& ui = m_ui.tuning.tutorial;
     ImGui::Checkbox("会話プレビュー##tutorial", &m_tutorial.previewConversation);
     ImGui::SameLine();
     ImGui::Checkbox("説明画面プレビュー##tutorial", &m_tutorial.previewWindow);
@@ -841,13 +945,75 @@ void GameScene::DrawTutorialAdjustmentPanel()
         "チュートリアル1: %s",
         gameSessionIsTutorialCompleted(1) ? "完了" : "未完了");
 
-    ImGui::SliderFloat("背景暗転##tutorial", &ui.dimAlpha, 0.0f, 1.0f, "%.2f");
     ImGui::Text("表示内容: %s", kTutorialCsvPath);
     ImGui::Text("読込ページ数: %zu", m_tutorial.pages.size());
     if (ImGui::Button("CSVを再読込##tutorial"))
     {
         loadTutorialData(std::max(1, m_tutorial.loadedTutorialNumber));
     }
+
+    const TutorialPageData* adjustmentPage = getCurrentTutorialPage(m_tutorial);
+    if (!adjustmentPage && m_tutorial.previewWindow)
+    {
+        adjustmentPage = findTutorialPage(m_tutorial, TutorialPageType::Window);
+    }
+    if (!adjustmentPage && m_tutorial.previewConversation)
+    {
+        adjustmentPage = findTutorialPage(m_tutorial, TutorialPageType::Conversation);
+    }
+    if (!adjustmentPage && !m_tutorial.pages.empty())
+    {
+        adjustmentPage = &m_tutorial.pages.front();
+    }
+
+    GameSceneUiTutorialTuning* editingUi = &m_ui.tuning.tutorial;
+    ImGui::SeparatorText("調整対象");
+    if (adjustmentPage)
+    {
+        const std::string pageKey = makeTutorialPageTuningKey(m_tutorial, *adjustmentPage);
+        const bool hasPageTuning =
+            m_ui.tuning.tutorialPageTunings.find(pageKey) != m_ui.tuning.tutorialPageTunings.end();
+        ImGui::Text(
+            "現在ページ: %s order=%d",
+            adjustmentPage->type == TutorialPageType::Conversation ? "conversation" : "window",
+            adjustmentPage->order);
+        ImGui::Text("キー: %s", pageKey.c_str());
+        if (!hasPageTuning)
+        {
+            if (ImGui::Button("このページだけ個別調整##tutorial_page_tuning"))
+            {
+                editingUi = getMutableTutorialPageTuning(
+                    m_ui.tuning,
+                    m_tutorial,
+                    adjustmentPage,
+                    true);
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("現在は共通レイアウトを編集します");
+        }
+        else
+        {
+            editingUi = getMutableTutorialPageTuning(
+                m_ui.tuning,
+                m_tutorial,
+                adjustmentPage,
+                false);
+            if (ImGui::Button("このページを共通レイアウトへ戻す##tutorial_page_tuning"))
+            {
+                m_ui.tuning.tutorialPageTunings.erase(pageKey);
+                editingUi = &m_ui.tuning.tutorial;
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("現在はこのページだけを編集します");
+        }
+    }
+    else
+    {
+        ImGui::TextDisabled("ページ未読込のため共通レイアウトを編集します");
+    }
+
+    auto& ui = *editingUi;
+    ImGui::SliderFloat("背景暗転##tutorial", &ui.dimAlpha, 0.0f, 1.0f, "%.2f");
 
     const auto drag = [](const char* label, float& value, float speed, float minValue, float maxValue)
     {

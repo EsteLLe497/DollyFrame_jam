@@ -305,17 +305,15 @@ void GameScene::DrawBGuiDebugWindow()
     const auto placeDisplaysAround = [&](float centerX, float centerY)
     {
         const float drawTop = centerY - 304.0f;
-        b_gui::gDisplayDefinitions[0].worldX = centerX + 104.0f;
-        b_gui::gDisplayDefinitions[0].worldY = drawTop;
-        b_gui::gDisplayDefinitions[1].worldX = centerX + 104.0f;
-        b_gui::gDisplayDefinitions[1].worldY = drawTop + 260.0f;
-        b_gui::gDisplayDefinitions[2].worldX = centerX + 584.0f;
-        b_gui::gDisplayDefinitions[2].worldY = drawTop;
-        b_gui::gDisplayDefinitions[3].worldX = centerX + 584.0f;
-        b_gui::gDisplayDefinitions[3].worldY = drawTop + 230.0f;
-
-        for (b_gui::DisplayDefinition& display : b_gui::gDisplayDefinitions)
+        constexpr float columnOffsetX = 420.0f;
+        constexpr float rowOffsetY = 160.0f;
+        for (size_t index = 0; index < b_gui::kDisplayCount; ++index)
         {
+            b_gui::DisplayDefinition& display = b_gui::gDisplayDefinitions[index];
+            const size_t column = index % 2;
+            const size_t row = index / 2;
+            display.worldX = centerX + 104.0f + static_cast<float>(column) * columnOffsetX;
+            display.worldY = drawTop + static_cast<float>(row) * rowOffsetY;
             display.triggerCenterX = centerX;
             display.triggerCenterY = centerY;
             display.triggerHalfWidth = 360.0f;
@@ -370,9 +368,24 @@ void GameScene::DrawBGuiDebugWindow()
         if (open)
         {
             ImGui::Text("Alpha: %.2f", m_bGuiDisplayAlphas[index]);
-            ImGui::DragFloat2("Draw pos", &display.worldX, 1.0f, -10000.0f, 10000.0f, "%.1f");
+            bool showForest = (display.stageMask & b_gui::StageForest) != 0;
+            bool showRuins = (display.stageMask & b_gui::StageRuins) != 0;
+            if (ImGui::Checkbox("Forest", &showForest))
+            {
+                display.stageMask = showForest
+                    ? display.stageMask | b_gui::StageForest
+                    : display.stageMask & ~b_gui::StageForest;
+            }
+            ImGui::SameLine();
+            if (ImGui::Checkbox("Ruins", &showRuins))
+            {
+                display.stageMask = showRuins
+                    ? display.stageMask | b_gui::StageRuins
+                    : display.stageMask & ~b_gui::StageRuins;
+            }
+            ImGui::DragFloat2("Draw pos", &display.worldX, 1.0f, -100000.0f, 100000.0f, "%.1f");
             ImGui::DragFloat2("Draw size", &display.width, 1.0f, 1.0f, 4096.0f, "%.1f");
-            ImGui::DragFloat2("Trigger center", &display.triggerCenterX, 1.0f, -10000.0f, 10000.0f, "%.1f");
+            ImGui::DragFloat2("Trigger center", &display.triggerCenterX, 1.0f, -100000.0f, 100000.0f, "%.1f");
             ImGui::DragFloat2("Trigger half size", &display.triggerHalfWidth, 1.0f, 1.0f, 4096.0f, "%.1f");
 
             if (ImGui::Button("Center trigger on image"))
@@ -387,8 +400,9 @@ void GameScene::DrawBGuiDebugWindow()
                 std::snprintf(
                     buffer,
                     sizeof(buffer),
-                    "{ \"%s\", %.1ff, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff },",
+                    "{ \"%s\", %d, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff, %.1ff },",
                     display.textureKey,
+                    display.stageMask,
                     display.worldX,
                     display.worldY,
                     display.width,
