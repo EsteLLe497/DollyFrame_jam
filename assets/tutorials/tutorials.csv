@@ -113,9 +113,9 @@ tutorial_3,1,window,,,物体の種類,"物体の中には消える物、重力�
 
 tutorial_4,0,conversation,ドリー,assets/texture/tutorialUI/surprise.png,,"わっ！！！\nレムナントがいる...。",,,
 tutorial_4,1,conversation,ドリー,assets/texture/tutorialUI/normal.png,,"倒す.....しかなさそうだね。",,,
-tutorial_4,2,window,,,レムナントとは？,"敵対してくる機械生命体の総称です。\n倒すとアーカ結晶をドロップします。\nこれを使ってのちにアイテムを購入することができます。",次へ,tutorial_camera_fallback,assets/tutorials/textures/test.jpg,
-tutorial_4,3,window,,,攻撃を跳ね返そう！,"敵の弾を撮影＋回転して跳ね返してみましょう。\nまた、\タイミングよく攻撃を撮影すると攻撃ペーストが\n可能になる敵がいます。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4
-tutorial_4,4,window,,,待ち受ける強敵,"各マップの最奥に強敵が待ち受けています。\n培った技術と知識を駆使して敵を討伐しましょう！",閉じる,tutorial_camera_fallback,assets/tutorials/textures/test.jpg,
+tutorial_4,2,window,,,レムナントとは？,"敵対してくる機械生命体の総称です。\n倒すとアーカ結晶をドロップします。\nこれを使ってのちにアイテムを購入することができます。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4,
+tutorial_4,3,window,,,攻撃を跳ね返そう！,"敵の弾を撮影＋回転して跳ね返してみましょう。\nまた、タイミングよく攻撃を撮影すると攻撃ペーストが\n可能になる敵がいます。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4
+tutorial_4,4,window,,,待ち受ける強敵,"各マップの最奥に強敵が待ち受けています。\n培った技術と知識を駆使して敵を討伐しましょう！",閉じる,tutorial_camera_fallback,assets/tutorials/textures/tutorial1.png,
 
 
 
