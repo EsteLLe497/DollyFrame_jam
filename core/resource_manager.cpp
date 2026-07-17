@@ -11,10 +11,12 @@ void ResourceManager::Initialize(void* device)
     TextureInitialize(device);
     m_textureCache.clear();
     m_textureCache.reserve(32);
+    m_asyncTextureLoading = false;
 }
 
 void ResourceManager::Shutdown()
 {
+    m_asyncTextureLoading = false;
     m_textureCache.clear();
     TextureFinalize();
 }
@@ -22,6 +24,12 @@ void ResourceManager::Shutdown()
 void ResourceManager::ReserveTextureCache(size_t count)
 {
     m_textureCache.reserve(count);
+}
+
+void ResourceManager::SetAsyncTextureLoading(bool enabled)
+{
+    // Only file textures use this mode; generated textures remain synchronous.
+    m_asyncTextureLoading = enabled;
 }
 
 int ResourceManager::LoadTexture(const std::wstring& path)
@@ -32,7 +40,7 @@ int ResourceManager::LoadTexture(const std::wstring& path)
         return found->second;
     }
 
-    const int id = TextureLoad(path);
+    const int id = TextureLoad(path, m_asyncTextureLoading);
     if (id >= 0)
     {
         found->second = id;

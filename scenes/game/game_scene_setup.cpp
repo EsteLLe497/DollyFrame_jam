@@ -31,6 +31,8 @@ using namespace game_scene_detail;
 namespace
 {
     constexpr const char* kStageTransitionCsvPath = "assets/maps/stage_transitions.csv";
+    // Limit checkpoint activation to the area around its C marker.
+    constexpr float kCheckpointTriggerHeightInTiles = 2.0f;
 
     bool IsDarknessStageMapPath(const std::string& mapPath)
     {
@@ -1653,6 +1655,14 @@ bool GameScene::LoadProgressStateFromDisk()
         m_save.playerY = m_save.stageStartY;
     }
 
+    // Checkpoints are session-only; every new stage session starts at the stage entrance.
+    m_save.hasCheckpoint = false;
+    m_save.activeCheckpointId = -1;
+    m_save.respawnX = m_save.stageStartX;
+    m_save.respawnY = m_save.stageStartY;
+    m_save.playerX = m_save.stageStartX;
+    m_save.playerY = m_save.stageStartY;
+
     m_lifecycle.currentMapCsvPath = m_save.mapCsvPath;
     m_debug.saveStatusMessage = "Loaded save file.";
     m_debug.saveStatusTimer = 3.0f;
@@ -1689,6 +1699,10 @@ bool GameScene::SaveProgressState()
             m_save.sessionCurrentHp = health->GetCurrentHealth();
         }
     }
+
+    // Persist progression, but never carry an in-stage position into the next stage session.
+    m_save.playerX = m_flow.stageStartX;
+    m_save.playerY = m_flow.stageStartY;
 
     const GameSessionState& session = GameSession_Get();
     m_save.sessionMaxHp = session.maxHp;
@@ -2332,7 +2346,7 @@ void GameScene::InitializeStageEntities()
     }
 
     int checkpointId = 0;
-    const float checkpointTriggerHeight = (std::max)(tileSize, GetMapPixelHeight());
+    const float checkpointTriggerHeight = tileSize * kCheckpointTriggerHeightInTiles;
     for (const TileMarker* stageMarker : checkpointMarkersByColumn)
     {
         if (!stageMarker)
@@ -2340,18 +2354,18 @@ void GameScene::InitializeStageEntities()
             continue;
         }
 
-        // 蛻､螳壹・邵ｦ蛻怜・菴薙∝ｾｩ蟶ｰ蝨ｰ轤ｹ縺ｯ螳滄圀縺ｮC繝槭・繧ｫ繝ｼ菴咲ｽｮ縺ｨ縺励※蛻・屬縺吶ｋ縲・
+        // Keep the trigger and respawn point near the C marker to avoid activation at distant heights.
         const float checkpointX = AlignToGrid(static_cast<float>(stageMarker->column) * tileSize, tileSize);
         const float checkpointY = AlignToGrid(static_cast<float>(stageMarker->row) * tileSize - tileSize, tileSize);
         Entity& checkpoint = SpawnStagePrefab(
             prefabs,
             "sandbox_checkpoint",
             checkpointX,
-            0.0f);
+            checkpointY);
         if (auto* transform = checkpoint.GetComponent<TransformComponent>())
         {
             transform->x = checkpointX;
-            transform->y = 0.0f;
+            transform->y = checkpointY;
             transform->width = tileSize;
             transform->height = checkpointTriggerHeight;
             transform->rotation = 0.0f;

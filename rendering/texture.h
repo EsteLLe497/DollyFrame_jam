@@ -3,7 +3,7 @@
 #include <string>
 
 void TextureInitialize(void* device);
-int TextureLoad(const std::wstring& texture_filename);
+int TextureLoad(const std::wstring& texture_filename, bool asyncLoad = false);
 int TextureCreateSolidColor(int width, int height, unsigned int rgba);
 int TextureCreateCheckerboard(int width, int height, unsigned int rgbaA, unsigned int rgbaB, int cellSize);
 int TextureCreateDisc(int width, int height, unsigned int rgbaInner, unsigned int rgbaOuter, float innerRatio);

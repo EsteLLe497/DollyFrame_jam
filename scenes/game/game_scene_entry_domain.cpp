@@ -22,12 +22,15 @@ namespace
             return "RESOURCES";
         case 2:
             return "STAGE";
-    case 3:
-        return "READY";
-    case 4:
-        return "READY";
-    default:
-        return "LOADING";
+        case 3:
+            return "TEXTURES";
+        case 4:
+            return "FINALIZE";
+        case 5:
+        case 6:
+            return "READY";
+        default:
+            return "LOADING";
         }
     }
 }

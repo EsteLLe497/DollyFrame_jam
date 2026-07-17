@@ -16,6 +16,7 @@ namespace
         int graphHandle = -1;
         int width = 0;
         int height = 0;
+        bool asyncPending = false;
     };
 
     std::vector<TextureEntry> g_Textures;
@@ -38,15 +39,42 @@ namespace
         return result;
     }
 
-    int RegisterTexture(int graphHandle, int width, int height)
+    int RegisterTexture(int graphHandle, int width, int height, bool asyncPending = false)
     {
         if (graphHandle < 0)
         {
             return -1;
         }
 
-        g_Textures.push_back({ graphHandle, width, height });
+        g_Textures.push_back({ graphHandle, width, height, asyncPending });
         return static_cast<int>(g_Textures.size() - 1);
+    }
+
+    bool RefreshAsyncTextureMetadata(TextureEntry& entry)
+    {
+        if (!entry.asyncPending)
+        {
+            return entry.width > 0 && entry.height > 0;
+        }
+
+        // Do not touch the graph until DxLib reports that its worker has finished.
+        const int loadState = CheckHandleASyncLoad(entry.graphHandle);
+        if (loadState != FALSE)
+        {
+            return false;
+        }
+
+        entry.asyncPending = false;
+        int width = 0;
+        int height = 0;
+        if (GetGraphSize(entry.graphHandle, &width, &height) < 0)
+        {
+            return false;
+        }
+
+        entry.width = width;
+        entry.height = height;
+        return width > 0 && height > 0;
     }
 
     int CreateTextureFromMemory(int width, int height, const std::vector<unsigned int>& pixels)
@@ -87,7 +115,7 @@ void TextureInitialize(void* device)
     g_Textures.clear();
 }
 
-int TextureLoad(const std::wstring& texture_filename)
+int TextureLoad(const std::wstring& texture_filename, bool asyncLoad)
 {
     const std::string path = ToUtf8(texture_filename);
     if (path.empty())
@@ -95,7 +123,10 @@ int TextureLoad(const std::wstring& texture_filename)
         return -1;
     }
 
+    const int previousAsyncFlag = GetUseASyncLoadFlag();
+    SetUseASyncLoadFlag(asyncLoad ? TRUE : FALSE);
     const int graphHandle = LoadGraph(path.c_str());
+    SetUseASyncLoadFlag(previousAsyncFlag);
     if (graphHandle < 0)
     {
         return -1;
@@ -103,8 +134,11 @@ int TextureLoad(const std::wstring& texture_filename)
 
     int width = 0;
     int height = 0;
-    GetGraphSize(graphHandle, &width, &height);
-    return RegisterTexture(graphHandle, width, height);
+    if (!asyncLoad)
+    {
+        GetGraphSize(graphHandle, &width, &height);
+    }
+    return RegisterTexture(graphHandle, width, height, asyncLoad);
 }
 
 int TextureCreateSolidColor(int width, int height, unsigned int rgba)
@@ -177,7 +211,8 @@ int TextureGetGraphHandle(int id)
         return -1;
     }
 
-    return g_Textures[static_cast<size_t>(id)].graphHandle;
+    TextureEntry& entry = g_Textures[static_cast<size_t>(id)];
+    return RefreshAsyncTextureMetadata(entry) ? entry.graphHandle : -1;
 }
 
 int TextureGetWidth(int id)
@@ -187,7 +222,9 @@ int TextureGetWidth(int id)
         return 0;
     }
 
-    return g_Textures[static_cast<size_t>(id)].width;
+    TextureEntry& entry = g_Textures[static_cast<size_t>(id)];
+    RefreshAsyncTextureMetadata(entry);
+    return entry.width;
 }
 
 int TextureGetHeight(int id)
@@ -197,7 +234,9 @@ int TextureGetHeight(int id)
         return 0;
     }
 
-    return g_Textures[static_cast<size_t>(id)].height;
+    TextureEntry& entry = g_Textures[static_cast<size_t>(id)];
+    RefreshAsyncTextureMetadata(entry);
+    return entry.height;
 }
 
 void TextureFinalize(void)

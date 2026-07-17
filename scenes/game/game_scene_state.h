@@ -743,6 +743,7 @@ struct GameSceneLifecycleState
     bool loadingFinished = false;
     mutable int loadingWarmupFramesRemaining = 0;
     int loadingStep = 0;
+    int loadingAsyncPeakCount = 0;
     float loadingElapsed = 0.0f;
     float loadingProgress = 0.0f;
     std::string currentTileTextureKey = "tile_forest_ground";

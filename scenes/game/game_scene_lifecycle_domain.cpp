@@ -4,6 +4,7 @@
 #include "game_scene_player_visual_system.h"
 #include "audio.h"
 #include "forest_fog.h"
+#include "DxLib.h"
 
 using namespace game_scene_detail;
 
@@ -58,6 +59,7 @@ void GameScene::OnEnter(ResourceManager& resources)
     m_lifecycle.loadingFinished = false;
     m_lifecycle.loadingWarmupFramesRemaining = 0;
     m_lifecycle.loadingStep = 0;
+    m_lifecycle.loadingAsyncPeakCount = 0;
     m_lifecycle.loadingElapsed = 0.0f;
     m_lifecycle.loadingProgress = 0.0f;
     Logger::Info("GameScene loading started");
@@ -94,17 +96,57 @@ void GameScene::AdvanceLoadingStep()
     case 1:
         if (m_lifecycle.loadingResources)
         {
+            // File textures are queued on DxLib workers so the loading animation can keep drawing.
+            m_lifecycle.loadingResources->SetAsyncTextureLoading(true);
             InitializeStageResources(*m_lifecycle.loadingResources);
         }
-        m_lifecycle.loadingProgress = 0.45f;
+        m_lifecycle.loadingAsyncPeakCount = (std::max)(m_lifecycle.loadingAsyncPeakCount, GetASyncLoadNum());
+        m_lifecycle.loadingProgress = 0.35f;
         ++m_lifecycle.loadingStep;
         break;
     case 2:
         InitializeStageEntities();
-        m_lifecycle.loadingProgress = 0.78f;
+        m_lifecycle.loadingAsyncPeakCount = (std::max)(m_lifecycle.loadingAsyncPeakCount, GetASyncLoadNum());
+        m_lifecycle.loadingProgress = 0.65f;
         ++m_lifecycle.loadingStep;
         break;
     case 3:
+    {
+        const int pendingCount = GetASyncLoadNum();
+        m_lifecycle.loadingAsyncPeakCount = (std::max)(m_lifecycle.loadingAsyncPeakCount, pendingCount);
+        if (pendingCount > 0)
+        {
+            const int peakCount = (std::max)(1, m_lifecycle.loadingAsyncPeakCount);
+            const float completedRatio = 1.0f - static_cast<float>(pendingCount) / static_cast<float>(peakCount);
+            m_lifecycle.loadingProgress = 0.65f + std::clamp(completedRatio, 0.0f, 1.0f) * 0.27f;
+            break;
+        }
+
+        m_lifecycle.loadingProgress = 0.92f;
+        ++m_lifecycle.loadingStep;
+        break;
+    }
+    case 4:
+        // Queue resources referenced during final player setup before closing async mode.
+        m_assets.GetTexture("player_idle");
+        m_assets.GetTexture("player_move");
+        m_assets.GetTexture("player_jump");
+        m_assets.GetTexture("player_capture");
+        m_assets.GetTexture("player_paste");
+        m_assets.GetTexture("player_attack");
+        m_lifecycle.loadingAsyncPeakCount = (std::max)(m_lifecycle.loadingAsyncPeakCount, GetASyncLoadNum());
+        m_lifecycle.loadingProgress = 0.96f;
+        ++m_lifecycle.loadingStep;
+        break;
+    case 5:
+        if (GetASyncLoadNum() > 0)
+        {
+            break;
+        }
+        if (m_lifecycle.loadingResources)
+        {
+            m_lifecycle.loadingResources->SetAsyncTextureLoading(false);
+        }
         FinishLoading();
         break;
     default:
@@ -141,7 +183,7 @@ void GameScene::FinishLoading()
     m_debug.bgmEnabled = initialMasterVolume > 0.001f;
     PlayStageBgmForCurrentMap();
     m_lifecycle.loadingProgress = 1.0f;
-    m_lifecycle.loadingStep = 4;
+    m_lifecycle.loadingStep = 6;
     m_lifecycle.loadingFinished = true;
     m_lifecycle.loadingWarmupFramesRemaining = 3;
     m_lifecycle.loadingResources = nullptr;
@@ -192,6 +234,11 @@ void GameScene::UpdateBossBgmCue()
 void GameScene::OnExit()
 {
     const ActiveGameSceneScope activeScene(*this);
+    if (m_lifecycle.loadingResources)
+    {
+        // Do not leak async texture mode into the next scene if loading is interrupted.
+        m_lifecycle.loadingResources->SetAsyncTextureLoading(false);
+    }
     Audio_StopCue("elevator_up");
     m_elevatorUpSoundPlaying = false;
     Audio_StopCue("shutter_open");

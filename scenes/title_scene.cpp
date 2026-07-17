@@ -29,7 +29,20 @@ namespace
         const char* path;
     };
 
-    constexpr int kMainMenuItemCount = 4;
+    enum class MainMenuAction
+    {
+        StartGame,
+        StageSelect,
+        Options,
+        ExitGame,
+    };
+
+    struct MainMenuItem
+    {
+        const char* label;
+        MainMenuAction action;
+    };
+
     constexpr int kOptionsMenuItemCount = 4;
     constexpr int kStageSelectItemCount = 10;
     constexpr int kStageSelectColumnCount = 2;
@@ -67,12 +80,16 @@ namespace
         L"assets\\texture\\BG\\title\\logo3.png",
     };
 
-    constexpr const char* kMainMenuLabels[kMainMenuItemCount] = {
-        "ゲーム開始",
-        "シーン選択",
-        "設定",
-        "ゲームを終了",
+    constexpr MainMenuItem kMainMenuItems[] = {
+        { "ゲーム開始", MainMenuAction::StartGame },
+#if defined(_DEBUG)
+        // シーン選択は開発用メニューとして、デバッグビルドだけに表示する。
+        { "シーン選択", MainMenuAction::StageSelect },
+#endif
+        { "設定", MainMenuAction::Options },
+        { "ゲームを終了", MainMenuAction::ExitGame },
     };
+    constexpr int kMainMenuItemCount = static_cast<int>(sizeof(kMainMenuItems) / sizeof(kMainMenuItems[0]));
 
     constexpr StageSelectItem kStageSelectItems[kStageSelectItemCount] = {
         { "森", "assets/maps/stages/forest_v2.csv" },
@@ -514,7 +531,7 @@ void TitleScene::DrawMainMenu() const
             rect.top,
             rect.right - rect.left,
             rect.bottom - rect.top,
-            kMainMenuLabels[index],
+            kMainMenuItems[index].label,
             m_menuSelection == index);
     }
 }
@@ -922,24 +939,27 @@ void TitleScene::UpdateMenuInput()
 
 void TitleScene::ConfirmMainMenu()
 {
-    switch (m_menuSelection)
+    if (m_menuSelection < 0 || m_menuSelection >= kMainMenuItemCount)
     {
-    case 0:
+        m_menuSelection = 0;
+    }
+
+    switch (kMainMenuItems[m_menuSelection].action)
+    {
+    case MainMenuAction::StartGame:
         BeginStartTransition("game");
         break;
-    case 1:
+    case MainMenuAction::StageSelect:
         m_menuMode = MenuMode::StageSelect;
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
         break;
-    case 2:
+    case MainMenuAction::Options:
         m_menuMode = MenuMode::Options;
         m_optionsSelection = 0;
         m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "ui_select", 0.0f, 0.0f });
         break;
-    case 3:
+    case MainMenuAction::ExitGame:
         m_eventBus.Publish({ EventType::ExitApplicationRequested, nullptr, nullptr, "", 0.0f, 0.0f });
-        break;
-    default:
         break;
     }
 }
