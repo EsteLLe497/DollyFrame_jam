@@ -2383,6 +2383,7 @@ void GameScene::InitializeStageEntities()
 
     if (isDebugStageMap)
     {
+#if 0
         Entity& star = SpawnStagePrefab(
             prefabs,
             "star_outline",
@@ -2396,6 +2397,7 @@ void GameScene::InitializeStageEntities()
             AlignToGrid(940.0f, tileSize),
             AlignToGrid(336.0f, tileSize));
         SetEntityTint(apple, 1.0f, 1.0f, 1.0f, 1.0f);
+#endif
     }
 
     RefreshDamageFootholdsFromMarkers();
