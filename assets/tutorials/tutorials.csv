@@ -109,13 +109,24 @@ tutorial_2,1,conversation,ドリー,assets/texture/tutorialUI/smile.png,,"そう
 tutorial_2,2,window,,,キャプチャー＆ペースト,"ファインダーを操作し、\n物体を撮影して貼り付けてみましょう。",閉じる,tutorial_camera_fallback,assets/tutorials/videos/tutorial1.mp4
 
 tutorial_3,0,conversation,ドリー,assets/texture/tutorialUI/smile.png,,"やった！無事に上に登れたね！\nこの調子でどんどん進むぞ～。",,,
-tutorial_3,1,window,,,物体の種類,"物体の中には消える物、重力が作用する物など,\n様々な種類があります。たくさん撮影して、\n物体の特徴を見極めながら進みましょう。",閉じる,tutorial_camera_fallback,assets/tutorials/videos/tutorial2.mp4,
+tutorial_3,1,window,,,物体の種類,"物体の中には消える物、重力が作用する物など,\n様々な種類があります。たくさん撮影して、\n物体の特徴を見極めながら進みましょう!",閉じる,tutorial_camera_fallback,assets/tutorials/videos/tutorial2.mp4,
 
 tutorial_4,0,conversation,ドリー,assets/texture/tutorialUI/surprise.png,,"わっ！！！\nレムナントがいる...。",,,
 tutorial_4,1,conversation,ドリー,assets/texture/tutorialUI/normal.png,,"倒す.....しかなさそうだね。",,,
-tutorial_4,2,window,,,レムナントとは？,"敵対してくる機械生命体の総称です。\n倒すとアーカ結晶をドロップします。\nこれを使ってのちにアイテムを購入することができます。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4,
-tutorial_4,3,window,,,攻撃を跳ね返そう！,"敵の弾を撮影＋回転して跳ね返してみましょう。\nまた、タイミングよく攻撃を撮影すると攻撃ペーストが\n可能になる敵がいます。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4
+tutorial_4,2,window,,,レムナントとは？,"敵対してくる機械生命体の総称です。倒すとアーカ結晶をドロップします。\nこれを使ってのちにアイテムを購入することができます。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4,
+tutorial_4,3,window,,,攻撃を跳ね返そう！,"敵の弾を撮影＋回転して跳ね返してみましょう。\nまた、赤く光ったタイミングで攻撃を撮影すると\n攻撃ペーストが可能になる敵がいます。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4
 tutorial_4,4,window,,,待ち受ける強敵,"各マップの最奥に強敵が待ち受けています。\n培った技術と知識を駆使して敵を討伐しましょう！",閉じる,tutorial_camera_fallback,assets/tutorials/textures/tutorial1.png,
+
+tutorial_5,0,conversation,ドリー,assets/texture/tutorialUI/normal.png,,"ふぅ～～～～～........。",,,
+tutorial_5,1,conversation,ドリー,assets/texture/tutorialUI/trouble.png,,"なんとか倒せたのはよかったけど、"\nさっき拾ったフィルターは何だったのかな...。",,,
+tutorial_5,2,conversation,ドリー,assets/texture/tutorialUI/smile.png,,"とりあえずこれを使って何か撮ってみよう！\n良い写真撮れるかな～。",,,
+tutorial_5,3,window,,,セピアフィルターを使おう！,"フィルターを切り替え、目の前のがれきを撮影してみましょう。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4
+
+tutorial_6,0,conversation,ドリー,assets/texture/tutorialUI/surprise.png,,"がれきがきれいな足場になった！?つまり、\n壊れた物を撮ると、壊れる前の状態に戻る...？",,,
+tutorial_6,1,conversation,ドリー,assets/texture/tutorialUI/smile.png,,"おおお、すごい！！！これでもっと先に進めて、\nもっともっと良い写真が撮れるね！",,,
+tutorial_6,2,window,,,セピアフィルターについて,"セピアフィルター使用時は物体の復元が可能です。\nしかし、通常撮影や攻撃撮影ができません。",次へ,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4
+tutorial_6,3,window,,,フィルターを使い分けよう！,"他にも、回復フィルターは自身を撮影すると体力が回復します。\n状況に応じたフィルターを切り替えながら進みましょう!",閉じる,tutorial_camera_fallback,assets/tutorials/videos/tutorial3.mp4
+
 
 
 
