@@ -346,6 +346,7 @@ void Application::Shutdown()
         return;
     }
 
+    DeleteGameProgressSave();
     m_sceneManager->Shutdown();
     if constexpr (build_config::kDebugFeaturesEnabled)
     {
