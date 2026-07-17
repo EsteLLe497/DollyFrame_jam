@@ -1819,8 +1819,26 @@ void PhotoCaptureSystem::CaptureEntitiesInFrame(
             item.projectileVelocityY = projectile->GetVelocityY();
             item.projectileDamage = projectile->GetDamage();
             const int enemy2ShotTexture = scene.m_assets.GetTexture("enemy2_shot");
+            const int blasterRobotShotTexture = scene.m_assets.GetTexture("blaster_robot_shot");
             item.spriteProjectile =
-                enemy2ShotTexture >= 0 && sprite->GetTextureId() == enemy2ShotTexture;
+                (enemy2ShotTexture >= 0 && sprite->GetTextureId() == enemy2ShotTexture) ||
+                (blasterRobotShotTexture >= 0 && sprite->GetTextureId() == blasterRobotShotTexture);
+            item.blasterRobotProjectile =
+                projectile->GetOwner() == ProjectileComponent::Owner::BlasterRobot ||
+                (blasterRobotShotTexture >= 0 && sprite->GetTextureId() == blasterRobotShotTexture);
+            if (item.blasterRobotProjectile)
+            {
+                item.spriteProjectile = true;
+                item.relativeX = targetTransform->x + sprite->GetRenderOffsetX() - frameX;
+                item.relativeY = targetTransform->y + sprite->GetRenderOffsetY() - frameY;
+                item.width = targetTransform->width * targetTransform->scale * sprite->GetRenderScaleX();
+                item.height = targetTransform->height * targetTransform->scale * sprite->GetRenderScaleY();
+                item.sourceX = sprite->GetSourceX();
+                item.sourceY = sprite->GetSourceY();
+                item.sourceWidth = sprite->GetSourceWidth();
+                item.sourceHeight = sprite->GetSourceHeight();
+                item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX) - 3.1415926535f;
+            }
             if (item.spriteProjectile)
             {
                 item.flipX = sprite->GetFlipX();
@@ -2092,4 +2110,3 @@ void PhotoCaptureSystem::FinalizeCapturedPhoto(GameScene& scene, Entity& player,
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, nullptr, GetPhotoCaptureLogMessage(scene.m_photo.capture.capturedTheme), 0.0f, 0.0f });
     scene.m_ui.developedPhotoPreviewRemaining = scene.m_ui.tuning.developedPhotoPreview.lifetime;
 }
-

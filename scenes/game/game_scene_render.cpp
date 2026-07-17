@@ -3379,9 +3379,12 @@ void GameScene::DrawEntity(const Entity& entity) const
             }
 
             const float angle = std::atan2(projectile->GetVelocityY(), projectile->GetVelocityX());
-            if (projectile->GetOwner() == ProjectileComponent::Owner::BlasterRobot &&
-                sprite->GetTextureId() == m_assets.GetTexture("blaster_robot_shot"))
+            if (sprite->GetTextureId() == m_assets.GetTexture("blaster_robot_shot"))
             {
+                const float blasterVisualRotation =
+                    projectile->GetOwner() == ProjectileComponent::Owner::BlasterRobot
+                    ? angle - 3.1415926535f
+                    : transform->rotation;
                 Shader_SetTint(1.0f, 1.0f, 1.0f, alphaMultiplier);
                 SpriteDraw(
                     sprite->GetTextureId(),
@@ -3394,7 +3397,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                     sprite->GetSourceWidth(),
                     sprite->GetSourceHeight(),
                     sprite->GetFlipX(),
-                    angle - 3.1415926535f);
+                    blasterVisualRotation);
                 Shader_ResetStyle();
                 return;
             }
