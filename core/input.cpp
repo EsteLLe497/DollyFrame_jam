@@ -33,6 +33,7 @@ namespace
     constexpr int kNoKey = -1;
     constexpr int kMaxBindingKeys = 4;
     constexpr int kMaxBindingPredicates = 3;
+    constexpr float kMenuMoveAxisThreshold = 0.5f;
     constexpr const char* kInputBindingsPath = "assets/input_bindings.json";
 
     struct ActionBinding
@@ -252,6 +253,7 @@ namespace
     bool IsGamepadSouthPressed();
     bool IsGamepadEastPressed();
     bool IsGamepadNorthPressed();
+    bool IsGamepadStartPressed();
     bool IsGamepadBackPressed();
     bool IsGamepadLeftTriggerDown();
     bool IsGamepadRightTriggerDown();
@@ -260,12 +262,17 @@ namespace
     bool IsGamepadRightShoulderDown();
     bool IsGamepadLeftShoulderPressed();
     bool IsGamepadRightShoulderPressed();
+    bool IsGamepadMoveLeftPressed();
+    bool IsGamepadMoveRightPressed();
+    bool IsGamepadMoveUpPressed();
+    bool IsGamepadMoveDownPressed();
 
-    constexpr std::array<NamedValue<ActionPredicate>, 11> kPredicateNameMap =
+    constexpr std::array<NamedValue<ActionPredicate>, 16> kPredicateNameMap =
     {{
         { "GAMEPAD_SOUTH_PRESSED", IsGamepadSouthPressed },
         { "GAMEPAD_EAST_PRESSED", IsGamepadEastPressed },
         { "GAMEPAD_NORTH_PRESSED", IsGamepadNorthPressed },
+        { "GAMEPAD_START_PRESSED", IsGamepadStartPressed },
         { "GAMEPAD_BACK_PRESSED", IsGamepadBackPressed },
         { "GAMEPAD_LEFT_TRIGGER_DOWN", IsGamepadLeftTriggerDown },
         { "GAMEPAD_RIGHT_TRIGGER_DOWN", IsGamepadRightTriggerDown },
@@ -274,6 +281,10 @@ namespace
         { "GAMEPAD_RIGHT_SHOULDER_DOWN", IsGamepadRightShoulderDown },
         { "GAMEPAD_LEFT_SHOULDER_PRESSED", IsGamepadLeftShoulderPressed },
         { "GAMEPAD_RIGHT_SHOULDER_PRESSED", IsGamepadRightShoulderPressed },
+        { "GAMEPAD_MOVE_LEFT_PRESSED", IsGamepadMoveLeftPressed },
+        { "GAMEPAD_MOVE_RIGHT_PRESSED", IsGamepadMoveRightPressed },
+        { "GAMEPAD_MOVE_UP_PRESSED", IsGamepadMoveUpPressed },
+        { "GAMEPAD_MOVE_DOWN_PRESSED", IsGamepadMoveDownPressed },
     }};
 
     bool IsGamepadSouthPressed()
@@ -291,6 +302,10 @@ namespace
         return IsGamepadButtonPressed(XINPUT_BUTTON_Y);
 	}
 
+    bool IsGamepadStartPressed()
+    {
+        return IsGamepadButtonPressed(XINPUT_BUTTON_START);
+    }
 
     bool IsGamepadBackPressed()
     {
@@ -326,6 +341,26 @@ namespace
         return g_connected ? -NormalizeThumb(g_state.ThumbRY, kThumbDeadZone) : 0.0f;
     }
 
+    float GetGamepadLeftX(const DxLib::XINPUT_STATE& state)
+    {
+        return NormalizeThumb(state.ThumbLX, kThumbDeadZone);
+    }
+
+    float GetGamepadLeftY(const DxLib::XINPUT_STATE& state)
+    {
+        return -NormalizeThumb(state.ThumbLY, kThumbDeadZone);
+    }
+
+    bool IsAxisNegativePressed(float current, float previous)
+    {
+        return current < -kMenuMoveAxisThreshold && previous >= -kMenuMoveAxisThreshold;
+    }
+
+    bool IsAxisPositivePressed(float current, float previous)
+    {
+        return current > kMenuMoveAxisThreshold && previous <= kMenuMoveAxisThreshold;
+    }
+
     bool IsGamepadRightShoulderDown()
     {
         return IsGamepadButtonDown(XINPUT_BUTTON_RIGHT_SHOULDER);
@@ -345,6 +380,30 @@ namespace
     {
         return IsGamepadButtonPressed(XINPUT_BUTTON_LEFT_SHOULDER);
 	}
+
+    bool IsGamepadMoveLeftPressed()
+    {
+        return IsGamepadButtonPressed(XINPUT_BUTTON_DPAD_LEFT) ||
+            (g_connected && IsAxisNegativePressed(GetGamepadLeftX(g_state), GetGamepadLeftX(g_prevState)));
+    }
+
+    bool IsGamepadMoveRightPressed()
+    {
+        return IsGamepadButtonPressed(XINPUT_BUTTON_DPAD_RIGHT) ||
+            (g_connected && IsAxisPositivePressed(GetGamepadLeftX(g_state), GetGamepadLeftX(g_prevState)));
+    }
+
+    bool IsGamepadMoveUpPressed()
+    {
+        return IsGamepadButtonPressed(XINPUT_BUTTON_DPAD_UP) ||
+            (g_connected && IsAxisNegativePressed(GetGamepadLeftY(g_state), GetGamepadLeftY(g_prevState)));
+    }
+
+    bool IsGamepadMoveDownPressed()
+    {
+        return IsGamepadButtonPressed(XINPUT_BUTTON_DPAD_DOWN) ||
+            (g_connected && IsAxisPositivePressed(GetGamepadLeftY(g_state), GetGamepadLeftY(g_prevState)));
+    }
 
     bool EvaluateBoundKeys(const int (&keys)[kMaxBindingKeys], bool pressed)
     {
@@ -377,7 +436,7 @@ namespace
     constexpr ActionBinding kDefaultActionBindings[] =
     {
         { InputAction::Confirm, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_RETURN, VK_SPACE, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadSouthPressed, nullptr, nullptr } },
-        { InputAction::Cancel, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_ESCAPE, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::Cancel, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_ESCAPE, kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadStartPressed, nullptr, nullptr } },
         { InputAction::StartGame, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_RETURN, VK_SPACE, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadSouthPressed, nullptr, nullptr } },
         { InputAction::OpenDemoScene, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'D', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
         { InputAction::OpenShaderShowcase, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'S', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
@@ -402,10 +461,10 @@ namespace
         { InputAction::ToggleBridgePlacement, { kNoKey, kNoKey, kNoKey, kNoKey }, { 'B', kNoKey, kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
         { InputAction::RotatePlacementLeft, { 'Z', kNoKey, kNoKey, kNoKey }, { 'Z', kNoKey, kNoKey, kNoKey }, false, { IsGamepadLeftShoulderDown, nullptr, nullptr }, { IsGamepadLeftShoulderPressed, nullptr, nullptr } },
         { InputAction::RotatePlacementRight, { 'X', kNoKey, kNoKey, kNoKey }, { 'X', kNoKey, kNoKey, kNoKey }, false, { IsGamepadRightShoulderDown, nullptr, nullptr }, { IsGamepadRightShoulderPressed, nullptr, nullptr } },
-        { InputAction::MoveLeft, { 'A', VK_LEFT, kNoKey, kNoKey }, { 'A', VK_LEFT, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
-        { InputAction::MoveRight, { 'D', VK_RIGHT, kNoKey, kNoKey }, { 'D', VK_RIGHT, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
-        { InputAction::MoveUp, { 'W', VK_UP, kNoKey, kNoKey }, { 'W', VK_UP, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
-        { InputAction::MoveDown, { 'S', VK_DOWN, kNoKey, kNoKey }, { 'S', VK_DOWN, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
+        { InputAction::MoveLeft, { 'A', VK_LEFT, kNoKey, kNoKey }, { 'A', VK_LEFT, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { IsGamepadMoveLeftPressed, nullptr, nullptr } },
+        { InputAction::MoveRight, { 'D', VK_RIGHT, kNoKey, kNoKey }, { 'D', VK_RIGHT, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { IsGamepadMoveRightPressed, nullptr, nullptr } },
+        { InputAction::MoveUp, { 'W', VK_UP, kNoKey, kNoKey }, { 'W', VK_UP, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { IsGamepadMoveUpPressed, nullptr, nullptr } },
+        { InputAction::MoveDown, { 'S', VK_DOWN, kNoKey, kNoKey }, { 'S', VK_DOWN, kNoKey, kNoKey }, false, { nullptr, nullptr, nullptr }, { IsGamepadMoveDownPressed, nullptr, nullptr } },
         { InputAction::Jump, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_SPACE, 'W', VK_UP, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadSouthPressed, nullptr, nullptr } },
         { InputAction::Dodge, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_LSHIFT, VK_RSHIFT, VK_SHIFT, kNoKey }, true, { nullptr, nullptr, nullptr }, { IsGamepadEastPressed, nullptr, nullptr } },
         { InputAction::ExitPromptYes, { kNoKey, kNoKey, kNoKey, kNoKey }, { VK_RETURN, 'Y', kNoKey, kNoKey }, true, { nullptr, nullptr, nullptr }, { nullptr, nullptr, nullptr } },
@@ -502,6 +561,7 @@ namespace
         if (predicate == IsGamepadSouthPressed) { return "GAMEPAD_SOUTH_PRESSED"; }
         if (predicate == IsGamepadEastPressed) { return "GAMEPAD_EAST_PRESSED"; }
         if (predicate == IsGamepadNorthPressed) { return "GAMEPAD_NORTH_PRESSED"; }
+        if (predicate == IsGamepadStartPressed) { return "GAMEPAD_START_PRESSED"; }
         if (predicate == IsGamepadBackPressed) { return "GAMEPAD_BACK_PRESSED"; }
         if (predicate == IsGamepadLeftTriggerDown) { return "GAMEPAD_LEFT_TRIGGER_DOWN"; }
         if (predicate == IsGamepadRightTriggerDown) { return "GAMEPAD_RIGHT_TRIGGER_DOWN"; }
@@ -510,6 +570,10 @@ namespace
         if (predicate == IsGamepadRightShoulderDown) { return "GAMEPAD_RIGHT_SHOULDER_DOWN"; }
         if (predicate == IsGamepadLeftShoulderPressed) { return "GAMEPAD_LEFT_SHOULDER_PRESSED"; }
         if (predicate == IsGamepadRightShoulderPressed) { return "GAMEPAD_RIGHT_SHOULDER_PRESSED"; }
+        if (predicate == IsGamepadMoveLeftPressed) { return "GAMEPAD_MOVE_LEFT_PRESSED"; }
+        if (predicate == IsGamepadMoveRightPressed) { return "GAMEPAD_MOVE_RIGHT_PRESSED"; }
+        if (predicate == IsGamepadMoveUpPressed) { return "GAMEPAD_MOVE_UP_PRESSED"; }
+        if (predicate == IsGamepadMoveDownPressed) { return "GAMEPAD_MOVE_DOWN_PRESSED"; }
         return "UNKNOWN_PREDICATE";
     }
 

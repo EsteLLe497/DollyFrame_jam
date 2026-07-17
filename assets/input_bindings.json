@@ -5,7 +5,8 @@
       "pressed_gamepad": ["GAMEPAD_SOUTH_PRESSED"]
     },
     "Cancel": {
-      "pressed_keys": ["ESCAPE"]
+      "pressed_keys": ["ESCAPE"],
+      "pressed_gamepad": ["GAMEPAD_START_PRESSED"]
     },
     "StartGame": {
       "pressed_keys": ["ENTER", "SPACE"],
@@ -100,16 +101,20 @@
       "pressed_gamepad": ["GAMEPAD_RIGHT_SHOULDER_PRESSED"]
     },
     "MoveLeft": {
-      "down_keys": ["A", "LEFT"]
+      "down_keys": ["A", "LEFT"],
+      "pressed_gamepad": ["GAMEPAD_MOVE_LEFT_PRESSED"]
     },
     "MoveRight": {
-      "down_keys": ["D", "RIGHT"]
+      "down_keys": ["D", "RIGHT"],
+      "pressed_gamepad": ["GAMEPAD_MOVE_RIGHT_PRESSED"]
     },
     "MoveUp": {
-      "down_keys": ["W", "UP"]
+      "down_keys": ["W", "UP"],
+      "pressed_gamepad": ["GAMEPAD_MOVE_UP_PRESSED"]
     },
     "MoveDown": {
-      "down_keys": ["S", "DOWN"]
+      "down_keys": ["S", "DOWN"],
+      "pressed_gamepad": ["GAMEPAD_MOVE_DOWN_PRESSED"]
     },
     "Jump": {
       "pressed_keys": ["SPACE", "W", "UP"],
