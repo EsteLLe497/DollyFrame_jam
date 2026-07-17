@@ -1465,6 +1465,7 @@ void ResultScene::DrawFreeImages(float offsetX) const
             1.0f);
     }
 
+#if 0
     // ==================================================================
     // 隠しコマンドで表示される画像（date.png）。resultCharaとは完全に独立した
     // 位置・サイズ。被らないよう手動でX座標をずらしてある。
@@ -1497,6 +1498,7 @@ void ResultScene::DrawFreeImages(float offsetX) const
                 1.0f);
         }
     }
+#endif
 }
 
 void ResultScene::DrawCapturedPhotosGrid(float offsetX) const

@@ -53,8 +53,8 @@ void LoadingPreviewScene::OnEnter(ResourceManager& resources)
     Audio_FadeOutBgm(1.2f);
     m_whiteTexture = resources.CreateSolidTexture(1, 1, 0xFFFFFFFF);
     m_stageTextures[0] = resources.LoadTexture(L"assets\\texture\\BG\\forest\\BG_Forest.png");
-    m_stageTextures[1] = resources.LoadTexture(L"assets\\texture\\BG\\ruins\\ruins.png");
-    m_stageTextures[2] = resources.LoadTexture(L"assets\\texture\\BG\\forest\\sinrin11.png");
+    m_stageTextures[1] = resources.LoadTexture(L"assets\\texture\\BG\\ruins\\ruins_zenntai.png");
+    m_stageTextures[2] = resources.LoadTexture(L"assets\\texture\\BG\\forest\\BG_Forest_05.png");
     m_eventBus.Clear();
     m_mode = 0;
     m_stageIndex = 0;

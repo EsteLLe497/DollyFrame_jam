@@ -2808,7 +2808,8 @@ void GameScene::DrawEntity(const Entity& entity) const
                 FALSE,
                 std::max(1.0f, 2.0f * viewScale));
 
-            const int arrowTexture = m_assets.GetTexture("arrow");
+#if 0
+            const int arrowTexture = m_assets.GetTexture(\
             if (arrowTexture >= 0)
             {
                 const float arrowPaddingX = tileWidth * 0.10f;
@@ -2833,6 +2834,7 @@ void GameScene::DrawEntity(const Entity& entity) const
                 Shader_ResetStyle();
             }
 
+#endif
             const float timeSeconds = static_cast<float>(GetNowCount()) * 0.001f;
             const float lineSpacing = std::max(10.0f, tileWidth * 0.48f);
             const float lineLength = std::max(6.0f, tileWidth * 0.30f);
