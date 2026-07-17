@@ -2274,7 +2274,7 @@ void GameScene::RemoveDefeatedEnemies()
         if (enemy->spawnX < cameraLeft || enemy->spawnX > cameraRight)
         {
             transform->x = enemy->spawnX;
-            transform->y = enemy->spawnY - 96.0f;
+            transform->y = enemy->spawnY;
             SnapEnemyToGround(*transform);
             enemy->velocityY = 0.0f;
             enemy->attackTimer = 0.0f;

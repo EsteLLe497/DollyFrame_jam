@@ -6,8 +6,10 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <system_error>
 
 #include <tracy/Tracy.hpp>
 
@@ -38,6 +40,7 @@ namespace
     constexpr float SCENE_TRANSITION_SWAP_TIME = SCENE_TRANSITION_DURATION * 0.5f;
     constexpr float STARTUP_FADE_OUT_DURATION = 1.35f;
     constexpr float kCursorTrailSpawnDistance = 18.0f;
+    constexpr const char* kGameProgressSavePath = "savegame.json";
 
     struct SoundCueAsset
     {
@@ -130,6 +133,21 @@ namespace
         ClearDrawScreen();
         DrawBox(0, 0, kVirtualScreenWidth, kVirtualScreenHeight, GetColor(0, 0, 0), TRUE);
         ScreenFlip();
+    }
+
+    void DeleteGameProgressSave()
+    {
+        std::error_code error;
+        const bool removed = std::filesystem::remove(kGameProgressSavePath, error);
+        if (error)
+        {
+            Logger::Warn("Failed to delete save file: " + error.message());
+            return;
+        }
+        if (removed)
+        {
+            Logger::Info("Deleted save file: " + std::string(kGameProgressSavePath));
+        }
     }
 
 }
@@ -809,6 +827,7 @@ bool Application::RequestSceneChange(const std::string& sceneId)
     m_pendingSceneId = sceneId;
     if (sceneId == "title")
     {
+        DeleteGameProgressSave();
         // どのシーンからタイトルへ戻っても、現在のBGMは暗転中に必ず落とす。
         Audio_FadeOutBgm(SCENE_TRANSITION_SWAP_TIME);
         m_titleBgmPending = true;
