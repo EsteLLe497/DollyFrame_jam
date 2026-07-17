@@ -291,6 +291,7 @@ bool Application::Initialize(HINSTANCE instance, int nCmdShow)
     {
         return false;
     }
+    Audio_LoadSettings();
     if constexpr (build_config::kDebugFeaturesEnabled)
     {
         if (!ImGuiLayer_Initialize(GetMainWindowHandle(), DirectXGetDevice(), DirectXGetDeviceContext()))
