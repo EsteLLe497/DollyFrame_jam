@@ -2398,12 +2398,11 @@ void GameScene::DrawUiAdjustmentWindow()
         auto& attack = tuning.attackCapture;
         drag("X##attack", attack.panelX, 1.0f, -1000.0f, 3000.0f);
         drag("Y##attack", attack.panelY, 1.0f, -1000.0f, 3000.0f);
-        drag("パネルサイズ##attack", attack.panelSize, 1.0f, 10.0f, 1000.0f);
-        drag("アイコン半径##attack", attack.iconRadius, 1.0f, 1.0f, 500.0f);
-        drag("タイトルX##attack", attack.titleX, 1.0f, -500.0f, 500.0f);
-        drag("タイトルY##attack", attack.titleY, 1.0f, -500.0f, 500.0f);
-        drag("個数表示 右余白##attack", attack.countRightOffset, 1.0f, -500.0f, 500.0f);
-        drag("個数表示 下余白##attack", attack.countBottomOffset, 1.0f, -500.0f, 500.0f);
+        drag("Attack image size##attack", attack.panelSize, 1.0f, 10.0f, 1000.0f);
+        drag("Attack image inset##attack", attack.iconInset, 1.0f, 0.0f, 500.0f);
+        drag("Button X##attack", attack.buttonX, 1.0f, -500.0f, 500.0f);
+        drag("Button Y##attack", attack.buttonY, 1.0f, -500.0f, 1000.0f);
+        drag("Button width##attack", attack.buttonWidth, 1.0f, 1.0f, 500.0f);
     }
 
     if (ImGui::CollapsingHeader("フィルターパネル"))

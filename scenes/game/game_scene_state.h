@@ -321,14 +321,13 @@ struct GameSceneBossHpUiState
 
 struct GameSceneUiAttackCaptureTuning
 {
-    float panelX = 32.0f;
-    float panelY = 124.0f;
-    float panelSize = 96.0f;
-    float iconRadius = 28.0f;
-    float titleX = 12.0f;
-    float titleY = 8.0f;
-    float countRightOffset = 30.0f;
-    float countBottomOffset = 24.0f;
+    float panelX = 555.0f;
+    float panelY = 920.0f;
+    float panelSize = 115.0f;
+    float iconInset = 0.0f;
+    float buttonX = -10.0f;
+    float buttonY = 82.0f;
+    float buttonWidth = 58.0f;
 };
 
 struct GameSceneUiEscapeMenuTuning

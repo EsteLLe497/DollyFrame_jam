@@ -34,6 +34,12 @@
       "type": "file",
       "path": "assets/texture/player/chara_attack.png"
     },
+    "ui_attack_button": { "type": "file", "path": "assets/texture/attackUI/Icon_Button.png" },
+    "ui_attack_enemy01": { "type": "file", "path": "assets/texture/attackUI/Icon_Enemy01_Attack.png" },
+    "ui_attack_forest_boss01": { "type": "file", "path": "assets/texture/attackUI/Icon_ForestBoss_Attack01.png" },
+    "ui_attack_forest_boss02": { "type": "file", "path": "assets/texture/attackUI/Icon_ForestBoss_Attack02.png" },
+    "ui_attack_ruins_boss01": { "type": "file", "path": "assets/texture/attackUI/Icon_RuinsBoss_Attack01.png" },
+    "ui_attack_ruins_boss02": { "type": "file", "path": "assets/texture/attackUI/Icon_RuinsBoss_Attack02.png" },
     "dolly_pause_portrait": {
       "type": "file",
       "path": "assets/texture/player/Dolly.png"
@@ -521,6 +527,10 @@
     "karitatie": {
       "type": "file",
       "path": "assets/texture/karitatie.png"
+    },
+    "result_chara": {
+      "type": "file",
+      "path": "assets/texture/BG/result/resultChara.png"
     }
   }
 }

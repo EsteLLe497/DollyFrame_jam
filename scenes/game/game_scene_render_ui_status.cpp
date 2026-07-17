@@ -5,6 +5,7 @@
 #include "game_scene_combat_common.h"
 
 #include "DxLib.h"
+#include <texture.h>
 
 using namespace game_scene_detail;
 
@@ -141,28 +142,6 @@ namespace
         default:
             return GetColor(210, 86, 255);
         }
-    }
-
-    int GetAttackCaptureCount(const PhotoCaptureState& capture)
-    {
-        if (capture.attackCaptureCount > 0)
-        {
-            return capture.attackCaptureCount;
-        }
-
-        const int countedItems = static_cast<int>(std::count_if(
-            capture.items.begin(),
-            capture.items.end(),
-            [](const CapturedPhotoItem& item)
-            {
-                return item.enemyAttackPaste;
-            }));
-        if (countedItems > 0)
-        {
-            return countedItems;
-        }
-
-        return capture.hasPhoto && capture.containsEnemyAttackPaste ? 1 : 0;
     }
 
     CapturedSpawnArchetype GetPrimaryAttackCaptureArchetype(const PhotoCaptureState& capture)
@@ -1262,61 +1241,52 @@ void GameScene::DrawMidBoss3HpBar() const
 
 void GameScene::DrawAttackCaptureSlot() const
 {
-    if (!m_photo.attackCapture.hasPhoto || !m_photo.attackCapture.containsEnemyAttackPaste)
-    {
-        return;
-    }
+    if (!m_photo.attackCapture.hasPhoto || !m_photo.attackCapture.containsEnemyAttackPaste) return;
+
+    Shader_ResetStyle();
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
     const auto& attackUi = m_ui.tuning.attackCapture;
-    const float centerX = attackUi.panelX + attackUi.panelSize * 0.5f;
-    const float centerY = attackUi.panelY + attackUi.panelSize * 0.5f + attackUi.titleY;
     const CapturedSpawnArchetype archetype = GetPrimaryAttackCaptureArchetype(m_photo.attackCapture);
-    const unsigned int iconColor = GetAttackCaptureIconColor(archetype);
-
-    // Attack captures use a replaceable icon slot; the colored circle is a temporary asset stand-in.
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 210);
-    DrawBox(
-        static_cast<int>(std::round(attackUi.panelX)),
-        static_cast<int>(std::round(attackUi.panelY)),
-        static_cast<int>(std::round(attackUi.panelX + attackUi.panelSize)),
-        static_cast<int>(std::round(attackUi.panelY + attackUi.panelSize)),
-        GetColor(12, 18, 26),
-        TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    DrawBox(
-        static_cast<int>(std::round(attackUi.panelX)),
-        static_cast<int>(std::round(attackUi.panelY)),
-        static_cast<int>(std::round(attackUi.panelX + attackUi.panelSize)),
-        static_cast<int>(std::round(attackUi.panelY + attackUi.panelSize)),
-        GetColor(224, 232, 242),
-        FALSE);
-
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 80);
-    DrawCircleAA(centerX, centerY, attackUi.iconRadius + 14.0f, 64, iconColor, TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_ADD, 128);
-    DrawCircleAA(centerX, centerY, attackUi.iconRadius + 6.0f, 64, iconColor, TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 245);
-    DrawCircleAA(centerX, centerY, attackUi.iconRadius, 64, iconColor, TRUE);
-    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-    DrawCircleAA(centerX, centerY, attackUi.iconRadius, 64, GetColor(255, 246, 226), FALSE, 2.0f);
-
-    DrawString(
-        static_cast<int>(std::round(attackUi.panelX + attackUi.titleX)),
-        static_cast<int>(std::round(attackUi.panelY + attackUi.titleY)),
-        "ATK",
-        GetColor(240, 226, 196));
-
-    const int attackCount = GetAttackCaptureCount(m_photo.attackCapture);
-    if (attackCount > 0)
+    const char* textureKey = nullptr;
+    switch (archetype)
     {
-        DrawFormatString(
-            static_cast<int>(std::round(attackUi.panelX + attackUi.panelSize - attackUi.countRightOffset)),
-            static_cast<int>(std::round(attackUi.panelY + attackUi.panelSize - attackUi.countBottomOffset)),
-            GetColor(30, 36, 44),
-            "x %d",
-            attackCount);
+    case CapturedSpawnArchetype::WalkerMelee: textureKey = "ui_attack_enemy01"; break;
+    case CapturedSpawnArchetype::ShieldRushBurst:
+    case CapturedSpawnArchetype::ShieldNormal: textureKey = "ui_attack_forest_boss01"; break;
+    case CapturedSpawnArchetype::ShieldJumpBurst: textureKey = "ui_attack_forest_boss02"; break;
+    case CapturedSpawnArchetype::MidBoss3FistAttack: textureKey = "ui_attack_ruins_boss01"; break;
+    case CapturedSpawnArchetype::MidBoss3DrillAttack: textureKey = "ui_attack_ruins_boss02"; break;
+    default: break;
     }
+
+    const auto drawTexture = [](int texture, float x, float y, float width, float height)
+    {
+        if (texture < 0 || width <= 0.0f || height <= 0.0f) return;
+        SpriteDraw(texture, x, y, width, height, 0.0f, 0.0f, 1.0f, 1.0f);
+    };
+
+    const auto drawTextureByWidth = [&](int texture, float x, float y, float width)
+    {
+        if (texture < 0 || width <= 0.0f) return;
+        const int textureWidth = TextureGetWidth(texture);
+        const int textureHeight = TextureGetHeight(texture);
+        if (textureWidth <= 0 || textureHeight <= 0) return;
+
+        const float height = width * static_cast<float>(textureHeight) / static_cast<float>(textureWidth);
+        drawTexture(texture, x, y, width, height);
+    };
+
+    const float iconSize = (std::max)(1.0f, attackUi.panelSize - attackUi.iconInset * 2.0f);
+    if (textureKey)
+    {
+        drawTexture(m_assets.GetTexture(textureKey),
+            attackUi.panelX + attackUi.iconInset, attackUi.panelY + attackUi.iconInset,
+            iconSize, iconSize);
+    }
+    drawTextureByWidth(m_assets.GetTexture("ui_attack_button"),
+        attackUi.panelX + attackUi.buttonX, attackUi.panelY + attackUi.buttonY,
+        attackUi.buttonWidth);
+
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
-
-
-

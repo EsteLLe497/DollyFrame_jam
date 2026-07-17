@@ -53,6 +53,15 @@ private:
     void ConfirmDialogSelection();
     MenuOptionRect GetConfirmDialogOptionRect(int index) const;
     void DrawConfirmDialog() const;
+    void LoadResultUiTuning();
+    bool SaveResultUiTuning() const;
+
+    struct ResultCharaTuning
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 1920.0f;
+    };
 
     AssetManifest m_assets;
     EventBus m_eventBus;
@@ -76,4 +85,5 @@ private:
     int m_merchantSelection = 0;
     float m_merchantMessageTimer = 0.0f;
     std::string m_merchantMessage;
+    ResultCharaTuning m_resultChara;
 };
