@@ -15,12 +15,19 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <fstream>
 #include <string>
 #include <utility>
+#include <nlohmann/json.hpp>
 #include <tracy/Tracy.hpp>
 
 namespace
 {
+    constexpr const char* kUiTuningPath = "assets/ui_tuning.json";
+    constexpr const char* kResultCharaTextureKey = "result_chara";
+    constexpr float kResultCharaAspectWidth = 1920.0f;
+    constexpr float kResultCharaAspectHeight = 1080.0f;
+
     struct PrimaryOption
     {
         std::string label;
@@ -487,6 +494,7 @@ void ResultScene::OnEnter(ResourceManager& resources)
 {
     ZoneScoped;
     m_assets.LoadDefaults(resources);
+    LoadResultUiTuning();
     m_whiteTexture = m_assets.GetTexture("white");
     m_eventBus.Clear();
     m_blinkTimer = 0.0f;
@@ -1310,7 +1318,89 @@ void ResultScene::DrawDebugUI()
     ImGui::Text("プロンプト表示: %s", m_showPrompt ? "あり" : "なし");
     ImGui::Text("取得アイテム(累計): %d", session.partsCollectedTotal);
     ImGui::Text("クリアタイム: %.1f 秒", session.clearTimeSeconds);
+    if (ImGui::CollapsingHeader("Result Chara", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Text("texture id: %d", m_assets.GetTexture(kResultCharaTextureKey));
+        ImGui::DragFloat("X##result_chara", &m_resultChara.x, 1.0f, -3000.0f, 3000.0f, "%.2f");
+        ImGui::DragFloat("Y##result_chara", &m_resultChara.y, 1.0f, -3000.0f, 3000.0f, "%.2f");
+        ImGui::DragFloat("Width##result_chara", &m_resultChara.width, 1.0f, 1.0f, 4000.0f, "%.2f");
+        if (ImGui::Button("Save result chara"))
+        {
+            SaveResultUiTuning();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Reload result chara"))
+        {
+            LoadResultUiTuning();
+        }
+    }
     ImGui::End();
+}
+
+void ResultScene::LoadResultUiTuning()
+{
+    std::ifstream stream(kUiTuningPath);
+    if (!stream)
+    {
+        return;
+    }
+
+    try
+    {
+        nlohmann::json root;
+        stream >> root;
+        const auto it = root.find("result_chara");
+        if (it == root.end() || !it->is_object())
+        {
+            return;
+        }
+
+        m_resultChara.x = it->value("x", m_resultChara.x);
+        m_resultChara.y = it->value("y", m_resultChara.y);
+        m_resultChara.width = it->value("width", m_resultChara.width);
+    }
+    catch (const std::exception& ex)
+    {
+        Logger::Warn(std::string("Failed to load result UI tuning: ") + ex.what());
+    }
+}
+
+bool ResultScene::SaveResultUiTuning() const
+{
+    nlohmann::json root = nlohmann::json::object();
+
+    {
+        std::ifstream input(kUiTuningPath);
+        if (input)
+        {
+            try
+            {
+                input >> root;
+            }
+            catch (const std::exception& ex)
+            {
+                Logger::Warn(std::string("Failed to parse UI tuning before result save: ") + ex.what());
+                root = nlohmann::json::object();
+            }
+        }
+    }
+
+    root["result_chara"] = {
+        { "x", m_resultChara.x },
+        { "y", m_resultChara.y },
+        { "width", m_resultChara.width },
+    };
+
+    std::ofstream output(kUiTuningPath, std::ios::trunc);
+    if (!output)
+    {
+        Logger::Warn("Failed to open UI tuning file for result save.");
+        return false;
+    }
+
+    output << root.dump(2) << '\n';
+    Logger::Info("Saved result chara tuning to assets/ui_tuning.json");
+    return true;
 }
 
 EventBus* ResultScene::GetEventBus()
@@ -1358,46 +1448,17 @@ void ResultScene::DrawBackdrop(float offsetX) const
 
 void ResultScene::DrawFreeImages(float offsetX) const
 {
-    struct FreeImagePlacement
+    const int resultCharaTexture = m_assets.GetTexture(kResultCharaTextureKey);
+    if (resultCharaTexture >= 0)
     {
-        const char* textureKey;
-        float x;
-        float y;
-        float width;
-        float height;
-    };
-
-    // ==================================================================
-    // 仮画像（karitatie.png）。本番の画像が来たら、ここの定数だけ差し替えればOK。
-    // ==================================================================
-    constexpr float kKaritatieX = 40.0f;
-    constexpr float kKaritatieY = 200.0f;
-    constexpr float kKaritatieHeight = 400.0f;
-    constexpr float kKaritatieAspectWidth = 477.0f;   // ← karitatie.pngの実際の幅(px)
-    constexpr float kKaritatieAspectHeight = 353.0f;  // ← karitatie.pngの実際の高さ(px)
-    constexpr float kKaritatieWidth = kKaritatieHeight * (kKaritatieAspectWidth / kKaritatieAspectHeight);
-
-    const FreeImagePlacement placements[] =
-    {
-        { "karitatie", kKaritatieX, kKaritatieY, kKaritatieWidth, kKaritatieHeight },
-        //{ "kuria", static_cast<float>(SCREEN_WIDTH) - 300.0f, 450.0f, 220.0f, 160.0f },
-    };
-
-    for (const auto& placement : placements)
-    {
-        const int textureId = m_assets.GetTexture(placement.textureKey);
-        if (textureId < 0)
-        {
-            continue; // テクスチャが見つからない場合は描画しない
-        }
-
+        const float resultCharaHeight = m_resultChara.width * kResultCharaAspectHeight / kResultCharaAspectWidth;
         Shader_SetTint(1.0f, 1.0f, 1.0f, 1.0f);
         SpriteDraw(
-            textureId,
-            placement.x + offsetX,
-            placement.y,
-            placement.width,
-            placement.height,
+            resultCharaTexture,
+            m_resultChara.x + offsetX,
+            m_resultChara.y,
+            m_resultChara.width,
+            resultCharaHeight,
             0.0f,
             0.0f,
             1.0f,
@@ -1405,10 +1466,10 @@ void ResultScene::DrawFreeImages(float offsetX) const
     }
 
     // ==================================================================
-    // 隠しコマンドで表示される画像（date.png）。karitatieとは完全に独立した
+    // 隠しコマンドで表示される画像（date.png）。resultCharaとは完全に独立した
     // 位置・サイズ。被らないよう手動でX座標をずらしてある。
     // ==================================================================
-    constexpr float kDateX = kKaritatieX + kKaritatieWidth + 40.0f; // ← karitatieの右側、被らない位置
+    const float kDateX = m_resultChara.x + m_resultChara.width + 40.0f; // ← resultCharaの右側、被らない位置
     constexpr float kDateY = 200.0f;
     constexpr float kDateHeight = 400.0f;
     constexpr float kDateAspectWidth = 2160.0f;   // ← date.pngの実際の幅(px)

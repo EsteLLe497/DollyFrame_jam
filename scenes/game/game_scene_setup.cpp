@@ -451,7 +451,7 @@ namespace
 #define HP_FIELDS(F) F(slotStartX); F(slotStartY); F(slotWidth); F(slotHeight); F(slotGapX); F(heartSize); F(heartYOffset); F(heartShadowOffsetX); F(heartShadowOffsetY); F(heartGlowExpand); F(heartLagGlowExpand); F(labelOffsetX); F(labelOffsetY); F(hpTextOffsetY); F(displayRiseSpeedDown); F(displayRiseSpeedUp); F(lagSpeed); F(flashDecaySpeed)
 #define PARTS_FIELDS(F) F(panelWidth); F(panelHeight); F(marginRight); F(marginBottom); F(marginTop); F(iconX); F(iconY); F(iconSize); F(iconInnerInset); F(labelX); F(labelY); F(valueY)
 #define BOSS_FIELDS(F) F(panelWidth); F(barHeight); F(panelPadding); F(marginTop); F(panelExtraHeight); F(titleOffsetY); F(hpTextOffsetY)
-#define ATTACK_FIELDS(F) F(panelX); F(panelY); F(panelSize); F(iconRadius); F(titleX); F(titleY); F(countRightOffset); F(countBottomOffset)
+#define ATTACK_FIELDS(F) F(panelX); F(panelY); F(panelSize); F(iconInset); F(buttonX); F(buttonY); F(buttonWidth)
 #define ESCAPE_FIELDS(F) F(panelWidth); F(panelHeight); F(rowStartOffset); F(rowHeight); F(rowPaddingX); F(rowBottomInset); F(titleX); F(titleY); F(helpY); F(rowTextX); F(rowTextY)
 #define MERCHANT_FIELDS(F) F(panelWidth); F(panelHeight); F(rowHeight); F(listLeftOffset); F(listTopOffset); F(listRightOffset); F(detailLeftOffset); F(detailTopOffset); F(detailBottomOffset); F(promptHalfWidth); F(promptHeight); F(promptTextX); F(promptTextY); F(promptRiseOffsetY); F(promptPulseSpeed)
 #define FILTER_FIELDS(F) F(panelWidth); F(panelHeight); F(marginRight); F(marginTop); F(swatchX); F(swatchY); F(swatchSize); F(titleX); F(titleY); F(effectY); F(hintX); F(hintY)

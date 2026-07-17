@@ -1,13 +1,12 @@
 {
   "attack_capture": {
-    "countBottomOffset": 24.0,
-    "countRightOffset": 30.0,
-    "iconRadius": 28.0,
-    "panelSize": 96.0,
-    "panelX": 32.0,
-    "panelY": 124.0,
-    "titleX": 12.0,
-    "titleY": 8.0
+    "buttonWidth": 76.0,
+    "buttonX": 82.0,
+    "buttonY": 115.0,
+    "iconInset": 0.0,
+    "panelSize": 168.0,
+    "panelX": 561.0,
+    "panelY": 897.0
   },
   "battery_counter": {
     "iconInnerInset": 5.0,
@@ -183,6 +182,11 @@
     "slotStartX": 48.0,
     "slotStartY": 920.0,
     "slotWidth": 159.0
+  },
+  "result_chara": {
+    "width": 1473.0,
+    "x": -120.0,
+    "y": 165.0
   },
   "stage_guide": {
     "x": 24.0,
