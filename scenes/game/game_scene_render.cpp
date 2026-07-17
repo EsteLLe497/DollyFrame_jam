@@ -9,6 +9,7 @@
 #include "DxLib.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -1408,6 +1409,131 @@ namespace
         }
     }
 
+    struct WalkerAttackTrailPoint
+    {
+        float xRatio = 0.0f;
+        float yRatio = 0.0f;
+    };
+
+    void DrawWalkerAttackSlashTrail(
+        const TransformComponent& transform,
+        const EnemyComponent& enemy,
+        float viewOriginX,
+        float viewOriginY,
+        float viewScale,
+        float cameraX,
+        float cameraY)
+    {
+        if (enemy.GetArchetype() != EnemyArchetype::Walker ||
+            enemy.GetAIState() != EnemyComponent::AIState::Attack)
+        {
+            return;
+        }
+
+        const float progress = Clamp01(enemy.attackWarningProgress);
+        const float linger = enemy.attackFrameTriggered
+            ? Clamp01(enemy.attackFlashRemaining / 0.18f)
+            : 1.0f;
+        if (progress <= 0.001f || linger <= 0.001f)
+        {
+            return;
+        }
+
+        // Ratios are measured against the 800x904 attack-sheet cell from F24 to F32.
+        constexpr std::array<WalkerAttackTrailPoint, 9> kTrailPoints = { {
+            { 0.78f, 0.18f },
+            { 0.75f, 0.17f },
+            { 0.72f, 0.17f },
+            { 0.69f, 0.19f },
+            { 0.64f, 0.25f },
+            { 0.37f, 0.39f },
+            { 0.22f, 0.47f },
+            { 0.11f, 0.53f },
+            { 0.04f, 0.55f },
+        } };
+        constexpr float kWalkerVisualScale = 1.55f;
+        constexpr float kWalkerVisualOffsetY = -22.0f;
+
+        const float visualX = transform.x + transform.width * (1.0f - kWalkerVisualScale) * 0.5f;
+        const float visualY = transform.y + kWalkerVisualOffsetY;
+        const float visualWidth = transform.width * transform.scale * kWalkerVisualScale;
+        const float visualHeight = transform.height * transform.scale * kWalkerVisualScale;
+        const bool mirrored = enemy.facing == EnemyComponent::FacingDirection::Right;
+
+        struct ScreenPoint
+        {
+            float x = 0.0f;
+            float y = 0.0f;
+        };
+
+        const auto toScreenPoint = [&](const WalkerAttackTrailPoint& point) -> ScreenPoint
+        {
+            const float ratioX = mirrored ? 1.0f - point.xRatio : point.xRatio;
+            const float worldX = visualX + ratioX * visualWidth;
+            const float worldY = visualY + point.yRatio * visualHeight;
+            return {
+                viewOriginX + (worldX - cameraX) * viewScale,
+                viewOriginY + (worldY - cameraY) * viewScale
+            };
+        };
+
+        constexpr int kLastPointIndex = static_cast<int>(kTrailPoints.size()) - 1;
+        const float trailPosition = progress * static_cast<float>(kLastPointIndex);
+        const int completedIndex = std::clamp(static_cast<int>(std::floor(trailPosition)), 0, kLastPointIndex);
+        const float localT = Clamp01(trailPosition - static_cast<float>(completedIndex));
+
+        std::array<ScreenPoint, kTrailPoints.size() + 1> screenPoints{};
+        int pointCount = 0;
+        for (int index = 0; index <= completedIndex; ++index)
+        {
+            screenPoints[static_cast<size_t>(pointCount++)] = toScreenPoint(kTrailPoints[static_cast<size_t>(index)]);
+        }
+
+        if (completedIndex < kLastPointIndex)
+        {
+            const auto& a = kTrailPoints[static_cast<size_t>(completedIndex)];
+            const auto& b = kTrailPoints[static_cast<size_t>(completedIndex + 1)];
+            screenPoints[static_cast<size_t>(pointCount++)] = toScreenPoint({
+                std::lerp(a.xRatio, b.xRatio, localT),
+                std::lerp(a.yRatio, b.yRatio, localT)
+            });
+        }
+
+        if (pointCount < 2)
+        {
+            return;
+        }
+
+        const float postHitAlpha = enemy.attackFrameTriggered ? linger * 0.32f : 1.0f;
+        const float fadeIn = std::clamp(progress / 0.18f, 0.0f, 1.0f);
+        const float alphaScale = postHitAlpha * fadeIn;
+        const int deepRed = GetColor(255, 28, 24);
+        const int red = GetColor(255, 72, 54);
+        const int softRed = GetColor(255, 116, 96);
+
+        for (int index = 1; index < pointCount; ++index)
+        {
+            const float segmentT = pointCount > 2
+                ? static_cast<float>(index - 1) / static_cast<float>(pointCount - 2)
+                : 1.0f;
+            const float segmentAlpha = alphaScale * std::lerp(12.0f, 58.0f, segmentT);
+            const float glowThickness = std::max(2.0f, std::lerp(5.0f, 9.0f, segmentT) * viewScale);
+            const float coreThickness = std::max(1.0f, std::lerp(1.2f, 2.4f, segmentT) * viewScale);
+
+            const auto& previous = screenPoints[static_cast<size_t>(index - 1)];
+            const auto& current = screenPoints[static_cast<size_t>(index)];
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(segmentAlpha)), 0, 255));
+            DrawLineAA(previous.x, previous.y, current.x, current.y, deepRed, glowThickness);
+            SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(segmentAlpha * 0.55f)), 0, 255));
+            DrawLineAA(previous.x, previous.y, current.x, current.y, red, coreThickness);
+        }
+
+        const auto& head = screenPoints[static_cast<size_t>(pointCount - 1)];
+        SetDrawBlendMode(DX_BLENDMODE_ADD, std::clamp(static_cast<int>(std::round(alphaScale * 48.0f)), 0, 255));
+        DrawCircleAA(head.x, head.y, std::max(1.6f, 3.2f * viewScale), 32, softRed, TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     void DrawWalkerAttackCaptureCue(
         const TransformComponent& transform,
         const EnemyComponent& enemy,
@@ -2050,6 +2176,15 @@ void GameScene::DrawEffects() const
         {
             continue;
         }
+
+        DrawWalkerAttackSlashTrail(
+            *transform,
+            *enemy,
+            viewOriginX,
+            viewOriginY,
+            viewScale,
+            m_flow.cameraX,
+            m_flow.cameraY);
 
         DrawWalkerAttackCaptureCue(
             *transform,
@@ -4735,18 +4870,6 @@ void GameScene::DrawEnemyAttackRects() const
     {
         if (!entity) continue;
 
-        // Walker
-        const auto* enemy = entity->GetComponent<EnemyComponent>();
-        if (enemy && enemy->attackRectActive)
-        {
-            const float screenX = viewOriginX + (enemy->attackRectX - m_flow.cameraX) * viewScale;
-            const float screenY = viewOriginY + (enemy->attackRectY - m_flow.cameraY) * viewScale;
-            const float screenW = enemy->attackRectWidth * viewScale;
-            const float screenH = enemy->attackRectHeight * viewScale;
-
-            DrawBoxAA(screenX, screenY, screenX + screenW, screenY + screenH,
-                GetColor(255, 80, 80), TRUE);
-        }
 
         // 繝ｻ・ｽ繝ｻ・ｽ繝ｻ・ｽ{繝ｻ・ｽX繝ｻ・ｽU繝ｻ・ｽ繝ｻ・ｽ繝ｻ・ｽ繝ｻ・ｽ繝ｻ・ｽ繝ｻ・ｽ
         const auto* boss = entity->GetComponent<ShieldBossComponent>();
