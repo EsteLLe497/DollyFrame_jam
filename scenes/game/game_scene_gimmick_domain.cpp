@@ -45,6 +45,11 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
     };
 
     bool shieldBossDefeated = m_flow.shieldBossDefeatedThisScene || m_flow.midBoss3DefeatedThisScene;
+    const bool forestBossMap =
+        m_lifecycle.currentMapCsvPath.find("forest_boss") != std::string::npos;
+    const bool forestBossShutterSignalActive = forestBossMap
+        ? GameSession_Get().hasSepiaFilter
+        : shieldBossDefeated;
     bool hasProtectiveWalls = false;
     bool hasIntactProtectiveWall = false;
     //bool hasIntactProtectiveWall = false;
@@ -302,7 +307,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             }
         }
 
-        // 個数判定が一瞬途切れてもチラつかないよう、短い保持時間を設ける。
+        // 個数判定が一瞬途�EれてもチラつかなぁE��ぁE��短ぁE��持時間を設ける、E
         switchComponent->insertedBatteryCount = batteriesOnTop;
         const float switchTopTolerance = std::max(kSwitchTopToleranceMin, switchHeight * 0.7f);
         const bool pressCondition =
@@ -637,7 +642,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
             {
                 if (elevator->pauseTimer > 0.0f)
                 {
-                    // 上端・下端の到着後は、指定時間だけ停止してから反転移動する。
+                    // 上端・下端の到着後�E、指定時間だけ停止してから反転移動する、E
                     elevator->pauseTimer = std::max(0.0f, elevator->pauseTimer - deltaTime);
                 }
                 else if (elevator->movingUp)
@@ -707,7 +712,7 @@ void GameScene::UpdateLinkedGimmicks(float deltaTime)
         }
 
         const bool poweredByLink = linkPowered[shutter->linkId];
-        const bool linkActive = poweredByLink || (shutter->useBossDefeatSignal && shieldBossDefeated);
+        const bool linkActive = poweredByLink || (shutter->useBossDefeatSignal && forestBossShutterSignalActive);
         const bool open = shutter->opensWhenUnpowered
             ? !linkActive
             : linkActive;

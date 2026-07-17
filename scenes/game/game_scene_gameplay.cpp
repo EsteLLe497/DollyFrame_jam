@@ -1321,6 +1321,10 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
                 boss->drillHeight > 0.0f;
             if (drillCameraRelevant)
             {
+                const bool drillChargeCameraHold =
+                    boss->state == MidBoss3State::DrillFist &&
+                    !boss->drillGroundRush &&
+                    boss->stateTimer < boss->params.drillFormTime + boss->params.drillWaitTime;
                 const float aimLength = std::max(0.001f, std::hypot(boss->drillAimX, boss->drillAimY));
                 const float aimX = boss->drillAimX / aimLength;
                 const float aimY = boss->drillAimY / aimLength;
@@ -1352,13 +1356,16 @@ void GameScene::ApplyMidBoss3FramingCameraWork(float deltaTime)
                 {
                     includeCameraBounds(stableDrillX, stableDrillY, boss->drillWidth, boss->drillHeight);
                     includeCameraBounds(currentDrillX, currentDrillY, boss->drillWidth, boss->drillHeight);
-                    includePredictedAttackEnd(
-                        currentDrillX,
-                        currentDrillY,
-                        boss->drillWidth,
-                        boss->drillHeight,
-                        aimX,
-                        aimY);
+                    if (!drillChargeCameraHold)
+                    {
+                        includePredictedAttackEnd(
+                            currentDrillX,
+                            currentDrillY,
+                            boss->drillWidth,
+                            boss->drillHeight,
+                            aimX,
+                            aimY);
+                    }
                 }
                 marginX = std::max(marginX, tileSize * 3.0f);
                 marginY = std::max(marginY, tileSize * 2.2f);
