@@ -542,7 +542,8 @@ bool ContainsShapePreservingItem(const std::vector<CapturedPhotoItem>& items)
             !item.collisionOutline.empty() ||
             item.lightRadius > 0.0f ||
             item.sepiaShutterObject ||
-            item.sepiaPlainRubbleObject)
+            item.sepiaPlainRubbleObject ||
+            item.blasterRobotProjectile)
         {
             return true;
         }
@@ -568,6 +569,12 @@ std::vector<CapturedPhotoItem> BuildRawPlacementItems(
         item.flipX = !item.flipX;
         item.projectileVelocityX = -item.projectileVelocityX;
         item.spearDirectionX = -item.spearDirectionX;
+        if (item.spawnArchetype == CapturedSpawnArchetype::Projectile &&
+            (std::fabs(item.projectileVelocityX) > 0.0001f || std::fabs(item.projectileVelocityY) > 0.0001f))
+        {
+            item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX) -
+                (item.blasterRobotProjectile ? 3.1415926535f : 0.0f);
+        }
         for (auto& point : item.collisionOutline)
         {
             point.x = 1.0f - point.x;
@@ -879,6 +886,12 @@ std::vector<CapturedPhotoItem> BuildPlacementItems(
                 item.flipX = !item.flipX;
                 item.projectileVelocityX = -item.projectileVelocityX;
                 item.spearDirectionX = -item.spearDirectionX;
+                if (item.spawnArchetype == CapturedSpawnArchetype::Projectile &&
+                    (std::fabs(item.projectileVelocityX) > 0.0001f || std::fabs(item.projectileVelocityY) > 0.0001f))
+                {
+                    item.rotation = std::atan2(item.projectileVelocityY, item.projectileVelocityX) -
+                        (item.blasterRobotProjectile ? 3.1415926535f : 0.0f);
+                }
             }
         }
         RotatePrintedPhotoItems(items, outWidth, outHeight, placement.rotation);

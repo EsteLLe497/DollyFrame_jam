@@ -1266,6 +1266,9 @@ void PhotoPasteSystem::SpawnPhotoGroup(
 
         if (item.spawnArchetype == CapturedSpawnArchetype::Projectile)
         {
+            const bool blasterRobotProjectile =
+                item.blasterRobotProjectile ||
+                item.textureId == scene.m_assets.GetTexture("blaster_robot_shot");
             auto bulletEntity = std::make_unique<Entity>();
             Entity* spawnedBullet = bulletEntity.get();
             lastSpawnedEntity = spawnedBullet;
@@ -1308,10 +1311,25 @@ void PhotoPasteSystem::SpawnPhotoGroup(
             {
                 sprite->SetSourceRect(item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight);
                 sprite->SetFlipX(item.flipX);
+                if (blasterRobotProjectile)
+                {
+                    sprite->SetRenderScale(1.0f, 1.0f);
+                    sprite->SetRenderOffset(0.0f, 0.0f);
+                }
+            }
+            if (blasterRobotProjectile && item.textureId >= 0)
+            {
+                auto& bulletAnimation = spawnedBullet->AddComponent<SpriteSheetAnimationComponent>();
+                bulletAnimation.DefineClip("shot", item.textureId, 5, 6, 0, 30, 30.0f, true);
+                bulletAnimation.Play("shot", true);
             }
             if (auto* transform = spawnedBullet->GetComponent<TransformComponent>())
             {
-                transform->rotation = item.rotation;
+                transform->rotation =
+                    blasterRobotProjectile &&
+                    (std::fabs(item.projectileVelocityX) > 0.0001f || std::fabs(item.projectileVelocityY) > 0.0001f)
+                    ? std::atan2(item.projectileVelocityY, item.projectileVelocityX) - 3.1415926535f
+                    : item.rotation;
             }
             scene.m_world.Spawn(std::move(bulletEntity));
             continue;
@@ -1726,4 +1744,3 @@ void PhotoPasteSystem::SpawnPhotoGroup(
     scene.m_eventBus.Publish({ EventType::PlaySoundRequest, &player, lastSpawnedEntity, "test_tone", 0.0f, 0.0f });
     scene.m_eventBus.Publish({ EventType::LogMessage, &player, lastSpawnedEntity, "Spawned filtered reconstruction", 0.0f, 0.0f });
 }
-
