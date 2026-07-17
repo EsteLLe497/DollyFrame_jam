@@ -47,11 +47,22 @@ private:
         float alpha;
     };
 
+    struct TitleMenuButtonTuning
+    {
+        float x;
+        float y;
+        float width;
+        float height;
+    };
+
     static constexpr size_t kTitleParticleCount = 72;
+    static constexpr size_t kMainMenuButtonCount = 3;
+    static constexpr size_t kMainMenuButtonStateCount = 2;
 
     void DrawBackdrop() const;
     void DrawMenu() const;
     void DrawMainMenu() const;
+    void DrawMainMenuButton(int buttonIndex, bool selected) const;
     void DrawOptionsMenu() const;
     void DrawStageSelectMenu() const;
     void DrawStartTransition() const;
@@ -59,9 +70,13 @@ private:
     void GetTitleShakeOffset(float& x, float& y) const;
     void GetTitleImageRect(float& x, float& y, float& width, float& height) const;
     MenuOptionRect GetMainMenuOptionRect(int index) const;
+    int GetMainMenuButtonIndexForItem(int itemIndex) const;
     MenuOptionRect GetOptionsMenuOptionRect(int index) const;
     MenuOptionRect GetStageSelectOptionRect(int index) const;
     bool IsPointInsideMenuOption(const MenuOptionRect& rect, int x, int y) const;
+    void ResetTitleUiTuning();
+    void LoadTitleUiTuning();
+    bool SaveTitleUiTuning() const;
     void InitializeTitleParticles();
     void ResetTitleParticle(size_t index, float y);
     void UpdateTitleParticles(float deltaTime);
@@ -78,6 +93,10 @@ private:
     std::array<int, 4> m_titleLayerTextures;
     std::array<int, 4> m_titleLayerTextureWidths;
     std::array<int, 4> m_titleLayerTextureHeights;
+    std::array<std::array<int, kMainMenuButtonStateCount>, kMainMenuButtonCount> m_mainMenuButtonTextures;
+    std::array<std::array<int, kMainMenuButtonStateCount>, kMainMenuButtonCount> m_mainMenuButtonTextureWidths;
+    std::array<std::array<int, kMainMenuButtonStateCount>, kMainMenuButtonCount> m_mainMenuButtonTextureHeights;
+    std::array<TitleMenuButtonTuning, kMainMenuButtonCount> m_mainMenuButtonTunings;
     std::array<TitleParticle, kTitleParticleCount> m_titleParticles;
     float m_blinkTimer;
     float m_sceneTime;

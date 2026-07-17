@@ -15,6 +15,8 @@ void Audio_SetMasterVolume(float volume);
 float Audio_GetMasterVolume();
 void Audio_SetSeVolume(float volume);
 float Audio_GetSeVolume();
+void Audio_LoadSettings();
+void Audio_SaveSettings();
 
 // Register external file cues and play by cue name.
 bool Audio_LoadCueFromFile(const char* cueName, const char* filePath);

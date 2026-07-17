@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -15,6 +18,7 @@
 namespace
 {
     constexpr double PI_D = 3.14159265358979323846;
+    constexpr const char* kAudioSettingsPath = "assets/audio_settings.json";
 
     struct CueData
     {
@@ -59,6 +63,34 @@ namespace
     float Clamp01(float value)
     {
         return std::clamp(value, 0.0f, 1.0f);
+    }
+
+    void SaveAudioSettingsInternal()
+    {
+        try
+        {
+            const std::filesystem::path path(kAudioSettingsPath);
+            if (!path.parent_path().empty())
+            {
+                std::filesystem::create_directories(path.parent_path());
+            }
+
+            nlohmann::json root = nlohmann::json::object();
+            root["masterVolume"] = g_masterVolume;
+            root["seVolume"] = g_seVolume;
+
+            std::ofstream output(kAudioSettingsPath, std::ios::binary | std::ios::trunc);
+            if (!output)
+            {
+                Logger::Warn("Failed to open audio settings file for write");
+                return;
+            }
+            output << root.dump(4);
+        }
+        catch (const std::exception& error)
+        {
+            Logger::Warn(std::string("Failed to save audio settings: ") + error.what());
+        }
     }
 
     bool IsBgmCueName(const std::string& cueName)
@@ -717,6 +749,7 @@ void Audio_SetMasterVolume(float volume)
 {
     g_masterVolume = Clamp01(volume);
     RefreshAllVolumes();
+    SaveAudioSettingsInternal();
 }
 
 float Audio_GetMasterVolume()
@@ -728,9 +761,36 @@ void Audio_SetSeVolume(float volume)
 {
     g_seVolume = Clamp01(volume);
     RefreshAllVolumes();
+    SaveAudioSettingsInternal();
 }
 
 float Audio_GetSeVolume()
 {
     return g_seVolume;
+}
+
+void Audio_LoadSettings()
+{
+    std::ifstream input(kAudioSettingsPath, std::ios::binary);
+    if (!input)
+    {
+        return;
+    }
+
+    try
+    {
+        const nlohmann::json root = nlohmann::json::parse(input);
+        g_masterVolume = Clamp01(root.value("masterVolume", g_masterVolume));
+        g_seVolume = Clamp01(root.value("seVolume", g_seVolume));
+        RefreshAllVolumes();
+    }
+    catch (const std::exception& error)
+    {
+        Logger::Warn(std::string("Failed to load audio settings: ") + error.what());
+    }
+}
+
+void Audio_SaveSettings()
+{
+    SaveAudioSettingsInternal();
 }

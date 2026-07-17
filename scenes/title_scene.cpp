@@ -18,7 +18,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <filesystem>
+#include <nlohmann/json.hpp>
 #include <tracy/Tracy.hpp>
 
 namespace
@@ -50,13 +52,40 @@ namespace
     constexpr int kMainMenuRowWidth = 340;
     constexpr int kMainMenuRowHeight = 48;
     constexpr int kMainMenuRowGap = 16;
-    constexpr int kMainMenuMarginLeft = 150;
-    constexpr int kMainMenuMarginBottom = 218;
-    constexpr int kOptionsMenuRowLeft = 146;
-    constexpr int kOptionsMenuRowTop = 386;
-    constexpr int kOptionsMenuRowWidth = 520;
-    constexpr int kOptionsMenuRowHeight = 34;
-    constexpr int kOptionsMenuRowGap = 8;
+    constexpr int kMainMenuButtonNormalState = 0;
+    constexpr int kMainMenuButtonSelectedState = 1;
+    constexpr const char* kTitleUiTuningPath = "assets/title_ui_tuning.json";
+    constexpr const char* kMainMenuButtonTuningKeys[] = {
+        "start",
+        "settings",
+        "exit",
+    };
+    constexpr const char* kMainMenuButtonDebugNames[] = {
+        "Start",
+        "Settings",
+        "Exit",
+    };
+    constexpr const wchar_t* kMainMenuButtonTexturePaths[3][2] = {
+        {
+            L"assets\\texture\\BG\\title\\UI_Title_GameStartButton_002.png",
+            L"assets\\texture\\BG\\title\\UI_Title_GameStartButton_001.png",
+        },
+        {
+            L"assets\\texture\\BG\\title\\UI_Title_SettingButton_002.png",
+            L"assets\\texture\\BG\\title\\UI_Title_SettingButton_001.png",
+        },
+        {
+            L"assets\\texture\\BG\\title\\UI_Title_GameEndButton_002.png",
+            L"assets\\texture\\BG\\title\\UI_Title_GameEndButton_001.png",
+        },
+    };
+    constexpr float kOptionsMenuPanelWidth = 760.0f;
+    constexpr float kOptionsMenuPanelHeight = 460.0f;
+    constexpr int kOptionsMenuRowHeight = 52;
+    constexpr int kOptionsMenuRowBottomInset = 8;
+    constexpr int kOptionsMenuRowStartOffset = 104;
+    constexpr int kOptionsMenuRowLeftOffset = 290;
+    constexpr int kOptionsMenuRowRightInset = 28;
     constexpr int kStageSelectRowLeft = 146;
     constexpr int kStageSelectRowTop = 386;
     constexpr int kStageSelectRowWidth = 268;
@@ -264,6 +293,10 @@ TitleScene::TitleScene()
     , m_titleLayerTextures{ -1, -1, -1, -1 }
     , m_titleLayerTextureWidths{ 0, 0, 0, 0 }
     , m_titleLayerTextureHeights{ 0, 0, 0, 0 }
+    , m_mainMenuButtonTextures{}
+    , m_mainMenuButtonTextureWidths{}
+    , m_mainMenuButtonTextureHeights{}
+    , m_mainMenuButtonTunings{}
     , m_blinkTimer(0.0f)
     , m_sceneTime(0.0f)
     , m_showPrompt(true)
@@ -279,6 +312,11 @@ TitleScene::TitleScene()
     , m_startTransitionTimer(0.0f)
     , m_startTransitionSceneId(nullptr)
 {
+    for (auto& buttonTextures : m_mainMenuButtonTextures)
+    {
+        buttonTextures.fill(-1);
+    }
+    ResetTitleUiTuning();
 }
 
 const char* TitleScene::GetSceneId() const
@@ -309,6 +347,35 @@ void TitleScene::OnEnter(ResourceManager& resources)
             Logger::Warn(message);
         }
     }
+    for (size_t buttonIndex = 0; buttonIndex < m_mainMenuButtonTextures.size(); ++buttonIndex)
+    {
+        for (size_t stateIndex = 0; stateIndex < m_mainMenuButtonTextures[buttonIndex].size(); ++stateIndex)
+        {
+            m_mainMenuButtonTextures[buttonIndex][stateIndex] =
+                resources.LoadTexture(kMainMenuButtonTexturePaths[buttonIndex][stateIndex]);
+            m_mainMenuButtonTextureWidths[buttonIndex][stateIndex] = 0;
+            m_mainMenuButtonTextureHeights[buttonIndex][stateIndex] = 0;
+            if (m_mainMenuButtonTextures[buttonIndex][stateIndex] >= 0)
+            {
+                m_mainMenuButtonTextureWidths[buttonIndex][stateIndex] =
+                    TextureGetWidth(m_mainMenuButtonTextures[buttonIndex][stateIndex]);
+                m_mainMenuButtonTextureHeights[buttonIndex][stateIndex] =
+                    TextureGetHeight(m_mainMenuButtonTextures[buttonIndex][stateIndex]);
+            }
+            if (m_mainMenuButtonTextures[buttonIndex][stateIndex] < 0)
+            {
+                char message[192] = {};
+                std::snprintf(
+                    message,
+                    sizeof(message),
+                    "TitleScene menu button texture could not be loaded: button %zu state %zu",
+                    buttonIndex,
+                    stateIndex);
+                Logger::Warn(message);
+            }
+        }
+    }
+    LoadTitleUiTuning();
     m_eventBus.Clear();
     m_blinkTimer = 0.0f;
     m_sceneTime = 0.0f;
@@ -398,6 +465,28 @@ void TitleScene::DrawDebugUI()
     if (ImGui::Button("ロード画面プレビューを開く"))
     {
         m_loadingPreviewRequested = true;
+    }
+    ImGui::Separator();
+    if (ImGui::CollapsingHeader("Title UI"))
+    {
+        for (size_t index = 0; index < m_mainMenuButtonTunings.size(); ++index)
+        {
+            ImGui::PushID(static_cast<int>(index));
+            TitleMenuButtonTuning& tuning = m_mainMenuButtonTunings[index];
+            ImGui::TextUnformatted(kMainMenuButtonDebugNames[index]);
+            ImGui::DragFloat2("Position", &tuning.x, 1.0f, -200.0f, 1400.0f, "%.1f");
+            ImGui::DragFloat2("Size", &tuning.width, 1.0f, 16.0f, 1200.0f, "%.1f");
+            ImGui::PopID();
+        }
+        if (ImGui::Button("Title UI 保存"))
+        {
+            SaveTitleUiTuning();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Title UI 初期化"))
+        {
+            ResetTitleUiTuning();
+        }
     }
     ImGui::End();
 }
@@ -523,9 +612,16 @@ void TitleScene::DrawMenu() const
 
 void TitleScene::DrawMainMenu() const
 {
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
     for (int index = 0; index < kMainMenuItemCount; ++index)
     {
         const MenuOptionRect rect = GetMainMenuOptionRect(index);
+        const int buttonIndex = GetMainMenuButtonIndexForItem(index);
+        if (buttonIndex >= 0)
+        {
+            DrawMainMenuButton(buttonIndex, m_menuSelection == index);
+            continue;
+        }
         DrawMenuRow(
             rect.left,
             rect.top,
@@ -536,27 +632,139 @@ void TitleScene::DrawMainMenu() const
     }
 }
 
+void TitleScene::DrawMainMenuButton(int buttonIndex, bool selected) const
+{
+    if (buttonIndex < 0 || buttonIndex >= static_cast<int>(m_mainMenuButtonTunings.size()))
+    {
+        return;
+    }
+
+    const int stateIndex = selected ? kMainMenuButtonSelectedState : kMainMenuButtonNormalState;
+    const int texture = m_mainMenuButtonTextures[buttonIndex][stateIndex];
+    if (texture < 0)
+    {
+        const MenuOptionRect rect = {
+            static_cast<int>(std::round(m_mainMenuButtonTunings[buttonIndex].x)),
+            static_cast<int>(std::round(m_mainMenuButtonTunings[buttonIndex].y)),
+            static_cast<int>(std::round(m_mainMenuButtonTunings[buttonIndex].x + m_mainMenuButtonTunings[buttonIndex].width)),
+            static_cast<int>(std::round(m_mainMenuButtonTunings[buttonIndex].y + m_mainMenuButtonTunings[buttonIndex].height)),
+        };
+        DrawMenuRow(
+            rect.left,
+            rect.top,
+            rect.right - rect.left,
+            rect.bottom - rect.top,
+            "TITLE BUTTON MISSING",
+            selected);
+        return;
+    }
+
+    const TitleMenuButtonTuning& tuning = m_mainMenuButtonTunings[buttonIndex];
+    SpriteDraw(
+        texture,
+        tuning.x,
+        tuning.y,
+        tuning.width,
+        tuning.height,
+        0.0f,
+        0.0f,
+        1.0f,
+        1.0f);
+}
+
 void TitleScene::DrawOptionsMenu() const
 {
-    const int masterVolume = static_cast<int>(std::round(Audio_GetMasterVolume() * 100.0f));
-    const int seVolume = static_cast<int>(std::round(Audio_GetSeVolume() * 100.0f));
+    const int left = static_cast<int>(std::round((static_cast<float>(SCREEN_WIDTH) - kOptionsMenuPanelWidth) * 0.5f));
+    const int top = static_cast<int>(std::round((static_cast<float>(SCREEN_HEIGHT) - kOptionsMenuPanelHeight) * 0.5f));
+    const int right = static_cast<int>(std::round(left + kOptionsMenuPanelWidth));
+    const int bottom = static_cast<int>(std::round(top + kOptionsMenuPanelHeight));
+    const int paper = GetColor(232, 216, 184);
+    const int paperDark = GetColor(202, 178, 137);
+    const int ink = GetColor(56, 40, 30);
+    const int inkMuted = GetColor(112, 86, 62);
+    const int accent = GetColor(170, 91, 48);
 
-    char label[96] = {};
-    std::snprintf(label, sizeof(label), "BGM: %s", m_bgmEnabled ? "ON" : "OFF");
-    MenuOptionRect rect = GetOptionsMenuOptionRect(0);
-    DrawMenuRow(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, label, m_optionsSelection == 0);
-    std::snprintf(label, sizeof(label), "MASTER VOLUME: %d%%", masterVolume);
-    rect = GetOptionsMenuOptionRect(1);
-    DrawMenuRow(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, label, m_optionsSelection == 1);
-    std::snprintf(label, sizeof(label), "SE VOLUME: %d%%", seVolume);
-    rect = GetOptionsMenuOptionRect(2);
-    DrawMenuRow(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, label, m_optionsSelection == 2);
-    rect = GetOptionsMenuOptionRect(3);
-    DrawMenuRow(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, "BACK", m_optionsSelection == 3);
+    SetDrawBlendMode(DX_BLENDMODE_ALPHA, 150);
+    DrawBox(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GetColor(8, 5, 4), TRUE);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
-    DrawClassicFrame(682, 386, 822, 470);
-    DrawString(696, 408, "左右キー", GetColor(255, 226, 164));
-    DrawString(696, 432, "でダイヤルを回す。", GetColor(242, 226, 194));
+    DrawBox(left + 14, top + 16, right + 14, bottom + 16, GetColor(3, 2, 2), TRUE);
+    DrawBox(left, top, right, bottom, paper, TRUE);
+    DrawBox(left, top, right, bottom, paperDark, FALSE);
+    DrawBox(left + 12, top + 12, right - 12, bottom - 12, GetColor(136, 103, 70), FALSE);
+    DrawString(left + 28, top + 22, "PAUSE", ink);
+    DrawString(right - 152, top + 24, "DOLLY FRAME", inkMuted);
+    DrawBox(left + 28, top + 60, right - 28, top + 63, accent, TRUE);
+
+    const int photoLeft = left + 32;
+    const int photoTop = top + 104;
+    const int photoRight = left + 258;
+    const int photoBottom = top + 344;
+    DrawBox(photoLeft + 8, photoTop + 10, photoRight + 8, photoBottom + 10, GetColor(94, 68, 50), TRUE);
+    DrawBox(photoLeft, photoTop, photoRight, photoBottom, GetColor(244, 234, 211), TRUE);
+    DrawBox(photoLeft + 16, photoTop + 16, photoRight - 16, photoBottom - 50, GetColor(48, 42, 36), TRUE);
+    DrawString(photoLeft + 22, photoBottom - 36, "FILM  /  OPTION MENU", inkMuted);
+
+    constexpr const char* labels[kOptionsMenuItemCount] = {
+        "BGM",
+        "マスター音量",
+        "SE音量",
+        "戻る",
+    };
+    const int rowStartY = top + kOptionsMenuRowStartOffset;
+    const int rowLeftBase = left + kOptionsMenuRowLeftOffset;
+    const int rowRight = right - kOptionsMenuRowRightInset;
+    for (int index = 0; index < kOptionsMenuItemCount; ++index)
+    {
+        const int rowTop = rowStartY + index * kOptionsMenuRowHeight;
+        const int rowBottom = rowTop + kOptionsMenuRowHeight - kOptionsMenuRowBottomInset;
+        const bool selected = m_optionsSelection == index;
+        const int rowLeft = rowLeftBase;
+        DrawBox(rowLeft, rowTop, rowRight, rowBottom,
+            selected ? GetColor(218, 193, 151) : GetColor(226, 211, 184), TRUE);
+        DrawBox(rowLeft, rowTop, rowRight, rowBottom,
+            selected ? accent : GetColor(174, 151, 116), FALSE);
+
+        if (selected)
+        {
+            constexpr int corner = 13;
+            DrawLine(rowLeft - 6, rowTop - 5, rowLeft + corner, rowTop - 5, accent);
+            DrawLine(rowLeft - 6, rowTop - 5, rowLeft - 6, rowTop + corner, accent);
+            DrawLine(rowRight + 6, rowTop - 5, rowRight - corner, rowTop - 5, accent);
+            DrawLine(rowRight + 6, rowTop - 5, rowRight + 6, rowTop + corner, accent);
+            DrawLine(rowLeft - 6, rowBottom + 5, rowLeft + corner, rowBottom + 5, accent);
+            DrawLine(rowLeft - 6, rowBottom + 5, rowLeft - 6, rowBottom - corner, accent);
+            DrawLine(rowRight + 6, rowBottom + 5, rowRight - corner, rowBottom + 5, accent);
+            DrawLine(rowRight + 6, rowBottom + 5, rowRight + 6, rowBottom - corner, accent);
+        }
+
+        const int textColor = selected ? ink : inkMuted;
+        if (index == 0)
+        {
+            DrawFormatString(rowLeft + 18, rowTop + 12, textColor, "%s: %s", labels[index], m_bgmEnabled ? "オン" : "オフ");
+        }
+        else if (index == 1 || index == 2)
+        {
+            const float volume = index == 1 ? Audio_GetMasterVolume() : Audio_GetSeVolume();
+            const int activeTicks = static_cast<int>(std::round(volume * 10.0f));
+            DrawString(rowLeft + 18, rowTop + 12, labels[index], textColor);
+            const int tickStartX = rowRight - 128;
+            for (int tick = 0; tick < 10; ++tick)
+            {
+                const int tickLeft = tickStartX + tick * 11;
+                DrawBox(tickLeft, rowTop + 15, tickLeft + 7, rowTop + 29,
+                    tick < activeTicks ? accent : GetColor(184, 165, 137), TRUE);
+            }
+        }
+        else
+        {
+            DrawString(rowLeft + 18, rowTop + 12, labels[index], textColor);
+        }
+    }
+
+    DrawString(left + 32, bottom - 42, "Enter / A  決定", inkMuted);
+    DrawString(right - 198, bottom - 42, "Esc / B  戻る", inkMuted);
+    SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }
 
 void TitleScene::DrawStageSelectMenu() const
@@ -669,6 +877,104 @@ void TitleScene::GetTitleImageRect(float& x, float& y, float& width, float& heig
     y = (screenHeight - height) * 0.5f;
 }
 
+void TitleScene::ResetTitleUiTuning()
+{
+    constexpr float buttonWidth = 560.0f;
+    constexpr float buttonHeight = 100.0f;
+    constexpr float buttonGap = 16.0f;
+    constexpr float buttonCount = 3.0f;
+    const float baseX = (static_cast<float>(SCREEN_WIDTH) - buttonWidth) * 0.5f;
+    const float baseY =
+        (static_cast<float>(SCREEN_HEIGHT) - buttonHeight * buttonCount - buttonGap * (buttonCount - 1.0f)) * 0.5f;
+
+    m_mainMenuButtonTunings[0] = { baseX, baseY, buttonWidth, buttonHeight };
+    m_mainMenuButtonTunings[1] = { baseX, baseY + buttonHeight + buttonGap, buttonWidth, buttonHeight };
+    m_mainMenuButtonTunings[2] = { baseX, baseY + (buttonHeight + buttonGap) * 2.0f, buttonWidth, buttonHeight };
+}
+
+void TitleScene::LoadTitleUiTuning()
+{
+    ResetTitleUiTuning();
+
+    std::ifstream input(kTitleUiTuningPath, std::ios::binary);
+    if (!input)
+    {
+        return;
+    }
+
+    try
+    {
+        nlohmann::json root = nlohmann::json::parse(input);
+        if (!root.contains("mainButtons") || !root["mainButtons"].is_object())
+        {
+            return;
+        }
+
+        const nlohmann::json& mainButtons = root["mainButtons"];
+        for (size_t index = 0; index < m_mainMenuButtonTunings.size(); ++index)
+        {
+            const char* key = kMainMenuButtonTuningKeys[index];
+            if (!mainButtons.contains(key) || !mainButtons[key].is_object())
+            {
+                continue;
+            }
+
+            const nlohmann::json& button = mainButtons[key];
+            TitleMenuButtonTuning& tuning = m_mainMenuButtonTunings[index];
+            tuning.x = button.value("x", tuning.x);
+            tuning.y = button.value("y", tuning.y);
+            tuning.width = std::max(16.0f, button.value("width", tuning.width));
+            tuning.height = std::max(16.0f, button.value("height", tuning.height));
+        }
+    }
+    catch (const std::exception& error)
+    {
+        Logger::Warn(std::string("Failed to load title UI tuning: ") + error.what());
+        ResetTitleUiTuning();
+    }
+}
+
+bool TitleScene::SaveTitleUiTuning() const
+{
+    try
+    {
+        const std::filesystem::path path(kTitleUiTuningPath);
+        if (!path.parent_path().empty())
+        {
+            std::filesystem::create_directories(path.parent_path());
+        }
+
+        nlohmann::json root = nlohmann::json::object();
+        root["mainButtons"] = nlohmann::json::object();
+        for (size_t index = 0; index < m_mainMenuButtonTunings.size(); ++index)
+        {
+            const TitleMenuButtonTuning& tuning = m_mainMenuButtonTunings[index];
+            root["mainButtons"][kMainMenuButtonTuningKeys[index]] = {
+                { "x", tuning.x },
+                { "y", tuning.y },
+                { "width", tuning.width },
+                { "height", tuning.height },
+            };
+        }
+
+        std::ofstream output(kTitleUiTuningPath, std::ios::binary | std::ios::trunc);
+        if (!output)
+        {
+            Logger::Warn("Failed to open title UI tuning file for write");
+            return false;
+        }
+
+        output << root.dump(4);
+        Logger::Info("Saved title UI tuning");
+        return true;
+    }
+    catch (const std::exception& error)
+    {
+        Logger::Warn(std::string("Failed to save title UI tuning: ") + error.what());
+        return false;
+    }
+}
+
 void TitleScene::InitializeTitleParticles()
 {
     const float screenHeight = static_cast<float>(SCREEN_HEIGHT);
@@ -713,29 +1019,57 @@ void TitleScene::UpdateTitleParticles(float deltaTime)
 
 TitleScene::MenuOptionRect TitleScene::GetMainMenuOptionRect(int index) const
 {
-    float imageX = 0.0f;
-    float imageY = 0.0f;
-    float imageWidth = static_cast<float>(SCREEN_WIDTH);
-    float imageHeight = static_cast<float>(SCREEN_HEIGHT);
-    GetTitleImageRect(imageX, imageY, imageWidth, imageHeight);
+    const int buttonIndex = GetMainMenuButtonIndexForItem(index);
+    if (buttonIndex >= 0)
+    {
+        const TitleMenuButtonTuning& tuning = m_mainMenuButtonTunings[buttonIndex];
+        const int left = static_cast<int>(std::round(tuning.x));
+        const int top = static_cast<int>(std::round(tuning.y));
+        return {
+            left,
+            top,
+            static_cast<int>(std::round(tuning.x + tuning.width)),
+            static_cast<int>(std::round(tuning.y + tuning.height)),
+        };
+    }
 
-    const int left = static_cast<int>(std::round(imageX + kMainMenuMarginLeft));
-    const int top = static_cast<int>(std::round(
-        imageY + imageHeight - kMainMenuMarginBottom -
-        kMainMenuItemCount * kMainMenuRowHeight -
-        (kMainMenuItemCount - 1) * kMainMenuRowGap +
-        index * (kMainMenuRowHeight + kMainMenuRowGap)));
-    return { left, top, left + kMainMenuRowWidth, top + kMainMenuRowHeight };
+    const int fallbackLeft = static_cast<int>(std::round(m_mainMenuButtonTunings[0].x));
+    const int fallbackTop = static_cast<int>(std::round(
+        m_mainMenuButtonTunings[0].y - kMainMenuRowHeight - kMainMenuRowGap));
+    return { fallbackLeft, fallbackTop, fallbackLeft + kMainMenuRowWidth, fallbackTop + kMainMenuRowHeight };
+}
+
+int TitleScene::GetMainMenuButtonIndexForItem(int itemIndex) const
+{
+    if (itemIndex < 0 || itemIndex >= kMainMenuItemCount)
+    {
+        return -1;
+    }
+
+    switch (kMainMenuItems[itemIndex].action)
+    {
+    case MainMenuAction::StartGame:
+        return 0;
+    case MainMenuAction::Options:
+        return 1;
+    case MainMenuAction::ExitGame:
+        return 2;
+    default:
+        return -1;
+    }
 }
 
 TitleScene::MenuOptionRect TitleScene::GetOptionsMenuOptionRect(int index) const
 {
-    const int top = kOptionsMenuRowTop + index * (kOptionsMenuRowHeight + kOptionsMenuRowGap);
+    const int panelLeft = static_cast<int>(std::round((static_cast<float>(SCREEN_WIDTH) - kOptionsMenuPanelWidth) * 0.5f));
+    const int panelTop = static_cast<int>(std::round((static_cast<float>(SCREEN_HEIGHT) - kOptionsMenuPanelHeight) * 0.5f));
+    const int panelRight = static_cast<int>(std::round(panelLeft + kOptionsMenuPanelWidth));
+    const int rowTop = panelTop + kOptionsMenuRowStartOffset + index * kOptionsMenuRowHeight;
     return {
-        kOptionsMenuRowLeft,
-        top,
-        kOptionsMenuRowLeft + kOptionsMenuRowWidth,
-        top + kOptionsMenuRowHeight,
+        panelLeft + kOptionsMenuRowLeftOffset,
+        rowTop,
+        panelRight - kOptionsMenuRowRightInset,
+        rowTop + kOptionsMenuRowHeight - kOptionsMenuRowBottomInset,
     };
 }
 
