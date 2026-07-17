@@ -454,6 +454,33 @@ void PhotoPasteSystem::HandleSpawn(GameScene& scene)
         return;
     }
 
+    const int wheelDelta = Input_GetMouseWheelDelta();
+    if (wheelDelta != 0)
+    {
+        const int usableSlotCount = std::clamp(
+            GameSession_Get().photoStorageSlots,
+            1,
+            static_cast<int>(scene.m_photo.savedCaptures.size()));
+        const int direction = wheelDelta > 0 ? -1 : 1;
+        const int startSlot = std::clamp(
+            scene.m_photo.selectedCaptureSlot,
+            0,
+            usableSlotCount - 1);
+
+        for (int offset = 1; offset <= usableSlotCount; ++offset)
+        {
+            const int slotIndex =
+                (startSlot + direction * offset + usableSlotCount) % usableSlotCount;
+            if (!scene.m_photo.savedCaptures[slotIndex].hasPhoto)
+            {
+                continue;
+            }
+
+            scene.SetSelectedPhotoSlot(slotIndex);
+            break;
+        }
+    }
+
     if (Input_IsActionPressed(InputAction::Cancel) ||
         (!rightDown && !rightReleased))
     {
@@ -821,7 +848,7 @@ void PhotoPasteSystem::DrawPlacementPreview(const GameScene& scene)
         static_cast<int>(viewOriginX + 24.0f),
         static_cast<int>(viewOriginY + 48.0f),
         GetColor(190, 220, 255),
-        "Solid in world  Groups:%d/3  Rot:%.0f  Keys:F/B RMB+LMB Esc:Cancel",
+        "Solid in world  Groups:%d/3  Rot:%.0f  Wheel:Photo  Keys:F/B RMB+LMB Esc:Cancel",
         scene.m_photo.groups.activeGroupCount,
         scene.m_photo.placement.rotation * 57.2957795f);
 

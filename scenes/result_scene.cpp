@@ -23,7 +23,8 @@
 
 namespace
 {
-    constexpr const char* kUiTuningPath = "assets/ui_tuning.json";
+    constexpr const char* kResultUiTuningPath = "assets/result_ui_tuning.json";
+    constexpr const char* kLegacyUiTuningPath = "assets/ui_tuning.json";
     constexpr const char* kResultCharaTextureKey = "result_chara";
     constexpr float kResultCharaAspectWidth = 1920.0f;
     constexpr float kResultCharaAspectHeight = 1080.0f;
@@ -1339,7 +1340,12 @@ void ResultScene::DrawDebugUI()
 
 void ResultScene::LoadResultUiTuning()
 {
-    std::ifstream stream(kUiTuningPath);
+    std::ifstream stream(kResultUiTuningPath);
+    if (!stream)
+    {
+        stream.clear();
+        stream.open(kLegacyUiTuningPath);
+    }
     if (!stream)
     {
         return;
@@ -1370,7 +1376,7 @@ bool ResultScene::SaveResultUiTuning() const
     nlohmann::json root = nlohmann::json::object();
 
     {
-        std::ifstream input(kUiTuningPath);
+        std::ifstream input(kResultUiTuningPath);
         if (input)
         {
             try
@@ -1391,7 +1397,7 @@ bool ResultScene::SaveResultUiTuning() const
         { "width", m_resultChara.width },
     };
 
-    std::ofstream output(kUiTuningPath, std::ios::trunc);
+    std::ofstream output(kResultUiTuningPath, std::ios::trunc);
     if (!output)
     {
         Logger::Warn("Failed to open UI tuning file for result save.");
@@ -1399,7 +1405,7 @@ bool ResultScene::SaveResultUiTuning() const
     }
 
     output << root.dump(2) << '\n';
-    Logger::Info("Saved result chara tuning to assets/ui_tuning.json");
+    Logger::Info("Saved result chara tuning to assets/result_ui_tuning.json");
     return true;
 }
 
