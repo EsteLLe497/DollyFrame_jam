@@ -1101,6 +1101,7 @@ void GameScene::UpdateBullets()
     const auto& bulletEntities = m_world.EntitiesByTag(EntityTag::Bullet);
     const auto& enemyEntities = m_world.EntitiesByTag(EntityTag::Enemy);
     const auto& protectiveWallEntities = m_world.EntitiesByTag(EntityTag::ProtectiveWall);
+    const auto& shutterEntities = m_world.EntitiesByTag(EntityTag::Shutter);
     std::vector<TransformComponent> obstacleBounds;
     {
         std::vector<TransformComponent> tempBounds;
@@ -1163,6 +1164,7 @@ void GameScene::UpdateBullets()
         bulletEntities,
         enemyEntities,
         protectiveWallEntities,
+        shutterEntities,
         obstacleBounds,
         GetMapPixelWidth(),
         GetMapPixelHeight(),

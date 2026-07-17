@@ -144,6 +144,7 @@ inline void UpdateBullets(
     const std::vector<Entity*>& bulletEntities,
     const std::vector<Entity*>& enemyEntities,
     const std::vector<Entity*>& protectiveWallEntities,
+    const std::vector<Entity*>& shutterEntities,
     const std::vector<TransformComponent>& obstacleBounds,
     float mapWidth,
     float mapHeight,
@@ -311,7 +312,24 @@ inline void UpdateBullets(
                 capturedMidBoss3Attack->direction = capturedMidBoss3Attack->aimX >= 0.0f ? 1 : -1;
                 transform->rotation = std::atan2(capturedMidBoss3Attack->aimY, capturedMidBoss3Attack->aimX);
             };
-            const auto rectIntersectsSolid = [&](float x, float y, float width, float height) -> bool
+            const auto rectIntersectsShutter = [&](const TransformComponent& attackBounds) -> bool
+            {
+                for (Entity* shutterEntity : shutterEntities)
+                {
+                    const auto* shutterTransform = shutterEntity ? shutterEntity->GetComponent<TransformComponent>() : nullptr;
+                    if (!shutterTransform)
+                    {
+                        continue;
+                    }
+                    if (IntersectsBounds(attackBounds, *shutterTransform))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            const auto rectIntersectsCapturedBlockingSurface = [&](float x, float y, float width, float height) -> bool
             {
                 constexpr float kSampleStep = 24.0f;
                 const float left = x + 2.0f;
@@ -346,28 +364,7 @@ inline void UpdateBullets(
                 }
 
                 TransformComponent attackBounds(x, y, width, height);
-                for (const auto& obstacle : obstacleBounds)
-                {
-                    if (IntersectsBounds(attackBounds, obstacle))
-                    {
-                        return true;
-                    }
-                }
-
-                for (Entity* target : enemyEntities)
-                {
-                    const auto* boss = target ? target->GetComponent<MidBoss3Component>() : nullptr;
-                    if (!boss || !boss->drillActive || boss->drillWidth <= 0.0f || boss->drillHeight <= 0.0f)
-                    {
-                        continue;
-                    }
-                    TransformComponent drillBounds(boss->drillX, boss->drillY, boss->drillWidth, boss->drillHeight);
-                    if (IntersectsBounds(attackBounds, drillBounds))
-                    {
-                        return true;
-                    }
-                }
-                return false;
+                return rectIntersectsShutter(attackBounds);
             };
 
             if (capturedMidBoss3Attack->kind == CapturedMidBoss3AttackKind::Fist)
@@ -380,6 +377,10 @@ inline void UpdateBullets(
                 for (Entity* target : enemyEntities)
                 {
                     if (!target || target == entity)
+                    {
+                        continue;
+                    }
+                    if (!target->GetComponent<MidBoss3Component>())
                     {
                         continue;
                     }
@@ -409,17 +410,21 @@ inline void UpdateBullets(
                     continue;
                 }
 
-                const float centerX = transform->x + transform->width * transform->scale * 0.5f;
-                const float centerY = transform->y + transform->height * transform->scale * 0.5f;
-                const bool hitSolidTile = isSolidTile(centerX, centerY);
+                const float attackWidth = transform->width * transform->scale;
+                const float attackHeight = transform->height * transform->scale;
+                const bool hitBlockingSurface = rectIntersectsCapturedBlockingSurface(
+                    transform->x,
+                    transform->y,
+                    attackWidth,
+                    attackHeight);
                 const bool outOfBounds =
-                    transform->x + transform->width * transform->scale < 0.0f ||
+                    transform->x + attackWidth < 0.0f ||
                     transform->x > mapWidth ||
-                    transform->y + transform->height * transform->scale < 0.0f ||
+                    transform->y + attackHeight < 0.0f ||
                     transform->y > mapHeight;
-                if (hitSolidTile || outOfBounds)
+                if (hitBlockingSurface || outOfBounds)
                 {
-                    if (hitSolidTile && !capturedMidBoss3Attack->hitSoundPlayed)
+                    if (hitBlockingSurface && !capturedMidBoss3Attack->hitSoundPlayed)
                     {
                         Audio_PlayCue("boss_ruins_hit");
                         capturedMidBoss3Attack->hitSoundPlayed = true;
@@ -471,7 +476,7 @@ inline void UpdateBullets(
                     const bool stoppedBySolid =
                         std::fabs(requestedX - nextX) > 0.01f ||
                         std::fabs(requestedY - nextY) > 0.01f ||
-                        rectIntersectsSolid(nextX, nextY, bossWidth, bossHeight);
+                        rectIntersectsCapturedBlockingSurface(nextX, nextY, bossWidth, bossHeight);
                     const float resolvedX = stoppedBySolid ? currentX : nextX;
                     const float resolvedY = stoppedBySolid ? currentY : nextY;
 
@@ -625,7 +630,7 @@ inline void UpdateBullets(
                     continue;
                 }
 
-                if (rectIntersectsSolid(nextX, nextY, attackWidth, attackHeight))
+                if (rectIntersectsCapturedBlockingSurface(nextX, nextY, attackWidth, attackHeight))
                 {
                     if (!capturedMidBoss3Attack->hitSoundPlayed)
                     {
