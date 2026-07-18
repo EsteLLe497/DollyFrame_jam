@@ -267,6 +267,8 @@ private:
     void HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amount, const char* logMessage);
     void ActivateCheckpoint(Entity& player, Entity& checkpoint);
     void RespawnPlayer(Entity& player);
+    void TriggerRegularEnemyDefeatFeedback();
+    void SpawnEnemyDeathExplosionEffect(float centerX, float centerY, float width, float height);
     void StartPitRestart(Entity* player, const char* logMessage);
     void SpawnBarrelBreakEffect(float x, float y, float width, float height);
     void SpawnSlamImpactEffect(float centerX, float groundY, float width);

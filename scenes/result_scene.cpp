@@ -481,6 +481,7 @@ ResultScene::ResultScene()
     : m_whiteTexture(-1)
     , m_blinkTimer(0.0f)
     , m_introStartTimeMs(0)// ← ここが m_introTimer(0.0f) から変
+    , m_albumLandingSoundPlayed{}
     , m_showPrompt(true)
     , m_selectedOption(0)
 {
@@ -500,6 +501,7 @@ void ResultScene::OnEnter(ResourceManager& resources)
     m_eventBus.Clear();
     m_blinkTimer = 0.0f;
     m_introStartTimeMs = GetNowCount();   // ← ここが m_introTimer = 0.0f; から変更
+    m_albumLandingSoundPlayed.fill(false);
     m_showPrompt = true;
     m_selectedOption = 0;
     m_confirmDialogOpen = false;
@@ -915,6 +917,9 @@ void ResultScene::Update(float deltaTime)
         m_blinkTimer = 0.0f;
         m_showPrompt = !m_showPrompt;
     }
+
+    UpdateAlbumLandingSounds();
+
     if (m_merchantMessageTimer > 0.0f)
     {
         m_merchantMessageTimer = std::max(0.0f, m_merchantMessageTimer - deltaTime);
@@ -944,6 +949,43 @@ void ResultScene::Update(float deltaTime)
     else
     {
         UpdateMenuInput();
+    }
+}
+
+void ResultScene::UpdateAlbumLandingSounds()
+{
+    const int photoCount = std::min(
+        PhotoLog_GetCount(),
+        static_cast<int>(m_albumLandingSoundPlayed.size()));
+    if (photoCount <= 0)
+    {
+        return;
+    }
+
+    const float elapsedSeconds = static_cast<float>(GetNowCount() - m_introStartTimeMs) * 0.001f;
+    const float landedAt = GetPhotoRevealStartDelay() + kPhotoRevealHoldDuration + kPhotoRevealFlyDuration;
+    for (int index = 0; index < photoCount; ++index)
+    {
+        const size_t slotIndex = static_cast<size_t>(index);
+        if (m_albumLandingSoundPlayed[slotIndex])
+        {
+            continue;
+        }
+
+        const PhotoCaptureState& capture = PhotoLog_GetEntry(index);
+        if (!capture.hasPhoto || capture.items.empty())
+        {
+            m_albumLandingSoundPlayed[slotIndex] = true;
+            continue;
+        }
+
+        // 写真が中央演出からアルバム枠に収まった瞬間だけ、保存SEを一度鳴らします。
+        const float thisLandedAt = landedAt + static_cast<float>(index) * kPhotoRevealStagger;
+        if (elapsedSeconds >= thisLandedAt)
+        {
+            m_eventBus.Publish({ EventType::PlaySoundRequest, nullptr, nullptr, "result_taked_pic", 0.0f, 0.0f });
+            m_albumLandingSoundPlayed[slotIndex] = true;
+        }
     }
 }
 

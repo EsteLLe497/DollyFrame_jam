@@ -234,6 +234,59 @@ namespace
         return text.substr(0, byteIndex);
     }
 
+    size_t GetUtf8CharacterByteCount(const std::string& text, size_t byteIndex)
+    {
+        if (byteIndex >= text.size())
+        {
+            return 0;
+        }
+
+        const unsigned char leadByte = static_cast<unsigned char>(text[byteIndex]);
+        size_t characterBytes = 1;
+        if ((leadByte & 0xe0u) == 0xc0u) characterBytes = 2;
+        else if ((leadByte & 0xf0u) == 0xe0u) characterBytes = 3;
+        else if ((leadByte & 0xf8u) == 0xf0u) characterBytes = 4;
+        return std::min(characterBytes, text.size() - byteIndex);
+    }
+
+    void DrawTutorialTextLine(
+        const std::string& line,
+        float x,
+        float y,
+        unsigned int color)
+    {
+        constexpr size_t kMaxDrawCharactersPerChunk = 32;
+        float drawX = x;
+        std::string chunk;
+        size_t chunkCharacters = 0;
+
+        for (size_t byteIndex = 0; byteIndex < line.size();)
+        {
+            const size_t characterBytes = GetUtf8CharacterByteCount(line, byteIndex);
+            if (characterBytes == 0)
+            {
+                break;
+            }
+
+            chunk.append(line, byteIndex, characterBytes);
+            ++chunkCharacters;
+            byteIndex += characterBytes;
+
+            if (chunkCharacters >= kMaxDrawCharactersPerChunk || byteIndex >= line.size())
+            {
+                // 長い1行は同じY座標のまま分割描画し、DxLibへ渡す文字列だけ短くします。
+                DrawString(
+                    static_cast<int>(std::round(drawX)),
+                    static_cast<int>(std::round(y)),
+                    chunk.c_str(),
+                    color);
+                drawX += static_cast<float>(GetDrawStringWidth(chunk.c_str(), static_cast<int>(chunk.size())));
+                chunk.clear();
+                chunkCharacters = 0;
+            }
+        }
+    }
+
     void DrawTutorialImage(int textureId, float x, float y, float width, float height, float alpha = 1.0f)
     {
         if (textureId < 0 || width <= 0.0f || height <= 0.0f)
@@ -357,10 +410,14 @@ namespace
         int lineIndex = 0;
         while (std::getline(lines, line))
         {
-            DrawString(
-                static_cast<int>(std::round(x)),
-                static_cast<int>(std::round(y + lineSpacing * static_cast<float>(lineIndex))),
-                line.c_str(),
+            if (!line.empty() && line.back() == '\r')
+            {
+                line.pop_back();
+            }
+            DrawTutorialTextLine(
+                line,
+                x,
+                y + lineSpacing * static_cast<float>(lineIndex),
                 color);
             ++lineIndex;
         }

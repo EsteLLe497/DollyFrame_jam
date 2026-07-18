@@ -61,6 +61,7 @@ namespace
         { "barrel", "assets/effects/Sound/Stage_SE/barrel.wav" },
         { "cant_paste", "assets/effects/Sound/Player_SE/cantPaste.wav" },
         { "enemy_gun", "assets/effects/Sound/Enemy_SE/EnemyGun.wav" },
+        { "enemy_death", "assets/effects/Sound/Enemy_SE/enemyDeath.wav" },
         { "bgm_forest", "assets/effects/Sound/Stage_BGM/forest.wav" },
         { "bgm_ruins", "assets/effects/Sound/Stage_BGM/ruins.wav" },
         { "bgm_under", "assets/effects/Sound/Stage_BGM/under.wav" },
@@ -84,6 +85,7 @@ namespace
         { "boss_ruins_hit2", "assets/effects/Sound/Boss_SE/Ruins/hit2.wav" },
         { "boss_ruins_dead", "assets/effects/Sound/Boss_SE/Ruins/dead.wav" },
         { "boss_ruins_destroy", "assets/effects/Sound/Boss_SE/Ruins/detroy.wav" },
+        { "result_taked_pic", "assets/effects/Sound/Result_SE/takedPic.wav" },
     };
 
     void LoadSoundCueAssets()

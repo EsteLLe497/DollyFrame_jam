@@ -73,6 +73,7 @@ Debug/
 Release/
 ipch/
 build/
+dist/
 
 ############################################
 # Visual Studio intermediate files

@@ -1157,6 +1157,28 @@ void GameScene::HandleWorldInteractions()
 
     if (!defeatedEnemies.empty())
     {
+        bool defeatedRegularEnemy = false;
+        for (Entity* defeatedEnemy : defeatedEnemies)
+        {
+            const auto* enemy = defeatedEnemy ? defeatedEnemy->GetComponent<EnemyComponent>() : nullptr;
+            if (enemy && IsRegularEnemyArchetype(enemy->GetArchetype()))
+            {
+                defeatedRegularEnemy = true;
+                if (const auto* transform = defeatedEnemy->GetComponent<TransformComponent>())
+                {
+                    SpawnEnemyDeathExplosionEffect(
+                        transform->x + transform->width * transform->scale * 0.5f,
+                        transform->y + transform->height * transform->scale * 0.5f,
+                        transform->width * transform->scale,
+                        transform->height * transform->scale);
+                }
+                m_eventBus.Publish({ EventType::PlaySoundRequest, defeatedEnemy, player, "enemy_death", 0.0f, 0.0f });
+            }
+        }
+        if (defeatedRegularEnemy)
+        {
+            TriggerRegularEnemyDefeatFeedback();
+        }
         m_eventBus.Publish({ EventType::LogMessage, player, defeatedEnemies.front(), "Invert photo neutralized an enemy", 0.0f, 0.0f });
     }
 }

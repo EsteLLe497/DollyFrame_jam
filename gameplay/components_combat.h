@@ -20,6 +20,13 @@ enum class EnemyArchetype
     Charger,
 };
 
+inline bool IsRegularEnemyArchetype(EnemyArchetype archetype)
+{
+    return archetype != EnemyArchetype::ShieldBoss &&
+        archetype != EnemyArchetype::MidBoss2 &&
+        archetype != EnemyArchetype::MidBoss3;
+}
+
 enum class ShieldBossState
 {
     Idle,

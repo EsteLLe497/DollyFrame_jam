@@ -1535,6 +1535,73 @@ void GameScene::SpawnBarrelBreakEffect(float x, float y, float width, float heig
     }
 }
 
+void GameScene::SpawnEnemyDeathExplosionEffect(float centerX, float centerY, float width, float height)
+{
+    constexpr float kPi = 3.14159265358979323846f;
+    constexpr int kSparkCount = 18;
+    constexpr int kSmokeCount = 12;
+    const float radius = std::max(44.0f, std::max(width, height) * 0.72f);
+
+    for (int index = 0; index < kSparkCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kSparkCount);
+        const float angle = t * kPi * 2.0f + static_cast<float>(index % 3) * 0.17f;
+        const float speed = radius * (4.0f + static_cast<float>(index % 5) * 0.48f);
+
+        LaserSparkParticle spark;
+        spark.x = centerX;
+        spark.y = centerY;
+        spark.velocityX = std::cos(angle) * speed;
+        spark.velocityY = std::sin(angle) * speed - radius * 0.34f;
+        spark.life = 0.20f + static_cast<float>(index % 4) * 0.025f;
+        spark.maxLife = spark.life;
+        spark.gravityScale = 0.22f;
+        spark.sizeScale = 1.25f + static_cast<float>(index % 4) * 0.18f;
+        spark.drawCircle = index % 4 == 0;
+        spark.r = 1.0f;
+        spark.g = index % 3 == 0 ? 0.38f : 0.74f;
+        spark.b = index % 3 == 0 ? 0.18f : 0.24f;
+        m_effects.laserSparks.push_back(spark);
+    }
+
+    for (int index = 0; index < kSmokeCount; ++index)
+    {
+        const float t = static_cast<float>(index) / static_cast<float>(kSmokeCount);
+        const float angle = t * kPi * 2.0f + static_cast<float>(index % 2) * 0.26f;
+        const float size = radius * (0.32f + static_cast<float>(index % 4) * 0.07f);
+
+        SlamDustParticle smoke;
+        smoke.width = size * 1.45f;
+        smoke.height = size * 0.72f;
+        smoke.x = centerX + std::cos(angle) * radius * 0.14f - smoke.width * 0.5f;
+        smoke.y = centerY + std::sin(angle) * radius * 0.12f - smoke.height * 0.5f;
+        smoke.velocityX = std::cos(angle) * radius * (1.5f + static_cast<float>(index % 3) * 0.22f);
+        smoke.velocityY = std::sin(angle) * radius * 1.05f - radius * 0.34f;
+        smoke.rotation = angle * 0.25f;
+        smoke.rotationSpeed = (index % 2 == 0 ? 1.0f : -1.0f) * 2.6f;
+        smoke.life = 0.34f + static_cast<float>(index % 3) * 0.04f;
+        smoke.maxLife = smoke.life;
+        smoke.alphaScale = 0.68f;
+        smoke.r = 0.32f;
+        smoke.g = 0.26f;
+        smoke.b = 0.22f;
+        m_effects.slamDust.push_back(smoke);
+    }
+
+    BeamShockwaveParticle shockwave;
+    shockwave.x = centerX;
+    shockwave.y = centerY;
+    shockwave.startRadius = radius * 0.12f;
+    shockwave.endRadius = radius * 1.25f;
+    shockwave.thickness = std::max(5.0f, radius * 0.12f);
+    shockwave.life = 0.18f;
+    shockwave.maxLife = shockwave.life;
+    shockwave.r = 1.0f;
+    shockwave.g = 0.78f;
+    shockwave.b = 0.32f;
+    m_effects.beamShockwaves.push_back(shockwave);
+}
+
 void GameScene::SpawnSlamImpactEffect(float centerX, float groundY, float width)
 {
     constexpr float kDustLifetime = 0.58f;

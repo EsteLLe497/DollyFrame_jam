@@ -112,6 +112,17 @@ namespace
             return 1.5f;
         }
 
+        if (cueName == "enemy_gun" ||
+            cueName == "enemy1_attack")
+        {
+            return 1.25f;
+        }
+
+        if (cueName == "enemy_death")
+        {
+            return 1.25f;
+        }
+
         if (cueName == "battery_fall")
         {
             return 0.8f;

@@ -3693,6 +3693,10 @@ void GameScene::DrawBatterySwitchCounters() const
         {
             continue;
         }
+        if (batterySwitch->pressMode == SwitchPressMode::Player)
+        {
+            continue;
+        }
 
         const float drawX = viewOriginX + (transform->x - m_flow.cameraX) * viewScale;
         const float drawY = viewOriginY + (transform->y - m_flow.cameraY) * viewScale;
@@ -3721,24 +3725,13 @@ void GameScene::DrawBatterySwitchCounters() const
                 ? GetColor(180, 255, 196) : GetColor(242, 226, 190),
             FALSE);
 
-        if (batterySwitch->pressMode == SwitchPressMode::Player)
-        {
-            DrawString(
-                static_cast<int>(std::round(panelX + 7.0f)),
-                static_cast<int>(std::round(panelY + 4.0f)),
-                "PLAYER",
-                GetColor(255, 244, 220));
-        }
-        else
-        {
-            DrawFormatString(
-                static_cast<int>(std::round(panelX + 10.0f)),
-                static_cast<int>(std::round(panelY + 4.0f)),
-                batterySwitch->isPressed ? GetColor(220, 255, 228) : GetColor(255, 244, 220),
-                "%d/%d",
-                batterySwitch->insertedBatteryCount,
-                batterySwitch->requiredBatteryCount);
-        }
+        DrawFormatString(
+            static_cast<int>(std::round(panelX + 10.0f)),
+            static_cast<int>(std::round(panelY + 4.0f)),
+            batterySwitch->isPressed ? GetColor(220, 255, 228) : GetColor(255, 244, 220),
+            "%d/%d",
+            batterySwitch->insertedBatteryCount,
+            batterySwitch->requiredBatteryCount);
     }
 }
 

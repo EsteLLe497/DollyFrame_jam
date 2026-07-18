@@ -74,9 +74,9 @@ namespace
     inline constexpr float kBoss3DeathFps = 24.0f;
     inline constexpr float kBoss3FistFps = 24.0f;
 
-    constexpr float kEnemyDefeatHitStopSeconds = 0.095f;
-    constexpr float kEnemyDefeatShakeSeconds = 0.24f;
-    constexpr float kEnemyDefeatShakeAmplitude = 20.0f;
+    constexpr float kEnemyDefeatHitStopSeconds = 0.13f;
+    constexpr float kEnemyDefeatShakeSeconds = 0.32f;
+    constexpr float kEnemyDefeatShakeAmplitude = 34.0f;
     constexpr float kEnemyKnockbackHitStopSeconds = 0.07f;
     constexpr float kEnemyKnockbackShakeSeconds = 0.22f;
     constexpr float kEnemyKnockbackShakeAmplitude = 22.0f;
@@ -363,6 +363,11 @@ namespace
         Logger::Info(std::string("ShieldBoss SE stopped: ") + cueName);
     }
 
+}
+
+void GameScene::TriggerRegularEnemyDefeatFeedback()
+{
+    TriggerEnemyDefeatFeedback(m_flow);
 }
 
 void GameScene::ConfigureWalkerSpriteAnimation(Entity& enemy)
@@ -2614,7 +2619,19 @@ void GameScene::HandleEnemyDamage(Entity& enemy, Entity* sourceEntity, int amoun
         }
         else
         {
-            TriggerEnemyDefeatFeedback(m_flow);
+            TriggerRegularEnemyDefeatFeedback();
+            if (IsRegularEnemyArchetype(enemyComponent->GetArchetype()))
+            {
+                if (const auto* transform = enemy.GetComponent<TransformComponent>())
+                {
+                    SpawnEnemyDeathExplosionEffect(
+                        transform->x + transform->width * transform->scale * 0.5f,
+                        transform->y + transform->height * transform->scale * 0.5f,
+                        transform->width * transform->scale,
+                        transform->height * transform->scale);
+                }
+                m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "enemy_death", 0.0f, 0.0f });
+            }
         }
     }
     m_eventBus.Publish({ EventType::PlaySoundRequest, &enemy, sourceEntity, "contact_tone", 0.0f, 0.0f });

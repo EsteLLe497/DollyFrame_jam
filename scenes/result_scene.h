@@ -2,6 +2,7 @@
 #include "asset_manifest.h"
 #include "event_bus.h"
 #include "scene.h"
+#include <array>
 #include <string>
 
 class ResultScene final : public Scene
@@ -53,6 +54,7 @@ private:
     void ConfirmDialogSelection();
     MenuOptionRect GetConfirmDialogOptionRect(int index) const;
     void DrawConfirmDialog() const;
+    void UpdateAlbumLandingSounds();
     void LoadResultUiTuning();
     bool SaveResultUiTuning() const;
 
@@ -70,6 +72,7 @@ private:
     // Update() が呼ばれない間（アプリ側のシーン遷移フェード中）も進行するよう、
     // deltaTime の積算ではなく GetNowCount() を基準にした開始時刻で管理する。
     int m_introStartTimeMs;
+    std::array<bool, 9> m_albumLandingSoundPlayed;
     bool m_showPrompt;
     // Primary menu option resolved from the last played stage and end reason.
     std::string m_primaryOptionLabel;
